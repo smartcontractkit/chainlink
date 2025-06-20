@@ -71,13 +71,13 @@ jobs:
       - name: Start streaming metrics per container
         shell: bash
         run: |
-          mkdir -p ./system-tests/tests/load/cre/metrics/container-stats
+          mkdir -p ./system-tests/tests/load/cre/logs/metrics/container-stats
           for CID in $(docker ps -q); do
-            echo "Starting stream for $CID → ./system-tests/tests/load/cre/metrics/container-stats/${CID}.json"
+            echo "Starting stream for $CID → ./system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json"
             curl -s --unix-socket /var/run/docker.sock \
               "http://localhost/containers/$CID/stats?stream=1" \
-              > ./system-tests/tests/load/cre/metrics/container-stats/${CID}.json &
-            echo $! > ./system-tests/tests/load/cre/metrics/container-stats/${CID}.pid
+              > ./system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json &
+            echo $! > ./system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.pid
           done
 
       - name: Start the test
@@ -103,7 +103,7 @@ jobs:
         run: |
           echo "Current directory: $(pwd)"
           echo "Checking if directory exists:"
-          ls -la ./system-tests/tests/load/cre/metrics/ || echo "Metrics directory doesn't exist"
+          ls -la ./system-tests/tests/load/cre/logs/metrics/ || echo "Metrics directory doesn't exist"
           echo "Looking for any PID files:"
           find . -name "*.pid" || echo "No PID files found anywhere"
 
@@ -112,15 +112,15 @@ jobs:
         shell: bash
         run: |
           # stop background curls
-          if [ -d "./system-tests/tests/load/cre/metrics/container-stats" ] && [ "$(find ./system-tests/tests/load/cre/metrics/container-stats -name '*.pid' | wc -l)" -gt 0 ]; then
-            for pidfile in ./system-tests/tests/load/cre/metrics/container-stats/*.pid; do
+          if [ -d "./system-tests/tests/load/cre/logs/metrics/container-stats" ] && [ "$(find ./system-tests/tests/load/cre/logs/metrics/container-stats -name '*.pid' | wc -l)" -gt 0 ]; then
+            for pidfile in ./system-tests/tests/load/cre/logs/metrics/container-stats/*.pid; do
               if [ -f "$pidfile" ]; then
                 echo "Stopping stream process $(cat $pidfile)"
                 kill "$(cat $pidfile)" 2>/dev/null || true
               fi
             done
           else
-            echo "No stream PID files found in ./system-tests/tests/load/cre/metrics/container-stats/"
+            echo "No stream PID files found in ./system-tests/tests/load/cre/logs/metrics/container-stats/"
           fi
 
       - name: Upload node logs and metrics as artifact
@@ -134,5 +134,4 @@ jobs:
             ./system-tests/tests/load/cre/logs/*.log
             ./system-tests/tests/load/cre/logs/**/*.log
             ./system-tests/tests/load/cre/logs/**/logs/
-            ./system-tests/tests/load/cre/metrics/
           retention-days: 1
