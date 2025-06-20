@@ -202,6 +202,9 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 			"destChainID", destChainID,
 			"destChainSelector", config.Config.ChainSelector)
 	}
+	if len(destFromAccounts) == 0 {
+		return nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
+	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
