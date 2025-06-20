@@ -380,7 +380,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
 	useInsecure := in.Infra.InfraType == "docker"
 
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities")
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, cacheClients), "could not connect to mock capabilities") //yes
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
@@ -388,7 +388,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
 	// Wait for the remote capability to be exposed, we check if the streams-trigger has subscribers
-	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers")
+	require.NoError(t, mocksClient.WaitForTriggerSubscribers(ctx, "streams-trigger@2.0.0", time.Minute*5), "error while waiting for trigger subscribers") //yes
 
 	labels := map[string]string{
 		"go_test_name": "workflow-don-load-test",
@@ -538,7 +538,7 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payloadBytes)
+	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payloadBytes) // yes
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}

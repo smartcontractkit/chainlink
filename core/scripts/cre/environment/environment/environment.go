@@ -528,13 +528,13 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
-		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
+		JobSpecFactoryFunctions:              jobSpecFactoryFunctions, /// need job spec for the mock capability & yaml wf; needs feeds address see 831 in workflow load and 901
 		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
 		},
 	}
 
-	if withPluginsDockerImageFlag == "" {
+	if withPluginsDockerImageFlag == "" { // build image with cl plugin true; cmd in core repo that will build it
 		universalSetupInput.CustomBinariesPaths = capabilitiesBinaryPaths
 	}
 
