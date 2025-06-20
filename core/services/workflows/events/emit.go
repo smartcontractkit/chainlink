@@ -19,7 +19,7 @@ func EmitWorkflowStatusChangedEvent(
 	labels map[string]string,
 	status string,
 ) error {
-	metadata := buildWorkflowMetadata(labels)
+	metadata := buildWorkflowMetadata(labels, "")
 	event := &events.WorkflowStatusChanged{
 		M:      metadata,
 		Status: status,
@@ -34,8 +34,7 @@ func EmitExecutionStartedEvent(
 	triggerEventID string,
 	executionID string,
 ) error {
-	labels[platform.KeyWorkflowExecutionID] = executionID
-	metadata := buildWorkflowMetadata(labels)
+	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionStarted{
 		M:         metadata,
@@ -47,8 +46,7 @@ func EmitExecutionStartedEvent(
 }
 
 func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string) error {
-	labels[platform.KeyWorkflowExecutionID] = executionID
-	metadata := buildWorkflowMetadata(labels)
+	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
 		M:         metadata,
@@ -60,8 +58,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 }
 
 func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef string) error {
-	labels[platform.KeyWorkflowExecutionID] = executionID
-	metadata := buildWorkflowMetadata(labels)
+	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionStarted{
 		M:            metadata,
@@ -74,8 +71,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 }
 
 func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string) error {
-	labels[platform.KeyWorkflowExecutionID] = executionID
-	metadata := buildWorkflowMetadata(labels)
+	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionFinished{
 		M:            metadata,
@@ -89,7 +85,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 }
 
 func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
-	rpt.Metadata = buildWorkflowMetadata(labels)
+	rpt.Metadata = buildWorkflowMetadata(labels, rpt.Metadata.WorkflowExecutionID)
 
 	return emitProtoMessage(ctx, rpt)
 }
@@ -134,7 +130,7 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
-func buildWorkflowMetadata(kvs map[string]string) *events.WorkflowMetadata {
+func buildWorkflowMetadata(kvs map[string]string, workflowExecutionID string) *events.WorkflowMetadata {
 	m := &events.WorkflowMetadata{}
 
 	m.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
@@ -142,6 +138,9 @@ func buildWorkflowMetadata(kvs map[string]string) *events.WorkflowMetadata {
 	m.Version = kvs[platform.KeyWorkflowVersion]
 	m.WorkflowID = kvs[platform.KeyWorkflowID]
 	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
+	if workflowExecutionID != "" {
+		m.WorkflowExecutionID = workflowExecutionID
+	}
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
 		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {

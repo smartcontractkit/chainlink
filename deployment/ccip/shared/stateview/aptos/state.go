@@ -173,6 +173,17 @@ func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddres
 	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
 }
 
+func FindAptosAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) aptos.AccountAddress {
+	for address, tvStr := range addresses {
+		if tv.String() == tvStr.String() {
+			addr := aptos.AccountAddress{}
+			_ = addr.ParseStringRelaxed(address)
+			return addr
+		}
+	}
+	return aptos.AccountAddress{}
+}
+
 func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chainName string) (view.AptosChainView, error) {
 	lggr := e.Logger
 	chain := e.BlockChains.AptosChains()[selector]
@@ -228,7 +239,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	})
 
 	errGroup.Go(func() error {
-		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress)
+		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress, []aptos.AccountAddress{s.CCIPAddress}, false)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate router view for router %s", s.CCIPAddress.StringLong())
 		}

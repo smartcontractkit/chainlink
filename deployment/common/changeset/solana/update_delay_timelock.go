@@ -37,7 +37,6 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
 		}
 
-		//nolint:staticcheck // wait till we can migrate from address book before using data store
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to get existing addresses: %w", err)
@@ -62,7 +61,7 @@ func (t UpdateTimelockDelaySolana) Apply(
 	solanaChains := env.BlockChains.SolanaChains()
 	for chainSelector, delay := range cfg.DelayPerChain {
 		solChain := solanaChains[chainSelector]
-		//nolint:staticcheck // will wait till we can migrate from address book before using data store
+
 		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)

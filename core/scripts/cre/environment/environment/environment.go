@@ -128,6 +128,13 @@ type Config struct {
 	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
 }
 
+func (c Config) Validate() error {
+	if c.JD.CSAEncryptionKey == "" {
+		return errors.New("jd.csa_encryption_key must be provided")
+	}
+	return nil
+}
+
 type ExtraCapabilitiesConfig struct {
 	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
@@ -278,10 +285,6 @@ var startCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 		}
 
-		// TODO print urls?
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
-		fmt.Print("To terminate execute: ctf d rm\n\n")
-
 		if withExampleFlag {
 			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
 			if timeoutErr != nil {
@@ -295,10 +298,9 @@ var startCmd = &cobra.Command{
 			if deployErr != nil {
 				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 			}
-
-			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
-			fmt.Print("To terminate execute: ctf d rm\n\n")
 		}
+		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+		fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
 		return nil
 	},
@@ -340,6 +342,9 @@ func startCLIEnvironment(cmdContext context.Context, topologyFlag string, workfl
 	in, err := framework.Load[Config](nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test configuration: %w", err)
+	}
+	if err := in.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate test configuration: %w", err)
 	}
 
 	// make sure that either cron is enabled or withPluginsDockerImageFlag is set, but only if workflowTrigger is cron

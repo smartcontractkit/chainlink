@@ -100,7 +100,7 @@ type WorkflowConfig struct {
 
 		If you wish to use "compile" mode set `ShouldCompileNewWorkflow` to `true`, set `GIST_WRITE_TOKEN` env var and provide the path to the workflow folder.
 	*/
-	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow" validate:"no_cre_no_compilation,disabled_in_ci"`
+	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow" validate:"no_cre_no_compilation,disabled_in_ci"` //nolint:revive // unknown option
 	// Tells the test where the workflow to compile is located
 	WorkflowFolderLocation *string         `toml:"workflow_folder_location" validate:"required_if=ShouldCompileNewWorkflow true"`
 	CompiledWorkflowConfig *CompiledConfig `toml:"compiled_config" validate:"required_if=ShouldCompileNewWorkflow false"`
@@ -578,6 +578,8 @@ func setupPoRTestEnvironment(
 		require.NoError(t, syncerErr, "failed to wait for workflow registry syncer")
 		testLogger.Info().Msg("Proceeding to register PoR workflow...")
 
+		wtName := corevm.GenerateWriteTargetName(bo.ChainID)
+
 		workflowInput := managePoRWorkflowInput{
 			WorkflowConfig:     in.WorkflowConfigs[idx],
 			homeChainSelector:  homeChainOutput.ChainSelector,
@@ -590,7 +592,7 @@ func setupPoRTestEnvironment(
 			deployerPrivateKey: bo.DeployerPrivateKey,
 			creCLIAbsPath:      creCLIAbsPath,
 			creCLIsettingsFile: creCLISettingsFile,
-			writeTargetName:    corevm.GenerateWriteTargetName(bo.ChainID),
+			writeTargetName:    wtName,
 			creCLIProfile:      libcrecli.CRECLIProfile,
 		}
 
