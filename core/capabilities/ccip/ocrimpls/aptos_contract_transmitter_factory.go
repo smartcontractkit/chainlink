@@ -68,6 +68,7 @@ func (f *AptosContractTransmitterFactory) NewCommitTransmitter(
 		fromAccount:         fromAccount,
 		offrampAddress:      offrampAddress,
 		toEd25519CalldataFn: NewAptosCommitCalldataFunc(commitMethod),
+		extraDataCodec:      f.extraDataCodec,
 	}
 }
 
