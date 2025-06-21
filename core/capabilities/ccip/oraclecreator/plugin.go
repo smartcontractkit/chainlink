@@ -130,7 +130,10 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config tracker: %w", err)
+	}
 	publicConfig, err := configTracker.PublicConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
