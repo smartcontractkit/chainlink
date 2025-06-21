@@ -107,11 +107,11 @@ jobs:
           echo "Checking logs structure:"
           find system-tests/tests/load/cre/logs -type f | sort || echo "No log files found"
           
-          echo "Files in the test directory:"
-          find system-tests/tests/load/cre -name "*.log" || echo "No .log files found"
+          echo "Files in the logs directory:"
+          find system-tests/tests/load/cre/logs -name "*.log" || echo "No .log files found"
           
           echo "Total files by extension:"
-          find system-tests/tests/load/cre -type f | grep -v "/\." | rev | cut -d. -f1 | rev | sort | uniq -c || echo "No files found"
+          find system-tests/tests/load/cre/logs -type f | grep -v "/\." | rev | cut -d. -f1 | rev | sort | uniq -c || echo "No files found"
 
       - name: Stop all streams and inspect files
         if: always()

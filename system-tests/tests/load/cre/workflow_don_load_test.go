@@ -429,13 +429,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
 		benchspy.WithGenerators(generator),
 	)
-	require.NoError(t, err, "failed to create baseline report")
+	require.NoError(t, err, "failed to create benchmark report")
 
 	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFn()
-
-	fetchErr := benchmarkReport.FetchData(fetchCtx)
-	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
 
 	path, storeErr := benchmarkReport.Store()
 	require.NoError(t, storeErr, "failed to store baseline report", path)
