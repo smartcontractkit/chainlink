@@ -76,10 +76,11 @@ jobs:
           mkdir -p system-tests/tests/load/cre/logs/metrics/container-stats
           for CID in $(docker ps -q); do
             echo "Starting stream for $CID → system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json"
-            curl -s --unix-socket /var/run/docker.sock \
+          # Start curl with error logging
+            curl --unix-socket /var/run/docker.sock \
               "http://localhost/containers/$CID/stats?stream=1" \
-              > system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json &
-            echo $! > system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.pid
+              > system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json \
+              2> system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.error &
           done
 
       - name: Start the test

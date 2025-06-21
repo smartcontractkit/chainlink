@@ -2,7 +2,6 @@ package cre
 
 import (
 	"bytes"
-	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
