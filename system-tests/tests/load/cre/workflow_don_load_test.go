@@ -431,11 +431,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	)
 	require.NoError(t, err, "failed to create benchmark report")
 
-	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
-	defer cancelFn()
-
 	path, storeErr := benchmarkReport.Store()
-	require.NoError(t, storeErr, "failed to store baseline report", path)
+	require.NoError(t, storeErr, "failed to store benchmark report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
 }
 
