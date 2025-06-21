@@ -11,10 +11,10 @@ import (
 	aptosconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/aptos"
 )
 
-// ChainCWProvider is a struct that implements the ChainRWProvider interface for EVM chains.
+// ChainCWProvider is a struct that implements the ChainRWProvider interface for Aptos chains.
 type ChainCWProvider struct{}
 
-// GetChainReader returns a new ContractReader for EVM chains.
+// GetChainReader returns a new ContractReader for Aptos chains.
 func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	cfg, err := aptosconfig.GetChainReaderConfig()
 	if err != nil {
@@ -35,7 +35,7 @@ func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.C
 	return cr, nil
 }
 
-// GetChainWriter returns a new ContractWriter for EVM chains.
+// GetChainWriter returns a new ContractWriter for Aptos chains.
 func (g ChainCWProvider) GetChainWriter(ctx context.Context, params ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	transmitter := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
 	cfg, err := aptosconfig.GetChainWriterConfig(transmitter[0])
