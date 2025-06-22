@@ -84,8 +84,8 @@ func onTrigger(wcx *sdk.WorkflowContext[[]byte], runtime sdk.Runtime, outputs *c
 	// TODO: Fix
 	return doPor(wcx, runtime, parsedTime, "http://localhost:3000", "publicKey", []EvmConfig{
 		{
-			TokenAddress:  "0x779877A7B0D9E8603169DdbD7836e478b4624789",
-			PorAddress:    "0x0000000000000000000000000000000000000000",
+			TokenAddress:  "0x06c00276da5E9B9e431E5226011119801C5df677",
+			PorAddress:    "0x7e2Fc0c6Ea6a12Ac8cF3dacCC85F8c5A88CE431C",
 			ChainSelector: 1,
 			GasLimit:      1000000,
 		},

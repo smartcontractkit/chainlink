@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -117,7 +118,7 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 
 	signedTx, err := types.SignNewTx(
 		fc.privateKey,
-		types.LatestSignerForChainID(big.NewInt(0)),
+		types.LatestSignerForChainID(big.NewInt(1337)),
 		&rawTx,
 	)
 	if err != nil {
@@ -128,6 +129,18 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 	if err != nil {
 		return nil, err
 	}
+
+	// wait for the transaction to be mined
+	receipt, err := bind.WaitMinedHash(ctx, fc.gethClient, signedTx.Hash())
+	if err != nil {
+		return nil, err
+	}
+
+	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Hash", "hash", signedTx.Hash().String())
+	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Receipt", "receipt", receipt)
+	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Status", "status", receipt.Status)
+
+	fc.eng.Infow("Fake EVM Chain WriteReport Finished", "receipt", receipt)
 
 	errMsg := ""
 	return &evmcappb.WriteReportReply{

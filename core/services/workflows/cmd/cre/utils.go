@@ -7,6 +7,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jonboulle/clockwork"
 
@@ -196,12 +197,19 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	caps := make([]services.Service, 0)
 
 	// EVM
-	evmClient, err := ethclient.Dial("https://sepolia.infura.io/v3/dbe1bfd45172477084dfe080e0754c1e")
+	// evmClient, err := ethclient.Dial("https://sepolia.infura.io/v3/dbe1bfd45172477084dfe080e0754c1e")
+	evmClient, err := ethclient.Dial("http://localhost:8545")
 	if err != nil {
 		return nil, err
 	}
 
-	evm := fakes.NewFakeEvmChain(lggr, evmClient)
+	// TODO: get private key from env var
+	privateKey, err := crypto.HexToECDSA("b79e5dbf9e75e85d787a22fb98f9638d216256d4e97b7e30a587663c104fd523")
+	if err != nil {
+		return nil, err
+	}
+
+	evm := fakes.NewFakeEvmChain(lggr, evmClient, privateKey)
 	evmServer := evmserver.NewClientServer(evm)
 	if err := registry.Add(ctx, evmServer); err != nil {
 		return nil, err
