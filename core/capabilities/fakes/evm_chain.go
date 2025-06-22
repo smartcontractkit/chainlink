@@ -2,10 +2,12 @@ package fakes
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -26,6 +28,7 @@ type fakeEvmChain struct {
 	eng *services.Engine
 
 	gethClient *ethclient.Client
+	privateKey *ecdsa.PrivateKey
 
 	lggr logger.Logger
 }
@@ -40,11 +43,12 @@ var _ services.Service = (*fakeEvmChain)(nil)
 var _ evmserver.ClientCapability = (*fakeEvmChain)(nil)
 var _ commonCap.ExecutableCapability = (*fakeEvmChain)(nil)
 
-func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client) *fakeEvmChain {
+func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKey *ecdsa.PrivateKey) *fakeEvmChain {
 	fc := &fakeEvmChain{
 		CapabilityInfo: evmExecInfo,
 		lggr:           lggr,
 		gethClient:     gethClient,
+		privateKey:     privateKey,
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "fakeEvmChain",
@@ -101,22 +105,34 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 	fc.eng.Infow("Fake EVM Chain WriteReport Started", "input", input)
 
-	// toAddress := common.Address(input.Receiver)
+	toAddress := common.Address(input.Receiver)
 	data := input.Report.RawReport
 	fc.eng.Infow("Fake EVM Chain WriteReport data", "data", data)
 
-	// err := fc.gethClient.SendTransaction(ctx, &types.Transaction{
-	// 	To:   toAddress,
-	// 	Data: data,
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
+	rawTx := types.DynamicFeeTx{
+		To:    &toAddress,
+		Value: big.NewInt(0),
+		Data:  data,
+	}
+
+	signedTx, err := types.SignNewTx(
+		fc.privateKey,
+		types.LatestSignerForChainID(big.NewInt(0)),
+		&rawTx,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = fc.gethClient.SendTransaction(ctx, signedTx)
+	if err != nil {
+		return nil, err
+	}
 
 	errMsg := ""
 	return &evmcappb.WriteReportReply{
 		TxStatus:                        evm.TxStatus_TX_SUCCESS,
-		TxHash:                          []byte{},
+		TxHash:                          signedTx.Hash().Bytes(),
 		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
 		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
 		ErrorMessage:                    &errMsg,
