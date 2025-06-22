@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -101,7 +102,7 @@ func getMockUpdateConfig(
 	linkToken := aptos.AccountAddress{}
 	_ = linkToken.ParseStringRelaxed("0x3b17dad1bdd88f337712cc2f6187bb741d56da467320373fd9198262cc93de76")
 	otherToken := aptos.AccountAddress{}
-	_ = linkToken.ParseStringRelaxed("0xa")
+	_ = otherToken.ParseStringRelaxed("0xa")
 
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
@@ -116,7 +117,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
-					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 					ConnectionConfig: v1_6.ConnectionConfig{
 						RMNVerificationDisabled: true,
@@ -180,7 +181,7 @@ func getMockUpdateConfig(
 				Dest: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
-					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				IsDisabled: false,
@@ -189,7 +190,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
-					TokenPrices:              map[string]*big.Int{"0xa": big.NewInt(1e18)},
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				Dest: config.EVMChainDefinition{
