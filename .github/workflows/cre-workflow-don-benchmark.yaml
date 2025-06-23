@@ -134,6 +134,7 @@ jobs:
           docker run -d \
             --name prometheus \
             --network host \
+            -p 9090:9090 \
             -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
             prom/prometheus:latest \
             --config.file=/etc/prometheus/prometheus.yml
@@ -141,7 +142,7 @@ jobs:
 
 
       - name: Sleep for 10 seconds
-        run: sleep 10
+        run: sleep 1000
 
       - name: List container CPU & RAM usage
         run: |
@@ -149,7 +150,7 @@ jobs:
           --data-urlencode 'query=sum by (container_name)(rate(container_cpu_usage_seconds_total[5m]))'
           
           curl -G 'http://localhost:9090/api/v1/query' \
-          --data-urlencode 'query=max_over_time(container_memory_usage_bytes[5m]) by (container_name)'
+          --data-urlencode 'query=max_over_time(container_memory_usage_bytes[5m])'
 
       - name: Upload node logs and metrics as artifact
         if: always()
