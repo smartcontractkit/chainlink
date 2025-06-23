@@ -199,7 +199,7 @@ ListenIP = '0.0.0.0' # Default
 # Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
 [WebServer.OIDC]
 # ClientID is the ID of the OIDC application registered with the identity provider
-ClientID = "abcd1234" # Example
+ClientID = 'abcd1234' # Example
 # ProviderURL is the base URL for your OIDC Identity provider. 
 ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
 # RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
