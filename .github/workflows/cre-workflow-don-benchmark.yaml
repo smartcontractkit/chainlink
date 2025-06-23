@@ -68,20 +68,24 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Start streaming metrics per container
-        shell: bash
+      - name: Launch app and sidecar
         run: |
-          mkdir -p system-tests/tests/load/cre/logs
-          mkdir -p system-tests/tests/load/cre/logs/metrics
-          mkdir -p system-tests/tests/load/cre/logs/metrics/container-stats
-          for CID in $(docker ps -q); do
-            echo "Starting stream for $CID → system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json"
-          # Start curl with error logging
-            curl --unix-socket /var/run/docker.sock \
-              "http://localhost/containers/$CID/stats?stream=1" \
-              > system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.json \
-              2> system-tests/tests/load/cre/logs/metrics/container-stats/${CID}.error &
-          done
+          docker run -d \
+            --name app-exporter \
+            -v /proc:/host/proc:ro \
+            -v /sys:/host/sys:ro \
+            -v /:/rootfs:ro \
+            prom/node-exporter:latest \
+              --path.procfs=/host/proc \
+              --path.sysfs=/host/sys \
+              --collector.cpu \
+              --collector.meminfo \
+              --collector.netdev \
+              --collector.filesystem
+
+      - name: Wait for metrics
+        run: |
+          until curl -sf http://localhost:9100/metrics; do sleep 1; done
 
       - name: Start the test
         shell: bash
@@ -100,35 +104,11 @@ jobs:
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Debug log files
-        if: always()
-        shell: bash
+      - name: Fetch a sample of metrics
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Checking logs structure:"
-          find system-tests/tests/load/cre/logs -type f | sort || echo "No log files found"
-          
-          echo "Files in the logs directory:"
-          find system-tests/tests/load/cre/logs -name "*.log" || echo "No .log files found"
-          
-          echo "Total files by extension:"
-          find system-tests/tests/load/cre/logs -type f | grep -v "/\." | rev | cut -d. -f1 | rev | sort | uniq -c || echo "No files found"
-
-      - name: Stop all streams and inspect files
-        if: always()
-        shell: bash
-        run: |
-          # stop background curls
-          if [ -d "system-tests/tests/load/cre/logs/metrics/container-stats" ] && [ "$(find system-tests/tests/load/cre/logs/metrics/container-stats -name '*.pid' | wc -l)" -gt 0 ]; then
-            for pidfile in system-tests/tests/load/cre/logs/metrics/container-stats/*.pid; do
-              if [ -f "$pidfile" ]; then
-                echo "Stopping stream process $(cat $pidfile)"
-                kill "$(cat $pidfile)" 2>/dev/null || true
-              fi
-            done
-          else
-            echo "No stream PID files found in system-tests/tests/load/cre/logs/metrics/container-stats/"
-          fi
+          curl -s http://localhost:9100/metrics \
+            | grep -E 'node_cpu_seconds_total|node_memory_MemTotal_bytes' \
+            | head -n 10
 
       - name: Upload node logs and metrics as artifact
         if: always()
@@ -140,3 +120,8 @@ jobs:
           path: |
             system-tests/tests/load/cre/logs
           retention-days: 1
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker rm -f app app-exporter
