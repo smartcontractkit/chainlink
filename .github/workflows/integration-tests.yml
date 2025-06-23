@@ -80,39 +80,51 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
-    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
-    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     outputs:
+      # Don't run core E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-core-tests: >-
         ${{
-          steps.changes.outputs.core_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
+      # Run CRE tests on PR always, when there are changes to CRE code
+      # but still require the "run-e2e-tests" label to be present for CI changes
       should-run-cre-tests: >-
         ${{
           steps.changes.outputs.cre_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (steps.changes.outputs.github_ci_changes == 'true' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests'))
         }}
+      # Don't run CCIP E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-ccip-tests: >-
         ${{
-          steps.changes.outputs.ccip_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.ccip_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
+      # Don't run Solana E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-solana-tests: >-
         ${{
-          steps.changes.outputs.core_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
       builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
@@ -174,7 +186,6 @@ jobs:
             echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
-
 
   build-chainlink:
     environment: integration
