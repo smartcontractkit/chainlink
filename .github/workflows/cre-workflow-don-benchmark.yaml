@@ -71,21 +71,30 @@ jobs:
       - name: Launch app and sidecar
         run: |
           docker run -d \
-            --name app-exporter \
+            --name node-exporter \
+            --net host \
+            --pid host \
             -v /proc:/host/proc:ro \
             -v /sys:/host/sys:ro \
             -v /:/rootfs:ro \
             prom/node-exporter:latest \
-              --path.procfs=/host/proc \
-              --path.sysfs=/host/sys \
-              --collector.cpu \
-              --collector.meminfo \
-              --collector.netdev \
-              --collector.filesystem
+            --path.procfs=/host/proc \
+            --path.sysfs=/host/sys \
+            --collector.cpu \
+            --collector.meminfo \
+            --collector.netdev \
+            --collector.filesystem \
+            --collector.cgroup
 
       - name: Wait for metrics
         run: |
-          until curl -sf http://localhost:9100/metrics; do sleep 1; done
+          echo "Waiting up to 30s for Node Exporter metrics…"
+          if timeout 30s bash -c 'until curl -sf http://localhost:9100/metrics; do sleep 1; done'; then
+            echo "Metrics endpoint is up"
+          else
+            echo "Metrics endpoint did not start within 30s" >&2
+            exit 1
+          fi
 
       - name: Start the test
         shell: bash
