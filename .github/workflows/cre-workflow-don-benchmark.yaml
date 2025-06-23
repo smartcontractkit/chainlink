@@ -68,7 +68,7 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Launch app and sidecar
+      - name: Launch prom exporter
         run: |
           docker run -d \
             --name node-exporter \
