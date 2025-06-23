@@ -36,6 +36,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
+          persist-credentials: false
 
       - name: Define test matrix
         id: define-matrix
