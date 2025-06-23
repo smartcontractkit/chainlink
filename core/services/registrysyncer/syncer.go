@@ -174,7 +174,7 @@ func (s *registrySyncer) syncLoop() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.lggr.Debug("starting regular sync with the remote registry [test]")
+			s.lggr.Debug("starting regular sync with the remote registry")
 			err := s.Sync(ctx, false)
 			if err != nil {
 				s.lggr.Errorw("failed to sync with remote registry", "error", err)
