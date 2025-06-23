@@ -68,21 +68,22 @@ jobs:
 #        if:  ${{ github.event_name == 'pull_request' }}
 #        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 #
-      - name: Launch prom exporter
+      - name: Download and start Node Exporter
+        shell: bash
         run: |
-          echo $PWD
-          docker run -d \
-            --name node-exporter \
-            -p 9100:9100 \
-            --pid="host" \
-            -v "/:/host:ro" \
-            quay.io/prometheus/node-exporter:latest \
-            --path.rootfs=/host \
-            --collector.cpu \
-            --collector.meminfo \
-            --collector.netdev \
-            --collector.filesystem \
-            --collector.cgroups
+          # download
+          wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+          
+          # unpack
+          tar xvfz node_exporter-1.9.1.linux-amd64.tar.gz
+          
+          # enter directory and launch in background
+          cd node_exporter-1.9.1.linux-amd64
+          ./node_exporter &
+          
+          # confirm it's running
+          sleep 1
+          pgrep -f node_exporter || (echo "Node Exporter failed to start" >&2; exit 1)
 
       - name: Wait for metrics
         run: |
@@ -121,7 +122,7 @@ jobs:
           scrape_configs:
             - job_name: 'node-exporter'
               static_configs:
-                - targets: ['host.docker.internal:9100']
+                - targets: ['localhost:9100']
           EOF
 
       - name: Start Prometheus
@@ -139,11 +140,11 @@ jobs:
           docker run -d --name test-nginx nginx
 
       - name: Sleep for 10 seconds
-        run: sleep 10
+        run: sleep 1000
 
       - name: Fetch a sample of metrics
         run: |
-          curl -sf "http://localhost:9090/api/v1/label/cgroup/values"
+          curl -sf "http://host.docker.internal:9090/api/v1/label/cgroup/values"
 
       - name: Upload node logs and metrics as artifact
         if: always()
