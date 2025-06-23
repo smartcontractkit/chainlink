@@ -8,10 +8,11 @@ import (
 
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token_faucet"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 
-	managed_token "github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 )
 
@@ -34,7 +35,7 @@ type DeployTokenOutput struct {
 var DeployTokenOp = operations.NewOperation(
 	"deploy-token-op",
 	Version1_0_0,
-	"deploy token",
+	"Deploy a managed token instance",
 	deployToken,
 )
 
@@ -59,11 +60,11 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	// Compile and create deploy operation for the token
 	managedTokenPayload, err := managed_token.Compile(managedTokenObjectAddress)
 	if err != nil {
-		return DeployTokenOutput{}, fmt.Errorf("failed to compile managed token: %w", err)
+		return DeployTokenOutput{}, fmt.Errorf("failed to compile managed_token package: %w", err)
 	}
 	ops, err := utils.CreateChunksAndStage(managedTokenPayload, mcmsContract, deps.AptosChain.Selector, managedTokenSeed, nil)
 	if err != nil {
-		return DeployTokenOutput{}, fmt.Errorf("failed to create chunks for token pool: %w", err)
+		return DeployTokenOutput{}, fmt.Errorf("failed to create chunks for manage_token deployment: %w", err)
 	}
 
 	return DeployTokenOutput{
@@ -83,7 +84,7 @@ type DeployTokenRegistrarInput struct {
 var DeployTokenMCMSRegistrarOp = operations.NewOperation(
 	"deploy-token-mcms-registrar-op",
 	Version1_0_0,
-	"deploy token MCMS registrar on token package",
+	"Deploy token MCMS registrar onto managed token code object",
 	deployTokenMCMSRegistrar,
 )
 
@@ -176,4 +177,81 @@ func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.
 	}
 
 	return tx, nil
+}
+
+type ApplyAllowedMintersInput struct {
+	TokenCodeObjAddress aptos.AccountAddress
+	MintersToAdd        []aptos.AccountAddress
+	MintersToRemove     []aptos.AccountAddress
+}
+
+// GrantMinterPermissionsOp operation to grant minter permissions
+var ApplyAllowedMintersOp = operations.NewOperation(
+	"apply-allowed-minters-op",
+	Version1_0_0,
+	"Applies the given minters remove/add to the managed token",
+	applyAllowedMinters,
+)
+
+func applyAllowedMinters(b operations.Bundle, deps AptosDeps, in ApplyAllowedMintersInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenCodeObjAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates(in.MintersToRemove, in.MintersToAdd)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedMinterUpdates: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjAddress, moduleInfo, function, args)
+}
+
+type ApplyAllowedBurnersInput struct {
+	TokenCodeObjAddress aptos.AccountAddress
+	BurnersToAdd        []aptos.AccountAddress
+	BurnersToRemove     []aptos.AccountAddress
+}
+
+// GrantBurnerPermissionsOp operation to grant burner permissions
+var ApplyAllowedBurnersOp = operations.NewOperation(
+	"apply-allowed-burners-op",
+	Version1_0_0,
+	"Applies the given burners remove/add to the managed token",
+	applyAllowedBurners,
+)
+
+func applyAllowedBurners(b operations.Bundle, deps AptosDeps, in ApplyAllowedBurnersInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenCodeObjAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedBurnerUpdates(in.BurnersToRemove, in.BurnersToAdd)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedBurnerUpdates: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjAddress, moduleInfo, function, args)
+}
+
+type DeployTokenFaucetInput struct {
+	MCMSAddress         aptos.AccountAddress
+	TokenCodeObjAddress aptos.AccountAddress
+}
+
+var DeployTokenFaucetOp = operations.NewOperation(
+	"deploy-token-faucet-op",
+	Version1_0_0,
+	"Deploy the faucet package onto a managed token code object",
+	deployTokenFaucet,
+)
+
+func deployTokenFaucet(b operations.Bundle, deps AptosDeps, in DeployTokenFaucetInput) ([]types.Operation, error) {
+	boundMcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
+
+	managedTokenFaucetPayload, err := managed_token_faucet.Compile(in.TokenCodeObjAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile managed_token_faucet package: %w", err)
+	}
+	ops, err := utils.CreateChunksAndStage(managedTokenFaucetPayload, boundMcmsContract, deps.AptosChain.Selector, "", &in.TokenCodeObjAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chunks for managed_token_faucet deployment: %w", err)
+	}
+
+	return ops, nil
 }

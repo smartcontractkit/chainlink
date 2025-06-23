@@ -108,3 +108,56 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		MCMSOperations:      mcmsOperations,
 	}, nil
 }
+
+type DeployTokenFaucetSeqInput struct {
+	MCMSAddress         aptos.AccountAddress
+	TokenCodeObjAddress aptos.AccountAddress
+}
+
+var DeployTokenFaucetSequence = operations.NewSequence(
+	"deploy-aptos-token-faucet",
+	operation.Version1_0_0,
+	"Deploys a token faucet onto an existing manage_token instance",
+	deployAptosTokenFaucetSequence,
+)
+
+func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenFaucetSeqInput) ([]mcmstypes.BatchOperation, error) {
+	var mcmsOperations []mcmstypes.BatchOperation
+
+	// Cleanup staging area
+	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, in.MCMSAddress)
+	if err != nil {
+		return nil, err
+	}
+	if len(cleanupReport.Output.Transactions) > 0 {
+		mcmsOperations = append(mcmsOperations, cleanupReport.Output)
+	}
+
+	// Deploy token faucet module
+	deployTokenFaucetInput := operation.DeployTokenFaucetInput{
+		MCMSAddress:         in.MCMSAddress,
+		TokenCodeObjAddress: in.TokenCodeObjAddress,
+	}
+	deployTokenFaucetReport, err := operations.ExecuteOperation(b, operation.DeployTokenFaucetOp, deps, deployTokenFaucetInput)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenFaucetReport.Output)...)
+
+	// Grant Mint rights to ManagedTokenFaucet signer
+	managedTokenFaucetStateAddress := in.TokenCodeObjAddress.NamedObjectAddress([]byte("ManagedTokenFaucet"))
+	applyMintersInput := operation.ApplyAllowedMintersInput{
+		TokenCodeObjAddress: in.TokenCodeObjAddress,
+		MintersToAdd:        []aptos.AccountAddress{managedTokenFaucetStateAddress},
+	}
+	applyAllowedMintersReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, applyMintersInput)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  []mcmstypes.Transaction{applyAllowedMintersReport.Output},
+	})
+
+	return mcmsOperations, nil
+}
