@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction"
@@ -25,7 +27,6 @@ import (
 	basictriggermock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger/basic_triggermock"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
@@ -33,6 +34,7 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -265,7 +267,7 @@ func TestEngine_Execution(t *testing.T) {
 			executionFinishedCh <- executionID
 		},
 	}
-	beholderTester := tests.Beholder(t)
+	beholderObserver := beholdertest.NewObserver(t)
 	cfg.BeholderEmitter = custmsg.NewLabeler()
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
@@ -310,12 +312,12 @@ func TestEngine_Execution(t *testing.T) {
 
 		require.NoError(t, engine.Close())
 
-		requireEventsLabels(t, &beholderTester, map[string]string{
+		requireEventsLabels(t, beholderObserver, map[string]string{
 			"workflowID":    cfg.WorkflowID,
 			"workflowOwner": cfg.WorkflowOwner,
 			"workflowName":  cfg.WorkflowName.String(),
 		})
-		requireEventsMessages(t, &beholderTester, []string{
+		requireEventsMessages(t, beholderObserver, []string{
 			"Started",
 			"Registering trigger",
 			"All triggers registered successfully",
@@ -460,6 +462,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	slowCapability := capmocks.NewExecutableCapability(t)
 	capreg.EXPECT().GetExecutable(matches.AnyContext, "slow-capability").Return(slowCapability, nil).Once()
 
+	slowCapability.EXPECT().Info(matches.AnyContext).Return(capabilities.CapabilityInfo{}, nil)
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
@@ -665,6 +668,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	wrappedTriggerMock := &registry.CapabilityWrapper{
 		Capability: triggerMock,
 	}
+	beholderObserver := beholdertest.NewObserver(t)
 
 	t.Run("OK received expected config", func(t *testing.T) {
 		engine, err := v2.NewEngine(cfg)
@@ -674,10 +678,6 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
 			Return(wrappedTriggerMock, nil).
 			Once()
-
-		wasmLogger.EXPECT().Info(mock.Anything).Run(func(args ...interface{}) {
-			require.Contains(t, args[0].(string), "onTrigger called")
-		}).Return().Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
@@ -707,6 +707,10 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 		require.Equal(t, execID, <-executionFinishedCh)
 		require.NoError(t, engine.Close())
+
+		requireUserLogs(t, beholderObserver, []string{
+			"onTrigger called",
+		})
 	})
 }
 
@@ -754,8 +758,8 @@ func setupExpectedCalls(t *testing.T) (
 	return triggerMock, basicAction
 }
 
-func requireEventsLabels(t *testing.T, beholderTester *tests.BeholderTester, want map[string]string) {
-	msgs := beholderTester.Messages(t)
+func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
+	msgs := beholderObserver.Messages(t)
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] == "BaseMessage" {
 			var payload beholderpb.BaseMessage
@@ -767,8 +771,8 @@ func requireEventsLabels(t *testing.T, beholderTester *tests.BeholderTester, wan
 	}
 }
 
-func requireEventsMessages(t *testing.T, beholderTester *tests.BeholderTester, expected []string) {
-	msgs := beholderTester.Messages(t)
+func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
+	msgs := beholderObserver.Messages(t)
 	nextToFind := 0
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] == "BaseMessage" {
@@ -785,6 +789,29 @@ func requireEventsMessages(t *testing.T, beholderTester *tests.BeholderTester, e
 
 	if nextToFind < len(expected) {
 		t.Errorf("log message not found: %s", expected[nextToFind])
+	}
+}
+
+func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+	msgs := beholderObserver.Messages(t)
+	nextToFind := 0
+	for _, msg := range msgs {
+		if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
+			var payload events.UserLogs
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+			if nextToFind >= len(expectedSubstrings) {
+				return
+			}
+			for _, log := range payload.LogLines {
+				if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
+					nextToFind++
+				}
+			}
+		}
+	}
+
+	if nextToFind < len(expectedSubstrings) {
+		t.Errorf("log message not found: %s", expectedSubstrings[nextToFind])
 	}
 }
 

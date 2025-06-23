@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
-func TestEmitTimestampNano(t *testing.T) {
+func TestEmit(t *testing.T) {
 	// t.Parallel() // TODO: the beholder tester uses t.SetEnv and cannot use t.Parallel
 	triggerID := "trigger_" + uuid.NewString()
 	executionID := "execution_" + uuid.NewString()
@@ -80,5 +80,22 @@ func TestEmitTimestampNano(t *testing.T) {
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+	})
+
+	t.Run(events.UserLogs, func(t *testing.T) {
+		logLines := []*pb.LogLine{
+			{
+				Message: "Test log message",
+			},
+		}
+		require.NoError(t, events.EmitUserLogs(t.Context(), labels, logLines, executionID))
+		require.Len(t, labels, 1)
+
+		msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v1."+events.UserLogs)
+		require.Len(t, msgs, 1)
+
+		var received pb.UserLogs
+		require.NoError(t, proto.Unmarshal(msgs[0].Body, &received))
+		assert.Equal(t, logLines[0].Message, received.LogLines[0].Message)
 	})
 }
