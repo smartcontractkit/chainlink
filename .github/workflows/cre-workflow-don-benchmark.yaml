@@ -144,7 +144,7 @@ jobs:
 
       - name: Fetch a sample of metrics
         run: |
-          curl -sf "http://host.docker.internal:9090/api/v1/label/cgroup/values"
+          curl -sf "http://localhost:9090/api/v1/label/cgroup/values"
 
       - name: Upload node logs and metrics as artifact
         if: always()
