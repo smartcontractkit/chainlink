@@ -10,6 +10,7 @@ import (
 
 type DisallowedExecutionHelper struct {
 	TimeProvider
+	SecretsFetcher
 }
 
 var _ host.ExecutionHelper = &DisallowedExecutionHelper{}
@@ -18,6 +19,11 @@ func (d DisallowedExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.Ca
 	return nil, errors.New("capability calls cannot be made during this execution")
 }
 
-func (d DisallowedExecutionHelper) GetID() string {
+func (d DisallowedExecutionHelper) GetWorkflowExecutionID() string {
 	return ""
+}
+
+func (d DisallowedExecutionHelper) EmitUserLog(msg string) error {
+	// TODO(CAPPL-783): allow logs during subscription phase
+	return nil
 }

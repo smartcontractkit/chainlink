@@ -80,39 +80,51 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
-    # Don't run E2E tests on PR, unless it's tagged with "run-e2e-tests"
-    if: ${{ github.event_name != 'pull_request' || contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests') }}
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     outputs:
+      # Don't run core E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-core-tests: >-
         ${{
-          steps.changes.outputs.core_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
+      # Run CRE tests on PR always, when there are changes to CRE code
+      # but still require the "run-e2e-tests" label to be present for CI changes
       should-run-cre-tests: >-
         ${{
           steps.changes.outputs.cre_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (steps.changes.outputs.github_ci_changes == 'true' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests'))
         }}
+      # Don't run CCIP E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-ccip-tests: >-
         ${{
-          steps.changes.outputs.ccip_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.ccip_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
+      # Don't run Solana E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-solana-tests: >-
         ${{
-          steps.changes.outputs.core_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          steps.changes.outputs.github_ci_changes == 'true'
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          )
         }}
       builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
@@ -174,7 +186,6 @@ jobs:
             echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
-
 
   build-chainlink:
     environment: integration
@@ -239,7 +250,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core CRE Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -283,7 +294,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -327,7 +338,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -371,7 +382,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E CRE Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -415,7 +426,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -457,7 +468,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -501,7 +512,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -545,7 +556,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -588,7 +599,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025 # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025 # june 2, 2025
     with:
       workflow_name: Run CCIP E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -633,7 +644,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -680,7 +691,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -727,7 +738,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # june 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}

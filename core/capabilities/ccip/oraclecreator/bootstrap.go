@@ -182,10 +182,15 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		config.ConfigDigest,
 	)
 
+	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config tracker: %w", err)
+	}
+
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
 		V2Bootstrappers:       i.bootstrapperLocators,
-		ContractConfigTracker: ocrimpls.NewConfigTracker(config, i.addressCodec),
+		ContractConfigTracker: configTracker,
 		Database:              i.db,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(

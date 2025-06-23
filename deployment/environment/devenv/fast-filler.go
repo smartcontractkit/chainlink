@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -17,6 +16,7 @@ import (
 
 var (
 	E2eFastFillerImage     = "E2E_FAST_FILLER_IMAGE"
+	E2eFastFillerVersion   = "E2E_FAST_FILLER_VERSION"
 	DefaultFastFillerImage = "ccip-fast-filler:latest"
 )
 
@@ -47,14 +47,16 @@ type CCIPFastFillerConfig struct {
 }
 
 type CCIPFastFiller struct {
+	image     string
 	config    CCIPFastFillerConfig
 	container testcontainers.Container
 	logger    zerolog.Logger
 	networks  []string
 }
 
-func NewCCIPFastFiller(config CCIPFastFillerConfig, l zerolog.Logger, networks []string) *CCIPFastFiller {
+func NewCCIPFastFiller(config CCIPFastFillerConfig, l zerolog.Logger, networks []string, image string) *CCIPFastFiller {
 	return &CCIPFastFiller{
+		image:    image,
 		config:   config,
 		logger:   l,
 		networks: networks,
@@ -78,15 +80,10 @@ func (f *CCIPFastFiller) Start(ctx context.Context, t *testing.T) error {
 		}
 	}
 
-	image := DefaultFastFillerImage
-	if envImage := os.Getenv(E2eFastFillerImage); envImage != "" {
-		image = envImage
-	}
-
 	req := testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Networks:   f.networks,
-			Image:      image,
+			Image:      f.image,
 			WaitingFor: wait.ForLog("Relayer started"),
 			Files: []testcontainers.ContainerFile{
 				{

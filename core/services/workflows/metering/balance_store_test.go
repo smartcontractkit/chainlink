@@ -4,13 +4,22 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func TestBalanceStore(t *testing.T) {
 	t.Parallel()
+
+	one := decimal.NewFromInt(1)
+	two := decimal.NewFromInt(2)
+	five := decimal.NewFromInt(5)
+	seven := decimal.NewFromInt(7)
+	nine := decimal.NewFromInt(9)
+	ten := decimal.NewFromInt(10)
+	eleven := decimal.NewFromInt(11)
 
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()
@@ -18,128 +27,89 @@ func TestBalanceStore(t *testing.T) {
 		// 1 of resourceA is worth 2 credits
 		// 2 credits is worth 1 of resourceA
 		rate := decimal.NewFromInt(2)
-		balanceStore := NewBalanceStore(10, map[string]decimal.Decimal{"resourceA": rate}, logger.TestLogger(t))
+		balanceStore := NewBalanceStore(ten, map[string]decimal.Decimal{"resourceA": rate}, logger.Test(t))
 
-		balance := balanceStore.Get()
-		require.Equal(t, int64(10), balance)
+		assert.True(t, balanceStore.Get().Equal(ten), "initialization should set balance")
 
-		balanceAs := balanceStore.GetAs("resourceA")
-		require.Equal(t, int64(5), balanceAs)
-
-		err := balanceStore.Add(1)
+		bal, err := balanceStore.GetAs("resourceA")
 		require.NoError(t, err)
-		balance = balanceStore.Get()
-		require.Equal(t, int64(11), balance)
+		assert.True(t, bal.Equal(five), "rate should apply to balance")
 
-		err = balanceStore.Minus(2)
-		require.NoError(t, err)
-		balance = balanceStore.Get()
-		require.Equal(t, int64(9), balance)
+		require.NoError(t, balanceStore.Add(one))
+		assert.True(t, balanceStore.Get().Equal(eleven), "addition should update the balance")
 
-		err = balanceStore.AddAs("resourceA", 1)
-		require.NoError(t, err)
-		balance = balanceStore.Get()
-		require.Equal(t, int64(11), balance)
+		require.NoError(t, balanceStore.Minus(two))
+		require.ErrorIs(t, balanceStore.Minus(decimal.NewFromInt(-1)), ErrInvalidAmount)
+		assert.True(t, balanceStore.Get().Equal(nine), "subtraction should update the balance")
 
-		err = balanceStore.MinusAs("resourceA", 2)
-		require.NoError(t, err)
-		balance = balanceStore.Get()
-		require.Equal(t, int64(7), balance)
+		require.NoError(t, balanceStore.AddAs("resourceA", one))
+		require.ErrorIs(t, balanceStore.AddAs("resourceA", decimal.NewFromInt(-1)), ErrInvalidAmount)
+		assert.True(t, balanceStore.Get().Equal(eleven), "addition by rate should update balance")
+
+		require.NoError(t, balanceStore.MinusAs("resourceA", two))
+		require.ErrorIs(t, balanceStore.MinusAs("resourceA", decimal.NewFromInt(-1)), ErrInvalidAmount)
+		assert.True(t, balanceStore.Get().Equal(seven), "subtraction by rate should update balance")
+
+		require.ErrorIs(t, balanceStore.AddAs("unknown", one), ErrResourceTypeNotFound)
 	})
 
-	t.Run("handles unknown resources as 1:1", func(t *testing.T) {
+	t.Run("returns error for unknown resource", func(t *testing.T) {
 		t.Parallel()
 
-		balanceStore := NewBalanceStore(10, map[string]decimal.Decimal{}, logger.TestLogger(t))
+		balanceStore := NewBalanceStore(ten, map[string]decimal.Decimal{}, logger.Nop())
 
-		balanceAs := balanceStore.GetAs("")
-		require.Equal(t, int64(10), balanceAs)
-
-		err := balanceStore.MinusAs("", 1)
-		require.NoError(t, err)
-		balance := balanceStore.Get()
-		require.Equal(t, int64(9), balance)
+		bal, err := balanceStore.GetAs("")
+		require.ErrorIs(t, err, ErrResourceTypeNotFound)
+		assert.True(t, bal.Equal(ten))
+		require.ErrorIs(t, balanceStore.MinusAs("", one), ErrResourceTypeNotFound)
+		assert.True(t, balanceStore.Get().Equal(ten))
 	})
 
 	t.Run("throws out negative conversion rates", func(t *testing.T) {
 		t.Parallel()
 
-		balanceStore := NewBalanceStore(10, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(-1)}, logger.TestLogger(t))
+		balanceStore := NewBalanceStore(ten, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(-1)}, logger.Nop())
 
-		balanceAs := balanceStore.GetAs("resourceA")
-		require.Equal(t, int64(10), balanceAs)
+		bal, err := balanceStore.GetAs("resourceA")
+		require.ErrorIs(t, err, ErrResourceTypeNotFound)
+		assert.True(t, bal.Equal(ten))
 
-		err := balanceStore.MinusAs("resourceA", 1)
-		require.NoError(t, err)
-		balance := balanceStore.Get()
-		require.Equal(t, int64(9), balance)
+		require.ErrorIs(t, balanceStore.MinusAs("resourceA", one), ErrResourceTypeNotFound)
+		assert.True(t, balanceStore.Get().Equal(ten))
 	})
 
-	t.Run("cannot go negative by default", func(t *testing.T) {
+	t.Run("cannot go negative", func(t *testing.T) {
 		t.Parallel()
 
-		balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(1)}, logger.TestLogger(t))
+		balanceStore := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(1)}, logger.Nop())
 
-		err := balanceStore.Minus(1)
-		require.ErrorIs(t, ErrInsufficientBalance, err)
-	})
-
-	t.Run("can go negative after allowNegative", func(t *testing.T) {
-		t.Parallel()
-
-		balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(1)}, logger.TestLogger(t))
-
-		balanceStore.AllowNegative()
-		err := balanceStore.Minus(1)
-		require.NoError(t, err)
-		balance := balanceStore.Get()
-		require.Equal(t, int64(-1), balance)
-	})
-
-	t.Run("returns negative balances as 0 when converted to a resource", func(t *testing.T) {
-		t.Parallel()
-
-		balanceStore := NewBalanceStore(0, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(10)}, logger.TestLogger(t))
-
-		balanceStore.AllowNegative()
-		err := balanceStore.Minus(1)
-		require.NoError(t, err)
-		balance := balanceStore.Get()
-		require.Equal(t, int64(-1), balance)
-
-		balanceAs := balanceStore.GetAs("resourceA")
-		require.Equal(t, int64(0), balanceAs)
+		require.ErrorIs(t, balanceStore.Minus(one), ErrInsufficientBalance)
+		require.ErrorIs(t, balanceStore.MinusAs("resourceA", one), ErrInsufficientBalance)
 	})
 
 	t.Run("handles decimal rates", func(t *testing.T) {
 		t.Parallel()
 
 		// 1 of resource A is worth 0.1 credits
-		rate, err := decimal.NewFromString("0.1")
+		rate := decimal.NewFromFloat(0.1)
+		balanceStore := NewBalanceStore(ten, map[string]decimal.Decimal{"resourceA": rate}, logger.Nop())
+
+		assert.True(t, balanceStore.Get().Equal(ten))
+
+		bal, err := balanceStore.GetAs("resourceA")
 		require.NoError(t, err)
-		balanceStore := NewBalanceStore(10, map[string]decimal.Decimal{"resourceA": rate}, logger.TestLogger(t))
-
-		balance := balanceStore.Get()
-		require.Equal(t, int64(10), balance)
-
-		balanceAs := balanceStore.GetAs("resourceA")
-		require.Equal(t, int64(100), balanceAs)
+		assert.True(t, bal.Equal(decimal.NewFromInt(100)))
 	})
 
-	t.Run("rounds up decimals due to conversion to nearest integer", func(t *testing.T) {
+	t.Run("applies no rounding to result", func(t *testing.T) {
 		t.Parallel()
 
 		// 1 of resource A is worth 0.2 credits
-		rate, err := decimal.NewFromString("0.2")
-		require.NoError(t, err)
-		balanceStore := NewBalanceStore(2, map[string]decimal.Decimal{"resourceA": rate}, logger.TestLogger(t))
+		rate := decimal.NewFromFloat(0.2)
+		balanceStore := NewBalanceStore(two, map[string]decimal.Decimal{"resourceA": rate}, logger.Nop())
 
-		balance := balanceStore.Get()
-		require.Equal(t, int64(2), balance)
-
-		err = balanceStore.MinusAs("resourceA", 1)
-		require.NoError(t, err)
-		balance = balanceStore.Get()
-		require.Equal(t, int64(1), balance)
+		assert.True(t, balanceStore.Get().Equal(two))
+		require.NoError(t, balanceStore.MinusAs("resourceA", one))
+		assert.True(t, balanceStore.Get().Equal(decimal.NewFromFloat(1.8)), balanceStore.Get())
 	})
 }
