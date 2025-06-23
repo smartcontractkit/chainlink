@@ -72,7 +72,7 @@ jobs:
         run: |
           docker run -d --name test-nginx nginx
 
-      - name: Download and start cAdviser
+      - name: Set up cAdviser
         shell: bash
         run: |
           sudo docker run \
@@ -143,9 +143,9 @@ jobs:
       - name: Sleep for 10 seconds
         run: sleep 10
 
-      - name: Fetch a sample of metrics
+      - name: Check Prometheus metrics
         run: |
-          curl -sf "http://localhost:9090/api/v1/label/cgroup/values"
+          curl -sf "http://localhost:9090/api/v1/query?query=up"
 
       - name: Upload node logs and metrics as artifact
         if: always()
