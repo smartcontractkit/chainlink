@@ -139,12 +139,12 @@ jobs:
         run: |
           docker run -d --name test-nginx nginx
 
-#      - name: Sleep for 10 seconds
-#        run: sleep 1000
+      - name: Sleep for 10 seconds
+        run: sleep 10
 
       - name: Fetch a sample of metrics
         run: |
-          curl -sf "http://localhost:9090/api/v1/query?query=node_cgroup_memory_stat_usage_bytes"
+          curl -sf "http://localhost:9090/api/v1/label/cgroup/values"
 
       - name: Upload node logs and metrics as artifact
         if: always()
