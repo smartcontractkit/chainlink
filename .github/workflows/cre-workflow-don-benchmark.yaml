@@ -73,13 +73,11 @@ jobs:
           echo $PWD
           docker run -d \
             --name node-exporter \
-            --network host \
-            -v /proc:/host/proc:ro \
-            -v /sys:/host/sys:ro \
-            -v /:/rootfs:ro \
+            --net="host" \
+            --pid="host" \
+            -v "/:/host:ro" \
             prom/node-exporter:latest \
-            --path.procfs=/host/proc \
-            --path.sysfs=/host/sys \
+            --path.rootfs=/host \
             --collector.cpu \
             --collector.meminfo \
             --collector.netdev \
@@ -140,8 +138,8 @@ jobs:
         run: |
           docker run -d --name test-nginx nginx
 
-      - name: Sleep for 10 seconds
-        run: sleep 10
+#      - name: Sleep for 10 seconds
+#        run: sleep 1000
 
       - name: Fetch a sample of metrics
         run: |
