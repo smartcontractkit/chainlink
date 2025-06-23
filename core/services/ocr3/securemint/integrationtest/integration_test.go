@@ -93,6 +93,11 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		allowedSenders[i] = keys[0].Address // assuming the first key is the transmitter
 	}
 
+	// TODO(gg): deploy Keystone Forwarder contract
+	// Deploy DataFeedsCache contract writing
+	dataFeedsCacheAddress, dataFeedsCache := setupDataFeedsCacheContract(t, steve, backend, allowedSenders, steve.From.Hex(), "securemint")
+	t.Logf("Deployed DataFeedsCache contract at: %s", dataFeedsCacheAddress.Hex())
+
 	_, configuratorAddress := setSecureMintOnchainConfigUsingOCR3Configurator(t, steve, backend, nodes, oracles)
 
 	t.Logf("Creating bootstrap job with configurator address: %s", configuratorAddress.Hex())
@@ -102,7 +107,7 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	jobIDs := addSecureMintOCRJobs(t, nodes, configuratorAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
-	validateJobsRunningSuccessfully(t, nodes, jobIDs)
+	validateJobsRunningSuccessfully(t, nodes, jobIDs, dataFeedsCache, dataFeedsCacheAddress)
 
 }
 
@@ -145,7 +150,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 	return
 }
 
-func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32) {
+func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32, dataFeedsCache *data_feeds_cache.DataFeedsCache, dataFeedsCacheAddress common.Address) {
 
 	// 1. Assert no job spec errors
 	for i, node := range nodes {
@@ -201,7 +206,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
 
-	// 3. Check that transmissions work
+	// 3. Check that transmissions work and reports are written to chain
 	expectedNumTransmissions := int32(4)
 	gomega.NewWithT(t).Eventually(func() bool {
 		numTransmissions := securemint.StubTransmissionCounter.Load()
@@ -211,6 +216,38 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 		gomega.BeTrue(),
 		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
 	)
+
+	// 4. Verify that reports are actually written to the DataFeedsCache contract
+	t.Logf("Verifying reports are written to DataFeedsCache contract at %s", dataFeedsCacheAddress.Hex())
+
+	// Create a dataId for the feed (using the same one from setupDataFeedsCacheContract)
+	feedIDBytes := [16]byte{}
+	copy(feedIDBytes[:], common.FromHex("0xA1B2C3D4E5F600010203040506070809"))
+
+	// Wait for reports to be written to chain and verify the latest answer
+	gomega.NewWithT(t).Eventually(func() bool {
+		latestAnswer, err := dataFeedsCache.GetLatestAnswer(nil, feedIDBytes)
+		if err != nil {
+			t.Logf("Error getting latest answer: %v", err)
+			return false
+		}
+
+		latestTimestamp, err := dataFeedsCache.GetLatestTimestamp(nil, feedIDBytes)
+		if err != nil {
+			t.Logf("Error getting latest timestamp: %v", err)
+			return false
+		}
+
+		t.Logf("Latest answer: %s, timestamp: %s", latestAnswer.String(), latestTimestamp.String())
+
+		// Verify that we have a valid answer (non-zero) and recent timestamp
+		return latestAnswer.Cmp(big.NewInt(0)) > 0 && latestTimestamp.Cmp(big.NewInt(0)) > 0
+	}, 60*time.Second, 2*time.Second).Should(
+		gomega.BeTrue(),
+		"expected reports to be written to DataFeedsCache contract with valid data",
+	)
+
+	t.Logf("Successfully verified reports are written to chain!")
 }
 
 func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) (*configurator.Configurator, common.Address) {
