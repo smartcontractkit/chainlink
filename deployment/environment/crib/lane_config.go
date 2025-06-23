@@ -308,18 +308,8 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	// Discover Solana to EVM lanes
 	for _, srcChain := range solChains {
-		srcChainState, exists := state.SolChains[srcChain]
-		if !exists {
-			continue
-		}
-
-		// Check which EVM destination chains are configured on the Solana Router
-		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, allChains)
-		if err != nil {
-			return fmt.Errorf("failed to get enabled EVM destinations for Solana chain %d: %w", srcChain, err)
-		}
-
-		for _, dstChain := range destinations {
+		// For now, only run Solana tests any-to-any, so we assume all EVM chains are valid lanes
+		for _, dstChain := range allChains {
 			discoveredLanes = append(discoveredLanes, LaneConfig{
 				SourceChain:      srcChain,
 				DestinationChain: dstChain,
