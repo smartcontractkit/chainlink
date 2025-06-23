@@ -68,6 +68,10 @@ jobs:
 #        if:  ${{ github.event_name == 'pull_request' }}
 #        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 #
+      - name: Start test container for metrics validation
+        run: |
+          docker run -d --name test-nginx nginx
+
       - name: Download and start Node Exporter
         shell: bash
         run: |
@@ -135,9 +139,7 @@ jobs:
             prom/prometheus:latest \
             --config.file=/etc/prometheus/prometheus.yml
 
-      - name: Start test container for metrics validation
-        run: |
-          docker run -d --name test-nginx nginx
+
 
       - name: Sleep for 10 seconds
         run: sleep 10
