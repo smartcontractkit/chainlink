@@ -70,6 +70,7 @@ jobs:
 #
       - name: Launch prom exporter
         run: |
+          echo $PWD
           docker run -d \
             --name node-exporter \
             --network host \
