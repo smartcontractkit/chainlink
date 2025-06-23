@@ -84,16 +84,16 @@ jobs:
             --collector.netdev \
             --collector.filesystem \
             --collector.cgroups
-#
-#      - name: Wait for metrics
-#        run: |
-#          echo "Waiting up to 30s for Node Exporter metrics…"
-#          if timeout 30s bash -c 'until curl -sf http://localhost:9100/metrics; do sleep 1; done'; then
-#            echo "Metrics endpoint is up"
-#          else
-#            echo "Metrics endpoint did not start within 30s" >&2
-#            exit 1
-#          fi
+
+      - name: Wait for metrics
+        run: |
+          echo "Waiting up to 30s for Node Exporter metrics…"
+          if timeout 30s bash -c 'until curl -sf http://localhost:9100/metrics; do sleep 1; done'; then
+            echo "Metrics endpoint is up"
+          else
+            echo "Metrics endpoint did not start within 30s" >&2
+            exit 1
+          fi
 
 #      - name: Start the test
 #        shell: bash
@@ -160,4 +160,4 @@ jobs:
       - name: Teardown
         if: always()
         run: |
-          docker rm -f app node-exporter prometheus test-nginx
+          docker rm -f node-exporter prometheus test-nginx
