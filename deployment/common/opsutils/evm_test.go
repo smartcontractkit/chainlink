@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -81,28 +80,6 @@ func TestRetryDeploymentWithGasBoost(t *testing.T) {
 	assert.NotNil(t, opt)
 	// Should fallback to default if nil
 	assert.NotNil(t, RetryDeploymentWithGasBoost[string](nil))
-}
-
-func TestRetryCallWithGasBoost_NoSendSkipsGasBoost(t *testing.T) {
-	cfg := &commontypes.GasBoostConfig{
-		InitialGasLimit:   1000,
-		GasLimitIncrement: 100,
-		InitialGasPrice:   2000,
-		GasPriceIncrement: 100,
-	}
-
-	// Test the retry input function with NoSend=true
-	retryInput := operations.WithRetryInput(func(attempt uint, err error, in EVMCallInput[string], deps cldf_evm.Chain) EVMCallInput[string] {
-		if in.NoSend {
-			return in // No gas boost for calls that do not send transactions
-		}
-		gasLimit, gasPrice := getBoostedGasForAttempt(*cfg, attempt)
-		in.GasLimit = gasLimit
-		in.GasPrice = gasPrice
-		return in
-	})
-
-	assert.NotNil(t, retryInput)
 }
 
 func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
