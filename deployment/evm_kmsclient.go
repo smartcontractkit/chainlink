@@ -75,8 +75,9 @@ func NewKMSClient(config KMS) (KMSClient, error) {
 }
 
 type EVMKMSClient struct {
-	Client KMSClient
-	KeyID  string
+	Client    KMSClient
+	KeyID     string
+	PublicKey *ecdsa.PublicKey // singleton
 }
 
 func NewEVMKMSClient(client KMSClient, keyID string) *EVMKMSClient {
@@ -157,6 +158,10 @@ func (c *EVMKMSClient) SignHash(hash []byte) ([]byte, error) {
 
 // GetECDSAPublicKey retrieves the public key from KMS and converts it to its ECDSA representation.
 func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
+	if c.PublicKey != nil {
+		return c.PublicKey, nil
+	}
+
 	getPubKeyOutput, err := c.Client.GetPublicKey(&kms.GetPublicKeyInput{
 		KeyId: aws.String(c.KeyID),
 	})
@@ -170,11 +175,11 @@ func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 		return nil, fmt.Errorf("can not parse asn1 public key for KeyId=%s: %w", c.KeyID, err)
 	}
 
-	pubKey, err := crypto.UnmarshalPubkey(asn1pubKeyInfo.SubjectPublicKey.Bytes)
+	c.PublicKey, err = crypto.UnmarshalPubkey(asn1pubKeyInfo.SubjectPublicKey.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("can not unmarshal public key bytes: %w", err)
 	}
-	return pubKey, nil
+	return c.PublicKey, nil
 }
 
 func kmsToEthSig(kmsSig, ecdsaPubKeyBytes, hash []byte) ([]byte, error) {
