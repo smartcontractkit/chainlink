@@ -413,7 +413,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			// so if there are 3 generators, it would be 3 requests per 5 seconds over the network
 			Gun:        gun,
 			Labels:     CommonTestLabels,
-			LokiConfig: wasp.NewEnvLokiConfig(),
+			LokiConfig: nil,
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
 	}

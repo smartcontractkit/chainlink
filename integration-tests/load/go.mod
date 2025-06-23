@@ -28,7 +28,7 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.60
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250620162016-c6fdc20009c6
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250623153013-06262c0faf92
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250623092251-9469184bca40
 	github.com/smartcontractkit/chainlink-deployments-framework v0.13.1
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250618173856-d731d7e7468e
