@@ -6,9 +6,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -19,6 +22,7 @@ var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 type ExecutionHelper struct {
 	*Engine
 	WorkflowExecutionID string
+	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 }
 
@@ -52,20 +56,27 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	meteringRef := strconv.Itoa(int(request.CallbackId))
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step from SDK.
+	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
+	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+	userSpendLimit.Valid = false
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
-
-	availableForCall, err := meterReport.GetAvailableForInvocation(int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow) - len(c.capCallsSemaphore))
+	spendLimit, err := meterReport.GetMaxSpendForInvocation(userSpendLimit, int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow)-len(c.capCallsSemaphore))
 	if err != nil {
 		c.lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
+	if spendLimit.Valid {
+		if err = meterReport.Deduct(meteringRef, spendLimit.Decimal); err != nil {
+			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		}
 
-	err = meterReport.Deduct(meteringRef, availableForCall)
-	if err != nil {
-		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		info, iErr := capability.Info(ctx)
+		if iErr != nil {
+			c.cfg.Lggr.Error("failed to get info for capability")
+		}
+
+		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, spendLimit.Decimal)
 	}
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
@@ -103,6 +114,19 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
-func (c *ExecutionHelper) GetID() string {
+func (c *ExecutionHelper) GetWorkflowExecutionID() string {
 	return c.WorkflowExecutionID
+}
+
+func (c *ExecutionHelper) EmitUserLog(msg string) error {
+	select {
+	case c.UserLogChan <- &protoevents.LogLine{
+		NodeTimestamp: time.Now().Format(time.RFC3339Nano),
+		Message:       msg,
+	}:
+		// Successfully sent to channel
+	default:
+		c.lggr.Warnw("Exceeded max allowed user log messages, dropping")
+	}
+	return nil
 }
