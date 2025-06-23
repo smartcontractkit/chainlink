@@ -462,6 +462,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	slowCapability := capmocks.NewExecutableCapability(t)
 	capreg.EXPECT().GetExecutable(matches.AnyContext, "slow-capability").Return(slowCapability, nil).Once()
 
+	slowCapability.EXPECT().Info(matches.AnyContext).Return(capabilities.CapabilityInfo{}, nil)
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
