@@ -35,10 +35,10 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.60
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250620114601-01401c69258d
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250620150718-13f3ead5fedb
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250620162016-c6fdc20009c6
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250623092251-9469184bca40
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
-	github.com/smartcontractkit/chainlink-deployments-framework v0.12.1
+	github.com/smartcontractkit/chainlink-deployments-framework v0.13.1
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250618173856-d731d7e7468e
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.4
@@ -449,7 +449,7 @@ require (
 	github.com/xssnick/tonutils-go v1.13.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
-	github.com/zksync-sdk/zksync2-go v1.0.0 // indirect
+	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6 // indirect
 	github.com/zondax/hid v0.9.2 // indirect
 	github.com/zondax/ledger-go v0.14.3 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect

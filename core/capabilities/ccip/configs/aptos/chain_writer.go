@@ -16,9 +16,6 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("failed to parse Aptos address from public key %s: %w", publicKeyStr, err)
 	}
 
-	// TODO REMOVE
-	fmt.Printf("DEBUG: Aptos GetChainWriterConfig: fromAddressStr=%s, pubKeyStr=%s\n", fromAddress.String(), publicKeyStr)
-
 	return chainwriter.ChainWriterConfig{
 		Modules: map[string]*chainwriter.ChainWriterModule{
 			consts.ContractNameOffRamp: {

@@ -10,6 +10,7 @@ import (
 
 type DisallowedExecutionHelper struct {
 	TimeProvider
+	SecretsFetcher
 }
 
 var _ host.ExecutionHelper = &DisallowedExecutionHelper{}
