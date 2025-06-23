@@ -34,10 +34,11 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg          *EngineConfig
-	lggr         logger.Logger
-	loggerLabels map[string]string
-	localNode    capabilities.Node
+	cfg            *EngineConfig
+	lggr           logger.Logger
+	loggerLabels   map[string]string
+	localNode      capabilities.Node
+	secretsFetcher SecretsFetcher
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -173,7 +174,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{})
+	}, &DisallowedExecutionHelper{SecretsFetcher: e.secretsFetcher})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -354,7 +355,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.secretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
