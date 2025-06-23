@@ -73,10 +73,10 @@ jobs:
           echo $PWD
           docker run -d \
             --name node-exporter \
-            --net="host" \
+            -p 9100:9100 \
             --pid="host" \
             -v "/:/host:ro" \
-            prom/node-exporter:latest \
+            quay.io/prometheus/node-exporter:latest \
             --path.rootfs=/host \
             --collector.cpu \
             --collector.meminfo \
@@ -129,7 +129,7 @@ jobs:
         run: |
           docker run -d \
             --name prometheus \
-            --network host \
+            -p 9090:9090 \
             -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
             prom/prometheus:latest \
             --config.file=/etc/prometheus/prometheus.yml
@@ -138,12 +138,12 @@ jobs:
         run: |
           docker run -d --name test-nginx nginx
 
-#      - name: Sleep for 10 seconds
-#        run: sleep 1000
+      - name: Sleep for 10 seconds
+        run: sleep 10
 
       - name: Fetch a sample of metrics
         run: |
-          curl -sf "http://localhost:9090/api/v1/label/cgroup/values"
+          curl -sf "http://host.docker.internal:9090/api/v1/label/cgroup/values"
 
       - name: Upload node logs and metrics as artifact
         if: always()
