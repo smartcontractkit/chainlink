@@ -122,7 +122,7 @@ jobs:
           scrape_configs:
             - job_name: 'node-exporter'
               static_configs:
-                - targets: ['localhost:9100']
+                - targets: ['host.docker.internal:9100']
           EOF
 
       - name: Start Prometheus
