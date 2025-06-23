@@ -373,6 +373,18 @@ func TestConfig_Marshal(t *testing.T) {
 			UpstreamSyncInterval:        commoncfg.MustNewDuration(0 * time.Second),
 			UpstreamSyncRateLimit:       commoncfg.MustNewDuration(2 * time.Minute),
 		},
+		OIDC: toml.WebServerOIDC{
+			ProviderURL:          ptr("https://id.provider.com/oauth2/default"),
+			RedirectURL:          ptr("http://localhost:3000/signin"),
+			ClaimName:            ptr("groups"),
+			AdminClaim:           ptr("NodeAdmins"),
+			EditClaim:            ptr("NodeEditors"),
+			RunClaim:             ptr("NodeRunners"),
+			ReadClaim:            ptr("NodeReadOnly"),
+			SessionTimeout:       commoncfg.MustNewDuration(15 * time.Minute),
+			UserAPITokenEnabled:  ptr(false),
+			UserAPITokenDuration: commoncfg.MustNewDuration(240 * time.Hour),
+		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
 			AuthenticatedPeriod:   commoncfg.MustNewDuration(time.Second),
