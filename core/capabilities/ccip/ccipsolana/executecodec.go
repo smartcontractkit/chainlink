@@ -45,7 +45,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	if len(chainReport.Messages) > 1 {
 		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
 	}
-
 	var message ccip_offramp.Any2SVMRampMessage
 	var offChainTokenData [][]byte
 	if len(chainReport.Messages) > 0 {
