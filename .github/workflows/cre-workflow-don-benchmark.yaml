@@ -79,7 +79,7 @@ jobs:
           
           # enter directory and launch in background
           cd node_exporter-1.9.1.linux-amd64
-          ./node_exporter &
+          ./node_exporter --collector.cgroups &
           
           # confirm it's running
           sleep 1
