@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 )
 
 // TODO: Write tests
+// TODO: Concurrent processing?
 
 var (
 	// InitChainUpgratesChangeset sets candidates for the commit and exec DONs for multiple destination chains.
@@ -41,22 +43,98 @@ var (
 	)
 )
 
+// ChainUpgradeConfig defines the commit and exec OCR parameters for a given chain.
 type ChainUpgradeConfig struct {
+	// FeedChainSelector is the selector of the chain housing the feeds used by the commit plugin.
+	FeedChainSelector uint64
+	// CommitOCRParams defines the OCR parameters for the commit plugin.
 	CommitOCRParams CCIPOCRParams
-	ExecOCRParams   CCIPOCRParams
+	// ExecOCRParams defines the OCR parameters for the exec plugin.
+	ExecOCRParams CCIPOCRParams
 }
 
+// InitChainUpgradesOnTestRoutersConfig defines the configuration for the InitChainUpgradesChangeset.
 type InitChainUpgradesOnTestRoutersConfig struct {
+	// HomeChainSelector is the selector of the home chain.
 	HomeChainSelector uint64
-	FeedChainSelector uint64
-	ChainsToUpgrade   map[uint64]ChainUpgradeConfig
-	MCMSConfig        *proposalutils.TimelockConfig
+	// ChainsToUpgrade is a map of destination chain selectors to their upgrade configurations.
+	ChainsToUpgrade map[uint64]ChainUpgradeConfig
+	// MCMSConfig is the configuration for the MCMS.
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesOnTestRoutersConfig) error {
-	// TODO: Write validations
-	// Chains must all be EVM
-	// MCMSConfig must be set
+	if c.MCMSConfig == nil {
+		return errors.New("MCMSConfig must be defined")
+	}
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	err = ValidateHomeChainState(e, c.HomeChainSelector, state)
+	if err != nil {
+		return fmt.Errorf("failed to validate home chain state: %w", err)
+	}
+	// Home chain contracts are owned by MCMS.
+	err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
+	}
+	err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
+	}
+
+	allChainSels := make(map[uint64]struct{})
+	for chainSel, chainUpgradeCfg := range c.ChainsToUpgrade {
+		// Chain selector is a valid EVM chain selector & all MCMS contracts exist.
+		err := stateview.ValidateChain(e, state, chainSel, c.MCMSConfig)
+		if err != nil {
+			return fmt.Errorf("failed to validate chain %d: %w", chainSel, err)
+		}
+
+		allChainSels[chainSel] = struct{}{}
+		sourceChainSels := getSourceChainsForSelector(state, chainSel)
+		for _, sourceChainSel := range sourceChainSels {
+			// Source chain selector is a valid EVM chain selector & all MCMS contracts exist.
+			err := stateview.ValidateChain(e, state, sourceChainSel, c.MCMSConfig)
+			if err != nil {
+				return fmt.Errorf("failed to validate chain %d: %w", sourceChainSel, err)
+			}
+			allChainSels[sourceChainSel] = struct{}{}
+		}
+
+		// Commit OCR params are valid.
+		err = chainUpgradeCfg.CommitOCRParams.Validate(e, chainSel, chainUpgradeCfg.FeedChainSelector, state)
+		if err != nil {
+			return fmt.Errorf("failed to validate commit OCR params for chain %d: %w", chainSel, err)
+		}
+
+		// Exec OCR params are valid.
+		err = chainUpgradeCfg.ExecOCRParams.Validate(e, chainSel, chainUpgradeCfg.FeedChainSelector, state)
+		if err != nil {
+			return fmt.Errorf("failed to validate exec OCR params for chain %d: %w", chainSel, err)
+		}
+
+		// ARMProxy contracts are owned by MCMS.
+		err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].RMNProxy)
+		if err != nil {
+			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
+		}
+	}
+
+	for chainSel := range allChainSels {
+		// FeeQuoter and NonceManager are owned by MCMS on both source and destination chains.
+		err := commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].FeeQuoter)
+		if err != nil {
+			return fmt.Errorf("failed to validate ownership of FeeQuoter on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
+		}
+		err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].NonceManager)
+		if err != nil {
+			return fmt.Errorf("failed to validate ownership of NonceManager on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
+		}
+	}
 
 	return nil
 }
@@ -71,12 +149,12 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 
 	// Collect all chain names for reporting purposes.
 	allChainNames := make([]string, 0, len(c.ChainsToUpgrade))
-	for chainSel := range c.ChainsToUpgrade {
-		allChainNames = append(allChainNames, e.BlockChains.EVMChains()[chainSel].String())
+	for destChainSel := range c.ChainsToUpgrade {
+		allChainNames = append(allChainNames, e.BlockChains.EVMChains()[destChainSel].String())
 	}
 
 	// Some chains already have commit and exec DONs created on 1.6.0.
-	// We need to filter these out before calling AddDonAndSetCandidateChangeset and SetCandidateChangeset.
+	// We need to filter these out before calling AddDonAndSetCandidateChangeset.
 	existingDONs := make(map[uint64]uint32)
 	for destChainSel := range c.ChainsToUpgrade {
 		donID, err := internal.DonIDForChain(
@@ -94,6 +172,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 
 	// Fetch the next DON ID from the home chain's capability registry.
 	// This is so we can assign a DON ID to each chain in the batch.
+	// TODO: Possibility of conflict with new chain integration workstream.
 	nextDonID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{Context: e.GetContext()})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get next DON ID: %w", err)
@@ -101,8 +180,18 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 
 	for destChainSel, chainUpgradeCfg := range c.ChainsToUpgrade {
 		chain := e.BlockChains.EVMChains()[destChainSel]
-
 		donIDToUse := nextDonID
+		setCandidateBase := SetCandidateConfigBase{
+			HomeChainSelector: c.HomeChainSelector,
+			FeedChainSelector: chainUpgradeCfg.FeedChainSelector,
+			MCMS:              c.MCMSConfig,
+		}
+		commitCandidatePluginInfo := SetCandidatePluginInfo{
+			PluginType: types.PluginTypeCCIPCommit,
+			OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+				destChainSel: chainUpgradeCfg.CommitOCRParams,
+			},
+		}
 
 		// (Add DON &) set candidate for commit plugin
 		if existingID, ok := existingDONs[destChainSel]; ok {
@@ -110,20 +199,9 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 
 			// DON already exists, so we just run SetCandidateChangeset for commit plugin.
 			out, err := SetCandidateChangeset(e, SetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
-					HomeChainSelector: c.HomeChainSelector,
-					FeedChainSelector: c.FeedChainSelector,
-					MCMS:              c.MCMSConfig,
-				},
-				PluginInfo: []SetCandidatePluginInfo{
-					{
-						PluginType: types.PluginTypeCCIPCommit,
-						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-							destChainSel: chainUpgradeCfg.CommitOCRParams,
-						},
-					},
-				},
-				DonIDOverrides: map[uint64]uint32{destChainSel: donIDToUse},
+				SetCandidateConfigBase: setCandidateBase,
+				PluginInfo:             []SetCandidatePluginInfo{commitCandidatePluginInfo},
+				DonIDOverrides:         map[uint64]uint32{destChainSel: donIDToUse},
 			})
 			allReports = append(allReports, out.Reports...)
 			if err != nil {
@@ -132,18 +210,9 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 		} else {
 			out, err := AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
-					HomeChainSelector: c.HomeChainSelector,
-					FeedChainSelector: c.FeedChainSelector,
-					MCMS:              c.MCMSConfig,
-				},
-				PluginInfo: SetCandidatePluginInfo{
-					PluginType: types.PluginTypeCCIPCommit,
-					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						destChainSel: chainUpgradeCfg.CommitOCRParams,
-					},
-				},
-				DonIDOverride: donIDToUse,
+				SetCandidateConfigBase: setCandidateBase,
+				PluginInfo:             commitCandidatePluginInfo,
+				DonIDOverride:          donIDToUse,
 			})
 			allReports = append(allReports, out.Reports...)
 			if err != nil {
@@ -152,17 +221,12 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 			// Increment the DON ID since addDON was / will be called.
-			// TODO: Possibility of conflict with new chain integration workstream.
 			nextDonID++
 		}
 
 		// Set candidate for exec plugin
 		out, err := SetCandidateChangeset(e, SetCandidateChangesetConfig{
-			SetCandidateConfigBase: SetCandidateConfigBase{
-				HomeChainSelector: c.HomeChainSelector,
-				FeedChainSelector: c.FeedChainSelector,
-				MCMS:              c.MCMSConfig,
-			},
+			SetCandidateConfigBase: setCandidateBase,
 			PluginInfo: []SetCandidatePluginInfo{
 				{
 					PluginType: types.PluginTypeCCIPExec,
@@ -182,7 +246,6 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 
 	for destChainSel := range c.ChainsToUpgrade {
 		destChain := e.BlockChains.EVMChains()[destChainSel]
-		// Process each chain concurrently, no sequential dependency here.
 
 		// Ensure that RMNRemote is owned by the timelock contract
 		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
@@ -212,7 +275,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 		})
 		allReports = append(allReports, out.Reports...)
 		if err != nil {
-			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run TranslateEVM2EVMOnRampsToFeeQuoterChangeset on %s: %w", destChain, err)
+			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run TranslateEVM2EVMOnRampsToFeeQuoterChangeset for source chains of %s: %w", destChain, err)
 		}
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
@@ -223,14 +286,13 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 		})
 		allReports = append(allReports, out.Reports...)
 		if err != nil {
-			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset on %s: %w", destChain, err)
+			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset for source chains of %s: %w", destChain, err)
 		}
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 		// Loop through each source connected to the destination chain.
 		sourceChainsToConnect := getSourceChainsForSelector(state, destChainSel)
 		for _, sourceChainSel := range sourceChainsToConnect {
-			// TODO: This can be concurrent across each source chain, no sequential dependency here.
 			sourceChain := e.BlockChains.EVMChains()[sourceChainSel]
 
 			// Add 1.5.0 OnRamps and 1.5.0 OffRamps to NonceManager
@@ -320,7 +382,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 			}
 			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-			// Update OnRamp to router on source, OffRamp to router on destination (use test router).
+			// Set OnRamp on source router, OffRamp on dest router (use test router).
 			// Test routers are never owned by MCMS.
 			out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
 				TestRouter: true,
@@ -360,17 +422,55 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 	return cldf.ChangesetOutput{Reports: allReports, MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
 }
 
+// PromoteChainUpgradesToMainRoutersConfig defines the configuration for the PromoteChainUpgradesChangeset.
 type PromoteChainUpgradesToMainRoutersConfig struct {
+	// HomeChainSelector is the selector of the home chain.
 	HomeChainSelector uint64
-	FeedChainSelector uint64
-	ChainsToPromote   []uint64
-	MCMSConfig        *proposalutils.TimelockConfig
+	// ChainsToPromote are the chain selectors to promote
+	ChainsToPromote []uint64
+	// MCMSConfig is the configuration for MCMS.
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgradesToMainRoutersConfig) error {
-	// TODO: Write validations
-	// Chains must all be EVM
-	// MCMSConfig must be set
+	if c.MCMSConfig == nil {
+		return errors.New("MCMSConfig must be defined")
+	}
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	err = ValidateHomeChainState(e, c.HomeChainSelector, state)
+	if err != nil {
+		return fmt.Errorf("failed to validate home chain state: %w", err)
+	}
+	// Home chain contracts are owned by MCMS.
+	err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
+	}
+	err = commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
+	}
+
+	for _, chainSel := range c.ChainsToPromote {
+		// Chain selector is a valid EVM chain selector & all MCMS contracts exist.
+		err := stateview.ValidateChain(e, state, chainSel, c.MCMSConfig)
+		if err != nil {
+			return fmt.Errorf("failed to validate chain %d: %w", chainSel, err)
+		}
+
+		sourceChainSels := getSourceChainsForSelector(state, chainSel)
+		for _, sourceChainSel := range sourceChainSels {
+			// Source chain selector is a valid EVM chain selector & all MCMS contracts exist.
+			err := stateview.ValidateChain(e, state, sourceChainSel, c.MCMSConfig)
+			if err != nil {
+				return fmt.Errorf("failed to validate chain %d: %w", sourceChainSel, err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -385,11 +485,11 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesToMainR
 
 	// Collect all chain names for reporting purposes.
 	allChainNames := make([]string, 0, len(c.ChainsToPromote))
-	for _, chainSel := range c.ChainsToPromote {
-		allChainNames = append(allChainNames, e.BlockChains.EVMChains()[chainSel].String())
+	for _, destChainSel := range c.ChainsToPromote {
+		allChainNames = append(allChainNames, e.BlockChains.EVMChains()[destChainSel].String())
 	}
 
-	// Promote candidates commit and exec plugins for all chains
+	// Promote candidates commit and exec plugins for all chains.
 	out, err := PromoteCandidateChangeset(e, PromoteCandidateChangesetConfig{
 		HomeChainSelector: c.HomeChainSelector,
 		PluginInfo: []PromoteCandidatePluginInfo{
@@ -414,14 +514,12 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesToMainR
 
 	// Connect each destination to each of its sources via main routers
 	for _, destChainSel := range c.ChainsToPromote {
-		// TODO: This can be concurrent across each destination chain, no sequential dependency here.
 		// Assemble source chains for the destination chain, using 1.5.0 OnRamps.
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Loop through each source connected to the destination chain.
 		sourceChainsToConnect := getSourceChainsForSelector(state, destChainSel)
 		for _, sourceChainSel := range sourceChainsToConnect {
-			// TODO: This can be concurrent across each source chain, no sequential dependency here.
 			sourceChain := e.BlockChains.EVMChains()[sourceChainSel]
 
 			// Transfer ownership of OffRamp, FeeQuoter, and NonceManager on destination chain.
@@ -566,7 +664,7 @@ func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []co
 		}
 		owner, err := contract.Owner(&bind.CallOpts{Context: e.GetContext()})
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of contract %s: %w", contract.Address().Hex(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of contract %s on %d: %w", contract.Address().Hex(), chainSel, err)
 		}
 		if owner == e.BlockChains.EVMChains()[chainSel].DeployerKey.From {
 			addressesToTransfer = append(addressesToTransfer, contract.Address())
