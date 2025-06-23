@@ -97,6 +97,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
+		// should only have an offchain token data if there are tokens as part of the message
 		offChainTokenData, err = binding.Pack2DByteArrayToCell(chainReport.OffchainTokenData[0])
 		if err != nil {
 			return nil, fmt.Errorf("pack offchain token data: %w", err)
@@ -108,10 +109,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		OffChainTokenData:   offChainTokenData,
 	}
 
-	cell, err := tlb.ToCell(message)
+	c, err := tlb.ToCell(message)
 	if err != nil {
 		return nil, fmt.Errorf("convert message to cell: %w", err)
 	}
 
-	return cell.ToBOC(), nil
+	return c.ToBOC(), nil
 }
