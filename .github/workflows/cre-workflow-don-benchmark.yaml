@@ -72,27 +72,26 @@ jobs:
         run: |
           docker run -d --name test-nginx nginx
 
-      - name: Download and start Node Exporter
+      - name: Download and start cAdviser
         shell: bash
         run: |
-          # download
-          wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
-          
-          # unpack
-          tar xvfz node_exporter-1.9.1.linux-amd64.tar.gz
-          
-          # enter directory and launch in background
-          cd node_exporter-1.9.1.linux-amd64
-          ./node_exporter --collector.cgroups &
-          
-          # confirm it's running
-          sleep 1
-          pgrep -f node_exporter || (echo "Node Exporter failed to start" >&2; exit 1)
+          sudo docker run \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --publish=8080:8080 \
+            --detach=true \
+            --name=cadvisor \
+            --privileged \
+            --device=/dev/kmsg \
+            gcr.io/cadvisor/cadvisor:latest
 
       - name: Wait for metrics
         run: |
           echo "Waiting up to 30s for Node Exporter metrics…"
-          if timeout 30s bash -c 'until curl -sf http://localhost:9100/metrics; do sleep 1; done'; then
+          if timeout 30s bash -c 'until curl -sf http://localhost:8080/metrics; do sleep 1; done'; then
             echo "Metrics endpoint is up"
           else
             echo "Metrics endpoint did not start within 30s" >&2
@@ -126,7 +125,7 @@ jobs:
           scrape_configs:
             - job_name: 'node-exporter'
               static_configs:
-                - targets: ['host.docker.internal:9100']
+                - targets: ['host.docker.internal:8080']
           EOF
 
       - name: Start Prometheus
@@ -162,4 +161,4 @@ jobs:
       - name: Teardown
         if: always()
         run: |
-          docker rm -f node-exporter prometheus test-nginx
+          docker rm -f cadvisor prometheus test-nginx
