@@ -674,8 +674,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 
 		for _, msg := range messages {
 			entity := msg.Attrs["beholder_entity"]
-			switch entity {
-			case fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity):
+			if entity == fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity) {
 				var report eventspb.MeteringReport
 				require.NoError(t, proto.Unmarshal(msg.Body, &report))
 				assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
@@ -683,7 +682,6 @@ func Test_Report_EmitReceipt(t *testing.T) {
 				assert.Equal(t, testAccountID, report.Metadata.WorkflowOwner)
 			}
 		}
-
 	})
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
@@ -928,6 +926,12 @@ func Test_MeterReports_End(t *testing.T) {
 
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
+
+	if client == nil {
+		meteringReport, err := NewReport(defaultLabels, lggr, nil)
+		require.NoError(t, err)
+		return meteringReport
+	}
 
 	meteringReport, err := NewReport(defaultLabels, lggr, client)
 	require.NoError(t, err)
