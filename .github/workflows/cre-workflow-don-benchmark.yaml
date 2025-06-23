@@ -47,42 +47,42 @@ jobs:
           go-version-file: core/scripts/go.mod
 
 #       We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
-#      - name: Configure AWS Credentials
-#        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
-#        with:
-#          aws-region: ${{ secrets.QA_AWS_REGION }}
-#          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-#          role-duration-seconds: 1800
-#          mask-aws-account-id: true
-#
-#      - name: Login to Amazon ECR
-#        id: login-ecr
-#        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
-#        with:
-#          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
-#        env:
-#          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
       - name: Set date variable
         id: set-date
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-#      - name: Set up cAdviser
-#        shell: bash
-#        run: |
-#          sudo docker run \
-#            --volume=/:/rootfs:ro \
-#            --volume=/var/run:/var/run:ro \
-#            --volume=/sys:/sys:ro \
-#            --volume=/var/lib/docker/:/var/lib/docker:ro \
-#            --volume=/dev/disk/:/dev/disk:ro \
-#            --network host \
-#            --detach=true \
-#            --name=cadvisor \
-#            --privileged \
-#            --device=/dev/kmsg \
-#            gcr.io/cadvisor/cadvisor:latest
+      - name: Set up cAdviser
+        shell: bash
+        run: |
+          sudo docker run \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --network host \
+            --detach=true \
+            --name=cadvisor \
+            --privileged \
+            --device=/dev/kmsg \
+            gcr.io/cadvisor/cadvisor:latest
 
       - name: Create Prometheus config
         shell: bash
@@ -108,11 +108,6 @@ jobs:
             prom/prometheus:latest \
             --config.file=/etc/prometheus/prometheus.yml
 
-      - name: Wait
-        shell: bash
-        run: |
-          sleep 10000
-
       - name: Start the test
         shell: bash
         env:
@@ -125,8 +120,7 @@ jobs:
           CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
           LOAD_TEST: "true"
           CI: "true"
-          #GH_SHA: ${{ github.sha }}
-          GH_SHA: "Asdadada"
+          GH_SHA: ${{ github.sha }}
         run: |
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
