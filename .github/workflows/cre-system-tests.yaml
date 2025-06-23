@@ -39,6 +39,7 @@ jobs:
         run: |
           # Get the list of tests and convert to JSON format
           tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
+          tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" >> $GITHUB_OUTPUT
 
