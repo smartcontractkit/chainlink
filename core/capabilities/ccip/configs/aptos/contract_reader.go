@@ -139,21 +139,139 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "execution_state_changed_events",
 						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"source_chain_selector": {
+								NewName: "SourceChainSelector",
+							},
+							"sequence_number": {
+								NewName: "SequenceNumber",
+							},
+							"message_id": {
+								NewName: "MessageId",
+							},
+							"message_hash": {
+								NewName: "MessageHash",
+							},
+							"state": {
+								NewName: "State",
+							},
+						},
 					},
 					consts.EventNameCommitReportAccepted: {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "commit_report_accepted_events",
 						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"blessed_merkle_roots": {
+								NewName: "BlessedMerkleRoots",
+								SubFieldRenames: map[string]config.RenamedField{
+									"source_chain_selector": {
+										NewName: "SourceChainSelector",
+									},
+									"on_ramp_address": {
+										NewName: "OnRampAddress",
+									},
+									"min_seq_nr": {
+										NewName: "MinSeqNr",
+									},
+									"max_seq_nr": {
+										NewName: "MaxSeqNr",
+									},
+									"merkle_root": {
+										NewName: "MerkleRoot",
+									},
+								},
+							},
+							"unblessed_merkle_roots": {
+								NewName: "UnblessedMerkleRoots",
+								SubFieldRenames: map[string]config.RenamedField{
+									"source_chain_selector": {
+										NewName: "SourceChainSelector",
+									},
+									"on_ramp_address": {
+										NewName: "OnRampAddress",
+									},
+									"min_seq_nr": {
+										NewName: "MinSeqNr",
+									},
+									"max_seq_nr": {
+										NewName: "MaxSeqNr",
+									},
+									"merkle_root": {
+										NewName: "MerkleRoot",
+									},
+								},
+							},
+							"price_updates": {
+								NewName: "PriceUpdates",
+								SubFieldRenames: map[string]config.RenamedField{
+									"token_price_updates": {
+										NewName: "TokenPriceUpdates",
+										SubFieldRenames: map[string]config.RenamedField{
+											"source_token": {
+												NewName: "SourceToken",
+											},
+											"usd_per_token": {
+												NewName: "UsdPerToken",
+											},
+										},
+									},
+									"gas_price_updates": {
+										NewName: "GasPriceUpdates",
+										SubFieldRenames: map[string]config.RenamedField{
+											"dest_chain_selector": {
+												NewName: "DestChainSelector",
+											},
+											"usd_per_unit_gas": {
+												NewName: "UsdPerUnitGas",
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 					"OCRConfigSet": {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "ocr3_base_state.config_set_events",
 						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"ocr_plugin_type": {
+								NewName: "OcrPluginType",
+							},
+							"config_digest": {
+								NewName: "ConfigDigest",
+							},
+							"signers": {
+								NewName: "Signers",
+							},
+							"transmitters": {
+								NewName: "Transmitters",
+							},
+							"big_f": {
+								NewName: "BigF",
+							},
+						},
 					},
 					"SourceChainConfigSet": {
 						EventHandleStructName: "OffRampState",
 						EventHandleFieldName:  "source_chain_config_set_events",
 						EventAccountAddress:   "offramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"source_chain_selector": {
+								NewName: "SourceChainSelector",
+							},
+							"source_chain_config": {
+								NewName: "SourceChainConfig",
+								SubFieldRenames: map[string]config.RenamedField{
+									"router":                       {NewName: "Router"},
+									"is_enabled":                   {NewName: "IsEnabled"},
+									"min_seq_nr":                   {NewName: "MinSeqNr"},
+									"is_rmn_verification_disabled": {NewName: "IsRMNVerificationDisabled"},
+									"on_ramp":                      {NewName: "OnRamp"},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -193,6 +311,82 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						EventHandleStructName: "OnRampState",
 						EventHandleFieldName:  "ccip_message_sent_events",
 						EventAccountAddress:   "onramp::get_state_address",
+						EventFieldRenames: map[string]config.RenamedField{
+							"dest_chain_selector": {
+								NewName:         "DestChainSelector",
+								SubFieldRenames: nil,
+							},
+							"sequence_number": {
+								NewName:         "SequenceNumber",
+								SubFieldRenames: nil,
+							},
+							"message": {
+								NewName: "Message",
+								SubFieldRenames: map[string]config.RenamedField{
+									"header": {
+										NewName: "Header",
+										SubFieldRenames: map[string]config.RenamedField{
+											"source_chain_selector": {
+												NewName: "SourceChainSelector",
+											},
+											"dest_chain_selector": {
+												NewName: "DestChainSelector",
+											},
+											"sequence_number": {
+												NewName: "SequenceNumber",
+											},
+											"message_id": {
+												NewName: "MessageID",
+											},
+											"nonce": {
+												NewName: "Nonce",
+											},
+										},
+									},
+									"sender": {
+										NewName: "Sender",
+									},
+									"data": {
+										NewName: "Data",
+									},
+									"receiver": {
+										NewName: "Receiver",
+									},
+									"extra_args": {
+										NewName: "ExtraArgs",
+									},
+									"fee_token": {
+										NewName: "FeeToken",
+									},
+									"fee_token_amount": {
+										NewName: "FeeTokenAmount",
+									},
+									"fee_value_juels": {
+										NewName: "FeeValueJuels",
+									},
+									"token_amounts": {
+										NewName: "TokenAmounts",
+										SubFieldRenames: map[string]config.RenamedField{
+											"source_pool_address": {
+												NewName: "SourcePoolAddress",
+											},
+											"dest_token_address": {
+												NewName: "DestTokenAddress",
+											},
+											"extra_data": {
+												NewName: "ExtraData",
+											},
+											"amount": {
+												NewName: "Amount",
+											},
+											"dest_exec_data": {
+												NewName: "DestExecData",
+											},
+										},
+									},
+								},
+							},
+						},
 						EventFilterRenames: map[string]string{
 							"DestChain":   "DestChainSelector",
 							"SourceChain": "Message.Header.SourceChainSelector",
