@@ -123,7 +123,7 @@ jobs:
             scrape_interval: 5s
           
           scrape_configs:
-            - job_name: 'node-exporter'
+            - job_name: 'cadvisor'
               static_configs:
                 - targets: ['localhost:8080']
           EOF
@@ -143,9 +143,13 @@ jobs:
       - name: Sleep for 10 seconds
         run: sleep 10
 
-      - name: Check Prometheus metrics
+      - name: List container CPU & RAM usage
         run: |
-          curl -sf "http://localhost:9090/api/v1/query?query=up"
+          curl -G 'http://localhost:9090/api/v1/query' \
+          --data-urlencode 'query=sum by (container_name)(rate(container_cpu_usage_seconds_total[5m]))'
+          
+          curl -G 'http://localhost:9090/api/v1/query' \
+          --data-urlencode 'query=max_over_time(container_memory_usage_bytes[5m]) by (container_name)'
 
       - name: Upload node logs and metrics as artifact
         if: always()
