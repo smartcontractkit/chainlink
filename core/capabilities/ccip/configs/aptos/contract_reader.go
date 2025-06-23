@@ -145,6 +145,16 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						EventHandleFieldName:  "commit_report_accepted_events",
 						EventAccountAddress:   "offramp::get_state_address",
 					},
+					"OCRConfigSet": {
+						EventHandleStructName: "OffRampState",
+						EventHandleFieldName:  "ocr3_base_state.config_set_events",
+						EventAccountAddress:   "offramp::get_state_address",
+					},
+					"SourceChainConfigSet": {
+						EventHandleStructName: "OffRampState",
+						EventHandleFieldName:  "source_chain_config_set_events",
+						EventAccountAddress:   "offramp::get_state_address",
+					},
 				},
 			},
 			consts.ContractNameOnRamp: {
