@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -33,10 +34,11 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg          *EngineConfig
-	lggr         logger.Logger
-	loggerLabels map[string]string
-	localNode    capabilities.Node
+	cfg            *EngineConfig
+	lggr           logger.Logger
+	loggerLabels   map[string]string
+	localNode      capabilities.Node
+	secretsFetcher SecretsFetcher
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -172,7 +174,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{})
+	}, &DisallowedExecutionHelper{SecretsFetcher: e.secretsFetcher})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -320,20 +322,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			return
 		}
 
-		// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
-		// Add an extra second of metering padding for context cancel propagation
-		ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
-		computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs)+ctxCancelPadding)
-		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
-		}
-		mrErr = meteringReport.Deduct(
-			metering.ComputeResourceDimension,
-			computeAmount,
-		)
-		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
-		}
+		e.deductStandardBalances(meteringReport)
 	}
 
 	execCtx, execCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
@@ -366,7 +355,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.secretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -453,6 +442,24 @@ func (e *Engine) heartbeatLoop(ctx context.Context) {
 			e.lggr.Debugw("Engine heartbeat tick", "time", e.cfg.Clock.Now().Format(time.RFC3339))
 			e.metrics.IncrementEngineHeartbeatCounter(ctx)
 		}
+	}
+}
+
+func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
+	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
+	// Add an extra second of metering padding for context cancel propagation
+	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
+	compMs := decimal.NewFromInt(int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs) + ctxCancelPadding)
+	computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, compMs)
+	if mrErr != nil {
+		e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
+	}
+
+	if mrErr = meteringReport.Deduct(
+		metering.ComputeResourceDimension,
+		computeAmount,
+	); mrErr != nil {
+		e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
 	}
 }
 

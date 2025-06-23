@@ -710,7 +710,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(opts.DS)
+		feedsORM := feeds.NewORM(opts.DS, globalLogger)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
