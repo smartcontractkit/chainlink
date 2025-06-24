@@ -4,15 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
-	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	protoEvents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	wfEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -21,6 +26,7 @@ const (
 )
 
 var (
+	ErrMissingLabels       = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
 	ErrNoBillingClient     = errors.New("no billing client has been configured")
 	ErrInsufficientFunding = errors.New("insufficient funding")
 	ErrReceiptFailed       = errors.New("failed to submit workflow receipt")
@@ -63,9 +69,7 @@ type ReportStepDetail struct {
 
 type Report struct {
 	// descriptive properties
-	owner               string
-	workflowID          string
-	workflowExecutionID string
+	labels map[string]string
 
 	// dependencies
 	balance *balanceStore
@@ -84,22 +88,31 @@ type Report struct {
 	steps        map[string]ReportStep
 }
 
-func NewReport(owner, workflowID, workflowExecutionID string, lggr logger.Logger, client BillingClient) *Report {
-	sLggr := logger.Sugared(lggr).Named("Metering").With("workflowExecutionID", workflowExecutionID)
+func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient) (*Report, error) {
+	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
+	for _, label := range requiredLabels {
+		_, ok := labels[label]
+		if !ok {
+			return nil, ErrMissingLabels
+		}
+	}
+
+	balanceStore, err := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+	if err != nil {
+		return nil, err
+	}
 
 	return &Report{
-		owner:               owner,
-		workflowID:          workflowID,
-		workflowExecutionID: workflowExecutionID,
+		labels: labels,
 
-		balance: NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{}, sLggr),
+		balance: balanceStore,
 		client:  client,
-		lggr:    sLggr,
+		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
 
 		ready:        false,
 		meteringMode: false,
 		steps:        make(map[string]ReportStep),
-	}
+	}, nil
 }
 
 // Reserve calls the billing service for the initial credit balance that can be used in an execution.
@@ -119,9 +132,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
 	req := billing.ReserveCreditsRequest{
-		AccountId:           r.owner,
-		WorkflowId:          r.workflowID,
-		WorkflowExecutionId: r.workflowExecutionID,
+		AccountId:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:          r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
 		Credits:             0,
 	}
 
@@ -145,8 +158,15 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
+	balanceStore, err := NewBalanceStore(decimal.NewFromFloat32(resp.Credits), rateCard)
+	if err != nil {
+		r.switchToMeteringMode(err)
+
+		return nil
+	}
+
 	r.ready = true
-	r.balance = NewBalanceStore(decimal.NewFromFloat32(resp.Credits), rateCard, r.lggr)
+	r.balance = balanceStore
 
 	return nil
 }
@@ -326,18 +346,18 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	return nil
 }
 
-func (r *Report) FormatReport() *events.MeteringReport {
-	protoReport := &events.MeteringReport{
-		Steps:    map[string]*events.MeteringReportStep{},
-		Metadata: &events.WorkflowMetadata{},
+func (r *Report) FormatReport() *protoEvents.MeteringReport {
+	protoReport := &protoEvents.MeteringReport{
+		Steps:    map[string]*protoEvents.MeteringReportStep{},
+		Metadata: &protoEvents.WorkflowMetadata{},
 	}
 
 	for ref, step := range r.steps {
-		nodeDetails := []*events.MeteringReportNodeDetail{}
+		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 
 		for unit, details := range step.Spends {
 			for _, detail := range details {
-				nodeDetails = append(nodeDetails, &events.MeteringReportNodeDetail{
+				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
 					Peer_2PeerId: detail.Peer2PeerID,
 					SpendUnit:    unit,
 					SpendValue:   detail.SpendValue,
@@ -345,7 +365,7 @@ func (r *Report) FormatReport() *events.MeteringReport {
 			}
 		}
 
-		protoReport.Steps[ref] = &events.MeteringReportStep{
+		protoReport.Steps[ref] = &protoEvents.MeteringReportStep{
 			Nodes: nodeDetails,
 		}
 	}
@@ -365,9 +385,9 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		AccountId:           r.owner,
-		WorkflowId:          r.workflowID,
-		WorkflowExecutionId: r.workflowExecutionID,
+		AccountId:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:          r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
 		Metering:            r.FormatReport(),
 	}
 
@@ -381,6 +401,14 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (r *Report) EmitReceipt(ctx context.Context) error {
+	if !r.ready {
+		return ErrNoReserve
+	}
+
+	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
 }
 
 func (r *Report) switchToMeteringMode(err error) {
@@ -419,22 +447,25 @@ type Reports struct {
 	reports map[string]*Report
 	client  BillingClient
 	lggr    logger.Logger
+	metrics *monitoring.WorkflowsMetricLabeler
 
 	// descriptive properties
 	owner      string
 	workflowID string
+	labelMap   map[string]string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger) *Reports {
+func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
-
-		lggr: lggr,
+		lggr:    lggr,
+		metrics: metrics,
 
 		owner:      owner,
 		workflowID: workflowID,
+		labelMap:   labels,
 	}
 }
 
@@ -457,7 +488,14 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 		return nil, ErrReportExists
 	}
 
-	report := NewReport(s.owner, s.workflowID, workflowExecutionID, s.lggr, s.client)
+	labels := map[string]string{}
+	maps.Copy(labels, s.labelMap)
+	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
+
+	report, err := NewReport(labels, s.lggr, s.client)
+	if err != nil {
+		return nil, err
+	}
 
 	s.reports[workflowExecutionID] = report
 
@@ -474,14 +512,24 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 		return ErrReportNotFound
 	}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-500; if in metering mode, send to beholder
+	var multiErr error
 
-	err := report.SendReceipt(ctx)
+	emitErr := report.EmitReceipt(ctx)
+	if emitErr != nil {
+		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
+		multiErr = multierr.Combine(multiErr, emitErr)
+	}
+
+	sendErr := report.SendReceipt(ctx)
+	if sendErr != nil {
+		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
+		multiErr = multierr.Combine(multiErr, sendErr)
+	}
 
 	delete(s.reports, workflowExecutionID)
 
-	if err != nil {
-		return err
+	if multiErr != nil {
+		return multiErr
 	}
 
 	return nil
