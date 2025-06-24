@@ -213,6 +213,10 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 		// Convert to operation input format
 		var opGroupUpdates []ccipops.GroupUpdate
 		for _, update := range groupUpdates {
+			if update.RemoteChainSupply == nil {
+				update.RemoteChainSupply = big.NewInt(0)
+			}
+
 			opGroupUpdates = append(opGroupUpdates, ccipops.GroupUpdate{
 				RemoteChainSelector: update.RemoteChainSelector,
 				Group:               uint8(update.Group),

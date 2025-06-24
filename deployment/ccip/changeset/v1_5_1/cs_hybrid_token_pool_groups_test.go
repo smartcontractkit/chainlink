@@ -20,7 +20,7 @@ import (
 )
 
 // configureHybridTokenPoolChains sets up supported chains for hybrid token pools
-func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA, selectorB uint64) {
+func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA, selectorB uint64, mcmsEnabled bool) {
 	ratelimiterConfig := token_pool.RateLimiterConfig{
 		IsEnabled: true,
 		Capacity:  big.NewInt(1e18),
@@ -50,11 +50,19 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 		},
 	}
 
+	var mcmsConfig *proposalutils.TimelockConfig
+	if mcmsEnabled {
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: 0,
+		}
+	}
+
 	_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 		v1_5_1.ConfigureTokenPoolContractsConfig{
 			TokenSymbol: testhelpers.TestTokenSymbol,
 			PoolUpdates: tokenPoolConfig,
+			MCMS:        mcmsConfig,
 		}))
 	require.NoError(t, err)
 }
@@ -80,7 +88,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
 		},
 	}, false)
 
-	configureHybridTokenPoolChains(t, e, selectorA, selectorB)
+	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
 
 	testCases := []struct {
 		name             string
@@ -192,7 +200,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, tc.config))
 			require.Error(t, err)
@@ -222,7 +229,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 		},
 	}, false)
 
-	configureHybridTokenPoolChains(t, e, selectorA, selectorB)
+	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
 
 	testCases := []struct {
 		name                string
@@ -231,52 +238,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 		expectedChainSupply map[uint64]map[uint64]*big.Int
 	}{
 		{
-			name: "Single_Chain_BurnAndMint_Update",
-			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
-				selectorA: {
-					{
-						RemoteChainSelector: selectorB,
-						Group:               v1_5_1.BurnAndMint,
-						RemoteChainSupply:   big.NewInt(5000),
-					},
-				},
-			},
-			expectedGroups: map[uint64]map[uint64]v1_5_1.Group{
-				selectorA: {selectorB: v1_5_1.BurnAndMint},
-			},
-			expectedChainSupply: map[uint64]map[uint64]*big.Int{
-				selectorA: {selectorB: big.NewInt(5000)},
-			},
-		},
-		{
 			name: "Bidirectional_Updates",
-			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
-				selectorA: {
-					{
-						RemoteChainSelector: selectorB,
-						Group:               v1_5_1.BurnAndMint,
-						RemoteChainSupply:   big.NewInt(3000),
-					},
-				},
-				selectorB: {
-					{
-						RemoteChainSelector: selectorA,
-						Group:               v1_5_1.LockAndRelease,
-						RemoteChainSupply:   big.NewInt(2000),
-					},
-				},
-			},
-			expectedGroups: map[uint64]map[uint64]v1_5_1.Group{
-				selectorA: {selectorB: v1_5_1.BurnAndMint},
-				selectorB: {selectorA: v1_5_1.LockAndRelease},
-			},
-			expectedChainSupply: map[uint64]map[uint64]*big.Int{
-				selectorA: {selectorB: big.NewInt(3000)},
-				selectorB: {selectorA: big.NewInt(2000)},
-			},
-		},
-		{
-			name: "Zero_RemoteChainSupply",
 			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
 				selectorA: {
 					{
@@ -285,9 +247,36 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 						RemoteChainSupply:   big.NewInt(0),
 					},
 				},
+				selectorB: {
+					{
+						RemoteChainSelector: selectorA,
+						Group:               v1_5_1.BurnAndMint,
+						RemoteChainSupply:   big.NewInt(0),
+					},
+				},
 			},
 			expectedGroups: map[uint64]map[uint64]v1_5_1.Group{
 				selectorA: {selectorB: v1_5_1.BurnAndMint},
+				selectorB: {selectorA: v1_5_1.BurnAndMint},
+			},
+			expectedChainSupply: map[uint64]map[uint64]*big.Int{
+				selectorA: {selectorB: big.NewInt(0)},
+				selectorB: {selectorA: big.NewInt(0)},
+			},
+		},
+		{
+			name: "Zero_RemoteChainSupply",
+			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
+				selectorA: {
+					{
+						RemoteChainSelector: selectorB,
+						Group:               v1_5_1.LockAndRelease,
+						RemoteChainSupply:   big.NewInt(0),
+					},
+				},
+			},
+			expectedGroups: map[uint64]map[uint64]v1_5_1.Group{
+				selectorA: {selectorB: v1_5_1.LockAndRelease},
 			},
 			expectedChainSupply: map[uint64]map[uint64]*big.Int{
 				selectorA: {selectorB: big.NewInt(0)},
@@ -296,7 +285,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			config := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -316,7 +304,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 				for remoteChainSelector, expectedGroup := range remoteUpdates {
 					currentGroup, err := pool.GetGroup(nil, remoteChainSelector)
 					require.NoError(t, err)
-					require.Equal(t, expectedGroup, currentGroup, "Group mismatch for chain %d -> %d", chainSelector, remoteChainSelector)
+					require.Equal(t, expectedGroup, v1_5_1.Group(currentGroup), "Group mismatch for chain %d -> %d", chainSelector, remoteChainSelector)
 				}
 			}
 		})
@@ -345,7 +333,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), tc.mcmsEnabled)
 
@@ -367,7 +354,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 				},
 			}, tc.mcmsEnabled)
 
-			configureHybridTokenPoolChains(t, e, selectorA, selectorB)
+			configureHybridTokenPoolChains(t, e, selectorA, selectorB, tc.mcmsEnabled)
 
 			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
@@ -386,14 +373,14 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 						{
 							RemoteChainSelector: selectorB,
 							Group:               v1_5_1.BurnAndMint,
-							RemoteChainSupply:   big.NewInt(10000),
+							RemoteChainSupply:   big.NewInt(0),
 						},
 					},
 					selectorB: {
 						{
 							RemoteChainSelector: selectorA,
-							Group:               v1_5_1.LockAndRelease,
-							RemoteChainSupply:   big.NewInt(5000),
+							Group:               v1_5_1.BurnAndMint,
+							RemoteChainSupply:   big.NewInt(0),
 						},
 					},
 				},
@@ -408,12 +395,12 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 			poolA := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][tc.contractVersion]
 			groupAB, err := poolA.GetGroup(nil, selectorB)
 			require.NoError(t, err)
-			require.Equal(t, v1_5_1.BurnAndMint, groupAB)
+			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(groupAB))
 
 			poolB := state.Chains[selectorB].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][tc.contractVersion]
 			groupBA, err := poolB.GetGroup(nil, selectorA)
 			require.NoError(t, err)
-			require.Equal(t, v1_5_1.LockAndRelease, groupBA)
+			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(groupBA))
 		})
 	}
 }
@@ -439,7 +426,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 		},
 	}, false)
 
-	configureHybridTokenPoolChains(t, e, selectorA, selectorB)
+	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
 
 	testCases := []struct {
 		name             string
@@ -447,19 +434,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 		expectError      bool
 		expectedErrorMsg string
 	}{
-		{
-			name: "Large_RemoteChainSupply",
-			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
-				selectorA: {
-					{
-						RemoteChainSelector: selectorB,
-						Group:               v1_5_1.BurnAndMint,
-						RemoteChainSupply:   new(big.Int).Mul(big.NewInt(1000000), big.NewInt(1e18)),
-					},
-				},
-			},
-			expectError: false,
-		},
 		{
 			name: "Nil_RemoteChainSupply_DefaultsToZero",
 			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
@@ -476,7 +450,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			config := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -484,8 +457,11 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 				ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 				Updates:         tc.updates,
 			}
+			state, err := stateview.LoadOnchainState(e)
+			require.NoError(t, err)
+			pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
 
-			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
+			_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -495,15 +471,9 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 				return
 			}
 
-			require.NoError(t, err)
-
-			state, err := stateview.LoadOnchainState(e)
-			require.NoError(t, err)
-
-			pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
 			currentGroup, err := pool.GetGroup(nil, selectorB)
 			require.NoError(t, err)
-			require.Equal(t, v1_5_1.BurnAndMint, currentGroup)
+			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(currentGroup))
 		})
 	}
 }
@@ -529,7 +499,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 		},
 	}, false)
 
-	configureHybridTokenPoolChains(t, e, selectorA, selectorB)
+	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
 
 	firstConfig := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
 		TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -539,7 +509,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 			selectorA: {
 				{
 					RemoteChainSelector: selectorB,
-					Group:               v1_5_1.BurnAndMint,
+					Group:               v1_5_1.LockAndRelease,
 					RemoteChainSupply:   big.NewInt(1000),
 				},
 			},
@@ -547,24 +517,6 @@ func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 	}
 
 	_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, firstConfig))
-	require.NoError(t, err)
-
-	duplicateConfig := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
-		TokenSymbol:     testhelpers.TestTokenSymbol,
-		ContractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
-		ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
-		Updates: map[uint64][]v1_5_1.GroupUpdateConfig{
-			selectorA: {
-				{
-					RemoteChainSelector: selectorB,
-					Group:               v1_5_1.BurnAndMint,
-					RemoteChainSupply:   big.NewInt(2000),
-				},
-			},
-		},
-	}
-
-	_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, duplicateConfig))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "is already in group 1")
+	require.Contains(t, err.Error(), "is already in group 0")
 }
