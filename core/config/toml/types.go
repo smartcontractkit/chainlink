@@ -1081,7 +1081,7 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 }
 
 type WebServerOIDCSecrets struct {
-	ClientSecret *string
+	ClientSecret *string `toml:"ClientSecret,omitempty"`
 }
 
 func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
