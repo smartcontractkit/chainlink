@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	customhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
@@ -19,20 +17,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ httpserver.ClientCapability = (*FakeHttpAction)(nil)
-var _ services.Service = (*FakeHttpAction)(nil)
-var _ commonCap.ExecutableCapability = (*FakeHttpAction)(nil)
+var _ httpserver.ClientCapability = (*DirectHttpAction)(nil)
+var _ services.Service = (*DirectHttpAction)(nil)
+var _ commonCap.ExecutableCapability = (*DirectHttpAction)(nil)
 
 const HTTPActionID = "http-action@1.0.0"
 const HTTPActionServiceName = "HttpActionService"
 
-var fakeHttpActionInfo = capabilities.MustNewCapabilityInfo(
+var directHttpActionInfo = capabilities.MustNewCapabilityInfo(
 	HTTPActionID,
 	capabilities.CapabilityTypeAction,
-	"An action that uses an HTTP request to run periodically at fixed times, dates, or intervals.",
+	"An action that makes an direct HTTP request",
 )
 
-type FakeHttpAction struct {
+type DirectHttpAction struct {
 	commonCap.CapabilityInfo
 	services.Service
 	eng *services.Engine
@@ -40,32 +38,21 @@ type FakeHttpAction struct {
 	lggr logger.Logger
 }
 
-func NewFakeHttpAction(lggr logger.Logger) *FakeHttpAction {
-	fc := &FakeHttpAction{
+func NewDirectHttpAction(lggr logger.Logger) *DirectHttpAction {
+	fc := &DirectHttpAction{
 		lggr: lggr,
 	}
 
 	fc.Service, fc.eng = services.Config{
-		Name:  "fakeHttpAction",
+		Name:  "directHttpAction",
 		Start: fc.Start,
 		Close: fc.Close,
 	}.NewServiceEngine(lggr)
 	return fc
 }
 
-type ReserveInfo struct {
-	LastUpdated  time.Time       `consensus_aggregation:"median" json:"lastUpdated"`
-	TotalReserve decimal.Decimal `consensus_aggregation:"median" json:"totalReserve"`
-}
-
-type PorResponse struct {
-	DataSignature string `json:"dataSignature"`
-	Ripcord       bool   `json:"ripcord"`
-	Data          string `json:"data"`
-}
-
-func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
-	fh.eng.Infow("Fake Http Action SendRequest Started", "input", input)
+func (fh *DirectHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
+	fh.eng.Infow("Http Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
 	timeout := time.Duration(30) * time.Second // default timeout
@@ -149,29 +136,29 @@ func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities
 	return response, nil
 }
 
-func (fh *FakeHttpAction) Start(ctx context.Context) error {
-	fh.eng.Infow("Fake Http Action Start Started")
+func (fh *DirectHttpAction) Start(ctx context.Context) error {
+	fh.eng.Infow("Http Action Start Started")
 	return nil
 }
 
-func (fh *FakeHttpAction) Close() error {
-	fh.eng.Infow("Fake Http Action Close Started")
+func (fh *DirectHttpAction) Close() error {
+	fh.eng.Infow("Http Action Close Started")
 	return nil
 }
 
-func (fh *FakeHttpAction) Name() string {
+func (fh *DirectHttpAction) Name() string {
 	return HTTPActionServiceName
 }
 
-func (fh *FakeHttpAction) Description() string {
-	return fakeHttpActionInfo.Description
+func (fh *DirectHttpAction) Description() string {
+	return directHttpActionInfo.Description
 }
 
-func (fh *FakeHttpAction) Ready() error {
+func (fh *DirectHttpAction) Ready() error {
 	return nil
 }
 
-func (fh *FakeHttpAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
+func (fh *DirectHttpAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
@@ -188,17 +175,17 @@ func (fh *FakeHttpAction) Initialise(ctx context.Context, config string, _ core.
 	return nil
 }
 
-func (fh *FakeHttpAction) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
-	fh.eng.Infow("Fake Http Action Execute Started", "request", request)
+func (fh *DirectHttpAction) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
+	fh.eng.Infow("Direct Http Action Execute Started", "request", request)
 	return commonCap.CapabilityResponse{}, nil
 }
 
-func (fh *FakeHttpAction) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
-	fh.eng.Infow("Registered to Fake Http Action", "workflowID", request.Metadata.WorkflowID)
+func (fh *DirectHttpAction) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
+	fh.eng.Infow("Registered to Direct Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
-func (fh *FakeHttpAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
-	fh.eng.Infow("Unregistered from Fake Http Action", "workflowID", request.Metadata.WorkflowID)
+func (fh *DirectHttpAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
+	fh.eng.Infow("Unregistered from Direct Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
