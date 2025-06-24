@@ -7,14 +7,12 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
 // OP: Deploy MCMS Contract
@@ -135,15 +133,15 @@ var CleanupStagingAreaOp = operations.NewOperation(
 	cleanupStagingArea,
 )
 
-func cleanupStagingArea(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (types.BatchOperation, error) {
+func cleanupStagingArea(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.AccountAddress) (mcmstypes.BatchOperation, error) {
 	// Check resources first to see if staging is clean
 	IsMCMSStagingAreaClean, err := utils.IsMCMSStagingAreaClean(deps.AptosChain.Client, mcmsAddress)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
 	}
 	if IsMCMSStagingAreaClean {
-		b.Logger.Infow("MCMS Staging Area already clean", "addr", mcmsAddress.String())
-		return types.BatchOperation{}, nil
+		b.Logger.Infow("MCMS Staging Area already clean", "addr", mcmsAddress.StringLong())
+		return mcmstypes.BatchOperation{}, nil
 	}
 
 	// Bind MCMS contract
@@ -152,15 +150,15 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.A
 	// Get cleanup staging operations
 	moduleInfo, function, _, args, err := mcmsContract.MCMSDeployer().Encoder().CleanupStagingArea()
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to EncodeCleanupStagingArea: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to EncodeCleanupStagingArea: %w", err)
 	}
 	mcmsTx, err := utils.GenerateMCMSTx(mcmsAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
 	}
 
-	return types.BatchOperation{
-		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  []types.Transaction{mcmsTx},
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  []mcmstypes.Transaction{mcmsTx},
 	}, nil
 }

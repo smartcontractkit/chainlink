@@ -62,7 +62,7 @@ func SingleGroupMCMSV2(t *testing.T) mcmstypes.Config {
 }
 
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.
-func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal) *mcmslib.Proposal {
+func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcmslib.TimelockProposal, realBackend bool) *mcmslib.Proposal {
 	converters := make(map[mcmstypes.ChainSelector]mcmssdk.TimelockConverter)
 	inspectorsMap := make(map[mcmstypes.ChainSelector]mcmssdk.Inspector)
 	evmChains := env.BlockChains.EVMChains()
@@ -97,7 +97,7 @@ func SignMCMSTimelockProposal(t *testing.T, env cldf.Environment, proposal *mcms
 	p, _, err := proposal.Convert(env.GetContext(), converters)
 	require.NoError(t, err)
 
-	p.UseSimulatedBackend(true)
+	p.UseSimulatedBackend(!realBackend)
 
 	signable, err := mcmslib.NewSignable(&p, inspectorsMap)
 	require.NoError(t, err)
@@ -336,7 +336,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		if err != nil {
 			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
 		}
-		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d", i, uint64(op.ChainSelector))
+		t.Logf("[ExecuteMCMSTimelockProposalV2] Executed timelock operation index=%d on chain %d (tx %v)", i, uint64(op.ChainSelector), tx.Hash)
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 
@@ -346,7 +346,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			evmTransaction := tx.RawData.(*gethtypes.Transaction)
 			_, err = chain.Confirm(evmTransaction)
 			if err != nil {
-				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on EVM failed: %w", err)
 			}
 		}
 		if family == chainsel.FamilyAptos {
@@ -354,7 +354,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			aptosTx := tx.RawData.(*aptosapi.PendingTransaction)
 			err = chain.Confirm(aptosTx.Hash)
 			if err != nil {
-				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on Aptos failed: %w", err)
 			}
 		}
 	}

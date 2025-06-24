@@ -52,7 +52,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	assertOwner(t, env, solanaSelector, chainState, deployer)
 
 	// --- act ---
-	_, _, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
+	_, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
 	require.NoError(t, err)
 
 	// --- assert ---

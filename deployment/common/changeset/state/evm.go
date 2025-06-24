@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
@@ -105,7 +106,7 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelector
 }
 
 // TODO there should be some common utility/adapter for this
-func loadAddressesFromDataStore(ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata], chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
 	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 	if len(addresses) == 0 {

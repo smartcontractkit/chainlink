@@ -87,6 +87,8 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 			l.Info().Msg("✅ OCR was executing")
 		}
 
+		// TODO think how to make it handle better a situation when different DONs have writeEVM capability, but for different chains
+		// or when they run multple workflows and we care which one sent the report and which didn't
 		if flags.HasFlag(debugDon.Flags, types.WriteEVMCapability) {
 			if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Reports were not sent")
@@ -160,7 +162,8 @@ func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Log
 	sc, err := seth.NewClientBuilder().
 		WithRpcUrl(wsRPCURL).
 		WithReadOnlyMode().
-		WithGethWrappersFolders([]string{"../../../../core/gethwrappers/keystone/generated"}). // point Seth to the folder with keystone geth wrappers, so that it can load contract ABIs
+		// we assume that chainlink-evm is in the same directory as chainlink, so we can use relative path
+		WithGethWrappersFolders([]string{"../../../../../chainlink-evm/gethwrappers/keystone/generated"}). // point Seth to the folder with keystone geth wrappers, so that it can load contract ABIs
 		Build()
 
 	if err != nil {
@@ -172,7 +175,7 @@ func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Log
 		l.Info().Msgf("🔍 Tracing report transmission transaction %s", txHash)
 		// set tracing level to all to trace also successful transactions
 		sc.Cfg.TracingLevel = seth.TracingLevel_All
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 60*time.Second)
 		tx, _, txErr := sc.Client.TransactionByHash(ctxWithTimeout, common.HexToHash(txHash))
 		if txErr != nil {
 			cancel()

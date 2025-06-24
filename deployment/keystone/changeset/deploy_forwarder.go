@@ -55,7 +55,7 @@ func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Ch
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
-	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
+	out.DataStore = datastore.NewMemoryDataStore()
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {

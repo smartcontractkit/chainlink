@@ -4,20 +4,21 @@ import (
 	"context"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // This capability simulates consensus by running the OCR plugin on a single node, without libOCR.
@@ -48,7 +49,7 @@ type fakeConsensus struct {
 	config      FakeConsensusConfig
 	plugin      ocr3types.ReportingPlugin[[]byte]
 	transmitter *ocr3.ContractTransmitter
-	store       *requests.Store
+	store       *requests.Store[*ocr3.ReportRequest, ocr3.ReportResponse]
 	cap         capIface
 	stats       SimpleStats
 
@@ -67,7 +68,7 @@ const consensusCapID = "offchain_reporting@1.0.0"
 
 func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeConsensus, error) {
 	rpConfig := ocr3types.ReportingPluginConfig{}
-	store := requests.NewStore()
+	store := requests.NewStore[*ocr3.ReportRequest]()
 
 	capability := ocr3.NewCapability(store, clockwork.NewRealClock(), config.RequestTimeout, capabilities.NewAggregator, capabilities.NewEncoder, lggr, 100)
 

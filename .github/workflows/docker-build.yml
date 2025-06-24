@@ -45,8 +45,8 @@ jobs:
         id: runner-labels
         shell: bash
         env:
-          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/image=ubuntu24-full-arm64
-          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/image=ubuntu24-full-x64
+          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/spot=false/image=ubuntu24-full-arm64
+          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/spot=false/image=ubuntu24-full-x64
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
@@ -65,7 +65,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -76,7 +76,6 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_SOLANA_CMD=chainlink-solana
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -95,7 +94,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -108,9 +107,44 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
         CL_SOLANA_CMD=chainlink-solana
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
+      github-workflow-repository: ${{ github.repository }}
+      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
+      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  docker-core-plugins-testing:
+    needs: [init]
+    if: ${{ needs.init.outputs.should-run == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    with:
+      aws-ecr-name: chainlink
+      aws-region-ecr: us-west-2
+      aws-region-gati: us-west-2
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=true
+        CL_INSTALL_TESTING_PLUGINS=true
+        CL_APTOS_CMD=chainlink-aptos
+        CL_SOLANA_CMD=chainlink-solana
+      docker-build-cache-disabled: "true"
+      docker-manifest-sign: true
+      docker-tag-custom-suffix: "-plugins-testing"
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -130,7 +164,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -142,7 +176,6 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
         COMMIT_SHA=${{ github.sha }}
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -161,7 +194,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -174,7 +207,6 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -191,10 +223,22 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   call-cre-local-env-tests:
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@3274245a0b5b8bd5ea4bf0b6e507ac29e5571beb # develop SHA from 23rd May 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@051813389f8480a4ada4606abdb260c7a59412ee # develop SHA from 18th June 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
-      chainlink_version: develop
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
+    secrets: inherit
+
+  call-cre-workflow-don-benchmark:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [ docker-core-plugins-testing ]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@051813389f8480a4ada4606abdb260c7a59412ee # develop SHA from 18th June 2025
+    with:
+      chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit

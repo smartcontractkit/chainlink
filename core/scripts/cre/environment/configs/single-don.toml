@@ -13,11 +13,17 @@
 
 [jd]
   # change to your version
-  image = "job-distributor:0.9.0"
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  image = "job-distributor:0.12.7"
 
 [infra]
   # either "docker" or "crib"
   type = "docker"
+
+#[infra.crib]
+#  namespace = "crib-local"
+#  folder_location = "/absolute/path/to/crib/deployments/cre"
+#  provider = "kind"  # or "aws"
 
 [extra_capabilities]
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
@@ -55,6 +61,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -74,6 +82,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -93,6 +103,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -112,6 +124,8 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -131,3 +145,5 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""

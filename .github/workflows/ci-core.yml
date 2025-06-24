@@ -181,7 +181,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: "true"
+            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -205,7 +205,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
-            use-flakeguard: "true"
+            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -278,9 +278,7 @@ jobs:
 
       - name: Install LOOP Plugins
         if: ${{ matrix.type.should-run == 'true' }}
-        run: |
-          make install-loopinstall
-          make install-plugins-public
+        run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
@@ -622,7 +620,7 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
@@ -741,8 +739,8 @@ jobs:
       - uses: ./.github/actions/setup-go
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
-      # Some plugins such as chainlink-data-streams, chainlink-feeds, and
-      # chainlink-solana are also dependent modules in the go.mod file.
+      # Some plugins such as chainlink-data-streams, chainlink-feeds,
+      # and chainlink-solana are also dependencies in the go.mod file.
       # This job is to ensure that the versions defined in the go.mod file are
       # in sync with the gitRef field in the plugins YAML files.
       #

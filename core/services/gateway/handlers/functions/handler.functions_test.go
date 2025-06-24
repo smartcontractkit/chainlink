@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -45,13 +46,13 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTi
 	allowlist := allowlist_mocks.NewOnchainAllowlist(t)
 	subscriptions := subscriptions_mocks.NewOnchainSubscriptions(t)
 	minBalance := assets.NewLinkFromJuels(100)
-	userRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	userRateLimiter, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
-	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	nodeRateLimiter, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	pendingRequestsCache := hc.NewRequestCache[functions.PendingRequest](requestTimeout, 1000)
 	allowedHeartbeatInititors := map[string]struct{}{heartbeatSender: {}}
-	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalance, userRateLimiter, nodeRateLimiter, allowedHeartbeatInititors, logger.TestLogger(t))
+	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalance, userRateLimiter, nodeRateLimiter, allowedHeartbeatInititors, logger.Test(t))
 	return handler, don, allowlist, subscriptions
 }
 
@@ -77,14 +78,16 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
 		require.NoError(t, nodeResponseMsg.Sign(nodes[id].PrivateKey))
-		_ = handler.HandleNodeMessage(testutils.Context(t), &nodeResponseMsg, nodes[id].Address)
+		resp, err := hc.ValidatedResponseFromMessage(&nodeResponseMsg) // ensure the message is valid
+		require.NoError(t, err)
+		_ = handler.HandleNodeMessage(testutils.Context(t), resp, nodes[id].Address)
 	}
 }
 
 func TestFunctionsHandler_Minimal(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
 	// empty message should always error out
@@ -96,7 +99,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
 	servicetest.Run(t, handler)

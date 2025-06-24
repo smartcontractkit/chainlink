@@ -24,7 +24,7 @@ type DeployBalanceReaderRequest struct {
 func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
-		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
+		DataStore:   datastore.NewMemoryDataStore(),
 	}
 
 	selectors := cfg.ChainSelectors

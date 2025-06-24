@@ -2,6 +2,8 @@ package events
 
 const (
 	ProtoPkg = "workflows.v1"
+	// WorkflowStatusChanged represents the Workflow Registry Syncer changing the status of a workflow
+	WorkflowStatusChanged string = "WorkflowStatusChanged"
 	// WorkflowExecutionStarted represents a workflow execution started event
 	WorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// WorkflowExecutionFinished represents a workflow execution finished event
@@ -10,7 +12,11 @@ const (
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event
 	CapabilityExecutionFinished string = "CapabilityExecutionFinished"
+	// UserLogs represents user log events
+	UserLogs string = "UserLogs"
 
+	// SchemaWorkflowStatusChanged represents the schema for workflow status changed events
+	SchemaWorkflowStatusChanged string = "/cre-events-workflow-status-changed/v1"
 	// SchemaWorkflowStarted represents the schema for workflow started events
 	SchemaWorkflowStarted string = "/cre-events-workflow-started/v1"
 	// SchemaWorkflowFinished represents the schema for workflow finished events
@@ -19,6 +25,8 @@ const (
 	SchemaCapabilityStarted string = "/cre-events-capability-started/v1"
 	// SchemaCapabilityFinished represents the schema for capability finished events
 	SchemaCapabilityFinished string = "/cre-events-capability-finished/v1"
+	// SchemaUserLogs represents the schema for user log events
+	SchemaUserLogs string = "/cre-events-user-logs/v1"
 
 	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"

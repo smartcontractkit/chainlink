@@ -17,6 +17,7 @@ type Peer interface {
 	UpdateConnections(peers map[PeerID]StreamConfig) error
 	Send(peerID PeerID, msg []byte) error
 	Receive() <-chan Message
+	IsBootstrap() bool
 }
 
 type PeerWrapper interface {

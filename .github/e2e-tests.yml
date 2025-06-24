@@ -181,6 +181,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -196,6 +197,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -218,7 +220,7 @@ runner-test-matrix:
       - Merge Queue CRE E2E Core Tests
       - Nightly E2E Tests
       - Push CRE E2E Core Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.2.0 --capability-names cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && ./download_cre_ci_deps.sh 3 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-cre-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -239,7 +241,7 @@ runner-test-matrix:
       - Merge Queue CRE E2E Core Tests
       - Nightly E2E Tests
       - Push CRE E2E Core Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.2.0 --capability-names cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && ./download_cre_ci_deps.sh 3 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -260,7 +262,7 @@ runner-test-matrix:
       - Merge Queue CRE E2E Core Tests
       - Nightly E2E Tests
       - Push CRE E2E Core Tests
-    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && go run main.go download all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.2.0 --capability-names cron --capability-version v1.0.2-alpha 1>&2 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd tests && pushd smoke/cre/cmd > /dev/null && ./download_cre_ci_deps.sh 3 && popd > /dev/null && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -1225,10 +1227,85 @@ runner-test-matrix:
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_6LanesWithMCMS$
+    path: integration-tests/smoke/ccip/ccip_fast_transfer_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - Merge Queue E2E CCIP Tests
+      - Nightly E2E Tests
+      - Push E2E CCIP Tests
+      - Workflow Dispatch E2E CCIP Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^TestFastTransfer1_6LanesWithMCMS$ -timeout 30m -json
+    test_go_project_path: integration-tests
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5LanesWithMCMS$
+    path: integration-tests/smoke/ccip/ccip_fast_transfer_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - Merge Queue E2E CCIP Tests    
+      - Nightly E2E Tests
+      - Push E2E CCIP Tests
+      - Workflow Dispatch E2E CCIP Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^TestFastTransfer1_5LanesWithMCMS$ -timeout 30m -json
+    test_go_project_path: integration-tests
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_6Lanes$
+    path: integration-tests/smoke/ccip/ccip_fast_transfer_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR E2E CCIP Tests
+      - Merge Queue E2E CCIP Tests   
+      - Nightly E2E Tests
+      - Push E2E CCIP Tests
+      - Workflow Dispatch E2E CCIP Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^TestFastTransfer1_6Lanes$ -timeout 30m -json
+    test_go_project_path: integration-tests
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5Lanes$
+    path: integration-tests/smoke/ccip/ccip_fast_transfer_test.go
+    test_env_type: docker
+    runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR E2E CCIP Tests
+      - Merge Queue E2E CCIP Tests
+      - Nightly E2E Tests
+      - Push E2E CCIP Tests
+      - Workflow Dispatch E2E CCIP Tests
+    test_cmd: cd smoke/ccip && go test -test.run ^TestFastTransfer1_5Lanes$ -timeout 30m -json
+    test_go_project_path: integration-tests
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      CCIP_V16_TEST_ENV: docker
+
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1249,6 +1326,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1267,6 +1345,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1285,6 +1364,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1303,6 +1383,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1321,6 +1402,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1339,6 +1421,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1357,6 +1440,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -1376,6 +1460,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1394,6 +1479,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1412,6 +1498,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1430,6 +1517,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
@@ -1448,6 +1536,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
+    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP Tests

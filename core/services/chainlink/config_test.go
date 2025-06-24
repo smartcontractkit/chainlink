@@ -19,6 +19,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
@@ -110,6 +111,7 @@ var (
 				ChainID: ubig.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
+					SafeDepth:            ptr[uint32](0),
 					FinalityTagEnabled:   ptr[bool](true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
@@ -603,6 +605,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
+				SafeDepth:            ptr[uint32](0),
 				FinalityTagEnabled:   ptr[bool](true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
@@ -726,6 +729,7 @@ func TestConfig_Marshal(t *testing.T) {
 						Fatal:                             ptr[string]("(: |^)fatal"),
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
+						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -742,7 +746,10 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 				Workflow: evmcfg.Workflow{
-					GasLimitDefault: ptr[uint64](400000),
+					GasLimitDefault:   ptr[uint64](400000),
+					TxAcceptanceState: ptr(commontypes.Unconfirmed),
+					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
+					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 				},
 			},
 			Nodes: []*evmcfg.Node{
@@ -1108,6 +1115,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+SafeDepth = 0
 FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
@@ -1226,6 +1234,7 @@ TransactionAlreadyMined = '(: |^)transaction already mined'
 Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
+MissingBlocks = '(: |^)missing blocks'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1241,6 +1250,9 @@ GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -1416,9 +1428,11 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
-
 		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
 			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
+		}
+		if got.EVM[c].GasEstimator.SenderAddress == nil {
+			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
 		}
 	}
 

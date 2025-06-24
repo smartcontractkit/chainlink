@@ -36,6 +36,14 @@ func E18Mult(amount uint64) *big.Int {
 	return new(big.Int).Mul(UBigInt(amount), UBigInt(1e18))
 }
 
+// EDecMult scales amount by the number of decimals
+func EDecMult(amount uint64, decimals int64) *big.Int {
+	return new(big.Int).Mul(
+		UBigInt(amount),
+		new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil),
+	)
+}
+
 type OCRConfig struct {
 	OffchainPublicKey types2.OffchainPublicKey
 	// For EVM-chains, this an *address*.
@@ -157,6 +165,10 @@ type Node struct {
 func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OCRConfig, bool) {
 	c, ok := n.SelToOCRConfig[details]
 	return c, ok
+}
+
+func (n Node) AllOCRConfigs() map[chain_selectors.ChainDetails]OCRConfig {
+	return n.SelToOCRConfig
 }
 
 func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {

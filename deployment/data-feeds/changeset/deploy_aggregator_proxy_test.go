@@ -28,22 +28,19 @@ func TestAggregatorProxy(t *testing.T) {
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-			},
-		),
-		commonChangesets.Configure(
-			DeployAggregatorProxyChangeset,
-			types.DeployAggregatorProxyConfig{
-				ChainsToDeploy:   []uint64{chainSelector},
-				AccessController: []common.Address{common.HexToAddress("0x")},
-			},
-		),
-	)
+	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		DeployCacheChangeset,
+		types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"},
+		},
+	), commonChangesets.Configure(
+		DeployAggregatorProxyChangeset,
+		types.DeployAggregatorProxyConfig{
+			ChainsToDeploy:   []uint64{chainSelector},
+			AccessController: []common.Address{common.HexToAddress("0x")},
+		},
+	))
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)

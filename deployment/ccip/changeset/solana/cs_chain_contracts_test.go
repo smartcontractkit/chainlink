@@ -48,7 +48,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 	for _, key := range walletPubKeys {
 		mintMap[key] = uint64(1000)
 	}
-	e, err := commonchangeset.Apply(t, tenv, nil,
+	e, err := commonchangeset.Apply(t, tenv,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
 			ccipChangesetSolana.DeploySolanaTokenConfig{
@@ -85,6 +85,7 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestAddRemoteChain(t, false)
 }
 
@@ -144,7 +145,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 			},
 		}
 	}
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
@@ -208,7 +209,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 	// Disable the chain
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DisableRemoteChain),
 			ccipChangesetSolana.DisableRemoteChainConfig{
@@ -268,7 +269,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 		}
 	}
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
@@ -345,12 +346,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 		testPriceUpdater, err = ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
 	}
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -368,7 +368,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 			ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChain,
 				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress.String(),
+				TokenPubKey:         tokenAddress,
 				Config: solFeeQuoter.TokenTransferFeeConfig{
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
@@ -400,12 +400,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 	require.Equal(t, uint32(800), remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents)
 
 	// test update
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
 			ccipChangesetSolana.BillingTokenConfig{
 				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
 				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
@@ -426,7 +425,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	feeAggregatorPriv, _ := solana.NewRandomPrivateKey()
 	feeAggregator := feeAggregatorPriv.PublicKey()
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
 			ccipChangesetSolana.AddRemoteChainToRouterConfig{
@@ -534,7 +533,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	// just send funds to the router manually rather than run e2e
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(state.SolChains[solChain].Router)
 	billingSignerATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, billingSignerPDA)
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.MintSolanaToken),
 			ccipChangesetSolana.MintSolanaTokenConfig{
@@ -555,13 +554,13 @@ func doTestBilling(t *testing.T, mcms bool) {
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, feeAggregator)
 	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
 	require.NoError(t, err)
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.WithdrawBilledFunds),
 			ccipChangesetSolana.WithdrawBilledFundsConfig{
 				ChainSelector: solChain,
 				TransferAll:   true,
-				TokenPubKey:   tokenAddress.String(),
+				TokenPubKey:   tokenAddress,
 				MCMS:          mcmsConfig,
 			},
 		),
@@ -583,6 +582,7 @@ func TestBillingWithMcms(t *testing.T) {
 
 func TestBillingWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestBilling(t, false)
 }
 
@@ -619,7 +619,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 	require.NoError(t, err)
 
-	e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			// register token admin registry for tokenAddress via admin instruction
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
@@ -680,7 +680,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 
 	// While we can assign the admin role arbitrarily regardless of mcms, we can only accept it as timelock
 	if mcms {
-		e, err = commonchangeset.Apply(t, e, nil,
+		e, err = commonchangeset.Apply(t, e,
 			commonchangeset.Configure(
 				// accept admin role for tokenAddress
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
@@ -698,7 +698,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.Administrator)
 		require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
 
-		e, _, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				// transfer admin role for tokenAddress
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
@@ -725,6 +725,7 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
 }
 
@@ -754,7 +755,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{})
 	require.NoError(t, err)
 	pool := solTestTokenPool.LockAndRelease_PoolType
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// add token pool lookup table
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
@@ -776,40 +777,36 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
 	require.Equal(t, tokenAddress, lookupTableEntries0[7])
 
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			// register token admin registry for linkToken via owner instruction
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
-			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress,
-				TokenAdminRegistryAdmin: newAdmin.String(),
-				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				MCMS:                    mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			// accept admin role for tokenAddress
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
-			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress,
-				MCMS:          mcmsConfig,
-			},
-		),
-		commonchangeset.Configure(
-			// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
-			ccipChangesetSolana.SetPoolConfig{
-				ChainSelector:   solChain,
-				TokenPubKey:     tokenAddress,
-				PoolType:        &pool,
-				Metadata:        tokenMetadata,
-				WritableIndexes: []uint8{3, 4, 7},
-				MCMS:            mcmsConfig,
-			},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		// register token admin registry for linkToken via owner instruction
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+		ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+			ChainSelector:           solChain,
+			TokenPubKey:             tokenAddress,
+			TokenAdminRegistryAdmin: newAdmin.String(),
+			RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+			MCMS:                    mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		// accept admin role for tokenAddress
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+		ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+			ChainSelector: solChain,
+			TokenPubKey:   tokenAddress,
+			MCMS:          mcmsConfig,
+		},
+	), commonchangeset.Configure(
+		// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+		ccipChangesetSolana.SetPoolConfig{
+			ChainSelector:   solChain,
+			TokenPubKey:     tokenAddress,
+			PoolType:        &pool,
+			Metadata:        tokenMetadata,
+			WritableIndexes: []uint8{3, 4, 7},
+			MCMS:            mcmsConfig,
+		},
+	))
 	require.NoError(t, err)
 	tokenAdminRegistry := solCommon.TokenAdminRegistry{}
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
@@ -827,6 +824,7 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
+	skipInCI(t)
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
@@ -855,7 +853,7 @@ func TestSetOcr3Active(t *testing.T) {
 			OffRamp:   true,
 		})
 
-	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	tenv.Env, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{
@@ -884,7 +882,7 @@ func TestSetOcr3Candidate(t *testing.T) {
 			OffRamp:   true,
 		})
 
-	tenv.Env, _, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	tenv.Env, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{

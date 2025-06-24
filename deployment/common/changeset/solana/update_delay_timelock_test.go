@@ -45,12 +45,12 @@ func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
 	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
+
 	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
-	env, err = changeset.Apply(t, env, nil,
+	env, err = changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -75,7 +75,6 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	)
 	mcmDummyProgram := solana.NewWallet().PublicKey()
 
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
@@ -93,7 +92,6 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 		chainselectors.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
 	})
 
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
@@ -186,14 +184,14 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 
 	changesetInstance := commonSolana.UpdateTimelockDelaySolana{}
 
-	env, _, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
+	env, _, err := changeset.ApplyChangesets(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := env.BlockChains.SolanaChains()[chainSelector]
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
+
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 

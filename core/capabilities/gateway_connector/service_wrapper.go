@@ -6,10 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -56,7 +56,7 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 		config:   config,
 		keystore: keystore,
 		clock:    clock,
-		lggr:     lggr.Named("GatewayConnectorServiceWrapper"),
+		lggr:     logger.Named(lggr, "GatewayConnectorServiceWrapper"),
 	}
 }
 
@@ -79,9 +79,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 	})
 }
 
-func (e *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
-	ctx, cancel := e.stopCh.NewCtx()
-	defer cancel()
+func (e *ServiceWrapper) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
 	account := common.HexToAddress(e.config.NodeAddress())
 	return e.keystore.SignMessage(ctx, account, gwcommon.Flatten(data...))
 }
