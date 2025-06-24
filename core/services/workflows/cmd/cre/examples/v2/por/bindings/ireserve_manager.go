@@ -57,23 +57,19 @@ type UpdateReservesStruct struct {
 }
 
 func (irm IReserverManager) WriteReportUpdateReserves(runtime sdk.Runtime, updateReserves UpdateReservesStruct, options *WriteOptions) sdk.Promise[*evmcappb.WriteReportReply] {
-	// if ur.reserveManager.gasConfig == nil && options.GasConfig == nil {
-	// 	sdk.Primitive
-	// }
-
-	body, err := iReserveManagerApi.Methods["updateReserves"].Inputs.Pack(updateReserves)
+	// Pack the complete function call (selector + args)
+	body, err := iReserveManagerApi.Pack("updateReserves", updateReserves)
 	if err != nil {
 		return sdk.PromiseFromResult[*evmcappb.WriteReportReply](nil, err)
 	}
 
-	commonReport := GenerateReport(1, body) // TODO: Fix chain selector
 	writeReportReplyPromise := irm.ContractInputs.EVM.WriteReport(runtime, &evmcappb.WriteReportRequest{
 		Receiver: irm.ContractInputs.Address,
 		Report: &evmcappb.SignedReport{
-			RawReport:     commonReport.RawReport,
-			ReportContext: commonReport.ReportContext,
-			Signatures:    commonReport.Signatures,
-			Id:            commonReport.ID,
+			RawReport:     body,
+			ReportContext: []byte{},
+			Signatures:    [][]byte{},
+			Id:            []byte{},
 		},
 	})
 
