@@ -15,6 +15,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -247,9 +248,15 @@ func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, 
 		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()
 		return err
 	}
+	req, err := hc.ValidatedRequestFromMessage(msg)
+	if err != nil {
+		h.lggr.Debugw("handleRequest: failed to validate message", "sender", msg.Body.Sender, "err", err)
+		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()
+		return err
+	}
 	// Send to all nodes.
 	for _, member := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, member.Address, msg)
+		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
 			h.lggr.Debugw("handleRequest: failed to send to a node", "node", member.Address, "err", err)
 		}
@@ -257,7 +264,15 @@ func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, 
 	return nil
 }
 
-func (h *functionsHandler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+	msg, err := hc.ValidatedMessageFromResp(resp)
+	if err != nil {
+		h.lggr.Debugw("HandleNodeMessage: failed to validate message", "error", err, "nodeAddr", nodeAddr)
+		return err
+	}
+	if msg.Body.Sender != nodeAddr {
+		return errors.New("message sender mismatch when reading from node ")
+	}
 	h.lggr.Debugw("HandleNodeMessage: processing message", "nodeAddr", nodeAddr, "receiver", msg.Body.Receiver, "id", msg.Body.MessageId)
 	if h.nodeRateLimiter != nil && !h.nodeRateLimiter.Allow(nodeAddr) {
 		h.lggr.Debugw("rate-limited", "sender", nodeAddr)

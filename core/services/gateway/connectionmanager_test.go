@@ -8,10 +8,11 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -222,7 +223,7 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	err = donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
 	require.Error(t, err)
 
-	message := &api.Message{}
+	message := &jsonrpc.Request{}
 	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
 	require.Error(t, err)
 }

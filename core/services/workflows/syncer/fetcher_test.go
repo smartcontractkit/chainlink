@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -23,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -44,9 +47,9 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 func TestNewFetcherService(t *testing.T) {
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
-
 	connector := gcmocks.NewGatewayConnector(t)
 	wrapper := &wrapper{c: connector}
+	signature := []byte("signature")
 
 	var (
 		url   = "http://example.com"
@@ -55,18 +58,20 @@ func TestNewFetcherService(t *testing.T) {
 	)
 
 	t.Run("OK-valid_request", func(t *testing.T) {
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 
 		req := ghcapabilities.Request{
@@ -83,19 +88,21 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("fails with invalid payload response", func(t *testing.T) {
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
 		gatewayResp := signGatewayResponse(t, inconsistentPayload(t, msgID, donID))
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		req := ghcapabilities.Request{
 			URL:              url,
@@ -108,29 +115,40 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("fails due to invalid gateway response", func(t *testing.T) {
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		gatewayResp := gatewayResponse(t, msgID, donID, 500) // gateway response that is not signed
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		gatewayMessage := gatewayResponse(t, msgID, donID, 500) // gateway response that is not signed
+		payload, err := json.Marshal(gatewayMessage)
+		require.NoError(t, err)
+		gatewayResp := &jsonrpc.Request{
+			Version: "2.0",
+			ID:      gatewayMessage.Body.MessageId,
+			Method:  gatewayMessage.Body.Method,
+			Params:  payload,
+		}
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
-
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
+		ctxwd, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		defer cancel()
 		req := ghcapabilities.Request{
 			URL:              url,
 			Method:           http.MethodGet,
 			MaxResponseBytes: 0,
 			WorkflowID:       "foo",
 		}
-		_, err := fetcher.Fetch(ctx, msgID, req)
+		_, err = fetcher.Fetch(ctxwd, msgID, req)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "invalid response from gateway")
+		require.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
@@ -141,26 +159,34 @@ func TestNewFetcherService(t *testing.T) {
 			ErrorMessage: "http: request body too large",
 		})
 		require.NoError(t, err)
-		gatewayResponse := &api.Message{
+		gatewayMsg := &api.Message{
 			Body: api.MessageBody{
 				MessageId: msgID,
 				Method:    ghcapabilities.MethodWebAPITarget,
 				Payload:   responsePayload,
 			},
 		}
-
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-
+		payload, err := json.Marshal(gatewayMsg)
+		require.NoError(t, err)
+		gatewayResp := &jsonrpc.Request{
+			Version: "2.0",
+			ID:      gatewayMsg.Body.MessageId,
+			Method:  gatewayMsg.Body.Method,
+			Params:  payload,
+		}
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResponse)
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		req := ghcapabilities.Request{
 			URL:              url,
@@ -173,18 +199,20 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("NOK-bad_request", func(t *testing.T) {
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 500))
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 
 		req := ghcapabilities.Request{
@@ -204,14 +232,14 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
 		wrapper := newConnectorWrapper(connector)
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(assert.AnError).Maybe()
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway2").Return(assert.AnError).Maybe()
 
@@ -232,20 +260,22 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
 		wrapper := newConnectorWrapper(connector)
-		connector.EXPECT().AddHandler([]string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().DonID(matches.AnyContext).Return(donID, nil)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(assert.AnError).Once()
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway2").Return(nil).Once()
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
-		connector.EXPECT().SignAndSendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			fetcher.och.HandleGatewayMessage(ctx, "gateway2", gatewayResp)
+		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
+		connector.EXPECT().SendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway2", gatewayResp)
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
 
 		req := ghcapabilities.Request{
@@ -301,10 +331,11 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 
 // signGatewayResponse signs the gateway response with a private key and arbitrarily sets the receiver
 // to the signer's address.  A signature and receiver are required for a valid gateway response.
-func signGatewayResponse(t *testing.T, msg *api.Message) *api.Message {
+func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request {
 	nodeKeys := common.NewTestNodes(t, 1)
 	s := &signer{pk: nodeKeys[0].PrivateKey}
-	signature, err := s.Sign(api.GetRawMessageBody(&msg.Body)...)
+	msgToSign := api.GetRawMessageBody(&msg.Body)
+	signature, err := s.Sign(msgToSign...)
 	require.NoError(t, err)
 	msg.Signature = utils.StringToHex(string(signature))
 
@@ -312,7 +343,10 @@ func signGatewayResponse(t *testing.T, msg *api.Message) *api.Message {
 	require.NoError(t, err)
 
 	msg.Body.Receiver = utils.StringToHex(string(signerBytes))
-	return msg
+	require.NoError(t, err)
+	resp, err := hc.ValidatedRequestFromMessage(msg)
+	require.NoError(t, err)
+	return resp
 }
 
 type signer struct {

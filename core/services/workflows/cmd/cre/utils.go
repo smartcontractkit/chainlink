@@ -239,7 +239,7 @@ func newStandardCapabilities(
 		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
 			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
 			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
+			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{})
 
 		service := &standaloneLoopWrapper{
 			StandardCapabilities: loop,

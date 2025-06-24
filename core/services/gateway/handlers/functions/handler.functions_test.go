@@ -78,7 +78,9 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
 		require.NoError(t, nodeResponseMsg.Sign(nodes[id].PrivateKey))
-		_ = handler.HandleNodeMessage(testutils.Context(t), &nodeResponseMsg, nodes[id].Address)
+		resp, err := hc.ValidatedResponseFromMessage(&nodeResponseMsg) // ensure the message is valid
+		require.NoError(t, err)
+		_ = handler.HandleNodeMessage(testutils.Context(t), resp, nodes[id].Address)
 	}
 }
 

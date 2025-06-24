@@ -221,7 +221,7 @@ func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKey
 	if err != nil {
 		return nil, nil, err
 	}
-	err = connector.AddHandler([]string{hf.MethodSecretsSet, hf.MethodSecretsList, hf.MethodHeartbeat}, handler)
+	err = connector.AddHandler(ctx, []string{hf.MethodSecretsSet, hf.MethodSecretsList, hf.MethodHeartbeat}, handler)
 	if err != nil {
 		return nil, nil, err
 	}

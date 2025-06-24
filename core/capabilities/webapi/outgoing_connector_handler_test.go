@@ -5,22 +5,30 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 type ctxKey string
+
+const (
+	privateKey = "6c358b4f16344f03cfce12ebf7b768301bbe6a8977c98a2a2d76699f8bc56161"
+)
 
 func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 	gateways := []string{"gateway1", "gateway2"}
@@ -39,7 +47,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			name: "successful connection on first try",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(nil).Once()
-				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 			},
 			ctxSetup:        context.Background,
 			expectedGateway: "gateway1",
@@ -49,7 +57,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(errors.New("timeout")).Once()
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway2").Return(nil).Once()
-				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 			},
 			ctxSetup:        context.Background,
 			expectedGateway: "gateway2",
@@ -57,7 +65,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "connection timeout then success after backoff",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(errors.New("gateway connection failed: timeout")).Once()
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway2").Return(errors.New("gateway connection failed: timeout")).Once()
 
@@ -71,7 +79,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			name: "all gateways fail and context canceled",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
 				callCount := 0
-				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 				mockConnector.EXPECT().AwaitConnection(mock.Anything, mock.Anything).Return(errors.New("gateway connection failed: timeout")).Run(func(ctx context.Context, gatewayID string) {
 					callCount++
 					if callCount == len(gateways) {
@@ -91,7 +99,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "context canceled",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 			},
 			ctxSetup: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -143,9 +151,9 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
-				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
 				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+				gc.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1"}, nil)
 			},
 		)
 
@@ -156,17 +164,21 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		}
 		payload, err := json.Marshal(req)
 		require.NoError(t, err)
+		donID, err := connector.DonID(t.Context())
+		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
 			MessageId: msgID,
-			DonId:     connector.DonID(),
+			DonId:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
 
 		// expect the request body to contain the default timeout
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
+		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
@@ -181,9 +193,9 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
-				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
 				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+				gc.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1"}, nil)
 			},
 		)
 
@@ -194,17 +206,21 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		}
 		payload, err := json.Marshal(req)
 		require.NoError(t, err)
+		donID, err := connector.DonID(t.Context())
+		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
 			MessageId: msgID,
-			DonId:     connector.DonID(),
+			DonId:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
 
 		// expect the request body to contain the defined timeout
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
+		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
@@ -222,9 +238,9 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
-				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
 				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+				gc.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1"}, nil)
 			},
 		)
 
@@ -235,16 +251,19 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		}
 		payload, err := json.Marshal(req)
 		require.NoError(t, err)
+		donID, err := connector.DonID(t.Context())
+		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
 			MessageId: msgID,
-			DonId:     connector.DonID(),
+			DonId:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
 
 		// expect the request body to contain the defined timeout
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
 			// don't call HandleGatewayMessage here; i.e. simulate a failure to receive a response
 		}).Return(nil).Times(1)
 
@@ -277,9 +296,9 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		connector, connectorHandler := newFunction(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
-				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
 				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+				gc.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1"}, nil)
 			},
 			config,
 		)
@@ -292,17 +311,21 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		}
 		payload, err := json.Marshal(req)
 		require.NoError(t, err)
+		donID, err := connector.DonID(t.Context())
+		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
 			MessageId: msgID,
-			DonId:     connector.DonID(),
+			DonId:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
 
 		// expect the request body to contain the default timeout
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
+		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
+			require.NoError(t, err2)
 		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
@@ -358,7 +381,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 	return connector, connectorHandler
 }
 
-func gatewayResponse(t *testing.T, msgID string) *api.Message {
+func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -368,13 +391,21 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 		ExecutionError: false,
 	})
 	require.NoError(t, err)
-	return &api.Message{
+	m := &api.Message{
 		Body: api.MessageBody{
+			DonId:     "donID",
 			MessageId: msgID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}
+	key, err := crypto.HexToECDSA(privateKey)
+	require.NoError(t, err)
+	err = m.Sign(key)
+	require.NoError(t, err)
+	req, err := hc.ValidatedRequestFromMessage(m)
+	require.NoError(t, err)
+	return req
 }
 
 func TestServiceConfigDefaults(t *testing.T) {
@@ -396,4 +427,25 @@ func TestServiceConfigDefaults(t *testing.T) {
 		require.Equal(t, DefaultWorkflowBurst, oRLConf.PerSenderBurst)
 		require.InDelta(t, DefaultWorkflowRPS, oRLConf.PerSenderRPS, 0.001)
 	})
+}
+func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
+	_, handler := newFunctionWithDefaultConfig(
+		t,
+		func(gc *gcmocks.GatewayConnector) {},
+	)
+	invalidMsg := api.Message{
+		Body: api.MessageBody{
+			// MessageId is empty, which should fail Validate()
+			Method: "some-method",
+		},
+	}
+	params, err := json.Marshal(invalidMsg)
+	require.NoError(t, err)
+	req := &jsonrpc.Request{
+		Version: "2.0",
+		Method:  invalidMsg.Body.Method,
+		Params:  params,
+	}
+	err = handler.HandleGatewayMessage(context.Background(), "gateway1", req)
+	require.NoError(t, err)
 }
