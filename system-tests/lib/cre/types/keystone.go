@@ -482,6 +482,7 @@ type DeployCribDonsInput struct {
 	NodeSetInputs  []*CapabilitiesAwareNodeSet
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribDonsInput) Validate() error {
@@ -526,6 +527,7 @@ type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
 	NixShell        *nix.Shell
 	CribConfigsDir  string
+	Namespace       string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
