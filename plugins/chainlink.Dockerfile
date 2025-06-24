@@ -80,6 +80,7 @@ USER ${CHAINLINK_USER}
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 # Set plugin environment variable configuration.
+ENV CL_APTOS_CMD=chainlink-aptos
 ENV CL_MEDIAN_CMD=chainlink-feeds
 ARG CL_SOLANA_CMD=chainlink-solana
 ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}
