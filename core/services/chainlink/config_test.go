@@ -979,15 +979,15 @@ UpstreamSyncRateLimit = '2m0s'
 [WebServer.OIDC]
 ClientID = 'abcd1234'
 ProviderURL = 'https://id.provider.com/oauth2/default'
-RedirectURL = 'http://localhost:3000/signin' 
+RedirectURL = 'http://localhost:3000/signin'
 ClaimName = 'groups'
-AdminClaim = 'NodeAdmins' 
-EditClaim = 'NodeEditors' 
-RunClaim = 'NodeRunners' 
-ReadClaim = 'NodeReadOnly' 
+AdminClaim = 'NodeAdmins'
+EditClaim = 'NodeEditors'
+RunClaim = 'NodeRunners'
+ReadClaim = 'NodeReadOnly'
 SessionTimeout = '15m0s'
-UserAPITokenEnabled = false 
-UserAPITokenDuration = '240h0m0s' 
+UserAPITokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
