@@ -106,7 +106,7 @@ func setupNode(
 
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
-			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
+			evmCfg.Transactions.Enabled = ptr(true) // need txmgr for securemint
 		}
 
 		// Optional overrides

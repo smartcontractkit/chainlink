@@ -15,6 +15,7 @@ import (
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// TODO(gg): use write target instead of contract reader and writer
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
 	id := GenerateWriteTargetName(chain.ID().Uint64())

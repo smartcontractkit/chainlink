@@ -226,6 +226,7 @@ func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, wor
 
 	workflowDon.Initialise()
 
+	// TODO(gg): can use keystone forwarder setup from here perhaps + DF Cache
 	forwarderAddr, _ := keystone.SetupForwarderContract(t, workflowDon, donContext.EthBlockchain)
 
 	workflowName := "TestWf"
