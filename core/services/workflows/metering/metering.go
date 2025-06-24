@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"maps"
 	"sort"
 	"sync"
@@ -218,10 +219,14 @@ func (r *Report) Deduct(ref string, amount decimal.Decimal) error {
 // this function.
 func (r *Report) CreditToSpendingLimits(
 	info capabilities.CapabilityInfo,
+	ratios map[capabilities.CapabilitySpendType]decimal.Decimal,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-463 handle multiple spend types
-	if len(info.SpendTypes) > 0 {
+	if len(info.SpendTypes) == 0 {
+		return nil
+	}
+
+	if len(info.SpendTypes) != len(ratios) {
 		spendType := info.SpendTypes[0]
 
 		// use rate card to convert capSpendLimit to native units
@@ -229,13 +234,47 @@ func (r *Report) CreditToSpendingLimits(
 		if err != nil {
 			r.switchToMeteringMode(err)
 
+			log.Println("testA")
+			return nil
+		}
+
+		// check to see if metering mode is active
+		if r.meteringMode {
+			log.Println("testB")
 			return nil
 		}
 
 		return []capabilities.SpendLimit{{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)}}
 	}
 
-	return nil
+	limits := []capabilities.SpendLimit{}
+	for _, spendType := range info.SpendTypes {
+		ratio, hasRatio := ratios[spendType]
+		if !hasRatio {
+			log.Println("continue", spendType)
+			continue // switch to metering mode?
+		}
+
+		// use rate card to convert capSpendLimit to native units
+		log.Println(spendType, amount, ratio)
+		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
+		if err != nil {
+			r.switchToMeteringMode(err)
+
+			log.Println("testD")
+			return nil
+		}
+
+		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
+	}
+
+	// fallback if ratios don't exist? maybe switch to metering mode?
+	if len(limits) != len(ratios) {
+		log.Println("testE", len(limits), len(ratios))
+		return nil
+	}
+
+	return limits
 }
 
 // GetMaxSpendForInvocation returns the amount of credits that can be used based on the minimum between an optionally

@@ -31,6 +31,7 @@ const (
 	testWorkflowExecutionID = "workflowExecutionId"
 	testUnitA               = "a"
 	testUnitB               = "b"
+	testUnitC               = "c"
 )
 
 var (
@@ -38,11 +39,18 @@ var (
 	successReserveResponseWithRates = billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
 		{ResourceUnit: testUnitA, ConversionRate: "2"},
 	}, Credits: 10_000}
+	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+		{ResourceUnit: testUnitA, ConversionRate: "2"},
+		{ResourceUnit: testUnitC, ConversionRate: "3"},
+	}, Credits: 10_000}
 	failureReserveResponse = billing.ReserveCreditsResponse{Success: false}
 	defaultLabels          = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
+	spendRatios            = map[capabilities.CapabilitySpendType]decimal.Decimal{
+		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
+		capabilities.CapabilitySpendType(testUnitC): decimal.NewFromFloat(0.6), // 60%
 	}
 )
 
@@ -697,32 +705,39 @@ func Test_Report_EmitReceipt(t *testing.T) {
 func Test_Report_CreditToSpendingLimits(t *testing.T) {
 	t.Parallel()
 
-	t.Run("happy path puts entire balance as first spend type", func(t *testing.T) {
+	t.Run("happy path splits spend types per provided ratios", func(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
+			Return(&successReserveResponseWithMultiRates, nil)
 
 		require.NoError(t, report.Reserve(t.Context()))
 
 		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB},
-		}, decimal.NewFromInt(1_000))
+			SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
+		}, spendRatios, decimal.NewFromInt(1_000))
 
 		require.NotNil(t, limits)
-		require.Len(t, limits, 1)
+		require.Len(t, limits, 2)
 		assert.Equal(t, testUnitA, string(limits[0].SpendType))
-		assert.Equal(t, "500.000", limits[0].Limit)
+		assert.Equal(t, testUnitC, string(limits[1].SpendType))
+		assert.Equal(t, "200.000", limits[0].Limit) // conversion rate of 2 at 40% ratio
+		assert.Equal(t, "200.000", limits[1].Limit) // conversion rate of 3 at 60% ratio
+		assert.False(t, report.meteringMode)
 	})
 
 	t.Run("empty limits for empty spend types", func(t *testing.T) {
 		t.Parallel()
 
 		report := newTestReport(t, logger.Nop(), nil)
-		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{}, decimal.NewFromInt(1_000))
+		limits := report.CreditToSpendingLimits(
+			capabilities.CapabilityInfo{},
+			map[capabilities.CapabilitySpendType]decimal.Decimal{},
+			decimal.NewFromInt(1_000),
+		)
 
 		assert.Nil(t, limits)
 	})

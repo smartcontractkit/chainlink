@@ -772,12 +772,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		l.Errorf("failed to resolve step in workflow; error %v", verr)
 	}
 
-	info, err := curStep.capability.Info(ctx)
-	if err != nil {
-		l.Errorf("failed to get capability info: %s", err)
-	}
-
-	spendLimits := []capabilities.SpendLimit{}
+	spendLimit := decimal.NewNullDecimal(decimal.Zero)
 
 	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
 	if meteringOK {
@@ -785,20 +780,12 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		userMaxSpend := decimal.NewNullDecimal(decimal.Zero)
 		userMaxSpend.Valid = false
 
-		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
-		spendLimit, err := meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
+		var err error
 
+		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
+		spendLimit, err = meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
 		if err != nil {
 			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
-		}
-
-		if spendLimit.Valid {
-			err = meteringReport.Deduct(stepState.Ref, spendLimit.Decimal)
-			if err != nil {
-				l.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", stepState.Ref, err))
-			}
-
-			spendLimits = meteringReport.CreditToSpendingLimits(info, spendLimit.Decimal)
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
@@ -812,7 +799,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
 	// convert balance to CapabilityInfo resource types for use in Capability call
 	// pass deducted amount as max spend to capability.Execute
-	inputs, response, sErr := e.executeStep(ctx, l, msg, spendLimits)
+	inputs, response, sErr := e.executeStep(ctx, l, msg, spendLimit, meteringReport)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	e.metrics.With(platform.KeyCapabilityID, curStepID).UpdateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
@@ -964,7 +951,8 @@ func (e *Engine) executeStep(
 	ctx context.Context,
 	lggr logger.Logger,
 	msg stepRequest,
-	spendLimits []capabilities.SpendLimit,
+	spendLimit decimal.NullDecimal,
+	meteringReport *metering.Report,
 ) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
@@ -992,6 +980,46 @@ func (e *Engine) executeStep(
 	if err != nil {
 		return nil, capabilities.CapabilityResponse{}, err
 	}
+
+	var spendLimits []capabilities.SpendLimit
+	if spendLimit.Valid {
+		info, err := curStep.capability.Info(ctx)
+		if err != nil {
+			e.logger.Errorf("failed to get capability info: %s", err)
+		}
+
+		err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal)
+		if err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
+
+		ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+		for _, spendType := range info.SpendTypes {
+			key := fmt.Sprintf("ratio_%s", spendType)
+			value, hasRatio := config.Underlying[key]
+			if !hasRatio {
+				// if any single ratio is missing, send an empty set to metering report
+				ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+
+				break
+			}
+
+			var ratio decimal.Decimal
+			if err := value.UnwrapTo(&ratio); err != nil {
+				e.logger.Errorf("could not unwrap decimal ratio value: %s", value)
+
+				// if any single ratio is not parseable, send an empty set to metering report
+				ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+
+				break
+			}
+
+			ratios[spendType] = ratio
+		}
+
+		spendLimits = meteringReport.CreditToSpendingLimits(info, ratios, spendLimit.Decimal)
+	}
+
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
 		var desiredTimeout int64
