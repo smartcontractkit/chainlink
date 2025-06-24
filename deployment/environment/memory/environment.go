@@ -268,8 +268,6 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
 	tonChains := NewMemoryChainsTon(t, config.TonChains)
-	for chainSel, chain := range zkChains {
-		chains[chainSel] = chain
 
 	// Cast zkChains to cldf_evm.Chain temporarily since we still use the concrete types for EVM
 	for _, zkc := range zkChains {
