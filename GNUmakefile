@@ -31,6 +31,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
+	go run ./tools/plugout --update
 
 .PHONY: tidy
 tidy: gomodtidy ## Tidy all modules and add to git.

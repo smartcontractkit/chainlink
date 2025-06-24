@@ -11,7 +11,6 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 	return config.ChainReaderConfig{
 		IsLoopPlugin: true,
 		Modules: map[string]*config.ChainReaderModule{
-			// TODO: more offramp config and other modules
 			consts.ContractNameRMNRemote: {
 				Name: "rmn_remote",
 				Functions: map[string]*config.ChainReaderFunction{
@@ -120,11 +119,9 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 					},
 					consts.MethodNameOffRampGetStaticConfig: {
 						Name: "get_static_config",
-						// TODO: field renames
 					},
 					consts.MethodNameOffRampGetDynamicConfig: {
 						Name: "get_dynamic_config",
-						// TODO: field renames
 					},
 					consts.MethodNameGetSourceChainConfig: {
 						Name: "get_source_chain_config",

@@ -1,0 +1,151 @@
+name: CRE System Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
+  workflow_call:
+    inputs:
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+      chainlink_version:
+        required: true
+        type: string
+        description: "The version of Chainlink repository to use for the tests."
+        default: "develop"
+
+jobs:
+  define-test-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.chainlink_version }}
+          persist-credentials: false
+
+      - name: Define test matrix
+        id: define-matrix
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre
+        run: |
+          # Get the list of tests and convert to JSON format
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
+          tests=$(echo $tests | jq -c .)
+
+          echo "matrix=$tests" >> $GITHUB_OUTPUT
+
+  run-system-tests:
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
+    needs: [define-test-matrix]
+    # TODO at some point we might want to use self-hosted runners
+    # E.g. by using: "runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs"
+    runs-on: ubuntu-latest
+    environment: "integration"
+    timeout-minutes: 30
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.chainlink_version }}
+
+      - name: Set up Go
+        id: setup-go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: true
+
+      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Setup GitHub token using GATI
+        id: setup-gati-token
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-duration-seconds: "1800"
+
+      # gotestloghelper gives us pretty test output
+      - name: Set Up gotestloghelper
+        shell: bash
+        run:
+          go install
+          github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
+
+      - name: Download test dependencies
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre/cmd
+        env:
+          GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token }}
+        run: ./download_cre_ci_deps.sh 3
+
+      # TODO
+      # Add Flakeguard support
+
+      - name: Run CRE system tests
+        shell: bash
+        working-directory: system-tests/tests
+        env:
+          CTF_CONFIGS: ${{ matrix.tests.test_config }}
+          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
+          E2E_JD_VERSION: "0.9.0"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          # Anvil developer key, not a secret
+          PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+          TEST_NAME: ${{ matrix.tests.test_name }}
+        run: |
+          { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+
+      - name: Upload all artifacts as single package
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name:
+            test-logs-${{ matrix.tests.test_name }}
+          path: |
+            ./system-tests/tests/smoke/cre/logs/
+            ./system-tests/tests/load/cre/logs/
+             /tmp/gotest.log

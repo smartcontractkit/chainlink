@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
@@ -31,8 +32,20 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
+	const (
+		fRoleDON = 2
+		nRoleDON = 3*fRoleDON + 1
+	)
+
 	var tokenPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithNumOfNodes(nRoleDON),
+		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
+			cciptesthelpertypes.RandomTopologyArgs{
+				FChainToNumChains: map[int]int{1: 1},
+				Seed:              42, // for reproducible setups.
+			},
+		)),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if params.CommitOffChainConfig != nil {
 				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)

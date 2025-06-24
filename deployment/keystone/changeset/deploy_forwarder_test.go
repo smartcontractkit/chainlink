@@ -58,7 +58,6 @@ func TestDeployForwarder(t *testing.T) {
 		require.Len(t, l, 2, "expected exactly 2 labels")
 		require.Contains(t, l[0], internal.DeploymentBlockLabel)
 		require.Contains(t, l[1], internal.DeploymentHashLabel)
-
 	})
 }
 

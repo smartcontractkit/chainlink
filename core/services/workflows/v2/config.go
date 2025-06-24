@@ -26,6 +26,7 @@ type EngineConfig struct {
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
+	SecretsFetcher  SecretsFetcher
 
 	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
@@ -53,6 +54,8 @@ const (
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
+	defaultMaxUserLogEventsPerExecution            = 1000
+	defaultMaxUserLogLineLength                    = 1000
 
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
@@ -70,6 +73,8 @@ type EngineLimits struct {
 	MaxConcurrentCapabilityCallsPerWorkflow uint16
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
+	MaxUserLogEventsPerExecution            uint32
+	MaxUserLogLineLength                    uint32
 
 	HeartbeatFrequencyMs uint32
 	ShutdownTimeoutMs    uint32
@@ -98,6 +103,10 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.SecretsFetcher == nil {
+		// TODO: implement
+		c.SecretsFetcher = &unimplementedSecretsFetcher{}
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
@@ -158,6 +167,12 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.MaxUserLogEventsPerExecution == 0 {
+		l.MaxUserLogEventsPerExecution = defaultMaxUserLogEventsPerExecution
+	}
+	if l.MaxUserLogLineLength == 0 {
+		l.MaxUserLogLineLength = defaultMaxUserLogLineLength
 	}
 	if l.HeartbeatFrequencyMs == 0 {
 		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
