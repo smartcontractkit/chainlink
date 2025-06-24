@@ -27,7 +27,7 @@ import (
 	handlers_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
 
-func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTimeout time.Duration, heartbeatSender string) (handlers.UserMessageHandler, *handlers_mocks.DON, *allowlist_mocks.OnchainAllowlist, *subscriptions_mocks.OnchainSubscriptions) {
+func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTimeout time.Duration, heartbeatSender string) (handlers.Handler, *handlers_mocks.DON, *allowlist_mocks.OnchainAllowlist, *subscriptions_mocks.OnchainSubscriptions) {
 	cfg := functions.FunctionsHandlerConfig{}
 	donConfig := &config.DONConfig{
 		Members: []config.NodeConfig{},
@@ -67,7 +67,7 @@ func newSignedMessage(t *testing.T, id string, method string, donId string, priv
 	return msg
 }
 
-func sendNodeReponses(t *testing.T, handler handlers.UserMessageHandler, userRequestMsg api.Message, nodes []gc.TestNode, responses []bool) {
+func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api.Message, nodes []gc.TestNode, responses []bool) {
 	for id, resp := range responses {
 		nodeResponseMsg := userRequestMsg
 		nodeResponseMsg.Body.Receiver = userRequestMsg.Body.Sender

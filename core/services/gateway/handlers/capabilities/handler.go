@@ -53,7 +53,7 @@ type savedCallback struct {
 	callbackCh chan<- handlers.UserCallbackPayload
 }
 
-var _ handlers.UserMessageHandler = (*handler)(nil)
+var _ handlers.Handler = (*handler)(nil)
 
 func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
 	var cfg HandlerConfig

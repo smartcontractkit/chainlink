@@ -41,7 +41,7 @@ type Gateway interface {
 type HandlerType = string
 
 type HandlerFactory interface {
-	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (job.ServiceCtx, error)
+	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
 }
 
 type gateway struct {
@@ -49,7 +49,7 @@ type gateway struct {
 
 	codec          api.Codec
 	httpServer     gw_net.HttpServer
-	handlers       map[string]job.ServiceCtx
+	handlers       map[string]handlers.Handler
 	connMgr        ConnectionManager
 	lggr           logger.Logger
 	jsonrpcHandler jsonrpc2.Handler
@@ -63,7 +63,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		return nil, err
 	}
 
-	handlerMap := make(map[string]job.ServiceCtx)
+	handlerMap := make(map[string]handlers.Handler)
 
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
@@ -87,17 +87,13 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 			return nil, err
 		}
 		handlerMap[donConfig.DonId] = handler
-		nodeMsgHandler, ok := handler.(handlers.NodeMessageHandler)
-		if !ok {
-			return nil, fmt.Errorf("handler %s for DON %s does not implement NodeMessageHandler interface", donConfig.HandlerName, donConfig.DonId)
-		}
-		donConnMgr.SetHandler(nodeMsgHandler)
+		donConnMgr.SetHandler(handler)
 	}
 
 	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]job.ServiceCtx, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:          codec,
 		httpServer:     httpServer,
@@ -139,18 +135,8 @@ func (g *gateway) Close() error {
 
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth string) (rawResponse []byte, httpStatusCode int) {
-	jsonRequest, _ := g.jsonrpcHandler.DecodeRequest(rawRequest, auth)
-
-	if jsonRequest.Version == jsonrpc2.JsonRpcVersion {
-		return g.processJsonRpc2Request(ctx, jsonRequest, auth)
-	} else {
-		return g.processLegacyRequest(ctx, rawRequest)
-	}
-}
-
-func (g *gateway) processLegacyRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int) {
 	// decode
-	msg, err := g.codec.DecodeRequest(rawRequest)
+	msg, err := g.codec.DecodeRequest(rawRequest, auth)
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
@@ -161,13 +147,18 @@ func (g *gateway) processLegacyRequest(ctx context.Context, rawRequest []byte) (
 		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
 	}
 	// find correct handler
-	h, ok := g.handlers[msg.Body.DonId]
+	handlerId := msg.Body.DonId
+	if handlerId == "" {
+		// if no DON ID is specified, use the first part of the method as handler ID.
+		handlerId = strings.Split(msg.Body.Method, ".")[0]
+	}
+	h, ok := g.handlers[handlerId]
 	if !ok {
 		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
 	}
-	handler, ok := h.(handlers.UserMessageHandler)
+	handler, ok := h.(handlers.Handler)
 	if !ok {
-		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "UserMessageHandler not found")
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "Handler not found")
 	}
 	// send to the handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
@@ -190,35 +181,6 @@ func (g *gateway) processLegacyRequest(ctx context.Context, rawRequest []byte) (
 	rawResponse, err = g.codec.EncodeResponse(response.Msg)
 	if err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
-	}
-	promRequest.WithLabelValues(api.NoError.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(api.NoError)
-}
-
-func (g *gateway) processJsonRpc2Request(ctx context.Context, request jsonrpc2.Request, jwtToken string) (rawResponse []byte, httpStatusCode int) {
-	handlerType := request.ServiceName()
-	h, ok := g.handlers[handlerType]
-	if !ok {
-		return errorResponse(&request, api.UnsupportedDONIdError, "unsupported DON ID")
-	}
-	handler, ok := h.(jsonrpc2.Service)
-	if !ok {
-		return errorResponse(&request, api.HandlerError, "UserMessageHandler not found")
-	}
-	responseCh := make(chan *jsonrpc2.Response, 1)
-	err := handler.HandleUserRequest(ctx, &request, responseCh)
-	if err != nil {
-		return errorResponse(&request, api.HandlerError, err.Error())
-	}
-
-	response, ok := <-responseCh
-	if !ok {
-		return errorResponse(&request, api.HandlerError, "handler timeout")
-	}
-
-	rawResponse, err = g.jsonrpcHandler.EncodeResponse(response)
-	if err != nil {
-		return errorResponse(&request, api.NodeReponseEncodingError, "")
 	}
 	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)

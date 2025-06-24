@@ -2,69 +2,49 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
-
-// Wrapping/unwrapping Message objects into JSON RPC ones folllowing https://www.jsonrpc.org/specification
-type JsonRPCRequest struct {
-	Version string   `json:"jsonrpc"`
-	Id      string   `json:"id"`
-	Method  string   `json:"method"`
-	Params  *Message `json:"params,omitempty"`
-}
-
-type JsonRPCResponse struct {
-	Version string        `json:"jsonrpc"`
-	Id      string        `json:"id"`
-	Result  *Message      `json:"result,omitempty"`
-	Error   *JsonRPCError `json:"error,omitempty"`
-}
-
-// JSON-RPC error can only be sent to users. It is not used for messages between Gateways and Nodes.
-type JsonRPCError struct {
-	Code    int             `json:"code"`
-	Message string          `json:"message"`
-	Data    json.RawMessage `json:"data,omitempty"`
-}
 
 type JsonRPCCodec struct {
 }
 
 var _ Codec = (*JsonRPCCodec)(nil)
 
-func (*JsonRPCCodec) DecodeRequest(msgBytes []byte) (*Message, error) {
-	var request JsonRPCRequest
-	err := json.Unmarshal(msgBytes, &request)
+func (*JsonRPCCodec) DecodeRequest(msgBytes []byte, jwtToken string) (*Message, error) {
+	var request jsonrpc2.Request
+	jsonRpcHandler := jsonrpc2.Handler{}
+	request, err := jsonRpcHandler.DecodeRequest(msgBytes, jwtToken)
 	if err != nil {
 		return nil, err
 	}
-	if request.Version != "2.0" {
-		return nil, errors.New("incorrect jsonrpc version")
+	var msg Message
+	err = json.Unmarshal(request.Params, &msg)
+	if err != nil {
+		return nil, err
 	}
-	if request.Method == "" {
-		return nil, errors.New("empty method field")
-	}
-	if request.Params == nil {
-		return nil, errors.New("missing params attribute")
-	}
-	request.Params.Body.MessageId = request.Id
-	request.Params.Body.Method = request.Method
-	return request.Params, nil
+	msg.Body.MessageId = request.ID
+	msg.Body.Method = request.Method
+	return &msg, nil
 }
 
 func (*JsonRPCCodec) EncodeRequest(msg *Message) ([]byte, error) {
-	request := JsonRPCRequest{
-		Version: "2.0",
-		Id:      msg.Body.MessageId,
+	params, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	request := jsonrpc2.Request{
+		Version: jsonrpc2.JsonRpcVersion,
+		ID:      msg.Body.MessageId,
 		Method:  msg.Body.Method,
-		Params:  msg,
+		Params:  params,
 	}
 	return json.Marshal(request)
 }
 
 func (*JsonRPCCodec) DecodeResponse(msgBytes []byte) (*Message, error) {
-	var response JsonRPCResponse
+	var response jsonrpc2.Response
 	err := json.Unmarshal(msgBytes, &response)
 	if err != nil {
 		return nil, err
@@ -72,29 +52,36 @@ func (*JsonRPCCodec) DecodeResponse(msgBytes []byte) (*Message, error) {
 	if response.Error != nil {
 		return nil, fmt.Errorf("received non-empty error field: %v", response.Error)
 	}
-	if response.Result != nil {
-		response.Result.Body.MessageId = response.Id
+	var msg Message
+	if err != nil {
+		return nil, err
 	}
-	return response.Result, nil
+	err = json.Unmarshal(response.Result, &msg)
+	msg.Body.MessageId = response.ID
+	return &msg, nil
 }
 
 func (*JsonRPCCodec) EncodeResponse(msg *Message) ([]byte, error) {
-	response := JsonRPCResponse{
-		Version: "2.0",
-		Id:      msg.Body.MessageId,
-		Result:  msg,
+	result, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	response := jsonrpc2.Response{
+		Version: jsonrpc2.JsonRpcVersion,
+		ID:      msg.Body.MessageId,
+		Result:  result,
 	}
 	return json.Marshal(response)
 }
 
 func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int, message string, data []byte) ([]byte, error) {
-	response := JsonRPCResponse{
-		Version: "2.0",
-		Id:      id,
-		Error: &JsonRPCError{
-			Code:    code,
+	response := jsonrpc2.Response{
+		Version: jsonrpc2.JsonRpcVersion,
+		ID:      id,
+		Error: &jsonrpc2.WireError{
+			Code:    int64(code),
 			Message: message,
-			Data:    data,
+			Data:    (*json.RawMessage)(&data),
 		},
 	}
 	return json.Marshal(response)

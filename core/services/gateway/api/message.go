@@ -44,7 +44,7 @@ type MessageBody struct {
 	Method    string `json:"method"`
 	DonId     string `json:"don_id"`
 	Receiver  string `json:"receiver"`
-	// Service-specific payload, decoded inside the UserMessageHandler.
+	// Service-specific payload, decoded inside the Handler.
 	Payload json.RawMessage `json:"payload,omitempty"`
 
 	// Fields only used locally for convenience. Not serialized.

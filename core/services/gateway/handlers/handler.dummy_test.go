@@ -14,11 +14,11 @@ import (
 )
 
 type testConnManager struct {
-	handler     handlers.UserMessageHandler
+	handler     handlers.Handler
 	sendCounter int
 }
 
-func (m *testConnManager) SetHandler(handler handlers.UserMessageHandler) {
+func (m *testConnManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 

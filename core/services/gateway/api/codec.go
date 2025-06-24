@@ -2,7 +2,7 @@ package api
 
 // Codec implements (de)serialization of Message objects.
 type Codec interface {
-	DecodeRequest(msgBytes []byte) (*Message, error)
+	DecodeRequest(msgBytes []byte, jwtToken string) (*Message, error)
 
 	EncodeRequest(msg *Message) ([]byte, error)
 

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	handler_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	net_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func parseTOMLConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
@@ -144,11 +143,11 @@ func requireJsonRPCError(t *testing.T, response []byte, expectedId string, expec
 	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","error":{"code":%d,"message":"%s"}}`, expectedId, expectedCode, expectedMsg), string(response))
 }
 
-func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.UserMessageHandler) {
+func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Handler) {
 	httpServer := net_mocks.NewHttpServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	handler := handler_mocks.NewUserMessageHandler(t)
-	handlers := map[string]job.ServiceCtx{
+	handler := handler_mocks.NewHandler(t)
+	handlers := map[string]handlers.Handler{
 		"testDON": handler,
 	}
 	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
