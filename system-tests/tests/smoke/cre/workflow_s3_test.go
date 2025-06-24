@@ -172,6 +172,9 @@ func mockCreConfig(t *testing.T, configPath string, provider s3provider.Provider
 }
 
 func TestWorkflowS3(t *testing.T) {
+	configErr := setCICtfConfigIfMissing(ConfigTOML)
+	require.NoError(t, configErr, "failed to set CTF config")
+
 	in, err := framework.Load[TestConfig](t)
 	require.NoError(t, err)
 
