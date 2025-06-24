@@ -17,6 +17,14 @@ import (
 )
 
 func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *testing.T) {
+	runCCIPTopologiesTest(t, 2, 1)
+}
+
+func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource(t *testing.T) {
+	runCCIPTopologiesTest(t, 1, 2)
+}
+
+func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.TEST_90000001,
@@ -29,10 +37,8 @@ func Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest(t *tes
 	destChainSel := chains[2].Selector
 
 	const (
-		fRoleDON     = 2
-		nRoleDON     = 3*fRoleDON + 1
-		fChainSource = 2
-		fChainDest   = 1
+		fRoleDON = 2
+		nRoleDON = 3*fRoleDON + 1
 	)
 
 	// Setup 3 chains and a single lane.
