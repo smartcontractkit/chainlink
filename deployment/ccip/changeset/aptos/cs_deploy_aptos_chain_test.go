@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -246,7 +245,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 	})
 
 	// Get chain selectors
-	aptosChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
+	aptosChainSelectors := env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 	require.Len(t, aptosChainSelectors, 1, "Expected exactly 1 Aptos chain")
 	chainSelector := aptosChainSelectors[0]
 	t.Log("Deployer: ", env.BlockChains.AptosChains()[chainSelector].DeployerSigner)
