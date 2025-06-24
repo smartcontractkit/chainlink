@@ -18,7 +18,6 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
-
 // Test_CCIPGasPriceUpdates tests that chain fee price updates are propagated correctly when expiry time is reached.
 func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 	ctx := testhelpers.Context(t)
