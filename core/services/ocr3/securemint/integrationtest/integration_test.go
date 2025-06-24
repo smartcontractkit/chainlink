@@ -23,6 +23,7 @@ import (
 
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -86,6 +87,9 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 		c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 	})
 
+	// Deploy and configure KeystoneForwarder contract
+	forwarderAddress, forwarderContract := setupKeystoneForwarderContract(t, steve, backend, oracles)
+
 	allowedSenders := make([]common.Address, len(nodes))
 	for i, node := range nodes {
 		keys, err := node.app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
@@ -104,11 +108,10 @@ func TestIntegration_SecureMint_happy_path(t *testing.T) {
 	bootstrapJob := createSecureMintBootstrapJob(t, bootstrapNode, configuratorAddress, testutils.SimulatedChainID.String(), fmt.Sprintf("%d", fromBlock))
 	t.Logf("Created bootstrap job: %s with id %d", bootstrapJob.Name.ValueOrZero(), bootstrapJob.ID)
 
-	jobIDs := addSecureMintOCRJobs(t, nodes, configuratorAddress)
+	jobIDs := addSecureMintOCRJobs(t, nodes, configuratorAddress, forwarderAddress)
 
 	t.Logf("jobIDs: %v", jobIDs)
-	validateJobsRunningSuccessfully(t, nodes, jobIDs, dataFeedsCache, dataFeedsCacheAddress)
-
+	validateJobsRunningSuccessfully(t, nodes, jobIDs, dataFeedsCache, dataFeedsCacheAddress, forwarderContract, forwarderAddress, backend)
 }
 
 func setupBlockchain(t *testing.T) (
@@ -150,7 +153,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 	return
 }
 
-func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32, dataFeedsCache *data_feeds_cache.DataFeedsCache, dataFeedsCacheAddress common.Address) {
+func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32, dataFeedsCache *data_feeds_cache.DataFeedsCache, dataFeedsCacheAddress common.Address, forwarderContract *forwarder.KeystoneForwarder, forwarderAddress common.Address, backend evmtypes.Backend) {
 
 	// 1. Assert no job spec errors
 	for i, node := range nodes {
@@ -206,7 +209,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
 
-	// 3. Check that transmissions work and reports are written to chain
+	// 3. Check that transmissions work and reports are written to the KeystoneForwarder
 	expectedNumTransmissions := int32(4)
 	gomega.NewWithT(t).Eventually(func() bool {
 		numTransmissions := securemint.StubTransmissionCounter.Load()
@@ -217,7 +220,65 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
 	)
 
-	// 4. Verify that reports are actually written to the DataFeedsCache contract
+	// 4. Verify that reports are actually written to the KeystoneForwarder contract
+	t.Logf("Verifying reports are written to KeystoneForwarder contract at %s", forwarderAddress.Hex())
+
+	// Wait for reports to be written to the KeystoneForwarder and verify they were processed
+	// We'll check for ReportProcessed events from the forwarder
+	gomega.NewWithT(t).Eventually(func() bool {
+		// Get the latest block number
+		latestBlock, err := backend.Client().BlockNumber(testutils.Context(t))
+		if err != nil {
+			t.Logf("Error getting latest block: %v", err)
+			return false
+		}
+
+		// Look for ReportProcessed events in the last few blocks
+		fromBlock := latestBlock - 10
+		if fromBlock < 0 {
+			fromBlock = 0
+		}
+
+		// Create a filter for ReportProcessed events
+		query := ethereum.FilterQuery{
+			Addresses: []common.Address{forwarderAddress},
+			FromBlock: big.NewInt(int64(fromBlock)),
+			ToBlock:   big.NewInt(int64(latestBlock)),
+			Topics: [][]common.Hash{
+				{common.HexToHash("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925")}, // ReportProcessed event signature
+			},
+		}
+
+		logs, err := backend.Client().FilterLogs(testutils.Context(t), query)
+		if err != nil {
+			t.Logf("Error filtering logs: %v", err)
+			return false
+		}
+
+		t.Logf("Found %d ReportProcessed events in blocks %d-%d", len(logs), fromBlock, latestBlock)
+
+		// Check if we have any successful report processing events
+		for _, log := range logs {
+			// Parse the ReportProcessed event
+			// The event has 4 indexed parameters: receiver, workflowExecutionId, reportId, result
+			if len(log.Topics) >= 4 {
+				result := log.Topics[3] // The result is the 4th topic
+				if result == common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001") {
+					t.Logf("Found successful report processing event at block %d", log.BlockNumber)
+					return true
+				}
+			}
+		}
+
+		return false
+	}, 60*time.Second, 2*time.Second).Should(
+		gomega.BeTrue(),
+		"expected reports to be written to KeystoneForwarder contract with successful processing",
+	)
+
+	t.Logf("Successfully verified reports are written to KeystoneForwarder!")
+
+	// 5. Verify that reports are actually written to the DataFeedsCache contract
 	t.Logf("Verifying reports are written to DataFeedsCache contract at %s", dataFeedsCacheAddress.Hex())
 
 	// Create a dataId for the feed (using the same one from setupDataFeedsCacheContract)
@@ -414,4 +475,37 @@ func setupDataFeedsCacheContract(t *testing.T, steve *bind.TransactOpts, backend
 	backend.Commit()
 
 	return addr, dataFeedsCache
+}
+
+// setupKeystoneForwarderContract deploys and configures the KeystoneForwarder contract
+func setupKeystoneForwarderContract(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, oracles []confighelper.OracleIdentityExtra) (common.Address, *forwarder.KeystoneForwarder) {
+	// Deploy the KeystoneForwarder contract
+	forwarderAddress, _, forwarderContract, err := forwarder.DeployKeystoneForwarder(steve, backend.Client())
+	require.NoError(t, err)
+	backend.Commit()
+
+	t.Logf("Deployed KeystoneForwarder contract at: %s", forwarderAddress.Hex())
+
+	// Extract signer addresses from oracles
+	signers := make([]common.Address, len(oracles))
+	for i, oracle := range oracles {
+		// Convert the onchain public key to an address
+		// This is a simplified approach - in practice, you'd need to properly derive the address
+		signerAddr := common.BytesToAddress(oracle.OnchainPublicKey)
+		signers[i] = signerAddr
+	}
+
+	// Configure the forwarder with the oracle signers
+	// Using DON_ID = 1, CONFIG_VERSION = 1, F = 1 for simplicity
+	donID := uint32(1)
+	configVersion := uint32(1)
+	f := uint8(1)
+
+	_, err = forwarderContract.SetConfig(steve, donID, configVersion, f, signers)
+	require.NoError(t, err)
+	backend.Commit()
+
+	t.Logf("Configured KeystoneForwarder with %d signers, F=%d", len(signers), f)
+
+	return forwarderAddress, forwarderContract
 }

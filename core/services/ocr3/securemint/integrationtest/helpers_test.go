@@ -156,6 +156,7 @@ func addSecureMintOCRJobs(
 	t *testing.T,
 	nodes []node,
 	configuratorAddress common.Address,
+	forwarderAddress common.Address,
 ) (jobIDs map[int]int32) {
 	// node idx => job id
 	jobIDs = make(map[int]int32)
@@ -172,6 +173,7 @@ func addSecureMintOCRJobs(
 			node,
 			configuratorAddress,
 			bmBridge,
+			forwarderAddress,
 		)
 		jobIDs[i] = jobID
 		t.Logf("Added secure mint job with id %d on node %d", jobID, i)
@@ -184,9 +186,10 @@ func addSecureMintJob(
 	node node,
 	configuratorAddress common.Address,
 	bridgeName string,
+	forwarderAddress common.Address,
 ) (id int32) {
 
-	spec := getSecureMintJobSpec(t, configuratorAddress.Hex(), node.keyBundle.ID(), node.clientPubKey[:], bridgeName)
+	spec := getSecureMintJobSpec(t, configuratorAddress.Hex(), node.keyBundle.ID(), node.clientPubKey[:], bridgeName, forwarderAddress)
 
 	c := node.app.GetConfig()
 	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
@@ -199,7 +202,7 @@ func addSecureMintJob(
 	return job.ID
 }
 
-func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, publicKey ed25519.PublicKey, bridgeName string) string {
+func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, publicKey ed25519.PublicKey, bridgeName string, forwarderAddress common.Address) string {
 
 	t.Logf("Using transmitter address %x for job", publicKey)
 
@@ -237,11 +240,14 @@ func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, 
 			maxChains                         = 5
 			token                             = "btc"
 			reserves                          = "custom"
+			keystoneForwarderAddress          = "%s"
 		`, // Using lloConfigMode 'bluegreen' since otherwise LLO config poller won't work
-		ocrContractAddress, // contract address
-		keyBundleID,        // ocr key bundle id
-		publicKey,          // transmitter id
-		bridgeName)         // bridge name
+		ocrContractAddress,     // contract address
+		keyBundleID,            // ocr key bundle id
+		publicKey,              // transmitter id
+		bridgeName,             // bridge name
+		forwarderAddress.Hex(), // keystoneForwarderAddress
+	)
 }
 
 // Based on https://chainlink-core.slack.com/archives/C090PQH50M6/p1749483857095389?thread_ts=1749482941.061609&cid=C090PQH50M6
