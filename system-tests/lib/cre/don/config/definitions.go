@@ -100,10 +100,12 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	FromAddress = '%s'
 	ForwarderAddress = '%s'
 	GasLimitDefault = 400_000
+	TxAcceptanceState = 2
+	PollPeriod = '2s'
+	AcceptanceTimeout = '30s'
 
 	[EVM.Transactions]
 	ForwardersEnabled = true
-
 `,
 			chain.ChainID,
 			chain.Name,
@@ -168,7 +170,7 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 }
 
 func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
-	gatewayURL := fmt.Sprintf("ws://%s:%d/%s", gatewayConnectorData.Host, 5003, "node")
+	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
 
 	return fmt.Sprintf(`
 	[Capabilities.GatewayConnector]

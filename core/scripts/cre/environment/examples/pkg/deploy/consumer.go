@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
 )
 
-func DeployPermissionlessFeedsConsumer(rpcUrl string) (*common.Address, error) {
+func PermissionlessFeedsConsumer(rpcURL string) (*common.Address, error) {
 	var privateKey string
 	if os.Getenv("PRIVATE_KEY") == "" {
 		privateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -23,7 +23,7 @@ func DeployPermissionlessFeedsConsumer(rpcUrl string) (*common.Address, error) {
 	}
 
 	sethClient, sethErr := seth.NewClientBuilder().
-		WithRpcUrl(rpcUrl).
+		WithRpcUrl(rpcURL).
 		WithPrivateKeys([]string{privateKey}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).

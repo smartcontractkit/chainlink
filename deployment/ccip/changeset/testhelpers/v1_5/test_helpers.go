@@ -37,20 +37,16 @@ import (
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
-			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+		v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+		v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+		v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+	))
 	require.NoError(t, err)
 	return e
 }
@@ -369,6 +365,35 @@ func WaitForNoCommit(
 			}
 		case <-timer.C:
 			t.Logf("Successfully observed no commit for sequence number %d for commit store %s during 30s period", seqNr, commitStore.Address().String())
+			return
+		}
+	}
+}
+
+func WaitForNoExec(
+	t *testing.T,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
+	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
+	seqNr uint64,
+) {
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			state, err := offRamp.GetExecutionState(nil, seqNr)
+			require.NoError(t, err)
+			t.Logf("Waiting for no execution for sequence number %d, current state %d", seqNr, state)
+			// We expect the state to be untouched or in a failure state
+			if cciptypes.MessageExecutionState(state) == cciptypes.ExecutionStateSuccess {
+				t.Fatalf("Execution for sequence number %d found while it was not expected, current state %d", seqNr, state)
+				return
+			}
+		case <-timer.C:
+			t.Logf("Successfully observed no execution for sequence number %d for offramp %s during 30s period", seqNr, offRamp.Address().String())
 			return
 		}
 	}

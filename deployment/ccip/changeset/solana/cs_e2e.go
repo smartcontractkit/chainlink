@@ -21,14 +21,19 @@ import (
 // configure solana pools on the evm side
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
+// use this changeset to deploy a solana token
+// upload token metadata
+// set the token authority
+var _ cldf.ChangeSet[E2ETokenConfig] = E2EToken
+
 type E2ETokenPoolConfig struct {
 	AddTokenPoolAndLookupTable            []TokenPoolConfig
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig
 	SetPool                               []SetPoolConfig
-	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig
-	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig
-	MCMS                                  *proposalutils.TimelockConfig // set it to aggregate all the proposals
+	RemoteChainTokenPool                  []RemoteChainTokenPoolConfig               // setup evm remote pools on solana
+	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig // setup evm/solana remote pools on evm
+	MCMS                                  *proposalutils.TimelockConfig              // set it to aggregate all the proposals
 }
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {

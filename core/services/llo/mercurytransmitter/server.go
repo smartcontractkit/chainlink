@@ -18,7 +18,6 @@ import (
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -102,13 +101,13 @@ type server struct {
 }
 
 type QueueConfig interface {
-	ReaperMaxAge() commonconfig.Duration
+	ReaperMaxAge() time.Duration
 	TransmitQueueMaxSize() uint32
-	TransmitTimeout() commonconfig.Duration
+	TransmitTimeout() time.Duration
 }
 
 func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
-	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge().Duration())
+	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge())
 	donIDStr := strconv.FormatUint(uint64(pm.DonID()), 10)
 	var codecLggr logger.Logger
 	if verboseLogging {
@@ -120,7 +119,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 	s := &server{
 		logger.Sugared(lggr),
 		verboseLogging,
-		cfg.TransmitTimeout().Duration(),
+		cfg.TransmitTimeout(),
 		client,
 		pm,
 		NewTransmitQueue(lggr, serverURL, int(cfg.TransmitQueueMaxSize()), pm),

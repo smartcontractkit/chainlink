@@ -71,7 +71,7 @@ func TestLabeledAddresses_And(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.give.And(tt.labels...)
-			require.Equal(t, len(tt.want), len(got), "len of got != len of want")
+			require.Len(t, got, len(tt.want), "len of got != len of want")
 
 			for addr, lsa := range tt.want {
 				lsb, exists := got[addr]
