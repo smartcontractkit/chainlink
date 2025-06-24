@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
