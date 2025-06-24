@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,10 +17,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -70,7 +71,6 @@ type donConnectionManager struct {
 	donConfig  *config.DONConfig
 	nodes      map[string]*nodeState
 	handler    handlers.Handler
-	codec      api.Codec
 	closeWait  sync.WaitGroup
 	shutdownCh services.StopChan
 	lggr       logger.Logger
@@ -90,7 +90,6 @@ type connAttempt struct {
 }
 
 func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, lggr logger.Logger) (ConnectionManager, error) {
-	codec := &api.JsonRPCCodec{}
 	dons := make(map[string]*donConnectionManager)
 	for _, donConfig := range gwConfig.Dons {
 		donConfig := donConfig
@@ -119,10 +118,9 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
-			codec:      codec,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
-			lggr:       lggr.Named("DONConnectionManager." + donConfig.DonId),
+			lggr:       logger.Named(lggr, "DONConnectionManager."+donConfig.DonId),
 		}
 	}
 	connMgr := &connectionManager{
@@ -130,7 +128,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 		dons:         dons,
 		connAttempts: make(map[string]*connAttempt),
 		clock:        clock,
-		lggr:         lggr.Named("ConnectionManager"),
+		lggr:         logger.Named(lggr, "ConnectionManager"),
 	}
 	wsServer := network.NewWebSocketServer(&gwConfig.NodeServerConfig, connMgr, lggr)
 	connMgr.wsServer = wsServer
@@ -260,11 +258,11 @@ func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 
-func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error {
-	if msg == nil {
-		return errors.New("nil message")
+func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request) error {
+	if req == nil {
+		return errors.New("nil request")
 	}
-	data, err := m.codec.EncodeRequest(msg)
+	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %w", nodeAddress, err)
 	}
@@ -283,20 +281,13 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			m.closeWait.Done()
 			return
 		case item := <-nodeState.conn.ReadChannel():
-			msg, err := m.codec.DecodeResponse(item.Data)
+			var resp jsonrpc.Response
+			err := json.Unmarshal(item.Data, &resp)
 			if err != nil {
 				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
-			if err = msg.Validate(); err != nil {
-				m.lggr.Errorw("message validation error when reading from node", "nodeAddress", nodeAddress, "err", err)
-				break
-			}
-			if msg.Body.Sender != nodeAddress {
-				m.lggr.Errorw("message sender mismatch when reading from node", "nodeAddress", nodeAddress, "sender", msg.Body.Sender)
-				break
-			}
-			err = m.handler.HandleNodeMessage(ctx, msg, nodeAddress)
+			err = m.handler.HandleNodeMessage(ctx, &resp, nodeAddress)
 			if err != nil {
 				m.lggr.Error("error when calling HandleNodeMessage ", err)
 			}
