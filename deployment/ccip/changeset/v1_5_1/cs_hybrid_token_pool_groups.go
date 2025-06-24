@@ -39,7 +39,7 @@ type GroupUpdateConfig struct {
 	RemoteChainSupply   *big.Int
 }
 
-func (g GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExternalMinterFastTransferTokenPool) error {
+func (g *GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExternalMinterFastTransferTokenPool) error {
 	if err := cldf.IsValidChainSelector(g.RemoteChainSelector); err != nil {
 		return fmt.Errorf("invalid remote chain selector %d: %w", g.RemoteChainSelector, err)
 	}
@@ -70,7 +70,7 @@ func (g GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExternal
 	if err != nil {
 		return fmt.Errorf("failed to get current group for chain %d: %w", g.RemoteChainSelector, err)
 	}
-	if uint8(currentGroup) == uint8(g.Group) {
+	if Group(currentGroup) == g.Group {
 		return fmt.Errorf("remote chain %d is already in group %d", g.RemoteChainSelector, g.Group)
 	}
 

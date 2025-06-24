@@ -316,7 +316,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 				for remoteChainSelector, expectedGroup := range remoteUpdates {
 					currentGroup, err := pool.GetGroup(nil, remoteChainSelector)
 					require.NoError(t, err)
-					require.Equal(t, uint8(expectedGroup), uint8(currentGroup), "Group mismatch for chain %d -> %d", chainSelector, remoteChainSelector)
+					require.Equal(t, expectedGroup, currentGroup, "Group mismatch for chain %d -> %d", chainSelector, remoteChainSelector)
 				}
 			}
 		})
@@ -408,12 +408,12 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 			poolA := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][tc.contractVersion]
 			groupAB, err := poolA.GetGroup(nil, selectorB)
 			require.NoError(t, err)
-			require.Equal(t, uint8(v1_5_1.BurnAndMint), uint8(groupAB))
+			require.Equal(t, v1_5_1.BurnAndMint, groupAB)
 
 			poolB := state.Chains[selectorB].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][tc.contractVersion]
 			groupBA, err := poolB.GetGroup(nil, selectorA)
 			require.NoError(t, err)
-			require.Equal(t, uint8(v1_5_1.LockAndRelease), uint8(groupBA))
+			require.Equal(t, v1_5_1.LockAndRelease, groupBA)
 		})
 	}
 }
@@ -503,7 +503,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 			pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
 			currentGroup, err := pool.GetGroup(nil, selectorB)
 			require.NoError(t, err)
-			require.Equal(t, uint8(v1_5_1.BurnAndMint), uint8(currentGroup))
+			require.Equal(t, v1_5_1.BurnAndMint, currentGroup)
 		})
 	}
 }

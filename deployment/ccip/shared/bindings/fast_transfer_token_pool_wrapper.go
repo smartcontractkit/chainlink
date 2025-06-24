@@ -117,24 +117,18 @@ func convertQuoteFromHybrid(quote hybrid_external.IFastTransferPoolQuote) Quote 
 	}
 }
 
-// baseAdapter provides common adapter functionality using embedding
-type baseAdapter struct{}
-
 // burnMintPoolAdapter adapts BurnMintFastTransferTokenPool to the FastTransferPool interface
 type burnMintPoolAdapter struct {
-	baseAdapter
 	pool *fast_transfer_token_pool.BurnMintFastTransferTokenPool
 }
 
-// burnMintExternalPoolAdapter adapts BurnMintWithExternalMinterFastTransferTokenPool to the FastTransferPool interface  
+// burnMintExternalPoolAdapter adapts BurnMintWithExternalMinterFastTransferTokenPool to the FastTransferPool interface
 type burnMintExternalPoolAdapter struct {
-	baseAdapter
 	pool *burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPool
 }
 
 // hybridExternalPoolAdapter adapts HybridWithExternalMinterFastTransferTokenPool to the FastTransferPool interface
 type hybridExternalPoolAdapter struct {
-	baseAdapter
 	pool *hybrid_external.HybridWithExternalMinterFastTransferTokenPool
 }
 
@@ -435,47 +429,10 @@ type simpleIteratorWrapper struct {
 	eventFunc func() *FastTransferRequestedEvent
 }
 
-func (s *simpleIteratorWrapper) Next() bool                                { return s.nextFunc() }
-func (s *simpleIteratorWrapper) Error() error                             { return s.errorFunc() }
-func (s *simpleIteratorWrapper) Close() error                             { return s.closeFunc() }
+func (s *simpleIteratorWrapper) Next() bool                            { return s.nextFunc() }
+func (s *simpleIteratorWrapper) Error() error                          { return s.errorFunc() }
+func (s *simpleIteratorWrapper) Close() error                          { return s.closeFunc() }
 func (s *simpleIteratorWrapper) GetEvent() *FastTransferRequestedEvent { return s.eventFunc() }
-
-// Event type adapters - implement FastTransferEvent interface
-type burnMintEvent struct {
-	event *fast_transfer_token_pool.BurnMintFastTransferTokenPoolFastTransferRequested
-}
-func (e *burnMintEvent) GetDestinationChainSelector() uint64 { return e.event.DestinationChainSelector }
-func (e *burnMintEvent) GetFillId() [32]byte                 { return e.event.FillId }
-func (e *burnMintEvent) GetSettlementId() [32]byte           { return e.event.SettlementId }
-func (e *burnMintEvent) GetSourceAmountNetFee() *big.Int     { return e.event.SourceAmountNetFee }
-func (e *burnMintEvent) GetSourceDecimals() uint8            { return e.event.SourceDecimals }
-func (e *burnMintEvent) GetFastTransferFee() *big.Int        { return e.event.FastTransferFee }
-func (e *burnMintEvent) GetReceiver() []byte                 { return e.event.Receiver }
-func (e *burnMintEvent) GetRaw() types.Log                   { return e.event.Raw }
-
-type burnMintExternalEvent struct {
-	event *burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolFastTransferRequested
-}
-func (e *burnMintExternalEvent) GetDestinationChainSelector() uint64 { return e.event.DestinationChainSelector }
-func (e *burnMintExternalEvent) GetFillId() [32]byte                 { return e.event.FillId }
-func (e *burnMintExternalEvent) GetSettlementId() [32]byte           { return e.event.SettlementId }
-func (e *burnMintExternalEvent) GetSourceAmountNetFee() *big.Int     { return e.event.SourceAmountNetFee }
-func (e *burnMintExternalEvent) GetSourceDecimals() uint8            { return e.event.SourceDecimals }
-func (e *burnMintExternalEvent) GetFastTransferFee() *big.Int        { return e.event.FastTransferFee }
-func (e *burnMintExternalEvent) GetReceiver() []byte                 { return e.event.Receiver }
-func (e *burnMintExternalEvent) GetRaw() types.Log                   { return e.event.Raw }
-
-type hybridExternalEvent struct {
-	event *hybrid_external.HybridWithExternalMinterFastTransferTokenPoolFastTransferRequested
-}
-func (e *hybridExternalEvent) GetDestinationChainSelector() uint64 { return e.event.DestinationChainSelector }
-func (e *hybridExternalEvent) GetFillId() [32]byte                 { return e.event.FillId }
-func (e *hybridExternalEvent) GetSettlementId() [32]byte           { return e.event.SettlementId }
-func (e *hybridExternalEvent) GetSourceAmountNetFee() *big.Int     { return e.event.SourceAmountNetFee }
-func (e *hybridExternalEvent) GetSourceDecimals() uint8            { return e.event.SourceDecimals }
-func (e *hybridExternalEvent) GetFastTransferFee() *big.Int        { return e.event.FastTransferFee }
-func (e *hybridExternalEvent) GetReceiver() []byte                 { return e.event.Receiver }
-func (e *hybridExternalEvent) GetRaw() types.Log                   { return e.event.Raw }
 
 // Factory functions for creating specific iterator wrappers using closures
 func newBurnMintIteratorWrapper(iter *fast_transfer_token_pool.BurnMintFastTransferTokenPoolFastTransferRequestedIterator) eventIterator {

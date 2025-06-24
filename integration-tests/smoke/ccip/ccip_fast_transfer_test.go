@@ -1321,11 +1321,12 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 
 		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
 		var contractType cldf.ContractType
-		if tc.isHybridPool {
+		switch {
+		case tc.isHybridPool:
 			contractType = shared.HybridWithExternalMinterFastTransferTokenPool
-		} else if tc.externalMinter {
+		case tc.externalMinter:
 			contractType = shared.BurnMintWithExternalMinterFastTransferTokenPool
-		} else {
+		default:
 			contractType = shared.BurnMintFastTransferTokenPool
 		}
 		pool, err := bindings.NewFastTransferTokenPoolWrapper(sourceTokenPoolAddress, ctx.SourceChain().Client, contractType)
