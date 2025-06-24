@@ -27,7 +27,7 @@ const HTTPActionServiceName = "HttpActionService"
 var directHttpActionInfo = capabilities.MustNewCapabilityInfo(
 	HTTPActionID,
 	capabilities.CapabilityTypeAction,
-	"An action that makes an direct HTTP request",
+	"An action that makes a direct HTTP request",
 )
 
 type DirectHttpAction struct {
@@ -163,7 +163,8 @@ func (fh *DirectHttpAction) Initialise(ctx context.Context, config string, _ cor
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
-	_ core.OracleFactory) error {
+	_ core.OracleFactory,
+	_ core.GatewayConnector) error {
 
 	// TODO: do validation of config here
 
