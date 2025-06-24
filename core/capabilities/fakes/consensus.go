@@ -116,7 +116,8 @@ func (fc *fakeConsensus) Initialise(ctx context.Context, config string, _ core.T
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
-	_ core.OracleFactory) error {
+	_ core.OracleFactory,
+	_ core.GatewayConnector) error {
 
 	// TODO: do validation of config here
 

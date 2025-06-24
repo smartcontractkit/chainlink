@@ -65,7 +65,8 @@ func (fc *fakeEvmChain) Initialise(ctx context.Context, config string, _ core.Te
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
-	_ core.OracleFactory) error {
+	_ core.OracleFactory,
+	_ core.GatewayConnector) error {
 
 	// TODO: do validation of config here
 

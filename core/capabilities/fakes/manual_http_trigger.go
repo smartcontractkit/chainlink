@@ -51,7 +51,14 @@ func (f *FakeManualHttpTriggerService) UnregisterTrigger(ctx context.Context, tr
 	return nil
 }
 
-func (f *FakeManualHttpTriggerService) Initialise(ctx context.Context, config string, telemetryService core.TelemetryService, store core.KeyValueStore, errorLog core.ErrorLog, pipelineRunner core.PipelineRunnerService, relayerSet core.RelayerSet, oracleFactory core.OracleFactory) error {
+func (f *FakeManualHttpTriggerService) Initialise(ctx context.Context, config string,
+	_ core.TelemetryService,
+	_ core.KeyValueStore,
+	_ core.ErrorLog,
+	_ core.PipelineRunnerService,
+	_ core.RelayerSet,
+	_ core.OracleFactory,
+	_ core.GatewayConnector) error {
 	f.lggr.Debugf("Initialising %s", HTTPTriggerServiceName)
 	return f.Start(ctx)
 }

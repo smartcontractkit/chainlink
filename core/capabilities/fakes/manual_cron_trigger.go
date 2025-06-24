@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var _ services.Service = (*FakeCronTriggerService)(nil)
@@ -34,19 +35,21 @@ type FakeCronConfig struct {
 
 type FakeCronTriggerService struct {
 	capabilities.CapabilityInfo
-	config     FakeCronConfig
-	lggr       logger.Logger
-	callbackCh chan capabilities.TriggerAndId[*crontypedapi.Payload]
+	config           FakeCronConfig
+	lggr             logger.Logger
+	callbackCh       chan capabilities.TriggerAndId[*crontypedapi.Payload]
+	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]
 }
 
 func NewFakeCronTriggerService(parentLggr logger.Logger) *FakeCronTriggerService {
 	lggr := logger.Named(parentLggr, "CronTriggerService") // FakeCronTriggerService
 
 	return &FakeCronTriggerService{
-		CapabilityInfo: fakeCronTriggerInfo,
-		config:         FakeCronConfig{FastestScheduleIntervalSeconds: 1},
-		lggr:           lggr,
-		callbackCh:     make(chan capabilities.TriggerAndId[*crontypedapi.Payload]),
+		CapabilityInfo:   fakeCronTriggerInfo,
+		config:           FakeCronConfig{FastestScheduleIntervalSeconds: 1},
+		lggr:             lggr,
+		callbackCh:       make(chan capabilities.TriggerAndId[*crontypedapi.Payload]),
+		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]),
 	}
 }
 
@@ -55,7 +58,8 @@ func (f *FakeCronTriggerService) Initialise(ctx context.Context, config string, 
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
-	_ core.OracleFactory) error {
+	_ core.OracleFactory,
+	_ core.GatewayConnector) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 
 	var cronConfig FakeCronConfig
@@ -88,6 +92,14 @@ func (s *FakeCronTriggerService) UnregisterTrigger(ctx context.Context, triggerI
 	return nil
 }
 
+func (f *FakeCronTriggerService) RegisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload], error) {
+	return f.legacyCallbackCh, nil
+}
+
+func (s *FakeCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+	return nil
+}
+
 func (f *FakeCronTriggerService) ManualTrigger(ctx context.Context) error {
 	// Run in a goroutine to avoid blocking
 	f.lggr.Debugf("ManualTrigger: %s", time.Now().Format(time.RFC3339Nano))
@@ -111,7 +123,7 @@ func createFakeTriggerResponse(scheduledExecutionTime time.Time) capabilities.Tr
 
 	return capabilities.TriggerAndId[*crontypedapi.Payload]{
 		Trigger: &crontypedapi.Payload{
-			ScheduledExecutionTime: scheduledExecutionTimeUTC.Format(time.RFC3339Nano),
+			ScheduledExecutionTime: timestamppb.New(scheduledExecutionTimeUTC),
 		},
 		Id: triggerEventID,
 	}
