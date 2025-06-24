@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
 )
 
-func RunSimpleCronWorkflow(_ *sdk.WorkflowContext[struct{}]) (sdk.Workflow[struct{}], error) {
+func RunSimpleCronWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}], error) {
 	cfg := &cron.Config{
 		Schedule: "*/3 * * * * *", // every 3 seconds
 	}
@@ -21,7 +21,7 @@ func RunSimpleCronWorkflow(_ *sdk.WorkflowContext[struct{}]) (sdk.Workflow[struc
 	}, nil
 }
 
-func onTrigger(_ *sdk.WorkflowContext[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
+func onTrigger(_ *sdk.Environment[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
 	return "ping", nil
 }
 
