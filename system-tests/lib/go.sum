@@ -1309,7 +1309,11 @@ github.com/smartcontractkit/chainlink-deployments-framework v0.14.0 h1:z2ugGY+0l
 github.com/smartcontractkit/chainlink-deployments-framework v0.14.0/go.mod h1:hsgPjMaJsmWo6x2HCPMYnzjhTZ4K7J3RkTYKQ8lkkUw=
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> e8c5ea9c9b (adding PR feedback)
+=======
+<<<<<<< HEAD
+>>>>>>> 8c5e6c9122 (updating go mods)
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250625151958-31b61ac8e1d9 h1:Q0tHb2GVGo7t/kKh0SiPXeXndDk2inbPlYyzQgCQIMo=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250625151958-31b61ac8e1d9/go.mod h1:GlSY0cLuXOdaZP8+7pQTezPUwJBW+ExMb5CGby4GGSU=
 =======
@@ -1330,6 +1334,10 @@ github.com/smartcontractkit/chainlink-evm v0.0.0-20250618173856-d731d7e7468e/go.
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250624121144-a242c625e363 h1:hlzOVwy+y700ad6j+hTVbKA8iT3qIACPBAm2fY7/dvg=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250624121144-a242c625e363/go.mod h1:xJPc8Qst5mDdMizeDQKxgcjnj3t/MwDDUC9+QDw/74c=
 >>>>>>> 03e4020ccf (adding PR feedback)
+=======
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250624154519-566e9f309092 h1:a7Uo2jVadO+q5XUliyw3SsSDr3ExPZEX7vkRVCr04io=
+github.com/smartcontractkit/chainlink-evm v0.0.0-20250624154519-566e9f309092/go.mod h1:xJPc8Qst5mDdMizeDQKxgcjnj3t/MwDDUC9+QDw/74c=
+>>>>>>> 3f54c9925a (updating go mods)
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135/go.mod h1:NkvE4iQgiT7dMCP6U3xPELHhWhN5Xr6rHC0axRebyMU=
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250618164021-9b34289a9502 h1:WLgEB8/lIfA1vI+7O4RE/PYitO57TRkKUqVllDIgJD4=
