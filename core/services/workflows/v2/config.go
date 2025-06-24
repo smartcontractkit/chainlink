@@ -26,6 +26,7 @@ type EngineConfig struct {
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
+	SecretsFetcher  SecretsFetcher
 
 	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
@@ -44,13 +45,17 @@ type EngineConfig struct {
 const (
 	defaultModuleExecuteMaxResponseSizeBytes   = 100000
 	defaultTriggerSubscriptionRequestTimeoutMs = 500
+	defaultTriggerAllRegistrationsTimeoutMs    = 1000
 	defaultMaxTriggerSubscriptions             = 10
 	defaultTriggerEventQueueSize               = 1000
+	defaultTriggerEventMaxAgeMs                = 1000 * 60 * 10 // 10 minutes
 
 	defaultMaxConcurrentWorkflowExecutions         = 100
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
+	defaultMaxUserLogEventsPerExecution            = 1000
+	defaultMaxUserLogLineLength                    = 1000
 
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
@@ -59,13 +64,17 @@ const (
 type EngineLimits struct {
 	ModuleExecuteMaxResponseSizeBytes   uint32
 	TriggerSubscriptionRequestTimeoutMs uint32
+	TriggerAllRegistrationsTimeoutMs    uint32
 	MaxTriggerSubscriptions             uint16
 	TriggerEventQueueSize               uint16
+	TriggerEventMaxAgeMs                uint32
 
 	MaxConcurrentWorkflowExecutions         uint16
 	MaxConcurrentCapabilityCallsPerWorkflow uint16
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
+	MaxUserLogEventsPerExecution            uint32
+	MaxUserLogLineLength                    uint32
 
 	HeartbeatFrequencyMs uint32
 	ShutdownTimeoutMs    uint32
@@ -74,13 +83,9 @@ type EngineLimits struct {
 type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
-	OnExecutionFinished    func(executionID string)
-
-	// TODO(CAPPL-736): handle execution result.
-	// OnResultReceived exposes the execution result for now.  By default, if
-	// unspecified, it is a no-op and the result is logged.
-	OnResultReceived func(*wasmpb.ExecutionResult)
-	OnRateLimited    func(executionID string)
+	OnExecutionFinished    func(executionID string, status string)
+	OnResultReceived       func(*wasmpb.ExecutionResult)
+	OnRateLimited          func(executionID string)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -98,6 +103,10 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.SecretsFetcher == nil {
+		// TODO: implement
+		c.SecretsFetcher = &unimplementedSecretsFetcher{}
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
@@ -123,9 +132,6 @@ func (c *EngineConfig) Validate() error {
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
 	}
-	// if c.BillingClient == nil {
-	// 	return errors.New("billing client not set")
-	// }
 
 	c.Hooks.setDefaultHooks()
 	return nil
@@ -138,11 +144,17 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.TriggerSubscriptionRequestTimeoutMs == 0 {
 		l.TriggerSubscriptionRequestTimeoutMs = defaultTriggerSubscriptionRequestTimeoutMs
 	}
+	if l.TriggerAllRegistrationsTimeoutMs == 0 {
+		l.TriggerAllRegistrationsTimeoutMs = defaultTriggerAllRegistrationsTimeoutMs
+	}
 	if l.MaxTriggerSubscriptions == 0 {
 		l.MaxTriggerSubscriptions = defaultMaxTriggerSubscriptions
 	}
 	if l.TriggerEventQueueSize == 0 {
 		l.TriggerEventQueueSize = defaultTriggerEventQueueSize
+	}
+	if l.TriggerEventMaxAgeMs == 0 {
+		l.TriggerEventMaxAgeMs = defaultTriggerEventMaxAgeMs
 	}
 	if l.MaxConcurrentWorkflowExecutions == 0 {
 		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
@@ -155,6 +167,12 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.CapabilityCallTimeoutMs == 0 {
 		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
+	}
+	if l.MaxUserLogEventsPerExecution == 0 {
+		l.MaxUserLogEventsPerExecution = defaultMaxUserLogEventsPerExecution
+	}
+	if l.MaxUserLogLineLength == 0 {
+		l.MaxUserLogLineLength = defaultMaxUserLogLineLength
 	}
 	if l.HeartbeatFrequencyMs == 0 {
 		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
@@ -176,7 +194,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
 	}
 	if h.OnExecutionFinished == nil {
-		h.OnExecutionFinished = func(executionID string) {}
+		h.OnExecutionFinished = func(executionID string, status string) {}
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

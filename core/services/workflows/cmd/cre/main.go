@@ -98,10 +98,6 @@ func run(
 	}
 
 	if billingClientAddr != "" {
-		billingClientAddr = "localhost:4319"
-	}
-
-	if billingClientAddr != "" {
 		bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
 		err = bs.Start(ctx)
 		if err != nil {

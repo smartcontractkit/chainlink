@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"  // Register Aptos plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -129,7 +130,10 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config tracker: %w", err)
+	}
 	publicConfig, err := configTracker.PublicConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
@@ -200,6 +204,9 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		i.lggr.Infow("no transmitters found for dest chain, will create nil transmitter",
 			"destChainID", destChainID,
 			"destChainSelector", config.Config.ChainSelector)
+	}
+	if len(destFromAccounts) == 0 {
+		return nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
 	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
@@ -484,7 +491,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 				},
 			})
 			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err)
+				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err2)
 			}
 		}
 

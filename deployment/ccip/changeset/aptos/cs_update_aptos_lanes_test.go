@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosfeequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -84,6 +86,11 @@ func TestAddAptosLanes_Apply(t *testing.T) {
 	versions, err := aptosRouter.Router().GetOnRampVersions(&bind.CallOpts{}, []uint64{emvSelector, emvSelector2})
 	require.NoError(t, err)
 	require.ElementsMatch(t, versions, [][]byte{{1, 6, 1}, {1, 6, 0}})
+
+	aptosCCIP := ccip.Bind(aptosCCIPAddr, env.BlockChains.AptosChains()[aptosSelector].Client)
+	price, err := aptosCCIP.FeeQuoter().GetTokenPrice(&bind.CallOpts{}, aptoscs.MustParseAddress(t, "0xa"))
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(1e18), price.Value)
 }
 
 func getMockUpdateConfig(
@@ -95,7 +102,7 @@ func getMockUpdateConfig(
 	linkToken := aptos.AccountAddress{}
 	_ = linkToken.ParseStringRelaxed("0x3b17dad1bdd88f337712cc2f6187bb741d56da467320373fd9198262cc93de76")
 	otherToken := aptos.AccountAddress{}
-	_ = linkToken.ParseStringRelaxed("0xa")
+	_ = otherToken.ParseStringRelaxed("0xa")
 
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
@@ -110,6 +117,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 					ConnectionConfig: v1_6.ConnectionConfig{
 						RMNVerificationDisabled: true,
@@ -173,6 +181,7 @@ func getMockUpdateConfig(
 				Dest: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				IsDisabled: false,
@@ -181,6 +190,7 @@ func getMockUpdateConfig(
 				Source: config.AptosChainDefinition{
 					Selector:                 aptosSelector,
 					GasPrice:                 big.NewInt(1e17),
+					TokenPrices:              map[aptos.AccountAddress]*big.Int{aptoscs.MustParseAddress(t, shared.AptosAPTAddress): big.NewInt(1e18)},
 					FeeQuoterDestChainConfig: aptosTestDestFeeQuoterConfig(t),
 				},
 				Dest: config.EVMChainDefinition{

@@ -28,7 +28,7 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 	chainState := state.Chains[c.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
-	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, nil)
+	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, nil)
 	if dataFeedsCacheAddress == "" {
 		return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", c.ChainSelector)
 	}

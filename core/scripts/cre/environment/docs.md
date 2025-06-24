@@ -178,14 +178,14 @@ The only difference between is the trigger.
 ### cron-based workflow
 This workflow is triggered every 30s, on a schedule. It will keep executing until it is paused or deleted. It requires an external `cron` capability binary, which you have to either manually compile or download **and** a manual TOML config change to indicate its location.
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/main/dx-891-web-api-trigger-workflow/cron-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/cron-based/main.go) repository.
 
 ### web API trigger-based workflow
 This workflow is triggered only, when a precisely crafed and cryptographically signed request is made to the gateway node. It will only trigger the workflow **once** and only if:
 * sender is whitelisted in the workflow
 * topic is whitelisted in the workflow
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/dx-891-web-api-trigger-workflow/web-api-trigger-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/web-api-trigger-based/main.go) repository.
 
 You might see multiple attempts to trigger and verify that workflow, when running the example. This is expected and could be happening, because:
 - topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
