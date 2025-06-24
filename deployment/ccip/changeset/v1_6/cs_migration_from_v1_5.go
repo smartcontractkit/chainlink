@@ -53,8 +53,8 @@ type ChainUpgradeConfig struct {
 	ExecOCRParams CCIPOCRParams
 }
 
-// InitChainUpgradesOnTestRoutersConfig defines the configuration for the InitChainUpgradesChangeset.
-type InitChainUpgradesOnTestRoutersConfig struct {
+// InitChainUpgradesConfig defines the configuration for the InitChainUpgradesChangeset.
+type InitChainUpgradesConfig struct {
 	// HomeChainSelector is the selector of the home chain.
 	HomeChainSelector uint64
 	// ChainsToUpgrade is a map of destination chain selectors to their upgrade configurations.
@@ -63,7 +63,7 @@ type InitChainUpgradesOnTestRoutersConfig struct {
 	MCMSConfig *proposalutils.TimelockConfig
 }
 
-func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesOnTestRoutersConfig) error {
+func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig) error {
 	if c.MCMSConfig == nil {
 		return errors.New("MCMSConfig must be defined")
 	}
@@ -103,6 +103,11 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesOnTest
 				return fmt.Errorf("failed to validate chain %d: %w", sourceChainSel, err)
 			}
 			allChainSels[sourceChainSel] = struct{}{}
+
+			// Price registry exists on source if 1.5.0 OnRamps exist
+			if len(state.Chains[sourceChainSel].EVM2EVMOnRamp) > 0 && state.Chains[sourceChainSel].PriceRegistry == nil {
+				return fmt.Errorf("price registry does not exist on source chain %d, but 1.5.0 OnRamps exist", sourceChainSel)
+			}
 		}
 
 		// Commit OCR params are valid.
@@ -139,7 +144,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesOnTest
 	return nil
 }
 
-func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRoutersConfig) (cldf.ChangesetOutput, error) {
+func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -422,8 +427,8 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesOnTestRouters
 	return cldf.ChangesetOutput{Reports: allReports, MCMSTimelockProposals: []mcms.TimelockProposal{*proposal}}, nil
 }
 
-// PromoteChainUpgradesToMainRoutersConfig defines the configuration for the PromoteChainUpgradesChangeset.
-type PromoteChainUpgradesToMainRoutersConfig struct {
+// PromoteChainUpgradesConfig defines the configuration for the PromoteChainUpgradesChangeset.
+type PromoteChainUpgradesConfig struct {
 	// HomeChainSelector is the selector of the home chain.
 	HomeChainSelector uint64
 	// ChainsToPromote are the chain selectors to promote
@@ -432,7 +437,7 @@ type PromoteChainUpgradesToMainRoutersConfig struct {
 	MCMSConfig *proposalutils.TimelockConfig
 }
 
-func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgradesToMainRoutersConfig) error {
+func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgradesConfig) error {
 	if c.MCMSConfig == nil {
 		return errors.New("MCMSConfig must be defined")
 	}
@@ -455,6 +460,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
 
+	allChainSels := make(map[uint64]struct{})
 	for _, chainSel := range c.ChainsToPromote {
 		// Chain selector is a valid EVM chain selector & all MCMS contracts exist.
 		err := stateview.ValidateChain(e, state, chainSel, c.MCMSConfig)
@@ -462,6 +468,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 			return fmt.Errorf("failed to validate chain %d: %w", chainSel, err)
 		}
 
+		allChainSels[chainSel] = struct{}{}
 		sourceChainSels := getSourceChainsForSelector(state, chainSel)
 		for _, sourceChainSel := range sourceChainSels {
 			// Source chain selector is a valid EVM chain selector & all MCMS contracts exist.
@@ -469,13 +476,22 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 			if err != nil {
 				return fmt.Errorf("failed to validate chain %d: %w", sourceChainSel, err)
 			}
+			allChainSels[sourceChainSel] = struct{}{}
+		}
+	}
+
+	for chainSel := range allChainSels {
+		// Routers are owned by MCMS on both source and destination chains.
+		err := commoncs.ValidateOwnership(e.GetContext(), true, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].Router)
+		if err != nil {
+			return fmt.Errorf("failed to validate ownership of Router on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
 		}
 	}
 
 	return nil
 }
 
-func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesToMainRoutersConfig) (cldf.ChangesetOutput, error) {
+func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -513,38 +529,43 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesToMainR
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 	// Connect each destination to each of its sources via main routers
+	ownershipAlreadyEnsured := make(map[uint64]map[common.Address]struct{})
 	for _, destChainSel := range c.ChainsToPromote {
 		// Assemble source chains for the destination chain, using 1.5.0 OnRamps.
 		destChain := e.BlockChains.EVMChains()[destChainSel]
+
+		// Transfer ownership of OffRamp on destination chain.
+		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
+			state.Chains[destChainSel].OffRamp,
+		}, *c.MCMSConfig)
+		allReports = append(allReports, out.Reports...)
+		if err != nil {
+			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to ensure timelock ownership of OffRamp on %s: %w", destChain, err)
+		}
+		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 		// Loop through each source connected to the destination chain.
 		sourceChainsToConnect := getSourceChainsForSelector(state, destChainSel)
 		for _, sourceChainSel := range sourceChainsToConnect {
 			sourceChain := e.BlockChains.EVMChains()[sourceChainSel]
 
-			// Transfer ownership of OffRamp, FeeQuoter, and NonceManager on destination chain.
-			out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
-				state.Chains[destChainSel].OffRamp,
-				state.Chains[destChainSel].FeeQuoter,
-				state.Chains[destChainSel].NonceManager,
-			}, *c.MCMSConfig)
-			allReports = append(allReports, out.Reports...)
-			if err != nil {
-				return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to ensure timelock ownership of OffRamp, FeeQuoter, and NonceManager on %s: %w", destChain, err)
+			// Transfer ownership of OnRamp on source chain.
+			// We need to track if we already ensured ownership of the OnRamp on the source chain,
+			// as multiple destination chains can have overlapping source chains.
+			if ownershipAlreadyEnsured[sourceChainSel] == nil {
+				ownershipAlreadyEnsured[sourceChainSel] = make(map[common.Address]struct{})
 			}
-			allProposals = append(allProposals, out.MCMSTimelockProposals...)
-
-			// Transfer ownership of OnRamp, FeeQuoter, and NonceManager on source chain.
-			out, err = ensureTimelockOwnership(e, sourceChainSel, []commoncs.Ownable{
-				state.Chains[sourceChainSel].OnRamp,
-				state.Chains[sourceChainSel].FeeQuoter,
-				state.Chains[sourceChainSel].NonceManager,
-			}, *c.MCMSConfig)
-			allReports = append(allReports, out.Reports...)
-			if err != nil {
-				return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to ensure timelock ownership of OnRamp, FeeQuoter, and NonceManager on %s: %w", sourceChain, err)
+			if _, ok := ownershipAlreadyEnsured[sourceChainSel][state.Chains[sourceChainSel].OnRamp.Address()]; !ok {
+				out, err = ensureTimelockOwnership(e, sourceChainSel, []commoncs.Ownable{
+					state.Chains[sourceChainSel].OnRamp,
+				}, *c.MCMSConfig)
+				allReports = append(allReports, out.Reports...)
+				if err != nil {
+					return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to ensure timelock ownership of OnRamp on %s: %w", sourceChain, err)
+				}
+				allProposals = append(allProposals, out.MCMSTimelockProposals...)
+				ownershipAlreadyEnsured[sourceChainSel][state.Chains[sourceChainSel].OnRamp.Address()] = struct{}{}
 			}
-			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 			/*
 				The ordering of the following changesets is important so we don't disrupt traffic:
@@ -580,8 +601,9 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesToMainR
 
 			// Update OnRamp to router on source, OffRamp to router on destination (use main router).
 			out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
-				TestRouter: false,
-				MCMS:       c.MCMSConfig,
+				TestRouter:         false,
+				MCMS:               c.MCMSConfig,
+				SkipOwnershipCheck: true, // We already ensured desired ownership above.
 				UpdatesByChain: map[uint64]RouterUpdates{
 					destChainSel: {
 						OffRampUpdates: map[uint64]bool{sourceChainSel: true},
