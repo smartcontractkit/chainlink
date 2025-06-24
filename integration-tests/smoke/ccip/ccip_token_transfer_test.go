@@ -207,6 +207,9 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 		},
 	}
 
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
+
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
@@ -361,6 +364,9 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		// },
 	}
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
@@ -535,6 +541,9 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		// },
 	}
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)

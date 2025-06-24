@@ -402,6 +402,17 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest" -timeout 15m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_topologies_test.go:Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource
+    path: integration-tests/smoke/ccip/ccip_topologies_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
+
   # Aptos tests
   - id: smoke/ccip/ccip_aptos_messaging_test.go:Test_CCIP_Messaging_EVM2Aptos
     path: integration-tests/smoke/ccip/ccip_aptos_messaging_test.go

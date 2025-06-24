@@ -108,7 +108,7 @@ func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsAptos(t, numChains)
 }
 
-func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
+func NewMemoryChainsZk(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return GenerateChainsZk(t, numChains)
 }
 
@@ -270,6 +270,10 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	tonChains := NewMemoryChainsTon(t, config.TonChains)
 	for chainSel, chain := range zkChains {
 		chains[chainSel] = chain
+
+	// Cast zkChains to cldf_evm.Chain temporarily since we still use the concrete types for EVM
+	for _, zkc := range zkChains {
+		chains[zkc.ChainSelector()] = zkc.(cldf_evm.Chain)
 	}
 
 	// Convert chains to concrete type to pass to the NewNodesConfig.

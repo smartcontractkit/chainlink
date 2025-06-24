@@ -26,6 +26,7 @@ type EngineConfig struct {
 	CapRegistry     core.CapabilitiesRegistry
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
+	SecretsFetcher  SecretsFetcher
 
 	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
@@ -102,6 +103,10 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.SecretsFetcher == nil {
+		// TODO: implement
+		c.SecretsFetcher = &unimplementedSecretsFetcher{}
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
