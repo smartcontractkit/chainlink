@@ -75,7 +75,6 @@ USER ${CHAINLINK_USER}
 
 # Set plugin environment variable configuration.
 ENV CL_MEDIAN_CMD=chainlink-feeds
-ENV CL_MERCURY_CMD=chainlink-mercury
 ENV CL_SOLANA_CMD=chainlink-solana
 
 ARG CL_EVM_CMD
