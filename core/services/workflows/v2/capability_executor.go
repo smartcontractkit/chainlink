@@ -53,9 +53,9 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		Config: values.EmptyMap(),
 	}
 
-	_, ok := c.meterReports.Get(c.WorkflowExecutionID)
+	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
-		// c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
+		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
 	meteringRef := strconv.Itoa(int(request.CallbackId))
 
@@ -105,10 +105,10 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef), store.StatusCompleted)
 
-	// err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
-	// if err != nil {
-	// 	c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-	// }
+	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
+	if err != nil {
+		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	}
 
 	return &sdkpb.CapabilityResponse{
 		Response: &sdkpb.CapabilityResponse_Payload{
