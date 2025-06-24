@@ -131,14 +131,14 @@ func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID common
 		return commontypes.Unknown, err
 	}
 
-	return commontypes.TransactionStatus(status), nil
+	return status, nil
 }
 
 func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.SubmitTransactionRequest) (*evmtypes.TransactionResult, error) {
 	config := r.chain.Config()
 
 	fromAddress := config.EVM().Workflow().FromAddress().Address()
-	var gasLimit uint64 = 0
+	var gasLimit uint64
 	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
@@ -164,9 +164,9 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		Meta:           txMeta,
 		IdempotencyKey: &txID,
 		// PLEX-1524 - Review strategy to be used.
-		Strategy:       txmgr.NewSendEveryStrategy(),
-		Checker:        checker,
-		Value:          *value,
+		Strategy: txmgr.NewSendEveryStrategy(),
+		Checker:  checker,
+		Value:    *value,
 	}
 
 	_, err = r.chain.TxManager().CreateTransaction(ctx, txmReq)
@@ -174,13 +174,12 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		return nil, fmt.Errorf("%w; failed to create tx", err)
 	}
 
-
 	maximumWaitTimeForConfirmation := config.EVM().ConfirmationTimeout()
 	start := time.Now()
 	for {
-		txStatus, err := r.chain.TxManager().GetTransactionStatus(ctx, txID)
-		if err != nil {
-			return nil, err
+		txStatus, txStatusErr := r.chain.TxManager().GetTransactionStatus(ctx, txID)
+		if txStatusErr != nil {
+			return nil, txStatusErr
 		}
 		if txStatus == commontypes.Fatal {
 			return &evmtypes.TransactionResult{
@@ -194,7 +193,7 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		if time.Since(start) > maximumWaitTimeForConfirmation {
 			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)
 		}
-		//PLEX-1524 - Use ticker instead of time.Sleep and make the time configurable
+		// PLEX-1524 - Use ticker instead of time.Sleep and make the time configurable
 		time.Sleep(100 * time.Millisecond)
 	}
 

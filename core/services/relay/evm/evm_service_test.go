@@ -15,7 +15,6 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
-	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -75,7 +74,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 type SubmitTransactionTestCase struct {
 	Name           string
 	SetupMocks     func(m *Mocks, ctx any)
-	ExpectedResult *evmtypes.TransactionResult
+	ExpectedResult *evm.TransactionResult
 	ExpectedError  string
 }
 
@@ -91,10 +90,10 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 
 	receiver := createToAddress()
 	gasLimit := uint64(1000)
-	result, err := relayer.SubmitTransaction(ctx, evmtypes.SubmitTransactionRequest{
+	result, err := relayer.SubmitTransaction(ctx, evm.SubmitTransactionRequest{
 		To:   receiver,
 		Data: createPayload(),
-		GasConfig: &evmtypes.GasConfig{
+		GasConfig: &evm.GasConfig{
 			GasLimit: &gasLimit,
 		},
 	})
@@ -124,7 +123,7 @@ func createToAddress() common.Address {
 }
 
 func createPayload() evm.ABIPayload {
-	return evm.ABIPayload([]byte("kitties"))
+	return evm.ABIPayload("kitties")
 }
 
 func TestEVMService(t *testing.T) {
@@ -133,14 +132,14 @@ func TestEVMService(t *testing.T) {
 
 	t.Run("RegisterLogTracking", func(t *testing.T) {
 		mocks, relayer := setupMocksAndRelayer(t)
-		filter := evmtypes.LPFilterQuery{
+		filter := evm.LPFilterQuery{
 			Name:         "filter-1",
 			Retention:    time.Second,
-			Addresses:    []evmtypes.Address{common.HexToAddress("0x123")},
-			EventSigs:    []evmtypes.Hash{common.HexToHash("0x321")},
-			Topic2:       []evmtypes.Hash{common.HexToHash("0x222")},
-			Topic3:       []evmtypes.Hash{common.HexToHash("0x543")},
-			Topic4:       []evmtypes.Hash{common.HexToHash("0x432")},
+			Addresses:    []evm.Address{common.HexToAddress("0x123")},
+			EventSigs:    []evm.Hash{common.HexToHash("0x321")},
+			Topic2:       []evm.Hash{common.HexToHash("0x222")},
+			Topic3:       []evm.Hash{common.HexToHash("0x543")},
+			Topic4:       []evm.Hash{common.HexToHash("0x432")},
 			MaxLogsKept:  100,
 			LogsPerBlock: 10,
 		}
@@ -201,14 +200,13 @@ func TestEVMService(t *testing.T) {
 					return txRequest.FromAddress == expectedTxRequest.FromAddress &&
 						txRequest.ToAddress == expectedTxRequest.ToAddress &&
 						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
-
 				})).Return(expectedTx, nil)
 				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
 				txHash := common.HexToHash("0xabcd")
 				mockReceipt := NewChainReceipt(txHash, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
 			},
-			ExpectedResult: &evmtypes.TransactionResult{
+			ExpectedResult: &evm.TransactionResult{
 				TxHash:   common.HexToHash("0xabcd"),
 				TxStatus: evm.TxSuccess,
 			},
@@ -245,7 +243,7 @@ func TestEVMService(t *testing.T) {
 				mockReceipt := NewChainReceipt(txHash, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
 			},
-			ExpectedResult: &evmtypes.TransactionResult{
+			ExpectedResult: &evm.TransactionResult{
 				TxHash:   common.HexToHash("0xabcd"),
 				TxStatus: evm.TxSuccess,
 			},
@@ -258,7 +256,7 @@ func TestEVMService(t *testing.T) {
 				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Pending, nil).Once()
 				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Fatal, nil).Once()
 			},
-			ExpectedResult: &evmtypes.TransactionResult{
+			ExpectedResult: &evm.TransactionResult{
 				TxHash:   common.Hash{},
 				TxStatus: evm.TxFatal,
 			},
