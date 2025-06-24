@@ -2,11 +2,10 @@ package metering
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/shopspring/decimal"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var (
@@ -29,21 +28,18 @@ type balanceStore struct {
 func NewBalanceStore(
 	startingBalance decimal.Decimal,
 	conversions map[string]decimal.Decimal,
-	lggr logger.Logger,
-) *balanceStore {
+) (*balanceStore, error) {
 	// validations
 	for resource, rate := range conversions {
 		if rate.IsNegative() {
-			// fail open
-			lggr.Errorw("conversion rates must be a positive number, not using conversion", "resource", resource, "rate", rate)
-			delete(conversions, resource)
+			return nil, fmt.Errorf("conversion rate %s must be a positive number for resource %s", rate, resource)
 		}
 	}
 
 	return &balanceStore{
 		balance:     startingBalance,
 		conversions: conversions,
-	}
+	}, nil
 }
 
 // convertToBalance converts a resource dimension amount to a credit amount.
