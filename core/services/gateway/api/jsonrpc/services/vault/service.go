@@ -226,22 +226,23 @@ func (s *service) handleSecretsCreate(ctx context.Context, msg *api.Message, cal
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
 		response := gw_handlers.UserCallbackPayload{
-			Msg: &api.Message{
-				Body: api.MessageBody{
-					MessageId: msg.Body.MessageId,
-					Method:    msg.Body.Method,
-					DonId:     msg.Body.DonId,
-					Payload:   resultBytes, // No payload in case of error
-				},
-			},
+			Msg:     msg,
+			ErrCode: -32603,
+			ErrMsg:  fmt.Sprintf("Failed to marshal response: %v", err),
 		}
+
 		return s.sendResponse(ctx, response, callbackCh)
 	}
 
 	response := gw_handlers.UserCallbackPayload{
-		Msg:     msg,
-		ErrCode: -32603,
-		ErrMsg:  fmt.Sprintf("Failed to marshal response: %v", err),
+		Msg: &api.Message{
+			Body: api.MessageBody{
+				MessageId: msg.Body.MessageId,
+				Method:    msg.Body.Method,
+				DonId:     msg.Body.DonId,
+				Payload:   resultBytes,
+			},
+		},
 	}
 	promSecretsCreateSuccess.WithLabelValues(s.donConfig.DonId).Inc()
 	return s.sendResponse(ctx, response, callbackCh)

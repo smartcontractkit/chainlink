@@ -156,13 +156,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	if !ok {
 		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
 	}
-	handler, ok := h.(handlers.Handler)
-	if !ok {
-		return newError(g.codec, msg.Body.MessageId, api.HandlerError, "Handler not found")
-	}
 	// send to the handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
-	err = handler.HandleUserMessage(ctx, msg, responseCh)
+	err = h.HandleUserMessage(ctx, msg, responseCh)
 	if err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
 	}

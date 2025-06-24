@@ -239,7 +239,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			c.closeWait.Done()
 			return
 		case item := <-gatewayState.conn.ReadChannel():
-			msg, err := c.codec.DecodeRequest(item.Data)
+			msg, err := c.codec.DecodeRequest(item.Data, "")
 			if err != nil {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
