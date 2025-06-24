@@ -54,13 +54,13 @@ Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 ## WebServer.OIDC
 ```toml
 [WebServer.OIDC]
-ClientSecret = "secret" # Example
+ClientSecret = 'secret' # Example
 ```
 Optional OIDC config
 
 ### ClientSecret
 ```toml
-ClientSecret = "secret" # Example
+ClientSecret = 'secret' # Example
 ```
 ClientSecret is the secret value sent to the OIDC provider to exchange authorization code for ID token
 
