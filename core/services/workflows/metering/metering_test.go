@@ -2,6 +2,7 @@ package metering
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -10,12 +11,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
-	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -32,7 +39,175 @@ var (
 		{ResourceUnit: testUnitA, ConversionRate: "2"},
 	}, Credits: 10_000}
 	failureReserveResponse = billing.ReserveCreditsResponse{Success: false}
+	defaultLabels          = map[string]string{
+		platform.KeyWorkflowOwner:       "accountId",
+		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowExecutionID: "workflowExecutionId",
+	}
 )
+
+func Test_Report(t *testing.T) {
+	t.Parallel()
+
+	t.Run("error if incorrect labels", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		_, err := NewReport(map[string]string{}, logger.Nop(), billingClient)
+		require.ErrorIs(t, err, ErrMissingLabels)
+	})
+}
+
+func Test_Report_MeteringMode(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Reserve switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("if billing client is nil", func(t *testing.T) {
+			t.Parallel()
+
+			report := newTestReport(t, logger.Nop(), nil)
+
+			require.NoError(t, report.Reserve(t.Context()))
+			assert.True(t, report.meteringMode)
+		})
+
+		t.Run("if billing client returns an error", func(t *testing.T) {
+			t.Parallel()
+
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, logger.Nop(), billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
+			require.NoError(t, report.Reserve(t.Context()))
+			require.True(t, report.meteringMode)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if rate card contains invalid entry", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+					{ResourceUnit: "unit", ConversionRate: "invalid"},
+				}, Credits: 10_000}, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+			require.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+	})
+
+	t.Run("ConvertToBalance falls back to 1:1 when rate is not found and switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+				{ResourceUnit: testUnitB, ConversionRate: "10"},
+			}}, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		amount, err := report.ConvertToBalance(testUnitA, decimal.NewFromInt(1))
+		require.NoError(t, err)
+		assert.True(t, amount.Equal(decimal.NewFromInt(1)))
+		require.True(t, report.meteringMode)
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("GetMaxSpendForInvocation returns null decimal in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		emptyUserSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("nope"))
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		available, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 1)
+		require.NoError(t, err)
+		assert.False(t, available.Valid)
+		billingClient.AssertExpectations(t)
+	})
+
+	two := decimal.NewFromInt(2)
+
+	t.Run("Deduct does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("everything is on fire"))
+		require.NoError(t, report.Reserve(t.Context()))
+
+		balanceBefore := report.balance.balance
+		require.NoError(t, report.Deduct("ref1", two))
+
+		balanceAfter := report.balance.balance
+		assert.Equal(t, balanceBefore, balanceAfter)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("Settle does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		// trigger metering mode with a billing reserve error
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("everything is still on fire"))
+		require.NoError(t, report.Reserve(t.Context()))
+
+		balanceBefore := report.balance.balance
+
+		require.NoError(t, report.Deduct("ref1", two))
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
+		}
+		require.NoError(t, report.Settle("ref1", steps))
+
+		balanceAfter := report.balance.balance
+		require.Equal(t, balanceBefore, balanceAfter)
+	})
+
+	t.Run("CreditToSpendingLimits switches to metering mode if rate does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, lggr, billingClient)
+
+		// trigger metering mode with a billing reserve error
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
+		}, decimal.NewFromInt(1_000))
+
+		assert.Nil(t, limits)
+		assert.True(t, report.meteringMode)
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
+}
 
 func Test_medianSpend(t *testing.T) {
 	t.Parallel()
@@ -382,7 +557,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		require.NoError(t, report.Reserve(t.Context()))
 
 		meteringReport := report.FormatReport()
-		require.Equal(t, &events.WorkflowMetadata{}, meteringReport.Metadata)
+		require.Equal(t, &eventspb.WorkflowMetadata{}, meteringReport.Metadata)
 		billingClient.AssertExpectations(t)
 	})
 
@@ -396,7 +571,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		expected := map[string]*events.MeteringReportStep{}
+		expected := map[string]*eventspb.MeteringReportStep{}
 
 		for i := range numSteps {
 			stepRef := strconv.Itoa(i)
@@ -406,7 +581,7 @@ func Test_Report_FormatReport(t *testing.T) {
 				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
 			}))
 
-			expected[stepRef] = &events.MeteringReportStep{Nodes: []*events.MeteringReportNodeDetail{
+			expected[stepRef] = &eventspb.MeteringReportStep{Nodes: []*eventspb.MeteringReportNodeDetail{
 				{
 					Peer_2PeerId: "xyz",
 					SpendUnit:    "a",
@@ -480,6 +655,45 @@ func Test_Report_SendReceipt(t *testing.T) {
 	})
 }
 
+func Test_Report_EmitReceipt(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// No parallel
+		beholderTester := beholdertest.NewObserver(t)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		require.NoError(t, report.EmitReceipt(t.Context()))
+
+		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
+
+		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity))
+
+		for _, msg := range messages {
+			entity := msg.Attrs["beholder_entity"]
+			if entity == fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity) {
+				var report eventspb.MeteringReport
+				require.NoError(t, proto.Unmarshal(msg.Body, &report))
+				assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
+				assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
+				assert.Equal(t, testAccountID, report.Metadata.WorkflowOwner)
+			}
+		}
+	})
+
+	t.Run("returns an error if not initialized", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		require.ErrorIs(t, report.EmitReceipt(t.Context()), ErrNoReserve)
+	})
+}
+
 func Test_Report_CreditToSpendingLimits(t *testing.T) {
 	t.Parallel()
 
@@ -524,7 +738,8 @@ func Test_MeterReports(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponseWithRates, nil)
@@ -550,7 +765,8 @@ func Test_MeterReports(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("cannot"))
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
@@ -576,14 +792,17 @@ func Test_MeterReports_Length(t *testing.T) {
 	t.Parallel()
 
 	billingClient := mocks.NewBillingClient(t)
-	mrs := NewReports(billingClient, "", "", logger.Nop())
+	em, err := monitoring.InitMonitoringResources()
+	require.NoError(t, err)
+	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
+	mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 	billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 		Return(&successReserveResponse, nil)
 	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
 
-	_, err := mrs.Start(t.Context(), "exec1")
+	_, err = mrs.Start(t.Context(), "exec1")
 	require.NoError(t, err)
 
 	mr, err := mrs.Start(t.Context(), "exec2")
@@ -605,7 +824,8 @@ func Test_MeterReports_Start(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -622,7 +842,8 @@ func Test_MeterReports_Get(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -636,7 +857,8 @@ func Test_MeterReports_Get(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		report, exists := mrs.Get("exec1")
 		require.False(t, exists)
@@ -651,7 +873,8 @@ func Test_MeterReports_End(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		require.ErrorIs(t, mrs.End(t.Context(), "exec1"), ErrReportNotFound)
 	})
@@ -660,7 +883,8 @@ func Test_MeterReports_End(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
@@ -681,7 +905,8 @@ func Test_MeterReports_End(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop())
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
@@ -699,163 +924,23 @@ func Test_MeterReports_End(t *testing.T) {
 	})
 }
 
-func Test_Report_MeteringMode(t *testing.T) {
-	t.Parallel()
-
-	t.Run("Reserve switches to metering mode", func(t *testing.T) {
-		t.Parallel()
-
-		t.Run("if billing client is nil", func(t *testing.T) {
-			t.Parallel()
-
-			report := newTestReport(t, logger.Nop(), nil)
-
-			require.NoError(t, report.Reserve(t.Context()))
-			assert.True(t, report.meteringMode)
-		})
-
-		t.Run("if billing client returns an error", func(t *testing.T) {
-			t.Parallel()
-
-			billingClient := mocks.NewBillingClient(t)
-			report := newTestReport(t, logger.Nop(), billingClient)
-
-			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
-			require.NoError(t, report.Reserve(t.Context()))
-			require.True(t, report.meteringMode)
-			billingClient.AssertExpectations(t)
-		})
-
-		t.Run("if rate card contains invalid entry", func(t *testing.T) {
-			t.Parallel()
-
-			lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
-			billingClient := mocks.NewBillingClient(t)
-			report := newTestReport(t, lggr, billingClient)
-
-			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-				Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-					{ResourceUnit: "unit", ConversionRate: "invalid"},
-				}, Credits: 10_000}, nil)
-			require.NoError(t, report.Reserve(t.Context()))
-			require.True(t, report.meteringMode)
-			assert.Len(t, logs.All(), 1)
-			billingClient.AssertExpectations(t)
-		})
-	})
-
-	t.Run("ConvertToBalance falls back to 1:1 when rate is not found and switches to metering mode", func(t *testing.T) {
-		t.Parallel()
-
-		billingClient := mocks.NewBillingClient(t)
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
-		report := newTestReport(t, lggr, billingClient)
-
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-				{ResourceUnit: testUnitB, ConversionRate: "10"},
-			}}, nil)
-		require.NoError(t, report.Reserve(t.Context()))
-
-		amount, err := report.ConvertToBalance(testUnitA, decimal.NewFromInt(1))
-		require.NoError(t, err)
-		assert.True(t, amount.Equal(decimal.NewFromInt(1)))
-		require.True(t, report.meteringMode)
-		assert.Len(t, logs.All(), 1)
-		billingClient.AssertExpectations(t)
-	})
-
-	t.Run("GetMaxSpendForInvocation returns null decimal in metering mode", func(t *testing.T) {
-		t.Parallel()
-
-		emptyUserSpendLimit := decimal.NewNullDecimal(decimal.Zero)
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, logger.Nop(), billingClient)
-
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(nil, errors.New("nope"))
-
-		require.NoError(t, report.Reserve(t.Context()))
-
-		available, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 1)
-		require.NoError(t, err)
-		assert.False(t, available.Valid)
-		billingClient.AssertExpectations(t)
-	})
-
-	two := decimal.NewFromInt(2)
-
-	t.Run("Deduct does not modify local balance in metering mode", func(t *testing.T) {
-		t.Parallel()
-
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, logger.Nop(), billingClient)
-
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(nil, errors.New("everything is on fire"))
-		require.NoError(t, report.Reserve(t.Context()))
-
-		balanceBefore := report.balance.balance
-		require.NoError(t, report.Deduct("ref1", two))
-
-		balanceAfter := report.balance.balance
-		assert.Equal(t, balanceBefore, balanceAfter)
-		billingClient.AssertExpectations(t)
-	})
-
-	t.Run("Settle does not modify local balance in metering mode", func(t *testing.T) {
-		t.Parallel()
-
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, logger.Nop(), billingClient)
-
-		// trigger metering mode with a billing reserve error
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(nil, errors.New("everything is still on fire"))
-		require.NoError(t, report.Reserve(t.Context()))
-
-		balanceBefore := report.balance.balance
-
-		require.NoError(t, report.Deduct("ref1", two))
-
-		steps := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
-		}
-		require.NoError(t, report.Settle("ref1", steps))
-
-		balanceAfter := report.balance.balance
-		require.Equal(t, balanceBefore, balanceAfter)
-	})
-
-	t.Run("CreditToSpendingLimits switches to metering mode if rate does not exist", func(t *testing.T) {
-		t.Parallel()
-
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, lggr, billingClient)
-
-		// trigger metering mode with a billing reserve error
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
-		require.NoError(t, report.Reserve(t.Context()))
-
-		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
-		}, decimal.NewFromInt(1_000))
-
-		assert.Nil(t, limits)
-		assert.True(t, report.meteringMode)
-		assert.Len(t, logs.All(), 1)
-		billingClient.AssertExpectations(t)
-	})
-}
-
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
 
 	if client == nil {
-		return NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, lggr, nil)
+		meteringReport, err := NewReport(defaultLabels, lggr, nil)
+		require.NoError(t, err)
+		return meteringReport
 	}
 
-	return NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, lggr, client)
+	meteringReport, err := NewReport(defaultLabels, lggr, client)
+	require.NoError(t, err)
+
+	return meteringReport
+}
+
+func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
+	em, err := monitoring.InitMonitoringResources()
+	require.NoError(t, err)
+	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }
