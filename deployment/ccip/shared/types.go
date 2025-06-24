@@ -52,6 +52,7 @@ var (
 	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
 	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"

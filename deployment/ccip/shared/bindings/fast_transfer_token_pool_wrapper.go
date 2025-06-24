@@ -14,6 +14,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	burn_mint_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
+	hybrid_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -29,8 +30,8 @@ type (
 	Quote = burn_mint_external.IFastTransferPoolQuote
 )
 
-// FastTransferTokenPoolWrapper provides a unified interface for both
-// BurnMintFastTransferTokenPool and BurnMintWithExternalMinterFastTransferTokenPool
+// FastTransferTokenPoolWrapper provides a unified interface for
+// BurnMintFastTransferTokenPool, BurnMintWithExternalMinterFastTransferTokenPool, and HybridWithExternalMinterFastTransferTokenPool
 type FastTransferTokenPoolWrapper struct {
 	contractType cldf.ContractType
 	address      common.Address
@@ -38,6 +39,7 @@ type FastTransferTokenPoolWrapper struct {
 	// Underlying contract instances (only one will be non-nil)
 	burnMintPool         *fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	burnMintExternalPool *burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPool
+	hybridExternalPool   *hybrid_external.HybridWithExternalMinterFastTransferTokenPool
 }
 
 // NewFastTransferTokenPoolWrapper creates a new wrapper instance
@@ -64,6 +66,12 @@ func NewFastTransferTokenPoolWrapper(
 			return nil, err
 		}
 		wrapper.burnMintExternalPool = pool
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		pool, err := hybrid_external.NewHybridWithExternalMinterFastTransferTokenPool(address, backend)
+		if err != nil {
+			return nil, err
+		}
+		wrapper.hybridExternalPool = pool
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
@@ -105,6 +113,22 @@ func (w *FastTransferTokenPoolWrapper) GetDestChainConfig(
 		return convertedConfig, addresses, nil
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.GetDestChainConfig(opts, remoteChainSelector)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		config, addresses, err := w.hybridExternalPool.GetDestChainConfig(opts, remoteChainSelector)
+		if err != nil {
+			return DestChainConfig{}, nil, err
+		}
+		// Convert from hybrid_external to burn_mint_external types
+		convertedConfig := DestChainConfig{
+			MaxFillAmountPerRequest:  config.MaxFillAmountPerRequest,
+			FillerAllowlistEnabled:   config.FillerAllowlistEnabled,
+			FastTransferFillerFeeBps: config.FastTransferFillerFeeBps,
+			FastTransferPoolFeeBps:   config.FastTransferPoolFeeBps,
+			SettlementOverheadGas:    config.SettlementOverheadGas,
+			DestinationPool:          config.DestinationPool,
+			CustomExtraArgs:          config.CustomExtraArgs,
+		}
+		return convertedConfig, addresses, nil
 	default:
 		return DestChainConfig{}, nil, errors.New("unsupported contract type")
 	}
@@ -135,6 +159,23 @@ func (w *FastTransferTokenPoolWrapper) UpdateDestChainConfig(
 		return w.burnMintPool.UpdateDestChainConfig(opts, convertedUpdates)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.UpdateDestChainConfig(opts, updates)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		// Convert from burn_mint_external to hybrid_external types
+		convertedUpdates := make([]hybrid_external.FastTransferTokenPoolAbstractDestChainConfigUpdateArgs, len(updates))
+		for i, update := range updates {
+			convertedUpdates[i] = hybrid_external.FastTransferTokenPoolAbstractDestChainConfigUpdateArgs{
+				FillerAllowlistEnabled:   update.FillerAllowlistEnabled,
+				FastTransferFillerFeeBps: update.FastTransferFillerFeeBps,
+				FastTransferPoolFeeBps:   update.FastTransferPoolFeeBps,
+				SettlementOverheadGas:    update.SettlementOverheadGas,
+				RemoteChainSelector:      update.RemoteChainSelector,
+				ChainFamilySelector:      update.ChainFamilySelector,
+				MaxFillAmountPerRequest:  update.MaxFillAmountPerRequest,
+				DestinationPool:          update.DestinationPool,
+				CustomExtraArgs:          update.CustomExtraArgs,
+			}
+		}
+		return w.hybridExternalPool.UpdateDestChainConfig(opts, convertedUpdates)
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
@@ -147,6 +188,8 @@ func (w *FastTransferTokenPoolWrapper) GetAllowedFillers(opts *bind.CallOpts) ([
 		return w.burnMintPool.GetAllowedFillers(opts)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.GetAllowedFillers(opts)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		return w.hybridExternalPool.GetAllowedFillers(opts)
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
@@ -159,6 +202,8 @@ func (w *FastTransferTokenPoolWrapper) GetToken(opts *bind.CallOpts) (common.Add
 		return w.burnMintPool.GetToken(opts)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.GetToken(opts)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		return w.hybridExternalPool.GetToken(opts)
 	default:
 		return common.Address{}, errors.New("unsupported contract type")
 	}
@@ -175,6 +220,8 @@ func (w *FastTransferTokenPoolWrapper) UpdateFillerAllowList(
 		return w.burnMintPool.UpdateFillerAllowList(opts, fillersToAdd, fillersToRemove)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.UpdateFillerAllowList(opts, fillersToAdd, fillersToRemove)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		return w.hybridExternalPool.UpdateFillerAllowList(opts, fillersToAdd, fillersToRemove)
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
@@ -187,6 +234,8 @@ func (w *FastTransferTokenPoolWrapper) IsAllowedFiller(opts *bind.CallOpts, fill
 		return w.burnMintPool.IsAllowedFiller(opts, filler)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.IsAllowedFiller(opts, filler)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		return w.hybridExternalPool.IsAllowedFiller(opts, filler)
 	default:
 		return false, errors.New("unsupported contract type")
 	}
@@ -207,6 +256,8 @@ func (w *FastTransferTokenPoolWrapper) CcipSendToken(
 		return w.burnMintPool.CcipSendToken(opts, destinationChainSelector, amount, maxFastTransferFee, receiver, feeToken, extraArgs)
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.CcipSendToken(opts, destinationChainSelector, amount, maxFastTransferFee, receiver, feeToken, extraArgs)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		return w.hybridExternalPool.CcipSendToken(opts, destinationChainSelector, amount, maxFastTransferFee, receiver, feeToken, extraArgs)
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
@@ -235,6 +286,17 @@ func (w *FastTransferTokenPoolWrapper) GetCcipSendTokenFee(
 		return convertedQuote, nil
 	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 		return w.burnMintExternalPool.GetCcipSendTokenFee(opts, destinationChainSelector, amount, receiver, settlementFeeToken, extraArgs)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		quote, err := w.hybridExternalPool.GetCcipSendTokenFee(opts, destinationChainSelector, amount, receiver, settlementFeeToken, extraArgs)
+		if err != nil {
+			return Quote{}, err
+		}
+		// Convert from hybrid_external to burn_mint_external types
+		convertedQuote := Quote{
+			CcipSettlementFee: quote.CcipSettlementFee,
+			FastTransferFee:   quote.FastTransferFee,
+		}
+		return convertedQuote, nil
 	default:
 		return Quote{}, errors.New("unsupported contract type")
 	}
@@ -260,15 +322,22 @@ func (w *FastTransferTokenPoolWrapper) FilterFastTransferRequested(
 			return nil, err
 		}
 		return &FastTransferRequestedIterator{burnMintExternalIter: iter}, nil
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		iter, err := w.hybridExternalPool.FilterFastTransferRequested(opts, destinationChainSelector, fillID, settlementID)
+		if err != nil {
+			return nil, err
+		}
+		return &FastTransferRequestedIterator{hybridExternalIter: iter}, nil
 	default:
 		return nil, errors.New("unsupported contract type")
 	}
 }
 
-// FastTransferRequestedIterator wraps both iterator types
+// FastTransferRequestedIterator wraps all iterator types
 type FastTransferRequestedIterator struct {
 	burnMintIter         *fast_transfer_token_pool.BurnMintFastTransferTokenPoolFastTransferRequestedIterator
 	burnMintExternalIter *burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolFastTransferRequestedIterator
+	hybridExternalIter   *hybrid_external.HybridWithExternalMinterFastTransferTokenPoolFastTransferRequestedIterator
 }
 
 // Next advances the iterator
@@ -278,6 +347,9 @@ func (it *FastTransferRequestedIterator) Next() bool {
 	}
 	if it.burnMintExternalIter != nil {
 		return it.burnMintExternalIter.Next()
+	}
+	if it.hybridExternalIter != nil {
+		return it.hybridExternalIter.Next()
 	}
 	return false
 }
@@ -290,6 +362,9 @@ func (it *FastTransferRequestedIterator) Error() error {
 	if it.burnMintExternalIter != nil {
 		return it.burnMintExternalIter.Error()
 	}
+	if it.hybridExternalIter != nil {
+		return it.hybridExternalIter.Error()
+	}
 	return nil
 }
 
@@ -300,6 +375,9 @@ func (it *FastTransferRequestedIterator) Close() error {
 	}
 	if it.burnMintExternalIter != nil {
 		return it.burnMintExternalIter.Close()
+	}
+	if it.hybridExternalIter != nil {
+		return it.hybridExternalIter.Close()
 	}
 	return nil
 }
@@ -328,6 +406,18 @@ func (it *FastTransferRequestedIterator) Event() *FastTransferRequestedEvent {
 			FastTransferFee:          it.burnMintExternalIter.Event.FastTransferFee,
 			Receiver:                 it.burnMintExternalIter.Event.Receiver,
 			Raw:                      it.burnMintExternalIter.Event.Raw,
+		}
+	}
+	if it.hybridExternalIter != nil && it.hybridExternalIter.Event != nil {
+		return &FastTransferRequestedEvent{
+			DestinationChainSelector: it.hybridExternalIter.Event.DestinationChainSelector,
+			FillID:                   it.hybridExternalIter.Event.FillId,
+			SettlementID:             it.hybridExternalIter.Event.SettlementId,
+			SourceAmountNetFee:       it.hybridExternalIter.Event.SourceAmountNetFee,
+			SourceDecimals:           it.hybridExternalIter.Event.SourceDecimals,
+			FastTransferFee:          it.hybridExternalIter.Event.FastTransferFee,
+			Receiver:                 it.hybridExternalIter.Event.Receiver,
+			Raw:                      it.hybridExternalIter.Event.Raw,
 		}
 	}
 	return nil
@@ -372,6 +462,12 @@ func GetFastTransferTokenPoolContract(env cldf.Environment, tokenSymbol shared.T
 		pool, ok := chainState.BurnMintWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]
 		if !ok {
 			return nil, fmt.Errorf("burn mint with external minter fast transfer token pool for token %s and version %s not found on chain %s", tokenSymbol, contractVersion, chain.String())
+		}
+		return NewFastTransferTokenPoolWrapper(pool.Address(), env.BlockChains.EVMChains()[chainSelector].Client, contractType)
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		pool, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]
+		if !ok {
+			return nil, fmt.Errorf("hybrid with external minter fast transfer token pool for token %s and version %s not found on chain %s", tokenSymbol, contractVersion, chain.String())
 		}
 		return NewFastTransferTokenPoolWrapper(pool.Address(), env.BlockChains.EVMChains()[chainSelector].Client, contractType)
 	default:
