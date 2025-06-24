@@ -62,7 +62,7 @@ Optional OIDC config
 ```toml
 ClientSecret = "secret" # Example
 ```
-clientSecret is the secret value sent to the OIDC provider to exchange authorization code for ID token
+ClientSecret is the secret value sent to the OIDC provider to exchange authorization code for ID token
 
 ## WebServer.LDAP
 ```toml
