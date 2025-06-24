@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

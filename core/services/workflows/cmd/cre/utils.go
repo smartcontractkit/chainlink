@@ -193,6 +193,15 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, fakeConsensus)
 
+	fakeConsensusNoDAG, err := fakes.NewFakeConsensusNoDAG(lggr)
+	if err != nil {
+		return nil, err
+	}
+	if err := registry.Add(ctx, fakeConsensusNoDAG); err != nil {
+		return nil, err
+	}
+	caps = append(caps, fakeConsensusNoDAG)
+
 	writers := []string{"write_aptos-testnet@1.0.0"}
 	for _, writer := range writers {
 		writeCap := fakes.NewFakeWriteChain(lggr, writer)
