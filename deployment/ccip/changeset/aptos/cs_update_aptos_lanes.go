@@ -36,11 +36,11 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 	for _, laneCfg := range cfg.Lanes {
 		// Source cannot be an unknown.
 		if _, ok := supportedChains[laneCfg.Source.GetSelector()]; !ok {
-			return fmt.Errorf("source chain %d is not supported", laneCfg.Source.GetSelector())
+			return fmt.Errorf("unsupported source chain: %d", laneCfg.Source.GetSelector())
 		}
 		// Destination cannot be an unknown.
 		if _, ok := supportedChains[laneCfg.Dest.GetSelector()]; !ok {
-			return fmt.Errorf("destination chain %d is not supported", laneCfg.Dest.GetSelector())
+			return fmt.Errorf("unsupported destination chain: %d", laneCfg.Dest.GetSelector())
 		}
 		if laneCfg.Source.GetChainFamily() == chainsel.FamilyAptos {
 			aptosChain, exists := env.BlockChains.AptosChains()[laneCfg.Source.GetSelector()]

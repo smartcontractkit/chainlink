@@ -27,9 +27,9 @@ func (d DeployTokenFaucet) VerifyPreconditions(e cldf.Environment, cfg config.De
 	}
 	var errs []error
 	if _, ok := state.SupportedChains()[cfg.ChainSelector]; !ok {
-		errs = append(errs, fmt.Errorf("chain %d is not supported", cfg.ChainSelector))
+		errs = append(errs, fmt.Errorf("unsupported chain: %d", cfg.ChainSelector))
 	}
-	if (cfg.ManagedTokenObject == aptos.AccountAddress{}) {
+	if (cfg.TokenCodeObjectAddress == aptos.AccountAddress{}) {
 		errs = append(errs, errors.New("managed token object address is empty"))
 	}
 	if cfg.MCMSConfig == nil {
@@ -59,7 +59,7 @@ func (d DeployTokenFaucet) Apply(e cldf.Environment, cfg config.DeployTokenFauce
 
 	input := seq.DeployTokenFaucetSeqInput{
 		MCMSAddress:         state.AptosChains[cfg.ChainSelector].MCMSAddress,
-		TokenCodeObjAddress: cfg.ManagedTokenObject,
+		TokenCodeObjAddress: cfg.TokenCodeObjectAddress,
 	}
 	report, err := operations.ExecuteSequence(e.OperationsBundle, seq.DeployTokenFaucetSequence, deps, input)
 	if err != nil {

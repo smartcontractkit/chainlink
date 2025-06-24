@@ -37,7 +37,7 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 	// Validate supported chain
 	supportedChains := state.SupportedChains()
 	if _, ok := supportedChains[cfg.ChainSelector]; !ok {
-		errs = append(errs, fmt.Errorf("chain %d is not supported", cfg.ChainSelector))
+		errs = append(errs, fmt.Errorf("unsupported chain: %d", cfg.ChainSelector))
 	}
 	// Validate CCIP deployed
 	if state.AptosChains[cfg.ChainSelector].CCIPAddress == (aptos.AccountAddress{}) {

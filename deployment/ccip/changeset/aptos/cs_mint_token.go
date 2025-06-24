@@ -27,9 +27,9 @@ func (m MintToken) VerifyPreconditions(e cldf.Environment, cfg config.MintTokenI
 	}
 	var errs []error
 	if _, ok := state.SupportedChains()[cfg.ChainSelector]; !ok {
-		errs = append(errs, fmt.Errorf("chain %d is not supported", cfg.ChainSelector))
+		errs = append(errs, fmt.Errorf("unsupported chain: %d", cfg.ChainSelector))
 	}
-	if (cfg.ManagedTokenObject == aptos.AccountAddress{}) {
+	if (cfg.TokenCodeObjectAddress == aptos.AccountAddress{}) {
 		errs = append(errs, errors.New("managed token object address is empty"))
 	}
 	if cfg.MCMSConfig == nil {
@@ -64,9 +64,9 @@ func (m MintToken) Apply(e cldf.Environment, cfg config.MintTokenInput) (cldf.Ch
 	}
 
 	input := operation.MintTokensInput{
-		TokenCodeObjAddress: cfg.ManagedTokenObject,
-		To:                  cfg.To,
-		Amount:              cfg.Amount,
+		TokenCodeObjectAddress: cfg.TokenCodeObjectAddress,
+		To:                     cfg.To,
+		Amount:                 cfg.Amount,
 	}
 	report, err := operations.ExecuteOperation(e.OperationsBundle, operation.MintTokensOp, deps, input)
 	if err != nil {

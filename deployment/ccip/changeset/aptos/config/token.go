@@ -41,14 +41,14 @@ type TokenMint struct {
 }
 
 type DeployTokenFaucetInput struct {
-	ChainSelector      uint64
-	ManagedTokenObject aptos.AccountAddress
-	MCMSConfig         *proposalutils.TimelockConfig
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
 }
 
 type MintTokenInput struct {
-	ChainSelector      uint64
-	ManagedTokenObject aptos.AccountAddress
-	MCMSConfig         *proposalutils.TimelockConfig
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
 	TokenMint
 }

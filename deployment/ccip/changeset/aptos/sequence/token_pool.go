@@ -114,8 +114,8 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		// Get the token pool state address
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
-			TokenCodeObjAddress: in.TokenCodeObjAddress,
-			MintersToAdd:        []aptos.AccountAddress{tokenPoolStateAddress},
+			TokenCodeObjectAddress: in.TokenCodeObjAddress,
+			MintersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
 		})
 		if err != nil {
 			return DeployTokenPoolSeqOutput{}, err
@@ -123,8 +123,8 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		txs = append(txs, gmReport.Output)
 
 		gbReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedBurnersOp, deps, operation.ApplyAllowedBurnersInput{
-			TokenCodeObjAddress: in.TokenCodeObjAddress,
-			BurnersToAdd:        []aptos.AccountAddress{tokenPoolStateAddress},
+			TokenCodeObjectAddress: in.TokenCodeObjAddress,
+			BurnersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
 		})
 		if err != nil {
 			return DeployTokenPoolSeqOutput{}, err
