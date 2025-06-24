@@ -334,7 +334,7 @@ func (l *oidcConfig) ClientSecret() string {
 	if l.s.ClientSecret == nil {
 		return ""
 	}
-	return *l.s.ClientSecret
+	return string(*l.s.ClientSecret)
 }
 
 func (l *oidcConfig) ProviderURL() string {
