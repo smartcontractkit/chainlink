@@ -56,6 +56,8 @@ func createKeystoneForwarderContractTransmitter(
 	}, nil
 }
 
+// TODO(gg) make writing to chain properly use the relayer
+
 // Transmit submits a report to the KeystoneForwarder contract
 func (s *keystoneForwarderContractTransmitter) Transmit(
 	ctx context.Context,
