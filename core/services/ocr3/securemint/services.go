@@ -2,12 +2,15 @@ package securemint
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -17,6 +20,7 @@ import (
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -141,7 +145,7 @@ func NewSecureMintServices(ctx context.Context,
 	}
 
 	// TODO: These are placeholders. In a real implementation, extract these from config or relayer.
-	receiverAddress := "" // Set to actual DF Cache receiver address as string
+	receiverAddress := "0x0000000000000000000000000000000000000003" // Set to actual DF Cache receiver address as string
 	fromAccount := ocr2plus_types.Account(spec.TransmitterID.String)
 	chainSelector := por.ChainSelector(chainID)
 
@@ -153,7 +157,26 @@ func NewSecureMintServices(ctx context.Context,
 	// 	return nil, fmt.Errorf("failed to create contract transmitter: %w", err)
 	// }
 
-	contractWriter, err := relayer.NewContractWriter(ctx, spec.RelayConfig.Bytes())
+	contractWriterConfig := evmrelaytypes.ChainWriterConfig{
+		Contracts: map[string]*evmrelaytypes.ContractConfig{
+			"keystoneforwarder": {
+				ContractABI: forwarder.KeystoneForwarderABI,
+				Configs: map[string]*evmrelaytypes.ChainWriterDefinition{
+					"report": {
+						ChainSpecificName: "report",
+						FromAddress:       common.HexToAddress(string(fromAccount)),
+						GasLimit:          1e6,
+					},
+				},
+			},
+		},
+	}
+
+	contractWriterConfigBytes, err := json.Marshal(contractWriterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal contract writer config: %w", err)
+	}
+	contractWriter, err := relayer.NewContractWriter(ctx, contractWriterConfigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract writer: %w", err)
 	}

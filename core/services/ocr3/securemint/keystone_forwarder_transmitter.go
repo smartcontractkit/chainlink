@@ -44,7 +44,7 @@ func createKeystoneForwarderContractTransmitter(
 		forwarderAddress: forwarderAddress,
 		receiverAddress:  receiverAddress,
 		chainSelector:    chainSelector,
-		contractName:     "KeystoneForwarder",
+		contractName:     "keystoneforwarder",
 	}, nil
 }
 
@@ -103,7 +103,8 @@ func (s *keystoneForwarderContractTransmitter) Transmit(
 		"txID", txID.String(),
 		"contractName", s.contractName,
 		"method", "report",
-		"chainSelector", s.chainSelector)
+		"chainSelector", s.chainSelector,
+		"args", args)
 
 	if err := s.contractWriter.SubmitTransaction(
 		ctx,
