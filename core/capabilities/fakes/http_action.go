@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	customhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
@@ -17,20 +16,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ httpserver.ClientCapability = (*DirectHttpAction)(nil)
-var _ services.Service = (*DirectHttpAction)(nil)
-var _ commonCap.ExecutableCapability = (*DirectHttpAction)(nil)
+var _ httpserver.ClientCapability = (*DirectHTTPAction)(nil)
+var _ services.Service = (*DirectHTTPAction)(nil)
+var _ commonCap.ExecutableCapability = (*DirectHTTPAction)(nil)
 
 const HTTPActionID = "http-action@1.0.0"
 const HTTPActionServiceName = "HttpActionService"
 
-var directHttpActionInfo = capabilities.MustNewCapabilityInfo(
+var directHTTPActionInfo = commonCap.MustNewCapabilityInfo(
 	HTTPActionID,
-	capabilities.CapabilityTypeAction,
+	commonCap.CapabilityTypeAction,
 	"An action that makes a direct HTTP request",
 )
 
-type DirectHttpAction struct {
+type DirectHTTPAction struct {
 	commonCap.CapabilityInfo
 	services.Service
 	eng *services.Engine
@@ -38,8 +37,8 @@ type DirectHttpAction struct {
 	lggr logger.Logger
 }
 
-func NewDirectHttpAction(lggr logger.Logger) *DirectHttpAction {
-	fc := &DirectHttpAction{
+func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
+	fc := &DirectHTTPAction{
 		lggr: lggr,
 	}
 
@@ -51,7 +50,7 @@ func NewDirectHttpAction(lggr logger.Logger) *DirectHttpAction {
 	return fc
 }
 
-func (fh *DirectHttpAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
+func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
 	fh.eng.Infow("Http Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
@@ -109,7 +108,7 @@ func (fh *DirectHttpAction) SendRequest(ctx context.Context, metadata capabiliti
 		fh.eng.Errorw("Failed to read response body", "error", err)
 		return &customhttp.Response{
 			ErrorMessage: err.Error(),
-			StatusCode:   uint32(resp.StatusCode),
+			StatusCode:   uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
 		}, err
 	}
 
@@ -122,7 +121,7 @@ func (fh *DirectHttpAction) SendRequest(ctx context.Context, metadata capabiliti
 
 	// Create response
 	response := &customhttp.Response{
-		StatusCode: uint32(resp.StatusCode),
+		StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
 		Headers:    headers,
 		Body:       respBody,
 	}
@@ -136,36 +135,35 @@ func (fh *DirectHttpAction) SendRequest(ctx context.Context, metadata capabiliti
 	return response, nil
 }
 
-func (fh *DirectHttpAction) Start(ctx context.Context) error {
+func (fh *DirectHTTPAction) Start(ctx context.Context) error {
 	fh.eng.Infow("Http Action Start Started")
 	return nil
 }
 
-func (fh *DirectHttpAction) Close() error {
+func (fh *DirectHTTPAction) Close() error {
 	fh.eng.Infow("Http Action Close Started")
 	return nil
 }
 
-func (fh *DirectHttpAction) Name() string {
+func (fh *DirectHTTPAction) Name() string {
 	return HTTPActionServiceName
 }
 
-func (fh *DirectHttpAction) Description() string {
-	return directHttpActionInfo.Description
+func (fh *DirectHTTPAction) Description() string {
+	return directHTTPActionInfo.Description
 }
 
-func (fh *DirectHttpAction) Ready() error {
+func (fh *DirectHTTPAction) Ready() error {
 	return nil
 }
 
-func (fh *DirectHttpAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
+func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
 	_ core.GatewayConnector) error {
-
 	// TODO: do validation of config here
 
 	err := fh.Start(ctx)
@@ -176,17 +174,17 @@ func (fh *DirectHttpAction) Initialise(ctx context.Context, config string, _ cor
 	return nil
 }
 
-func (fh *DirectHttpAction) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
+func (fh *DirectHTTPAction) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
 	fh.eng.Infow("Direct Http Action Execute Started", "request", request)
 	return commonCap.CapabilityResponse{}, nil
 }
 
-func (fh *DirectHttpAction) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
+func (fh *DirectHTTPAction) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
 	fh.eng.Infow("Registered to Direct Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
-func (fh *DirectHttpAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
+func (fh *DirectHTTPAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
 	fh.eng.Infow("Unregistered from Direct Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }

@@ -174,7 +174,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, streamsTrigger)
 
-	httpAction := fakes.NewDirectHttpAction(lggr)
+	httpAction := fakes.NewDirectHTTPAction(lggr)
 	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
 		return nil, err
 	}
