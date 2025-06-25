@@ -136,6 +136,7 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          DISABLE_DX_TRACKING: "true"
         run: |
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 

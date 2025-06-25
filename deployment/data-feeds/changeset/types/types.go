@@ -163,19 +163,19 @@ type NodeConfig struct {
 }
 
 type WorkflowSpecConfig struct {
-	TargetContractEncoderType        string `json:"targetContractEncoderType"`  // Required. "data-feeds_decimal", "aptos" or "ccip"
-	ConsensusAggregationMethod       string `json:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
-	WorkflowName                     string `json:"workflowName"`               // Required
-	ConsensusReportID                string `json:"consensusReportID"`          // Required
-	WriteTargetTrigger               string `json:"writeTargetTrigger"`         // Required
-	ConsensusRef                     string `json:"consensusRef"`               // Default "data-feeds"
-	ConsensusConfigKeyID             string `json:"consensusConfigKeyID"`       // Default "evm"
-	ConsensusAllowedPartialStaleness string `json:"consensusAllowedPartialStaleness"`
-	DeltaStageSec                    *int   `json:"deltaStageSec"`   // Default 45
-	TargetsSchedule                  string `json:"targetsSchedule"` // Default "oneAtATime"
-	TargetProcessor                  string `json:"targetProcessor"`
-	TriggersMaxFrequencyMs           *int   `json:"triggersMaxFrequencyMs"` // Default 5000
-	CREStepTimeout                   int64  `json:"creStepTimeout"`
+	TargetContractEncoderType        string `json:"targetContractEncoderType" yaml:"targetContractEncoderType"`   // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string `json:"consensusAggregationMethod" yaml:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string `json:"workflowName" yaml:"workflowName"`                             // Required
+	ConsensusReportID                string `json:"consensusReportID" yaml:"consensusReportID"`                   // Required
+	WriteTargetTrigger               string `json:"writeTargetTrigger" yaml:"writeTargetTrigger"`                 // Required
+	ConsensusRef                     string `json:"consensusRef" yaml:"consensusRef"`                             // Default "data-feeds"
+	ConsensusConfigKeyID             string `json:"consensusConfigKeyID" yaml:"consensusConfigKeyID"`             // Default "evm"
+	ConsensusAllowedPartialStaleness string `json:"consensusAllowedPartialStaleness,omitempty" yaml:"consensusAllowedPartialStaleness,omitempty"`
+	DeltaStageSec                    *int   `json:"deltaStageSec,omitempty" yaml:"deltaStageSec,omitempty"`     // Default 45
+	TargetsSchedule                  string `json:"targetsSchedule,omitempty" yaml:"targetsSchedule,omitempty"` // Default "oneAtATime"
+	TargetProcessor                  string `json:"targetProcessor,omitempty" yaml:"targetProcessor,omitempty"`
+	TriggersMaxFrequencyMs           *int   `json:"triggersMaxFrequencyMs,omitempty" yaml:"triggersMaxFrequencyMs,omitempty"` // Default 5000
+	CREStepTimeout                   int64  `json:"creStepTimeout,omitempty" yaml:"creStepTimeout,omitempty"`
 }
 
 type ProposeWFJobsConfig struct {
@@ -189,12 +189,12 @@ type ProposeWFJobsConfig struct {
 }
 
 type ProposeWFJobsV2Config struct {
-	ChainSelector      uint64                `json:"chainSelector"`
-	CacheLabel         string                `json:"cacheLabel"`      // Label for the DataFeedsCache contract in AB, or qualifier in DataStore
-	Domain             string                `json:"domain"`          // default to data-feeds
-	WorkflowJobName    string                `json:"workflowJobName"` // Required
-	WorkflowSpecConfig WorkflowSpecConfig    `json:"workflowSpecConfig"`
-	NodeFilter         *offchain.NodesFilter `json:"nodeFilter"` // Required. Node filter to select the nodes to send the jobs to.
+	ChainSelector      uint64                `json:"chainSelector" yaml:"chainSelector"`
+	CacheLabel         string                `json:"cacheLabel" yaml:"cacheLabel"`           // Label for the DataFeedsCache contract in AB, or qualifier in DataStore
+	Domain             string                `json:"domain" yaml:"domain"`                   // default to data-feeds
+	WorkflowJobName    string                `json:"workflowJobName" yaml:"workflowJobName"` // Required
+	WorkflowSpecConfig WorkflowSpecConfig    `json:"workflowSpecConfig" yaml:"workflowSpecConfig"`
+	NodeFilter         *offchain.NodesFilter `json:"nodeFilter" yaml:"nodeFilter"` // Required. Node filter to select the nodes to send the jobs to.
 }
 
 type ProposeBtJobsConfig struct {

@@ -128,7 +128,7 @@ func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string,
 			Payload: payload,
 		}
 
-		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
+		framework.L.Info().Msg(fmt.Sprintf("Sending trigger event %s to subscribers of %s", eventID, id))
 
 		_, err := client.API.SendTriggerEvent(ctx, &data)
 		if err != nil {
@@ -178,7 +178,7 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 
 		go func() {
 			for {
-				c.lggr.Info().Msg("Waiting for hook event")
+				c.lggr.Info().Msg("Waiting for execute events")
 				resp, err := hook.Recv()
 				if errors.Is(err, io.EOF) {
 					c.lggr.Error().Msgf("Received EOF from hook %s", err)
@@ -197,7 +197,7 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 					log.Fatalf("can not decode input: %v", err)
 				}
 
-				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
+				c.lggr.Info().Msgf("Got execute event for %s with workflowID %s, executionID %s", resp.ID, resp.RequestMetadata.WorkflowID, resp.RequestMetadata.WorkflowExecutionID)
 				ch <- capabilities.CapabilityRequest{
 					Metadata: capabilities.RequestMetadata{
 						WorkflowID:               resp.RequestMetadata.WorkflowID,
@@ -212,7 +212,6 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 					Config: config,
 					Inputs: input,
 				}
-				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
 
 				r := pb2.ExecutableResponse{
 					ID:             resp.ID,
