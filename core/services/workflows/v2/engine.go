@@ -371,7 +371,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 		mrErr = e.meterReports.End(ctx, executionID)
 		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not end metering report", "err", mrErr)
+			// e.cfg.Lggr.Errorw("could not end metering report", "err", mrErr)
 		}
 	}
 

@@ -136,8 +136,8 @@ func run(
 			lggr.Info("Engine initialized")
 			close(initializedCh)
 		},
-		OnExecutionFinished: func(executionID string) {
-			lggr.Infow("Execution finished", "executionID", executionID)
+		OnExecutionFinished: func(executionID string, status string) {
+			lggr.Infow("Execution finished", "executionID", executionID, "status", status)
 			close(executionFinishedCh)
 		},
 	})

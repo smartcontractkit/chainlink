@@ -95,8 +95,8 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 	if err != nil {
 		return nil, err
 	}
-	fc.eng.Infow("Fake EVM Chain CallContract data value", "data", new(big.Int).SetBytes(data).String())
 
+	fc.eng.Infow("Fake EVM Chain CallContract data value", "data", new(big.Int).SetBytes(data).String())
 	fc.eng.Infow("Fake EVM Chain CallContract Finished", "data", data)
 
 	// Convert data to protobuf

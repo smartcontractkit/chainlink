@@ -204,7 +204,7 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	}
 
 	// TODO: get private key from env var
-	privateKey, err := crypto.HexToECDSA("b79e5dbf9e75e85d787a22fb98f9638d216256d4e97b7e30a587663c104fd523")
+	privateKey, err := crypto.HexToECDSA("d458c5e1f75b8e0bb25aa69a2c7821da23b3205f9293a387a417ccab25e795e6")
 	if err != nil {
 		return nil, err
 	}

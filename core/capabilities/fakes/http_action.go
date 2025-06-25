@@ -145,7 +145,7 @@ func (fh *FakeHttpAction) SendRequest(ctx context.Context, metadata capabilities
 		response.ErrorMessage = resp.Status
 	}
 
-	fh.eng.Debugw("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
+	fh.eng.Infow("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
 	return response, nil
 }
 

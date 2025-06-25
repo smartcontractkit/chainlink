@@ -101,29 +101,24 @@ async function main() {
         const devAccount = accounts[0];
         console.log('Using account:', devAccount);
         
-        // Get the dev private key (for geth dev mode, it's a known key)
-        const devPrivateKey = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+        // Generate a new wallet to avoid nonce conflicts
+        const wallet = ethers.Wallet.createRandom(provider);
+        const devPrivateKey = wallet.privateKey;
         
         try {
-            // Try to use the known dev private key
-            const wallet = new ethers.Wallet(devPrivateKey, provider);
+            // Fund the new wallet from coinbase
+            console.log('Funding new wallet from coinbase...');
+            console.log('New wallet address:', wallet.address);
             
-            // Check if this wallet has balance
-            let balance = await provider.getBalance(wallet.address);
+            await provider.send('eth_sendTransaction', [{
+                from: devAccount,
+                to: wallet.address,
+                value: '0x' + ethers.parseEther('10').toString(16)
+            }]);
             
-            if (balance === 0n) {
-                // If not, use the coinbase account to send ETH
-                console.log('Funding wallet from coinbase...');
-                await provider.send('eth_sendTransaction', [{
-                    from: devAccount,
-                    to: wallet.address,
-                    value: '0x' + ethers.parseEther('10').toString(16)
-                }]);
-                
-                // Wait for the transaction
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                balance = await provider.getBalance(wallet.address);
-            }
+            // Wait for the transaction
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const balance = await provider.getBalance(wallet.address);
             
             console.log('Wallet balance:', ethers.formatEther(balance), 'ETH');
             
