@@ -184,6 +184,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
 	}
 
+	// Create chain accessors
+	chainAccessors, err := i.createChainAccessors(contractReaders, chainWriters, pluginServices)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
+	}
+
 	// build the onchain keyring. it will be the signing key for the destination chain family.
 	keybundle, ok := i.ocrKeyBundles[destChainFamily]
 	if !ok {
@@ -211,7 +217,19 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginServices.PluginConfig, offrampAddrStr)
+		donID,
+		config,
+		destRelayID,
+		chainAccessors,
+		contractReaders,
+		chainWriters,
+		destChainWriter,
+		destFromAccounts,
+		publicConfig,
+		destChainID,
+		pluginServices.PluginConfig,
+		offrampAddrStr,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -268,6 +286,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
 	destRelayID types.RelayID,
+	chainAccessors map[cciptypes.ChainSelector]cciptypes.ChainAccessor,
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
 	destChainWriter types.ContractWriter,
@@ -309,6 +328,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				AddrCodec:         i.addressCodec,
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
+				ChainAccessors:    chainAccessors,
 				ContractReaders:   contractReaders,
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
@@ -360,6 +380,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				HomeChainReader:  i.homeChainReader,
 				TokenDataEncoder: pluginConfig.TokenDataEncoder,
 				EstimateProvider: pluginConfig.GasEstimateProvider,
+				ChainAccessors:   chainAccessors,
 				ContractReaders:  contractReaders,
 				ContractWriters:  chainWriters,
 			})
@@ -398,6 +419,33 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
+}
+
+func (i *pluginOracleCreator) createChainAccessors(
+	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
+	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
+	pluginServices ccipcommon.PluginServices,
+) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, error) {
+	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	for relayID, relayer := range i.relayers {
+		chainSelector, err := getChainSelectorFromRelayID(relayID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain selector from relay ID %s: %w", relayID, err)
+		}
+		chainAccessor, err := pluginServices.PluginConfig.ChainAccessorFactory.NewChainAccessor(
+			i.lggr,
+			relayer,
+			chainSelector,
+			contractReaders[chainSelector],
+			chainWriters[chainSelector],
+			pluginServices.AddrCodec,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chain accessor for relay ID %s: %w", relayID, err)
+		}
+		chainAccessors[chainSelector] = chainAccessor
+	}
+	return chainAccessors, nil
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
@@ -460,14 +508,13 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
-		chainID := relayID.ChainID
-		relayChainFamily := relayID.Network
-		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
-		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+		chainSelector, err1 := getChainSelectorFromRelayID(relayID)
 		if err1 != nil {
-			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
+			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", relayID.ChainID, err1)
 		}
 
+		chainID := relayID.ChainID
+		relayChainFamily := relayID.Network
 		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.ChainReaderProviderOpts{
 			Lggr:          i.lggr,
 			Relayer:       relayer,
@@ -519,6 +566,20 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		chainWriters[chainSelector] = cw
 	}
 	return contractReaders, chainWriters, nil
+}
+
+func getChainSelectorFromRelayID(relayID types.RelayID) (cciptypes.ChainSelector, error) {
+	chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
+	if err1 != nil {
+		return cciptypes.ChainSelector(0), fmt.Errorf(
+			"failed to get chain details for chain ID %s and family %s: %w",
+			relayID.ChainID,
+			relayID.Network,
+			err1,
+		)
+	}
+	chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+	return chainSelector, nil
 }
 
 func decodeAndValidateOffchainConfig(

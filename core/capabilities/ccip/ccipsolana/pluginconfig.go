@@ -21,6 +21,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 		AddressCodec:               AddressCodec{},
+		ChainAccessorFactory:       SolanaChainAccessorFactory{},
 		ChainRW:                    ChainRWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
