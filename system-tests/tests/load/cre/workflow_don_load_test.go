@@ -427,12 +427,12 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	prometheusExecutor, err := benchspy.NewPrometheusQueryExecutor(
 		map[string]string{
-			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9]"}[5m]) * 100)`,
-			"mem_peak_mb":          `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9]"}[5m]))`,
-			"mem_avg_mb":           `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9]"}[5m]))`,
-			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9]"})`,
-			"network_tx_mb":        `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9]"})`,
-			"network_rx_mb":        `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9]"})`,
+			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[5m]) * 100)`,
+			"mem_peak_mb":          `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"mem_avg_mb":           `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_tx_mb":        `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_rx_mb":        `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
 		},
 		promConfig,
 	)
