@@ -4,18 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
+	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
@@ -69,7 +65,6 @@ func NewSecureMintServices(ctx context.Context,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
 	cfg JobConfig,
-	keystore keystore.Eth,
 ) (srvs []job.ServiceCtx, err error) {
 	// Parse and validate the secure mint plugin configuration
 	secureMintPluginConfig, err := sm_plugin_config.Parse(jb.OCR2OracleSpec.PluginConfig.Bytes())
@@ -108,78 +103,66 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.ContractConfigTracker = configProvider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = configProvider.OffchainConfigDigester()
 
-	// Select the contract transmitter implementation
-	if addrRaw, ok := spec.PluginConfig["keystoneForwarderAddress"]; ok {
-		addrStr, ok := addrRaw.(string)
-		if !ok {
-			return nil, fmt.Errorf("keystoneForwarderAddress in plugin config must be a string, got %T", addrRaw)
-		}
-		forwarderAddress := common.HexToAddress(addrStr)
-
-		// Extract backend and ethKey from the relayer
-		evmRelayer, ok := relayer.(interface {
-			GetChain() interface {
-				Client() interface {
-					Backend() bind.ContractBackend
-				}
-			}
-		})
-		if !ok {
-			return nil, fmt.Errorf("relayer does not support EVM operations")
-		}
-
-		backend := evmRelayer.GetChain().Client().Backend()
-		if backend == nil {
-			return nil, fmt.Errorf("failed to get backend from relayer")
-		}
-
-		// Get the eth key for the transmitter
-		rid, err := spec.RelayID()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get relay ID: %w", err)
-		}
-		chainIDBig, ok := new(big.Int).SetString(rid.ChainID, 10)
-		if !ok {
-			return nil, fmt.Errorf("failed to parse chain ID %s as big.Int", rid.ChainID)
-		}
-		ethKeys, err := keystore.EnabledKeysForChain(ctx, chainIDBig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get eth keys: %w", err)
-		}
-		if len(ethKeys) == 0 {
-			return nil, fmt.Errorf("no eth keys available for chain %s", rid.ChainID)
-		}
-
-		// Find the key that matches the transmitter ID
-		var ethKey ethkey.KeyV2
-		transmitterAddr := common.HexToAddress(spec.TransmitterID.String)
-		found := false
-		for _, key := range ethKeys {
-			if key.Address == transmitterAddr {
-				ethKey = key
-				found = true
-				break
-			}
-		}
-		if !found {
-			// Use the first available key if transmitter doesn't match
-			ethKey = ethKeys[0]
-		}
-
-		// TODO: These are placeholders. In a real implementation, extract these from config or relayer.
-		receiverAddress := common.Address{} // Set to actual receiver if needed
-		fromAccount := ocr2plus_types.Account(spec.TransmitterID.String)
-		chainSelector := por.ChainSelector(chainIDBig.Uint64()) // Use actual chain selector
-
-		transmitter, err := createKeystoneForwarderContractTransmitter(lggr, forwarderAddress, receiverAddress, fromAccount, chainSelector, ethKey, backend)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create keystone forwarder transmitter: %w", err)
-		}
-		argsNoPlugin.ContractTransmitter = transmitter
-	} else {
-		// Default: use stub transmitter
-		argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
+	rawForwarderAddress, ok := spec.RelayConfig["keystoneForwarderAddress"]
+	if !ok {
+		return nil, fmt.Errorf("keystoneForwarderAddress not found in plugin config")
 	}
+
+	// Validate that the address is a string (for future use if needed)
+	forwarderAddress, ok := rawForwarderAddress.(string)
+	if !ok {
+		return nil, fmt.Errorf("keystoneForwarderAddress in plugin config must be a string, got %T", rawForwarderAddress)
+	}
+
+	// Extract contract writer from the relayer
+	// evmRelayer, ok := relayer.(interface {
+	// 	GetChain() interface {
+	// 		ContractWriter() types.ContractWriter
+	// 	}
+	// })
+	// if !ok {
+	// 	return nil, fmt.Errorf("relayer does not support EVM operations")
+	// }
+
+	// contractWriter := evmRelayer.GetChain().ContractWriter()
+	// if contractWriter == nil {
+	// 	return nil, fmt.Errorf("failed to get contract writer from relayer")
+	// }
+
+	// Get the eth key for the transmitter
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay ID: %w", err)
+	}
+
+	chainID, err := strconv.ParseUint(rid.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain ID %s as uint64", rid.ChainID)
+	}
+
+	// TODO: These are placeholders. In a real implementation, extract these from config or relayer.
+	receiverAddress := "" // Set to actual DF Cache receiver address as string
+	fromAccount := ocr2plus_types.Account(spec.TransmitterID.String)
+	chainSelector := por.ChainSelector(chainID)
+
+	// r := relayer.(evm.Relayer)
+	// legacyevm.NewLegacyChains(relayer)
+	// evm.NewWriteTarget(ctx, nil, chain, *wCfg.GasLimitDefault(), lggr)
+	// transmitter, err := evm.NewContractTransmitter(lggr, forwarderAddress, receiverAddress, fromAccount, chainSelector, backend)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create contract transmitter: %w", err)
+	// }
+
+	contractWriter, err := relayer.NewContractWriter(ctx, spec.RelayConfig.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create contract writer: %w", err)
+	}
+
+	keystoneForwarderTransmitter, err := createKeystoneForwarderContractTransmitter(lggr, contractWriter, fromAccount, forwarderAddress, receiverAddress, chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keystone forwarder transmitter: %w", err)
+	}
+	argsNoPlugin.ContractTransmitter = keystoneForwarderTransmitter
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {
@@ -199,12 +182,6 @@ func NewSecureMintServices(ctx context.Context,
 		ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
 		ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
 		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
-	}
-
-	// Get relay ID for chain identification
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay ID: %w", err)
 	}
 
 	// Wrap the factory with prometheus metrics monitoring

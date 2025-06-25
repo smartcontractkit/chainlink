@@ -235,12 +235,12 @@ func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, 
 			providerType                      = "securemint"
 			lloDonID                          = 1
 			lloConfigMode                     = "bluegreen"
+			keystoneForwarderAddress          = "%s"
 
 			[pluginConfig]
 			maxChains                         = 5
 			token                             = "btc"
 			reserves                          = "custom"
-			keystoneForwarderAddress          = "%s"
 		`, // Using lloConfigMode 'bluegreen' since otherwise LLO config poller won't work
 		ocrContractAddress,     // contract address
 		keyBundleID,            // ocr key bundle id

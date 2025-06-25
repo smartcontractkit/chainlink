@@ -3,62 +3,52 @@ package securemint
 import (
 	"context"
 	"fmt"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 // keystoneForwarderContractTransmitter implements the ocr3types.ContractTransmitter interface
-// by calling the KeystoneForwarder's report function
+// by submitting transactions to the KeystoneForwarder's report function via the ContractWriter
 type keystoneForwarderContractTransmitter struct {
-	logger          logger.Logger
-	forwarder       *forwarder.KeystoneForwarder
-	fromAccount     ocr2types.Account
-	receiverAddress common.Address
-	chainSelector   por.ChainSelector
-	ethKey          ethkey.KeyV2
-	backend         bind.ContractBackend
+	logger           logger.Logger
+	contractWriter   commontypes.ContractWriter
+	fromAccount      ocr2types.Account
+	forwarderAddress string
+	receiverAddress  string
+	chainSelector    por.ChainSelector
+	contractName     string
 }
 
 // Ensure keystoneForwarderContractTransmitter implements the ContractTransmitter interface
 var _ ocr3types.ContractTransmitter[por.ChainSelector] = (*keystoneForwarderContractTransmitter)(nil)
 
-// createKeystoneForwarderContractTransmitter creates a contract transmitter that calls the KeystoneForwarder
+// createKeystoneForwarderContractTransmitter creates a contract transmitter that submits transactions to the KeystoneForwarder
 func createKeystoneForwarderContractTransmitter(
 	lggr logger.Logger,
-	forwarderAddress common.Address,
-	receiverAddress common.Address,
+	contractWriter commontypes.ContractWriter,
 	fromAccount ocr2types.Account,
+	forwarderAddress string,
+	receiverAddress string,
 	chainSelector por.ChainSelector,
-	ethKey ethkey.KeyV2,
-	backend bind.ContractBackend,
 ) (ocr3types.ContractTransmitter[por.ChainSelector], error) {
-	forwarder, err := forwarder.NewKeystoneForwarder(forwarderAddress, backend)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create forwarder contract instance: %w", err)
-	}
-
 	return &keystoneForwarderContractTransmitter{
-		logger:          lggr,
-		forwarder:       forwarder,
-		fromAccount:     fromAccount,
-		receiverAddress: receiverAddress,
-		chainSelector:   chainSelector,
-		ethKey:          ethKey,
-		backend:         backend,
+		logger:           lggr,
+		contractWriter:   contractWriter,
+		fromAccount:      fromAccount,
+		forwarderAddress: forwarderAddress,
+		receiverAddress:  receiverAddress,
+		chainSelector:    chainSelector,
+		contractName:     "KeystoneForwarder",
 	}, nil
 }
 
-// TODO(gg) make writing to chain properly use the relayer
-
-// Transmit submits a report to the KeystoneForwarder contract
+// Transmit submits a report to the KeystoneForwarder contract via the ContractWriter
 func (s *keystoneForwarderContractTransmitter) Transmit(
 	ctx context.Context,
 	configDigest ocr2types.ConfigDigest,
@@ -73,7 +63,7 @@ func (s *keystoneForwarderContractTransmitter) Transmit(
 		"reportInfo", reportWithInfo.Info,
 		"signaturesCount", len(sigs),
 		"chainSelector", s.chainSelector,
-		"receiverAddress", s.receiverAddress.Hex())
+		"receiverAddress", s.receiverAddress)
 
 	// Convert signatures to the format expected by KeystoneForwarder
 	// KeystoneForwarder expects signatures as bytes[] where each signature is 65 bytes
@@ -82,40 +72,60 @@ func (s *keystoneForwarderContractTransmitter) Transmit(
 		signatures[i] = sig.Signature
 	}
 
-	// Create transaction options
-	// For now, we'll use a simple approach since this is just for testing
-	// In a real implementation, we'd need to properly extract the private key
-	auth := &bind.TransactOpts{
-		From: s.ethKey.Address,
-		Signer: func(address common.Address, tx *gethtypes.Transaction) (*gethtypes.Transaction, error) {
-			// This is a simplified approach for testing
-			// In a real implementation, we'd properly sign the transaction
-			return tx, nil
-		},
-	}
-
-	// Call the KeystoneForwarder's report function
-	// For now, we'll use a dummy receiver address (address(0)) since we're not forwarding to a real receiver
-	// In a real implementation, this would be the DataFeedsCache address
-	receiver := common.Address{} // address(0) for now
-
 	// Create a dummy report context (96 bytes as expected by KeystoneForwarder)
 	reportContext := make([]byte, 96)
 
-	// Call the report function
-	tx, err := s.forwarder.Report(auth, receiver, reportWithInfo.Report, reportContext, signatures)
-	if err != nil {
-		s.logger.Errorw("Failed to submit report to KeystoneForwarder",
-			"error", err,
-			"chainSelector", s.chainSelector,
-			"receiverAddress", receiver.Hex())
-		return fmt.Errorf("failed to submit report to KeystoneForwarder: %w", err)
+	// Prepare the arguments for the report function
+	// The KeystoneForwarder.report function signature is:
+	// function report(address receiver, bytes calldata report, bytes calldata reportContext, bytes[] calldata signatures)
+	args := map[string]any{
+		"receiver":      s.receiverAddress,
+		"report":        reportWithInfo.Report,
+		"reportContext": reportContext,
+		"signatures":    signatures,
 	}
 
-	s.logger.Infow("Report submitted successfully to KeystoneForwarder",
-		"transactionHash", tx.Hash().Hex(),
+	// Generate a unique transaction ID
+	txID, err := uuid.NewRandom()
+	if err != nil {
+		return fmt.Errorf("failed to generate UUID: %w", err)
+	}
+
+	// Create transaction metadata
+	meta := commontypes.TxMeta{
+		// Add any relevant metadata here
+	}
+
+	// Submit the transaction via the ContractWriter
+	// The ContractWriter will handle the transaction creation, signing, and broadcasting
+	zero := big.NewInt(0)
+	s.logger.Infow("Submitting transaction to contractWriter",
+		"txID", txID.String(),
+		"contractName", s.contractName,
+		"method", "report",
+		"chainSelector", s.chainSelector)
+
+	if err := s.contractWriter.SubmitTransaction(
+		ctx,
+		s.contractName,
+		"report",
+		args,
+		fmt.Sprintf("%s-%s-%s", s.contractName, s.forwarderAddress, txID.String()),
+		s.forwarderAddress,
+		&meta,
+		zero,
+	); err != nil {
+		s.logger.Errorw("Failed to submit transaction to contractWriter",
+			"error", err,
+			"chainSelector", s.chainSelector,
+			"forwarderAddress", s.forwarderAddress)
+		return fmt.Errorf("failed to submit transaction to contractWriter: %w", err)
+	}
+
+	s.logger.Infow("Transaction submitted successfully to contractWriter",
+		"txID", txID.String(),
 		"chainSelector", s.chainSelector,
-		"receiverAddress", receiver.Hex())
+		"forwarderAddress", s.forwarderAddress)
 
 	return nil
 }
