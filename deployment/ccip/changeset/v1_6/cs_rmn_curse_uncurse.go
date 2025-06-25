@@ -7,25 +7,30 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
+	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
+	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -400,6 +405,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
+	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only curse the subjects that are not actually cursed
@@ -427,10 +433,41 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
+
+			// Aptos have no deployerGroup implementation, collecting MCMS operations separately
+			family, err := chain_selectors.GetSelectorFamily(selector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
+			}
+			if family == chain_selectors.FamilyAptos {
+				aptosChain := e.BlockChains.AptosChains()[selector]
+				proposal, err := aptosUtils.GenerateProposal(
+					aptosChain.Client,
+					state.AptosChains[selector].MCMSAddress,
+					selector,
+					[]mcmstypes.BatchOperation{chain.(*AptosCursableChain).MCMSOp},
+					cfg.Reason,
+					*cfg.MCMS,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", selector, err)
+				}
+				aptosProposals = append(aptosProposals, *proposal)
+			}
 		}
 	}
 
-	return deployerGroup.Enact()
+	partialOut, err := deployerGroup.Enact()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
+	}
+	if len(aptosProposals) == 0 {
+		return partialOut, nil
+	}
+	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
+	}
+	proposalutils.AggregateProposals()
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
@@ -836,6 +873,86 @@ func (c EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, su
 	return nil
 }
 
+type AptosCursableChain struct {
+	selector uint64
+	env      cldf.Environment
+	chain    aptosstateview.CCIPChainState
+	MCMSOp   mcmstypes.BatchOperation
+}
+
+func (c AptosCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
+	return ccipBind.RMNRemote().IsCursed(nil, subject[:])
+}
+
+func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	subjectBytes := make([][]byte, len(subjects))
+	for i, subject := range subjects {
+		subjectBytes[i] = subject[:]
+	}
+	in := aptos_ops.CurseMultipleInput{
+		Subjects:    subjectBytes,
+		CCIPAddress: c.chain.CCIPAddress,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, chain, in)
+	c.MCMSOp = mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(c.selector),
+		Transactions:  []mcmstypes.Transaction{report.Output},
+	}
+
+	return nil
+}
+
+func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	subjectBytes := make([][]byte, len(subjects))
+	for i, subject := range subjects {
+		subjectBytes[i] = subject[:]
+	}
+	in := aptos_ops.UncurseMultipleInput{
+		Subjects:    subjectBytes,
+		CCIPAddress: c.chain.CCIPAddress,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, chain, in)
+	c.MCMSOp = mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(c.selector),
+		Transactions:  []mcmstypes.Transaction{report.Output},
+	}
+
+	return nil
+}
+
+func (c AptosCursableChain) IsCursable() (bool, error) {
+	return c.chain.CCIPAddress != aptos.AccountAddress{}, nil
+}
+
+func (c AptosCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	offRampBind := aptosOffRamp.Bind(c.chain.CCIPAddress, chain.Client)
+	cfg, err := offRampBind.Offramp().GetSourceChainConfig(nil, selector)
+	if err != nil {
+		return false, fmt.Errorf("failed to GetSourceChainConfig for %d: %w", selector, err)
+	}
+
+	return cfg.IsEnabled, nil
+}
+
+func (c AptosCursableChain) Name() string {
+	return c.env.BlockChains.AptosChains()[c.selector].Name()
+}
+
 func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
@@ -852,6 +969,14 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 
 	for selector, chain := range state.SolChains {
 		cursableChains[selector] = SolanaCursableChain{
+			selector: selector,
+			chain:    chain,
+			env:      env,
+		}
+	}
+
+	for selector, chain := range state.AptosChains {
+		cursableChains[selector] = &AptosCursableChain{
 			selector: selector,
 			chain:    chain,
 			env:      env,
