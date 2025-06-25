@@ -34,7 +34,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-cre-workflow-don-benchmark'))
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-cre-workflow-don-benchmark'))
     steps:
       - name: Checkout
         uses: actions/checkout@v4

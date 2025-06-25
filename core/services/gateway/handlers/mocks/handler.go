@@ -9,6 +9,8 @@ import (
 
 	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 
+	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -70,17 +72,17 @@ func (_c *Handler_Close_Call) RunAndReturn(run func() error) *Handler_Close_Call
 	return _c
 }
 
-// HandleNodeMessage provides a mock function with given fields: ctx, msg, nodeAddr
-func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	ret := _m.Called(ctx, msg, nodeAddr)
+// HandleNodeMessage provides a mock function with given fields: ctx, resp, nodeAddr
+func (_m *Handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc2.Response, nodeAddr string) error {
+	ret := _m.Called(ctx, resp, nodeAddr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleNodeMessage")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, string) error); ok {
-		r0 = rf(ctx, msg, nodeAddr)
+	if rf, ok := ret.Get(0).(func(context.Context, *jsonrpc2.Response, string) error); ok {
+		r0 = rf(ctx, resp, nodeAddr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -95,15 +97,15 @@ type Handler_HandleNodeMessage_Call struct {
 
 // HandleNodeMessage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - msg *api.Message
+//   - resp *jsonrpc2.Response
 //   - nodeAddr string
-func (_e *Handler_Expecter) HandleNodeMessage(ctx interface{}, msg interface{}, nodeAddr interface{}) *Handler_HandleNodeMessage_Call {
-	return &Handler_HandleNodeMessage_Call{Call: _e.mock.On("HandleNodeMessage", ctx, msg, nodeAddr)}
+func (_e *Handler_Expecter) HandleNodeMessage(ctx interface{}, resp interface{}, nodeAddr interface{}) *Handler_HandleNodeMessage_Call {
+	return &Handler_HandleNodeMessage_Call{Call: _e.mock.On("HandleNodeMessage", ctx, resp, nodeAddr)}
 }
 
-func (_c *Handler_HandleNodeMessage_Call) Run(run func(ctx context.Context, msg *api.Message, nodeAddr string)) *Handler_HandleNodeMessage_Call {
+func (_c *Handler_HandleNodeMessage_Call) Run(run func(ctx context.Context, resp *jsonrpc2.Response, nodeAddr string)) *Handler_HandleNodeMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*api.Message), args[2].(string))
+		run(args[0].(context.Context), args[1].(*jsonrpc2.Response), args[2].(string))
 	})
 	return _c
 }
@@ -113,7 +115,7 @@ func (_c *Handler_HandleNodeMessage_Call) Return(_a0 error) *Handler_HandleNodeM
 	return _c
 }
 
-func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context, *api.Message, string) error) *Handler_HandleNodeMessage_Call {
+func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context, *jsonrpc2.Response, string) error) *Handler_HandleNodeMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

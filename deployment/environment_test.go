@@ -270,10 +270,10 @@ func TestNode_ChainConfigs(t *testing.T) {
 			for i, g := range got {
 				want, ok := wantMap[g.Chain.String()]
 				require.True(t, ok, "unexpected chain config %v %v", g.Chain, wantMap)
-				assert.EqualValues(t, want.Chain, g.Chain, "mismatched chain index %d", i)
+				assert.Equal(t, want.Chain, g.Chain, "mismatched chain index %d", i)
 				assert.Equal(t, want.NodeId, g.NodeId, "mismatched node id index %d", i)
-				assert.EqualValues(t, want.Ocr2Config.OcrKeyBundle, g.Ocr2Config.OcrKeyBundle, "mismatched ocrkey bundle index %d", i)
-				assert.EqualValues(t, want.Ocr2Config.P2PKeyBundle, g.Ocr2Config.P2PKeyBundle, "mismatched p2p bundle index %d", i)
+				assert.Equal(t, want.Ocr2Config.OcrKeyBundle, g.Ocr2Config.OcrKeyBundle, "mismatched ocrkey bundle index %d", i)
+				assert.Equal(t, want.Ocr2Config.P2PKeyBundle, g.Ocr2Config.P2PKeyBundle, "mismatched p2p bundle index %d", i)
 				found[g.Chain.String()] = struct{}{}
 			}
 			// ensure we didn't miss any

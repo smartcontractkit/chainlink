@@ -14,8 +14,8 @@ type runtimeConfig struct {
 	Number int32  `yaml:"number"`
 }
 
-func CreateWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
-	runnerCfg := wcx.Config
+func CreateWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
+	runnerCfg := env.Config
 	return sdk.Workflow[*runtimeConfig]{
 		sdk.On(
 			basictrigger.Trigger(&basictrigger.Config{
@@ -27,8 +27,9 @@ func CreateWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*run
 	}, nil
 }
 
-func onTrigger(wcx *sdk.WorkflowContext[*runtimeConfig], _ sdk.Runtime, _ *basictrigger.Outputs) (string, error) {
-	b, err := yaml.Marshal(wcx.Config)
+func onTrigger(env *sdk.Environment[*runtimeConfig], _ sdk.Runtime, _ *basictrigger.Outputs) (string, error) {
+	env.Logger.Info("onTrigger called")
+	b, err := yaml.Marshal(env.Config)
 	if err != nil {
 		return "", err
 	}

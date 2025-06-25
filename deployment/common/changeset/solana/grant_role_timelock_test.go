@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -72,8 +73,11 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 			&solanachangesets.GrantRoleTimelockSolana{},
 			solanachangesets.GrantRoleTimelockSolanaConfig{
 				Role:     timelockbindings.Executor_Role,
-				MCMS:     &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				Accounts: map[uint64][]solana.PublicKey{solanaSelector: executors2},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:   1 * time.Second,
+					MCMSAction: mcmstypes.TimelockActionSchedule,
+				},
 			},
 		)
 

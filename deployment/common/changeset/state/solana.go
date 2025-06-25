@@ -9,6 +9,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
@@ -303,6 +304,110 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain cldf_solana.Chain, addresse
 			state.BypasserMcmSeed = seed
 
 		case tvStr.Type == cancellerMCM.Type && tvStr.Version.String() == cancellerMCM.Version.String():
+			programID, seed, err := DecodeAddressWithSeed(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode canceller address (%s): %w", address, err)
+			}
+			state.McmProgram = programID
+			state.CancellerMcmSeed = seed
+		}
+	}
+	return &state, nil
+}
+
+// Loads MCMSSolanaState from Datastore address refs
+func MaybeLoadMCMSWithTimelockChainStateSolanaV2(refs []datastore.AddressRef) (*MCMSWithTimelockStateSolana, error) {
+	state := MCMSWithTimelockStateSolana{MCMSWithTimelockProgramsSolana: &MCMSWithTimelockProgramsSolana{}}
+
+	mcmProgram := datastore.ContractType(types.ManyChainMultisigProgram)
+	timelockProgram := datastore.ContractType(types.RBACTimelockProgram)
+	accessControllerProgram := datastore.ContractType(types.AccessControllerProgram)
+	proposerMCM := datastore.ContractType(types.ProposerManyChainMultisig)
+	cancellerMCM := datastore.ContractType(types.CancellerManyChainMultisig)
+	bypasserMCM := datastore.ContractType(types.BypasserManyChainMultisig)
+	timelock := datastore.ContractType(types.RBACTimelock)
+	proposerAccessControllerAccount := datastore.ContractType(types.ProposerAccessControllerAccount)
+	executorAccessControllerAccount := datastore.ContractType(types.ExecutorAccessControllerAccount)
+	cancellerAccessControllerAccount := datastore.ContractType(types.CancellerAccessControllerAccount)
+	bypasserAccessControllerAccount := datastore.ContractType(types.BypasserAccessControllerAccount)
+
+	for _, ref := range refs {
+		address := ref.Address
+		switch ref.Type {
+		case timelockProgram:
+			programID, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode timelock program address (%s): %w", address, err)
+			}
+			state.TimelockProgram = programID
+
+		case timelock:
+			programID, seed, err := DecodeAddressWithSeed(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode timelock address (%s): %w", address, err)
+			}
+			state.TimelockProgram = programID
+			state.TimelockSeed = seed
+
+		case accessControllerProgram:
+			programID, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse public key from access controller address: %s", address)
+			}
+			state.AccessControllerProgram = programID
+
+		case proposerAccessControllerAccount:
+			account, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode proposer access controller address (%s): %w", address, err)
+			}
+			state.ProposerAccessControllerAccount = account
+
+		case executorAccessControllerAccount:
+			account, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode executor access controller address (%s): %w", address, err)
+			}
+			state.ExecutorAccessControllerAccount = account
+
+		case cancellerAccessControllerAccount:
+			account, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode canceller access controller address (%s): %w", address, err)
+			}
+			state.CancellerAccessControllerAccount = account
+
+		case bypasserAccessControllerAccount:
+			account, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode bypasser access controller address (%s): %w", address, err)
+			}
+			state.BypasserAccessControllerAccount = account
+
+		case mcmProgram:
+			programID, err := solana.PublicKeyFromBase58(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse public key from mcm address: %s", address)
+			}
+			state.McmProgram = programID
+
+		case proposerMCM:
+			programID, seed, err := DecodeAddressWithSeed(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode proposer address (%s): %w", address, err)
+			}
+			state.McmProgram = programID
+			state.ProposerMcmSeed = seed
+
+		case bypasserMCM:
+			programID, seed, err := DecodeAddressWithSeed(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode bypasser address (%s): %w", address, err)
+			}
+			state.McmProgram = programID
+			state.BypasserMcmSeed = seed
+
+		case cancellerMCM:
 			programID, seed, err := DecodeAddressWithSeed(address)
 			if err != nil {
 				return nil, fmt.Errorf("unable to decode canceller address (%s): %w", address, err)

@@ -567,7 +567,8 @@ func commitSqNrs(
 	s *testSetupData,
 	chainSel cciptypes.ChainSelector,
 	seqNums []uint64,
-	state uint8) error {
+	state uint8,
+) error {
 	for _, sqnr := range seqNums {
 		_, err := s.contract.EmitExecutionStateChanged(
 			s.auth,
@@ -589,11 +590,21 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
+	// State 0 should never be emitted by the contract, but
+	// checking if they are ignored properly by the reader
+	err := commitSqNrs(s, chainS1, []uint64{13}, 0)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{14}, 0)
 	require.NoError(t, err)
 	s.sb.Commit()
 
 	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -607,7 +618,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			ctx,
 			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
 				chainS1: {
-					cciptypes.NewSeqNumRange(14, 15),
+					cciptypes.NewSeqNumRange(15, 16),
 				},
 			},
 			primitives.Unconfirmed,
@@ -616,7 +627,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 		return len(executedMsgs[chainS1]) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
 }
 
 func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
@@ -627,7 +638,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -664,11 +675,11 @@ func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -862,8 +873,8 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	for i = 1; i < maxExpectedSeqNum; i++ {
 		msg := testhelpers.DefaultRouterMessage(state.MustGetEVMChainState(destChain).Receiver.Address())
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
-		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
-		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
+		require.Equal(t, i, msgSentEvent.SequenceNumber)
+		require.Equal(t, i, msgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent).Message.Header.Nonce) // check outbound nonce incremented
 		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain))
 		require.NoError(t, err2)
 		require.Equal(t, cciptypes.SeqNum(i+1), seqNum)
@@ -947,7 +958,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	ctx := t.Context()
 	sb, auth := setupSimulatedBackendAndAuth(t)
 
-	//--------------------------------Setup--------------------------------//
+	// --------------------------------Setup-------------------------------- //
 	onRampS1StaticConfig := onramp.OnRampStaticConfig{
 		ChainSelector:      uint64(chainS1),
 		RmnRemote:          utils.RandomAddress(),
@@ -1067,10 +1078,13 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		assert.NoError(t, crD.Close())
 		assert.NoError(t, lpD.Close())
 	})
-	//--------------------------------Setup done--------------------------------//
+	// --------------------------------Setup done-------------------------------- //
 
 	// Call the ccip chain reader with DiscoverContracts for test
-	contractAddresses, err := reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err := reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD},
+	)
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1089,7 +1103,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
 	require.Eventually(t, func() bool {
-		contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+		contractAddresses, err = reader.DiscoverContracts(ctx,
+			[]cciptypes.ChainSelector{chainS1, chainD},
+			[]cciptypes.ChainSelector{chainS1, chainD})
 		if err != nil {
 			return false
 		}
@@ -1104,7 +1120,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	}, tests.WaitTimeout(t), 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
-	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err = reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1577,7 +1595,7 @@ func populateDatabaseForExecutionStateChanged(
 		sequenceNumber := uint64(i / sourceChainCount)
 		messageID := utils.NewHash()
 		messageHash := utils.NewHash()
-		state := uint8(1)
+		state := uint8(2)
 		returnData := []byte{0x01, 0x02}
 		gasUsed := big.NewInt(int64(10000 + i))
 

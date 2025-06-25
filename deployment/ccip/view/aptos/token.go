@@ -21,8 +21,9 @@ type TokenView struct {
 	ProjectURI string `json:"projectURI,omitempty"`
 	Supply     uint64 `json:"supply"`
 
-	Burners []aptos.AccountAddress `json:"burners"`
-	Minters []aptos.AccountAddress `json:"minters"`
+	Burners                   []aptos.AccountAddress `json:"burners"`
+	Minters                   []aptos.AccountAddress `json:"minters"`
+	ManagedTokenObjectAddress string                 `json:"managedTokenObjectAddress,omitempty"`
 }
 
 // GenerateTokenView generates a token view for a given managed token.
@@ -63,17 +64,18 @@ func GenerateTokenView(chain cldf_aptos.Chain, managedTokenObjectAddress aptos.A
 
 	return TokenView{
 		ContractMetaData: aptosCommon.ContractMetaData{
-			Address:        managedTokenObjectAddress.StringLong(),
+			Address:        faMetadataAddress.StringLong(),
 			Owner:          objectOwner.StringLong(),
 			TypeAndVersion: typeAndVersion,
 		},
-		Name:       metadata.Name,
-		Symbol:     metadata.Symbol,
-		Decimals:   metadata.Decimals,
-		IconURI:    metadata.IconURI,
-		ProjectURI: metadata.ProjectURI,
-		Supply:     supply,
-		Burners:    burners,
-		Minters:    minters,
+		Name:                      metadata.Name,
+		Symbol:                    metadata.Symbol,
+		Decimals:                  metadata.Decimals,
+		IconURI:                   metadata.IconURI,
+		ProjectURI:                metadata.ProjectURI,
+		Supply:                    supply,
+		Burners:                   burners,
+		Minters:                   minters,
+		ManagedTokenObjectAddress: managedTokenObjectAddress.StringLong(),
 	}, nil
 }

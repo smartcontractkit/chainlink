@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -12,12 +13,11 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -84,6 +84,7 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
+	Replayed               bool
 	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -105,7 +106,7 @@ const (
 type TestCaseOutput struct {
 	Replayed     bool
 	Nonce        uint64
-	MsgSentEvent *onramp.OnRampCCIPMessageSent
+	MsgSentEvent *testhelpers.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -173,27 +174,21 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			ExtraArgs:    tc.ExtraArgs,
 		}
-
+	case chain_selectors.FamilyAptos:
+		feeToken := aptos.AccountAddress{}
+		if len(tc.FeeToken) > 0 {
+			feeToken = aptoscs.MustParseAddress(t, tc.FeeToken)
+		}
+		msg = testhelpers.AptosSendRequest{
+			Data:         tc.MsgData,
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			ExtraArgs:    tc.ExtraArgs,
+			FeeToken:     feeToken,
+			TokenAmounts: nil,
+		}
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
-
-	onRampAddr, err := tc.OnchainState.GetOnRampAddressBytes(tc.SourceChain)
-	require.NoError(t, err)
-	// Ensure CCIPMessageSent event filter is registered
-	// Sending message too early could result in LogPoller missing the send event
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
-	require.NoError(t, err)
-	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
-	// The LogPoller could pick up the message sent event but miss the commit or execute event
-	offRampAddr, err := tc.OnchainState.GetOffRampAddressBytes(tc.DestChain)
-	require.NoError(t, err)
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameCommitReportAccepted, offRampAddr)
-	require.NoError(t, err)
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
-	require.NoError(t, err)
-
-	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
@@ -201,7 +196,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
 	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
-	msgSentEvents := make([]*onramp.OnRampCCIPMessageSent, tc.NumberOfMessages)
+	msgSentEvents := make([]*testhelpers.AnyMsgSentEvent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
@@ -230,6 +225,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// return only last msg event
 		out.MsgSentEvent = msgSentEventLocal
 		msgSentEvents[i] = msgSentEventLocal
+	}
+
+	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
+	// we need to replay missed logs
+	if !tc.Replayed {
+		require.NotNil(tc.T, tc.DeployedEnv)
+		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		out.Replayed = true
 	}
 
 	// Perform validation based on ValidationType
@@ -267,8 +270,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 
+		unorderedExec := false
+		switch family {
 		// Solana doesn't support catching CPI errors, so nonces can't be ordered
-		unorderedExec := family == chain_selectors.FamilySolana
+		case chain_selectors.FamilySolana:
+			unorderedExec = true
+		// Aptos does only support out-of-order execution
+		case chain_selectors.FamilyAptos:
+			unorderedExec = true
+		}
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
