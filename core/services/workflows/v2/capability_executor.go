@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -49,6 +50,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		Metadata: capabilities.RequestMetadata{
 			WorkflowExecutionID: c.WorkflowExecutionID,
 		},
+		Config: values.EmptyMap(),
 	}
 
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)

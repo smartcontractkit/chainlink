@@ -30,7 +30,7 @@ func (cs DeployAptosChain) VerifyPreconditions(env cldf.Environment, config conf
 	// Validate env and prerequisite contracts
 	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
-		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 	aptosChains := env.BlockChains.AptosChains()
 	var errs []error

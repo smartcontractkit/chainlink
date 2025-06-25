@@ -93,6 +93,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	pipelineRunner core.PipelineRunnerService,
 	relayerSet core.RelayerSet,
 	oracleFactory core.OracleFactory,
+	gatewayConnector core.GatewayConnector,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
 
