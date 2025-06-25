@@ -29,6 +29,8 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
     - with use of containerd for pulling and storing images **disabled**
 2. **AWS SSO access to SDLC**
   - REQUIRED: `sdlc` profile
+3. **gh cli**
+  - To pull the `cre` cli
 
 
    [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
@@ -36,9 +38,9 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 If you want to run an example workflow you also need to:
 
 # QUICKSTART
-`./setup.sh`
+`go run . env setup --config single-don.toml`
 
-The script will ensure all pre-requisites are configured and installed.
+The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
 If you are missing requirements, you may need to fix the errors and re-run.
 Use `#topic-local-dev-environments` for help
 

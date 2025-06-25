@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#set -o pipefail
+set -eo pipefail
 
 GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
@@ -12,7 +12,7 @@ WARNING_MARK="${YELLOW}!${NC}"
 
 JD_ECR="804282218731.dkr.ecr.us-west-2.amazonaws.com"
 JD_VERSION="0.12.7"
-JD_LOCAL_IMAGE="job-distributor:${JD_VERSION}"
+JD_LOCAL_IMAGE="job-distributor:${JD_VERSION}" # this value must match that referenced in the `configs` toml file to start the env
 JD_ECR_IMAGE="$JD_ECR/$JD_LOCAL_IMAGE"
 
 AWS_PROFILE="sdlc"
@@ -22,6 +22,77 @@ echo "🔍 Checking prerequisites for CRE environment..."
 # Function to check if command exists
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+check_docker_configuration() {
+
+DOCKER_SETTINGS_OK=true
+echo "🔍 Checking Docker settings..."
+
+# Detect operating system
+OS_TYPE=$(uname -s)
+local config_file
+case "$OS_TYPE" in
+  Darwin)
+    # macOS settings
+    echo "  Detected macOS system"
+    config_file="$HOME/Library/Group Containers/group.com.docker/settings-store.json"
+    if [[ ! -f "$config_file" ]]; then
+      config_file="$HOME/Library/Group Containers/group.com.docker/settings.json"
+    fi
+    ;;
+    
+  Linux)
+    # Linux settings
+    echo "  Detected Linux system"
+    # On Linux, we check Docker daemon settings differently
+    config_file="~/.docker/desktop/settings-store.json"
+    if [[ ! -f "$config_file" ]]; then
+      config_file="~/.docker/desktop/settings.json"
+    fi
+    ;;
+    
+  *)
+    # Unknown OS
+    echo -e "${WARNING_MARK} Unknown operating system: $OS_TYPE"
+    echo -e "Cannot check Docker settings automatically"
+    echo -e "Please ensure Docker is properly configured for your system"
+    ;;
+esac
+
+   if [ -f "$config_file" ]; then
+      echo "  Found Docker settings file at $config_file"
+      # Check if the settings are correct
+      check_docker_setting "$config_file" "UseVirtualizationFramework" "true" || missing_docker_setting "Virtualization Framework"
+      check_docker_setting "$config_file" "UseVirtualizationFrameworkVirtioFS" "true" || missing_docker_setting "VirtioFS"
+      check_docker_setting "$config_file" "EnableDefaultDockerSocket" "true" || missing_docker_setting "enable default Docker socket"
+    else
+      echo -e "${CROSS_MARK} Docker settings file not found at expected macOS locations"
+      echo -e "Please ensure Docker is properly configured and run this script again"
+      exit 1
+    fi
+}
+
+check_job_distributor_image() {
+  if docker image inspect $JD_ECR_IMAGE > /dev/null 2>&1; then
+    echo -e "${CHECK_MARK} Job Distributor image ($JD_ECR_IMAGE) is available"
+    # If the ECR image is available, tag it as the local image
+    docker tag $JD_ECR_IMAGE $JD_LOCAL_IMAGE
+    echo -e "${CHECK_MARK} Job Distributor image tagged as $JD_LOCAL_IMAGE"
+    return 0
+  elif docker image inspect $JD_LOCAL_IMAGE > /dev/null 2>&1; then
+    echo -e "${CHECK_MARK} Job Distributor image ($JD_LOCAL_IMAGE) is available from local build"
+    return 0
+  else
+    echo -e "${CROSS_MARK} Job Distributor image ($JD_IMAGE) is not available"
+    echo -e "Would you like to Pull (requires AWS SSO) or build the Job Distributor image? (P/b)"
+    read -r build_jd
+    if [[ "$build_jd" =~ ^[Bb]$ ]]; then
+      build_jd_image
+    else
+        pull_jd_image
+    fi
+  fi
 }
 
 # Function to check if Docker setting is enabled
@@ -54,14 +125,17 @@ build_jd_image() {
     
     # Clone the repository
     git clone https://github.com/smartcontractkit/job-distributor "$temp_dir"
-    cd "$temp_dir"
-    git checkout v0.9.0
+    pushd "$temp_dir"
+    git checkout "v$JD_VERSION" || {
+        echo -e "${CROSS_MARK} Failed to checkout Job Distributor version $JD_VERSION"
+        exit 1
+    }
     
     # Build the Docker image
     docker build -t $JD_LOCAL_IMAGE -f e2e/Dockerfile.e2e .
     
     # Clean up
-    cd - > /dev/null
+    popd > /dev/null
     rm -rf "$temp_dir"
     
     echo -e "${CHECK_MARK} Job Distributor image built successfully"
@@ -72,6 +146,7 @@ pull_jd_image() {
     if [ $? -ne 0 ]; then
         echo -e "${CROSS_MARK} AWS profile '$AWS_PROFILE' not found"
         echo -e "Please ensure you have the correct AWS profile configured"
+        echo -e "See docs.md for more information on setting up AWS profiles"
         exit 1
     fi
     echo "AWS SSO Login for profile $AWS_PROFILE..."
@@ -91,7 +166,7 @@ pull_jd_image() {
     echo -e "${CHECK_MARK} Docker login to ECR successful"
 
     echo "Pulling Job Distributor image from ECR..."
-    if ! docker pull 804282218731.dkr.ecr.us-west-2.amazonaws.com/job-distributor:0.12.7; then
+    if ! docker pull $JD_ECR_IMAGE; then
         echo -e "${CROSS_MARK} Failed to pull Job Distributor image from ECR"
         echo -e "Please ensure you have access to the ECR repository and try again"
         exit 1
@@ -125,78 +200,12 @@ echo -e "${CROSS_MARK} Docker is not running"
 echo -e "Please start Docker and run this script again"
 exit 1
 fi
-echo "home $HOME"
-DOCKER_SETTINGS_OK=true
-echo "🔍 Checking Docker settings..."
-p="$HOME/Library/Group Containers/group.com.docker/settings-store.json"
-cat "$p"
-x=$(realpath "$p")
-echo $x
-cat "$x"
-if  [[ ! -f "$p" ]]; then
-    p="~/Library/Group Containers/group.com.docker/settings.json"
-fi
-echo "  Checking for Docker settings file at $p"
-if [ -f "$p" ]; then
-    echo "  Found Docker settings file at $p"
-    # Check if the settings are correct
-    check_docker_setting "$p" "UseVirtualizationFramework" "true" || missing_docker_setting "Virtualization Framework"
-    check_docker_setting "$p" "UseVirtualizationFrameworkVirtioFS" "true" || missing_docker_setting VirtioFS
-    check_docker_setting "$p" "EnableDefaultDockerSocket" "true" || missing_docker_setting "enable default Docker socket"
-else
-    echo -e "${CROSS_MARK} Docker settings file not found at expected locations"
-    echo -e "Please ensure Docker is properly configured and run this script again"
-    exit 1
-fi
+
+check_docker_configuration
 
 # Check if Job Distributor image is available
 echo ""
-
-
-echo "🔍 Checking for Job Distributor image..."
-if docker image inspect $JD_ECR_IMAGE > /dev/null 2>&1; then
-  echo -e "${CHECK_MARK} Job Distributor image ($JD_IMAGE) is available"
-elif docker image inspect $JD_LOCAL_IMAGE > /dev/null 2>&1; then
-  echo -e "${CHECK_MARK} Job Distributor image ($JD_LOCAL_IMAGE) is available from local build"
-else
-  echo -e "${CROSS_MARK} Job Distributor image ($JD_IMAGE) is not available"
-  echo -e "Would you like to build the Job Distributor image now? (y/n)"
-  read -r build_jd
-  if [[ "$build_jd" =~ ^[Yy]$ ]]; then
-    echo "Building Job Distributor image..."
-    
-    # Check if AWS CLI is configured
-    if command_exists aws; then
-      pull_jd_image
-    else
-      build_jd_image
-    fi
-  else
-    echo -e "${WARNING_MARK} You will need to build or pull the Job Distributor image manually before starting the CRE environment"
-  fi
-  if [[ "$build_jd" =~ ^[AB]$ ]]; then
-    echo "Building Job Distributor image..."
-    
-    # Create a temporary directory for cloning
-    temp_dir=$(mktemp -d)
-    
-    # Clone the repository
-    git clone https://github.com/smartcontractkit/job-distributor "$temp_dir"
-    cd "$temp_dir"
-    git checkout v0.9.0
-    
-    # Build the Docker image
-    docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
-    
-    # Clean up
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-    
-    echo -e "${CHECK_MARK} Job Distributor image built successfully"
-  else
-    echo -e "${WARNING_MARK} You will need to build or pull the Job Distributor image manually before starting the CRE environment"
-  fi
-fi
+check_job_distributor_image
 
 # Check if CRE CLI is installed
 echo ""
@@ -279,7 +288,7 @@ else
   echo -e "   ${CROSS_MARK} Some Docker settings need adjustment (see above)"
 fi
 
-if docker image inspect job-distributor:0.9.0 > /dev/null 2>&1; then
+if docker image inspect $JD_LOCAL_IMAGE > /dev/null 2>&1; then
   echo -e "   ${CHECK_MARK} Job Distributor image is available"
 else
   echo -e "   ${CROSS_MARK} Job Distributor image is not available"
@@ -299,3 +308,4 @@ echo "   Optional: Add --with-example to start with an example workflow"
 echo "   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities"
 echo ""
 echo "For more information, see the documentation in core/scripts/cre/environment/docs.md"
+

@@ -150,7 +150,6 @@ var (
 	dxTracker             *tracking.DxTracker
 	provisioningStartTime time.Time
 )
-
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the environment",
@@ -158,10 +157,12 @@ var startCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		provisioningStartTime = time.Now()
 
-		var dxErr error
-		dxTracker, dxErr = tracking.NewDxTracker()
-		if dxErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", dxErr)
+		// ensure non-nil dxTracker by default
+		dxTracker = new(tracking.DxTracker)
+		if t, err := tracking.NewDxTracker(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", err)
+		} else {
+			dxTracker = t
 		}
 
 		// remove all containers before starting the environment, just in case
@@ -323,7 +324,6 @@ var startCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 		}
 
-
 		dxErr := trackStartup(true, output.InfraInput.InfraType, nil, nil)
 		if dxErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
@@ -345,9 +345,6 @@ var startCmd = &cobra.Command{
 		}
 		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 		fmt.Print("To terminate execute:`go run . env stop`\n\n")
-
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
-		fmt.Print("To terminate execute: env stop\n\n")
 
 		return nil
 	},
