@@ -15,6 +15,7 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -53,28 +54,9 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability config not found: %w", err)
 	}
 
-	ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-	for _, spendType := range info.SpendTypes {
-		key := fmt.Sprintf("ratio_%s", spendType)
-		value, hasRatio := config.RestrictedConfig.Underlying[key]
-		if !hasRatio {
-			// if any single ratio is missing, send an empty set to metering report
-			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-
-			break
-		}
-
-		var ratio decimal.Decimal
-		if err := value.UnwrapTo(&ratio); err != nil {
-			c.lggr.Errorf("could not unwrap decimal ratio value: %s", value)
-
-			// if any single ratio is not parseable, send an empty set to metering report
-			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-
-			break
-		}
-
-		ratios[spendType] = ratio
+	ratios, err := metering.RatiosFromConfig(info, config.RestrictedConfig)
+	if err != nil {
+		c.lggr.Error(err)
 	}
 
 	capReq := capabilities.CapabilityRequest{

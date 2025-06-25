@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"maps"
 	"sort"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	protoEvents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -27,17 +27,18 @@ const (
 )
 
 var (
-	ErrMissingLabels       = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
-	ErrNoBillingClient     = errors.New("no billing client has been configured")
-	ErrInsufficientFunding = errors.New("insufficient funding")
-	ErrReceiptFailed       = errors.New("failed to submit workflow receipt")
-	ErrNoReserve           = errors.New("must call Reserve first")
-	ErrStepDeductExists    = errors.New("step deduct already exists")
-	ErrNoOpenCalls         = errors.New("openConcurrentCallSlots must be greater than 0")
-	ErrNoDeduct            = errors.New("must call Deduct first")
-	ErrStepSpendExists     = errors.New("step spend already exists")
-	ErrReportNotFound      = errors.New("report not found")
-	ErrReportExists        = errors.New("report already exists")
+	ErrMissingLabels         = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
+	ErrNoBillingClient       = errors.New("no billing client has been configured")
+	ErrInsufficientFunding   = errors.New("insufficient funding")
+	ErrReceiptFailed         = errors.New("failed to submit workflow receipt")
+	ErrNoReserve             = errors.New("must call Reserve first")
+	ErrStepDeductExists      = errors.New("step deduct already exists")
+	ErrNoOpenCalls           = errors.New("openConcurrentCallSlots must be greater than 0")
+	ErrNoDeduct              = errors.New("must call Deduct first")
+	ErrStepSpendExists       = errors.New("step spend already exists")
+	ErrReportNotFound        = errors.New("report not found")
+	ErrReportExists          = errors.New("report already exists")
+	ErrRatiosAndTypesNoMatch = errors.New("spending types and ratios do not match")
 )
 
 type BillingClient interface {
@@ -227,51 +228,29 @@ func (r *Report) CreditToSpendingLimits(
 	}
 
 	if len(info.SpendTypes) != len(ratios) {
-		spendType := info.SpendTypes[0]
+		r.switchToMeteringMode(fmt.Errorf("%w: %d spend types and %d ratios", ErrRatiosAndTypesNoMatch, len(info.SpendTypes), len(ratios)))
 
-		// use rate card to convert capSpendLimit to native units
-		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount)
-		if err != nil {
-			r.switchToMeteringMode(err)
-
-			log.Println("testA")
-			return nil
-		}
-
-		// check to see if metering mode is active
-		if r.meteringMode {
-			log.Println("testB")
-			return nil
-		}
-
-		return []capabilities.SpendLimit{{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)}}
+		return nil
 	}
 
 	limits := []capabilities.SpendLimit{}
 	for _, spendType := range info.SpendTypes {
 		ratio, hasRatio := ratios[spendType]
 		if !hasRatio {
-			log.Println("continue", spendType)
-			continue // switch to metering mode?
+			r.switchToMeteringMode(fmt.Errorf("%w: ratios missing %s spend type", ErrRatiosAndTypesNoMatch, spendType))
+
+			return nil
 		}
 
 		// use rate card to convert capSpendLimit to native units
-		log.Println(spendType, amount, ratio)
 		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
 		if err != nil {
 			r.switchToMeteringMode(err)
 
-			log.Println("testD")
 			return nil
 		}
 
 		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
-	}
-
-	// fallback if ratios don't exist? maybe switch to metering mode?
-	if len(limits) != len(ratios) {
-		log.Println("testE", len(limits), len(ratios))
-		return nil
 	}
 
 	return limits
@@ -579,4 +558,36 @@ func (s *Reports) Len() int {
 	defer s.mu.RUnlock()
 
 	return len(s.reports)
+}
+
+func RatiosFromConfig(
+	info capabilities.CapabilityInfo,
+	config *values.Map,
+) (map[capabilities.CapabilitySpendType]decimal.Decimal, error) {
+	ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+
+	for _, spendType := range info.SpendTypes {
+		// using a namespace on the config key to distinguish billing specific keys
+		key := fmt.Sprintf("billing_%s", spendType)
+
+		value, hasRatio := config.Underlying[key]
+		if !hasRatio {
+			// if any single ratio is missing, send an empty set to metering report
+			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+
+			break
+		}
+
+		var ratio decimal.Decimal
+		if err := value.UnwrapTo(&ratio); err != nil {
+			// if any single ratio is not parseable, send an empty set to metering report
+			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+
+			return ratios, fmt.Errorf("could not unwrap decimal ratio value: %s", value)
+		}
+
+		ratios[spendType] = ratio
+	}
+
+	return ratios, nil
 }

@@ -773,6 +773,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	spendLimit := decimal.NewNullDecimal(decimal.Zero)
+	spendLimit.Valid = false
 
 	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
 	if meteringOK {
@@ -785,7 +786,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
 		spendLimit, err = meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
 		if err != nil {
-			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could not get available balance for %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
@@ -993,28 +994,9 @@ func (e *Engine) executeStep(
 			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
 		}
 
-		ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-		for _, spendType := range info.SpendTypes {
-			key := fmt.Sprintf("ratio_%s", spendType)
-			value, hasRatio := config.Underlying[key]
-			if !hasRatio {
-				// if any single ratio is missing, send an empty set to metering report
-				ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-
-				break
-			}
-
-			var ratio decimal.Decimal
-			if err := value.UnwrapTo(&ratio); err != nil {
-				e.logger.Errorf("could not unwrap decimal ratio value: %s", value)
-
-				// if any single ratio is not parseable, send an empty set to metering report
-				ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-
-				break
-			}
-
-			ratios[spendType] = ratio
+		ratios, err := metering.RatiosFromConfig(info, config)
+		if err != nil {
+			e.logger.Error(err)
 		}
 
 		spendLimits = meteringReport.CreditToSpendingLimits(info, ratios, spendLimit.Decimal)

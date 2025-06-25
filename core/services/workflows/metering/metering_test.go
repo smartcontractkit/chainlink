@@ -48,7 +48,8 @@ var (
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
-	spendRatios            = map[capabilities.CapabilitySpendType]decimal.Decimal{
+	}
+	spendRatios = map[capabilities.CapabilitySpendType]decimal.Decimal{
 		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
 		capabilities.CapabilitySpendType(testUnitC): decimal.NewFromFloat(0.6), // 60%
 	}
@@ -208,7 +209,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
-		}, decimal.NewFromInt(1_000))
+		}, spendRatios, decimal.NewFromInt(1_000))
 
 		assert.Nil(t, limits)
 		assert.True(t, report.meteringMode)
