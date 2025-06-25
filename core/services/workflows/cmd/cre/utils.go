@@ -12,7 +12,11 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
+	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -220,7 +224,7 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	}
 
 	// HTTP Action
-	httpAction := fakes.NewFakeHttpAction(lggr)
+	httpAction := fakes.NewDirectHTTPAction(lggr)
 	httpActionServer := httpaction.NewClientServer(httpAction)
 	if err := registry.Add(ctx, httpActionServer); err != nil {
 		return nil, err
@@ -237,12 +241,6 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-
-	httpAction := fakes.NewDirectHTTPAction(lggr)
-	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
-		return nil, err
-	}
-	caps = append(caps, httpAction)
 
 	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
