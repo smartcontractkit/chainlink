@@ -1030,24 +1030,21 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 	}
 }
 
-func (w *WebServerLDAPSecrets) ValidateConfig() (err error) {
-	return nil
-	// TOOD: Segfaults
-	//
-	//	if w.ServerAddress.URL().String() == "" {
-	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ServerAddress", Msg: "WebServerLDAPSecrets ServerAddress cannot be empty"})
-	//	}
-	//
-	//	if *w.ReadOnlyUserLogin == "" {
-	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserLogin", Msg: "WebServerLDAPSecrets ReadOnlyUserLogin cannot be empty"})
-	//	}
-	//
-	//	if *w.ReadOnlyUserPass == "" {
-	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserPass", Msg: "WebServerLDAPSecrets ReadOnlyUserPass cannot be empty"})
-	//	}
-	//
-	// return err
-}
+// TODO need to not run this if LDAP not provided
+// func (w *WebServerLDAPSecrets) ValidateConfig() (err error) {
+// 	if w.ServerAddress == nil || w.ServerAddress.URL().String() == "" {
+// 		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ServerAddress", Msg: "WebServerLDAPSecrets ServerAddress cannot be empty"})
+// 	}
+//
+// 	if w.ReadOnlyUserLogin == nil || *w.ReadOnlyUserLogin == "" {
+// 		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserLogin", Msg: "WebServerLDAPSecrets ReadOnlyUserLogin cannot be empty"})
+// 	}
+//
+// 	if w.ReadOnlyUserPass == nil || *w.ReadOnlyUserPass == "" {
+// 		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserPass", Msg: "WebServerLDAPSecrets ReadOnlyUserPass cannot be empty"})
+// 	}
+// 	return err
+// }
 
 type WebServerOIDC struct {
 	ClientID             *string
@@ -1109,12 +1106,13 @@ func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
 	}
 }
 
-func (w *WebServerOIDCSecrets) ValidateConfig() (err error) {
-	if w.ClientSecret.String() == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerOIDCSecrets.ClientSecret", Msg: "WebServerOIDCSecrets ClientSecret cannot be empty"})
-	}
-	return err
-}
+// TODO: need to not run this if OIDC not provided
+// func (w *WebServerOIDCSecrets) ValidateConfig() (err error) {
+// 	if w.ClientSecret.String() == "" {
+// 		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerOIDCSecrets.ClientSecret", Msg: "WebServerOIDCSecrets ClientSecret cannot be empty"})
+// 	}
+// 	return err
+// }
 
 type WebServerSecrets struct {
 	LDAP WebServerLDAPSecrets `toml:",omitempty"`
@@ -1125,22 +1123,6 @@ func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 	w.LDAP.setFrom(&f.LDAP)
 	w.OIDC.setFrom(&f.OIDC)
 	return nil
-}
-
-func (w *WebServerSecrets) ValidateConfig() (err error) {
-	if w.LDAP != (WebServerLDAPSecrets{}) {
-		if ldapErr := w.LDAP.ValidateConfig(); ldapErr != nil {
-			err = multierr.Append(err, ldapErr)
-		}
-	}
-
-	if w.OIDC != (WebServerOIDCSecrets{}) {
-		if oidcErr := w.OIDC.ValidateConfig(); oidcErr != nil {
-			err = multierr.Append(err, oidcErr)
-		}
-	}
-
-	return err
 }
 
 type JobPipeline struct {
