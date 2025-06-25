@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
@@ -16,14 +17,57 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	// PriceRegistry
+	stalenessThreshold = 90_000
+
+	// EVM2EVMOnRamp Static Config
+	defaultTxGasLimit       = 200_000
+	maxNumberOfTokensPerMsg = 5
+
+	// EVM2EVMOnRamp Dynamic Config
+	destGasOverhead                   = 350_000
+	destGasPerPayloadByte             = 16
+	destDataAvailabilityOverheadGas   = 33_596
+	destGasPerDataAvailabilityByte    = 16
+	destDataAvailabilityMultiplierBps = 6_840
+	maxDataBytes                      = 100_000
+	maxPerMsgGasLimit                 = 4_000_000
+	defaultTokenFeeUSDCents           = 50
+	defaultTokenDestGasOverhead       = 32
+
+	// LINK Fee Token Config Args
+	linkNetworkFeeUSDCents         = 1_00
+	linkGasMultiplierWeiPerEth     = 1e18
+	linkPremiumMultiplierWeiPerEth = 9e17
+
+	// WETH Fee Token Config Args
+	wethNetworkFeeUSDCents         = 2_00
+	wethGasMultiplierWeiPerEth     = 1e17
+	wethPremiumMultiplierWeiPerEth = 8e17
+
+	// LINK Transfer Fee Config Args
+	linkMinFeeUSDCents    = 50           // $0.5
+	linkMaxFeeUSDCents    = 1_000_000_00 // $ 1 million
+	linkDeciBps           = 5_0          // 5 bps
+	linkDestGasOverhead   = 110_000
+	linkDestBytesOverhead = 32
+)
+
+var (
+	maxNopFeesJuels = big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18))
 )
 
 func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils.TimelockConfig) cldf_deploy.Environment {
@@ -86,7 +130,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			addr, tx, registry, err := price_registry.DeployPriceRegistry(chain.DeployerKey, chain.Client, []common.Address{}, []common.Address{
 				state.Chains[sel].LinkToken.Address(),
 				state.Chains[sel].Weth9.Address(),
-			}, 90000) // TODO: Staleness threshold should be configurable
+			}, stalenessThreshold)
 			return cldf_deploy.ContractDeploy[*price_registry.PriceRegistry]{
 				Address:  addr,
 				Tx:       tx,
@@ -105,30 +149,29 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}
 			_, err = cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				addr, tx, onRamp, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(chain.DeployerKey, chain.Client,
-					// TODO: These params should be configurable
 					evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 						LinkToken:          state.Chains[sel].LinkToken.Address(),
 						ChainSelector:      sel,
 						DestChainSelector:  otherSel,
-						DefaultTxGasLimit:  200_000,
-						MaxNopFeesJuels:    big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
+						DefaultTxGasLimit:  defaultTxGasLimit,
+						MaxNopFeesJuels:    maxNopFeesJuels,
 						PrevOnRamp:         utils.ZeroAddress,
 						RmnProxy:           state.Chains[sel].RMNProxy.Address(),
 						TokenAdminRegistry: state.Chains[sel].TokenAdminRegistry.Address(),
 					},
 					evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 						Router:                            state.Chains[sel].Router.Address(),
-						MaxNumberOfTokensPerMsg:           5,
-						DestGasOverhead:                   350_000,
-						DestGasPerPayloadByte:             16,
-						DestDataAvailabilityOverheadGas:   33_596,
-						DestGasPerDataAvailabilityByte:    16,
-						DestDataAvailabilityMultiplierBps: 6840,
+						MaxNumberOfTokensPerMsg:           maxNumberOfTokensPerMsg,
+						DestGasOverhead:                   destGasOverhead,
+						DestGasPerPayloadByte:             destGasPerPayloadByte,
+						DestDataAvailabilityOverheadGas:   destDataAvailabilityOverheadGas,
+						DestGasPerDataAvailabilityByte:    destGasPerDataAvailabilityByte,
+						DestDataAvailabilityMultiplierBps: destDataAvailabilityMultiplierBps,
 						PriceRegistry:                     priceRegDeploy.Address,
-						MaxDataBytes:                      1e5,
-						MaxPerMsgGasLimit:                 4_000_000,
-						DefaultTokenFeeUSDCents:           50,
-						DefaultTokenDestGasOverhead:       32,
+						MaxDataBytes:                      maxDataBytes,
+						MaxPerMsgGasLimit:                 maxPerMsgGasLimit,
+						DefaultTokenFeeUSDCents:           defaultTokenFeeUSDCents,
+						DefaultTokenDestGasOverhead:       defaultTokenDestGasOverhead,
 					},
 					evm_2_evm_onramp.RateLimiterConfig{
 						IsEnabled: false,
@@ -138,27 +181,27 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 					[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 						{
 							Token:                      state.Chains[sel].LinkToken.Address(),
-							NetworkFeeUSDCents:         1_00,
-							GasMultiplierWeiPerEth:     1e18,
-							PremiumMultiplierWeiPerEth: 9e17,
+							NetworkFeeUSDCents:         linkNetworkFeeUSDCents,
+							GasMultiplierWeiPerEth:     linkGasMultiplierWeiPerEth,
+							PremiumMultiplierWeiPerEth: linkPremiumMultiplierWeiPerEth,
 							Enabled:                    true,
 						},
 						{
 							Token:                      state.Chains[sel].Weth9.Address(),
-							NetworkFeeUSDCents:         1_00,
-							GasMultiplierWeiPerEth:     1e18,
-							PremiumMultiplierWeiPerEth: 1e18,
+							NetworkFeeUSDCents:         wethNetworkFeeUSDCents,
+							GasMultiplierWeiPerEth:     wethGasMultiplierWeiPerEth,
+							PremiumMultiplierWeiPerEth: wethPremiumMultiplierWeiPerEth,
 							Enabled:                    true,
 						},
 					},
 					[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 						{
 							Token:                     state.Chains[sel].LinkToken.Address(),
-							MinFeeUSDCents:            50,           // $0.5
-							MaxFeeUSDCents:            1_000_000_00, // $ 1 million
-							DeciBps:                   5_0,          // 5 bps
-							DestGasOverhead:           110_000,
-							DestBytesOverhead:         32,
+							MinFeeUSDCents:            linkMinFeeUSDCents,
+							MaxFeeUSDCents:            linkMaxFeeUSDCents,
+							DeciBps:                   linkDeciBps,
+							DestGasOverhead:           linkDeciBps,
+							DestBytesOverhead:         linkDestBytesOverhead,
 							AggregateRateLimitEnabled: true,
 						},
 					},
@@ -177,7 +220,6 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}
 			commitStoreDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*commit_store.CommitStore] {
 				addr, tx, commitStore, err := commit_store.DeployCommitStore(chain.DeployerKey, chain.Client,
-					// TODO: These params should be configurable
 					commit_store.CommitStoreStaticConfig{
 						ChainSelector:       sel,
 						SourceChainSelector: otherSel,
@@ -198,7 +240,6 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}
 			_, err = cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				addr, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(chain.DeployerKey, chain.Client,
-					// TODO: These params should be configurable
 					evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 						CommitStore:         commitStoreDeploy.Address,
 						ChainSelector:       sel,
@@ -236,6 +277,7 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 		MinDelay:   0 * time.Second,
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
+	callOpts := &bind.CallOpts{Context: t.Context()}
 
 	e := initMigrationEnvironment(t, 3, mcmsCfg)
 	require.Len(t, e.BlockChains.EVMChains(), 3, "Expected 3 EVM chains in the environment")
@@ -265,7 +307,113 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 	})
 	require.NoError(t, err, "Failed to apply InitChainUpgradesChangeset")
 
-	// TODO: InitChainUpgradesChangeset checks
+	// InitChainUpgradesChangeset checks
+	state, err = stateview.LoadOnchainState(e)
+	require.NoError(t, err, "Failed to load onchain state")
+	for _, chain := range e.BlockChains.EVMChains() {
+		// Commit and exec candidates are set on CCIPHome
+		donID, err := internal.DonIDForChain(
+			state.Chains[homeChainSelector].CapabilityRegistry,
+			state.Chains[homeChainSelector].CCIPHome,
+			chain.Selector,
+		)
+		require.NoError(t, err, "Failed to get DON ID for chain %d", chain.Selector)
+		commitCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPCommit))
+		require.NoError(t, err, "Failed to get commit candidate for chain %d", chain.Selector)
+		require.NotEqual(t, [32]byte{}, commitCandidate, "Commit candidate should not be empty for chain %d", chain.Selector)
+		execCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPExec))
+		require.NoError(t, err, "Failed to get exec candidate for chain %d", chain.Selector)
+		require.NotEqual(t, [32]byte{}, execCandidate, "Exec candidate should not be empty for chain %d", chain.Selector)
+
+		// RMNRemote is owned by the MCMS timelock
+		owner, err := state.Chains[chain.Selector].RMNRemote.Owner(callOpts)
+		require.NoError(t, err, "Failed to get RMNRemote owner for chain %d", chain.Selector)
+		require.Equal(t, state.Chains[chain.Selector].Timelock.Address(), owner, "RMNRemote owner should be MCMS timelock for chain %d", chain.Selector)
+
+		// RMNProxy is pointing at the RMNRemote
+		rmnOnProxyAddr, err := state.Chains[chain.Selector].RMNProxy.GetARM(callOpts)
+		require.NoError(t, err, "Failed to get RMNProxy ARM for chain %d", chain.Selector)
+		require.Equal(t, state.Chains[chain.Selector].RMNRemote.Address(), rmnOnProxyAddr, "RMNProxy should point to RMNRemote for chain %d", chain.Selector)
+
+		// PremiumMultiplierWeiPerEth is set for WETH and LINK
+		/*
+			TODO: Needs fixing
+
+			premiumMultiplierWeiPerEth, err := state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].LinkToken.Address())
+			require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for LINK on chain %d", chain.Selector)
+			require.Equal(t, uint64(linkPremiumMultiplierWeiPerEth), premiumMultiplierWeiPerEth, "LINK PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
+			premiumMultiplierWeiPerEth, err = state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].Weth9.Address())
+			require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for WETH on chain %d", chain.Selector)
+			require.Equal(t, uint64(wethPremiumMultiplierWeiPerEth), premiumMultiplierWeiPerEth, "WETH PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
+		*/
+
+		for _, otherChain := range e.BlockChains.EVMChains() {
+			if otherChain.Selector == chain.Selector {
+				continue // Skip self
+			}
+
+			// TransferFeeConfigArgs are set on the FeeQuoter for LINK
+			/*
+				TODO: Needs fixing
+
+				transferFeeConfigArgs, err := state.Chains[chain.Selector].FeeQuoter.GetTokenTransferFeeConfig(callOpts, otherChain.Selector, state.Chains[chain.Selector].LinkToken.Address())
+				require.NoError(t, err, "Failed to get LINK transfer fee config for chain %d for %d", chain.Selector, otherChain.Selector)
+
+				require.Equal(t, uint32(linkMinFeeUSDCents), transferFeeConfigArgs.MinFeeUSDCents, "LINK MinFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+				require.Equal(t, uint32(linkMaxFeeUSDCents), transferFeeConfigArgs.MaxFeeUSDCents, "LINK MaxFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+				require.Equal(t, uint16(linkDeciBps), transferFeeConfigArgs.DeciBps, "LINK DeciBps should match for chain %d for %d", chain.Selector, otherChain.Selector)
+				require.Equal(t, uint32(linkDestGasOverhead), transferFeeConfigArgs.DestGasOverhead, "LINK DestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+				require.Equal(t, uint32(linkDestBytesOverhead), transferFeeConfigArgs.DestBytesOverhead, "LINK DestBytesOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+				require.True(t, transferFeeConfigArgs.IsEnabled, "LINK Transfer fee config should be enabled for chain %d for %d", chain.Selector, otherChain.Selector)
+			*/
+
+			// Fee tokens are set on the fee quoter
+			feeTokens, err := state.Chains[chain.Selector].FeeQuoter.GetFeeTokens(callOpts)
+			require.NoError(t, err, "Failed to get fee tokens for chain %d", chain.Selector)
+			require.Len(t, feeTokens, 2, "Expected 2 fee tokens for chain %d", chain.Selector)
+			require.Contains(t, feeTokens, state.Chains[chain.Selector].LinkToken.Address(), "Fee tokens should contain LINK for chain %d", chain.Selector)
+			require.Contains(t, feeTokens, state.Chains[chain.Selector].Weth9.Address(), "Fee tokens should contain WETH for chain %d", chain.Selector)
+
+			// DestChainConfig is set for other chains
+			fqDestChainConfig, err := state.Chains[chain.Selector].FeeQuoter.GetDestChainConfig(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get dest chain config for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.True(t, fqDestChainConfig.IsEnabled, "DestChainConfig should be enabled for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint16(maxNumberOfTokensPerMsg), fqDestChainConfig.MaxNumberOfTokensPerMsg, "DestChainConfig MaxNumberOfTokensPerMsg should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(destGasOverhead), fqDestChainConfig.DestGasOverhead, "DestChainConfig DestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(destDataAvailabilityOverheadGas), fqDestChainConfig.DestDataAvailabilityOverheadGas, "DestChainConfig DestDataAvailabilityOverheadGas should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint16(destGasPerDataAvailabilityByte), fqDestChainConfig.DestGasPerDataAvailabilityByte, "DestChainConfig DestGasPerDataAvailabilityByte should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint16(destDataAvailabilityMultiplierBps), fqDestChainConfig.DestDataAvailabilityMultiplierBps, "DestChainConfig DestDataAvailabilityMultiplierBps should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(maxDataBytes), fqDestChainConfig.MaxDataBytes, "DestChainConfig MaxDataBytes should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(maxPerMsgGasLimit), fqDestChainConfig.MaxPerMsgGasLimit, "DestChainConfig MaxPerMsgGasLimit should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint16(defaultTokenFeeUSDCents), fqDestChainConfig.DefaultTokenFeeUSDCents, "DestChainConfig DefaultTokenFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(defaultTokenDestGasOverhead), fqDestChainConfig.DefaultTokenDestGasOverhead, "DestChainConfig DefaultTokenDestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.False(t, fqDestChainConfig.EnforceOutOfOrder, "DestChainConfig EnforceOutOfOrder should be false for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// NonceManager has onRamp and offRamp set for other chains
+			previousRamps, err := state.Chains[chain.Selector].NonceManager.GetPreviousRamps(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get previous ramps for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].EVM2EVMOnRamp[otherChain.Selector].Address(), previousRamps.PrevOnRamp, "PrevOnRamp should match EVM2EVMOnRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].EVM2EVMOffRamp[otherChain.Selector].Address(), previousRamps.PrevOffRamp, "PrevOffRamp should match EVM2EVMOffRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// OnRamp has destChainConfig set for other chains
+			onRampDestChainConfig, err := state.Chains[chain.Selector].OnRamp.GetDestChainConfig(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get dest chain config for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].TestRouter.Address(), onRampDestChainConfig.Router, "DestChainConfig Router should match TestRouter for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// OffRamp has sourceChainConfig set for other chains
+			sourceChainConfig, err := state.Chains[chain.Selector].OffRamp.GetSourceChainConfig(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get source chain config for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].TestRouter.Address(), sourceChainConfig.Router, "SourceChainConfig Router should match TestRouter for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// OnRamp and OffRamp are connected to the TestRouter
+			onRampOnRouter, err := state.Chains[chain.Selector].TestRouter.GetOnRamp(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get onRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].OnRamp.Address(), onRampOnRouter, "OnRamp on TestRouter should match OnRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+			isOffRamp, err := state.Chains[chain.Selector].TestRouter.IsOffRamp(callOpts, otherChain.Selector, state.Chains[chain.Selector].OffRamp.Address())
+			require.NoError(t, err, "Failed to check if OffRamp is connected to TestRouter for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.True(t, isOffRamp, "OffRamp should be connected to TestRouter for chain %d for %d", chain.Selector, otherChain.Selector)
+		}
+	}
 
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset), v1_6.SetOCR3OffRampConfig{
