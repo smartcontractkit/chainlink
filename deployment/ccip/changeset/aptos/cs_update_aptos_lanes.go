@@ -10,7 +10,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	config "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
@@ -20,13 +20,13 @@ import (
 
 var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
 
-// AddAptosLane implements adding a new lane to an existing Aptos CCIP deployment
+// AddAptosLanes implements adding a new lane to an existing Aptos CCIP deployment
 type AddAptosLanes struct{}
 
 func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.UpdateAptosLanesConfig) error {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 	supportedChains := state.SupportedChains()
 	if cfg.AptosMCMSConfig == nil {
@@ -36,11 +36,11 @@ func (cs AddAptosLanes) VerifyPreconditions(env cldf.Environment, cfg config.Upd
 	for _, laneCfg := range cfg.Lanes {
 		// Source cannot be an unknown.
 		if _, ok := supportedChains[laneCfg.Source.GetSelector()]; !ok {
-			return fmt.Errorf("source chain %d is not a supported", laneCfg.Source.GetSelector())
+			return fmt.Errorf("unsupported source chain: %d", laneCfg.Source.GetSelector())
 		}
 		// Destination cannot be an unknown.
 		if _, ok := supportedChains[laneCfg.Dest.GetSelector()]; !ok {
-			return fmt.Errorf("destination chain %d is not a supported", laneCfg.Dest.GetSelector())
+			return fmt.Errorf("unsupported destination chain: %d", laneCfg.Dest.GetSelector())
 		}
 		if laneCfg.Source.GetChainFamily() == chainsel.FamilyAptos {
 			aptosChain, exists := env.BlockChains.AptosChains()[laneCfg.Source.GetSelector()]

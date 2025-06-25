@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
@@ -57,6 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
 const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
@@ -141,11 +143,25 @@ type ExtraCapabilitiesConfig struct {
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }
 
+// DX tracking
+var (
+	dxTracker             *tracking.DxTracker
+	provisioningStartTime time.Time
+)
+
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the environment",
 	Long:  `Start the local CRE environment with all supported capabilities`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		provisioningStartTime = time.Now()
+
+		var dxErr error
+		dxTracker, dxErr = tracking.NewDxTracker()
+		if dxErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", dxErr)
+		}
+
 		// remove all containers before starting the environment, just in case
 		_ = framework.RemoveTestContainers()
 
@@ -170,12 +186,28 @@ var startCmd = &cobra.Command{
 
 			if p != nil {
 				fmt.Println("Panicked when starting environment")
+
+				var errText string
 				if err, ok := p.(error); ok {
 					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+
+					errText = strings.SplitN(err.Error(), "\n", 1)[0]
 				} else {
 					fmt.Fprintf(os.Stderr, "panic: %v\n", p)
 					fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+
+					errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
+				}
+
+				tracingErr := dxTracker.Track("startup.result", map[string]any{
+					"success":  false,
+					"error":    errText,
+					"panicked": true,
+				})
+
+				if tracingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
 				}
 
 				waitOnErrorTimeoutDurationFn()
@@ -192,7 +224,6 @@ var startCmd = &cobra.Command{
 		}
 
 		printCRELogo()
-		startTime := time.Now()
 
 		if os.Getenv("CTF_CONFIGS") == "" {
 			// use default config
@@ -226,10 +257,15 @@ var startCmd = &cobra.Command{
 
 		cmdContext := cmd.Context()
 
-		output, err := startCLIEnvironment(cmdContext, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		output, startErr := startCLIEnvironment(cmdContext, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag)
+		if startErr != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+
+			dxErr := trackStartup(false, output.InfraInput.InfraType, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+			if dxErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
+			}
 
 			waitOnErrorTimeoutDurationFn()
 			removeErr := framework.RemoveTestContainers()
@@ -237,7 +273,7 @@ var startCmd = &cobra.Command{
 				return errors.Wrap(removeErr, manualCleanupMsg)
 			}
 
-			return errors.Wrap(err, "failed to start environment")
+			return errors.Wrap(startErr, "failed to start environment")
 		}
 
 		homeChainOut := output.BlockchainOutput[0]
@@ -285,6 +321,11 @@ var startCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 		}
 
+		dxErr := trackStartup(true, output.InfraInput.InfraType, nil, nil)
+		if dxErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
+		}
+
 		if withExampleFlag {
 			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
 			if timeoutErr != nil {
@@ -299,11 +340,43 @@ var startCmd = &cobra.Command{
 				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 			}
 		}
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(startTime).Seconds()))
+		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 		fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
 		return nil
 	},
+}
+
+func trackStartup(success bool, infraType string, errorMessage *string, panicked *bool) error {
+	metadata := map[string]any{
+		"success": success,
+		"infra":   infraType,
+	}
+
+	if errorMessage != nil {
+		metadata["error"] = *errorMessage
+	}
+
+	if panicked != nil {
+		metadata["panicked"] = *panicked
+	}
+
+	dxStartupErr := dxTracker.Track("cre.local.startup.result", metadata)
+	if dxStartupErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
+	}
+
+	if success {
+		dxTimeErr := dxTracker.Track("cre.local.startup.time", map[string]any{
+			"duration_seconds": time.Since(provisioningStartTime).Seconds(),
+		})
+
+		if dxTimeErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to track startup time: %s\n", dxTimeErr)
+		}
+	}
+
+	return nil
 }
 
 var stopCmd = &cobra.Command{

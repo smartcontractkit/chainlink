@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,23 +17,27 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 const gatewayConfigTemplate = `
 [ConnectionManagerConfig]
 AuthChallengeLen = 32
-AuthGatewayId = "test_gateway"
+AuthGatewayID = "test_gateway"
 AuthTimestampToleranceSec = 30
 
 [NodeServerConfig]
@@ -101,14 +106,27 @@ func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, n
 
 type client struct {
 	privateKey *ecdsa.PrivateKey
-	connector  connector.GatewayConnector
+	connector  core.GatewayConnector
 	done       atomic.Bool
 }
 
-func (c *client) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+	msg, err := hc.ValidatedMessageFromReq(req)
+	if err != nil {
+		panic(err)
+	}
 	c.done.Store(true)
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	resp := &jsonrpc.Response{
+		Version: "2.0",
+		ID:      msg.Body.MessageId,
+		Result:  payload,
+	}
 	// send back user's message without re-signing - should be ignored by the Gateway
-	_ = c.connector.SendToGateway(ctx, gatewayId, msg)
+	_ = c.connector.SendToGateway(ctx, gatewayID, resp)
 	// send back a correct response
 	responseMsg := &api.Message{Body: api.MessageBody{
 		MessageId: msg.Body.MessageId,
@@ -117,15 +135,23 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayId string, msg
 		Receiver:  msg.Body.Sender,
 		Payload:   []byte(nodeResponsePayload),
 	}}
-	err := responseMsg.Sign(c.privateKey)
+	err = responseMsg.Sign(c.privateKey)
 	if err != nil {
 		panic(err)
 	}
-	_ = c.connector.SendToGateway(ctx, gatewayId, responseMsg)
+	resp, err = hc.ValidatedResponseFromMessage(responseMsg) // ensure the message is valid
+	if err != nil {
+		panic(err)
+	}
+	return c.connector.SendToGateway(ctx, gatewayID, resp)
 }
 
 func (c *client) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
 	return common.SignData(c.privateKey, data...)
+}
+
+func (c *client) ID(ctx context.Context) (string, error) {
+	return "test_client", nil
 }
 
 func (*client) Start(ctx context.Context) error {
@@ -146,7 +172,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	nodeKeys.Address = strings.ToUpper(nodeKeys.Address)
 
 	// Launch Gateway
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
 	c, err := network.NewHTTPClient(network.HTTPClientConfig{
 		DefaultTimeout:   5 * time.Second,
@@ -165,7 +191,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// client acts as a signer here
 	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
-	require.NoError(t, connector.AddHandler([]string{"test"}, client))
+	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
 

@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 type FetcherService struct {
@@ -19,14 +20,14 @@ type FetcherService struct {
 	lggr         logger.Logger
 	och          *webapi.OutgoingConnectorHandler
 	wrapper      gatewayConnector
-	selectorOpts []func(*webapi.RoundRobinSelector)
+	selectorOpts []func(*gateway.RoundRobinSelector)
 }
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*webapi.RoundRobinSelector)) *FetcherService {
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
 		lggr:         lggr.Named("FetcherService"),
 		wrapper:      wrapper,
@@ -41,13 +42,13 @@ func (s *FetcherService) Start(ctx context.Context) error {
 		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
-			OutgoingRateLimiter: common.RateLimiterConfig{
+			OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      webapi.DefaultGlobalRPS,
 				GlobalBurst:    webapi.DefaultGlobalBurst,
 				PerSenderRPS:   webapi.DefaultWorkflowRPS,
 				PerSenderBurst: webapi.DefaultWorkflowBurst,
 			},
-			RateLimiter: common.RateLimiterConfig{
+			RateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
