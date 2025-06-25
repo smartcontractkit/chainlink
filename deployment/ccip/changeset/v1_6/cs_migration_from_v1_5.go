@@ -10,11 +10,13 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/mcms"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 // TODO: Write tests
@@ -51,6 +53,8 @@ type ChainUpgradeConfig struct {
 	CommitOCRParams CCIPOCRParams
 	// ExecOCRParams defines the OCR parameters for the exec plugin.
 	ExecOCRParams CCIPOCRParams
+	// NewFeeQuoterParamsPerSource defines the new FeeQuoter parameters for each source chain connected to this destination chain.
+	NewFeeQuoterParamsPerSource map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams
 }
 
 // InitChainUpgradesConfig defines the configuration for the InitChainUpgradesChangeset.
@@ -249,7 +253,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 	}
 
-	for destChainSel := range c.ChainsToUpgrade {
+	for destChainSel, chainUpgradeCfg := range c.ChainsToUpgrade {
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Ensure that RMNRemote is owned by the timelock contract
@@ -275,8 +279,9 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 
 		// Transfer 1.5.0 OnRamp configs to FeeQuoter
 		out, err = TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e, TranslateEVM2EVMOnRampsToFeeQuoterConfig{
-			DestChainSelector: destChainSel,
-			MCMS:              c.MCMSConfig,
+			NewFeeQuoterParamsPerSource: chainUpgradeCfg.NewFeeQuoterParamsPerSource,
+			DestChainSelector:           destChainSel,
+			MCMS:                        c.MCMSConfig,
 		})
 		allReports = append(allReports, out.Reports...)
 		if err != nil {
@@ -286,8 +291,9 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 
 		// Transfer token transfer fee configs to FeeQuoter
 		out, err = TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e, TranslateEVM2EVMOnRampsToFeeQuoterConfig{
-			DestChainSelector: destChainSel,
-			MCMS:              c.MCMSConfig,
+			NewFeeQuoterParamsPerSource: chainUpgradeCfg.NewFeeQuoterParamsPerSource,
+			DestChainSelector:           destChainSel,
+			MCMS:                        c.MCMSConfig,
 		})
 		allReports = append(allReports, out.Reports...)
 		if err != nil {
@@ -413,7 +419,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 		state.EVMMCMSStateByChain(),
 		nil,
 		allProposals,
-		fmt.Sprintf("InitChainUpgradesOnTestRouters: %s", strings.Join(allChainNames, ",")),
+		"InitChainUpgradesOnTestRouters: "+strings.Join(allChainNames, ","),
 		c.MCMSConfig,
 	)
 	if err != nil {
@@ -646,7 +652,7 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 		state.EVMMCMSStateByChain(),
 		nil,
 		allProposals,
-		fmt.Sprintf("PromoteChainUpgradesToMainRoutersChangeset: %s", strings.Join(allChainNames, ",")),
+		"PromoteChainUpgradesToMainRoutersChangeset: "+strings.Join(allChainNames, ","),
 		c.MCMSConfig,
 	)
 	if err != nil {

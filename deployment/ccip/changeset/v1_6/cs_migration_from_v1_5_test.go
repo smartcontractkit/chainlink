@@ -19,14 +19,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 const (
@@ -67,7 +71,17 @@ const (
 )
 
 var (
-	maxNopFeesJuels = big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18))
+	maxNopFeesJuels    = big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18))
+	newFeeQuoterParams = migrate_seq.NewFeeQuoterDestChainConfigParams{
+		DestGasPerPayloadByteBase:      ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:      ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold: ccipevm.CalldataGasPerByteThreshold,
+		DefaultTxGasLimit:              200_000,
+		ChainFamilySelector:            [4]byte{0x28, 0x12, 0xd5, 0x2c},
+		GasPriceStalenessThreshold:     0,
+		GasMultiplierWeiPerEth:         11e17,
+		NetworkFeeUSDCents:             10,
+	}
 )
 
 func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils.TimelockConfig) cldf_deploy.Environment {
@@ -107,12 +121,13 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}
 		}
 
-		// Transfer NonceManager, FeeQuoter, Router, & RMN Proxy to MCMS timelock on all chains
+		// Transfer TokenAdminRegistry, NonceManager, FeeQuoter, Router, & RMN Proxy to MCMS timelock on all chains
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), commonchangeset.TransferToMCMSWithTimelockConfig{
 				MCMSConfig: mcmsCfg,
 				ContractsByChain: map[uint64][]common.Address{
 					sel: {
+						state.Chains[sel].TokenAdminRegistry.Address(),
 						state.Chains[sel].NonceManager.Address(),
 						state.Chains[sel].FeeQuoter.Address(),
 						state.Chains[sel].RMNProxy.Address(),
@@ -124,6 +139,54 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 		if err != nil {
 			t.Fatalf("Failed to transfer NonceManager and FeeQuoter to MCMS timelock: %v", err)
 		}
+
+		// Set LINK token on TokenAdminRegistry
+		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset), v1_5_1.DeployTokenPoolContractsConfig{
+				TokenSymbol: shared.LinkSymbol,
+				NewPools: map[uint64]v1_5_1.DeployTokenPoolInput{
+					sel: {
+						Type:               shared.BurnMintTokenPool,
+						TokenAddress:       state.Chains[sel].LinkToken.Address(),
+						LocalTokenDecimals: 18,
+					},
+				},
+			}),
+			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset), v1_5_1.TokenAdminRegistryChangesetConfig{
+				MCMS: &mcmsCfg,
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					sel: {
+						shared.LinkSymbol: {
+							Type:    shared.BurnMintTokenPool,
+							Version: deployment.Version1_5_1,
+						},
+					},
+				},
+			}),
+			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset), v1_5_1.TokenAdminRegistryChangesetConfig{
+				MCMS: &mcmsCfg,
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					sel: {
+						shared.LinkSymbol: {
+							Type:    shared.BurnMintTokenPool,
+							Version: deployment.Version1_5_1,
+						},
+					},
+				},
+			}),
+			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset), v1_5_1.TokenAdminRegistryChangesetConfig{
+				MCMS: &mcmsCfg,
+				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					sel: {
+						shared.LinkSymbol: {
+							Type:    shared.BurnMintTokenPool,
+							Version: deployment.Version1_5_1,
+						},
+					},
+				},
+			}),
+		})
+		require.NoError(t, err, "Failed to set LINK token on TokenAdminRegistry")
 
 		// Deploy a PriceRegistry 1.2.0
 		priceRegDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*price_registry.PriceRegistry] {
@@ -142,6 +205,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 		if err != nil {
 			t.Fatalf("Failed to deploy PriceRegistry 1.2.0 on chain %d: %v", sel, err)
 		}
+
 		// Deploy one EVM2EVMOnRamp 1.5.0 & one EVM2EVMOffRamp for each of the other chains
 		for _, otherSel := range chainSels {
 			if otherSel == sel {
@@ -200,7 +264,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 							MinFeeUSDCents:            linkMinFeeUSDCents,
 							MaxFeeUSDCents:            linkMaxFeeUSDCents,
 							DeciBps:                   linkDeciBps,
-							DestGasOverhead:           linkDeciBps,
+							DestGasOverhead:           linkDestGasOverhead,
 							DestBytesOverhead:         linkDestBytesOverhead,
 							AggregateRateLimitEnabled: true,
 						},
@@ -218,6 +282,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			if err != nil {
 				t.Fatalf("Failed to deploy EVM2EVMOnRamp 1.5.0 on chain %d for %d: %v", sel, otherSel, err)
 			}
+
 			commitStoreDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*commit_store.CommitStore] {
 				addr, tx, commitStore, err := commit_store.DeployCommitStore(chain.DeployerKey, chain.Client,
 					commit_store.CommitStoreStaticConfig{
@@ -238,6 +303,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			if err != nil {
 				t.Fatalf("Failed to deploy CommitStore 1.5.0 on chain %d for %d: %v", sel, otherSel, err)
 			}
+
 			_, err = cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				addr, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(chain.DeployerKey, chain.Client,
 					evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
@@ -291,10 +357,18 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 
 	chainUpgradeCfgs := make(map[uint64]v1_6.ChainUpgradeConfig, len(e.BlockChains.EVMChains()))
 	for _, chain := range e.BlockChains.EVMChains() {
+		fqParams := make(map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams)
+		for _, otherChain := range e.BlockChains.EVMChains() {
+			if otherChain.Selector == chain.Selector {
+				continue // Skip self
+			}
+			fqParams[otherChain.Selector] = newFeeQuoterParams
+		}
 		chainUpgradeCfgs[chain.Selector] = v1_6.ChainUpgradeConfig{
-			FeedChainSelector: feedChainSelector,
-			CommitOCRParams:   v1_6.DefaultOCRParamsForCommitForETH,
-			ExecOCRParams:     v1_6.DefaultOCRParamsForExecForETH,
+			NewFeeQuoterParamsPerSource: fqParams,
+			FeedChainSelector:           feedChainSelector,
+			CommitOCRParams:             v1_6.DefaultOCRParamsForCommitForETH,
+			ExecOCRParams:               v1_6.DefaultOCRParamsForExecForETH,
 		}
 	}
 
@@ -307,9 +381,10 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 	})
 	require.NoError(t, err, "Failed to apply InitChainUpgradesChangeset")
 
+	commitCandidates := make(map[uint64][32]byte)
+	execCandidates := make(map[uint64][32]byte)
+
 	// InitChainUpgradesChangeset checks
-	state, err = stateview.LoadOnchainState(e)
-	require.NoError(t, err, "Failed to load onchain state")
 	for _, chain := range e.BlockChains.EVMChains() {
 		// Commit and exec candidates are set on CCIPHome
 		donID, err := internal.DonIDForChain(
@@ -325,6 +400,9 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 		require.NoError(t, err, "Failed to get exec candidate for chain %d", chain.Selector)
 		require.NotEqual(t, [32]byte{}, execCandidate, "Exec candidate should not be empty for chain %d", chain.Selector)
 
+		commitCandidates[chain.Selector] = commitCandidate
+		execCandidates[chain.Selector] = execCandidate
+
 		// RMNRemote is owned by the MCMS timelock
 		owner, err := state.Chains[chain.Selector].RMNRemote.Owner(callOpts)
 		require.NoError(t, err, "Failed to get RMNRemote owner for chain %d", chain.Selector)
@@ -336,16 +414,12 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 		require.Equal(t, state.Chains[chain.Selector].RMNRemote.Address(), rmnOnProxyAddr, "RMNProxy should point to RMNRemote for chain %d", chain.Selector)
 
 		// PremiumMultiplierWeiPerEth is set for WETH and LINK
-		/*
-			TODO: Needs fixing
-
-			premiumMultiplierWeiPerEth, err := state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].LinkToken.Address())
-			require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for LINK on chain %d", chain.Selector)
-			require.Equal(t, uint64(linkPremiumMultiplierWeiPerEth), premiumMultiplierWeiPerEth, "LINK PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
-			premiumMultiplierWeiPerEth, err = state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].Weth9.Address())
-			require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for WETH on chain %d", chain.Selector)
-			require.Equal(t, uint64(wethPremiumMultiplierWeiPerEth), premiumMultiplierWeiPerEth, "WETH PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
-		*/
+		linkPremium, err := state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].LinkToken.Address())
+		require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for LINK on chain %d", chain.Selector)
+		require.Equal(t, uint64(linkPremiumMultiplierWeiPerEth), linkPremium, "LINK PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
+		wethPremium, err := state.Chains[chain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[chain.Selector].Weth9.Address())
+		require.NoError(t, err, "Failed to get PremiumMultiplierWeiPerEth for WETH on chain %d", chain.Selector)
+		require.Equal(t, uint64(wethPremiumMultiplierWeiPerEth), wethPremium, "WETH PremiumMultiplierWeiPerEth should match for chain %d", chain.Selector)
 
 		for _, otherChain := range e.BlockChains.EVMChains() {
 			if otherChain.Selector == chain.Selector {
@@ -353,19 +427,15 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 			}
 
 			// TransferFeeConfigArgs are set on the FeeQuoter for LINK
-			/*
-				TODO: Needs fixing
+			transferFeeConfigArgs, err := state.Chains[chain.Selector].FeeQuoter.GetTokenTransferFeeConfig(callOpts, otherChain.Selector, state.Chains[chain.Selector].LinkToken.Address())
+			require.NoError(t, err, "Failed to get LINK transfer fee config for chain %d for %d", chain.Selector, otherChain.Selector)
 
-				transferFeeConfigArgs, err := state.Chains[chain.Selector].FeeQuoter.GetTokenTransferFeeConfig(callOpts, otherChain.Selector, state.Chains[chain.Selector].LinkToken.Address())
-				require.NoError(t, err, "Failed to get LINK transfer fee config for chain %d for %d", chain.Selector, otherChain.Selector)
-
-				require.Equal(t, uint32(linkMinFeeUSDCents), transferFeeConfigArgs.MinFeeUSDCents, "LINK MinFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
-				require.Equal(t, uint32(linkMaxFeeUSDCents), transferFeeConfigArgs.MaxFeeUSDCents, "LINK MaxFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
-				require.Equal(t, uint16(linkDeciBps), transferFeeConfigArgs.DeciBps, "LINK DeciBps should match for chain %d for %d", chain.Selector, otherChain.Selector)
-				require.Equal(t, uint32(linkDestGasOverhead), transferFeeConfigArgs.DestGasOverhead, "LINK DestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
-				require.Equal(t, uint32(linkDestBytesOverhead), transferFeeConfigArgs.DestBytesOverhead, "LINK DestBytesOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
-				require.True(t, transferFeeConfigArgs.IsEnabled, "LINK Transfer fee config should be enabled for chain %d for %d", chain.Selector, otherChain.Selector)
-			*/
+			require.Equal(t, uint32(linkMinFeeUSDCents), transferFeeConfigArgs.MinFeeUSDCents, "LINK MinFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(linkMaxFeeUSDCents), transferFeeConfigArgs.MaxFeeUSDCents, "LINK MaxFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint16(linkDeciBps), transferFeeConfigArgs.DeciBps, "LINK DeciBps should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(linkDestGasOverhead), transferFeeConfigArgs.DestGasOverhead, "LINK DestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, uint32(linkDestBytesOverhead), transferFeeConfigArgs.DestBytesOverhead, "LINK DestBytesOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.True(t, transferFeeConfigArgs.IsEnabled, "LINK Transfer fee config should be enabled for chain %d for %d", chain.Selector, otherChain.Selector)
 
 			// Fee tokens are set on the fee quoter
 			feeTokens, err := state.Chains[chain.Selector].FeeQuoter.GetFeeTokens(callOpts)
@@ -388,6 +458,14 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 			require.Equal(t, uint16(defaultTokenFeeUSDCents), fqDestChainConfig.DefaultTokenFeeUSDCents, "DestChainConfig DefaultTokenFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
 			require.Equal(t, uint32(defaultTokenDestGasOverhead), fqDestChainConfig.DefaultTokenDestGasOverhead, "DestChainConfig DefaultTokenDestGasOverhead should match for chain %d for %d", chain.Selector, otherChain.Selector)
 			require.False(t, fqDestChainConfig.EnforceOutOfOrder, "DestChainConfig EnforceOutOfOrder should be false for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.ChainFamilySelector, fqDestChainConfig.ChainFamilySelector, "DestChainConfig ChainFamilySelector should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.DestGasPerPayloadByteBase, fqDestChainConfig.DestGasPerPayloadByteBase, "DestChainConfig DestGasPerPayloadByteBase should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.DestGasPerPayloadByteHigh, fqDestChainConfig.DestGasPerPayloadByteHigh, "DestChainConfig DestGasPerPayloadByteHigh should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.DestGasPerPayloadByteThreshold, fqDestChainConfig.DestGasPerPayloadByteThreshold, "DestChainConfig DestGasPerPayloadByteThreshold should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.DefaultTxGasLimit, fqDestChainConfig.DefaultTxGasLimit, "DestChainConfig DefaultTxGasLimit should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.GasPriceStalenessThreshold, fqDestChainConfig.GasPriceStalenessThreshold, "DestChainConfig GasPriceStalenessThreshold should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.NetworkFeeUSDCents, fqDestChainConfig.NetworkFeeUSDCents, "DestChainConfig NetworkFeeUSDCents should match for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, newFeeQuoterParams.GasMultiplierWeiPerEth, fqDestChainConfig.GasMultiplierWeiPerEth, "DestChainConfig GasMultiplierWeiPerEth should match for chain %d for %d", chain.Selector, otherChain.Selector)
 
 			// NonceManager has onRamp and offRamp set for other chains
 			previousRamps, err := state.Chains[chain.Selector].NonceManager.GetPreviousRamps(callOpts, otherChain.Selector)
@@ -424,7 +502,15 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 	})
 	require.NoError(t, err, "Failed to apply SetOCR3OffRampChangeset")
 
-	// TODO: SetOCR3OffRampChangeset checks
+	// SetOCR3OffRampChangeset checks
+	for _, chain := range e.BlockChains.EVMChains() {
+		commitCfg, err := state.Chains[chain.Selector].OffRamp.LatestConfigDetails(callOpts, uint8(cciptypes.PluginTypeCCIPCommit))
+		require.NoError(t, err, "Failed to get latest commit config for chain %d", chain.Selector)
+		require.Equal(t, commitCandidates[chain.Selector], commitCfg.ConfigInfo.ConfigDigest, "Commit candidate should match for chain %d", chain.Selector)
+		execCfg, err := state.Chains[chain.Selector].OffRamp.LatestConfigDetails(callOpts, uint8(cciptypes.PluginTypeCCIPExec))
+		require.NoError(t, err, "Failed to get latest exec config for chain %d", chain.Selector)
+		require.Equal(t, execCandidates[chain.Selector], execCfg.ConfigInfo.ConfigDigest, "Exec candidate should match for chain %d", chain.Selector)
+	}
 
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(v1_6.PromoteChainUpgradesChangeset, v1_6.PromoteChainUpgradesConfig{
@@ -435,5 +521,40 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 	})
 	require.NoError(t, err, "Failed to apply PromoteChainUpgradesChangeset")
 
-	// TODO: PromoteChainUpgradesChangeset checks
+	// PromoteChainUpgradesChangeset checks
+	for _, chain := range e.BlockChains.EVMChains() {
+		// OffRamp is owned by the MCMS timelock
+		owner, err := state.Chains[chain.Selector].OffRamp.Owner(callOpts)
+		require.NoError(t, err, "Failed to get OffRamp owner for chain %d", chain.Selector)
+		require.Equal(t, state.Chains[chain.Selector].Timelock.Address(), owner, "OffRamp owner should be MCMS timelock for chain %d", chain.Selector)
+
+		for _, otherChain := range e.BlockChains.EVMChains() {
+			if otherChain.Selector == chain.Selector {
+				continue // Skip self
+			}
+
+			// OnRamp on other chains is owned by the MCMS timelock
+			onRampOwner, err := state.Chains[otherChain.Selector].OnRamp.Owner(callOpts)
+			require.NoError(t, err, "Failed to get OnRamp owner for chain %d for %d", otherChain.Selector, chain.Selector)
+			require.Equal(t, state.Chains[otherChain.Selector].Timelock.Address(), onRampOwner, "OnRamp owner should be MCMS timelock for chain %d for %d", otherChain.Selector, chain.Selector)
+
+			// OnRamp has destChainConfig set for other chains
+			onRampDestChainConfig, err := state.Chains[chain.Selector].OnRamp.GetDestChainConfig(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get dest chain config for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].Router.Address(), onRampDestChainConfig.Router, "DestChainConfig Router should match Router for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// OffRamp has sourceChainConfig set for other chains
+			sourceChainConfig, err := state.Chains[chain.Selector].OffRamp.GetSourceChainConfig(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get source chain config for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].Router.Address(), sourceChainConfig.Router, "SourceChainConfig Router should match Router for chain %d for %d", chain.Selector, otherChain.Selector)
+
+			// OnRamp and OffRamp are connected to the MainRouter
+			onRampOnRouter, err := state.Chains[chain.Selector].Router.GetOnRamp(callOpts, otherChain.Selector)
+			require.NoError(t, err, "Failed to get onRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.Equal(t, state.Chains[chain.Selector].OnRamp.Address(), onRampOnRouter, "OnRamp on Router should match OnRamp for chain %d for %d", chain.Selector, otherChain.Selector)
+			isOffRamp, err := state.Chains[chain.Selector].Router.IsOffRamp(callOpts, otherChain.Selector, state.Chains[chain.Selector].OffRamp.Address())
+			require.NoError(t, err, "Failed to check if OffRamp is connected to Router for chain %d for %d", chain.Selector, otherChain.Selector)
+			require.True(t, isOffRamp, "OffRamp should be connected to Router for chain %d for %d", chain.Selector, otherChain.Selector)
+		}
+	}
 }
