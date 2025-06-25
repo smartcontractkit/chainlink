@@ -7,6 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
@@ -26,8 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
