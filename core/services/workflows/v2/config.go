@@ -40,6 +40,9 @@ type EngineConfig struct {
 
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
+
+	// includes additional logging of events internal to user workflows
+	DebugMode bool
 }
 
 const (

@@ -29,7 +29,8 @@ func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*
 }
 
 func onTrigger(env *sdk.Environment[*runtimeConfig], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
-	return fmt.Sprintf("ping (Schedule: %s)", env.Config.Schedule), nil
+	env.Logger.Info("inside onTrigger handler")
+	return fmt.Sprintf("success (Schedule: %s)", env.Config.Schedule), nil
 }
 
 func main() {

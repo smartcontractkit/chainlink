@@ -155,6 +155,8 @@ func NewStandaloneEngine(
 
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,
+
+		DebugMode: true,
 	}
 
 	return v2.NewEngine(cfg)
