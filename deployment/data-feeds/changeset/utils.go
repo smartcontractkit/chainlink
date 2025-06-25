@@ -39,7 +39,7 @@ func FeedIDsToBytes(feedIDs []string) ([][]byte, error) {
 
 	dataSlices := make([][]byte, len(dataIDs16))
 	for i, v := range dataIDs16 {
-		b := make([]byte, 16)
+		b := make([]byte, 32)
 		copy(b, v[:])
 		dataSlices[i] = b
 	}

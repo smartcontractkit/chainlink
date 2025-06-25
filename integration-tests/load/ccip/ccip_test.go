@@ -174,9 +174,15 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 
+	// Discover lanes from deployed state
+	laneConfig := &crib.LaneConfiguration{}
+	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
+	require.NoError(t, err)
+	laneConfig.LogLaneConfigInfo(lggr)
+
 	// potential source chains need a subscription
 	for _, cs := range env.BlockChains.ListChainSelectors() {
-		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
+		destChains := laneConfig.GetDestinationChainsForSource(cs)
 		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
 		wg.Add(1)
@@ -190,7 +196,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.Chains[cs].OnRamp,
-				otherChains,
+				destChains,
 				startBlocks[cs],
 				cs,
 				loadFinished,
@@ -208,7 +214,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.SolChains[cs].Router,
-				otherChains,
+				destChains,
 				block,
 				cs,
 				loadFinished,
@@ -220,34 +226,50 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
-	evmSourceKeys := make(map[uint64]*bind.TransactOpts)
+	evmSourceKeys := make(map[uint64]map[uint64]*bind.TransactOpts)
 	solSourceKeys := make(map[uint64]*solana.PrivateKey)
 	var mu sync.Mutex
+
 	for ind, cs := range destinationChains {
-		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
-		for _, src := range otherChains {
+		srcChains := laneConfig.GetSourceChainsForDestination(cs)
+
+		// Initialize the map for this destination
+		evmSourceKeys[cs] = make(map[uint64]*bind.TransactOpts)
+
+		for _, src := range srcChains {
 			selFamily, err := selectors.GetSelectorFamily(src)
 			if err != nil {
 				lggr.Errorw("Failed to get selector family", "chainSelector", src, "error", err)
+				continue
 			}
 			mu.Lock()
 			switch selFamily {
 			case selectors.FamilyEVM:
-				evmSourceKeys[src] = evmSenders[src][ind]
-
+				// Check if we have enough senders for this source chain
+				if ind < len(evmSenders[src]) {
+					evmSourceKeys[cs][src] = evmSenders[src][ind]
+				} else {
+					lggr.Errorw("Not enough EVM senders for source chain",
+						"sourceChain", src,
+						"destinationChain", cs,
+						"requiredIndex", ind,
+						"availableSenders", len(evmSenders[src]))
+				}
 			case selectors.FamilySolana:
-				solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
+				if _, exists := solSourceKeys[src]; !exists {
+					solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
+				}
 			}
 			mu.Unlock()
 		}
 	}
 
 	// confirmed dest chains need a subscription
-	for ind, cs := range destinationChains {
-		otherChains := env.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{cs}))
+	for _, cs := range destinationChains {
+		srcChains := laneConfig.GetSourceChainsForDestination(cs)
 
 		g := new(errgroup.Group)
-		for _, src := range otherChains {
+		for _, src := range srcChains {
 			src := src
 			g.Go(func() error {
 				selFamily, err := selectors.GetSelectorFamily(src)
@@ -259,7 +281,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 						state,
 						*env,
 						src,
-						evmSourceKeys[src],
+						evmSourceKeys[cs][src],
 					)
 				default:
 					return nil
@@ -282,10 +304,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				&state,
 				state.Chains[cs].Receiver.Address().Bytes(),
 				userOverrides,
-				evmSourceKeys,
+				evmSourceKeys[cs],
 				solSourceKeys,
-				ind,
 				mm.InputChan,
+				srcChains,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -296,7 +318,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.Chains[cs].OffRamp,
-				otherChains,
+				srcChains,
 				startBlocks[cs],
 				cs,
 				env.BlockChains.EVMChains()[cs].Client,
@@ -307,7 +329,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.Chains[cs].OffRamp,
-				otherChains,
+				srcChains,
 				startBlocks[cs],
 				cs,
 				env.BlockChains.EVMChains()[cs].Client,
@@ -336,10 +358,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				&state,
 				state.SolChains[cs].Receiver.Bytes(),
 				userOverrides,
-				evmSourceKeys,
+				evmSourceKeys[cs],
 				solSourceKeys,
-				ind,
 				mm.InputChan,
+				srcChains,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -350,7 +372,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.SolChains[cs].OffRamp,
-				otherChains,
+				srcChains,
 				*startBlocks[cs],
 				cs,
 				env.BlockChains.SolanaChains()[cs].Client,
@@ -362,7 +384,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				ctx,
 				lggr,
 				state.SolChains[cs].OffRamp,
-				otherChains,
+				srcChains,
 				*startBlocks[cs],
 				cs,
 				env.BlockChains.SolanaChains()[cs].Client,

@@ -19,6 +19,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
@@ -733,7 +734,10 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 				Workflow: evmcfg.Workflow{
-					GasLimitDefault: ptr[uint64](400000),
+					GasLimitDefault:   ptr[uint64](400000),
+					TxAcceptanceState: ptr(commontypes.Unconfirmed),
+					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
+					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 				},
 			},
 			Nodes: []*evmcfg.Node{
@@ -1221,6 +1225,9 @@ GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 
 [[EVM.Nodes]]
 Name = 'foo'

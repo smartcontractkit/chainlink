@@ -545,3 +545,9 @@ FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # GasLimitDefault is the default gas limit for workflow transactions.
 GasLimitDefault = 400_000 # Default
+# TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState = 2 # Default
+# PollPeriod is the default poll period for checking transmission state
+PollPeriod = '2s' # Default
+# AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout = '30s' # Default

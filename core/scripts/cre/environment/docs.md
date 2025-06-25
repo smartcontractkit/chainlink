@@ -7,7 +7,7 @@
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
-
+   - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
 4. [Troubleshooting](#troubleshooting)
@@ -152,7 +152,34 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ---
 
-## Job Distributor Image
+## DX Tracing
+
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
+
+To opt out from tracing use the following environment variable:
+```bash
+DISABLE_DX_TRACKING=true
+```
+
+### Manually creating config file
+
+Valid config file has the following content:
+```json
+{
+  "dx_api_token":"xxx",
+  "github_username":"your-gh-username"
+}
+```
+
+DX API token can be found in 1 Password in the engineering vault as `DX - Local CRE Environment`.
+
+Other environment variables:
+* `DX_LOG_LEVEL` -- log level of a rudimentary logger
+* `DX_TEST_MODE` -- executes in test mode, which means that data sent to DX won't be included in any reports
+
+---
+
+# Job Distributor Image
 
 Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
 
@@ -178,14 +205,14 @@ The only difference between is the trigger.
 ### cron-based workflow
 This workflow is triggered every 30s, on a schedule. It will keep executing until it is paused or deleted. It requires an external `cron` capability binary, which you have to either manually compile or download **and** a manual TOML config change to indicate its location.
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/main/dx-891-web-api-trigger-workflow/cron-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/cron-based/main.go) repository.
 
 ### web API trigger-based workflow
 This workflow is triggered only, when a precisely crafed and cryptographically signed request is made to the gateway node. It will only trigger the workflow **once** and only if:
 * sender is whitelisted in the workflow
 * topic is whitelisted in the workflow
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/dx-891-web-api-trigger-workflow/web-api-trigger-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/web-api-trigger-based/main.go) repository.
 
 You might see multiple attempts to trigger and verify that workflow, when running the example. This is expected and could be happening, because:
 - topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
