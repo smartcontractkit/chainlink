@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	token_governor "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/token_governor"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -55,12 +56,21 @@ func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterCon
 	}
 }
 
+func DeployTokenGovernor(t *testing.T, e cldf.Environment, selector uint64, token common.Address) (common.Address, *token_governor.TokenGovernor) {
+	chain := e.BlockChains.EVMChains()[selector]
+	tgAddress, tx, contract, err := token_governor.DeployTokenGovernor(chain.DeployerKey, chain.Client, token, big.NewInt(0), chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+	return tgAddress, contract
+}
+
 // SetupTwoChainEnvironmentWithTokens preps the environment for token pool deployment testing.
 func SetupTwoChainEnvironmentWithTokens(
 	t *testing.T,
 	lggr logger.Logger,
 	transferToTimelock bool,
-) (env cldf.Environment, sel1 uint64, sel2 uint64, ercmap map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677], contractmap map[uint64]*proposalutils.TimelockExecutionContracts) {
+) (env cldf.Environment, sel1 uint64, sel2 uint64, ercmap map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 2,
 	})
@@ -103,19 +113,17 @@ func SetupTwoChainEnvironmentWithTokens(
 		)
 		require.NoError(t, err)
 		tokens[selector] = token
+
 	}
 
 	// Deploy MCMS setup & prerequisite contracts
-	e, err := commoncs.Apply(t, e, nil,
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
-			mcmsCfg,
-		),
-	)
+	e, err := commoncs.Apply(t, e, commoncs.Configure(
+		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+		changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
+	), commoncs.Configure(
+		cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+		mcmsCfg,
+	))
 	require.NoError(t, err)
 
 	state, err := stateview.LoadOnchainState(e)
@@ -127,18 +135,9 @@ func SetupTwoChainEnvironmentWithTokens(
 		timelockOwnedContractsByChain[selector] = []common.Address{state.MustGetEVMChainState(selector).TokenAdminRegistry.Address()}
 	}
 
-	// Assemble map of addresses required for Timelock scheduling & execution
-	timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	for _, selector := range selectors {
-		timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-			Timelock:  state.MustGetEVMChainState(selector).Timelock,
-			CallProxy: state.MustGetEVMChainState(selector).CallProxy,
-		}
-	}
-
 	if transferToTimelock {
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.Apply(t, e, timelockContracts,
+		e, err = commoncs.Apply(t, e,
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
@@ -152,7 +151,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		require.NoError(t, err)
 	}
 
-	return e, selectors[0], selectors[1], tokens, timelockContracts
+	return e, selectors[0], selectors[1], tokens
 }
 
 // getPoolsOwnedByDeployer returns any pools that need to be transferred to timelock.
@@ -177,7 +176,7 @@ func DeployTestTokenPools(
 ) cldf.Environment {
 	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-	e, err := commonchangeset.Apply(t, e, nil,
+	e, err := commonchangeset.Apply(t, e,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
 			v1_5_1.DeployTokenPoolContractsConfig{
@@ -192,15 +191,6 @@ func DeployTestTokenPools(
 	require.NoError(t, err)
 
 	if transferToTimelock {
-		// Assemble map of addresses required for Timelock scheduling & execution
-		timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-		for _, selector := range selectors {
-			timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-				Timelock:  state.MustGetEVMChainState(selector).Timelock,
-				CallProxy: state.MustGetEVMChainState(selector).CallProxy,
-			}
-		}
-
 		timelockOwnedContractsByChain := make(map[uint64][]common.Address)
 		for _, selector := range selectors {
 			if newPool, ok := newPools[selector]; ok {
@@ -213,12 +203,16 @@ func DeployTestTokenPools(
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.LockReleaseTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).LockReleaseTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				case shared.BurnMintFastTransferTokenPool:
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintWithExternalMinterFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				}
 			}
 		}
 
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.Apply(t, e, timelockContracts,
+		e, err = commoncs.Apply(t, e,
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{

@@ -34,7 +34,7 @@ func TestSolanaTokenOps(t *testing.T) {
 		SolChains: 1,
 	})
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	e, err := commonchangeset.Apply(t, e, nil,
+	e, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
@@ -50,7 +50,7 @@ func TestSolanaTokenOps(t *testing.T) {
 
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
@@ -81,29 +81,26 @@ func TestSolanaTokenOps(t *testing.T) {
 	testUser, _ := solana.NewRandomPrivateKey()
 	testUserPubKey := testUser.PublicKey()
 
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			// deployer creates ATA for itself and testUser
-			cldf.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
-			changeset_solana.CreateSolanaTokenATAConfig{
-				ChainSelector: solChain1,
-				TokenPubkey:   tokenAddress,
-				ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		// deployer creates ATA for itself and testUser
+		cldf.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
+		changeset_solana.CreateSolanaTokenATAConfig{
+			ChainSelector: solChain1,
+			TokenPubkey:   tokenAddress,
+			ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
+		},
+	), commonchangeset.Configure(
+		// deployer mints token to itself and testUser
+		cldf.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
+		changeset_solana.MintSolanaTokenConfig{
+			ChainSelector: solChain1,
+			TokenPubkey:   tokenAddress.String(),
+			AmountToAddress: map[string]uint64{
+				deployerKey.String():    uint64(1000),
+				testUserPubKey.String(): uint64(1000),
 			},
-		),
-		commonchangeset.Configure(
-			// deployer mints token to itself and testUser
-			cldf.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
-			changeset_solana.MintSolanaTokenConfig{
-				ChainSelector: solChain1,
-				TokenPubkey:   tokenAddress.String(),
-				AmountToAddress: map[string]uint64{
-					deployerKey.String():    uint64(1000),
-					testUserPubKey.String(): uint64(1000),
-				},
-			},
-		),
-	)
+		},
+	))
 	require.NoError(t, err)
 
 	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, testUserPubKey)
@@ -127,7 +124,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.Equal(t, 9, int(outDec))
 
 	// now lets do it altogether
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
 			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),

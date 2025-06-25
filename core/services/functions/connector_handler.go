@@ -16,11 +16,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
@@ -39,7 +41,7 @@ type functionsConnectorHandler struct {
 	nodeAddress                string
 	storage                    s4.Storage
 	allowlist                  fallow.OnchainAllowlist
-	rateLimiter                *hc.RateLimiter
+	rateLimiter                *ratelimit.RateLimiter
 	subscriptions              fsub.OnchainSubscriptions
 	minimumBalance             assets.Link
 	listener                   FunctionsListener
@@ -55,6 +57,7 @@ type functionsConnectorHandler struct {
 }
 
 const HeartbeatCacheSize = 1000
+const Name = "FunctionsConnectorHandler"
 
 var (
 	_ connector.Signer                  = &functionsConnectorHandler{}
@@ -79,7 +82,7 @@ func NewFunctionsConnectorHandler(
 	keystore keys.MessageSigner,
 	storage s4.Storage,
 	allowlist fallow.OnchainAllowlist,
-	rateLimiter *hc.RateLimiter,
+	rateLimiter *ratelimit.RateLimiter,
 	subscriptions fsub.OnchainSubscriptions,
 	listener FunctionsListener,
 	offchainTransmitter OffchainTransmitter,
@@ -107,7 +110,7 @@ func NewFunctionsConnectorHandler(
 		heartbeatRequests:          make(map[RequestID]*HeartbeatResponse),
 		requestTimeoutSec:          pluginConfig.RequestTimeoutSec,
 		chStop:                     make(services.StopChan),
-		lggr:                       lggr.Named("FunctionsConnectorHandler"),
+		lggr:                       lggr.Named(Name),
 	}, nil
 }
 
@@ -115,48 +118,52 @@ func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConn
 	h.connector = connector
 }
 
-func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
-	ctx, cancel := h.chStop.NewCtx()
-	defer cancel()
-	return h.keystore.SignMessage(ctx, h.signAddr, common.Flatten(data...))
+func (h *functionsConnectorHandler) Sign(ctx context.Context, data ...[]byte) ([]byte, error) {
+	return h.keystore.SignMessage(ctx, h.signAddr, gc.Flatten(data...))
 }
 
-func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+	msg, err := hc.ValidatedMessageFromReq(req)
+	if err != nil {
+		h.lggr.Errorw("failed to decode request", "id", gatewayID, "err", err)
+		return nil
+	}
 	body := &msg.Body
 	fromAddr := ethCommon.HexToAddress(body.Sender)
 	if !h.allowlist.Allow(fromAddr) {
-		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayId, "address", fromAddr)
-		return
+		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayID, "address", fromAddr)
+		return nil
 	}
 	if !h.rateLimiter.Allow(body.Sender) {
-		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
-		return
+		h.lggr.Errorw("request rate-limited", "id", gatewayID, "address", fromAddr)
+		return nil
 	}
-	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
+	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method)
 
 	switch body.Method {
 	case functions.MethodSecretsList:
-		h.handleSecretsList(ctx, gatewayId, body, fromAddr)
+		h.handleSecretsList(ctx, gatewayID, body, fromAddr)
 	case functions.MethodSecretsSet:
 		if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
-			h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
+			h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayID, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
 			response := functions.ResponseBase{
 				Success:      false,
 				ErrorMessage: "user subscription has insufficient balance",
 			}
-			h.sendResponseAndLog(ctx, gatewayId, body, response)
-			return
+			h.sendResponseAndLog(ctx, gatewayID, body, response)
+			return nil
 		}
-		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
+		h.handleSecretsSet(ctx, gatewayID, body, fromAddr)
 	case functions.MethodHeartbeat:
-		h.handleHeartbeat(ctx, gatewayId, body, fromAddr)
+		h.handleHeartbeat(ctx, gatewayID, body, fromAddr)
 	default:
-		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
+		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
 	}
+	return nil
 }
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
-	return h.StartOnce("FunctionsConnectorHandler", func() error {
+	return h.StartOnce(Name, func() error {
 		if err := h.allowlist.Start(ctx); err != nil {
 			return err
 		}
@@ -170,13 +177,17 @@ func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 }
 
 func (h *functionsConnectorHandler) Close() error {
-	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
+	return h.StopOnce(Name, func() (err error) {
 		close(h.chStop)
 		err = errors.Join(err, h.allowlist.Close())
 		err = errors.Join(err, h.subscriptions.Close())
 		h.shutdownWaitGroup.Wait()
 		return
 	})
+}
+
+func (h *functionsConnectorHandler) ID(context.Context) (string, error) {
+	return Name, nil
 }
 
 func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
@@ -367,5 +378,11 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 	if err = msg.SignKS(ctx, h.keystore, h.signAddr); err != nil {
 		return err
 	}
-	return h.connector.SendToGateway(ctx, gatewayId, msg)
+
+	resp, err := hc.ValidatedResponseFromMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	return h.connector.SendToGateway(ctx, gatewayId, resp)
 }

@@ -35,7 +35,7 @@ func TestMintLink(t *testing.T) {
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
-	_, err = changeset.Apply(t, env, nil,
+	_, err = changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(example.AddMintersBurnersLink),
 			&example.AddMintersBurnersLinkConfig{

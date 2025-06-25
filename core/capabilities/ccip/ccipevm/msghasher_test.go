@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,6 +37,7 @@ import (
 )
 
 var extraDataCodec = ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 	chainsel.FamilyEVM:    ExtraDataDecoder{},
 	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 })

@@ -472,13 +472,15 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	commitReportReceived := make(chan struct{})
 	go func() {
 		if len(expectedSeqNum) > 0 {
-			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState,
+				testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 
 		if len(seqNumCommit) > 0 && len(seqNumCommit) > len(expectedSeqNum) {
 			// wait for a duration and assert that commit reports were not delivered for cursed source chains
-			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState,
+				testhelpers.ToSeqRangeMap(seqNumCommit), startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 	}()

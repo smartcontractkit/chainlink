@@ -189,7 +189,7 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "failed to load onchain state")
 
-			e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
+			e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 				v1_5_1.DeployTokenPoolFactoryChangeset,
 				test.ConfigFn(selectors, state),
 			))
@@ -211,7 +211,7 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 			}
 
 			// IDEMPOTENCY CHECK
-			e, err = commonchangeset.Apply(t, e, nil, commonchangeset.Configure(
+			e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 				v1_5_1.DeployTokenPoolFactoryChangeset,
 				v1_5_1.DeployTokenPoolFactoryConfig{
 					Chains: selectors,

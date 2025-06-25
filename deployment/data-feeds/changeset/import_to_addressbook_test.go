@@ -32,7 +32,7 @@ func TestImportToAddressbook(t *testing.T) {
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := commonChangesets.Apply(t, env, nil,
+	resp, err := commonChangesets.Apply(t, env,
 		commonChangesets.Configure(
 			changeset.ImportToAddressbookChangeset,
 			types.ImportAddressesConfig{

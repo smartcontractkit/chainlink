@@ -27,42 +27,54 @@ on:
 
 jobs:
   go-cache:
-    name: Go Cache
-    runs-on: ubuntu-latest
+    name: Go Cache ${{ matrix.suffix }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            suffix: "(Github-hosted)"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "(Self-hosted)"
+
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
 
       - name: Install Dependencies
+        if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
         shell: bash
-        run:  go mod download
+        run: |
+          echo "::group::go mod download"
+          go mod download
+          echo "::endgroup::"
 
-  go-cache-self-hosted:
-    name: Go Cache
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
-    steps:
-      # enable runs-on magic cache
-      - uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+          echo "::group::Install LOOP plugins"
+          make install-loopinstall
+          make install-plugins-public
+          echo "::endgroup::"
 
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-          restore-module-cache-only: "false"
-
-      - name: Install Dependencies
-        shell: bash
-        run:  go mod download
+          echo "::group::Install testing tools"
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
+          go install gotest.tools/gotestsum@v1.12.2
+          echo "::endgroup::"

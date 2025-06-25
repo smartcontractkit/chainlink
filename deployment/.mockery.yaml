@@ -3,6 +3,10 @@ mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
 packages:
+  github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes:
+    interfaces:
+      RoleDONTopology:
+
   github.com/smartcontractkit/chainlink-deployments-framework/deployment:
     config:
       srcpkg: github.com/smartcontractkit/chainlink-deployments-framework/deployment

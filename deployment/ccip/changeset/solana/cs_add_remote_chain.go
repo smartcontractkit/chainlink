@@ -47,7 +47,7 @@ type RouterConfig struct {
 	// and tooling does not handle upserts
 	// so you have to clone what is in state, edit the list, and then pass into this changeset
 	RouterDestinationConfig solRouter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -153,7 +153,6 @@ func doAddRemoteChainToRouter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.Router,
 		solana.PublicKey{},
 		"",
@@ -269,7 +268,7 @@ type AddRemoteChainToFeeQuoterConfig struct {
 
 type FeeQuoterConfig struct {
 	FeeQuoterDestinationConfig solFeeQuoter.DestChainConfig
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -366,7 +365,6 @@ func doAddRemoteChainToFeeQuoter(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"",
@@ -440,7 +438,7 @@ type AddRemoteChainToOffRampConfig struct {
 type OffRampConfig struct {
 	// source
 	EnabledAsSource bool
-	// We have different instructions for add vs update, so we need to know which one to use
+	// inferred from onchain state
 	IsUpdate bool
 }
 
@@ -536,7 +534,6 @@ func doAddRemoteChainToOffRamp(
 		&e,
 		chain,
 		chainState,
-		cfg.MCMS,
 		shared.OffRamp,
 		solana.PublicKey{},
 		"",

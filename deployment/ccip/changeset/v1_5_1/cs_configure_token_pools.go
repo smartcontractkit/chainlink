@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -151,6 +153,36 @@ func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
 	return nil
 }
 
+// AptosChainUpdate defines the rate limits and token address for an Aptos chain.
+type AptosChainUpdate struct {
+	RateLimiterConfig RateLimiterConfig
+	TokenAddress      string
+	Type              cldf.ContractType
+}
+
+func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainState) (token aptos.AccountAddress, tokenPoolAddress aptos.AccountAddress, err error) {
+	if c.TokenAddress == "" {
+		return aptos.AccountAddress{}, aptos.AccountAddress{}, errors.New("token address must be defined")
+	}
+	if err = token.ParseStringRelaxed(c.TokenAddress); err != nil {
+		return aptos.AccountAddress{}, aptos.AccountAddress{}, fmt.Errorf("failed to parse token address %s: %w", c.TokenAddress, err)
+	}
+	switch c.Type {
+	case shared.AptosManagedTokenPoolType:
+		tokenPoolAddress = state.AptosManagedTokenPools[token]
+	case shared.BurnMintTokenPool:
+		tokenPoolAddress = state.BurnMintTokenPools[token]
+	case shared.LockReleaseTokenPool:
+		tokenPoolAddress = state.LockReleaseTokenPools[token]
+	default:
+		return aptos.AccountAddress{}, aptos.AccountAddress{}, fmt.Errorf("unknown Aptos token pool type %s", c.Type)
+	}
+	if (tokenPoolAddress == aptos.AccountAddress{}) {
+		return aptos.AccountAddress{}, aptos.AccountAddress{}, fmt.Errorf("no token pool found for token: %s", token.StringLong())
+	}
+	return token, tokenPoolAddress, nil
+}
+
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
@@ -158,6 +190,9 @@ type TokenPoolConfig struct {
 
 	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
 	SolChainUpdates map[uint64]SolChainUpdate `json:"solChainUpdates"`
+
+	// AptosChainUpdates defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
+	AptosChainUpdates map[uint64]AptosChainUpdate
 
 	// Type is the type of the token pool.
 	Type cldf.ContractType `json:"type"`
@@ -358,7 +393,7 @@ func configureTokenPool(
 	var updatedOutboundConfigs []token_pool.RateLimiterConfig
 	var updatedInboundConfigs []token_pool.RateLimiterConfig
 	// For adding remote pools
-	remotePoolAddressAdditions := make(map[uint64]common.Address)
+	remotePoolAddressAdditions := make(map[uint64][]byte)
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SolChainUpdates {
 		remoteTokenAddress, remotePoolAddress, err := chainUpdate.GetSolanaTokenAndTokenPool(state.SolChains[remoteChainSelector])
@@ -411,6 +446,48 @@ func configureTokenPool(
 		}
 	}
 
+	for remoteChainSelector, chainUpdate := range poolUpdate.AptosChainUpdates {
+		remoteTokenAddress, remotePoolAddress, err := chainUpdate.GetAptosTokenAndTokenPool(state.AptosChains[remoteChainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get Aptos token and token pool for chain with selector %d: %w", remoteChainSelector, err)
+		}
+		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to check if %d is supported on pool with address %s on %s: %w", remoteChainSelector, tokenPool.Address(), chain.String(), err)
+		}
+		if isSupportedChain {
+			// Just update the rate limits if the chain is already supported
+			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+
+			// Also, add a new remote pool if the token pool on the remote chain is being updated
+			configuredRemotePools, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get remote pools for chain with selector %d: %w", remoteChainSelector, err)
+			}
+			var isRemotePoolSupported bool
+			for _, address := range configuredRemotePools {
+				if bytes.Equal(address, remotePoolAddress[:]) {
+					isRemotePoolSupported = true
+					break
+				}
+			}
+			// Check if the remote pool to-be-set is non-empty and not already configured on the token pool
+			if (remotePoolAddress != aptos.AccountAddress{}) && !isRemotePoolSupported {
+				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress[:], 32)
+			}
+		} else {
+			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
+				RemoteChainSelector:       remoteChainSelector,
+				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
+				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress[:], 32),
+				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress[:], 32)},
+			})
+		}
+	}
+
 	for remoteChainSelector, chainUpdate := range poolUpdate.ChainUpdates {
 		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
 		if err != nil {
@@ -433,7 +510,7 @@ func configureTokenPool(
 			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.Inbound)
 			// Also, add a new remote pool if the token pool on the remote chain is being updated
 			if remoteTokenConfig.TokenPool != utils.ZeroAddress && remoteTokenConfig.TokenPool != remoteTokenPool.Address() {
-				remotePoolAddressAdditions[remoteChainSelector] = remoteTokenPool.Address()
+				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remoteTokenPool.Address().Bytes(), 32)
 			}
 		} else {
 			// Add chain support if it doesn't yet exist
@@ -486,7 +563,7 @@ func configureTokenPool(
 
 	// Handle remote pool additions
 	for remoteChainSelector, remotePoolAddress := range remotePoolAddressAdditions {
-		_, err := tokenPool.AddRemotePool(opts, remoteChainSelector, common.LeftPadBytes(remotePoolAddress.Bytes(), 32))
+		_, err := tokenPool.AddRemotePool(opts, remoteChainSelector, remotePoolAddress)
 		if err != nil {
 			return fmt.Errorf("failed to create addRemotePool transaction for token pool with address %s: %w", tokenPool.Address(), err)
 		}
