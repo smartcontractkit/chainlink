@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -298,10 +299,41 @@ func getSolanaState(env cldf.Environment, selector uint64) (*state.MCMSWithTimel
 // AggregateProposals aggregates multiple MCMS proposals into a single proposal by combining their operations, and
 // setting up the proposers and inspectors for each chain. It returns a single MCMS proposal that can be executed
 // and signed.
+//
+// Deprecated: Use extensible AggregateProposalsV2 instead. Which accepts multiple chain families.
 func AggregateProposals(
 	env cldf.Environment,
 	mcmsEVMState map[uint64]state.MCMSWithTimelockState,
 	mcmsSolanaState map[uint64]state.MCMSWithTimelockStateSolana,
+	proposals []mcmslib.TimelockProposal,
+	description string,
+	mcmsConfig *TimelockConfig,
+) (*mcmslib.TimelockProposal, error) {
+	return AggregateProposalsV2(
+		env,
+		TimelockStates{
+			MCMSEVMState:    mcmsEVMState,
+			MCMSSolanaState: mcmsSolanaState,
+		},
+		proposals,
+		description,
+		mcmsConfig,
+	)
+}
+
+type TimelockStates struct {
+	MCMSEVMState    map[uint64]state.MCMSWithTimelockState
+	MCMSSolanaState map[uint64]state.MCMSWithTimelockStateSolana
+	MCMSAptosState  map[uint64]aptos.AccountAddress
+}
+
+// AggregateProposalsV2 aggregates multiple MCMS proposals into a single proposal by combining their operations, and
+// setting up the proposers and inspectors for each chain. It returns a single MCMS proposal that can be executed
+// and signed.
+// It has an extensible signature to allow for future chain families implementations
+func AggregateProposalsV2(
+	env cldf.Environment,
+	mcmsTimelockStates TimelockStates,
 	proposals []mcmslib.TimelockProposal,
 	description string,
 	mcmsConfig *TimelockConfig,
@@ -329,16 +361,27 @@ func AggregateProposals(
 	for _, op := range batches {
 		chainSel := uint64(op.ChainSelector)
 		var err error
-		if _, exists := mcmsEVMState[chainSel]; exists {
-			mcmsContract, err := mcmsConfig.MCMBasedOnAction(mcmsEVMState[chainSel])
+		family, err := chain_selectors.GetSelectorFamily(chainSel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
+		}
+		switch family {
+		case chain_selectors.FamilyEVM:
+			mcmsEVMState, exists := mcmsTimelockStates.MCMSEVMState[chainSel]
+			if !exists {
+				return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
+			}
+			mcmsContract, err := mcmsConfig.MCMBasedOnAction(mcmsEVMState)
 			if err != nil {
 				return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS contract for chain with selector %d: %w", chainSel, err)
 			}
-			timelocks[chainSel] = mcmsEVMState[chainSel].Timelock.Address().Hex()
+			timelocks[chainSel] = mcmsEVMState.Timelock.Address().Hex()
 			mcmsPerChain[chainSel] = mcmsContract.Address().Hex()
-		} else if mcmsSolanaState == nil {
-			return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
-		} else if solanaState, existsInSolana := mcmsSolanaState[chainSel]; existsInSolana {
+		case chain_selectors.FamilySolana:
+			solanaState, existsInSolana := mcmsTimelockStates.MCMSSolanaState[chainSel]
+			if !existsInSolana {
+				return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
+			}
 			timelocks[chainSel] = mcmssolanasdk.ContractAddress(
 				solanaState.TimelockProgram,
 				mcmssolanasdk.PDASeed(solanaState.TimelockSeed),
@@ -348,8 +391,13 @@ func AggregateProposals(
 				return nil, err
 			}
 			mcmsPerChain[chainSel] = mcmsAddr
-		} else {
-			return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
+		case chain_selectors.FamilyAptos:
+			aptosMCMSAddress, existsInAptos := mcmsTimelockStates.MCMSAptosState[chainSel]
+			if !existsInAptos {
+				return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
+			}
+			timelocks[chainSel] = aptosMCMSAddress.StringLong()
+			mcmsPerChain[chainSel] = aptosMCMSAddress.StringLong()
 		}
 
 		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel)

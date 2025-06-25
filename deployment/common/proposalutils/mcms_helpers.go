@@ -12,6 +12,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -166,7 +167,7 @@ func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockCo
 	return converters, nil
 }
 
-func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspector, error) {
+func McmsInspectorForChain(env cldf.Environment, chain uint64, aptosRole ...mcmsaptossdk.TimelockRole) (mcmssdk.Inspector, error) {
 	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
@@ -177,6 +178,13 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspecto
 		return mcmsevmsdk.NewInspector(env.BlockChains.EVMChains()[chain].Client), nil
 	case chain_selectors.FamilySolana:
 		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
+	case chain_selectors.FamilyAptos:
+		if len(aptosRole) != 1 {
+			return nil, fmt.Errorf("exactly one Aptos role must be provided for chain: %d", chain)
+		}
+		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, aptosRole[0])
+
+		return inspector, nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
