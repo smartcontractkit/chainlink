@@ -33,7 +33,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	)
 	require.False(t, executedCs, "Not expected to have executed the changeset yet")
 	require.False(t, executedValidator, "Not expected to have executed the validator yet")
-	_, err := Apply(t, e, nil, Configure(csv2, 1))
+	_, err := Apply(t, e, Configure(csv2, 1))
 	require.True(t, executedCs, "Validator should have returned nil, allowing changeset execution")
 	require.True(t, executedValidator, "Not expected to have executed the validator yet")
 	require.NoError(t, err)
@@ -58,24 +58,18 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	)
 	require.False(t, executedCs, "Not expected to have executed the changeset yet")
 	require.False(t, executedValidator, "Not expected to have executed the validator yet")
-	_, err := Apply(t, e, nil, Configure(csv2, 1))
+	_, err := Apply(t, e, Configure(csv2, 1))
 	require.False(t, executedCs, "Validator should have fired, preventing changeset execution")
 	require.True(t, executedValidator, "Not expected to have executed the validator yet")
 	require.Equal(t, "failed to apply changeset at index 0: you shall not pass", err.Error())
 }
 
 func NewNoopEnvironment(t *testing.T) cldf.Environment {
-	return *cldf.NewCLDFEnvironment(
+	return *cldf.NewEnvironment(
 		"noop",
 		logger.TestLogger(t),
 		cldf.NewMemoryAddressBook(),
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
-		map[uint64]cldf.Chain{},
-		map[uint64]cldf.SolChain{},
-		map[uint64]cldf.AptosChain{},
+		datastore.NewMemoryDataStore().Seal(),
 		[]string{},
 		nil,
 		t.Context,
@@ -90,10 +84,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 	changesets := []ConfiguredChangeSet{
 		Configure(cldf.CreateChangeSet(
 			func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
-				ds := datastore.NewMemoryDataStore[
-					datastore.DefaultMetadata,
-					datastore.DefaultMetadata,
-				]()
+				ds := datastore.NewMemoryDataStore()
 
 				// Store Address
 				if err := ds.Addresses().Add(
@@ -109,10 +100,10 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				}
 
 				// Add ContractMetadata
-				err := ds.ContractMetadataStore.Upsert(datastore.ContractMetadata[datastore.DefaultMetadata]{
+				err := ds.ContractMetadataStore.Upsert(datastore.ContractMetadata{
 					ChainSelector: 1,
 					Address:       "0x1234567890abcdef",
-					Metadata:      datastore.DefaultMetadata{Data: "test"},
+					Metadata:      testMetadata{Data: "test"},
 				})
 				if err != nil {
 					return cldf.ChangesetOutput{}, err
@@ -158,12 +149,14 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata.Data)
+				concrete, err := datastore.As[testMetadata](metadata.Metadata)
+				require.NoError(t, err)
+				require.Equal(t, "test", concrete.Data)
 			},
 			wantError: false,
 		},
 		{
-			name:                   "ApplyChangesetsV2 validates datastore is merged after apply",
+			name:                   "ApplyChangesets validates datastore is merged after apply",
 			changesets:             changesets,
 			changesetApplyFunction: "V1",
 			validate: func(t *testing.T, e cldf.Environment) {
@@ -184,7 +177,9 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 					datastore.NewContractMetadataKey(1, "0x1234567890abcdef"),
 				)
 				require.NoError(t, err)
-				require.Equal(t, "test", metadata.Metadata.Data)
+				concrete, err := datastore.As[testMetadata](metadata.Metadata)
+				require.NoError(t, err)
+				require.Equal(t, "test", concrete.Data)
 			},
 			wantError: false,
 		},
@@ -195,7 +190,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 			switch tt.changesetApplyFunction {
 			case "V2":
 				e := NewNoopEnvironment(t)
-				e, _, err := ApplyChangesetsV2(t, e, tt.changesets)
+				e, _, err := ApplyChangesets(t, e, tt.changesets)
 				if tt.wantError {
 					require.Error(t, err)
 					return
@@ -204,7 +199,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				tt.validate(t, e)
 			case "V1":
 				e := NewNoopEnvironment(t)
-				e, err := ApplyChangesets(t, e, nil, tt.changesets)
+				e, _, err := ApplyChangesets(t, e, tt.changesets)
 				if tt.wantError {
 					require.Error(t, err)
 					return

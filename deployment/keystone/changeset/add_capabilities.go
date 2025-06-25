@@ -3,18 +3,32 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+)
+
+const (
+	CapabilityTypeTarget           = uint8(3) // See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
+	CapabilityTypeTargetNamePrefix = "write_"
+)
+
+var (
+	ErrEmptyWriteCapName         = errors.New("capability labelled name must not be empty")
+	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with " + CapabilityTypeTargetNamePrefix)
+	ErrEmptyTrimmedWriteCapName  = errors.New("capability labelled name must not be empty after removing prefix " + CapabilityTypeTargetNamePrefix)
+	ErrInvalidWriteCapNameFormat = errors.New("capability labelled name is not a valid chain name or chain ID")
 )
 
 // AddCapabilitiesRequest is a request to add capabilities
@@ -34,6 +48,47 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 	}
 	if len(r.Capabilities) == 0 {
 		return errors.New("capabilities must be set")
+	}
+
+	var capNameErr error
+	// Validate write target capabilities labelled name
+	for _, c := range r.Capabilities {
+		if c.CapabilityType != CapabilityTypeTarget {
+			continue
+		}
+		if c.LabelledName == "" {
+			capNameErr = errors.Join(ErrEmptyWriteCapName, capNameErr)
+			continue
+		}
+		if !strings.HasPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix) {
+			capNameErr = errors.Join(ErrInvalidWriteCapName, capNameErr)
+			continue
+		}
+		extracted := strings.TrimPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix)
+		if extracted == "" {
+			capNameErr = errors.Join(ErrEmptyTrimmedWriteCapName, capNameErr)
+			continue
+		}
+		_, err := chainselectors.ChainIdFromName(extracted)
+		if err != nil {
+			// Validate if the extracted value is the chain ID instead, since the labelled name can contain
+			// both the chain ID or the chain name.
+			// See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/core/services/relay/evm/write_target.go#L75
+			chainID, chainIDErr := strconv.ParseUint(extracted, 10, 64)
+			if chainIDErr == nil {
+				_, chainIDErr = chainselectors.NameFromChainId(chainID)
+				if chainIDErr == nil {
+					// If it is a valid chain ID, we don't error and continue
+					continue
+				}
+			}
+
+			capNameErr = errors.Join(ErrInvalidWriteCapNameFormat, capNameErr)
+		}
+	}
+
+	if capNameErr != nil {
+		return capNameErr
 	}
 
 	if err := shouldUseDatastore(env, r.RegistryRef); err != nil {
@@ -71,7 +126,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
@@ -81,7 +136,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 	useMCMS := req.MCMSConfig != nil
-	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.Chains[req.RegistryChainSel], req.Capabilities, useMCMS)
+	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.BlockChains.EVMChains()[req.RegistryChainSel], req.Capabilities, useMCMS)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
 	}

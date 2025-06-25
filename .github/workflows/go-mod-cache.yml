@@ -27,8 +27,22 @@ on:
 
 jobs:
   go-cache:
-    name: Go Cache
-    runs-on: ubuntu-latest
+    name: Go Cache ${{ matrix.suffix }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            suffix: "(Github-hosted)"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "(Self-hosted)"
+
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -36,61 +50,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
+        id: setup-go
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
 
       - name: Install Dependencies
+        if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
         shell: bash
-        run:  go mod download
-
-  go-cache-self-hosted:
-    name: Go Cache
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16+32/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
-    steps:
-      # enable runs-on magic cache
-      - uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-
-      - name: Setup self-hosted directory mounts
-        # For self-hosted runners - the volume mounted to / is too small to handle everything stored in
-        # /home/runner. So we mount certain directories to the larger volume.
         run: |
-          if [ ! -d "/home/runner/_work" ]; then
-            echo "::warning::/home/runner/_work does not exist, skipping mount."
-            exit 0
-          fi
+          echo "::group::go mod download"
+          go mod download
+          echo "::endgroup::"
 
-          # Define the directories to mount as tuples of source:destination
-          DIRS=(
-            "/home/runner/_work/runner-go:/home/runner/go"
-            "/home/runner/_work/runner-cache:/home/runner/.cache"
-          )
+          echo "::group::Install LOOP plugins"
+          make install-loopinstall
+          make install-plugins-public
+          echo "::endgroup::"
 
-          # Process each directory pair
-          for DIR_PAIR in "${DIRS[@]}"; do
-            SRC_DIR=$(echo $DIR_PAIR | cut -d':' -f1)
-            DEST_DIR=$(echo $DIR_PAIR | cut -d':' -f2)
-
-            sudo mkdir -m 755 "$SRC_DIR"
-            sudo chown -R $(id -u):$(id -g) "$SRC_DIR"
-
-            mkdir -p "$DEST_DIR"
-            sudo mount --bind "$SRC_DIR" "$DEST_DIR"
-            echo "Successfully mounted $SRC_DIR to $DEST_DIR"
-          done
-
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-          restore-module-cache-only: "false"
-
-      - name: Install Dependencies
-        shell: bash
-        run:  go mod download
+          echo "::group::Install testing tools"
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
+          go install gotest.tools/gotestsum@v1.12.2
+          echo "::endgroup::"

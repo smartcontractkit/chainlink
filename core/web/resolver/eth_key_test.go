@@ -15,13 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	mocks2 "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -95,9 +94,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 				chainID := *big.NewI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
-				cfg := configtest.NewGeneralConfig(t, nil)
-				m := map[string]legacyevm.Chain{states[0].EVMChainID.String(): f.Mocks.chain}
-				legacyEVMChains := legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
+				m := map[string]types.ChainService{states[0].EVMChainID.String(): f.Mocks.chain}
+				legacyEVMChains := legacyevm.NewLegacyChains(m)
 
 				f.Mocks.ethKs.On("GetStatesForKeys", mock.Anything, keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", mock.Anything, keys[0].Address.Hex()).Return(keys[0], nil)

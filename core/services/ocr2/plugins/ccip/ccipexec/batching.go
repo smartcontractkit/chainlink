@@ -296,14 +296,13 @@ func performCommonChecks(
 	availableFeeUsd := waitBoostedFee(time.Since(msg.BlockTimestamp), availableFee, batchCtx.offchainConfig.RelativeBoostPerWaitHour)
 	if availableFeeUsd.Cmp(execCostUsd) < 0 {
 		msgLggr.Infow(
-			"Skipping message - insufficient remaining fee",
+			"Message underpaid - insufficient remaining fee",
 			"availableFeeUsd", availableFeeUsd,
 			"execCostUsd", execCostUsd,
 			"sourceBlockTimestamp", msg.BlockTimestamp,
 			"waitTime", time.Since(msg.BlockTimestamp),
 			"boost", batchCtx.offchainConfig.RelativeBoostPerWaitHour,
 		)
-		return InsufficientRemainingFee, 0, nil, nil, nil
 	}
 
 	return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
@@ -531,7 +530,6 @@ const (
 	TokenDataFetchError                  messageStatus = "token_data_fetch_error"
 	TokenNotInDestTokenPrices            messageStatus = "token_not_in_dest_token_prices"
 	TokenNotInSrcTokenPrices             messageStatus = "token_not_in_src_token_prices"
-	InsufficientRemainingFee             messageStatus = "insufficient_remaining_fee"
 	AddedToBatch                         messageStatus = "added_to_batch"
 	TXMCheckError                        messageStatus = "txm_check_error"
 	TXMFatalStatus                       messageStatus = "txm_fatal_status"

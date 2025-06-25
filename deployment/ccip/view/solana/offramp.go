@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
@@ -43,7 +42,7 @@ type OffRampSourceChainConfig struct {
 	OnRamp                    string `json:"onRamp,omitempty"`
 }
 
-func GenerateOffRampView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
+func GenerateOffRampView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
 	view := OffRampView{}
 	var config solOffRamp.Config
 	configPDA, _, _ := solState.FindOfframpConfigPDA(program)

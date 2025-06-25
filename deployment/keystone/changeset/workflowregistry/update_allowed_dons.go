@@ -9,7 +9,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -37,8 +37,9 @@ func UpdateAllowedDons(env cldf.Environment, req *UpdateAllowedDonsRequest) (cld
 		return cldf.ChangesetOutput{}, err
 	}
 
+	evmChains := env.BlockChains.EVMChains()
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.Chains,
+		Chains:      evmChains,
 		AddressBook: env.ExistingAddresses,
 	})
 	if err != nil {
@@ -51,7 +52,7 @@ func UpdateAllowedDons(env cldf.Environment, req *UpdateAllowedDonsRequest) (cld
 	}
 	registry := cs.WorkflowRegistry
 
-	chain, ok := env.Chains[req.RegistryChainSel]
+	chain, ok := evmChains[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}

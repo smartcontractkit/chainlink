@@ -24,12 +24,12 @@ type DeployBalanceReaderRequest struct {
 func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
-		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
+		DataStore:   datastore.NewMemoryDataStore(),
 	}
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(env.BlockChains.EVMChains()))
 	}
 	for _, sel := range selectors {
 		req := &DeployRequestV2{

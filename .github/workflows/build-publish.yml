@@ -58,11 +58,6 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           assert: true
-      - name: Fail if git tag is not from allowed branches
-        uses: smartcontractkit/.github/actions/guard-tag-from-branch@01d931b0455a754d12e7143cc54a5a3521a8f6f6 # guard-tag-from-branch@0.1.3
-        with:
-          tag: ${{ github.ref_name }}
-          branch-regex: '^(develop|release\/.*)'
 
   build-sign-publish-chainlink:
     needs: [checks]
@@ -111,7 +106,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b37583d758e3992e0d5bfdb5a36ca243ce53ff59 # 2025-04-22
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -123,14 +118,14 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_APTOS_CMD=chainlink-aptos
-      docker-build-cache-disabled: "true"
-      docker-image-type: tag
+      docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
       github-workflow-repository: ${{ github.repository }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}

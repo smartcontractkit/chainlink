@@ -4,16 +4,17 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"golang.org/x/exp/maps"
+	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	ccipsharedops "github.com/smartcontractkit/chainlink/deployment/ccip/operation"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -22,45 +23,49 @@ var (
 		"SetRMNRemoteConfigSequence",
 		semver.MustParse("1.0.0"),
 		"Set RMNRemoteConfig based on ActiveDigest from RMNHome for evm chain(s)",
-		func(b operations.Bundle, deps opsutil.ConfigureDependencies, input SetRMNRemoteConfig) (opsutil.OpOutput, error) {
-			finalOutput := &opsutil.OpOutput{}
-			err := input.Validate(deps.Env, deps.CurrentState)
-			if err != nil {
-				return opsutil.OpOutput{}, fmt.Errorf("failed to validate input: %w", err)
-			}
-			for chainSelector, config := range input.RMNRemoteConfigs {
-				opInput := ccipops.SetRMNRemoteConfig{
-					RMNRemoteConfig: config,
-					ChainSelector:   chainSelector,
-					MCMSConfig:      input.MCMSConfig,
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]) (map[uint64][]opsutil.EVMCallOutput, error) {
+			out := make(map[uint64][]opsutil.EVMCallOutput, len(inputs))
+
+			for chainSelector, input := range inputs {
+				if _, ok := chains[chainSelector]; !ok {
+					return nil, fmt.Errorf("chain with selector %d not defined in dependencies", chainSelector)
 				}
 
-				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteConfigOp, deps, opInput)
+				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteConfigOp, chains[chainSelector], input)
 				if err != nil {
-					return report.Output, fmt.Errorf("failed to set RMNRemoteConfig for chain %d: %w", chainSelector, err)
+					return map[uint64][]opsutil.EVMCallOutput{}, fmt.Errorf("failed to set RMNRemoteConfig for chain %d: %w", chainSelector, err)
 				}
-				if err := finalOutput.Merge(report.Output); err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to merge output for chain %d: %w", chainSelector, err)
-				}
+				out[chainSelector] = []opsutil.EVMCallOutput{report.Output}
 			}
-			// if the MCMSConfig is not nil, we need to aggregate the proposals
-			if len(finalOutput.Proposals) > 0 {
-				report, err := operations.ExecuteOperation(b, ccipsharedops.PostOpsAggregateProposals, deps, ccipsharedops.PostOpsInput{
-					MCMSConfig: input.MCMSConfig,
-					Proposals:  finalOutput.Proposals,
-				})
+
+			return out, nil
+		})
+
+	SetRMNRemoteOnRMNProxySequence = operations.NewSequence(
+		"SetRMNRemoteOnRMNProxySequece",
+		semver.MustParse("1.0.0"),
+		"Setting SetRMNRemote on RMNProxy across multiple EVM chains",
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input SetRMNRemoteOnRMNProxySequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+
+			for chainSel, update := range input.UpdatesByChain {
+				chain, ok := chains[chainSel]
+				if !ok {
+					return nil, fmt.Errorf("chain with selector %d not defined", chainSel)
+				}
+				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteOnRMNProxyOp, chain, update)
 				if err != nil {
-					return opsutil.OpOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+					return nil, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxyOp on %s: %w", chain, err)
 				}
-				b.Logger.Infow("Generated proposal for RMNRemoteConfig", "chains", maps.Keys(input.RMNRemoteConfigs))
-				return opsutil.OpOutput{
-					Proposals:                  report.Output,
-					DescribedTimelockProposals: finalOutput.DescribedTimelockProposals,
-				}, err
+				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
 			}
-			return *finalOutput, nil
+			return opOutputs, nil
 		})
 )
+
+type SetRMNRemoteOnRMNProxySequenceInput struct {
+	UpdatesByChain map[uint64]opsutil.EVMCallInput[common.Address] `json:"updatesByChain"`
+}
 
 type SetRMNRemoteConfig struct {
 	RMNRemoteConfigs map[uint64]ccipops.RMNRemoteConfig `json:"rmnRemoteConfigs"`
@@ -73,7 +78,7 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 		if err != nil {
 			return err
 		}
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		if state.MustGetEVMChainState(chainSelector).RMNRemote == nil {
 			return fmt.Errorf("RMNRemote not found for chain %s", chain.String())
 		}

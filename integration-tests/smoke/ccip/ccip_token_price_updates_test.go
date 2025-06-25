@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
@@ -31,8 +32,20 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
+	const (
+		fRoleDON = 2
+		nRoleDON = 3*fRoleDON + 1
+	)
+
 	var tokenPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithNumOfNodes(nRoleDON),
+		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
+			cciptesthelpertypes.RandomTopologyArgs{
+				FChainToNumChains: map[int]int{1: 1},
+				Seed:              42, // for reproducible setups.
+			},
+		)),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if params.CommitOffChainConfig != nil {
 				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
@@ -43,7 +56,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	require.NoError(t, err)
 	testhelpers.AddLanesForAll(t, &e, state)
 
-	allChainSelectors := maps.Keys(e.Env.Chains)
+	allChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")
 
 	sourceChain1 := allChainSelectors[0]
@@ -84,7 +97,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		// manually update token prices by setting values to maxUint64 and 0
-		tx, err := feeQuoter1.UpdatePrices(e.Env.Chains[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
+		tx, err := feeQuoter1.UpdatePrices(e.Env.BlockChains.EVMChains()[sourceChain1].DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{SourceToken: feeTokensChain1[0], UsdPerToken: big.NewInt(0).SetUint64(math.MaxUint64)},
 				{SourceToken: feeTokensChain1[1], UsdPerToken: big.NewInt(0)},
@@ -92,7 +105,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = cldf.ConfirmIfNoError(e.Env.Chains[sourceChain1], tx, err)
+		_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain1], tx, err)
 		require.NoError(t, err)
 		t.Logf("manually editing token prices")
 

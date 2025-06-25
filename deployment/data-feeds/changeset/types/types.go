@@ -4,12 +4,15 @@ import (
 	"embed"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
+	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -124,7 +127,7 @@ type RemoveFeedProxyConfig struct {
 	McmsConfig     *MCMSConfig
 }
 
-type ImportToAddressbookConfig struct {
+type ImportAddressesConfig struct {
 	InputFileName string
 	ChainSelector uint64
 	InputFS       embed.FS
@@ -160,19 +163,19 @@ type NodeConfig struct {
 }
 
 type WorkflowSpecConfig struct {
-	TargetContractEncoderType        string // Required. "data-feeds_decimal", "aptos" or "ccip"
-	ConsensusAggregationMethod       string // Required. "llo_streams" or "data_feeds"
-	WorkflowName                     string // Required
-	ConsensusReportID                string // Required
-	WriteTargetTrigger               string // Required
-	ConsensusRef                     string // Default "data-feeds"
-	ConsensusConfigKeyID             string // Default "evm"
-	ConsensusAllowedPartialStaleness string
-	DeltaStageSec                    *int   // Default 45
-	TargetsSchedule                  string // Default "oneAtATime"
-	TargetProcessor                  string
-	TriggersMaxFrequencyMs           *int // Default 5000
-	CREStepTimeout                   int64
+	TargetContractEncoderType        string `json:"targetContractEncoderType"`  // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string `json:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string `json:"workflowName"`               // Required
+	ConsensusReportID                string `json:"consensusReportID"`          // Required
+	WriteTargetTrigger               string `json:"writeTargetTrigger"`         // Required
+	ConsensusRef                     string `json:"consensusRef"`               // Default "data-feeds"
+	ConsensusConfigKeyID             string `json:"consensusConfigKeyID"`       // Default "evm"
+	ConsensusAllowedPartialStaleness string `json:"consensusAllowedPartialStaleness"`
+	DeltaStageSec                    *int   `json:"deltaStageSec"`   // Default 45
+	TargetsSchedule                  string `json:"targetsSchedule"` // Default "oneAtATime"
+	TargetProcessor                  string `json:"targetProcessor"`
+	TriggersMaxFrequencyMs           *int   `json:"triggersMaxFrequencyMs"` // Default 5000
+	CREStepTimeout                   int64  `json:"creStepTimeout"`
 }
 
 type ProposeWFJobsConfig struct {
@@ -185,6 +188,15 @@ type ProposeWFJobsConfig struct {
 	NodeFilter         *offchain.NodesFilter // Required. Node filter to select the nodes to send the jobs to.
 }
 
+type ProposeWFJobsV2Config struct {
+	ChainSelector      uint64                `json:"chainSelector"`
+	CacheLabel         string                `json:"cacheLabel"`      // Label for the DataFeedsCache contract in AB, or qualifier in DataStore
+	Domain             string                `json:"domain"`          // default to data-feeds
+	WorkflowJobName    string                `json:"workflowJobName"` // Required
+	WorkflowSpecConfig WorkflowSpecConfig    `json:"workflowSpecConfig"`
+	NodeFilter         *offchain.NodesFilter `json:"nodeFilter"` // Required. Node filter to select the nodes to send the jobs to.
+}
+
 type ProposeBtJobsConfig struct {
 	ChainSelector    uint64
 	BootstrapJobName string
@@ -193,6 +205,36 @@ type ProposeBtJobsConfig struct {
 }
 
 type DeleteJobsConfig struct {
-	JobIDs       []string
-	WorkflowName string
+	JobIDs       []string `json:"jobIDs"`       // Optional. If provided, all jobs with these IDs will be deleted.
+	WorkflowName string   `json:"workflowName"` // Optional. If provided, all jobs with this workflow name will be deleted.
+}
+
+type SetRegistryWorkflowConfig struct {
+	ChainSelector         uint64
+	AllowedWorkflowOwners []string
+	AllowedWorkflowNames  []string
+	CacheAddress          string
+}
+
+type SetRegistryFeedConfig struct {
+	ChainSelector uint64
+	DataIDs       []string
+	Descriptions  []string
+	CacheAddress  string
+}
+
+type DeployDataFeedsResponse struct {
+	Address  aptos.AccountAddress
+	Tx       api.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *modulefeeds.DataFeeds
+}
+
+type DeployAptosConfig struct {
+	ChainsToDeploy           []uint64 // Chain Selectors
+	Labels                   []string // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier                string   // Data Store qualifier for the deployed contracts, applies to all chains
+	OwnerAddress             string   // Owner of the deployed contracts
+	PlatformAddress          string   // Address of the ChainLinkPlatform package
+	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
 }

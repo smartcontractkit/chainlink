@@ -6,16 +6,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -123,7 +125,7 @@ func TestConnectNewChain(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 			var newSelector uint64
 			remoteChainSelectors := make([]uint64, 0, len(selectors)-1)
 			for _, selector := range selectors {
@@ -132,15 +134,6 @@ func TestConnectNewChain(t *testing.T) {
 					continue
 				}
 				remoteChainSelectors = append(remoteChainSelectors, selector)
-			}
-
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
-			for _, selector := range selectors {
-				// Assemble map of addresses required for Timelock scheduling & execution
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
 			}
 
 			if test.TransferRemoteChainsToMCMS {
@@ -153,7 +146,7 @@ func TestConnectNewChain(t *testing.T) {
 						state.Chains[selector].Router.Address(),
 					}
 				}
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
@@ -175,7 +168,7 @@ func TestConnectNewChain(t *testing.T) {
 				}
 			}
 
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.ConnectNewChainChangeset,
 					v1_6.ConnectNewChainConfig{
@@ -218,14 +211,14 @@ func TestConnectNewChain(t *testing.T) {
 						// Admin role for deployer key should be revoked
 						adminRole, err := state.Chains[selector].Timelock.ADMINROLE(nil)
 						require.NoError(t, err, "must get admin role")
-						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.Chains[selector].DeployerKey.From)
+						hasRole, err := state.Chains[selector].Timelock.HasRole(nil, adminRole, e.BlockChains.EVMChains()[selector].DeployerKey.From)
 						require.NoError(t, err, "must get admin role")
 						require.False(t, hasRole, "deployer key must not have admin role")
 					} else {
 						// onRamp, offRamp, and router should still be owned by deployer key
-						mustHaveOwner(t, state.Chains[selector].OnRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].OffRamp, e.Chains[selector].DeployerKey.From.Hex())
-						mustHaveOwner(t, state.Chains[selector].Router, e.Chains[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OnRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].OffRamp, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
+						mustHaveOwner(t, state.Chains[selector].Router, e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex())
 					}
 				}
 
@@ -249,6 +242,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		Msg         string
 		MCMS        *proposalutils.TimelockConfig
 		DonIDOffSet *uint32
+		ErrStr      string
 	}
 
 	offset := uint32(0)
@@ -273,6 +267,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			Msg:         "Remote chains with donID offset (Sync with capReg reg after wrong donIDClaim)",
 			DonIDOffSet: &offset,
 		},
+		{
+			Msg:    "fail when multiple reports are enabled and enforce out of order is disabled",
+			ErrStr: "EnforceOutOfOrder must be true when MultipleReportsEnabled is true",
+		},
 	}
 
 	for _, test := range tests {
@@ -295,7 +293,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			var linkAddress common.Address
 			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
 			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(chainIDs)-1)
-			for _, selector := range e.AllChainSelectors() {
+			for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
 					newChainSelector = selector
 					linkAddress = state.Chains[selector].LinkToken.Address()
@@ -318,31 +316,22 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			)
 			require.NoError(t, err, "must get DON ID for chain")
 			tx, err := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.RemoveDONs(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint32{donID},
 			)
 			require.NoError(t, err, "must remove DON ID")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm DON ID removal")
 
 			// Remove chain config on CCIPHome
 			tx, err = state.Chains[deployedEnvironment.HomeChainSel].CCIPHome.ApplyChainConfigUpdates(
-				e.Chains[deployedEnvironment.HomeChainSel].DeployerKey,
+				e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey,
 				[]uint64{newChainSelector},
 				[]ccip_home.CCIPHomeChainConfigArgs{},
 			)
 			require.NoError(t, err, "must remove chain config from CCIPHome")
-			_, err = e.Chains[deployedEnvironment.HomeChainSel].Confirm(tx)
+			_, err = e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].Confirm(tx)
 			require.NoError(t, err, "must confirm chain config removal")
-
-			// Assemble map of addresses required for Timelock scheduling & execution
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(remoteChainSelectors))
-			for _, selector := range remoteChainSelectors {
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
-			}
 
 			// Transfer remote contracts to MCMS if an MCMS config is supplied
 			if test.MCMS != nil {
@@ -367,7 +356,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					contractsToTransfer[deployedEnvironment.HomeChainSel],
 					state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry.Address(),
 				)
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
@@ -438,8 +427,13 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
 			}
 
+			if test.ErrStr != "" {
+				newChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled = true
+				remoteChains[0].FeeQuoterDestChainConfig.EnforceOutOfOrder = false
+			}
+
 			// deploy donIDClaimer
-			e, err = commonchangeset.Apply(t, e, nil,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.DeployDonIDClaimerChangeset,
 					v1_6.DeployDonIDClaimerConfig{},
@@ -450,15 +444,15 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			require.NoError(t, err, "must load onchain state")
 
 			if test.DonIDOffSet != nil {
-				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.Chains[deployedEnvironment.HomeChainSel].DeployerKey)
+				tx, err := state.Chains[deployedEnvironment.HomeChainSel].DonIDClaimer.ClaimNextDONId(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel].DeployerKey)
 				require.NoError(t, err)
 
-				_, err = cldf.ConfirmIfNoErrorWithABI(e.Chains[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
+				_, err = cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[deployedEnvironment.HomeChainSel], tx, don_id_claimer.DonIDClaimerABI, err)
 				require.NoError(t, err)
 			}
 
 			// Apply AddCandidatesForNewChainChangeset
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.AddCandidatesForNewChainChangeset,
 					v1_6.AddCandidatesForNewChainConfig{
@@ -472,6 +466,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					},
 				),
 			)
+			if test.ErrStr != "" {
+				require.ErrorContains(t, err, test.ErrStr)
+				return
+			}
 			require.NoError(t, err, "must apply AddCandidatesForNewChainChangeset")
 			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
@@ -505,7 +503,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			}
 
 			// Apply PromoteNewChainForConfigChangeset
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.PromoteNewChainForConfigChangeset,
 					v1_6.PromoteNewChainForConfig{
@@ -547,7 +545,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			for _, remoteChain := range remoteChains {
 				remoteConnectionConfigs[remoteChain.Selector] = remoteChain.ConnectionConfig
 			}
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.ConnectNewChainChangeset,
 					v1_6.ConnectNewChainConfig{

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -20,7 +21,7 @@ import (
 func TestAppendNodeCapabilities(t *testing.T) {
 	var (
 		initialp2pToCapabilities = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-			testPeerID(t, "0x1"): []kcr.CapabilitiesRegistryCapability{
+			testPeerID(t, "0x1"): {
 				{
 					LabelledName:   "test",
 					Version:        "1.0.0",
@@ -29,8 +30,8 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			},
 		}
 		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
-			testNop(t, "testNop"): []*internal.P2PSignerEnc{
-				&internal.P2PSignerEnc{
+			testNop(t, "testNop"): {
+				{
 					Signer:              [32]byte{0: 1},
 					P2PKey:              testPeerID(t, "0x1"),
 					EncryptionPublicKey: [32]byte{7: 7, 13: 13},
@@ -57,7 +58,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			args: args{
 				lggr: lggr,
 				req: &internal.AppendNodeCapabilitiesRequest{
-					Chain: cldf.Chain{},
+					Chain: cldf_evm.Chain{},
 				},
 				initialState: &kstest.SetupTestRegistryRequest{},
 			},

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+// use this to transfer ccip to mcms with timelock
 var _ cldf.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = TransferCCIPToMCMSWithTimelockSolana
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.
@@ -74,10 +75,10 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environmen
 		return errors.New("no chains found")
 	}
 	for chainSelector, contractsEnabled := range cfg.ContractsByChain {
-		if _, ok := e.SolChains[chainSelector]; !ok {
+		if _, ok := e.BlockChains.SolanaChains()[chainSelector]; !ok {
 			return fmt.Errorf("chain %d not found in environment", chainSelector)
 		}
-		solChain := e.SolChains[chainSelector]
+		solChain := e.BlockChains.SolanaChains()[chainSelector]
 		// Load MCM state
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
@@ -148,7 +149,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
-		solChain := e.SolChains[chainSelector]
+		solChain := e.BlockChains.SolanaChains()[chainSelector]
 		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 

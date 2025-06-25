@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
@@ -55,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	shared2 "github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -90,16 +92,18 @@ type CCIPChainState struct {
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens                map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token  *factory_burn_mint_erc20.FactoryBurnMintERC20
-	ERC677Tokens               map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677          map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokens677Helper    map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
-	BurnMintTokenPools         map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
-	BurnWithFromMintTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
-	BurnFromMintTokenPools     map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
-	USDCTokenPools             map[semver.Version]*usdc_token_pool.USDCTokenPool
-	LockReleaseTokenPools      map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
+	ERC20Tokens                                      map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token                        *factory_burn_mint_erc20.FactoryBurnMintERC20
+	ERC677Tokens                                     map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677                                map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokens677Helper                          map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
+	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
+	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
+	BurnWithFromMintTokenPools                       map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
+	BurnFromMintTokenPools                           map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	USDCTokenPools                                   map[semver.Version]*usdc_token_pool.USDCTokenPool
+	LockReleaseTokenPools                            map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[shared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -194,7 +198,10 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		return errors.New("active config digest is empty")
 	}
 	chainSel := homeCfg.Config.ChainSelector
-	if _, exists := e.SolChains[chainSel]; exists {
+	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
+		return nil
+	}
+	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
 		return nil
 	}
 	offRamp, ok := offRampsByChain[chainSel]
@@ -328,9 +335,9 @@ func (c CCIPChainState) ValidateOnRamp(
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if dynamicCfg.FeeAggregator != e.Chains[selector].DeployerKey.From {
+		if dynamicCfg.FeeAggregator != e.BlockChains.EVMChains()[selector].DeployerKey.From {
 			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
-				c.OnRamp.Address().Hex(), e.Chains[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
+				c.OnRamp.Address().Hex(), e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	}
 
@@ -416,7 +423,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([
 	}
 	for _, d := range offRampDetails {
 		// skip if solana - solana state is maintained in solana
-		if _, exists := e.SolChains[d.SourceChainSelector]; exists {
+		if _, exists := e.BlockChains.SolanaChains()[d.SourceChainSelector]; exists {
 			continue
 		}
 		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)
@@ -622,6 +629,9 @@ func (c CCIPChainState) TokenDetailsBySymbol() (map[shared.TokenSymbol]shared.To
 }
 
 func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
+	if c.LinkToken != nil && c.StaticLinkToken != nil {
+		return common.Address{}, errors.New("link token and static link token both exist on chain, please check the state")
+	}
 	if c.LinkToken != nil {
 		return c.LinkToken.Address(), nil
 	}

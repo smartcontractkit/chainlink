@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -27,7 +30,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	chains := e.AllChainSelectors()
+	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1 := chains[0]
 	chain2 := chains[1]
 	cfg := commonchangeset.ExistingContractsConfig{

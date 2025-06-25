@@ -17,7 +17,7 @@ var SetBundleFeedConfigChangeset = cldf.CreateChangeSet(setBundleFeedConfigLogic
 
 func setBundleFeedConfigLogic(env cldf.Environment, c types.SetFeedBundleConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
@@ -57,7 +57,7 @@ func setBundleFeedConfigLogic(env cldf.Environment, c types.SetFeedBundleConfig)
 }
 
 func setBundleFeedConfigPrecondition(env cldf.Environment, c types.SetFeedBundleConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
@@ -74,7 +74,7 @@ func setBundleFeedConfigPrecondition(env cldf.Environment, c types.SetFeedBundle
 	}
 
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil { //nolint:staticcheck // TODO: replace with DataStore when ready
+		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil { // TODO: replace with DataStore when ready
 			return err
 		}
 	}

@@ -16,17 +16,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 )
 
 var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
@@ -44,9 +48,11 @@ type DeployTokenPoolInput struct {
 	LocalTokenDecimals uint8
 	// AcceptLiquidity indicates whether or not the new pool can accept liquidity from a rebalancer address (lock-release only).
 	AcceptLiquidity *bool
+	// ExternalMinter only for burn-mint fast transfer pools with external minting.
+	ExternalMinter common.Address
 }
 
-func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
+func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -89,6 +95,10 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf.Chain, st
 	if i.Type != shared.LockReleaseTokenPool && i.AcceptLiquidity != nil {
 		return errors.New("accept liquidity must be nil for burn mint pools")
 	}
+	if i.Type == shared.BurnMintWithExternalMinterFastTransferTokenPool && i.ExternalMinter == utils.ZeroAddress {
+		// TODO: Validate that the external minter token match the token in input
+		return errors.New("external minter must be defined for burn mint with external minter fast transfer pools")
+	}
 
 	// We should check if a token pool with this type, version, and symbol already exists
 	_, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, shared.CurrentTokenPoolVersion)
@@ -124,7 +134,7 @@ func (c DeployTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
@@ -169,7 +179,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 	for chainSelector, poolConfig := range c.NewPools {
 		chainSelector, poolConfig := chainSelector, poolConfig
 		deployGrp.Go(func() error {
-			chain := env.Chains[chainSelector]
+			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
 			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
@@ -192,7 +202,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 // deployTokenPool deploys a token pool contract based on a given type & configuration.
 func deployTokenPool(
 	logger logger.Logger,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	chainState evm.CCIPChainState,
 	addressBook cldf.AddressBook,
 	poolConfig DeployTokenPoolInput,
@@ -205,10 +215,11 @@ func deployTokenPool(
 	rmnProxy := chainState.RMNProxy
 
 	return cldf.DeployContract(logger, chain, addressBook,
-		func(chain cldf.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
+			var tokenPoolVersion = shared.CurrentTokenPoolVersion
 			switch poolConfig.Type {
 			case shared.BurnMintTokenPool:
 				tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(
@@ -230,6 +241,19 @@ func deployTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
 				)
+			case shared.BurnMintFastTransferTokenPool:
+				tokenPoolVersion = deployment.Version1_6_1Dev
+				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
+					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+				)
+			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+				tokenPoolVersion = deployment.Version1_6_0
+				tpAddr, tx, _, err = burn_mint_with_external_minter_fast_transfer_token_pool.DeployBurnMintWithExternalMinterFastTransferTokenPool(
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+				)
+
 			}
 			var tp *token_pool.TokenPool
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)
@@ -238,7 +262,7 @@ func deployTokenPool(
 			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, shared.CurrentTokenPoolVersion),
+				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, tokenPoolVersion),
 				Tx:       tx,
 				Err:      err,
 			}

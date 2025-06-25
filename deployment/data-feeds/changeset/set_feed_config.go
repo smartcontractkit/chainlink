@@ -17,7 +17,7 @@ var SetFeedConfigChangeset = cldf.CreateChangeSet(setFeedConfigLogic, setFeedCon
 
 func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
@@ -57,7 +57,7 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalConfig) (cld
 }
 
 func setFeedConfigPrecondition(env cldf.Environment, c types.SetFeedDecimalConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}

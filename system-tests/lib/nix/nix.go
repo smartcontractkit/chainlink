@@ -72,7 +72,7 @@ func (ns *Shell) RunCommandWithEnvVars(command string, envVars map[string]string
 	}
 	for key, value := range envVars {
 		fmt.Printf("%s=%s\n", key, value)
-		_, err := ns.stdin.WriteString(fmt.Sprintf("export %s=%s\n", key, value))
+		_, err := fmt.Fprintf(ns.stdin, "export %s=%s\n", key, value)
 		if err != nil {
 			return "", err
 		}

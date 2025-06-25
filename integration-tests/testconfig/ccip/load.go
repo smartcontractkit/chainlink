@@ -3,12 +3,13 @@ package ccip
 import (
 	"errors"
 	"fmt"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"testing"
 	"time"
 
 	"github.com/AlekSi/pointer"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +33,7 @@ type LoadConfig struct {
 	TestLabel            *string
 	GasLimit             *uint64
 	OOOExecution         *bool
+	SolanaDataSize       *int
 }
 
 const (
@@ -54,8 +56,10 @@ func (l *LoadConfig) Validate(t *testing.T, e *cldf.Environment) {
 	}
 	require.Equal(t, 100, agg, "Sum of MessageDetails Ratios must be 100")
 
+	require.GreaterOrEqual(t, *l.SolanaDataSize, 0, "SolanaDataSize must be greater than or equal to 0")
+
 	require.GreaterOrEqual(t, *l.NumDestinationChains, 1, "NumDestinationChains must be greater than or equal to 1")
-	require.GreaterOrEqual(t, len(e.Chains), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
+	require.GreaterOrEqual(t, len(e.BlockChains.ListChainSelectors()), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
 }
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {

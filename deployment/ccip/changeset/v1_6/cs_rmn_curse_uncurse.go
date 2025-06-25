@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
@@ -17,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -111,7 +113,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.Chains[action.ChainSelector]
+				targetChain := e.BlockChains.EVMChains()[action.ChainSelector]
 				targetChainState, ok := state.Chains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
@@ -125,7 +127,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.SolChains[action.ChainSelector]
+				targetChain := e.BlockChains.SolanaChains()[action.ChainSelector]
 				targetChainState, ok := state.SolChains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
@@ -527,7 +529,7 @@ type SolanaCursableChain struct {
 }
 
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	chain := c.env.SolChains[c.selector]
+	chain := c.env.BlockChains.SolanaChains()[c.selector]
 	curseSubject := solRmnRemote.CurseSubject{
 		Value: subject,
 	}
@@ -643,7 +645,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 	}
 
 	var chainStateAccount solOffRamp.SourceChain
-	if err = c.env.SolChains[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
+	if err = c.env.BlockChains.SolanaChains()[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
 		return false, nil
 	}
 
@@ -651,7 +653,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 }
 
 func (c SolanaCursableChain) Name() string {
-	return c.env.SolChains[c.selector].Name()
+	return c.env.BlockChains.SolanaChains()[c.selector].Name()
 }
 
 type EvmCursableChain struct {
@@ -661,7 +663,7 @@ type EvmCursableChain struct {
 }
 
 func (c EvmCursableChain) Name() string {
-	return c.env.Chains[c.selector].Name()
+	return c.env.BlockChains.EVMChains()[c.selector].Name()
 }
 
 func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool, error) {
@@ -762,8 +764,9 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 
 func GetAllCursableChainsSelector(env cldf.Environment) []uint64 {
 	selectors := make([]uint64, 0)
-	selectors = append(selectors, env.AllChainSelectors()...)
-	selectors = append(selectors, env.AllChainSelectorsSolana()...)
+	selectors = append(selectors, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))...)
+	solSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	selectors = append(selectors, solSelectors...)
 	return selectors
 }
 

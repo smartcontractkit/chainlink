@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 )
 
@@ -24,7 +24,7 @@ func setupORM(t *testing.T) (subscriptions.ORM, error) {
 
 	var (
 		db   = pgtest.NewSqlxDB(t)
-		lggr = logger.TestLogger(t)
+		lggr = logger.Test(t)
 	)
 
 	return subscriptions.NewORM(db, lggr, testutils.NewAddress())
@@ -191,7 +191,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		ctx := testutils.Context(t)
 		var (
 			db   = pgtest.NewSqlxDB(t)
-			lggr = logger.TestLogger(t)
+			lggr = logger.Test(t)
 		)
 
 		orm1, err := subscriptions.NewORM(db, lggr, testutils.NewAddress())
@@ -239,7 +239,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 func Test_NewORM(t *testing.T) {
 	t.Parallel()
 	t.Run("OK-create_ORM", func(t *testing.T) {
-		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), testutils.NewAddress())
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), testutils.NewAddress())
 		require.NoError(t, err)
 	})
 	t.Run("NOK-create_ORM_with_nil_fields", func(t *testing.T) {
@@ -247,7 +247,7 @@ func Test_NewORM(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("NOK-create_ORM_with_empty_address", func(t *testing.T) {
-		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), common.Address{})
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), common.Address{})
 		require.Error(t, err)
 	})
 }

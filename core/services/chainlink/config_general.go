@@ -218,6 +218,10 @@ func (g *generalConfig) TronConfigs() RawConfigs {
 	return g.c.Tron
 }
 
+func (g *generalConfig) TONConfigs() RawConfigs {
+	return g.c.TON
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -349,6 +353,15 @@ func (g *generalConfig) AptosEnabled() bool {
 
 func (g *generalConfig) TronEnabled() bool {
 	for _, c := range g.c.Tron {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) TONEnabled() bool {
+	for _, c := range g.c.TON {
 		if c.IsEnabled() {
 			return true
 		}

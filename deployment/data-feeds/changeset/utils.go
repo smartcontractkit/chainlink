@@ -7,6 +7,7 @@ import (
 	"io/fs"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -28,6 +29,22 @@ func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	}
 
 	return dataIDs, nil
+}
+
+func FeedIDsToBytes(feedIDs []string) ([][]byte, error) {
+	dataIDs16, err := FeedIDsToBytes16(feedIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	dataSlices := make([][]byte, len(dataIDs16))
+	for i, v := range dataIDs16 {
+		b := make([]byte, 32)
+		copy(b, v[:])
+		dataSlices[i] = b
+	}
+
+	return dataSlices, nil
 }
 
 func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
@@ -84,14 +101,26 @@ func GetDecimalsFromFeedID(feedID string) (uint8, error) {
 	return 0, nil
 }
 
-func GetDataFeedsCacheAddress(ab cldf.AddressBook, chainSelector uint64, label *string) string {
-	dataFeedsCacheAddress := ""
-	cacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRefStore, chainSelector uint64, label *string) string {
+	var qualifier string
 	if label != nil {
-		cacheTV.Labels.Add(*label)
+		qualifier = *label
 	} else {
-		cacheTV.Labels.Add("data-feeds")
+		qualifier = "data-feeds"
 	}
+
+	// try to find the address in datastore, fallback to addressbook
+	record, err := dataStore.Get(
+		datastore.NewAddressRefKey(chainSelector, DataFeedsCache, &deployment.Version1_0_0, qualifier),
+	)
+	if err == nil {
+		return record.Address
+	}
+
+	// legacy addressbook
+	dataFeedsCacheAddress := ""
+	cacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)
+	cacheTV.Labels.Add(qualifier)
 
 	address, err := ab.AddressesForChain(chainSelector)
 	if err != nil {

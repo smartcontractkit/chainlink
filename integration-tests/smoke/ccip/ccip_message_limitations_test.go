@@ -27,7 +27,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	testEnv, _, _ := testsetups.NewIntegrationEnvironment(t)
-	chains := maps.Keys(testEnv.Env.Chains)
+	chains := maps.Keys(testEnv.Env.BlockChains.EVMChains())
 
 	onChainState, err := stateview.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
 			},
 		},
-		//{ // TODO: exec plugin never executed this message. CCIP-4471
+		// { // TODO: exec plugin never executed this message. CCIP-4471
 		//	name:      "hit limit on maxDataBytes, tokens, gasLimit should succeed",
 		//	fromChain: chains[0],
 		//	toChain:   chains[1],
@@ -104,7 +104,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		//		FeeToken:  common.HexToAddress("0x0"),
 		//		ExtraArgs: changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
 		//	},
-		//},
+		// },
 		{
 			TestSetup: testSetup,
 			Name:      "exceeding maxDataBytes",
@@ -169,7 +169,8 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState,
+		testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 	// Wait for all exec reports to land
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, testEnv.Env, onChainState, expectedSeqNumExec, startBlocks)
 }

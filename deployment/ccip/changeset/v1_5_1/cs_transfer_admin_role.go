@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -24,7 +25,7 @@ func validateTransferAdminRole(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol shared.TokenSymbol,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 ) error {
 	if externalAdmin == utils.ZeroAddress {
 		return errors.New("external admin must be defined")
@@ -49,7 +50,7 @@ func TransferAdminRoleChangeset(env cldf.Environment, c TokenAdminRegistryChange
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("transfer admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {

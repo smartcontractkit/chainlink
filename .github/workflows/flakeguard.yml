@@ -135,7 +135,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -311,9 +311,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        run: |
-          make install-loopinstall
-          make install-plugins-public
+        run: make install-plugins
 
       - name: Go mod tidy
         shell: bash
@@ -330,7 +328,7 @@ jobs:
       - name: Install flakeguard and gotestsum
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
           go install gotest.tools/gotestsum@v1.12.2 # needed for flakeguard output formatting
 
       - name: Run tests with flakeguard
@@ -441,7 +439,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
 
       - name: Aggregate Flakeguard Results
         id: results

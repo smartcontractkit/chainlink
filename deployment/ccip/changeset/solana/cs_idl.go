@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -27,22 +29,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+// use this changeset to upload the IDL for a program
+var _ cldf.ChangeSet[IDLConfig] = UploadIDL
+
+// use this changeset to set the authority for the IDL of a program (timelock)
+var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDL
+
+// use this changeset to upgrade the IDL of a program via timelock
+var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
+
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
 // IDL
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string
-	Router                       bool
-	FeeQuoter                    bool
-	OffRamp                      bool
-	RMNRemote                    bool
-	AccessController             bool
-	MCM                          bool
-	Timelock                     bool
-	BurnMintTokenPoolMetadata    []string
-	LockReleaseTokenPoolMetadata []string
-	MCMS                         *proposalutils.TimelockConfig
+	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	Router                       bool                          // whether to upload the IDL for the router
+	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
+	OffRamp                      bool                          // whether to upload the IDL for the off ramp
+	RMNRemote                    bool                          // whether to upload the IDL for the rmn remote
+	AccessController             bool                          // whether to upload the IDL for the access controller
+	MCM                          bool                          // whether to upload the IDL for the mcm
+	Timelock                     bool                          // whether to upload the IDL for the timelock
+	BurnMintTokenPoolMetadata    []string                      // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
+	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
+	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
 }
 
 // parse anchor version from running anchor --version
@@ -87,7 +98,7 @@ func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 }
 
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
-func repoSetup(e cldf.Environment, chain cldf.SolChain, gitCommitSha string) error {
+func repoSetup(e cldf.Environment, chain cldf_solana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
 	if err != nil {
@@ -267,7 +278,7 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 	if err != nil {
 		return nil, fmt.Errorf("error writing buffer: %w", err)
 	}
-	authority := e.SolChains[c.ChainSelector].DeployerKey.PublicKey()
+	authority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
 	if c.MCMS != nil {
 		authority = timelockSignerPDA
 		err = setIdlAuthority(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
@@ -286,7 +297,7 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 		}
 		return upgradeTx, nil
 	}
-	if err := e.SolChains[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+	if err := e.BlockChains.SolanaChains()[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
 		return nil, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return nil, nil
@@ -308,7 +319,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
 	}
 	chainState := existingState.SolChains[c.ChainSelector]
-	chain := e.SolChains[c.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	if c.Router && chainState.Router.IsZero() {
 		return fmt.Errorf("router not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
@@ -322,13 +333,13 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("rmnRemote not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		bnmTokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, c.ChainSelector, bnmMetadata)
+		bnmTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
 		if bnmTokenPool.IsZero() {
 			return fmt.Errorf("burnMintTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		lrTokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, c.ChainSelector, lrMetadata)
+		lrTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
 		if lrTokenPool.IsZero() {
 			return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
@@ -337,7 +348,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[c.ChainSelector], addresses)
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -359,7 +370,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	chain := e.SolChains[c.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
@@ -389,14 +400,14 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, c.ChainSelector, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
 		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, c.ChainSelector, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
 		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
@@ -406,7 +417,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[c.ChainSelector], addresses)
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -439,7 +450,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	}
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
-	chain := e.SolChains[c.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
@@ -472,14 +483,14 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, c.ChainSelector, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
 		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, c.ChainSelector, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
 		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -526,7 +537,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	chain := e.SolChains[c.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
@@ -568,7 +579,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.BurnAndMint_PoolType, c.ChainSelector, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
 		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
@@ -578,7 +589,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := GetActiveTokenPool(&e, solTestTokenPool.LockAndRelease_PoolType, c.ChainSelector, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
 		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
@@ -632,7 +643,6 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 
-		// do we need to batch this ?
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil

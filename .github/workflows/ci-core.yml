@@ -112,7 +112,7 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency]
+    needs: [filter, run-frequency, runner-config]
     # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     permissions:
@@ -121,21 +121,28 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: ubuntu-24.04-8cores-32GB-ARM
+    runs-on: ${{ needs.runner-config.outputs.lint-runner }}
     strategy:
       fail-fast: false
       matrix:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ needs.runner-config.outputs.lint-is-self-hosted == 'true' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
         uses: ./.github/actions/golangci-lint
+        timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
+
       - name: Notify Slack
         if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
@@ -174,7 +181,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: 'true'
+            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -198,7 +205,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
-            use-flakeguard: 'true'
+            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -214,35 +221,6 @@ jobs:
       - name: Enable S3 Cache for Self-Hosted Runners
         if: ${{ matrix.type.is-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-
-      - name: Setup self-hosted directory mounts
-        # For self-hosted runners - the volume mounted to / is too small to handle everything stored in
-        # /home/runner. So we mount certain directories to the larger volume.
-        if: ${{ matrix.type.is-self-hosted == 'true' }}
-        run: |
-          if [ ! -d "/home/runner/_work" ]; then
-            echo "::warning::/home/runner/_work does not exist, skipping mount."
-            exit 0
-          fi
-
-          # Define the directories to mount as tuples of source:destination
-          DIRS=(
-            "/home/runner/_work/runner-go:/home/runner/go"
-            "/home/runner/_work/runner-cache:/home/runner/.cache"
-          )
-
-          # Process each directory pair
-          for DIR_PAIR in "${DIRS[@]}"; do
-            SRC_DIR=$(echo $DIR_PAIR | cut -d':' -f1)
-            DEST_DIR=$(echo $DIR_PAIR | cut -d':' -f2)
-
-            sudo mkdir -m 755 "$SRC_DIR"
-            sudo chown -R $(id -u):$(id -g) "$SRC_DIR"
-
-            mkdir -p "$DEST_DIR"
-            sudo mount --bind "$SRC_DIR" "$DEST_DIR"
-            echo "Successfully mounted $SRC_DIR to $DEST_DIR"
-          done
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
@@ -300,9 +278,7 @@ jobs:
 
       - name: Install LOOP Plugins
         if: ${{ matrix.type.should-run == 'true' }}
-        run: |
-          make install-loopinstall
-          make install-plugins-public
+        run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
@@ -644,13 +620,15 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=32+64/ram=64+128/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest
+      GH_LINT_RUNNER: ubuntu-24.04-8cores-32GB-ARM
     outputs:
       # go_core_tests / go_core_race_tests / go_core_tests_integration
       core-tests-is-self-hosted: ${{ steps.core-tests.outputs.core-tests-is-self-hosted }}
@@ -661,49 +639,21 @@ jobs:
       # go_core_ccip_deployment_tests
       deployment-tests-is-self-hosted: ${{ steps.deployment-tests.outputs.deployment-tests-is-self-hosted }}
       deployment-tests-runner: ${{ steps.deployment-tests.outputs.deployment-tests-runner }}
+      # linting
+      lint-is-self-hosted: ${{ steps.linting.outputs.lint-is-self-hosted }}
+      lint-runner: ${{ steps.linting.outputs.lint-runner }}
     steps:
-      - name: Check for opt-out
-        id: check-opt-out
-        shell: bash
-        env:
-          OPT_OUT_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
-          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref || '' }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number || '' }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
-            echo "opt-out=true" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          PR_NUMBER=${PULL_REQUEST_NUMBER}
-          echo "Merge group head ref: ${MERGE_GROUP_HEAD_REF}"
-          if [ "$GITHUB_EVENT_NAME" == "merge_group" ] && [ -n "${MERGE_GROUP_HEAD_REF}" ]; then
-            PR_NUMBER=$(echo ${MERGE_GROUP_HEAD_REF} | grep -Eo "queue/develop/pr-[0-9]+" | cut -d '-' -f2)
-          fi
-
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR number found."
-            echo "opt-out=false" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          OPT_OUT=$(gh pr view $PR_NUMBER --repo ${GITHUB_REPOSITORY} --json labels --jq 'any(.labels[].name; . == "runs-on-opt-out")')
-          if [[ "$OPT_OUT" == "true" ]]; then
-            echo "opt-out label found for $PR_NUMBER"
-            echo "opt-out=true" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "opt-out label not found for $PR_NUMBER"
-          echo "opt-out=false" | tee -a $GITHUB_OUTPUT
+      - name: Get PR Labels
+        id: pr-labels
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "runs-on-opt-out"
 
       - name: Select runners for deployment tests
         id: deployment-tests
         shell: bash
         env:
-          OPT_OUT: ${{ steps.check-opt-out.outputs.opt-out || 'false' }}
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
           SHOULD_RUN_DEPLOYMENT_TESTS: ${{ needs.filter.outputs.should-run-deployment-tests }}
         run: |
           if [[ "${SHOULD_RUN_DEPLOYMENT_TESTS}" == "false" ]]; then
@@ -728,7 +678,7 @@ jobs:
         id: core-tests
         shell: bash
         env:
-          OPT_OUT: ${{ steps.check-opt-out.outputs.opt-out || 'false' }}
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
           SHOULD_RUN_CORE_TESTS: ${{ needs.filter.outputs.should-run-core-tests }}
         run: |
           if [[ "${SHOULD_RUN_CORE_TESTS}" == "false" ]]; then
@@ -761,6 +711,23 @@ jobs:
           echo "core-fuzz-tests-runner=${SH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
           echo "core-race-tests-runner=${SH_RACE_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
 
+      - name: Select runners for linting
+        id: linting
+        shell: bash
+        env:
+          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
+        run: |
+          if [[ "$OPT_OUT" == "true" ]]; then
+            echo "Opt-out is true for current run. Using gh-hosted runner for linting."
+            echo "lint-runner=${GH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "lint-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Opt-out is false for current run. Using self-hosted runner for linting."
+          echo "lint-runner=${SH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "lint-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
+
   misc:
     # Catchall job for miscellaneous steps.
     name: Misc
@@ -772,8 +739,8 @@ jobs:
       - uses: ./.github/actions/setup-go
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
-      # Some plugins such as chainlink-data-streams, chainlink-feeds, and
-      # chainlink-solana are also dependent modules in the go.mod file.
+      # Some plugins such as chainlink-data-streams, chainlink-feeds,
+      # and chainlink-solana are also dependencies in the go.mod file.
       # This job is to ensure that the versions defined in the go.mod file are
       # in sync with the gitRef field in the plugins YAML files.
       #

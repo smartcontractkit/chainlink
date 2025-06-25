@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -69,7 +70,7 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
@@ -97,7 +98,7 @@ func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint6
 // Deprecated: use MaybeLoadMCMSWithTimelockChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockChainState(
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	addresses map[string]cldf.TypeAndVersion,
 ) (*MCMSWithTimelockState, error) {
 	var (
@@ -206,7 +207,7 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
@@ -225,7 +226,7 @@ func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map
 
 // Deprecated: use MaybeLoadLinkTokenChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenChainState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
+func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
 
@@ -265,7 +266,7 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 
 // Deprecated: use MaybeLoadStaticLinkTokenState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadStaticLinkTokenState(chain cldf.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
+func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
 

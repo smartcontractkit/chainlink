@@ -13,7 +13,10 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -87,7 +90,7 @@ func (tc *TimelockConfig) validateCommon() error {
 	return nil
 }
 
-func (tc *TimelockConfig) Validate(chain cldf.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) Validate(chain cldf_evm.Chain, s state.MCMSWithTimelockState) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err
@@ -120,7 +123,7 @@ func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint6
 	}
 
 	validateContract := func(contractType cldf.ContractType) error {
-		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType) //nolint:staticcheck // Uncomment above once datastore is updated to contains addresses
+		timelockID, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, contractType)
 		if err != nil {
 			return fmt.Errorf("%s not present on the chain %w", contractType, err)
 		}
@@ -242,13 +245,9 @@ func buildProposalMetadataV2(
 				MCMAddress:      proposerMcms,
 			}
 		case chain_selectors.FamilySolana:
-			addresses, err := env.ExistingAddresses.AddressesForChain(selector)
+			solanaState, err := getSolanaState(env, selector)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
-			}
-			solanaState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[selector], addresses)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load solana state: %w", err)
+				return nil, err
 			}
 
 			var instanceSeed mcmssolanasdk.PDASeed
@@ -277,6 +276,23 @@ func buildProposalMetadataV2(
 	}
 
 	return metaDataPerChain, nil
+}
+
+func getSolanaState(env cldf.Environment, selector uint64) (*state.MCMSWithTimelockStateSolana, error) {
+	solanaChains := env.BlockChains.SolanaChains()
+	addresses, err := env.ExistingAddresses.AddressesForChain(selector)
+	solanaState, err1 := state.MaybeLoadMCMSWithTimelockChainStateSolana(solanaChains[selector], addresses)
+	if err == nil {
+		return solanaState, nil
+	}
+
+	env.Logger.Info("failed to load MCMSState from address book")
+	solanaState, err2 := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector)))
+	if err2 != nil {
+		return nil, fmt.Errorf("failed to load solana state: %w", errors.Join(err1, err2))
+	}
+
+	return solanaState, nil
 }
 
 // AggregateProposals aggregates multiple MCMS proposals into a single proposal by combining their operations, and

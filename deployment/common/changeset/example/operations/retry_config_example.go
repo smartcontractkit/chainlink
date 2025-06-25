@@ -56,7 +56,7 @@ func (l UpdateInputExampleChangeset) Apply(e cldf.Environment, config operations
 	// Retry operation with updated input
 	// This operation will fail once and then succeed because the input was updated
 	_, err := operations.ExecuteOperation(e.OperationsBundle, SuccessFailOperation, nil, operationInput,
-		operations.WithRetryInput(func(input SuccessFailOperationInput, _ any) SuccessFailOperationInput {
+		operations.WithRetryInput(func(attempt uint, err error, input SuccessFailOperationInput, _ any) SuccessFailOperationInput {
 			// Update input to false, so it stops failing
 			input.ShouldFail = false
 			return input

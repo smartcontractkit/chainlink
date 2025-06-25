@@ -8,6 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 )
@@ -19,8 +23,8 @@ func TestAddMintersBurnersLink(t *testing.T) {
 	// Deploy Link Token and Timelock contracts and add addresses to environment
 	env := setupLinkTransferTestEnv(t)
 
-	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)

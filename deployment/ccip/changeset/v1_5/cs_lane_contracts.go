@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -61,11 +62,11 @@ func (c *DeployLaneConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 	if err := cldf.IsValidChainSelector(c.DestinationChainSelector); err != nil {
 		return err
 	}
-	sourceChain, exists := e.Chains[c.SourceChainSelector]
+	sourceChain, exists := e.BlockChains.EVMChains()[c.SourceChainSelector]
 	if !exists {
 		return fmt.Errorf("source chain %d not found in environment", c.SourceChainSelector)
 	}
-	destChain, exists := e.Chains[c.DestinationChainSelector]
+	destChain, exists := e.BlockChains.EVMChains()[c.DestinationChainSelector]
 	if !exists {
 		return fmt.Errorf("destination chain %d not found in environment", c.DestinationChainSelector)
 	}
@@ -134,8 +135,8 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	// update prices on the source price registry
 	sourceChainState := state.MustGetEVMChainState(cfg.SourceChainSelector)
 	destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
-	sourceChain := e.Chains[cfg.SourceChainSelector]
-	destChain := e.Chains[cfg.DestinationChainSelector]
+	sourceChain := e.BlockChains.EVMChains()[cfg.SourceChainSelector]
+	destChain := e.BlockChains.EVMChains()[cfg.DestinationChainSelector]
 	sourcePriceReg := sourceChainState.PriceRegistry
 	tx, err := sourcePriceReg.UpdatePrices(sourceChain.DeployerKey, price_registry_1_2_0.InternalPriceUpdates{
 		TokenPriceUpdates: cfg.InitialTokenPrices,
@@ -155,7 +156,7 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	onRamp, onRampExists := sourceChainState.EVM2EVMOnRamp[cfg.DestinationChainSelector]
 	if !onRampExists {
 		onRampC, err := cldf.DeployContract(e.Logger, sourceChain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				onRampAddress, tx2, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 					sourceChain.DeployerKey,
 					sourceChain.Client,
@@ -186,7 +187,7 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	commitStore, commitStoreExists := destChainState.CommitStore[cfg.SourceChainSelector]
 	if !commitStoreExists {
 		commitStoreC, err := cldf.DeployContract(e.Logger, destChain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
 				commitStoreAddress, tx2, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -217,7 +218,7 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
 		offRampC, err := cldf.DeployContract(e.Logger, destChain, ab,
-			func(chain cldf.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
 					destChain.Client,
@@ -288,7 +289,7 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	return nil
 }
 
-func arePrerequisitesMet(chainState evm.CCIPChainState, chain cldf.Chain) error {
+func arePrerequisitesMet(chainState evm.CCIPChainState, chain cldf_evm.Chain) error {
 	if chainState.Router == nil {
 		return fmt.Errorf("router not found for chain %s", chain.String())
 	}

@@ -27,7 +27,7 @@ var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
-	RemoteChains  []uint64
+	RemoteChains  []uint64 // the remote chain selectors to disable
 	MCMS          *proposalutils.TimelockConfig
 }
 
@@ -37,14 +37,14 @@ func (cfg DisableRemoteChainConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return err
 	}
-	if err := validateOffRampConfig(chain, chainState); err != nil {
+	if err := chainState.ValidateOffRampConfig(chain); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true, shared.OffRamp: true}); err != nil {
@@ -114,7 +114,7 @@ func doDisableRemoteChain(
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
-	chain := e.SolChains[chainSel]
+	chain := e.BlockChains.SolanaChains()[chainSel]
 	chainState := s.SolChains[chainSel]
 	feeQuoterID := s.SolChains[chainSel].FeeQuoter
 	offRampID := s.SolChains[chainSel].OffRamp
@@ -143,7 +143,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.FeeQuoter,
 			solana.PublicKey{},
 			"",
@@ -172,7 +171,6 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			chainState,
-			cfg.MCMS,
 			shared.OffRamp,
 			solana.PublicKey{},
 			"")
