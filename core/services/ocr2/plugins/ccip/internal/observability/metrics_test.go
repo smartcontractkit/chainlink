@@ -21,7 +21,6 @@ func TestProperLabelsArePassed(t *testing.T) {
 
 	details := metricDetails{
 		interactionDuration: histogram,
-		pluginName:          "plugin",
 		readerName:          "reader",
 		chainId:             123,
 	}
@@ -38,9 +37,6 @@ func TestProperLabelsArePassed(t *testing.T) {
 
 	assert.Equal(t, successCounter, counterFromHistogramByLabels(t, histogram, "123", "reader", "successFun"))
 	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "reader", "failedFun"))
-
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "reader", "failedFun"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "reader", "successFun"))
 }
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {

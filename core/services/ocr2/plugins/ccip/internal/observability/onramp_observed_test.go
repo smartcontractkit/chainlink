@@ -145,7 +145,6 @@ func buildReader(t *testing.T) (ObservedOnRampReader, *mocks.OnRampReader) {
 	metric := metricDetails{
 		interactionDuration: ph,
 		resultSetSize:       pg,
-		pluginName:          "test plugin",
 		readerName:          "test reader",
 		chainId:             1337,
 	}

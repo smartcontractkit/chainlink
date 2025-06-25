@@ -31,7 +31,6 @@ var (
 type metricDetails struct {
 	interactionDuration *prometheus.HistogramVec
 	resultSetSize       *prometheus.GaugeVec
-	pluginName          string
 	readerName          string
 	chainId             int64
 }
