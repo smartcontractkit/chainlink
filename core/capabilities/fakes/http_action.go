@@ -50,7 +50,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 	return fc
 }
 
-func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata capabilities.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
+func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
 	fh.eng.Infow("Http Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
