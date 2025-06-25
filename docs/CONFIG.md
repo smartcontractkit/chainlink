@@ -573,7 +573,7 @@ EditClaim = 'NodeEditors' # Default
 RunClaim = 'NodeRunners' # Default
 ReadClaim = 'NodeReadOnly' # Default
 SessionTimeout = '15m0s' # Default
-UserApiTokenEnabled = false # Default
+UserAPITokenEnabled = false # Default
 UserAPITokenDuration = '240h0m0s' # Default
 ```
 Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
@@ -632,11 +632,11 @@ SessionTimeout = '15m0s' # Default
 ```
 SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
 
-### UserApiTokenEnabled
+### UserAPITokenEnabled
 ```toml
-UserApiTokenEnabled = false # Default
+UserAPITokenEnabled = false # Default
 ```
-UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+UserAPITokenEnabled enables the users to issue API tokens with the same access of their role
 
 ### UserAPITokenDuration
 ```toml
@@ -660,7 +660,7 @@ AdminUserGroupCN = 'NodeAdmins' # Default
 EditUserGroupCN = 'NodeEditors' # Default
 RunUserGroupCN = 'NodeRunners' # Default
 ReadUserGroupCN = 'NodeReadOnly' # Default
-UserApiTokenEnabled = false # Default
+UserAPITokenEnabled = false # Default
 UserAPITokenDuration = '240h0m0s' # Default
 UpstreamSyncInterval = '0s' # Default
 UpstreamSyncRateLimit = '2m0s' # Default
@@ -746,11 +746,11 @@ ReadUserGroupCN = 'NodeReadOnly' # Default
 ```
 ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
 
-### UserApiTokenEnabled
+### UserAPITokenEnabled
 ```toml
-UserApiTokenEnabled = false # Default
+UserAPITokenEnabled = false # Default
 ```
-UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+UserAPITokenEnabled enables the users to issue API tokens with the same access of their role
 
 ### UserAPITokenDuration
 ```toml

@@ -370,7 +370,7 @@ func TestConfig_Marshal(t *testing.T) {
 			EditUserGroupCN:             ptr("NodeEditors"),
 			RunUserGroupCN:              ptr("NodeRunners"),
 			ReadUserGroupCN:             ptr("NodeReadOnly"),
-			UserApiTokenEnabled:         ptr(false),
+			UserAPITokenEnabled:         ptr(false),
 			UserAPITokenDuration:        commoncfg.MustNewDuration(240 * time.Hour),
 			UpstreamSyncInterval:        commoncfg.MustNewDuration(0 * time.Second),
 			UpstreamSyncRateLimit:       commoncfg.MustNewDuration(2 * time.Minute),
@@ -971,7 +971,7 @@ AdminUserGroupCN = 'NodeAdmins'
 EditUserGroupCN = 'NodeEditors'
 RunUserGroupCN = 'NodeRunners'
 ReadUserGroupCN = 'NodeReadOnly'
-UserApiTokenEnabled = false
+UserAPITokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
 UpstreamSyncInterval = '0s'
 UpstreamSyncRateLimit = '2m0s'

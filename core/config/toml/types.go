@@ -858,7 +858,7 @@ func (w *WebServer) ValidateConfig() (err error) {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.SessionTimeout", Msg: "OIDC SessionTimeout can not be empty"})
 		}
 		if w.OIDC.UserAPITokenEnabled == nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserApiTokenEnabled", Msg: "OIDC UserApiTokenEnabled can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserAPITokenEnabled", Msg: "OIDC UserAPITokenEnabled can not be empty"})
 		}
 		if w.OIDC.UserAPITokenDuration == commonconfig.MustNewDuration(0) {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserAPITokenDuration", Msg: "OIDC UserAPITokenDuration can not be empty"})
@@ -949,7 +949,7 @@ type WebServerLDAP struct {
 	EditUserGroupCN             *string
 	RunUserGroupCN              *string
 	ReadUserGroupCN             *string
-	UserApiTokenEnabled         *bool
+	UserAPITokenEnabled         *bool
 	UserAPITokenDuration        *commonconfig.Duration
 	UpstreamSyncInterval        *commonconfig.Duration
 	UpstreamSyncRateLimit       *commonconfig.Duration
@@ -998,8 +998,8 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.ReadUserGroupCN; v != nil {
 		w.ReadUserGroupCN = v
 	}
-	if v := f.UserApiTokenEnabled; v != nil {
-		w.UserApiTokenEnabled = v
+	if v := f.UserAPITokenEnabled; v != nil {
+		w.UserAPITokenEnabled = v
 	}
 	if v := f.UserAPITokenDuration; v != nil {
 		w.UserAPITokenDuration = v
