@@ -38,65 +38,14 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 If you want to run an example workflow you also need to:
 
 # QUICKSTART
-`go run . env setup --config single-don.toml`
+```
+go run main.go env setup --config single-don.toml
+go run main.go env start
+```
 
 The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
 If you are missing requirements, you may need to fix the errors and re-run.
 Use `#topic-local-dev-environments` for help
-
-
-
-Advanced Usage:
-1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/single-don.toml` (default)
-   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
-2. **Download or Build Capability Binaries**
-   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If your use case requires them, you can either:
-      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
-      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
-      Make sure they are built for `linux/amd64`!
-
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
-       # log even trigger and read-contract binaries go here
-       # they are all commented out by default
-       ```
-     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
-3.  **Decide whether to build or reuse Chainlink Docker Image**
-     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
-     ```toml
-     [nodesets.node_specs.node]
-     image = "<your-Docker-image>:<your-tag>"
-     ```
-      - Make these changes for **all** nodes in the nodeset in the TOML config.
-      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
-        You will need to make sure that all the capabilities you need are baked in the image you are using.
-
-4. **Decide whether to use Docker or k8s**
-    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
-5. **Start Observability Stack (Docker-only)**
-      ```bash
-      # to start Loki, Grafana and Prometheus run:
-      ctf obs up
-
-     # to start Blockscout block explorer run:
-      ctf bs u
-      ```
-    - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
-
-Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
-- `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
-
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
-
----
-
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
@@ -157,6 +106,60 @@ To manage workflows you will need the CRE CLI. You can either:
 Remember that the CRE CLI version needs to match your CPU architecture and operating system.
 
 ---
+
+
+### Advanced Usage:
+1. **Choose the Right Topology**
+   - For a single DON with all capabilities: `configs/single-don.toml` (default)
+   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
+2. **Download or Build Capability Binaries**
+   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
+   - If your use case requires them, you can either:
+      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
+      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
+      Make sure they are built for `linux/amd64`!
+
+     Once that is done reference them in your TOML like:
+       ```toml
+       [extra_capabilities]
+       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
+       # log even trigger and read-contract binaries go here
+       # they are all commented out by default
+       ```
+     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
+3.  **Decide whether to build or reuse Chainlink Docker Image**
+     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
+     ```toml
+     [nodesets.node_specs.node]
+     image = "<your-Docker-image>:<your-tag>"
+     ```
+      - Make these changes for **all** nodes in the nodeset in the TOML config.
+      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
+        You will need to make sure that all the capabilities you need are baked in the image you are using.
+
+4. **Decide whether to use Docker or k8s**
+    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
+5. **Start Observability Stack (Docker-only)**
+      ```bash
+      # to start Loki, Grafana and Prometheus run:
+      ctf obs up
+
+     # to start Blockscout block explorer run:
+      ctf bs u
+      ```
+    - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
+
+Optional environment variables used by the CLI:
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
+- `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
+
+When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+
+---
+
+
 
 ## DX Tracing
 
