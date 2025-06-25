@@ -13,16 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -83,7 +85,7 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func gatewayRequest(t *testing.T, privateKey string, topics string, methodName string) *api.Message {
+func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName string) *jsonrpc.Request {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = ghcapabilities.MethodWebAPITrigger
@@ -93,18 +95,19 @@ func gatewayRequest(t *testing.T, privateKey string, topics string, methodName s
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
 
-	payload := `{
-         "trigger_id": "` + TriggerType + `",
-          "trigger_event_id": "action_1234567890",
-          "timestamp": 1234567890,
-          "topics": ` + topics + `,
-					"params": {
-						"bid": "101",
-						"ask": "102"
-					}
-        }
-`
-	payloadJSON := []byte(payload)
+	payload := webapicap.TriggerRequestPayload{
+		TriggerId:      TriggerType,
+		TriggerEventId: "action_1234567890",
+		Timestamp:      1234567890,
+		Topics:         topics,
+		Params: webapicap.TriggerRequestPayloadParams{
+			"bid": "100",
+			"ask": "101",
+		},
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: messageID,
@@ -115,14 +118,24 @@ func gatewayRequest(t *testing.T, privateKey string, topics string, methodName s
 	}
 	err = msg.Sign(key)
 	require.NoError(t, err)
-	return msg
+	req, err := hc.ValidatedRequestFromMessage(msg)
+	require.NoError(t, err)
+	return req
 }
 
 func getResponseFromArg(arg interface{}) (ghcapabilities.TriggerResponsePayload, error) {
-	var response ghcapabilities.TriggerResponsePayload
-	msgBody := arg.(*api.MessageBody)
-	err := json.Unmarshal(msgBody.Payload, &response)
-	return response, err
+	resp := arg.(*jsonrpc.Response)
+	var msg api.Message
+	err := json.Unmarshal(resp.Result, &msg)
+	if err != nil {
+		return ghcapabilities.TriggerResponsePayload{}, err
+	}
+	var payload ghcapabilities.TriggerResponsePayload
+	err = json.Unmarshal(msg.Body.Payload, &payload)
+	if err != nil {
+		return ghcapabilities.TriggerResponsePayload{}, err
+	}
+	return payload, nil
 }
 
 func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
@@ -178,10 +191,12 @@ func TestTriggerExecute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
+		gatewayRequest := gatewayRequest(t, privateKey1, []string{"daily_price_update"}, "")
 
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
@@ -200,10 +215,12 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("happy case single different topic 2 workflows.", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["ad_hoc_price_update"]`, "")
+		gatewayRequest := gatewayRequest(t, privateKey1, []string{"ad_hoc_price_update"}, "")
 
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
@@ -227,10 +244,12 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case empty topic 2 workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `[]`, "")
+		gatewayRequest := gatewayRequest(t, privateKey1, nil, "")
 
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
@@ -241,9 +260,11 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case topic with no workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		gatewayRequest := gatewayRequest(t, privateKey1, []string{"foo"}, "")
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
@@ -253,9 +274,11 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case Not Allowed Sender", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "")
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		gatewayRequest := gatewayRequest(t, privateKey2, []string{"ad_hoc_price_update"}, "")
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
 		}).Return(nil).Once()
@@ -266,13 +289,30 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case Invalid Method", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "boo")
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		gatewayRequest := gatewayRequest(t, privateKey2, []string{"ad_hoc_price_update"}, "boo")
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unsupported method boo"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		requireNoChanMsg(t, channel)
+		requireNoChanMsg(t, channel2)
+	})
+
+	t.Run("invalid message validation", func(t *testing.T) {
+		// request with missing params
+		req := &jsonrpc.Request{
+			Version: "2.0",
+			ID:      "id",
+			Method:  ghcapabilities.MethodWebAPITrigger,
+		}
+		th.connector.AssertNotCalled(t, "SignMessage")
+		th.connector.AssertNotCalled(t, "SendToGateway")
+		err = th.trigger.HandleGatewayMessage(ctx, "gateway1", req)
+		require.NoError(t, err)
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
 	})
@@ -300,7 +340,7 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.Error(t, err)
 
-	gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
+	gatewayRequest(t, privateKey1, []string{"daily_price_update"}, "")
 }
 
 func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
@@ -334,10 +374,12 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
+		gatewayRequest := gatewayRequest(t, privateKey1, []string{"daily_price_update"}, "")
 
-		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			resp, _ := getResponseFromArg(args.Get(2))
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, err2 := getResponseFromArg(args.Get(2))
+			require.NoError(t, err2)
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
