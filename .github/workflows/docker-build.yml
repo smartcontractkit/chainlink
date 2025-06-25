@@ -237,7 +237,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@CAPPL-889-integrate-observability
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@CAPPL-889-integrate-observability #TODO: update SHA
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
