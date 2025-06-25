@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -85,6 +86,23 @@ func NewStandaloneEngine(
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create module from config: %w", err)
+	}
+
+	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(1000000000),
+		Config:          config,
+	}, &v2.DisallowedExecutionHelper{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	result.GetTriggerSubscriptions()
+	for _, sub := range result.GetTriggerSubscriptions().Subscriptions {
+		fmt.Println("Registered Trigger: ", sub.Id)
+		fmt.Println("Method: ", sub.Method)
 	}
 
 	name, err := types.NewWorkflowName(defaultName)
@@ -219,9 +237,10 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	// Consensus
 	consensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	consensusServer := consensusserver.NewConsensusServer(consensus)
-	if err != nil {
+	if err := registry.Add(ctx, consensusServer); err != nil {
 		return nil, err
 	}
+	caps = append(caps, consensusServer)
 
 	// HTTP Action
 	httpAction := fakes.NewDirectHTTPAction(lggr)
@@ -229,12 +248,7 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	if err := registry.Add(ctx, httpActionServer); err != nil {
 		return nil, err
 	}
-	caps = append(caps, httpAction)
-
-	if err := registry.Add(ctx, consensusServer); err != nil {
-		return nil, err
-	}
-	caps = append(caps, consensus)
+	caps = append(caps, httpActionServer)
 
 	return caps, nil
 }
