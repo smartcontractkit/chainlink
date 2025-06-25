@@ -401,7 +401,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [EVM.NodePool]
@@ -520,7 +520,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [EVM.NodePool]
@@ -633,7 +633,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [EVM.NodePool]
