@@ -480,12 +480,24 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 }
 
 func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) message_hasher.InternalAny2EVMRampMessage {
+	any2EVMMessage, err := tryCCIPMsgToAny2EVMMessage(msg, sourceSelector)
+	require.NoError(t, err)
+	return any2EVMMessage
+}
+
+// tryCCIPMsgToAny2EVMMessage is a version of ccipMsgToAny2EVMMessage that returns errors instead of calling t.Fatal.
+// This is useful for fuzz testing where we expect some inputs to be invalid.
+func tryCCIPMsgToAny2EVMMessage(msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) (message_hasher.InternalAny2EVMRampMessage, error) {
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		decodedMap, err := extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, sourceSelector)
-		require.NoError(t, err)
+		if err != nil {
+			return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not decode token amount dest exec data: %w", err)
+		}
 		gasAmount, err := extractDestGasAmountFromMap(decodedMap)
-		require.NoError(t, err)
+		if err != nil {
+			return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not extract dest gas amount: %w", err)
+		}
 
 		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: common.LeftPadBytes(rta.SourcePoolAddress, 32),
@@ -497,9 +509,13 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 	}
 
 	decodedMap, err := extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
-	require.NoError(t, err)
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not decode extra args: %w", err)
+	}
 	gasLimit, err := parseExtraArgsMap(decodedMap)
-	require.NoError(t, err)
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not parse extra args map: %w", err)
+	}
 
 	return message_hasher.InternalAny2EVMRampMessage{
 		Header: message_hasher.InternalRampMessageHeader{
@@ -514,7 +530,7 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 		Receiver:     common.BytesToAddress(msg.Receiver),
 		GasLimit:     gasLimit,
 		TokenAmounts: tokenAmounts,
-	}
+	}, nil
 }
 
 func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
@@ -522,4 +538,87 @@ func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
 	b, err := cciptypes.NewBytes32FromString(str)
 	require.NoError(t, err)
 	return b
+}
+
+func FuzzMessageHasher(f *testing.F) {
+	transactor := evmtestutils.MustNewSimTransactor(f)
+	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
+		transactor.From: {Balance: assets.Ether(1000).ToInt()},
+	}, 30e6)
+
+	msghasherAddr, _, _, err := message_hasher.DeployMessageHasher(transactor, backend)
+	require.NoError(f, err)
+	backend.Commit()
+
+	msghasher, err := message_hasher.NewMessageHasher(msghasherAddr, backend)
+	require.NoError(f, err)
+
+	// Seed with data from vec1 test case
+	f.Add(
+		common.Hex2Bytes("c6f553ab71282f01324bbdbcc82e22a7e66efbcd108881ecc4cdbd728aed9b1e"),
+		uint64(3379446385462418246),
+		uint64(12922642891491394802),
+		uint64(1),
+		uint64(1),
+		common.HexToAddress("0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f").Bytes(),
+		common.HexToAddress("f39fd6e51aad88f6f4ce6ab8827279cfffb92266").Bytes(),
+		common.Hex2Bytes("68656c6c6f"),
+		common.HexToAddress("677df0cb865368207999f2862ece576dc56d8df6").Bytes(),
+		common.Hex2Bytes("181dcf100000000000000000000000000000000000000000000000000000000000030d400000000000000000000000000000000000000000000000000000000000000000"),
+	)
+
+	f.Fuzz(func(t *testing.T,
+		messageID []byte,
+		sourceChainSelector uint64,
+		destChainSelector uint64,
+		sequenceNumber uint64,
+		nonce uint64,
+		onRamp []byte,
+		sender []byte,
+		data []byte,
+		receiver []byte,
+		extraArgs []byte,
+	) {
+		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+		if len(messageID) != 32 {
+			t.Skip("messageID must be 32 bytes")
+		}
+
+		msg := cciptypes.Message{
+			Header: cciptypes.RampMessageHeader{
+				MessageID:           ([32]byte)(messageID),
+				SourceChainSelector: cciptypes.ChainSelector(sourceChainSelector),
+				DestChainSelector:   cciptypes.ChainSelector(destChainSelector),
+				SequenceNumber:      cciptypes.SeqNum(sequenceNumber),
+				Nonce:               nonce,
+				OnRamp:              onRamp,
+			},
+			Sender:       sender,
+			Data:         data,
+			Receiver:     receiver,
+			ExtraArgs:    extraArgs,
+			TokenAmounts: []cciptypes.RampTokenAmount{}, // Fuzzing token amounts is more complex, keeping it simple for now.
+		}
+
+		// It's expected that many fuzzed inputs will be invalid for decoding.
+		any2EVMMessage, err := tryCCIPMsgToAny2EVMMessage(msg, msg.Header.SourceChainSelector)
+		if err != nil {
+			t.Skipf("skipping invalid message: %v", err)
+		}
+
+		// The contract call can also revert for invalid inputs that pass our initial decoding.
+		onchainHash, err := msghasher.Hash(&bind.CallOpts{
+			Context: t.Context(),
+		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
+		if err != nil {
+			t.Skipf("on-chain hashing failed: %v", err)
+		}
+
+		myHash, err := h.Hash(t.Context(), msg)
+		if err != nil {
+			t.Skipf("off-chain hashing failed: %v", err)
+		}
+
+		require.Equal(t, onchainHash, [32]byte(myHash), "my hash and onchain hash should match")
+	})
 }
