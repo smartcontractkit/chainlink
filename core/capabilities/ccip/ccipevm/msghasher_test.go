@@ -488,6 +488,11 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 // tryCCIPMsgToAny2EVMMessage is a version of ccipMsgToAny2EVMMessage that returns errors instead of calling t.Fatal.
 // This is useful for fuzz testing where we expect some inputs to be invalid.
 func tryCCIPMsgToAny2EVMMessage(msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) (message_hasher.InternalAny2EVMRampMessage, error) {
+	sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(sourceSelector))
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("get source chain family: %w", err)
+	}
+
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		decodedMap, err := extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, sourceSelector)
@@ -498,10 +503,26 @@ func tryCCIPMsgToAny2EVMMessage(msg cciptypes.Message, sourceSelector cciptypes.
 		if err != nil {
 			return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not extract dest gas amount: %w", err)
 		}
+		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
+		if err != nil {
+			return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("could not decode dest token address: %w", err)
+		}
+
+		var sourcePoolAddr []byte
+		if sourceChainFamily == chainsel.FamilyEVM {
+			// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+			// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+			sourcePoolAddr, err = abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
+			if err != nil {
+				return message_hasher.InternalAny2EVMRampMessage{}, fmt.Errorf("abi encode source pool address: %w", err)
+			}
+		} else {
+			sourcePoolAddr = rta.SourcePoolAddress
+		}
 
 		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
-			SourcePoolAddress: common.LeftPadBytes(rta.SourcePoolAddress, 32),
-			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
+			SourcePoolAddress: sourcePoolAddr,
+			DestTokenAddress:  destTokenAddress,
 			ExtraData:         rta.ExtraData[:],
 			Amount:            rta.Amount.Int,
 			DestGasAmount:     gasAmount,
@@ -565,6 +586,32 @@ func FuzzMessageHasher(f *testing.F) {
 		common.Hex2Bytes("68656c6c6f"),
 		common.HexToAddress("677df0cb865368207999f2862ece576dc56d8df6").Bytes(),
 		common.Hex2Bytes("181dcf100000000000000000000000000000000000000000000000000000000000030d400000000000000000000000000000000000000000000000000000000000000000"),
+		// No token amounts for vec1
+		[]byte{},
+		[]byte{},
+		[]byte{},
+		[]byte{},
+		[]byte{},
+	)
+
+	// Seed with data from vec2 test case, which includes a token amount.
+	f.Add(
+		hexutil.MustDecode("0xcdad95e113e35cf691295c1f42455d41062ba9a1b96a6280c1a5a678ef801721"),
+		uint64(16015286601757825753),
+		uint64(3478487238524512106),
+		uint64(386),
+		uint64(1),
+		hexutil.MustDecode("0x00000000000000000000000089559ce6904d4c4B0f6aaB9065Ad02B1ed531Be4"),
+		hexutil.MustDecode("0x269895AC2a2eC6e1Df37F68AcfbBDa53e62b71B1"),
+		[]byte{}, // empty data field
+		hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"),
+		hexutil.MustDecode("0x181dcf100000000000000000000000000000000000000000000000000000000000030d400000000000000000000000000000000000000000000000000000000000000000"),
+		// Token amount from vec2
+		[]byte(cciptypes.UnknownAddress(hexutil.MustDecode("0xBBE734cAB186C0988CFBAfdFdbe442979a0c8697"))),
+		[]byte(cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000b8d6a6a41d5dd732aec3c438e91523b7613b963b"))),
+		[]byte(cciptypes.Bytes(hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000012"))),
+		big.NewInt(100000000000000000).Bytes(),
+		[]byte(cciptypes.Bytes(hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000001e848"))),
 	)
 
 	f.Fuzz(func(t *testing.T,
@@ -578,6 +625,12 @@ func FuzzMessageHasher(f *testing.F) {
 		data []byte,
 		receiver []byte,
 		extraArgs []byte,
+		// Fuzzed token amount fields
+		tokenSourcePoolAddress []byte,
+		tokenDestTokenAddress []byte,
+		tokenExtraData []byte,
+		tokenAmountBytes []byte,
+		tokenDestExecData []byte,
 	) {
 		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 		if len(messageID) != 32 {
@@ -597,7 +650,21 @@ func FuzzMessageHasher(f *testing.F) {
 			Data:         data,
 			Receiver:     receiver,
 			ExtraArgs:    extraArgs,
-			TokenAmounts: []cciptypes.RampTokenAmount{}, // Fuzzing token amounts is more complex, keeping it simple for now.
+			TokenAmounts: []cciptypes.RampTokenAmount{},
+		}
+
+		// If any token data is present, try to add a token amount.
+		// This allows the fuzzer to explore both messages with and without tokens.
+		if len(tokenSourcePoolAddress) > 0 || len(tokenDestTokenAddress) > 0 || len(tokenExtraData) > 0 || len(tokenAmountBytes) > 0 || len(tokenDestExecData) > 0 {
+			msg.TokenAmounts = []cciptypes.RampTokenAmount{
+				{
+					SourcePoolAddress: tokenSourcePoolAddress,
+					DestTokenAddress:  tokenDestTokenAddress,
+					ExtraData:         tokenExtraData,
+					Amount:            cciptypes.NewBigInt(new(big.Int).SetBytes(tokenAmountBytes)),
+					DestExecData:      tokenDestExecData,
+				},
+			}
 		}
 
 		// It's expected that many fuzzed inputs will be invalid for decoding.
