@@ -1484,9 +1484,13 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 			if chainSelector == chainD {
 				continue
 			}
+			// This enforces variation in seqNum ranges
+			start := cciptypes.SeqNum(i*16) + tt.startSeqNum
+			stop := cciptypes.SeqNum(i*16) + tt.endSeqNum
+
 			filters[chainSelector] = append(
 				filters[chainSelector],
-				cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
+				cciptypes.NewSeqNumRange(start, stop),
 			)
 		}
 
@@ -1949,7 +1953,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	var dbs sqlutil.DataSource
 	{
