@@ -68,7 +68,7 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Set up cAdviser
+      - name: Set up cAdvisor
         shell: bash
         run: |
           sudo docker run \

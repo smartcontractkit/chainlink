@@ -403,9 +403,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Schedule: wasp.Combine(
 			wasp.Plain(4, 5*time.Minute),
 		),
-		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
-		Labels: labels,
-		// LokiConfig:            wasp.NewEnvLokiConfig(), // TODO: Set up loki after we have the observability stack working
+		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
+		Labels:                labels,
 		RateLimitUnitDuration: time.Minute,
 	})
 	require.NoError(t, err, "could not create generator")

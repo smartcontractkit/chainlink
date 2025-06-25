@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 )
 
 // MetricConfig represents configuration for a single metric
@@ -29,8 +31,12 @@ type report struct {
 	} `json:"query_executors"`
 }
 
-func bar(value, max, width float64, symbol string) string {
-	filled := value * width / max
+func bar(value, maxValue, width float64, symbol string) string {
+	// Check if max is zero or close to zero
+	if maxValue <= 0.000001 { // Use small epsilon for floating point comparison
+		return strings.Repeat(" ", int(width)) // Return empty bar if max is zero
+	}
+	filled := value * width / maxValue
 	return strings.Repeat(symbol, int(filled)) + strings.Repeat(" ", int(width-filled))
 }
 
@@ -52,6 +58,11 @@ func createBarChart(
 		maxValue *= 1.2 // Add 20% padding
 	}
 
+	// Ensure scaleFactor is never zero to prevent divide-by-zero
+	if scaleFactor <= 0 {
+		scaleFactor = 1.0 // Default to 1.0 if invalid
+	}
+
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("\n## %s\n\n", title))
 	b.WriteString("| Date       | Value |\n")
@@ -70,13 +81,13 @@ func createBarChart(
 }
 
 func readBenchmarkFiles(folder string) ([]report, error) {
-	var runs []report
 
 	// Read directory entries
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
 	}
+	runs := make([]report, 0, len(entries))
 
 	// Process each JSON file
 	for _, entry := range entries {
@@ -173,7 +184,7 @@ func GenerateMarkdownReport(folder string, outputPath string, metricConfigs map[
 	content := generateReportContent(runs, runMetrics, metricMaxValues, metricConfigs)
 
 	// Write to .md file
-	if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("error writing markdown file: %w", err)
 	}
 
@@ -183,7 +194,6 @@ func GenerateMarkdownReport(folder string, outputPath string, metricConfigs map[
 // extractMetrics processes benchmark runs to extract metrics
 func extractMetrics(runs []report) ([]map[string]float64, map[string]float64) {
 	runMetrics := make([]map[string]float64, len(runs))
-
 	// Extract metrics from each run
 	for i, run := range runs {
 		runMetrics[i] = make(map[string]float64)
@@ -191,9 +201,10 @@ func extractMetrics(runs []report) ([]map[string]float64, map[string]float64) {
 		for _, query := range run.QueryExecutors {
 			// For every metric in the query results
 			for metricName, metricValue := range query.QueryResults {
-				if query.Kind == "direct" {
+				switch benchspy.StandardQueryExecutorType(query.Kind) {
+				case benchspy.StandardQueryExecutor_Direct:
 					processDirectMetric(runMetrics[i], metricName, metricValue)
-				} else if query.Kind == "prometheus" {
+				case benchspy.StandardQueryExecutor_Prometheus:
 					processPrometheusMetric(runMetrics[i], metricName, metricValue)
 				}
 			}
@@ -357,7 +368,7 @@ func processMetricGroup(groupName string, groupMetrics []string, dates []time.Ti
 	}
 
 	return createMultiSeriesBarChart(
-		fmt.Sprintf("%s", groupName),
+		groupName,
 		dates,
 		existingMetrics,
 		metricValues,
@@ -400,7 +411,7 @@ func generateUngroupedCharts(dates []time.Time, runs []report, runMetrics []map[
 		}
 
 		content += createBarChart(
-			fmt.Sprintf("Metric: %s", metricName),
+			"Metric: "+metricName,
 			dates,
 			values,
 			metricMaxValues[metricName],
