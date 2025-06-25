@@ -79,7 +79,6 @@ func createBarChart(
 }
 
 func readBenchmarkFiles(folder string) ([]report, error) {
-
 	// Read directory entries
 	entries, err := os.ReadDir(folder)
 	if err != nil {
