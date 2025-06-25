@@ -135,7 +135,7 @@ func buildCallParams(mc MethodCall) []reflect.Value {
 
 // Build a mock reader and an observed wrapper to be used in the tests.
 func buildReader(t *testing.T) (ObservedOnRampReader, *mocks.OnRampReader) {
-	labels = []string{"evmChainID", "plugin", "reader", "function", "success"}
+	labels = []string{"evmChainID", "reader", "function"}
 	ph := promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "test_histogram",
 	}, labels)
