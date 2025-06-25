@@ -25,9 +25,10 @@ const (
 	ModeOffline Mode = "offline"
 	ModeOnline  Mode = "online"
 
-	EnvVarLogLevel        = "DX_LOG_LEVEL"
-	EnvVarTestMode        = "DX_TEST_MODE"
-	EnvVarDisableTracking = "DISABLE_DX_TRACKING"
+	EnvVarLogLevel         = "DX_LOG_LEVEL"
+	EnvVarTestMode         = "DX_TEST_MODE"
+	EnvVarForceOfflineMode = "DX_FORCE_OFFLINE_MODE"
+	EnvVarDisableTracking  = "DISABLE_DX_TRACKING"
 )
 
 // DxTracker manages event tracking with automatic retry and offline support.
@@ -55,15 +56,18 @@ func NewDxTracker() (*DxTracker, error) {
 		return nil, errors.Wrap(lvlErr, "failed to parse log level")
 	}
 	t.logger = log.With().Str("logger_name", "DxTracker").Logger().Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(lvl).With().Logger()
+	t.logger.Debug().Msg("Initializing DxTracker")
 
 	if os.Getenv(EnvVarDisableTracking) == "true" {
 		t.noOp = true
+		t.logger.Debug().Msg("Tracking disabled by environment variable")
 
 		return t, nil
 	}
 
 	if os.Getenv(EnvVarTestMode) == "true" {
 		t.testMode = true
+		t.logger.Debug().Msg("Tracking in test mode")
 	}
 
 	c, isConfigAvailable, configErr := openConfig()
@@ -73,7 +77,7 @@ func NewDxTracker() (*DxTracker, error) {
 
 	// if local config is available read it and set mode to online
 	if isConfigAvailable && isConfigValid(c) {
-		t.logger.Debug().Msg("Local config found, setting mode to online")
+		t.logger.Debug().Msg("Valid local config found")
 		t.mode = ModeOnline
 	} else {
 		// if local config is not available check if gh cli is available
@@ -105,6 +109,11 @@ func NewDxTracker() (*DxTracker, error) {
 			t.mode = ModeOffline
 			t.logger.Debug().Msg("GH CLI not available, setting mode to offline")
 		}
+	}
+
+	if os.Getenv(EnvVarForceOfflineMode) == "true" {
+		t.mode = ModeOffline
+		t.logger.Debug().Msg("Tracking forced to offline by environment variable")
 	}
 
 	if t.mode == ModeOnline {
@@ -214,8 +223,6 @@ func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]
 func (t *DxTracker) checkIfGhCLIAvailable() bool {
 	cmd := exec.Command("gh", "auth", "status")
 	_, err := cmd.Output()
-
-	t.logger.Info().Msgf("gh CLI available: %t", err == nil)
 
 	return err == nil
 }
