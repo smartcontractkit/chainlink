@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1067,7 +1069,20 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	contractReaders[chainS1] = extendedCrS1
 	contractReaders[chainD] = extendedCrD
 
+	// Create dummy contract writers
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
+	chainWriter, err := evm.NewChainWriterService(
+		logger.TestLogger(t),
+		clD,
+		nil,
+		nil,
+		evmrelaytypes.ChainWriterConfig{
+			MaxGasPrice: assets.GWei(1),
+		},
+	)
+	require.NoError(t, err)
+	contractWriters[chainS1] = chainWriter
+	contractWriters[chainD] = chainWriter
 
 	mokAddrCodec := newMockAddressCodec(t)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, logger.TestLogger(t), contractReaders, contractWriters, chainD, offRampDestAddr.Bytes(), mokAddrCodec)
