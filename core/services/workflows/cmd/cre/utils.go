@@ -67,6 +67,11 @@ var (
 	}
 )
 
+type ManualTriggers struct {
+	ManualCronTrigger *fakes.ManualCronTriggerService
+	ManualHttpTrigger *fakes.ManualHttpTriggerService
+}
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -191,26 +196,25 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
-func NewFakeManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]fakes.ManualTriggerCapability, error) {
-	caps := make([]fakes.ManualTriggerCapability, 0)
-
+func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
 	// Cron
-	manualCronTrigger := fakes.NewFakeCronTriggerService(lggr)
+	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
 	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
 	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
-		return nil, err
+		return ManualTriggers{}, err
 	}
-	caps = append(caps, manualCronTrigger)
 
 	// HTTP
-	manualHttpTrigger := fakes.NewFakeManualHttpTriggerService(lggr)
+	manualHttpTrigger := fakes.NewManualManualHttpTriggerService(lggr)
 	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
 	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
-		return nil, err
+		return ManualTriggers{}, err
 	}
-	caps = append(caps, manualHttpTrigger)
 
-	return caps, nil
+	return ManualTriggers{
+		ManualCronTrigger: manualCronTrigger,
+		ManualHttpTrigger: manualHttpTrigger,
+	}, nil
 }
 
 func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
@@ -224,7 +228,7 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 	}
 
 	// TODO: get private key from env var
-	privateKey, err := crypto.HexToECDSA("d458c5e1f75b8e0bb25aa69a2c7821da23b3205f9293a387a417ccab25e795e6")
+	privateKey, err := crypto.HexToECDSA("bc2c4e2ed2af93035d2e616de9d8dfb6fc35117cf2bf00bf7f7a7ab54981536d")
 	if err != nil {
 		return nil, err
 	}

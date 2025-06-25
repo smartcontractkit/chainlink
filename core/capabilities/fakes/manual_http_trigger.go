@@ -2,7 +2,6 @@ package fakes
 
 import (
 	"context"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
@@ -10,48 +9,46 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
-var _ services.Service = (*FakeManualHttpTriggerService)(nil)
-var _ ManualTriggerCapability = (*FakeManualHttpTriggerService)(nil)
-var _ httpserver.HTTPCapability = (*FakeManualHttpTriggerService)(nil)
+var _ services.Service = (*ManualHttpTriggerService)(nil)
+var _ httpserver.HTTPCapability = (*ManualHttpTriggerService)(nil)
 
 const HTTPTriggerServiceName = "HttpTriggerService"
 const HTTPTriggerID = "http-trigger@1.0.0"
 
-var fakeHttpTriggerInfo = capabilities.MustNewCapabilityInfo(
+var manualHttpTriggerInfo = capabilities.MustNewCapabilityInfo(
 	HTTPTriggerID,
 	capabilities.CapabilityTypeTrigger,
 	"A trigger that uses an HTTP request to run periodically at fixed times, dates, or intervals.",
 )
 
-type FakeManualHttpTriggerService struct {
+type ManualHttpTriggerService struct {
 	capabilities.CapabilityInfo
 	lggr       logger.Logger
 	callbackCh chan capabilities.TriggerAndId[*httptypedapi.Payload]
 }
 
-func NewFakeManualHttpTriggerService(parentLggr logger.Logger) *FakeManualHttpTriggerService {
+func NewManualManualHttpTriggerService(parentLggr logger.Logger) *ManualHttpTriggerService {
 	lggr := logger.Named(parentLggr, "HttpTriggerService")
 
-	return &FakeManualHttpTriggerService{
-		CapabilityInfo: fakeHttpTriggerInfo,
+	return &ManualHttpTriggerService{
+		CapabilityInfo: manualHttpTriggerInfo,
 		lggr:           lggr,
 		callbackCh:     make(chan capabilities.TriggerAndId[*httptypedapi.Payload]),
 	}
 }
 
 // HTTPCapability interface methods
-func (f *FakeManualHttpTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
+func (f *ManualHttpTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
 	return f.callbackCh, nil
 }
 
-func (f *FakeManualHttpTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) error {
+func (f *ManualHttpTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) error {
 	return nil
 }
 
-func (f *FakeManualHttpTriggerService) Initialise(ctx context.Context, config string,
+func (f *ManualHttpTriggerService) Initialise(ctx context.Context, config string,
 	_ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
@@ -64,75 +61,46 @@ func (f *FakeManualHttpTriggerService) Initialise(ctx context.Context, config st
 }
 
 // ManualTriggerCapability interface method
-func (f *FakeManualHttpTriggerService) ManualTrigger(ctx context.Context) error {
+func (f *ManualHttpTriggerService) ManualTrigger(ctx context.Context, payload *httptypedapi.Payload) error {
 	// Run in a goroutine to avoid blocking
 	go func() {
 		// Send the trigger response
-		f.callbackCh <- createFakeHttpTriggerResponse(time.Now())
+		f.callbackCh <- createManualHttpTriggerResponse(payload)
 	}()
 
 	return nil
 }
 
-func createFakeHttpTriggerResponse(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*httptypedapi.Payload] {
+func createManualHttpTriggerResponse(payload *httptypedapi.Payload) capabilities.TriggerAndId[*httptypedapi.Payload] {
 	return capabilities.TriggerAndId[*httptypedapi.Payload]{
-		Trigger: &httptypedapi.Payload{
-			Input: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"url": {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "https://por.chainlink.com/por",
-						},
-					},
-					"method": {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "GET",
-						},
-					},
-					"headers": {
-						Kind: &structpb.Value_StructValue{
-							StructValue: &structpb.Struct{
-								Fields: map[string]*structpb.Value{
-									"Content-Type": {
-										Kind: &structpb.Value_StringValue{
-											StringValue: "application/json",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Key: &httptypedapi.AuthorizedKey{},
-		},
-		Id: "fake-http-trigger-id",
+		Trigger: payload,
+		Id:      "manual-http-trigger-id",
 	}
 }
 
 // Service interface methods
-func (f *FakeManualHttpTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting FakeManualHttpTriggerService")
+func (f *ManualHttpTriggerService) Start(ctx context.Context) error {
+	f.lggr.Info("Starting ManualManualHttpTriggerService")
 	return nil
 }
 
-func (f *FakeManualHttpTriggerService) Close() error {
-	f.lggr.Info("Closing FakeManualHttpTriggerService")
+func (f *ManualHttpTriggerService) Close() error {
+	f.lggr.Info("Closing ManualManualHttpTriggerService")
 	return nil
 }
 
-func (f *FakeManualHttpTriggerService) Ready() error {
+func (f *ManualHttpTriggerService) Ready() error {
 	return nil
 }
 
-func (f *FakeManualHttpTriggerService) HealthReport() map[string]error {
+func (f *ManualHttpTriggerService) HealthReport() map[string]error {
 	return map[string]error{f.Name(): nil}
 }
 
-func (f *FakeManualHttpTriggerService) Name() string {
+func (f *ManualHttpTriggerService) Name() string {
 	return f.lggr.Name()
 }
 
-func (f *FakeManualHttpTriggerService) Description() string {
-	return "Fake HTTP Trigger Service"
+func (f *ManualHttpTriggerService) Description() string {
+	return "Manual HTTP Trigger Service"
 }

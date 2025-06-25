@@ -15,45 +15,44 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var _ services.Service = (*FakeCronTriggerService)(nil)
-var _ ManualTriggerCapability = (*FakeCronTriggerService)(nil)
-var _ cronserver.CronCapability = (*FakeCronTriggerService)(nil)
+var _ services.Service = (*ManualCronTriggerService)(nil)
+var _ cronserver.CronCapability = (*ManualCronTriggerService)(nil)
 
 const ServiceName = "CronTriggerService"
 const ID = "cron-trigger@1.0.0"
 const defaultFastestScheduleIntervalSeconds = 1
 
-var fakeCronTriggerInfo = capabilities.MustNewCapabilityInfo(
+var manualCronTriggerInfo = capabilities.MustNewCapabilityInfo(
 	ID,
 	capabilities.CapabilityTypeTrigger,
 	"A trigger that uses a cron schedule to run periodically at fixed times, dates, or intervals.",
 )
 
-type FakeCronConfig struct {
+type ManualCronConfig struct {
 	FastestScheduleIntervalSeconds int `json:"fastestScheduleIntervalSeconds"`
 }
 
-type FakeCronTriggerService struct {
+type ManualCronTriggerService struct {
 	capabilities.CapabilityInfo
-	config           FakeCronConfig
+	config           ManualCronConfig
 	lggr             logger.Logger
 	callbackCh       chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]
 }
 
-func NewFakeCronTriggerService(parentLggr logger.Logger) *FakeCronTriggerService {
-	lggr := logger.Named(parentLggr, "CronTriggerService") // FakeCronTriggerService
+func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerService {
+	lggr := logger.Named(parentLggr, "CronTriggerService") // ManualCronTriggerService
 
-	return &FakeCronTriggerService{
-		CapabilityInfo:   fakeCronTriggerInfo,
-		config:           FakeCronConfig{FastestScheduleIntervalSeconds: 1},
+	return &ManualCronTriggerService{
+		CapabilityInfo:   manualCronTriggerInfo,
+		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
 		callbackCh:       make(chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]),
 	}
 }
 
-func (f *FakeCronTriggerService) Initialise(ctx context.Context, config string, _ core.TelemetryService,
+func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string, _ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
@@ -62,7 +61,7 @@ func (f *FakeCronTriggerService) Initialise(ctx context.Context, config string, 
 	_ core.GatewayConnector) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 
-	var cronConfig FakeCronConfig
+	var cronConfig ManualCronConfig
 	if len(config) > 0 {
 		err := json.Unmarshal([]byte(config), &cronConfig)
 		if err != nil {
@@ -84,34 +83,34 @@ func (f *FakeCronTriggerService) Initialise(ctx context.Context, config string, 
 	return nil
 }
 
-func (f *FakeCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], error) {
+func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], error) {
 	return f.callbackCh, nil
 }
 
-func (s *FakeCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+func (s *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
 	return nil
 }
 
-func (f *FakeCronTriggerService) RegisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload], error) {
+func (f *ManualCronTriggerService) RegisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload], error) {
 	return f.legacyCallbackCh, nil
 }
 
-func (s *FakeCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+func (s *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
 	return nil
 }
 
-func (f *FakeCronTriggerService) ManualTrigger(ctx context.Context) error {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, scheduledExecutionTime time.Time) error {
 	// Run in a goroutine to avoid blocking
-	f.lggr.Debugf("ManualTrigger: %s", time.Now().Format(time.RFC3339Nano))
+	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
 	go func() {
 		// Send the trigger response
-		f.callbackCh <- createFakeTriggerResponse(time.Now())
+		f.callbackCh <- createManualTriggerResponse(scheduledExecutionTime)
 	}()
 
 	return nil
 }
 
-func createFakeTriggerResponse(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*crontypedapi.Payload] {
+func createManualTriggerResponse(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*crontypedapi.Payload] {
 	// Ensure UTC time is used for consistency across nodes.
 	scheduledExecutionTimeUTC := scheduledExecutionTime.UTC()
 
@@ -129,28 +128,28 @@ func createFakeTriggerResponse(scheduledExecutionTime time.Time) capabilities.Tr
 	}
 }
 
-func (f *FakeCronTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting FakeCronTriggerService")
+func (f *ManualCronTriggerService) Start(ctx context.Context) error {
+	f.lggr.Info("Starting ManualCronTriggerService")
 	return nil
 }
 
-func (f *FakeCronTriggerService) Close() error {
-	f.lggr.Info("Closing FakeCronTriggerService")
+func (f *ManualCronTriggerService) Close() error {
+	f.lggr.Info("Closing ManualCronTriggerService")
 	return nil
 }
 
-func (f *FakeCronTriggerService) Ready() error {
+func (f *ManualCronTriggerService) Ready() error {
 	return nil
 }
 
-func (f *FakeCronTriggerService) HealthReport() map[string]error {
+func (f *ManualCronTriggerService) HealthReport() map[string]error {
 	return map[string]error{f.Name(): nil}
 }
 
-func (f *FakeCronTriggerService) Name() string {
+func (f *ManualCronTriggerService) Name() string {
 	return f.lggr.Name()
 }
 
-func (f *FakeCronTriggerService) Description() string {
-	return "Fake Cron Trigger Service"
+func (f *ManualCronTriggerService) Description() string {
+	return "Manual Cron Trigger Service"
 }

@@ -79,8 +79,8 @@ func onTrigger(env *sdk.Environment[[]byte], runtime sdk.Runtime, outputs *cronc
 	// TODO: Fix
 	return doPor(env, runtime, outputs.ScheduledExecutionTime.AsTime(), "http://localhost:3000", "publicKey", []EvmConfig{
 		{
-			TokenAddress:  "0xd4019b382d30bC982083eB79009Be22Da1E0Ace3",
-			PorAddress:    "0x1026ABdA38aCf3A764F053b15E2456a2905Cd7d1",
+			TokenAddress:  "0x9b41EB05aC02c4fBD5eFFa657c627BfA1dC8f2e6",
+			PorAddress:    "0x2f4f914826fEf265345A9752fa6B113594E4DD8b",
 			ChainSelector: 1,
 			GasLimit:      1000000,
 		},

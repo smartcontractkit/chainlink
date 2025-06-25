@@ -81,7 +81,7 @@ func run(
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
-	triggerCaps, err := NewFakeManualTriggerCapabilities(ctx, lggr, registry)
+	triggerCaps, err := NewManualTriggerCapabilities(ctx, lggr, registry)
 	if err != nil {
 		fmt.Printf("Failed to create trigger capabilities: %v\n", err)
 		os.Exit(1)
@@ -113,11 +113,16 @@ func run(
 		}(bs)
 	}
 
-	for _, cap := range triggerCaps {
-		if err2 := cap.Start(ctx); err2 != nil {
-			fmt.Printf("Failed to start capability: %v\n", err2)
-			os.Exit(1)
-		}
+	// Start cron trigger
+	if err := triggerCaps.ManualCronTrigger.Start(ctx); err != nil {
+		fmt.Printf("Failed to start cron trigger: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Start http trigger
+	if err := triggerCaps.ManualHttpTrigger.Start(ctx); err != nil {
+		fmt.Printf("Failed to start http trigger: %v\n", err)
+		os.Exit(1)
 	}
 
 	for _, cap := range computeCaps {
@@ -154,10 +159,8 @@ func run(
 
 	<-initializedCh
 
-	// Manual trigger
-	for _, triggerCap := range triggerCaps {
-		triggerCap.ManualTrigger(ctx)
-	}
+	// Manual trigger cron
+	triggerCaps.ManualCronTrigger.ManualTrigger(ctx, time.Now())
 
 	select {
 	case <-executionFinishedCh:
@@ -168,10 +171,11 @@ func run(
 
 	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()
-	for _, cap := range triggerCaps {
-		lggr.Infow("Shutting down capability", "id", cap.Name())
-		_ = cap.Close()
-	}
+
+	lggr.Infow("Shutting down manual triggers", "cron", triggerCaps.ManualCronTrigger.Name(), "http", triggerCaps.ManualHttpTrigger.Name())
+	_ = triggerCaps.ManualCronTrigger.Close()
+	_ = triggerCaps.ManualHttpTrigger.Close()
+
 	for _, cap := range computeCaps {
 		lggr.Infow("Shutting down capability", "id", cap.Name())
 		_ = cap.Close()
