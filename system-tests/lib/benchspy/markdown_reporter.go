@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
 )
 
 // MetricConfig represents configuration for a single metric
@@ -201,10 +199,10 @@ func extractMetrics(runs []report) ([]map[string]float64, map[string]float64) {
 		for _, query := range run.QueryExecutors {
 			// For every metric in the query results
 			for metricName, metricValue := range query.QueryResults {
-				switch benchspy.StandardQueryExecutorType(query.Kind) {
-				case benchspy.StandardQueryExecutor_Direct:
+				switch query.Kind {
+				case "direct":
 					processDirectMetric(runMetrics[i], metricName, metricValue)
-				case benchspy.StandardQueryExecutor_Prometheus:
+				case "prometheus":
 					processPrometheusMetric(runMetrics[i], metricName, metricValue)
 				}
 			}
