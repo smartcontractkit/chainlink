@@ -20,9 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-// TODO: Write tests
-// TODO: Concurrent processing?
-
 var (
 	// InitChainUpgratesChangeset sets candidates for the commit and exec DONs for multiple destination chains.
 	// It then identifies all existing 1.5.0 source chains for each chain in the batch.
