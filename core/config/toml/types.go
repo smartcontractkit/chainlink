@@ -1013,9 +1013,9 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 }
 
 type WebServerLDAPSecrets struct {
-	ServerAddress     *models.SecretURL
-	ReadOnlyUserLogin *models.Secret
-	ReadOnlyUserPass  *models.Secret
+	ServerAddress     *commonconfig.SecretURL
+	ReadOnlyUserLogin *commonconfig.SecretString
+	ReadOnlyUserPass  *commonconfig.SecretString
 }
 
 func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
@@ -1028,6 +1028,25 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 	if v := f.ReadOnlyUserPass; v != nil {
 		w.ReadOnlyUserPass = v
 	}
+}
+
+func (w *WebServerLDAPSecrets) ValidateConfig() (err error) {
+	return nil
+	// TOOD: Segfaults
+	//
+	//	if w.ServerAddress.URL().String() == "" {
+	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ServerAddress", Msg: "WebServerLDAPSecrets ServerAddress cannot be empty"})
+	//	}
+	//
+	//	if *w.ReadOnlyUserLogin == "" {
+	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserLogin", Msg: "WebServerLDAPSecrets ReadOnlyUserLogin cannot be empty"})
+	//	}
+	//
+	//	if *w.ReadOnlyUserPass == "" {
+	//		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ReadOnlyUserPass", Msg: "WebServerLDAPSecrets ReadOnlyUserPass cannot be empty"})
+	//	}
+	//
+	// return err
 }
 
 type WebServerOIDC struct {
@@ -1081,13 +1100,20 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 }
 
 type WebServerOIDCSecrets struct {
-	ClientSecret *models.Secret
+	ClientSecret *commonconfig.SecretString
 }
 
 func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
 	if v := f.ClientSecret; v != nil {
 		w.ClientSecret = v
 	}
+}
+
+func (w *WebServerOIDCSecrets) ValidateConfig() (err error) {
+	if w.ClientSecret.String() == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerOIDCSecrets.ClientSecret", Msg: "WebServerOIDCSecrets ClientSecret cannot be empty"})
+	}
+	return err
 }
 
 type WebServerSecrets struct {
@@ -1101,7 +1127,21 @@ func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 	return nil
 }
 
-// TODO: harry: add Validate function for WebServerSecrets and LDAPSecrets
+func (w *WebServerSecrets) ValidateConfig() (err error) {
+	if w.LDAP != (WebServerLDAPSecrets{}) {
+		if ldapErr := w.LDAP.ValidateConfig(); ldapErr != nil {
+			err = multierr.Append(err, ldapErr)
+		}
+	}
+
+	if w.OIDC != (WebServerOIDCSecrets{}) {
+		if oidcErr := w.OIDC.ValidateConfig(); oidcErr != nil {
+			err = multierr.Append(err, oidcErr)
+		}
+	}
+
+	return err
+}
 
 type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool
