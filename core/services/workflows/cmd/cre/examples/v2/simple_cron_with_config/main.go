@@ -15,10 +15,9 @@ type runtimeConfig struct {
 	Schedule string `yaml:"schedule"`
 }
 
-func RunSimpleCronWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
-
+func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
 	cfg := &cron.Config{
-		Schedule: wcx.Config.Schedule,
+		Schedule: env.Config.Schedule,
 	}
 
 	return sdk.Workflow[*runtimeConfig]{
@@ -29,8 +28,8 @@ func RunSimpleCronWorkflow(wcx *sdk.WorkflowContext[*runtimeConfig]) (sdk.Workfl
 	}, nil
 }
 
-func onTrigger(wcx *sdk.WorkflowContext[*runtimeConfig], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
-	return fmt.Sprintf("ping (Schedule: %s)", wcx.Config.Schedule), nil
+func onTrigger(env *sdk.Environment[*runtimeConfig], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
+	return fmt.Sprintf("ping (Schedule: %s)", env.Config.Schedule), nil
 }
 
 func main() {
