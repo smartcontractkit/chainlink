@@ -563,6 +563,7 @@ func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
 
 func FuzzMessageHasher(f *testing.F) {
 	transactor := evmtestutils.MustNewSimTransactor(f)
+	//nolint:staticcheck // all gethwrappers still use legacy
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
 	}, 30e6)
