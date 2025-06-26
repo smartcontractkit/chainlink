@@ -3,6 +3,7 @@
 package main
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
@@ -22,8 +23,23 @@ func RunSimpleCronWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}]
 }
 
 func onTrigger(env *sdk.Environment[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
-	env.Logger.Info("inside onTrigger handler")
-	return "success!", nil
+	env.Logger.Info("onTrigger called")
+	ret, err := sdk.RunInNodeMode(env, runtime, func(env *sdk.NodeEnvironment[struct{}], nrt sdk.NodeRuntime) (string, error) {
+		httpClient := http.Client{}
+		resp, err := httpClient.SendRequest(nrt, &http.Request{
+			Method:  "GET",
+			Url:     "https://dummyjson.com/test",
+			Headers: map[string]string{"Content-Type": "application/json"},
+		}).Await()
+		return string(resp.Body), err
+	}, sdk.ConsensusIdenticalAggregation[string]()).Await()
+
+	if err != nil {
+		env.Logger.Error("Error in RunInNodeMode", "err", err)
+	} else {
+		env.Logger.Info("Successfully aggregated HTTP responses", "aggregatedResponse", ret)
+	}
+	return ret, err
 }
 
 func main() {
