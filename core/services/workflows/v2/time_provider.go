@@ -33,7 +33,7 @@ func (tp *TimeProvider) GetDONTime() time.Time {
 	donTime := <-tp.donTimeStore.RequestDonTime(tp.workflowExecutionID, tp.timeRequestNum)
 
 	if donTime.Err != nil {
-		// TODO: Handle error or timeout
+		// TODO: Handle error or timeout; do we still want to increment timeRequestNum?
 		return tp.GetNodeTime()
 	}
 	return fromUnixMilli(donTime.Timestamp)
