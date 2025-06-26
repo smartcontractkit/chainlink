@@ -165,8 +165,7 @@ func NewStandaloneEngine(
 		Hooks:         lifecycleHooks,
 
 		SecretsFetcher: secretsFetcher,
-
-		DebugMode: true,
+		DebugMode:      true,
 	}
 
 	return v2.NewEngine(cfg)
@@ -181,7 +180,6 @@ type fileBasedSecrets struct {
 	secrets yamlConfig
 }
 
-// NewFileBasedSecrets creates a new fileBasedSecrets instance and initializes it by reading the YAML file.
 func NewFileBasedSecrets(secrets []byte) (*fileBasedSecrets, error) {
 	fbs := new(fileBasedSecrets)
 	if err := yaml.Unmarshal(secrets, &fbs.secrets); err != nil {
@@ -194,22 +192,28 @@ func NewFileBasedSecrets(secrets []byte) (*fileBasedSecrets, error) {
 func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	var responses []*sdkpb.SecretResponse
 	for _, req := range request.Requests {
-		if values, ok := f.secrets.SecretsNames[req.Id]; ok {
-			if len(values) > 0 {
-				secret := &sdkpb.Secret{
-					Id:        req.Id,
-					Namespace: req.Namespace, // Use the namespace from the request
-					Value:     values[0],     // Take the first value as the secret
-				}
-				responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Secret{Secret: secret}})
-			} else {
-				responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret found but no value associated"}})
-			}
-		} else {
-			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret not found"}})
-		}
-	}
+		values, ok := f.secrets.SecretsNames[req.Id]
 
+		// Handle secret not found
+		if !ok {
+			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret not found"}})
+			continue
+		}
+
+		// Handle secret found but no value associated
+		if len(values) == 0 {
+			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret found but no value associated"}})
+			continue
+		}
+
+		// Secret found with value
+		secret := &sdkpb.Secret{
+			Id:        req.Id,
+			Namespace: req.Namespace, // Use the namespace from the request
+			Value:     values[0],     // Take the first value as the secret
+		}
+		responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Secret{Secret: secret}})
+	}
 	return responses, nil
 }
 
