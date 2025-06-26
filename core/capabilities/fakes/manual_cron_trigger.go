@@ -37,7 +37,7 @@ type ManualCronTriggerService struct {
 	config           ManualCronConfig
 	lggr             logger.Logger
 	callbackCh       chan capabilities.TriggerAndId[*crontypedapi.Payload]
-	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]
+	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 }
 
 func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerService {
@@ -48,7 +48,7 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
 		callbackCh:       make(chan capabilities.TriggerAndId[*crontypedapi.Payload]),
-		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]),
+		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	}
 }
 
@@ -91,7 +91,7 @@ func (f *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, trigge
 	return nil
 }
 
-func (f *ManualCronTriggerService) RegisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload], error) {
+func (f *ManualCronTriggerService) RegisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload], error) { //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	return f.legacyCallbackCh, nil
 }
 
