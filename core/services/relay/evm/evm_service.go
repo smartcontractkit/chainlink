@@ -176,19 +176,24 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 
 	maximumWaitTimeForConfirmation := config.EVM().ConfirmationTimeout()
 	start := time.Now()
+StatusCheckingLoop:
 	for {
 		txStatus, txStatusErr := r.chain.TxManager().GetTransactionStatus(ctx, txID)
 		if txStatusErr != nil {
 			return nil, txStatusErr
 		}
-		if txStatus == commontypes.Fatal {
+		switch txStatus {
+		case commontypes.Fatal, commontypes.Failed:
 			return &evmtypes.TransactionResult{
 				TxStatus: evm.TxFatal,
 				TxHash:   evmtypes.Hash{},
 			}, nil
-		}
-		if txStatus == commontypes.Unconfirmed || txStatus == commontypes.Finalized {
-			break
+
+		case commontypes.Unconfirmed, commontypes.Finalized:
+			break StatusCheckingLoop
+		case commontypes.Pending, commontypes.Unknown:
+		default:
+			return nil, fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
 		}
 		if time.Since(start) > maximumWaitTimeForConfirmation {
 			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)

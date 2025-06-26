@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
+const ExpectedTxHash = "0xabcd"
+
 type Mocks struct {
 	Chain     *evmmocks.Chain
 	TxManager *txmmocks.MockEvmTxManager
@@ -202,12 +204,12 @@ func TestEVMService(t *testing.T) {
 						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
 				})).Return(expectedTx, nil)
 				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
-				txHash := common.HexToHash("0xabcd")
+				txHash := common.HexToHash(ExpectedTxHash)
 				mockReceipt := NewChainReceipt(txHash, t)
 				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
 			},
 			ExpectedResult: &evm.TransactionResult{
-				TxHash:   common.HexToHash("0xabcd"),
+				TxHash:   common.HexToHash(ExpectedTxHash),
 				TxStatus: evm.TxSuccess,
 			},
 		},
@@ -235,16 +237,30 @@ func TestEVMService(t *testing.T) {
 		{
 			Name: "Success with pending status and then finalized status",
 			SetupMocks: func(m *Mocks, ctx any) {
-				expectedTx := txmgr.Tx{}
-				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
-				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Pending, nil).Once()
-				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Finalized, nil).Once()
-				txHash := common.HexToHash("0xabcd")
-				mockReceipt := NewChainReceipt(txHash, t)
-				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Pending, commontypes.Finalized)
 			},
 			ExpectedResult: &evm.TransactionResult{
-				TxHash:   common.HexToHash("0xabcd"),
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Success with unknown status and then finalized status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Unknown, commontypes.Finalized)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Success with unknown status and then unconfirmed status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Unknown, commontypes.Unconfirmed)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
 				TxStatus: evm.TxSuccess,
 			},
 		},
@@ -268,6 +284,17 @@ func TestEVMService(t *testing.T) {
 			runSubmitTransactionTest(t, tc)
 		})
 	}
+}
+
+func runSubmitTxGettingDifferentStatus(t *testing.T, m *Mocks, ctx any, expectedStatus ...commontypes.TransactionStatus) {
+	expectedTx := txmgr.Tx{}
+	m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+	for _, status := range expectedStatus {
+		m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(status, nil).Once()
+	}
+	txHash := common.HexToHash(ExpectedTxHash)
+	mockReceipt := NewChainReceipt(txHash, t)
+	m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
 }
 
 func TestConverters(t *testing.T) {
