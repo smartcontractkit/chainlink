@@ -121,7 +121,7 @@ func run(
 	}
 
 	// Start http trigger
-	if err := triggerCaps.ManualHttpTrigger.Start(ctx); err != nil {
+	if err := triggerCaps.ManualHTTPTrigger.Start(ctx); err != nil {
 		fmt.Printf("Failed to start http trigger: %v\n", err)
 		os.Exit(1)
 	}
@@ -137,7 +137,13 @@ func run(
 	initializedCh := make(chan struct{})
 	executionFinishedCh := make(chan struct{})
 
-	engine, err := utils.NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
+	standaloneEngineLoggerConfig := utils.StandaloneEngineLoggerConfig{
+		ModuleLogger:         lggr,
+		WorkflowLimitsLogger: lggr.Named("WorkflowLimits"),
+		EngineLogger:         lggr,
+	}
+
+	engine, _, err := utils.NewStandaloneEngine(ctx, standaloneEngineLoggerConfig, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			lggr.Info("Engine initialized")
 			close(initializedCh)
@@ -173,9 +179,9 @@ func run(
 	lggr.Info("Shutting down the Engine")
 	_ = engine.Close()
 
-	lggr.Infow("Shutting down manual triggers", "cron", triggerCaps.ManualCronTrigger.Name(), "http", triggerCaps.ManualHttpTrigger.Name())
+	lggr.Infow("Shutting down manual triggers", "cron", triggerCaps.ManualCronTrigger.Name(), "http", triggerCaps.ManualHTTPTrigger.Name())
 	_ = triggerCaps.ManualCronTrigger.Close()
-	_ = triggerCaps.ManualHttpTrigger.Close()
+	_ = triggerCaps.ManualHTTPTrigger.Close()
 
 	for _, cap := range computeCaps {
 		lggr.Infow("Shutting down capability", "id", cap.Name())

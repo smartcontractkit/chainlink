@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
@@ -243,7 +244,7 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 
 	// HTTP Action
 	httpAction := fakes.NewDirectHTTPAction(lggr)
-	httpActionServer := httpaction.NewClientServer(httpAction)
+	httpActionServer := httpserver.NewClientServer(httpAction)
 	if err := registry.Add(ctx, httpActionServer); err != nil {
 		return nil, err
 	}
