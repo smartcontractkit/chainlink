@@ -282,6 +282,9 @@ func GetAptosRoleFromAction(action mcmstypes.TimelockAction) (mcmsaptossdk.Timel
 		return mcmsaptossdk.TimelockRoleBypasser, nil
 	case mcmstypes.TimelockActionCancel:
 		return mcmsaptossdk.TimelockRoleCanceller, nil
+	case "":
+		// Default case for empty action to avoid breaking changes
+		return mcmsaptossdk.TimelockRoleProposer, nil
 	default:
 		return mcmsaptossdk.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
 	}
