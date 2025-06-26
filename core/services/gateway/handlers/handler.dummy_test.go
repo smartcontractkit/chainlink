@@ -2,8 +2,10 @@ package handlers_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -47,12 +49,14 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	// User request
 	msg := api.Message{Body: api.MessageBody{MessageId: "1234"}}
 	callbackCh := make(chan handlers.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleUserMessage(ctx, &msg, callbackCh))
+	require.NoError(t, handler.HandleUserMessage(ctx, jsonrpc2.Request{}, &msg, callbackCh))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
 	require.NoError(t, handler.HandleNodeMessage(ctx, &msg, "addr_1"))
 	require.NoError(t, handler.HandleNodeMessage(ctx, &msg, "addr_2"))
 	response := <-callbackCh
-	require.Equal(t, "1234", response.Msg.Body.MessageId)
+	var msg2 api.Message
+	require.NoError(t, json.Unmarshal(*response.RawMsg, &msg2))
+	require.Equal(t, "1234", msg2.Body.MessageId)
 }

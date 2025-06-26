@@ -2,6 +2,7 @@ package connector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -179,7 +180,12 @@ func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string
 }
 
 func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error {
-	data, err := c.codec.EncodeResponse(msg)
+	var rawMessage json.RawMessage
+	rawMessage, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("error marshaling message for gateway %s: %w", gatewayID, err)
+	}
+	data, err := c.codec.EncodeResponse(msg.Body.MessageId, &rawMessage)
 	if err != nil {
 		return fmt.Errorf("error encoding response for gateway %s: %w", gatewayID, err)
 	}
@@ -239,7 +245,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			c.closeWait.Done()
 			return
 		case item := <-gatewayState.conn.ReadChannel():
-			msg, err := c.codec.DecodeRequest(item.Data, "")
+			msg, err := c.codec.DecodeRawRequest(item.Data, "")
 			if err != nil {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break

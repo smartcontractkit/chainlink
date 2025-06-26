@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -129,25 +130,25 @@ func (s *service) Close() error {
 	})
 }
 
-func (s *service) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	s.lggr.Debugw("handling vault request", "method", msg.Body.Method, "id", msg.Body.MessageId)
+func (s *service) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, _ *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+	s.lggr.Debugw("handling vault request", "method", jsonRequest.Method, "id", jsonRequest.ID)
 
 	// Create timeout context
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(s.requestTimeoutSec)*time.Second)
 	defer cancel()
 
 	// Process request based on method
-	switch msg.Body.Method {
+	switch jsonRequest.Method {
 	case MethodSecretsCreate:
-		return s.handleSecretsCreate(timeoutCtx, msg, callbackCh)
+		return s.handleSecretsCreate(timeoutCtx, jsonRequest, callbackCh)
 	default:
-		s.lggr.Debugw("unsupported method", "method", msg.Body.Method)
+		s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 		promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 
 		response := gw_handlers.UserCallbackPayload{
-			Msg:     msg,
-			ErrCode: -32601,
-			ErrMsg:  fmt.Sprintf("Unsupported method: %s", msg.Body.Method),
+			RawMsg:  nil,
+			ErrCode: api.UnsupportedMethodError,
+			ErrMsg:  fmt.Sprintf("Unsupported method: %s", jsonRequest.Method),
 		}
 
 		select {
@@ -164,12 +165,12 @@ func (s *service) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeA
 	return nil
 }
 
-func (s *service) handleSecretsCreate(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc2.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var req SecretsCreateRequest
-	if err := json.Unmarshal(msg.Body.Payload, &req); err != nil {
+	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
 		response := gw_handlers.UserCallbackPayload{
-			Msg:     msg,
-			ErrCode: -32602,
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
 			ErrMsg:  fmt.Sprintf("Failed to parse request: %v", err),
 		}
 		return s.sendResponse(ctx, response, callbackCh)
@@ -178,8 +179,8 @@ func (s *service) handleSecretsCreate(ctx context.Context, msg *api.Message, cal
 	// Validate request
 	if req.ID == "" {
 		response := gw_handlers.UserCallbackPayload{
-			Msg:     msg,
-			ErrCode: -32602,
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
 			ErrMsg:  "Secret ID cannot be empty",
 		}
 		return s.sendResponse(ctx, response, callbackCh)
@@ -198,8 +199,8 @@ func (s *service) handleSecretsCreate(ctx context.Context, msg *api.Message, cal
 	// Check if secret already exists
 	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
 		response := gw_handlers.UserCallbackPayload{
-			Msg:     msg,
-			ErrCode: -32000,
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
 			ErrMsg:  "Secret with this ID already exists",
 		}
 		return s.sendResponse(ctx, response, callbackCh)
@@ -222,28 +223,24 @@ func (s *service) handleSecretsCreate(ctx context.Context, msg *api.Message, cal
 		ID: req.ID,
 	}
 
+	var resultBytes json.RawMessage
 	resultBytes, err := json.Marshal(responseData)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
 		response := gw_handlers.UserCallbackPayload{
-			Msg:     msg,
-			ErrCode: -32603,
+			RawMsg:  nil,
+			ErrCode: api.NodeReponseEncodingError,
 			ErrMsg:  fmt.Sprintf("Failed to marshal response: %v", err),
 		}
-
 		return s.sendResponse(ctx, response, callbackCh)
 	}
 
 	response := gw_handlers.UserCallbackPayload{
-		Msg: &api.Message{
-			Body: api.MessageBody{
-				MessageId: msg.Body.MessageId,
-				Method:    msg.Body.Method,
-				DonId:     msg.Body.DonId,
-				Payload:   resultBytes,
-			},
-		},
+		RawMsg:  &resultBytes,
+		ErrCode: api.NoError,
+		ErrMsg:  "",
 	}
+
 	promSecretsCreateSuccess.WithLabelValues(s.donConfig.DonId).Inc()
 	return s.sendResponse(ctx, response, callbackCh)
 }

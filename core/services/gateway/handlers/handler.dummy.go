@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -36,7 +38,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 	}, nil
 }
 
-func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {
+func (d *dummyHandler) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := d.don
@@ -58,7 +60,12 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, msg *api.Message, 
 
 	if found {
 		// Send first response from a node back to the user, ignore any other ones.
-		savedCb.callbackCh <- UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
+		var rawMsg json.RawMessage
+		rawMsg, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		savedCb.callbackCh <- UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}
 		close(savedCb.callbackCh)
 	}
 	return nil

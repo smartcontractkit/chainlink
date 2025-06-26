@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -38,6 +39,8 @@ const (
 	owner1                       = "0x00000000000000000000000000000000000000aa"
 	address1                     = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
 )
+
+var emptyRequest jsonrpc2.Request
 
 func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON, []gwcommon.TestNode) {
 	lggr := logger.TestLogger(t)
@@ -253,7 +256,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 			require.Equal(t, msg, args.Get(2))
 		}).Return(nil).Once()
 
-		err := handler.HandleUserMessage(ctx, msg, ch)
+		err := handler.HandleUserMessage(ctx, emptyRequest, msg, ch)
 		require.NoError(t, err)
 		requireNoChanMsg(t, ch)
 
@@ -261,7 +264,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, resp)
+		var rawMsg json.RawMessage
+		rawMsg, err = json.Marshal(msg)
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -269,10 +275,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid method", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -280,10 +286,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case stale message", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -291,10 +297,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case empty payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "{}")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -302,10 +308,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", `{"foo":"bar"}`)
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})

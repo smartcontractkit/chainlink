@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
@@ -123,7 +124,12 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 		// Send first response from a node back to the user, ignore any other ones.
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
-		savedCb.callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
+		var rawMessage json.RawMessage
+		rawMessage, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		savedCb.callbackCh <- handlers.UserCallbackPayload{RawMsg: &rawMessage, ErrCode: api.NoError, ErrMsg: ""}
 		close(savedCb.callbackCh)
 	}
 	return nil
@@ -226,7 +232,7 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
 	h.mu.Lock()
 	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := h.don
@@ -236,27 +242,27 @@ func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload " + err.Error()}
+		callbackCh <- handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload " + err.Error()}
 		close(callbackCh)
 		return nil
 	}
 
 	if payload.Timestamp == 0 {
 		h.lggr.Errorw("error decoding payload")
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}
+		callbackCh <- handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}
 		close(callbackCh)
 		return nil
 	}
 
 	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "stale message"}
+		callbackCh <- handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "stale message"}
 		close(callbackCh)
 		return nil
 	}
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "invalid method " + msg.Body.Method}
+		callbackCh <- handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "invalid method " + msg.Body.Method}
 		close(callbackCh)
 		return nil
 	}

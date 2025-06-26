@@ -47,12 +47,11 @@ type HandlerFactory interface {
 type gateway struct {
 	services.StateMachine
 
-	codec          api.Codec
-	httpServer     gw_net.HttpServer
-	handlers       map[string]handlers.Handler
-	connMgr        ConnectionManager
-	lggr           logger.Logger
-	jsonrpcHandler jsonrpc2.Handler
+	codec      api.Codec
+	httpServer gw_net.HttpServer
+	handlers   map[string]handlers.Handler
+	connMgr    ConnectionManager
+	lggr       logger.Logger
 }
 
 func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
@@ -67,10 +66,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
-		_, ok := handlerMap[donConfig.DonId]
-		if ok {
-			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
-		}
+
 		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
@@ -86,7 +82,16 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		if err != nil {
 			return nil, err
 		}
-		handlerMap[donConfig.DonId] = handler
+		handlerKey := donConfig.DonId
+		if handlerKey == "" {
+			// If no DON ID is specified, use the Handler Name as handlerKey
+			handlerKey = donConfig.HandlerName
+		}
+		_, ok := handlerMap[handlerKey]
+		if ok {
+			return nil, fmt.Errorf("duplicate DON ID %s", handlerKey)
+		}
+		handlerMap[handlerKey] = handler
 		donConnMgr.SetHandler(handler)
 	}
 
@@ -95,12 +100,11 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 
 func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
-		codec:          codec,
-		httpServer:     httpServer,
-		handlers:       handlers,
-		connMgr:        connMgr,
-		jsonrpcHandler: jsonrpc2.Handler{},
-		lggr:           lggr.Named("Gateway"),
+		codec:      codec,
+		httpServer: httpServer,
+		handlers:   handlers,
+		connMgr:    connMgr,
+		lggr:       lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
@@ -136,47 +140,50 @@ func (g *gateway) Close() error {
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth string) (rawResponse []byte, httpStatusCode int) {
 	// decode
-	msg, err := g.codec.DecodeRequest(rawRequest, auth)
+	jsonRequest, err := jsonrpc2.DecodeRequest(rawRequest, auth)
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
-	if msg == nil {
-		return newError(g.codec, "", api.UserMessageParseError, "nil message")
+	msg, err := g.codec.DecodeJsonRequest(jsonRequest)
+	if err != nil {
+		return newError(g.codec, jsonRequest.ID, api.UserMessageParseError, err.Error())
 	}
-	if err = msg.Validate(); err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
+	var handlerKey string
+	if msg == nil || msg.Body.DonId == "" {
+		// if no DON ID is specified, use the service name as handler key
+		handlerKey = jsonRequest.ServiceName()
+	} else {
+		// Means legacy request. Proceed to validate it and fetch DonId
+		if err = msg.Validate(); err != nil {
+			return newError(g.codec, jsonRequest.ID, api.UserMessageParseError, err.Error())
+		}
+		handlerKey = msg.Body.DonId
 	}
-	// find correct handler
-	handlerId := msg.Body.DonId
-	if handlerId == "" {
-		// if no DON ID is specified, use the first part of the method as handler ID.
-		handlerId = strings.Split(msg.Body.Method, ".")[0]
-	}
-	h, ok := g.handlers[handlerId]
+	h, ok := g.handlers[handlerKey]
 	if !ok {
-		return newError(g.codec, msg.Body.MessageId, api.UnsupportedDONIdError, "unsupported DON ID")
+		return newError(g.codec, jsonRequest.ID, api.UnsupportedDONIdError, fmt.Sprintf("Unsupported DON ID or Handler: %s", handlerKey))
 	}
 	// send to the handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
-	err = h.HandleUserMessage(ctx, msg, responseCh)
+	err = h.HandleUserMessage(ctx, jsonRequest, msg, responseCh)
 	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
+		return newError(g.codec, jsonRequest.ID, api.HandlerError, err.Error())
 	}
 	// await response
 	var response handlers.UserCallbackPayload
 	select {
 	case <-ctx.Done():
-		return newError(g.codec, msg.Body.MessageId, api.RequestTimeoutError, "handler timeout")
+		return newError(g.codec, jsonRequest.ID, api.RequestTimeoutError, "handler timeout")
 	case response = <-responseCh:
 		break
 	}
 	if response.ErrCode != api.NoError {
-		return newError(g.codec, msg.Body.MessageId, response.ErrCode, response.ErrMsg)
+		return newError(g.codec, jsonRequest.ID, response.ErrCode, response.ErrMsg)
 	}
 	// encode
-	rawResponse, err = g.codec.EncodeResponse(response.Msg)
+	rawResponse, err = g.codec.EncodeResponse(jsonRequest.ID, response.RawMsg)
 	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
+		return newError(g.codec, jsonRequest.ID, api.NodeReponseEncodingError, "")
 	}
 	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
@@ -186,19 +193,6 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 	rawResponse, err := codec.EncodeNewErrorResponse(id, api.ToJsonRPCErrorCode(errCode), errMsg, nil)
 	if err != nil {
 		// we're not even able to encode a valid JSON response
-		promRequest.WithLabelValues(api.FatalError.String()).Inc()
-		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
-	}
-	promRequest.WithLabelValues(errCode.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(errCode)
-}
-
-func errorResponse(request *jsonrpc2.Request, errCode api.ErrorCode, errMsg string) (rawResponse []byte, httpStatusCode int) {
-	rawResponse, err := request.EncodeErrorReponse(&jsonrpc2.WireError{
-		Code:    int64(api.ToJsonRPCErrorCode(errCode)),
-		Message: errMsg,
-	})
-	if err != nil {
 		promRequest.WithLabelValues(api.FatalError.String()).Inc()
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}
