@@ -16,7 +16,7 @@ type fakeWriteChain struct {
 }
 
 var _ services.Service = (*fakeWriteChain)(nil)
-var _ commonCap.TargetCapability = (*fakeWriteChain)(nil)
+var _ commonCap.ExecutableCapability = (*fakeWriteChain)(nil)
 
 func (wc *fakeWriteChain) Info(ctx context.Context) (commonCap.CapabilityInfo, error) {
 	return commonCap.CapabilityInfo{

@@ -14,15 +14,16 @@ func RunSimpleCronWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}]
 	}
 
 	return sdk.Workflow[struct{}]{
-		sdk.On(
+		sdk.Handler(
 			cron.Trigger(cfg),
 			onTrigger,
 		),
 	}, nil
 }
 
-func onTrigger(_ *sdk.Environment[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
-	return "ping", nil
+func onTrigger(env *sdk.Environment[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
+	env.Logger.Info("inside onTrigger handler")
+	return "success!", nil
 }
 
 func main() {

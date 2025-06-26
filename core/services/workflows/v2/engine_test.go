@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
@@ -223,7 +222,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
-func newTriggerSubs(n int) *wasmpb.ExecutionResult {
+func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
 		subs = append(subs, &sdkpb.TriggerSubscription{
@@ -231,8 +230,8 @@ func newTriggerSubs(n int) *wasmpb.ExecutionResult {
 			Method: "method",
 		})
 	}
-	return &wasmpb.ExecutionResult{
-		Result: &wasmpb.ExecutionResult_TriggerSubscriptions{
+	return &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
 			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
 				Subscriptions: subs,
 			},
@@ -293,13 +292,13 @@ func TestEngine_Execution(t *testing.T) {
 
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
-				func(_ context.Context, request *wasmpb.ExecuteRequest, executor host.ExecutionHelper) {
+				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 					wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
 					capExec, ok := executor.(*v2.ExecutionHelper)
 					require.True(t, ok)
 					require.Equal(t, wantExecID, capExec.WorkflowExecutionID)
-					require.Equal(t, uint64(0), request.Request.(*wasmpb.ExecuteRequest_Trigger).Trigger.Id)
+					require.Equal(t, uint64(0), request.Request.(*sdkpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).
 			Return(nil, nil).
@@ -374,7 +373,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Mock a long-running execution that will exceed the timeout
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *wasmpb.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate work that takes longer than the 100ms timeout
 			select {
 			case <-time.After(200 * time.Millisecond):
@@ -485,7 +484,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Mock workflow execution that calls the slow capability
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *wasmpb.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate calling the slow capability from within the workflow
 			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
 				Id:         "slow-capability",
@@ -542,7 +541,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -554,7 +553,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *wasmpb.ExecutionResult) {
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -590,7 +589,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *wasmpb.ExecutionResult_Value:
+		case *sdkpb.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any
@@ -641,7 +640,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *wasmpb.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -653,7 +652,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *wasmpb.ExecutionResult) {
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -687,7 +686,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *wasmpb.ExecutionResult_Value:
+		case *sdkpb.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any

@@ -11,6 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -163,6 +165,8 @@ func NewStandaloneEngine(
 		Hooks:         lifecycleHooks,
 
 		SecretsFetcher: secretsFetcher,
+
+		DebugMode: true,
 	}
 
 	return v2.NewEngine(cfg)
@@ -214,6 +218,20 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
+// NewCapabilities builds capabilities using latest standard capabilities where possible, otherwise filled in with faked capabilities.
+// Capabilities are then registered with the capability registry.
+func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+	caps, err := NewFakeCapabilities(ctx, lggr, registry)
+	if err != nil {
+		return nil, err
+	}
+
+	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
+
+	return caps, nil
+}
+
+// NewFakeCapabilities builds faked capabilities, then registers them with the capability registry.
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -223,7 +241,11 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, streamsTrigger)
 
-	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
+	httpAction := fakes.NewDirectHTTPAction(lggr)
+	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, httpAction)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
@@ -233,6 +255,12 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 	caps = append(caps, fakeConsensus)
+
+	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(lggr)
+	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, fakeConsensusNoDAG)
 
 	writers := []string{"write_aptos-testnet@1.0.0"}
 	for _, writer := range writers {

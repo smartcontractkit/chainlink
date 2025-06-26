@@ -79,7 +79,7 @@ CacheTimeout = '10s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
-FinalityTagBypass = true
+FinalityTagBypass = false
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
 
@@ -553,7 +553,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [EVM.NodePool]
