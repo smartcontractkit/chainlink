@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
 // LaneConfig represents a unidirectional lane from source to destination
@@ -480,13 +482,42 @@ func (lc *LaneConfiguration) LogLaneConfigInfo(lggr logger.Logger) {
 		return
 	}
 
+	type laneWithIDs struct {
+		LaneSelectors      LaneConfig
+		SourceChainID      string
+		DestinationChainID string
+	}
+
+	laneMap := make(map[LaneConfig]laneWithIDs)
+
+	// Convert chain selectors to IDs for better readability in logs
+	for _, lane := range lc.generatedLanes {
+		srcChainID, err := chainselectors.GetChainIDFromSelector(lane.SourceChain)
+		if err != nil {
+			lggr.Errorw("Failed to get source chain ID", "chain", lane.SourceChain, "err", err)
+			continue
+		}
+
+		dstChainID, err := chainselectors.GetChainIDFromSelector(lane.DestinationChain)
+		if err != nil {
+			lggr.Errorw("Failed to get destination chain ID", "chain", lane.DestinationChain, "err", err)
+			continue
+		}
+
+		laneMap[lane] = laneWithIDs{
+			LaneSelectors:      lane,
+			SourceChainID:      srcChainID,
+			DestinationChainID: dstChainID,
+		}
+	}
+
 	stats := lc.GetLaneStats()
 	lggr.Infow("Lane Configuration Stats",
 		"TotalLanes", stats.TotalLanes,
 		"UniqueChains", stats.UniqueChains,
 		"SourceChains", stats.SourceChains,
 		"DestinationChains", stats.DestinationChains,
-		"GeneratedLanes", lc.generatedLanes,
+		"GeneratedLanes", laneMap,
 	)
 }
 
