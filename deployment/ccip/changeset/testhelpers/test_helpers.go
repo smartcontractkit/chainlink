@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math/big"
@@ -33,7 +34,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
@@ -66,7 +66,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -315,7 +314,7 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 	case chainsel.FamilyEVM:
 		latesthdr, err := env.BlockChains.EVMChains()[chainSelector].Client.HeaderByNumber(ctx, nil)
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed to get latest header for chain %d", chainSelector)
+			return 0, fmt.Errorf("failed to get latest header for chain %d: %w", chainSelector, err)
 		}
 		block := latesthdr.Number.Uint64()
 		return block, nil
@@ -324,7 +323,7 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 	case chainsel.FamilyAptos:
 		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed to get chain info for chain %d", chainSelector)
+			return 0, fmt.Errorf("failed to get chain info for chain %d: %w", chainSelector, err)
 		}
 		return chainInfo.LedgerVersion(), nil
 	default:
@@ -342,7 +341,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	for _, selector := range chains {
 		block, err := LatestBlock(ctx, env, selector)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get latest block for chain %d", selector)
+			return nil, fmt.Errorf("failed to get latest block for chain %d: %w", selector, err)
 		}
 		latestBlocks[selector] = block
 	}
@@ -405,7 +404,7 @@ func CCIPSendRequest(
 	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
 	blockNum, err := cldf.ConfirmIfNoErrorWithABI(e.BlockChains.EVMChains()[cfg.SourceChain], tx, router.RouterABI, err)
 	if err != nil {
-		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
+		return tx, 0, fmt.Errorf("failed to confirm CCIP message: %w", err)
 	}
 	return tx, blockNum, nil
 }
@@ -1620,7 +1619,7 @@ func DeployFeeds(
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
 		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: errors.Join(err1, err2),
 		}
 	}
 
@@ -1633,7 +1632,7 @@ func DeployFeeds(
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
 
 		return cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: errors.Join(err1, err2),
 		}
 	}
 
