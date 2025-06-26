@@ -1029,7 +1029,8 @@ func deployLBTC(
 				tokenPoolContract *mock_lbtc_token_pool.MockE2ELBTCTokenPool
 				err2              error
 			)
-			// valid 32 bytes should call attestation api
+			// valid 32 bytes staging Lombard message hash
+			// same as LBTCValidDestPoolData (integration-tests/ccip-tests/actions/ccip_helpers.go:101)
 			destPoolData := hexutil.MustDecode("0xdee9d5a70c34ab6ad3d3be55cc81b8f3dbd7aaf4070d7f1046b239e4995df489")
 			if chain.IsZkSyncVM {
 				tokenPoolAddress, _, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPoolZk(
