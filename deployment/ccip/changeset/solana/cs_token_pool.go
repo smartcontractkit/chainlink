@@ -422,10 +422,13 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	tokenPubKey := cfg.TokenPubKey
 	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
 
-	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+	switch *cfg.PoolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+	case solTestTokenPool.LockAndRelease_PoolType:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	default:
+		panic("unhandled default case")
 	}
 
 	var configPDA solana.PublicKey
@@ -497,10 +500,13 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	tokenPubKey := cfg.TokenPubKey
 	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
 
-	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+	switch *cfg.PoolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+	case solTestTokenPool.LockAndRelease_PoolType:
 		return cldf.ChangesetOutput{}, nil
+	default:
+		panic("unhandled default case")
 	}
 
 	newMintAuthority := cfg.NewMintAuthority
@@ -672,10 +678,13 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 	tokenPubKey := cfg.TokenPubKey
 	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
 
-	if *cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+	switch *cfg.PoolType {
+	case solTestTokenPool.BurnAndMint_PoolType:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-	} else if *cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
+	case solTestTokenPool.LockAndRelease_PoolType:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	default:
+		panic("unhandled default case")
 	}
 
 	poolConfig, err := tokens.TokenPoolConfigAddress(tokenPubKey, tokenPool)
