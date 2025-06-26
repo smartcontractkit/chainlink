@@ -7,25 +7,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	eth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	"golang.org/x/sync/errgroup"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
-
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"golang.org/x/sync/errgroup"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
