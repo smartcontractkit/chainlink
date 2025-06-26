@@ -25,12 +25,9 @@ func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*
 		Id: "DATA_SOURCE_API_KEY",
 	}
 
-	promise := env.GetSecret(req)
-	env.Logger.Info("got the promise")
-
-	secret, err := promise.Await()
+	secret, err := env.GetSecret(req).Await()
 	if err != nil {
-		env.Logger.Error(fmt.Sprintf("failed to await secret: %v", err))
+		env.Logger.Error(fmt.Sprintf("failed to get secret: %v", err))
 		return nil, err
 	}
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -66,7 +65,7 @@ func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
 	registry *capabilities.Registry,
-	binary []byte, config []byte,
+	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, error) {
@@ -138,7 +137,7 @@ func NewStandaloneEngine(
 		return workflows.NewEngine(ctx, cfg)
 	}
 
-	secretsFetcher, err := NewFileBasedSecrets(lggr, "./examples/v2/simple_cron_with_secrets/secrets.yaml")
+	secretsFetcher, err := NewFileBasedSecrets(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -175,35 +174,20 @@ type yamlConfig struct {
 }
 
 type fileBasedSecrets struct {
-	lggr  logger.Logger
-	fname string
-	// Store the unmarshaled secrets for efficient lookup.
 	secrets yamlConfig
 }
 
 // NewFileBasedSecrets creates a new fileBasedSecrets instance and initializes it by reading the YAML file.
-func NewFileBasedSecrets(lggr logger.Logger, filename string) (*fileBasedSecrets, error) {
-	fbs := &fileBasedSecrets{
-		fname: filename,
-		lggr:  lggr,
-	}
-
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
+func NewFileBasedSecrets(secrets []byte) (*fileBasedSecrets, error) {
+	fbs := new(fileBasedSecrets)
+	if err := yaml.Unmarshal(secrets, &fbs.secrets); err != nil {
 		return nil, err
 	}
-
-	if err := yaml.Unmarshal(data, &fbs.secrets); err != nil {
-		return nil, err
-	}
-
-	fbs.lggr.Debugw("created fbs", "secrets", fbs.secrets)
 
 	return fbs, nil
 }
 
 func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
-	f.lggr.Debug("called GetSecrets")
 	var responses []*sdkpb.SecretResponse
 	for _, req := range request.Requests {
 		if values, ok := f.secrets.SecretsNames[req.Id]; ok {

@@ -19,6 +19,7 @@ func main() {
 	var (
 		wasmPath          string
 		configPath        string
+		secretsPath       string
 		debugMode         bool
 		billingClientAddr string
 		enableBeholder    bool
@@ -26,6 +27,7 @@ func main() {
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
+	flag.StringVar(&secretsPath, "secrets", "", "Path to the secrets file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
 	flag.StringVar(&billingClientAddr, "billing-client-address", "", "Billing client address; Leave empty to run a local client that prints to the standard log.")
 	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
@@ -51,6 +53,15 @@ func main() {
 		}
 	}
 
+	var secrets []byte
+	if secretsPath != "" {
+		secrets, err = os.ReadFile(secretsPath)
+		if err != nil {
+			fmt.Printf("Failed to read secrets file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -63,14 +74,14 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
-	run(ctx, lggr, binary, config, billingClientAddr, enableBeholder)
+	run(ctx, lggr, binary, config, secrets, billingClientAddr, enableBeholder)
 }
 
 // run instantiates the engine, starts it and blocks until the context is canceled.
 func run(
 	ctx context.Context,
 	lggr logger.Logger,
-	binary, config []byte,
+	binary, config, secrets []byte,
 	billingClientAddr string,
 	enableBeholder bool,
 ) {
@@ -120,7 +131,7 @@ func run(
 		}
 	}
 
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{})
+	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, secrets, billingClientAddr, v2.LifecycleHooks{})
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

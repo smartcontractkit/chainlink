@@ -114,6 +114,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		lggr:                    beholderLogger,
 		loggerLabels:            labelsMap,
 		localNode:               localNode,
+		secretsFetcher:          cfg.SecretsFetcher,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
