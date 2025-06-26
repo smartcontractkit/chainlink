@@ -387,7 +387,7 @@ SamplingInterval = '1s' # Default
 # FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
 # It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
 # Has no effect if `FinalityTagsEnabled` = false
-FinalityTagBypass = true # Default
+FinalityTagBypass = false # Default
 # MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false
