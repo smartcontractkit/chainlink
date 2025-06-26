@@ -168,7 +168,8 @@ func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint6
 func BuildProposalFromBatchesV2(
 	e cldf.Environment,
 	timelockAddressPerChain map[uint64]string,
-	mcmsAddressPerChain map[uint64]string, inspectorPerChain map[uint64]mcmssdk.Inspector,
+	mcmsAddressPerChain map[uint64]string,
+	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	batches []types.BatchOperation,
 	description string,
 	mcmsCfg TimelockConfig,

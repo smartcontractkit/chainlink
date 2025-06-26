@@ -17,19 +17,22 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const MCMSProposalVersion = "v1"
 
 func GenerateProposal(
-	client aptos.AptosRpcClient,
+	env cldf.Environment,
 	mcmsAddress aptos.AccountAddress,
 	chainSel uint64,
 	operations []mcmstypes.BatchOperation,
 	description string,
 	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
+	client := env.BlockChains.AptosChains()[chainSel].Client
+
 	// Get role from action
 	role, err := roleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
