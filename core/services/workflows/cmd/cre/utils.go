@@ -12,9 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
-	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
-	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -274,6 +272,27 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	caps = append(caps, fakeConsensus)
 
 	return caps, nil
+}
+
+func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
+	// Cron
+	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
+	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
+	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	// HTTP
+	manualHttpTrigger := fakes.NewManualManualHttpTriggerService(lggr)
+	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
+	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	return ManualTriggers{
+		ManualCronTrigger: manualCronTrigger,
+		ManualHttpTrigger: manualHttpTrigger,
+	}, nil
 }
 
 // standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service

@@ -11,44 +11,44 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-var _ services.Service = (*ManualHttpTriggerService)(nil)
-var _ httpserver.HTTPCapability = (*ManualHttpTriggerService)(nil)
+var _ services.Service = (*ManualHTTPTriggerService)(nil)
+var _ httpserver.HTTPCapability = (*ManualHTTPTriggerService)(nil)
 
 const HTTPTriggerServiceName = "HttpTriggerService"
 const HTTPTriggerID = "http-trigger@1.0.0"
 
-var manualHttpTriggerInfo = capabilities.MustNewCapabilityInfo(
+var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 	HTTPTriggerID,
 	capabilities.CapabilityTypeTrigger,
 	"A trigger that uses an HTTP request to run periodically at fixed times, dates, or intervals.",
 )
 
-type ManualHttpTriggerService struct {
+type ManualHTTPTriggerService struct {
 	capabilities.CapabilityInfo
 	lggr       logger.Logger
 	callbackCh chan capabilities.TriggerAndId[*httptypedapi.Payload]
 }
 
-func NewManualManualHttpTriggerService(parentLggr logger.Logger) *ManualHttpTriggerService {
+func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerService {
 	lggr := logger.Named(parentLggr, "HttpTriggerService")
 
-	return &ManualHttpTriggerService{
-		CapabilityInfo: manualHttpTriggerInfo,
+	return &ManualHTTPTriggerService{
+		CapabilityInfo: manualHTTPTriggerInfo,
 		lggr:           lggr,
 		callbackCh:     make(chan capabilities.TriggerAndId[*httptypedapi.Payload]),
 	}
 }
 
 // HTTPCapability interface methods
-func (f *ManualHttpTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
+func (f *ManualHTTPTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
 	return f.callbackCh, nil
 }
 
-func (f *ManualHttpTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) error {
+func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) error {
 	return nil
 }
 
-func (f *ManualHttpTriggerService) Initialise(ctx context.Context, config string,
+func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string,
 	_ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
@@ -61,17 +61,17 @@ func (f *ManualHttpTriggerService) Initialise(ctx context.Context, config string
 }
 
 // ManualTriggerCapability interface method
-func (f *ManualHttpTriggerService) ManualTrigger(ctx context.Context, payload *httptypedapi.Payload) error {
+func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *httptypedapi.Payload) error {
 	// Run in a goroutine to avoid blocking
 	go func() {
 		// Send the trigger response
-		f.callbackCh <- createManualHttpTriggerResponse(payload)
+		f.callbackCh <- createManualHTTPTriggerResponse(payload)
 	}()
 
 	return nil
 }
 
-func createManualHttpTriggerResponse(payload *httptypedapi.Payload) capabilities.TriggerAndId[*httptypedapi.Payload] {
+func createManualHTTPTriggerResponse(payload *httptypedapi.Payload) capabilities.TriggerAndId[*httptypedapi.Payload] {
 	return capabilities.TriggerAndId[*httptypedapi.Payload]{
 		Trigger: payload,
 		Id:      "manual-http-trigger-id",
@@ -79,28 +79,28 @@ func createManualHttpTriggerResponse(payload *httptypedapi.Payload) capabilities
 }
 
 // Service interface methods
-func (f *ManualHttpTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting ManualManualHttpTriggerService")
+func (f *ManualHTTPTriggerService) Start(ctx context.Context) error {
+	f.lggr.Info("Starting ManualManualHTTPTriggerService")
 	return nil
 }
 
-func (f *ManualHttpTriggerService) Close() error {
-	f.lggr.Info("Closing ManualManualHttpTriggerService")
+func (f *ManualHTTPTriggerService) Close() error {
+	f.lggr.Info("Closing ManualManualHTTPTriggerService")
 	return nil
 }
 
-func (f *ManualHttpTriggerService) Ready() error {
+func (f *ManualHTTPTriggerService) Ready() error {
 	return nil
 }
 
-func (f *ManualHttpTriggerService) HealthReport() map[string]error {
+func (f *ManualHTTPTriggerService) HealthReport() map[string]error {
 	return map[string]error{f.Name(): nil}
 }
 
-func (f *ManualHttpTriggerService) Name() string {
+func (f *ManualHTTPTriggerService) Name() string {
 	return f.lggr.Name()
 }
 
-func (f *ManualHttpTriggerService) Description() string {
+func (f *ManualHTTPTriggerService) Description() string {
 	return "Manual HTTP Trigger Service"
 }
