@@ -256,3 +256,18 @@ func BatchOperationForChain(
 		Transactions:  []mcmstypes.Transaction{tx},
 	}, nil
 }
+
+func GetAptosRoleFromAction(action mcmstypes.TimelockAction) (mcmsaptossdk.TimelockRole, error) {
+	switch action {
+	case mcmstypes.TimelockActionSchedule:
+		return mcmsaptossdk.TimelockRoleProposer, nil
+	case mcmstypes.TimelockActionBypass:
+		return mcmsaptossdk.TimelockRoleBypasser, nil
+	case mcmstypes.TimelockActionCancel:
+		return mcmsaptossdk.TimelockRoleCanceller, nil
+	case "":
+		return mcmsaptossdk.TimelockRoleProposer, nil
+	default:
+		return mcmsaptossdk.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
+	}
+}

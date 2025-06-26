@@ -1,6 +1,7 @@
 package proposalutils
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,6 +12,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
@@ -273,6 +275,21 @@ func buildProposalMetadataV2(
 				solanaState.BypasserAccessControllerAccount)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
+			}
+		case chain_selectors.FamilyAptos:
+			// Get role from action
+			role, err := GetAptosRoleFromAction(mcmsAction)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get role from action: %w", err)
+			}
+			jsonRole, err := json.Marshal(mcmsaptossdk.AdditionalFieldsMetadata{Role: role})
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal role for chain %d: %w", selector, err)
+			}
+			metaDataPerChain[chainID] = types.ChainMetadata{
+				StartingOpCount:  opCount,
+				MCMAddress:       proposerMcms,
+				AdditionalFields: jsonRole,
 			}
 		}
 	}

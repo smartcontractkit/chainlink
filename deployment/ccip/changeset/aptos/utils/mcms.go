@@ -1,16 +1,13 @@
 package utils
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
-	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -31,74 +28,23 @@ func GenerateProposal(
 	description string,
 	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
-	client := env.BlockChains.AptosChains()[chainSel].Client
-
 	// Get role from action
-	role, err := roleFromAction(mcmsCfg.MCMSAction)
+	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
-	jsonRole, _ := json.Marshal(aptosmcms.AdditionalFieldsMetadata{Role: role})
-	var action = mcmsCfg.MCMSAction
-	if action == "" {
-		action = mcmstypes.TimelockActionSchedule
-	}
 	// Create MCMS inspector
-	inspector := aptosmcms.NewInspector(client, role)
-	startingOpCount, err := inspector.GetOpCount(context.Background(), mcmsAddress.StringLong())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get starting op count: %w", err)
-	}
-	opCount := startingOpCount
+	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role)
 
-	// Create proposal builder
-	validUntil := time.Now().Unix() + int64(proposalutils.DefaultValidUntil.Seconds())
-	if validUntil < 0 || validUntil > math.MaxUint32 {
-		return nil, fmt.Errorf("validUntil value out of range for uint32: %d", validUntil)
-	}
-
-	proposalBuilder := mcms.NewTimelockProposalBuilder().
-		SetVersion(MCMSProposalVersion).
-		SetValidUntil(uint32(validUntil)).
-		SetDescription(description).
-		AddTimelockAddress(mcmstypes.ChainSelector(chainSel), mcmsAddress.StringLong()).
-		SetOverridePreviousRoot(mcmsCfg.OverrideRoot).
-		AddChainMetadata(
-			mcmstypes.ChainSelector(chainSel),
-			mcmstypes.ChainMetadata{
-				StartingOpCount:  opCount,
-				MCMAddress:       mcmsAddress.StringLong(),
-				AdditionalFields: jsonRole,
-			},
-		).
-		SetAction(action).
-		SetDelay(mcmstypes.NewDuration(mcmsCfg.MinDelay))
-
-	// Add operations and build
-	for _, op := range operations {
-		proposalBuilder.AddOperation(op)
-	}
-	proposal, err := proposalBuilder.Build()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build proposal: %w", err)
-	}
-
-	return proposal, nil
-}
-
-func roleFromAction(action mcmstypes.TimelockAction) (aptosmcms.TimelockRole, error) {
-	switch action {
-	case mcmstypes.TimelockActionSchedule:
-		return aptosmcms.TimelockRoleProposer, nil
-	case mcmstypes.TimelockActionBypass:
-		return aptosmcms.TimelockRoleBypasser, nil
-	case mcmstypes.TimelockActionCancel:
-		return aptosmcms.TimelockRoleCanceller, nil
-	case "":
-		return aptosmcms.TimelockRoleProposer, nil
-	default:
-		return aptosmcms.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
-	}
+	return proposalutils.BuildProposalFromBatchesV2(
+		env,
+		map[uint64]string{chainSel: mcmsAddress.StringLong()},
+		map[uint64]string{chainSel: mcmsAddress.StringLong()},
+		map[uint64]mcmssdk.Inspector{chainSel: inspector},
+		operations,
+		description,
+		mcmsCfg,
+	)
 }
 
 // ToBatchOperations converts Operations into BatchOperations with a single transaction each
