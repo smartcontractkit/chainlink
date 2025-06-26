@@ -2,6 +2,7 @@ package ccipton
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"testing"
 
@@ -60,50 +61,55 @@ func TestTONAddress(t *testing.T) {
 }
 
 // TODO re-enable this test once the OracleIDAsAddressBytes function is checked and used properly
-//func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
-//	codec := AddressCodec{}
-//
-//	testCases := []struct {
-//		name     string
-//		oracleID uint8
-//		expected []byte
-//	}{
-//		{
-//			name:     "oracleID 0",
-//			oracleID: 0,
-//			expected: func() []byte {
-//				b := make([]byte, 36)
-//				binary.BigEndian.PutUint32(b, uint32(0))
-//				return b
-//			}(),
-//		},
-//		{
-//			name:     "oracleID 1",
-//			oracleID: 1,
-//			expected: func() []byte {
-//				b := make([]byte, 36)
-//				binary.BigEndian.PutUint32(b, uint32(1))
-//				return b
-//			}(),
-//		},
-//		{
-//			name:     "oracleID 255",
-//			oracleID: 255,
-//			expected: func() []byte {
-//				b := make([]byte, 36)
-//				binary.BigEndian.PutUint32(b, uint32(255))
-//				return b
-//			}(),
-//		},
-//	}
-//
-//	for _, tc := range testCases {
-//		t.Run(tc.name, func(t *testing.T) {
-//			actual, err := codec.OracleIDAsAddressBytes(tc.oracleID)
-//
-//			require.NoError(t, err)
-//			require.Equal(t, tc.expected, actual, "expected %x, got %x", tc.expected, actual)
-//			require.Len(t, actual, 36)
-//		})
-//	}
-//}
+func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
+	codec := AddressCodec{}
+
+	testCases := []struct {
+		name     string
+		oracleID uint8
+		expected []byte
+	}{
+		{
+			name:     "oracleID 0",
+			oracleID: 0,
+			expected: func() []byte {
+				return packOracleID(t, 0)
+			}(),
+		},
+		{
+			name:     "oracleID 1",
+			oracleID: 1,
+			expected: func() []byte {
+				return packOracleID(t, 1)
+			}(),
+		},
+		{
+			name:     "oracleID 255",
+			oracleID: 255,
+			expected: func() []byte {
+				return packOracleID(t, 255)
+			}(),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := codec.OracleIDAsAddressBytes(tc.oracleID)
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, actual, "expected %x, got %x", tc.expected, actual)
+			require.Len(t, actual, 36)
+		})
+	}
+}
+
+func packOracleID(t *testing.T, oracleID uint8) []byte {
+	addr := make([]byte, 32)
+	binary.BigEndian.PutUint32(addr, uint32(oracleID))
+	tonAddr := address.NewAddress(0, 0, addr)
+	decodeString, err := base64.RawURLEncoding.DecodeString(tonAddr.String())
+	if err != nil {
+		t.Fatalf("failed to decode TVM address bytes: %v", err)
+	}
+	return decodeString
+}

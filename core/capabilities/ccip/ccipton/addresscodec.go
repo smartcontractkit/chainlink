@@ -42,11 +42,7 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 }
 
 func (a AddressCodec) OracleIDAsAddressBytes(oracleID uint8) ([]byte, error) {
-	// TODO double check the usage of this, currently used in a hacky function replaceEmptyTransmitters() in deploye_home_chain.go
-	// TON addresses includes extra information that could potentially break the assumption of only including oracleID in the address
-
 	addr := make([]byte, 32)
-
 	// write oracleID into addr in big endian
 	binary.BigEndian.PutUint32(addr, uint32(oracleID))
 	tonAddr := address.NewAddress(0, 0, addr)
