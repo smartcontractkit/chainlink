@@ -79,7 +79,8 @@ func (fc *fakeEvmChain) Initialise(ctx context.Context, config string, _ core.Te
 }
 
 func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.CallContractRequest) (*evmpb.CallContractReply, error) {
-	fc.eng.Infow("Fake EVM Chain CallContract Started", "input", input)
+	fc.eng.Infow("EVM Chain CallContract Started")
+	fc.eng.Debugw("EVM Chain CallContract Input", "input", input)
 
 	toAddress := common.Address(input.Call.To)
 	data := input.Call.Data
@@ -96,8 +97,8 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 		return nil, err
 	}
 
-	fc.eng.Infow("Fake EVM Chain CallContract data value", "data", new(big.Int).SetBytes(data).String())
-	fc.eng.Infow("Fake EVM Chain CallContract Finished", "data", data)
+	fc.eng.Debugw("EVM Chain CallContract Data Output", "data", new(big.Int).SetBytes(data).String())
+	fc.eng.Infow("EVM Chain CallContract Finished")
 
 	// Convert data to protobuf
 	return &evmpb.CallContractReply{
@@ -106,13 +107,14 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 }
 
 func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
-	fc.eng.Infow("Fake EVM Chain WriteReport Started", "input", input)
+	fc.eng.Infow("EVM Chain WriteReport Started")
+	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
 	toAddress := common.Address(input.Receiver)
 	data := input.Report.RawReport
-	fc.eng.Infow("Fake EVM Chain WriteReport toAddress", "toAddress", toAddress)
-	fc.eng.Infow("Fake EVM Chain WriteReport data", "data", data)
-	fc.eng.Infow("Fake EVM Chain WriteReport report", "report", input.Report)
+	fc.eng.Debugw("EVM Chain WriteReport toAddress", "toAddress", toAddress)
+	fc.eng.Debugw("EVM Chain WriteReport data", "data", data)
+	fc.eng.Debugw("EVM Chain WriteReport report", "report", input.Report)
 
 	fromAddress := crypto.PubkeyToAddress(fc.privateKey.PublicKey)
 
@@ -190,12 +192,6 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 		return nil, err
 	}
 
-	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Hash", "hash", signedTx.Hash().String())
-	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Receipt", "receipt", receipt)
-	fc.eng.Infow("Fake EVM Chain WriteReport Transaction Status", "status", receipt.Status)
-
-	fc.eng.Infow("Fake EVM Chain WriteReport Finished", "receipt", receipt)
-
 	// Calculate actual transaction fee
 	txFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 
@@ -209,6 +205,12 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 		contractStatus = evmcappb.ReceiverContractExecutionStatus_REVERTED
 		errMsg = "transaction reverted"
 	}
+
+	fc.eng.Debugw("EVM Chain WriteReport Transaction Hash", "hash", signedTx.Hash().String())
+	fc.eng.Debugw("EVM Chain WriteReport Transaction Status", "status", receipt.Status)
+	fc.eng.Debugw("EVM Chain WriteReport Receipt", "receipt", receipt)
+
+	fc.eng.Infow("EVM Chain WriteReport Finished")
 
 	return &evmcappb.WriteReportReply{
 		TxStatus:                        txStatus,
@@ -228,7 +230,7 @@ func (fc *fakeEvmChain) UnregisterLogTrigger(ctx context.Context, triggerID stri
 }
 
 func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.FilterLogsRequest) (*evmpb.FilterLogsReply, error) {
-	fc.eng.Infow("Fake EVM Chain FilterLogs Started", "input", input)
+	fc.eng.Infow("EVM Chain FilterLogs Started", "input", input)
 
 	// Prepare filter query
 	filterQueryPb := input.GetFilterQuery()
@@ -248,7 +250,7 @@ func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.Re
 		return nil, err
 	}
 
-	fc.eng.Infow("Fake EVM Chain FilterLogs Finished", "logs", logs)
+	fc.eng.Infow("EVM Chain FilterLogs Finished", "logs", logs)
 
 	// Convert logs to protobuf
 	logsPb := make([]*evmpb.Log, len(logs))
@@ -265,7 +267,7 @@ func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.Re
 }
 
 func (fc *fakeEvmChain) BalanceAt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.BalanceAtRequest) (*evmpb.BalanceAtReply, error) {
-	fc.eng.Infow("Fake EVM Chain BalanceAt Started", "input", input)
+	fc.eng.Infow("EVM Chain BalanceAt Started", "input", input)
 
 	// Prepare balance at request
 	address := common.Address(input.Account)
@@ -284,7 +286,7 @@ func (fc *fakeEvmChain) BalanceAt(ctx context.Context, metadata capabilities.Req
 }
 
 func (fc *fakeEvmChain) EstimateGas(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.EstimateGasRequest) (*evmpb.EstimateGasReply, error) {
-	fc.eng.Infow("Fake EVM Chain EstimateGas Started", "input", input)
+	fc.eng.Infow("EVM Chain EstimateGas Started", "input", input)
 
 	// Prepare estimate gas request
 	toAddress := common.Address(input.Msg.To)
@@ -301,14 +303,14 @@ func (fc *fakeEvmChain) EstimateGas(ctx context.Context, metadata capabilities.R
 	}
 
 	// Convert gas to protobuf
-	fc.eng.Infow("Fake EVM Chain EstimateGas Finished", "gas", gas)
+	fc.eng.Infow("EVM Chain EstimateGas Finished", "gas", gas)
 	return &evmpb.EstimateGasReply{
 		Gas: gas,
 	}, nil
 }
 
 func (fc *fakeEvmChain) GetTransactionByHash(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionByHashRequest) (*evmpb.GetTransactionByHashReply, error) {
-	fc.eng.Infow("Fake EVM Chain GetTransactionByHash Started", "input", input)
+	fc.eng.Infow("EVM Chain GetTransactionByHash Started", "input", input)
 
 	// Prepare get transaction by hash request
 	hash := common.Hash(input.Hash)
@@ -319,7 +321,7 @@ func (fc *fakeEvmChain) GetTransactionByHash(ctx context.Context, metadata capab
 		return nil, err
 	}
 
-	fc.eng.Infow("Fake EVM Chain GetTransactionByHash Finished", "transaction", transaction, "pending", pending)
+	fc.eng.Infow("EVM Chain GetTransactionByHash Finished", "transaction", transaction, "pending", pending)
 
 	// Convert transaction to protobuf
 	transactionPb := &evmpb.Transaction{
@@ -336,7 +338,7 @@ func (fc *fakeEvmChain) GetTransactionByHash(ctx context.Context, metadata capab
 }
 
 func (fc *fakeEvmChain) GetTransactionReceipt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionReceiptRequest) (*evmpb.GetTransactionReceiptReply, error) {
-	fc.eng.Infow("Fake EVM Chain GetTransactionReceipt Started", "input", input)
+	fc.eng.Infow("EVM Chain GetTransactionReceipt Started", "input", input)
 
 	// Prepare get transaction receipt request
 	hash := common.Hash(input.Hash)
@@ -347,7 +349,7 @@ func (fc *fakeEvmChain) GetTransactionReceipt(ctx context.Context, metadata capa
 		return nil, err
 	}
 
-	fc.eng.Infow("Fake EVM Chain GetTransactionReceipt Finished", "receipt", receipt)
+	fc.eng.Infow("EVM Chain GetTransactionReceipt Finished", "receipt", receipt)
 
 	// Convert transaction receipt to protobuf
 	receiptPb := &evmpb.Receipt{
@@ -372,7 +374,7 @@ func (fc *fakeEvmChain) GetTransactionReceipt(ctx context.Context, metadata capa
 }
 
 func (fc *fakeEvmChain) LatestAndFinalizedHead(ctx context.Context, metadata capabilities.RequestMetadata, input *emptypb.Empty) (*evmpb.LatestAndFinalizedHeadReply, error) {
-	fc.eng.Infow("Fake EVM Chain latest and finalized head", "input", input)
+	fc.eng.Infow("EVM Chain latest and finalized head", "input", input)
 
 	// Get latest and finalized head
 	head, err := fc.gethClient.HeaderByNumber(ctx, nil)
@@ -393,7 +395,7 @@ func (fc *fakeEvmChain) LatestAndFinalizedHead(ctx context.Context, metadata cap
 }
 
 func (fc *fakeEvmChain) QueryTrackedLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.QueryTrackedLogsRequest) (*evmpb.QueryTrackedLogsReply, error) {
-	fc.eng.Infow("Fake EVM Chain QueryTrackedLogs Started", "input", input)
+	fc.eng.Infow("EVM Chain QueryTrackedLogs Started", "input", input)
 
 	// Prepare query tracked logs request
 	// fc.gethClient.
@@ -411,12 +413,12 @@ func (fc *fakeEvmChain) QueryTrackedLogs(ctx context.Context, metadata capabilit
 }
 
 func (fc *fakeEvmChain) RegisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.RegisterLogTrackingRequest) (*emptypb.Empty, error) {
-	fc.eng.Infow("Fake Evm Chain registered log tracking", "input", input)
+	fc.eng.Infow("EVM Chain registered log tracking", "input", input)
 	return nil, nil
 }
 
 func (fc *fakeEvmChain) UnregisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.UnregisterLogTrackingRequest) (*emptypb.Empty, error) {
-	fc.eng.Infow("Fake Evm Chain unregistered log tracking", "input", input)
+	fc.eng.Infow("EVM Chain unregistered log tracking", "input", input)
 	return nil, nil
 }
 
@@ -429,30 +431,30 @@ func (fc *fakeEvmChain) HealthReport() map[string]error {
 }
 
 func (fc *fakeEvmChain) Start(ctx context.Context) error {
-	fc.eng.Infow("Fake Evm Chain started")
+	fc.eng.Debugw("EVM Chain started")
 	return nil
 }
 
 func (fc *fakeEvmChain) Close() error {
-	fc.eng.Infow("Fake Evm Chain closed")
+	fc.eng.Debugw("EVM Chain closed")
 	return nil
 }
 
 func (fc *fakeEvmChain) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
-	fc.eng.Infow("Registered to Fake Evm Chain", "workflowID", request.Metadata.WorkflowID)
+	fc.eng.Infow("Registered to EVM Chain", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
 func (fc *fakeEvmChain) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
-	fc.eng.Infow("Unregistered from Fake Evm Chain", "workflowID", request.Metadata.WorkflowID)
+	fc.eng.Infow("Unregistered from EVM Chain", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
 func (fc *fakeEvmChain) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
-	fc.eng.Infow("Fake Evm Chain executed", "request", request)
+	fc.eng.Infow("EVM Chain executed", "request", request)
 	return commonCap.CapabilityResponse{}, nil
 }
 
 func (fc *fakeEvmChain) Description() string {
-	return "Fake Evm Chain"
+	return "EVM Chain"
 }

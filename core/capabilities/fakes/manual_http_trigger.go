@@ -30,7 +30,7 @@ type ManualHTTPTriggerService struct {
 }
 
 func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerService {
-	lggr := logger.Named(parentLggr, "HttpTriggerService")
+	lggr := logger.Named(parentLggr, "HTTPTriggerService")
 
 	return &ManualHTTPTriggerService{
 		CapabilityInfo: manualHTTPTriggerInfo,
@@ -80,12 +80,12 @@ func createManualHTTPTriggerResponse(payload *httptypedapi.Payload) capabilities
 
 // Service interface methods
 func (f *ManualHTTPTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting ManualManualHTTPTriggerService")
+	f.lggr.Debug("Starting HTTP Trigger Capability")
 	return nil
 }
 
 func (f *ManualHTTPTriggerService) Close() error {
-	f.lggr.Info("Closing ManualManualHTTPTriggerService")
+	f.lggr.Debug("Closing HTTP Trigger Capability")
 	return nil
 }
 

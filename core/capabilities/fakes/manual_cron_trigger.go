@@ -130,12 +130,12 @@ func createManualTriggerResponse(scheduledExecutionTime time.Time) capabilities.
 }
 
 func (f *ManualCronTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting ManualCronTriggerService")
+	f.lggr.Debugw("Starting ManualCronTriggerService")
 	return nil
 }
 
 func (f *ManualCronTriggerService) Close() error {
-	f.lggr.Info("Closing ManualCronTriggerService")
+	f.lggr.Debugw("Closing ManualCronTriggerService")
 	return nil
 }
 

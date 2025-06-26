@@ -51,7 +51,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 }
 
 func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
-	fh.eng.Infow("Http Action SendRequest Started", "input", input)
+	fh.eng.Infow("HTTP Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
 	timeout := time.Duration(30) * time.Second // default timeout
@@ -131,17 +131,17 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		response.ErrorMessage = resp.Status
 	}
 
-	fh.eng.Debugw("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
+	fh.eng.Infow("HTTP Action Finished", "Status", resp.StatusCode, "URL", input.GetUrl())
 	return response, nil
 }
 
 func (fh *DirectHTTPAction) Start(ctx context.Context) error {
-	fh.eng.Infow("Http Action Start Started")
+	fh.eng.Debugw("HTTP Action Start Started")
 	return nil
 }
 
 func (fh *DirectHTTPAction) Close() error {
-	fh.eng.Infow("Http Action Close Started")
+	fh.eng.Debugw("HTTP Action Closed")
 	return nil
 }
 

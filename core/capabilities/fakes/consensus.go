@@ -140,7 +140,7 @@ func (fc *fakeConsensus) Start(ctx context.Context) error {
 
 func (fc *fakeConsensus) Close() error {
 	err := fc.cap.Close()
-	fc.stats.PrintToStdout("Consensus Capability Stats")
+	// fc.stats.PrintToStdout("Consensus Capability Stats")
 	return err
 }
 
