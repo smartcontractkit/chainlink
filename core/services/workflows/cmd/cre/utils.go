@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -15,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -135,6 +138,11 @@ func NewStandaloneEngine(
 		return workflows.NewEngine(ctx, cfg)
 	}
 
+	secretsFetcher, err := NewFileBasedSecrets(lggr, "./examples/v2/simple_cron_with_secrets/secrets.yaml")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
 		Module:          module,
@@ -154,9 +162,67 @@ func NewStandaloneEngine(
 
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,
+
+		SecretsFetcher: secretsFetcher,
 	}
 
 	return v2.NewEngine(cfg)
+}
+
+// yamlConfig represents the structure of your secrets.yaml file.
+type yamlConfig struct {
+	SecretsNames map[string][]string `yaml:"secretsNames"`
+}
+
+type fileBasedSecrets struct {
+	lggr  logger.Logger
+	fname string
+	// Store the unmarshaled secrets for efficient lookup.
+	secrets yamlConfig
+}
+
+// NewFileBasedSecrets creates a new fileBasedSecrets instance and initializes it by reading the YAML file.
+func NewFileBasedSecrets(lggr logger.Logger, filename string) (*fileBasedSecrets, error) {
+	fbs := &fileBasedSecrets{
+		fname: filename,
+		lggr:  lggr,
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := yaml.Unmarshal(data, &fbs.secrets); err != nil {
+		return nil, err
+	}
+
+	fbs.lggr.Debugw("created fbs", "secrets", fbs.secrets)
+
+	return fbs, nil
+}
+
+func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	f.lggr.Debug("called GetSecrets")
+	var responses []*sdkpb.SecretResponse
+	for _, req := range request.Requests {
+		if values, ok := f.secrets.SecretsNames[req.Id]; ok {
+			if len(values) > 0 {
+				secret := &sdkpb.Secret{
+					Id:        req.Id,
+					Namespace: req.Namespace, // Use the namespace from the request
+					Value:     values[0],     // Take the first value as the secret
+				}
+				responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Secret{Secret: secret}})
+			} else {
+				responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret found but no value associated"}})
+			}
+		} else {
+			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret not found"}})
+		}
+	}
+
+	return responses, nil
 }
 
 // TODO support fetching secrets (from a local file)

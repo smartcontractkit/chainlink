@@ -170,11 +170,18 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerSubscriptionRequestTimeoutMs))
 	defer subCancel()
+
+	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+	defer close(userLogChan)
+	e.srvcEng.Go(func(_ context.Context) {
+		e.emitUserLogs(subCtx, userLogChan, "")
+	})
+
 	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
 		Request:         &wasmpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{SecretsFetcher: e.secretsFetcher})
+	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.secretsFetcher, UserLogChan: userLogChan})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -482,10 +489,12 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				logLine.Message = logLine.Message[:e.cfg.LocalLimits.MaxUserLogLineLength] + " ...(truncated)"
 			}
 
-			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
-			if err != nil {
-				e.cfg.Lggr.Errorw("Failed to emit user logs", "err", err)
-			}
+			e.lggr.Infow("user log", "logLine", logLine)
+
+			/* 			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
+			   			if err != nil {
+			   				e.cfg.Lggr.Errorw("Failed to emit user logs", "err", err)
+			   			} */
 			count++
 		}
 	}
