@@ -70,7 +70,7 @@ CORSEnabled = false
 CORSAllowedOrigins = []
 
 [[gatewayConfig.Dons]]
-DonId = "vault"
+DonId = ""
 HandlerName = "vault"
 F = 0
 

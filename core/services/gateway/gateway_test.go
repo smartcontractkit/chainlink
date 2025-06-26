@@ -222,7 +222,7 @@ func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func TestGateway_ProcessRequest_HandlerResponse(t *testing.T) {
+func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
@@ -242,6 +242,29 @@ func TestGateway_ProcessRequest_HandlerResponse(t *testing.T) {
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
 	requireJsonRPCResult(t, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"request","don_id":"testDON","receiver":"","payload":{"result":"OK"}}}`)
+	require.Equal(t, 200, statusCode)
+}
+
+func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
+	t.Parallel()
+
+	gw, handler := newGatewayWithMockHandler(t)
+	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		msg := args.Get(2).(*api.Message)
+		callbackCh := args.Get(3).(chan<- handlers.UserCallbackPayload)
+		// echo back to sender with attached payload
+		msg.Body.Payload = []byte(`{"result":"OK"}`)
+		msg.Signature = ""
+		var rawMsg json.RawMessage
+		rawMsg, err := json.Marshal(msg)
+		require.NoError(t, err)
+		callbackCh <- handlers.UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}
+	})
+
+	req := newSignedLegacyRequest(t, "abcd", "testDON", "", []byte{})
+	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	requireJsonRPCResult(t, response, "abcd",
+		`{"signature":"","body":{"message_id":"abcd","method":"testDON","don_id":"","receiver":"","payload":{"result":"OK"}}}`)
 	require.Equal(t, 200, statusCode)
 }
 
