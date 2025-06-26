@@ -82,7 +82,7 @@ func NewStandaloneEngine(
 	ctx context.Context,
 	lggrCfg StandaloneEngineLoggerConfig,
 	registry *capabilities.Registry,
-	binary []byte, config []byte,
+	binary, config []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, *sdkpb.TriggerSubscriptionRequest, error) {
@@ -211,6 +211,20 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
+// NewCapabilities builds capabilities using latest standard capabilities where possible, otherwise filled in with faked capabilities.
+// Capabilities are then registered with the capability registry.
+func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+	caps, err := NewFakeCapabilities(ctx, lggr, registry)
+	if err != nil {
+		return nil, err
+	}
+
+	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
+
+	return caps, nil
+}
+
+// NewFakeCapabilities builds faked capabilities, then registers them with the capability registry.
 func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -255,8 +269,6 @@ func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registr
 
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-
-	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {

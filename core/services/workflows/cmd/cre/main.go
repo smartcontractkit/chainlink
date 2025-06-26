@@ -7,30 +7,29 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func main() {
 	var (
-		wasmPath          string
-		configPath        string
-		debugMode         bool
-		billingClientAddr string
-		enableBeholder    bool
+		wasmPath                   string
+		configPath                 string
+		debugMode                  bool
+		enableBeholder             bool
+		enableBilling              bool
+		enableStandardCapabilities bool
 	)
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
-	flag.StringVar(&billingClientAddr, "billing-client-address", "", "Billing client address; Leave empty to run a local client that prints to the standard log.")
 	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
+	flag.BoolVar(&enableBilling, "billing", false, "Enable to run a faked billing service that prints to the standard log.")
+	flag.BoolVar(&enableStandardCapabilities, "standardCapabilities", true, "Enable to use the latest production standard capability binaries for capabilities. The binaries must be available in local GOBIN.")
 	flag.Parse()
 
 	if wasmPath == "" {
@@ -65,126 +64,11 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
-	run(ctx, lggr, binary, config, billingClientAddr, enableBeholder)
-}
-
-// run instantiates the engine, starts it and blocks until the context is canceled.
-func run(
-	ctx context.Context,
-	lggr logger.Logger,
-	binary, config []byte,
-	billingClientAddr string,
-	enableBeholder bool,
-) {
-	lggr.Infof("executing engine in process: %d", os.Getpid())
-
-	// Create the registry and fake capabilities
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-
-	triggerCaps, err := utils.NewManualTriggerCapabilities(ctx, lggr, registry)
-	if err != nil {
-		fmt.Printf("Failed to create trigger capabilities: %v\n", err)
-		os.Exit(1)
-	}
-
-	computeCaps, err := utils.NewFakeComputeCapabilities(ctx, lggr, registry)
-	if err != nil {
-		fmt.Printf("Failed to create compute capabilities: %v\n", err)
-		os.Exit(1)
-	}
-
-	if enableBeholder {
-		_ = utils.SetupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
-	}
-
-	if billingClientAddr != "" {
-		bs := utils.NewBillingService(lggr.Named("Fake_Billing_Client"))
-		err = bs.Start(ctx)
-		if err != nil {
-			fmt.Printf("Failed to start billing service: %v\n", err)
-			os.Exit(1)
-		}
-
-		defer func(bs *utils.BillingService) {
-			cerr := bs.Close()
-			if cerr != nil {
-				fmt.Printf("Failed to close billing service: %v\n", cerr)
-			}
-		}(bs)
-	}
-
-	// Start cron trigger
-	if err := triggerCaps.ManualCronTrigger.Start(ctx); err != nil {
-		fmt.Printf("Failed to start cron trigger: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Start http trigger
-	if err := triggerCaps.ManualHTTPTrigger.Start(ctx); err != nil {
-		fmt.Printf("Failed to start http trigger: %v\n", err)
-		os.Exit(1)
-	}
-
-	for _, cap := range computeCaps {
-		if err2 := cap.Start(ctx); err2 != nil {
-			fmt.Printf("Failed to start capability: %v\n", err2)
-			os.Exit(1)
-		}
-	}
-
-	// Channels to coordinate blocking
-	initializedCh := make(chan struct{})
-	executionFinishedCh := make(chan struct{})
-
-	standaloneEngineLoggerConfig := utils.StandaloneEngineLoggerConfig{
-		ModuleLogger:         lggr,
-		WorkflowLimitsLogger: lggr.Named("WorkflowLimits"),
-		EngineLogger:         lggr,
-	}
-
-	engine, _, err := utils.NewStandaloneEngine(ctx, standaloneEngineLoggerConfig, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
-		OnInitialized: func(err error) {
-			lggr.Info("Engine initialized")
-			close(initializedCh)
-		},
-		OnExecutionFinished: func(executionID string, status string) {
-			lggr.Infow("Execution finished", "executionID", executionID, "status", status)
-			close(executionFinishedCh)
-		},
+	runner := utils.NewRunner(nil)
+	runner.Run(ctx, binary, config, utils.RunnerConfig{
+		EnableBilling:              enableBilling,
+		EnableBeholder:             enableBeholder,
+		EnableStandardCapabilities: enableStandardCapabilities,
+		Lggr:                       lggr,
 	})
-	if err != nil {
-		fmt.Printf("Failed to create engine: %v\n", err)
-		os.Exit(1)
-	}
-
-	err = engine.Start(ctx)
-	if err != nil {
-		fmt.Printf("Failed to start engine: %v\n", err)
-		os.Exit(1)
-	}
-
-	<-initializedCh
-
-	// Manual trigger cron
-	triggerCaps.ManualCronTrigger.ManualTrigger(ctx, time.Now())
-
-	select {
-	case <-executionFinishedCh:
-		lggr.Info("Execution finished signal received")
-	case <-time.After(15 * time.Second):
-		lggr.Info("Timeout waiting for execution to finish")
-	}
-
-	lggr.Info("Shutting down the Engine")
-	_ = engine.Close()
-
-	lggr.Infow("Shutting down manual triggers", "cron", triggerCaps.ManualCronTrigger.Name(), "http", triggerCaps.ManualHTTPTrigger.Name())
-	_ = triggerCaps.ManualCronTrigger.Close()
-	_ = triggerCaps.ManualHTTPTrigger.Close()
-
-	for _, cap := range computeCaps {
-		lggr.Infow("Shutting down capability", "id", cap.Name())
-		_ = cap.Close()
-	}
 }

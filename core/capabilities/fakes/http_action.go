@@ -145,16 +145,8 @@ func (fh *DirectHTTPAction) Close() error {
 	return nil
 }
 
-func (fh *DirectHTTPAction) Name() string {
-	return HTTPActionServiceName
-}
-
 func (fh *DirectHTTPAction) Description() string {
 	return directHTTPActionInfo.Description
-}
-
-func (fh *DirectHTTPAction) Ready() error {
-	return nil
 }
 
 func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,

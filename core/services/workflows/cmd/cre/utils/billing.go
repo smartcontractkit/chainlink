@@ -85,7 +85,7 @@ func (s *BillingService) Close() error {
 	return nil
 }
 
-func SetupBeholder(lggr logger.Logger) error {
+func setupBeholder(lggr logger.Logger) error {
 	writer := &lggrWriter{lggr: lggr}
 
 	client, err := beholder.NewWriterClient(writer)
@@ -94,6 +94,15 @@ func SetupBeholder(lggr logger.Logger) error {
 	}
 
 	beholder.SetClient(client)
+
+	return nil
+}
+
+func cleanupBeholder() error {
+	client := beholder.GetClient()
+	if client != nil {
+		return client.Close()
+	}
 
 	return nil
 }

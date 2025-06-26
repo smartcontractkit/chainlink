@@ -94,10 +94,6 @@ func (f *ManualHTTPTriggerService) Close() error {
 	return nil
 }
 
-func (f *ManualHTTPTriggerService) Ready() error {
-	return nil
-}
-
 func (f *ManualHTTPTriggerService) HealthReport() map[string]error {
 	return map[string]error{f.Name(): nil}
 }
@@ -108,4 +104,8 @@ func (f *ManualHTTPTriggerService) Name() string {
 
 func (f *ManualHTTPTriggerService) Description() string {
 	return "Manual HTTP Trigger Service"
+}
+
+func (f *ManualHTTPTriggerService) Ready() error {
+	return nil
 }
