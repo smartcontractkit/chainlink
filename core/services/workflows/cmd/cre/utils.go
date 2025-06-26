@@ -197,7 +197,7 @@ func NewFileBasedSecrets(secrets []byte) (*fileBasedSecrets, error) {
 }
 
 func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
-	var responses []*sdkpb.SecretResponse
+	responses := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
 	for _, req := range request.Requests {
 		values, ok := f.secrets.SecretsNames[req.Id]
 
