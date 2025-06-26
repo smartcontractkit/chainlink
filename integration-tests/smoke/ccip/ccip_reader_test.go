@@ -1431,8 +1431,8 @@ func populateDatabaseForCommitReportAccepted(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
-// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_5_source_chains_and_5_destination_chains,_any-to-any-12         	      52	  25540214 ns/op
-// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_20_dest_chains_and_40_sources_chains-12                         	     139	   8373795 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/5_source_chains_and_5_destination_chains-12         	      46	  24748651 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/20_dest_chains_and_40_sources_chains-12             	       7	 155096661 ns/op
 func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -1447,7 +1447,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
-			name:                 "Populating database with 5 source chains and 5 destination chains, any-to-any",
+			name:                 "5 source chains and 5 destination chains",
 			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
 			startSeqNum:          11,
 			endSeqNum:            20,
@@ -1458,7 +1458,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 		},
 		{
 			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
-			name:                 "Populating database with 20 dest chains and 40 sources chains",
+			name:                 "20 dest chains and 40 sources chains",
 			logsInsertedPerChain: 70_000, // 1.4kk logs in total inserted
 			startSeqNum:          101,
 			endSeqNum:            110,
@@ -1494,7 +1494,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 			)
 		}
 
-		b.Run("ExecutedMessages_"+tt.name, func(b *testing.B) {
+		b.Run(tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				executedRanges, err := reader.ExecutedMessages(
 					b.Context(),
@@ -1623,7 +1623,15 @@ func populateDatabaseForExecutionStateChanged(
 	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
-func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
+func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
 		name                 string
 		logsInsertedPerChain int
@@ -1637,7 +1645,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
-			name:                 "Populating database with 5 source chains and 5 destination chains, any-to-any",
+			name:                 "5 source chains and 5 destination chains",
 			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
 			startSeqNum:          5_000,
 			endSeqNum:            5_256,
@@ -1648,7 +1656,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 		},
 		{
 			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
-			name:                 "Populating database with 70 source chains and 10 destination chains",
+			name:                 "70 source chains and 10 destination chains",
 			logsInsertedPerChain: 25_000, // 1.75kk logs in total inserted (25000 * 70 chains)
 			startSeqNum:          2_000,
 			endSeqNum:            2_300,
@@ -1667,7 +1675,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 			tt.destChainsCount,
 		)
 
-		b.Run("MsgsBetweenSeqNums -"+tt.name, func(b *testing.B) {
+		b.Run("MsgsBetweenSeqNums "+tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				msgs, err := reader.MsgsBetweenSeqNums(
 					b.Context(),
@@ -1679,7 +1687,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 			}
 		})
 
-		b.Run("LatestMsgSeqNum - "+tt.name, func(b *testing.B) {
+		b.Run("LatestMsgSeqNum "+tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				latest, err := reader.LatestMsgSeqNum(
 					b.Context(),
@@ -1953,7 +1961,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
-	lggr.SetLogLevel(zapcore.DebugLevel)
+	lggr.SetLogLevel(zapcore.ErrorLevel)
 
 	var dbs sqlutil.DataSource
 	{
