@@ -64,8 +64,13 @@ func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string
 func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *httptypedapi.Payload) error {
 	// Run in a goroutine to avoid blocking
 	go func() {
-		// Send the trigger response
-		f.callbackCh <- createManualHTTPTriggerResponse(payload)
+		select {
+		case f.callbackCh <- createManualHTTPTriggerResponse(payload):
+			// Successfully sent trigger response
+		case <-ctx.Done():
+			// Context cancelled, cleanup goroutine
+			f.lggr.Debug("ManualTrigger goroutine cancelled due to context cancellation")
+		}
 	}()
 
 	return nil
