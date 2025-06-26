@@ -10,6 +10,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -154,6 +155,8 @@ func NewStandaloneEngine(
 
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,
+
+		DebugMode: true,
 	}
 
 	return v2.NewEngine(cfg)
@@ -172,6 +175,12 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 	caps = append(caps, streamsTrigger)
+
+	httpAction := fakes.NewDirectHTTPAction(lggr)
+	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, httpAction)
 
 	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
@@ -232,7 +241,7 @@ func newStandardCapabilities(
 		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
 			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
 			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{})
+			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{})
 
 		service := &standaloneLoopWrapper{
 			StandardCapabilities: loop,

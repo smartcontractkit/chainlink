@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -349,7 +352,15 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		result   []types.NodeStatus
 	)
 	if len(relayerIDs) == 0 {
-		for _, lr := range rs.loopRelayers {
+		keys := slices.Collect(maps.Keys(rs.loopRelayers))
+		slices.SortFunc(keys, func(a, b types.RelayID) int {
+			if c := strings.Compare(a.Network, b.Network); c != 0 {
+				return c
+			}
+			return strings.Compare(a.ChainID, b.ChainID)
+		})
+		for _, key := range keys {
+			lr := rs.loopRelayers[key]
 			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)

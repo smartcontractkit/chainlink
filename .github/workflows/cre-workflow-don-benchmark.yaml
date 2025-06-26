@@ -68,6 +68,46 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Set up cAdvisor
+        shell: bash
+        run: |
+          sudo docker run \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --network host \
+            --detach=true \
+            --name=cadvisor \
+            --privileged \
+            --device=/dev/kmsg \
+            gcr.io/cadvisor/cadvisor:latest
+
+      - name: Create Prometheus config
+        shell: bash
+        run: |
+          cat > prometheus.yml<<EOF
+          global:
+            scrape_interval: 5s
+          
+          scrape_configs:
+            - job_name: 'cadvisor'
+              static_configs:
+                - targets: ['localhost:8080']
+          EOF
+
+      - name: Start Prometheus
+        shell: bash
+        run: |
+          docker run -d \
+            --name prometheus \
+            --network host \
+            -p 9090:9090 \
+            -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+            prom/prometheus:latest \
+            --config.file=/etc/prometheus/prometheus.yml
+
       - name: Start the test
         shell: bash
         env:
@@ -81,11 +121,14 @@ jobs:
           LOAD_TEST: "true"
           CI: "true"
           GH_SHA: ${{ github.sha }}
+          # Use local prometheus
+          PROMETHEUS_URL: "http://localhost:9090"
         run: |
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
 
-      - name: Upload cl node logs as artifact
+
+      - name: Upload node logs
         if: always()
         uses: actions/upload-artifact@v4
         timeout-minutes: 2
@@ -93,7 +136,20 @@ jobs:
         with:
           name: node logs
           path: |
-            ./system-tests/tests/load/cre/logs/*.log
-            ./system-tests/tests/load/cre/logs/**/*.log
-            ./system-tests/tests/load/cre/logs/**/logs/
-          retention-days: 1
+            system-tests/tests/load/cre/logs
+          retention-days: 5
+
+      - name: Upload performance reports
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: performance reports
+          path: |
+            system-tests/tests/load/cre/performance_reports
+          retention-days: 30
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker rm -f cadvisor prometheus

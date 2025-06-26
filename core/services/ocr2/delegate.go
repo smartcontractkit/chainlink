@@ -633,7 +633,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
 	}
 
-	if err := gwconnector.AddHandler([]string{vault.ConnectorMethod}, handler); err != nil {
+	if err := gwconnector.AddHandler(ctx, []string{vault.ConnectorMethod}, handler); err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", err)
 	}
 
