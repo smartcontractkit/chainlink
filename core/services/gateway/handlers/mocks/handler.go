@@ -9,6 +9,8 @@ import (
 
 	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 
+	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -118,17 +120,17 @@ func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
-// HandleUserMessage provides a mock function with given fields: ctx, msg, callbackCh
-func (_m *Handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	ret := _m.Called(ctx, msg, callbackCh)
+// HandleUserMessage provides a mock function with given fields: ctx, jsonRequest, msg, callbackCh
+func (_m *Handler) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	ret := _m.Called(ctx, jsonRequest, msg, callbackCh)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleUserMessage")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
-		r0 = rf(ctx, msg, callbackCh)
+	if rf, ok := ret.Get(0).(func(context.Context, jsonrpc2.Request, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
+		r0 = rf(ctx, jsonRequest, msg, callbackCh)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -143,15 +145,16 @@ type Handler_HandleUserMessage_Call struct {
 
 // HandleUserMessage is a helper method to define mock.On call
 //   - ctx context.Context
+//   - jsonRequest jsonrpc2.Request
 //   - msg *api.Message
 //   - callbackCh chan<- handlers.UserCallbackPayload
-func (_e *Handler_Expecter) HandleUserMessage(ctx interface{}, msg interface{}, callbackCh interface{}) *Handler_HandleUserMessage_Call {
-	return &Handler_HandleUserMessage_Call{Call: _e.mock.On("HandleUserMessage", ctx, msg, callbackCh)}
+func (_e *Handler_Expecter) HandleUserMessage(ctx interface{}, jsonRequest interface{}, msg interface{}, callbackCh interface{}) *Handler_HandleUserMessage_Call {
+	return &Handler_HandleUserMessage_Call{Call: _e.mock.On("HandleUserMessage", ctx, jsonRequest, msg, callbackCh)}
 }
 
-func (_c *Handler_HandleUserMessage_Call) Run(run func(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleUserMessage_Call {
+func (_c *Handler_HandleUserMessage_Call) Run(run func(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleUserMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*api.Message), args[2].(chan<- handlers.UserCallbackPayload))
+		run(args[0].(context.Context), args[1].(jsonrpc2.Request), args[2].(*api.Message), args[3].(chan<- handlers.UserCallbackPayload))
 	})
 	return _c
 }
@@ -161,7 +164,7 @@ func (_c *Handler_HandleUserMessage_Call) Return(_a0 error) *Handler_HandleUserM
 	return _c
 }
 
-func (_c *Handler_HandleUserMessage_Call) RunAndReturn(run func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error) *Handler_HandleUserMessage_Call {
+func (_c *Handler_HandleUserMessage_Call) RunAndReturn(run func(context.Context, jsonrpc2.Request, *api.Message, chan<- handlers.UserCallbackPayload) error) *Handler_HandleUserMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

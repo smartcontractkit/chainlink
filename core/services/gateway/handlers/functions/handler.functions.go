@@ -12,12 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -196,7 +198,7 @@ func NewFunctionsHandler(
 	}
 }
 
-func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
 	sender := common.HexToAddress(msg.Body.Sender)
 	if h.allowlist != nil && !h.allowlist.Allow(sender) {
 		h.lggr.Debugw("received a message from a non-allowlisted address", "sender", msg.Body.Sender)
@@ -332,7 +334,12 @@ func newSecretsResponse(request *api.Message, success bool, responses []*api.Mes
 	userResponse := *request
 	userResponse.Body.Receiver = request.Body.Sender
 	userResponse.Body.Payload = payloadJson
-	return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NoError, ErrMsg: ""}, nil
+	var rawUserResponse json.RawMessage
+	rawUserResponse, err = json.Marshal(userResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &handlers.UserCallbackPayload{RawMsg: &rawUserResponse, ErrCode: api.NoError, ErrMsg: ""}, nil
 }
 
 // Conforms to ResponseProcessor[*PendingRequest]
@@ -358,10 +365,15 @@ func (h *functionsHandler) processHeartbeatResponse(response *api.Message, respo
 		payload := CombinedResponse{ResponseBase: ResponseBase{Success: true}, NodeResponses: responseList}
 		payloadJson, err := json.Marshal(payload)
 		if err != nil {
-			return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NodeReponseEncodingError, ErrMsg: ""}, nil, nil
+			return &handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.NodeReponseEncodingError, ErrMsg: ""}, nil, nil
 		}
 		userResponse.Body.Payload = payloadJson
-		return &handlers.UserCallbackPayload{Msg: &userResponse, ErrCode: api.NoError, ErrMsg: ""}, nil, nil
+		var rawUserResponse json.RawMessage
+		rawUserResponse, err = json.Marshal(userResponse)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &handlers.UserCallbackPayload{RawMsg: &rawUserResponse, ErrCode: api.NoError, ErrMsg: ""}, nil, nil
 	}
 	// not ready to be processed yet
 	return nil, responseData, nil

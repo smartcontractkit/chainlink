@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -63,8 +64,13 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 	if len(c.cache) >= int(c.maxCacheSize) {
 		return errors.New("request cache is full")
 	}
+	var rawRequest json.RawMessage
+	rawRequest, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
 	timer := time.AfterFunc(c.timeout, func() {
-		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{Msg: request, ErrMsg: "timeout", ErrCode: api.RequestTimeoutError})
+		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawMsg: &rawRequest, ErrMsg: "timeout", ErrCode: api.RequestTimeoutError})
 	})
 	c.cache[key] = &pendingRequest[T]{callbackCh: callbackCh, responseData: responseData, timeoutTimer: timer}
 	return nil

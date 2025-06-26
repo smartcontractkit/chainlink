@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -199,7 +200,7 @@ func newHttpRequestObject(t *testing.T, messageId string, userUrl string, signer
 	msg := &api.Message{Body: api.MessageBody{MessageId: messageId, Method: "test", DonId: "test_don"}}
 	require.NoError(t, msg.Sign(signerKey))
 	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeRequest(msg)
+	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	require.NoError(t, err)
 	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userUrl, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)

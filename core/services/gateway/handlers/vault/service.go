@@ -10,11 +10,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
-	gw_jsonrpc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api/jsonrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -41,9 +42,11 @@ var (
 	}, []string{"don_id"})
 )
 
+var _ gw_handlers.Handler = (*service)(nil)
+
 type service struct {
 	services.StateMachine
-
+	gw_handlers.Handler
 	methodConfig VaultConfig
 	donConfig    *config.DONConfig
 	don          gw_handlers.DON
@@ -60,6 +63,14 @@ type service struct {
 	storeMu      sync.RWMutex
 }
 
+func (s *service) HealthReport() map[string]error {
+	return map[string]error{s.Name(): s.Healthy()}
+}
+
+func (s *service) Name() string {
+	return s.lggr.Name()
+}
+
 type SecretEntry struct {
 	ID        string `json:"id"`
 	Value     string `json:"value"`
@@ -72,16 +83,15 @@ type VaultConfig struct {
 	RequestTimeoutSec     int                  `json:"request_timeout_sec"`
 }
 
-var _ gw_jsonrpc.Service = (*service)(nil)
-
-func New(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) gw_jsonrpc.Service {
+func NewService(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) *service {
+	lggr = lggr.Named("VaultHandler:" + donConfig.DonId)
 	var cfg VaultConfig
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		// Return a minimal implementation that will fail gracefully
 		return &service{
 			donConfig:         donConfig,
 			don:               don,
-			lggr:              lggr.Named("VaultMethod"),
+			lggr:              lggr,
 			requestTimeoutSec: 30,
 			secretsStore:      make(map[string]map[string]SecretEntry),
 		}
@@ -120,29 +130,25 @@ func (s *service) Close() error {
 	})
 }
 
-func (s *service) HandleUserRequest(ctx context.Context, request *jsonrpc.Request, callbackCh chan<- *jsonrpc.Response) error {
-	s.lggr.Debugw("handling vault request", "method", request.Method, "id", request.ID)
+func (s *service) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, _ *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+	s.lggr.Debugw("handling vault request", "method", jsonRequest.Method, "id", jsonRequest.ID)
 
 	// Create timeout context
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(s.requestTimeoutSec)*time.Second)
 	defer cancel()
 
 	// Process request based on method
-	switch request.Method {
+	switch jsonRequest.Method {
 	case MethodSecretsCreate:
-		return s.handleSecretsCreate(timeoutCtx, request, callbackCh)
+		return s.handleSecretsCreate(timeoutCtx, jsonRequest, callbackCh)
 	default:
-		s.lggr.Debugw("unsupported method", "method", request.Method)
+		s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 		promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 
-		response := &jsonrpc.Response{
-			Version: "2.0",
-			ID:      request.ID,
-			Error: &jsonrpc.Error{
-				Code:    -32601, // Method not found
-				Message: "Method not found",
-				Data:    json.RawMessage(fmt.Sprintf("Unsupported method: %s", request.Method)),
-			},
+		response := gw_handlers.UserCallbackPayload{
+			RawMsg:  nil,
+			ErrCode: api.UnsupportedMethodError,
+			ErrMsg:  fmt.Sprintf("Unsupported method: %s", jsonRequest.Method),
 		}
 
 		select {
@@ -154,31 +160,28 @@ func (s *service) HandleUserRequest(ctx context.Context, request *jsonrpc.Reques
 	}
 }
 
-func (s *service) handleSecretsCreate(ctx context.Context, request *jsonrpc.Request, callbackCh chan<- *jsonrpc.Response) error {
+func (s *service) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	// TODO: Implement this
+	return nil
+}
+
+func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc2.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var req SecretsCreateRequest
-	if err := json.Unmarshal(request.Params, &req); err != nil {
-		response := &jsonrpc.Response{
-			Version: "2.0",
-			ID:      request.ID,
-			Error: &jsonrpc.Error{
-				Code:    -32602, // Invalid params
-				Message: "Invalid parameters",
-				Data:    json.RawMessage(fmt.Sprintf("Failed to parse request: %v", err)),
-			},
+	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
+		response := gw_handlers.UserCallbackPayload{
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
+			ErrMsg:  fmt.Sprintf("Failed to parse request: %v", err),
 		}
 		return s.sendResponse(ctx, response, callbackCh)
 	}
 
 	// Validate request
 	if req.ID == "" {
-		response := &jsonrpc.Response{
-			Version: "2.0",
-			ID:      request.ID,
-			Error: &jsonrpc.Error{
-				Code:    -32602, // Invalid params
-				Message: "Invalid parameters",
-				Data:    json.RawMessage("Secret ID cannot be empty"),
-			},
+		response := gw_handlers.UserCallbackPayload{
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
+			ErrMsg:  "Secret ID cannot be empty",
 		}
 		return s.sendResponse(ctx, response, callbackCh)
 	}
@@ -195,14 +198,10 @@ func (s *service) handleSecretsCreate(ctx context.Context, request *jsonrpc.Requ
 
 	// Check if secret already exists
 	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
-		response := &jsonrpc.Response{
-			Version: "2.0",
-			ID:      request.ID,
-			Error: &jsonrpc.Error{
-				Code:    -32000, // Server error
-				Message: "Secret already exists",
-				Data:    json.RawMessage("Secret with this ID already exists"),
-			},
+		response := gw_handlers.UserCallbackPayload{
+			RawMsg:  nil,
+			ErrCode: api.InvalidParamsError,
+			ErrMsg:  "Secret with this ID already exists",
 		}
 		return s.sendResponse(ctx, response, callbackCh)
 	}
@@ -224,32 +223,29 @@ func (s *service) handleSecretsCreate(ctx context.Context, request *jsonrpc.Requ
 		ID: req.ID,
 	}
 
+	var resultBytes json.RawMessage
 	resultBytes, err := json.Marshal(responseData)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		response := &jsonrpc.Response{
-			Version: "2.0",
-			ID:      request.ID,
-			Error: &jsonrpc.Error{
-				Code:    -32603, // Internal error
-				Message: "Internal error",
-				Data:    json.RawMessage(fmt.Sprintf("Failed to marshal response: %v", err)),
-			},
+		response := gw_handlers.UserCallbackPayload{
+			RawMsg:  nil,
+			ErrCode: api.NodeReponseEncodingError,
+			ErrMsg:  fmt.Sprintf("Failed to marshal response: %v", err),
 		}
 		return s.sendResponse(ctx, response, callbackCh)
 	}
 
-	response := &jsonrpc.Response{
-		Version: "2.0",
-		ID:      request.ID,
-		Result:  resultBytes,
+	response := gw_handlers.UserCallbackPayload{
+		RawMsg:  &resultBytes,
+		ErrCode: api.NoError,
+		ErrMsg:  "",
 	}
 
 	promSecretsCreateSuccess.WithLabelValues(s.donConfig.DonId).Inc()
 	return s.sendResponse(ctx, response, callbackCh)
 }
 
-func (s *service) sendResponse(ctx context.Context, response *jsonrpc.Response, callbackCh chan<- *jsonrpc.Response) error {
+func (s *service) sendResponse(ctx context.Context, response gw_handlers.UserCallbackPayload, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	select {
 	case callbackCh <- response:
 		return nil

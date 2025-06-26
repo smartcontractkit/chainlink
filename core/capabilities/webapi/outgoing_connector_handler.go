@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -161,7 +163,7 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	case resp := <-ch:
 		switch resp.Body.Method {
 		case api.MethodInternalError:
-			var errPayload api.JsonRPCError
+			var errPayload jsonrpc2.WireError
 			err := json.Unmarshal(resp.Body.Payload, &errPayload)
 			if err != nil {
 				lggr.Errorw("failed to unmarshal err payload", "err", err)
@@ -275,7 +277,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 
 	senderAllow, globalAllow := c.incomingRateLimiter.AllowVerbose(body.Sender)
-	errJSON := api.JsonRPCError{
+	errJSON := jsonrpc2.WireError{
 		Code:    500,
 		Message: "",
 	}
