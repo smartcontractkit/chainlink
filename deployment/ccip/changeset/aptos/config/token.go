@@ -7,6 +7,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type TokenParams struct {
@@ -37,4 +38,17 @@ func (tp TokenParams) Validate() error {
 type TokenMint struct {
 	Amount uint64
 	To     aptos.AccountAddress
+}
+
+type DeployTokenFaucetInput struct {
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
+}
+
+type MintTokenInput struct {
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
+	TokenMint
 }

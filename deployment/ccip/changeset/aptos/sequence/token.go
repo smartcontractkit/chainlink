@@ -57,8 +57,8 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	// Deploy token MCMS Registrar
 	deployTokenRegistrarIn := operation.DeployTokenRegistrarInput{
-		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
-		MCMSAddress:         in.MCMSAddress,
+		TokenCodeObjectAddress: deployTReport.Output.TokenCodeObjectAddress,
+		MCMSAddress:            in.MCMSAddress,
 	}
 	deployRegReport, err := operations.ExecuteOperation(b, operation.DeployTokenMCMSRegistrarOp, deps, deployTokenRegistrarIn)
 	if err != nil {
@@ -68,13 +68,13 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	// Initialize token
 	initTokenInput := operation.InitializeTokenInput{
-		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
-		MaxSupply:           in.TokenParams.MaxSupply,
-		Name:                in.TokenParams.Name,
-		Symbol:              string(in.TokenParams.Symbol),
-		Decimals:            in.TokenParams.Decimals,
-		Icon:                in.TokenParams.Icon,
-		Project:             in.TokenParams.Project,
+		TokenCodeObjectAddress: deployTReport.Output.TokenCodeObjectAddress,
+		MaxSupply:              in.TokenParams.MaxSupply,
+		Name:                   in.TokenParams.Name,
+		Symbol:                 string(in.TokenParams.Symbol),
+		Decimals:               in.TokenParams.Decimals,
+		Icon:                   in.TokenParams.Icon,
+		Project:                in.TokenParams.Project,
 	}
 	initTokenReport, err := operations.ExecuteOperation(b, operation.InitializeTokenOp, deps, initTokenInput)
 	if err != nil {
@@ -85,9 +85,9 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Mint test tokens
 	if in.TokenMint != nil {
 		mintTokenInput := operation.MintTokensInput{
-			TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
-			To:                  in.TokenMint.To,
-			Amount:              in.TokenMint.Amount,
+			TokenCodeObjectAddress: deployTReport.Output.TokenCodeObjectAddress,
+			To:                     in.TokenMint.To,
+			Amount:                 in.TokenMint.Amount,
 		}
 		mintTokenReport, err := operations.ExecuteOperation(b, operation.MintTokensOp, deps, mintTokenInput)
 		if err != nil {
@@ -103,8 +103,61 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	return DeployTokenSeqOutput{
 		TokenAddress:        deployTReport.Output.TokenAddress,
-		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjAddress,
+		TokenCodeObjAddress: deployTReport.Output.TokenCodeObjectAddress,
 		TokenOwnerAddress:   deployTReport.Output.TokenOwnerAddress,
 		MCMSOperations:      mcmsOperations,
 	}, nil
+}
+
+type DeployTokenFaucetSeqInput struct {
+	MCMSAddress         aptos.AccountAddress
+	TokenCodeObjAddress aptos.AccountAddress
+}
+
+var DeployTokenFaucetSequence = operations.NewSequence(
+	"deploy-aptos-token-faucet",
+	operation.Version1_0_0,
+	"Deploys a token faucet onto an existing manage_token instance",
+	deployAptosTokenFaucetSequence,
+)
+
+func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDeps, in DeployTokenFaucetSeqInput) ([]mcmstypes.BatchOperation, error) {
+	var mcmsOperations []mcmstypes.BatchOperation
+
+	// Cleanup staging area
+	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, in.MCMSAddress)
+	if err != nil {
+		return nil, err
+	}
+	if len(cleanupReport.Output.Transactions) > 0 {
+		mcmsOperations = append(mcmsOperations, cleanupReport.Output)
+	}
+
+	// Deploy token faucet module
+	deployTokenFaucetInput := operation.DeployTokenFaucetInput{
+		MCMSAddress:            in.MCMSAddress,
+		TokenCodeObjectAddress: in.TokenCodeObjAddress,
+	}
+	deployTokenFaucetReport, err := operations.ExecuteOperation(b, operation.DeployTokenFaucetOp, deps, deployTokenFaucetInput)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenFaucetReport.Output)...)
+
+	// Grant Mint rights to ManagedTokenFaucet signer
+	managedTokenFaucetStateAddress := in.TokenCodeObjAddress.NamedObjectAddress([]byte("ManagedTokenFaucet"))
+	applyMintersInput := operation.ApplyAllowedMintersInput{
+		TokenCodeObjectAddress: in.TokenCodeObjAddress,
+		MintersToAdd:           []aptos.AccountAddress{managedTokenFaucetStateAddress},
+	}
+	applyAllowedMintersReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, applyMintersInput)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  []mcmstypes.Transaction{applyAllowedMintersReport.Output},
+	})
+
+	return mcmsOperations, nil
 }

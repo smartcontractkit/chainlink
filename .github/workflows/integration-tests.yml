@@ -144,6 +144,7 @@ jobs:
             github_ci_changes:
               - '.github/workflows/integration-tests.yml'
               - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
+              - '.github/workflows/cre-system-tests.yaml'
               - '.github/e2e-tests.yml'
             core_changes: &core_changes
               - '**/*.go'
