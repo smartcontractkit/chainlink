@@ -329,7 +329,7 @@ func AggregateProposals(
 ) (*mcmslib.TimelockProposal, error) {
 	return AggregateProposalsV2(
 		env,
-		TimelockStates{
+		MCMSStates{
 			MCMSEVMState:    mcmsEVMState,
 			MCMSSolanaState: mcmsSolanaState,
 		},
@@ -339,7 +339,7 @@ func AggregateProposals(
 	)
 }
 
-type TimelockStates struct {
+type MCMSStates struct {
 	MCMSEVMState    map[uint64]state.MCMSWithTimelockState
 	MCMSSolanaState map[uint64]state.MCMSWithTimelockStateSolana
 	MCMSAptosState  map[uint64]aptos.AccountAddress
@@ -351,7 +351,7 @@ type TimelockStates struct {
 // It has an extensible signature to allow for future chain families implementations
 func AggregateProposalsV2(
 	env cldf.Environment,
-	mcmsTimelockStates TimelockStates,
+	mcmsTimelockStates MCMSStates,
 	proposals []mcmslib.TimelockProposal,
 	description string,
 	mcmsConfig *TimelockConfig,
