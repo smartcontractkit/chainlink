@@ -25,8 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -48,7 +50,8 @@ type Delegate struct {
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
-	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	externalPeerWrapper     p2ptypes.PeerWrapper
+	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*webapi.RoundRobinSelector)
@@ -75,7 +78,8 @@ func NewDelegate(
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
-	peerWrapper *ocrcommon.SingletonPeerWrapper,
+	externalPeerWrapper p2ptypes.PeerWrapper,
+	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
 	opts ...func(*webapi.RoundRobinSelector),
@@ -92,7 +96,8 @@ func NewDelegate(
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
-		peerWrapper:             peerWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
+		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
 		selectorOpts:            opts,
@@ -115,10 +120,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	var accountIDs []string
 	var signers []crypto.Signer
-	if d.ks.P2P() != nil && d.peerWrapper != nil {
-		key, err := d.ks.P2P().GetOrFirst(d.peerWrapper.PeerID)
+	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
+		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
-			log.Warnw("Failed to get P2P key", "error", err, "peerID", d.peerWrapper.PeerID)
+			log.Warnw("Failed to get P2P key", "error", err, "peerID", d.externalPeerWrapper.GetPeer().ID())
 		} else {
 			accountIDs = append(accountIDs, "P2P_SIGNER")
 			signers = append(signers, key)
@@ -181,7 +186,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobName:       spec.Name.ValueOrZero(),
 			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
+			PeerWrapper:   d.ocrPeerWrapper,
 			RelayerSet:    relayerSet,
 			TransmitterID: ethKeyBundle.Address.String(),
 		})
@@ -191,7 +196,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	} else {
 		log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
+		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.ocrPeerWrapper == nil {
 			return nil, errors.New("P2P stack required for Oracle Factory")
 		}
 
@@ -202,7 +207,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobName:       spec.Name.ValueOrZero(),
 			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
+			PeerWrapper:   d.ocrPeerWrapper,
 			RelayerSet:    relayerSet,
 			TransmitterID: ethKeyBundle.Address.String(),
 		})
