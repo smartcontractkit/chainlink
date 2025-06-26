@@ -11,9 +11,11 @@ import (
 	// "github.com/stretchr/testify/require"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/require"
 
 	// "github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	// "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -38,8 +40,10 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
-	// ctx := testutils.Context(t)
+	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	_, oidcAuthProvider := setupAuthenticationProvider(t)
-	println("%v", oidcAuthProvider)
+	// Find user
+	_, err := oidcAuthProvider.FindUser(ctx, "user@test.com")
+	require.ErrorContains(t, err, "user not found")
 }

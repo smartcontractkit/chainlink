@@ -18,6 +18,8 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
+
+	// "database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -289,20 +291,20 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 // FindUser in the context of the OIDC driver only supports local admin users
 func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsessions.User, error) {
 	email = strings.ToLower(email)
-	foundUser := clsessions.User{}
 
-	var foundLocalAdminUser clsessions.User
-	checkErr := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		return tx.GetContext(ctx, &foundLocalAdminUser, SQLSelectUserbyEmail, email)
+	var foundUser clsessions.User
+	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
+		return tx.GetContext(ctx, &foundUser, SQLSelectUserbyEmail, email)
 	})
-	if checkErr == nil {
-		return foundLocalAdminUser, nil
-	}
-	// If error is not nil, there was either an issue or no local users found
-	if !errors.Is(checkErr, sql.ErrNoRows) {
+
+	if err != nil {
 		// If the error is not that no local user was found, log and exit
-		oi.lggr.Errorf("error searching users table: %v", checkErr)
-		return clsessions.User{}, errors.New("error Finding user")
+		if err == sql.ErrNoRows {
+			return clsessions.User{}, errors.New("user not found")
+		} else {
+			oi.lggr.Errorf("error searching users table: %v", err)
+			return clsessions.User{}, errors.New("error finding user")
+		}
 	}
 
 	return foundUser, nil
