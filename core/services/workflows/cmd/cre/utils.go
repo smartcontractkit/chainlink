@@ -12,7 +12,9 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
+	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -69,11 +71,6 @@ var (
 		"workflowevent": {},
 	}
 )
-
-type ManualTriggers struct {
-	ManualCronTrigger *fakes.ManualCronTriggerService
-	ManualHttpTrigger *fakes.ManualHttpTriggerService
-}
 
 func NewStandaloneEngine(
 	ctx context.Context,
@@ -197,27 +194,6 @@ func NewStandaloneEngine(
 // TODO support fetching secrets (from a local file)
 func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	return map[string]string{}, nil
-}
-
-func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
-	// Cron
-	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
-	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
-	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	// HTTP
-	manualHttpTrigger := fakes.NewManualManualHttpTriggerService(lggr)
-	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
-	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	return ManualTriggers{
-		ManualCronTrigger: manualCronTrigger,
-		ManualHttpTrigger: manualHttpTrigger,
-	}, nil
 }
 
 func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
