@@ -49,6 +49,11 @@ type standardCapConfig struct {
 	Enabled bool
 }
 
+type ManualTriggers struct {
+	ManualCronTrigger *fakes.ManualCronTriggerService
+	ManualHttpTrigger *fakes.ManualHTTPTriggerService
+}
+
 var (
 	goBinPath            = os.Getenv("GOBIN")
 	standardCapabilities = map[string]standardCapConfig{
@@ -216,7 +221,7 @@ func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, regis
 	}
 
 	// HTTP
-	manualHttpTrigger := fakes.NewManualManualHttpTriggerService(lggr)
+	manualHttpTrigger := fakes.NewManualHTTPTriggerService(lggr)
 	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
 	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
 		return ManualTriggers{}, err
