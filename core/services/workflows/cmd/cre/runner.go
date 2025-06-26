@@ -20,6 +20,7 @@ type RunnerConfig struct {
 	enableBilling              bool
 	enableStandardCapabilities bool
 	lggr                       logger.Logger
+	engineHooks                v2.LifecycleHooks
 }
 
 type RunnerHooks struct {
@@ -132,7 +133,7 @@ func (r *Runner) run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, err := NewStandaloneEngine(ctx, cfg.lggr, registry, binary, config, secrets, billingAddress, v2.LifecycleHooks{})
+	engine, err := NewStandaloneEngine(ctx, cfg.lggr, registry, binary, config, secrets, billingAddress, cfg.engineHooks)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

@@ -31,10 +31,8 @@ func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*
 		return nil, err
 	}
 
-	env.Logger.Info(fmt.Sprintf("secret value: %s", secret.Value))
-
 	return sdk.Workflow[*runtimeConfig]{
-		sdk.On(
+		sdk.Handler(
 			cron.Trigger(cfg),
 			makeCallback(secret.Value),
 		),
