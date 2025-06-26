@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,21 +9,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -40,13 +43,13 @@ const (
 	address1                     = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
 )
 
-var emptyRequest jsonrpc2.Request
+var emptyRequest jsonrpc.Request
 
 func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON, []gwcommon.TestNode) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	httpClient := mocks.NewHTTPClient(t)
 	don := handlermocks.NewDON(t)
-	nodeRateLimiterConfig := common.RateLimiterConfig{
+	nodeRateLimiterConfig := ratelimit.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   100.0,
@@ -96,7 +99,10 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
-
+	err = msg.Sign(nodes[0].PrivateKey)
+	require.NoError(t, err)
+	err = msg.Validate()
+	require.NoError(t, err)
 	t.Run("happy case", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 200,
@@ -104,9 +110,14 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -118,8 +129,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
 		})).Return(nil).Once()
-
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -137,9 +149,14 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -152,7 +169,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				!payload.ExecutionError
 		})).Return(nil).Once()
 
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -166,9 +185,14 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -179,7 +203,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				"error while marshalling" == payload.ErrorMessage
 		})).Return(nil).Once()
 
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -191,7 +217,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	})
 }
 
-func triggerRequest(t *testing.T, privateKey string, topics string, methodName string, timestamp string, payload string) *api.Message {
+func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName string, timestamp string, payload string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = MethodWebAPITrigger
@@ -200,23 +226,25 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 		timestamp = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 	donID := "workflow_don_1"
-
-	key, err := crypto.HexToECDSA(privateKey)
-	require.NoError(t, err)
+	var payloadJSON []byte
 	if payload == "" {
-		payload = `{
-         "trigger_id": "web-api-trigger@1.0.0",
-          "trigger_event_id": "action_1234567890",
-          "timestamp": ` + timestamp + `,
-          "topics": ` + topics + `,
-					"params": {
-						"bid": "101",
-						"ask": "102"
-					}
-        }
-		`
+		ts, err := strconv.ParseInt(timestamp, 10, 64)
+		require.NoError(t, err)
+		reqPayload := webapicap.TriggerRequestPayload{
+			TriggerId:      "web-api-trigger@1.0.0",
+			TriggerEventId: "action_1234567890",
+			Timestamp:      ts,
+			Topics:         topics,
+			Params: webapicap.TriggerRequestPayloadParams(map[string]interface{}{
+				"bid": "101",
+				"ask": "102",
+			}),
+		}
+		payloadJSON, err = json.Marshal(reqPayload)
+		require.NoError(t, err)
+	} else {
+		payloadJSON = []byte(payload)
 	}
-	payloadJSON := []byte(payload)
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: messageID,
@@ -225,7 +253,9 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
-	err = msg.Sign(key)
+	err := msg.Sign(key)
+	require.NoError(t, err)
+	err = msg.Validate()
 	require.NoError(t, err)
 	return msg
 }
@@ -241,28 +271,34 @@ func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
 }
 
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
-	handler, _, don, _ := setupHandler(t)
+	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
-	msg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "", "")
+	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
 
 	t.Run("happy case", func(t *testing.T) {
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 
 		// sends to 2 dons
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			require.Equal(t, msg, args.Get(2))
+			nodeReq := nodeRequest(msg)
+			require.Equal(t, nodeReq, args.Get(2))
 		}).Return(nil).Once()
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			require.Equal(t, msg, args.Get(2))
+			nodeReq := nodeRequest(msg)
+			require.Equal(t, nodeReq, args.Get(2))
 		}).Return(nil).Once()
 
 		err := handler.HandleUserMessage(ctx, emptyRequest, msg, ch)
 		require.NoError(t, err)
 		requireNoChanMsg(t, ch)
 
-		err = handler.HandleNodeMessage(ctx, msg, "")
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodes[0].Address)
 		require.NoError(t, err)
 
+		userPayload := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, userPayload)
 		resp := <-ch
 		var rawMsg json.RawMessage
 		rawMsg, err = json.Marshal(msg)
@@ -273,7 +309,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case invalid method", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "", "")
+		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
@@ -284,7 +320,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case stale message", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "")
+		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
@@ -295,7 +331,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case empty payload", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "{}")
+		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "{}")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
@@ -306,7 +342,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case invalid payload", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", `{"foo":"bar"}`)
+		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
 		require.NoError(t, err)
@@ -339,6 +375,8 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
+	err = msg.Sign(nodes[0].PrivateKey)
+	require.NoError(t, err)
 
 	t.Run("OK-compute_with_fetch", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
@@ -347,9 +385,14 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -362,7 +405,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 				!payload.ExecutionError
 		})).Return(nil).Once()
 
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -380,9 +425,14 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -395,7 +445,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 				!payload.ExecutionError
 		})).Return(nil).Once()
 
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -409,9 +461,14 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+			var m api.Message
+			err2 := json.Unmarshal(req.Params, &m)
+			if err2 != nil {
+				return false
+			}
 			var payload Response
-			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			err2 = json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
 			}
@@ -422,7 +479,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 				"error while marshalling" == payload.ErrorMessage
 		})).Return(nil).Once()
 
-		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		resp, err := hc.ValidatedResponseFromMessage(msg)
+		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -432,4 +491,12 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
+}
+
+func nodeRequest(msg *api.Message) *jsonrpc.Request {
+	req, err := hc.ValidatedRequestFromMessage(msg)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create node request: %v", err))
+	}
+	return req
 }

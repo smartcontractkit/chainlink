@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -59,7 +59,7 @@ Name = "node one"
 Address = "0x0001020304050607080900010203040506070809"
 `)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 }
@@ -77,7 +77,7 @@ DonId = "my_don"
 HandlerName = "dummy"
 `)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
@@ -91,7 +91,7 @@ DonId = "my_don"
 HandlerName = "no_such_handler"
 `)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
@@ -105,7 +105,7 @@ HandlerName = "dummy"
 SomeOtherField = "abcd"
 `)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
@@ -123,7 +123,7 @@ Name = "node one"
 Address = "0xnot_an_address"
 `)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
@@ -131,7 +131,7 @@ Address = "0xnot_an_address"
 func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
@@ -159,7 +159,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Ha
 	handlers := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
+	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, nil, logger.Test(t))
 	return gw, handler
 }
 

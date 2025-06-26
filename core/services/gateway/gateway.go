@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -77,7 +78,6 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-
 		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
@@ -94,7 +94,6 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		handlerMap[handlerKey] = handler
 		donConnMgr.SetHandler(handler)
 	}
-
 	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
 }
 
@@ -104,7 +103,7 @@ func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[stri
 		httpServer: httpServer,
 		handlers:   handlers,
 		connMgr:    connMgr,
-		lggr:       lggr.Named("Gateway"),
+		lggr:       logger.Named(lggr, "Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw

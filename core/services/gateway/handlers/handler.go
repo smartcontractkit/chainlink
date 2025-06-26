@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -36,11 +38,12 @@ type Handler interface {
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
 	// should be non-blocking
-	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
+	// should validate the message inside the response
+	HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error
 }
 
 // Representation of a DON from a Handler's perspective.
 type DON interface {
 	// Thread-safe
-	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
+	SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request) error
 }

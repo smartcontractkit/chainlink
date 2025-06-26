@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -38,7 +38,7 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	}
 
 	handler = mocks.NewHTTPRequestHandler(t)
-	server = network.NewHttpServer(config, logger.TestLogger(t))
+	server = network.NewHttpServer(config, logger.Test(t))
 	server.SetHTTPRequestHandler(handler)
 	err := server.Start(testutils.Context(t))
 	require.NoError(t, err)

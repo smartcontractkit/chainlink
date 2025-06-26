@@ -3,13 +3,13 @@ package v1_6
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
@@ -66,7 +66,7 @@ var (
 func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
@@ -441,7 +441,7 @@ func addNodes(
 		for _, p2pID := range p2pIDs {
 			// if any p2pIDs are empty throw error
 			if p2pID == ([32]byte{}) {
-				return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
+				return fmt.Errorf("p2pID: %x selector: %d: %w", p2pID, chain.Selector, errors.New("empty p2pID"))
 			}
 			nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
 				NodeOperatorId:      nopID,
