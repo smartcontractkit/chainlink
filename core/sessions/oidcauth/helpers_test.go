@@ -28,7 +28,7 @@ func NewTestOIDCAuthenticator(
 	ctx := context.Background()
 	// Initialize provider based on config domain, this contains a blocking call to as part of the OpenID Connect discovery process
 	// TODO:  harry - mock this?
-	provider, err := oidc.NewProvider(ctx, oidcCfg.ProviderURL())
+	provider, err := NewMockProvider(ctx, oidcCfg.ProviderURL())
 	if err != nil {
 		log.Fatalf("Failed to get provider: %v", err)
 	}
@@ -57,6 +57,20 @@ func NewTestOIDCAuthenticator(
 	}
 
 	return &oidcAuth, nil
+}
+
+func NewMockProvider(ctx context.Context, issuer string) (*oidc.Provider, error) {
+	x := oidc.ProviderConfig{
+		IssuerURL:     issuer,
+		AuthURL:       issuer + "/v1/authorize",
+		TokenURL:      issuer + "/v1/token",
+		DeviceAuthURL: issuer + "/v1/clients",
+		UserInfoURL:   issuer + "/v1/userinfo",
+		JWKSURL:       issuer + "/v1/keys",
+		Algorithms:    []string{""},
+	}
+
+	return x.NewProvider(ctx), nil
 }
 
 // Default server group name mappings for test config and mocked ldap search results
