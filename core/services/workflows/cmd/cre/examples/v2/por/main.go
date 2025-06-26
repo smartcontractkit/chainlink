@@ -68,7 +68,7 @@ func RunSimpleCronWorkflow(runner sdk.Runner[[]byte]) {
 
 	runner.Run(func(env *sdk.Environment[[]byte]) (sdk.Workflow[[]byte], error) {
 		return sdk.Workflow[[]byte]{
-			sdk.On(
+			sdk.Handler(
 				croncap.Trigger(cfg),
 				onTrigger),
 		}, nil
