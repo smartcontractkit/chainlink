@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/gagliardetto/solana-go"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -61,14 +60,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			if len(tokenAmount.DestTokenAddress) != solana.PublicKeyLength {
+			if len(tokenAmount.DestTokenAddress) != 36 {
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
-			_, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
-			}
+			//_, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+			//if err != nil {
+			//	return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+			//}
 
 			// TODO pending implementation of dest gas amount extraction, waiting for router contract design
 			//destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
@@ -100,10 +99,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				ExtraData:         extraData,
 				DestPoolAddress:   destTokenTonAddr,
 				Amount:            tokenAmount.Amount.Int,
-				//DestGasAmount:     destGasAmount,
+				//DestGasAmount:     destGasAmount, // TODO pending implementation
 			})
 
-			tokenAmountsCell, err := binding.PackArray(tokenAmounts)
+			tokenAmountsDict, err := binding.SliceToDict(tokenAmounts)
 			if err != nil {
 				return nil, fmt.Errorf("pack token amounts: %w", err)
 			}
@@ -132,12 +131,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			}
 
 			rampMsg = binding.Any2TONRampMessage{
-				Header:   header,
-				Sender:   senderAddr,
-				Data:     dataCell,
-				Receiver: tonReceiverAddr,
-				// GasLimit: 0, // TODO: implement gas limit handling with extra data codec
-				TokenAmounts: tokenAmountsCell,
+				Header:       header,
+				Sender:       senderAddr,
+				Data:         dataCell,
+				Receiver:     tonReceiverAddr,
+				GasLimit:     make([]byte, 32), // TODO: implement gas limit handling with extra data codec
+				TokenAmounts: tokenAmountsDict,
 			}
 		}
 
@@ -190,9 +189,10 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("decode cell: %w", err)
 	}
 
-	executeReport := cciptypes.ExecutePluginReport{
-		sourceChainSelector: cciptypes.ChainSelector(report.SourceChainSelector),
-	}
+	//executeReport := cciptypes.ExecutePluginReport{
+	//	sourceChainSelector: cciptypes.ChainSelector(report.SourceChainSelector),
+	//}
+	return cciptypes.ExecutePluginReport{}, nil
 }
 
 // Convert the raw address bytes to a TON address.
