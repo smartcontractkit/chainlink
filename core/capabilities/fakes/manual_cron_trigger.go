@@ -87,7 +87,7 @@ func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerI
 	return f.callbackCh, nil
 }
 
-func (s *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+func (f *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
 	return nil
 }
 
@@ -95,7 +95,7 @@ func (f *ManualCronTriggerService) RegisterLegacyTrigger(ctx context.Context, tr
 	return f.legacyCallbackCh, nil
 }
 
-func (s *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
+func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
 	return nil
 }
 
