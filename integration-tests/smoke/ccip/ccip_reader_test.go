@@ -1307,9 +1307,6 @@ func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 		logsInsertedFirst    int
 		logsInsertedMatching int
 	}{
-		{0, 0},
-		{1, 10},
-		{10, 100},
 		{100, 10_000},
 	}
 
@@ -1623,10 +1620,10 @@ func populateDatabaseForExecutionStateChanged(
 	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
-// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
-// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
 func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -1957,7 +1954,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	var dbs sqlutil.DataSource
 	{
