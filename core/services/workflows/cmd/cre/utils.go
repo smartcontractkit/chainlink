@@ -51,7 +51,7 @@ type standardCapConfig struct {
 
 type ManualTriggers struct {
 	ManualCronTrigger *fakes.ManualCronTriggerService
-	ManualHttpTrigger *fakes.ManualHTTPTriggerService
+	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
 }
 
 var (
@@ -221,15 +221,15 @@ func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, regis
 	}
 
 	// HTTP
-	manualHttpTrigger := fakes.NewManualHTTPTriggerService(lggr)
-	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
-	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
+	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
+	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
+	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
 		return ManualTriggers{}, err
 	}
 
 	return ManualTriggers{
 		ManualCronTrigger: manualCronTrigger,
-		ManualHttpTrigger: manualHttpTrigger,
+		ManualHTTPTrigger: manualHTTPTrigger,
 	}, nil
 }
 
