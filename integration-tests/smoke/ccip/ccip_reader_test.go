@@ -1431,8 +1431,8 @@ func populateDatabaseForCommitReportAccepted(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
-// Benchmark_CCIPReader_ExecutedMessages/5_source_chains_and_5_destination_chains-12         	      46	  24748651 ns/op
-// Benchmark_CCIPReader_ExecutedMessages/20_dest_chains_and_40_sources_chains-12             	       7	 155096661 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/5_source_chains_and_5_destination_chains-12         	      49	  24335313 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/20_dest_chains_and_40_sources_chains-12             	     187	   6190834 ns/op
 func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -1623,13 +1623,9 @@ func populateDatabaseForExecutionStateChanged(
 	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
-// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains
 // Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
-// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
-// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains
 // Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
-// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
 func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
