@@ -72,17 +72,23 @@ var (
 	}
 )
 
+type StandaloneEngineLoggerConfig struct {
+	ModuleLogger         logger.Logger
+	WorkflowLimitsLogger logger.Logger
+	EngineLogger         logger.Logger
+}
+
 func NewStandaloneEngine(
 	ctx context.Context,
-	lggr logger.Logger,
+	lggrCfg StandaloneEngineLoggerConfig,
 	registry *capabilities.Registry,
 	binary []byte, config []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
-) (services.Service, error) {
+) (services.Service, *sdkpb.TriggerSubscriptionRequest, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                  lggr,
+		Logger:                  lggrCfg.ModuleLogger,
 		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
@@ -90,7 +96,7 @@ func NewStandaloneEngine(
 
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create module from config: %w", err)
+		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
@@ -99,20 +105,20 @@ func NewStandaloneEngine(
 		Config:          config,
 	}, &v2.DisallowedExecutionHelper{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}
 	if result.GetError() != "" {
-		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
 	}
-	result.GetTriggerSubscriptions()
-	for _, sub := range result.GetTriggerSubscriptions().Subscriptions {
-		fmt.Println("Registered Trigger: ", sub.Id)
-		fmt.Println("Method: ", sub.Method)
-	}
+	triggerSubscriptions := result.GetTriggerSubscriptions()
+	// for _, sub := range result.GetTriggerSubscriptions().Subscriptions {
+	// 	fmt.Println("Registered Trigger: ", sub.Id)
+	// 	fmt.Println("Method: ", sub.Method)
+	// }
 
 	name, err := types.NewWorkflowName(defaultName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
@@ -122,15 +128,15 @@ func NewStandaloneEngine(
 		PerSenderBurst: defaultBurst,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggrCfg.WorkflowLimitsLogger, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var billingClient billing.WorkflowClient
@@ -141,17 +147,17 @@ func NewStandaloneEngine(
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		cfg := workflows.Config{
-			Lggr:                 lggr,
+			Lggr:                 lggrCfg.EngineLogger,
 			Workflow:             *sdkSpec,
 			WorkflowID:           defaultWorkflowID,
 			WorkflowOwner:        defaultOwner,
 			WorkflowName:         name,
 			Registry:             registry,
-			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+			Store:                store.NewInMemoryStore(lggrCfg.EngineLogger, clockwork.NewRealClock()),
 			Config:               config,
 			Binary:               binary,
 			SecretsFetcher:       SecretsFor,
@@ -162,15 +168,20 @@ func NewStandaloneEngine(
 			MaxExecutionDuration: time.Minute,
 			BillingClient:        billingClient,
 		}
-		return workflows.NewEngine(ctx, cfg)
+
+		engine, err := workflows.NewEngine(ctx, cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		return engine, triggerSubscriptions, nil
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggr,
+		Lggr:            lggrCfg.EngineLogger,
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     registry,
-		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		ExecutionsStore: store.NewInMemoryStore(lggrCfg.EngineLogger, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
@@ -188,7 +199,11 @@ func NewStandaloneEngine(
 		DebugMode: true,
 	}
 
-	return v2.NewEngine(cfg)
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return engine, triggerSubscriptions, nil
 }
 
 // TODO support fetching secrets (from a local file)

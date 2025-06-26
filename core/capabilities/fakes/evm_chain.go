@@ -112,9 +112,9 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 
 	toAddress := common.Address(input.Receiver)
 	data := input.Report.RawReport
-	fc.eng.Debugw("EVM Chain WriteReport toAddress", "toAddress", toAddress)
-	fc.eng.Debugw("EVM Chain WriteReport data", "data", data)
-	fc.eng.Debugw("EVM Chain WriteReport report", "report", input.Report)
+	fc.eng.Debugw("EVM Chain WriteReport Receiver", "receiver", toAddress)
+	fc.eng.Debugw("EVM Chain WriteReport Report", "report", input.Report)
+	fc.eng.Debugw("EVM Chain WriteReport Data", "data", data)
 
 	fromAddress := crypto.PubkeyToAddress(fc.privateKey.PublicKey)
 
