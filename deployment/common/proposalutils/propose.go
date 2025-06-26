@@ -379,7 +379,7 @@ func AggregateProposalsV2(
 	for _, op := range batches {
 		chainSel := uint64(op.ChainSelector)
 		var err error
-		var inspectorParams InspectorMetadataParams
+		var inspectorOpts []MCMSInspectorOption
 
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
@@ -424,12 +424,10 @@ func AggregateProposalsV2(
 			if err != nil {
 				return nil, fmt.Errorf("failed to get role from action: %w", err)
 			}
-			inspectorParams = InspectorMetadataParams{
-				AptosRole: role,
-			}
+			inspectorOpts = append(inspectorOpts, WithAptosRole(role))
 		}
 
-		inspectors[chainSel], err = McmsInspectorForChainV2(env, chainSel, inspectorParams)
+		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel, inspectorOpts...)
 		if err != nil {
 			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
 		}

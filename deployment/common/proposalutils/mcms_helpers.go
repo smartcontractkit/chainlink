@@ -167,16 +167,24 @@ func McmsTimelockConverters(env cldf.Environment) (map[uint64]mcmssdk.TimelockCo
 	return converters, nil
 }
 
-type InspectorMetadataParams struct {
+type mcmsInspectorOptions struct {
 	AptosRole mcmsaptossdk.TimelockRole
 }
 
-// Deprecated: use McmsInspectorForChainV2 instead. Which supports MetadataParams
-func McmsInspectorForChain(env cldf.Environment, chain uint64) (mcmssdk.Inspector, error) {
-	return McmsInspectorForChainV2(env, chain, InspectorMetadataParams{})
+type MCMSInspectorOption func(*mcmsInspectorOptions)
+
+func WithAptosRole(role mcmsaptossdk.TimelockRole) MCMSInspectorOption {
+	return func(opts *mcmsInspectorOptions) {
+		opts.AptosRole = role
+	}
 }
 
-func McmsInspectorForChainV2(env cldf.Environment, chain uint64, metadataParams InspectorMetadataParams) (mcmssdk.Inspector, error) {
+func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspectorOption) (mcmssdk.Inspector, error) {
+	var options mcmsInspectorOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
@@ -188,10 +196,10 @@ func McmsInspectorForChainV2(env cldf.Environment, chain uint64, metadataParams 
 	case chain_selectors.FamilySolana:
 		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
 	case chain_selectors.FamilyAptos:
-		if metadataParams.AptosRole.String() == "unknown" {
+		if options.AptosRole.String() == "unknown" {
 			return nil, fmt.Errorf("aptos role not properly set for chain: %d", chain)
 		}
-		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, metadataParams.AptosRole)
+		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, options.AptosRole)
 
 		return inspector, nil
 	default:
