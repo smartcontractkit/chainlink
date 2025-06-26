@@ -25,7 +25,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
-var EnableBigBlocksChangeset = cldf.CreateChangeSet(EnableBigBlocksLogic, EnableBigBlocksPreCondition)
+var EnableBigBlockChangeset = cldf.CreateChangeSet(EnableBigBlocksLogic, EnableBigBlocksPreCondition)
 
 type EnableBigBlocksConfig struct {
 	PrivateKeyHex string //AWS KMS signing method
