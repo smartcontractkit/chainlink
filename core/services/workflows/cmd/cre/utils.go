@@ -203,13 +203,24 @@ func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSec
 
 		// Handle secret not found
 		if !ok {
-			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret not found"}})
+			responses = append(responses, &sdkpb.SecretResponse{
+				Response: &sdkpb.SecretResponse_Error{
+					Error: &sdkpb.SecretError{
+						Error: "secret not found",
+					},
+				},
+			})
 			continue
 		}
 
 		// Handle secret found but no value associated
 		if len(values) == 0 {
-			responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Error{Error: "secret found but no value associated"}})
+			responses = append(responses, &sdkpb.SecretResponse{
+				Response: &sdkpb.SecretResponse_Error{
+					Error: &sdkpb.SecretError{
+						Error: "secret found but no value associated"},
+				},
+			})
 			continue
 		}
 
@@ -219,7 +230,11 @@ func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSec
 			Namespace: req.Namespace, // Use the namespace from the request
 			Value:     values[0],     // Take the first value as the secret
 		}
-		responses = append(responses, &sdkpb.SecretResponse{Response: &sdkpb.SecretResponse_Secret{Secret: secret}})
+		responses = append(responses, &sdkpb.SecretResponse{
+			Response: &sdkpb.SecretResponse_Secret{
+				Secret: secret,
+			},
+		})
 	}
 	return responses, nil
 }

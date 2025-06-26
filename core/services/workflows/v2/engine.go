@@ -505,7 +505,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 
 			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
 			if err != nil {
-				e.cfg.Lggr.Errorw("Failed to emit user logs", "err", err)
+				e.lggr.Errorw("Failed to emit user logs", "err", err)
 			}
 			count++
 		}
