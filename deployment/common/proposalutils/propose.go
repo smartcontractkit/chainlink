@@ -379,6 +379,8 @@ func AggregateProposalsV2(
 	for _, op := range batches {
 		chainSel := uint64(op.ChainSelector)
 		var err error
+		var inspectorParams InspectorMetadataParams
+
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get family for chain %d: %w", chainSel, err)
@@ -410,15 +412,24 @@ func AggregateProposalsV2(
 			}
 			mcmsPerChain[chainSel] = mcmsAddr
 		case chain_selectors.FamilyAptos:
+			// Set MCMS addresses. Aptos uses the same address for MCMS and Timelock
 			aptosMCMSAddress, existsInAptos := mcmsTimelockStates.MCMSAptosState[chainSel]
 			if !existsInAptos {
 				return nil, fmt.Errorf("missing MCMS state for chain with selector %d", chainSel)
 			}
 			timelocks[chainSel] = aptosMCMSAddress.StringLong()
 			mcmsPerChain[chainSel] = aptosMCMSAddress.StringLong()
+			// Getting inspector parameters for Aptos
+			role, err := GetAptosRoleFromAction(mcmsConfig.MCMSAction)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get role from action: %w", err)
+			}
+			inspectorParams = InspectorMetadataParams{
+				AptosRole: role,
+			}
 		}
 
-		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel)
+		inspectors[chainSel], err = McmsInspectorForChainV2(env, chainSel, inspectorParams)
 		if err != nil {
 			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
 		}
