@@ -12,8 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpaction "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
-	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
 	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
@@ -56,7 +55,7 @@ type standardCapConfig struct {
 
 type ManualTriggers struct {
 	ManualCronTrigger *fakes.ManualCronTriggerService
-	ManualHttpTrigger *fakes.ManualHTTPTriggerService
+	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
 }
 
 var (
@@ -267,6 +266,21 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, fakeConsensus)
 
+	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(lggr)
+	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, fakeConsensusNoDAG)
+
+	writers := []string{"write_aptos-testnet@1.0.0"}
+	for _, writer := range writers {
+		writeCap := fakes.NewFakeWriteChain(lggr, writer)
+		if err := registry.Add(ctx, writeCap); err != nil {
+			return nil, err
+		}
+		caps = append(caps, writeCap)
+	}
+
 	return caps, nil
 }
 
@@ -279,15 +293,15 @@ func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, regis
 	}
 
 	// HTTP
-	manualHttpTrigger := fakes.NewManualHTTPTriggerService(lggr)
-	manualHttpTriggerServer := httptrigger.NewHTTPServer(manualHttpTrigger)
-	if err := registry.Add(ctx, manualHttpTriggerServer); err != nil {
+	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
+	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
+	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
 		return ManualTriggers{}, err
 	}
 
 	return ManualTriggers{
 		ManualCronTrigger: manualCronTrigger,
-		ManualHttpTrigger: manualHttpTrigger,
+		ManualHTTPTrigger: manualHTTPTrigger,
 	}, nil
 }
 

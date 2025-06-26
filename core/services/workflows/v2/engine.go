@@ -473,7 +473,9 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string) {
+	e.lggr.Debugw("Listening for user logs ...")
 	count := 0
+	defer func() { e.lggr.Debugw("Listening for user logs done.", "processedLogLines", count) }()
 	for {
 		select {
 		case <-ctx.Done():

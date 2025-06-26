@@ -101,11 +101,16 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 }
 
 func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, scheduledExecutionTime time.Time) error {
-	// Run in a goroutine to avoid blocking
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
+
 	go func() {
-		// Send the trigger response
-		f.callbackCh <- createManualTriggerResponse(scheduledExecutionTime)
+		select {
+		case f.callbackCh <- createManualTriggerResponse(scheduledExecutionTime):
+			// Successfully sent trigger response
+		case <-ctx.Done():
+			// Context cancelled, cleanup goroutine
+			f.lggr.Debug("ManualTrigger goroutine cancelled due to context cancellation")
+		}
 	}()
 
 	return nil

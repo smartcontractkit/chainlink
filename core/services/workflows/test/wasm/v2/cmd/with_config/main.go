@@ -17,7 +17,7 @@ type runtimeConfig struct {
 func CreateWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
 	runnerCfg := env.Config
 	return sdk.Workflow[*runtimeConfig]{
-		sdk.On(
+		sdk.Handler(
 			basictrigger.Trigger(&basictrigger.Config{
 				Name:   runnerCfg.Name,
 				Number: runnerCfg.Number,
