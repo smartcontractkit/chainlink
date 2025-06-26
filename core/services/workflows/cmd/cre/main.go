@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
@@ -81,32 +82,32 @@ func run(
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
-	triggerCaps, err := NewManualTriggerCapabilities(ctx, lggr, registry)
+	triggerCaps, err := utils.NewManualTriggerCapabilities(ctx, lggr, registry)
 	if err != nil {
 		fmt.Printf("Failed to create trigger capabilities: %v\n", err)
 		os.Exit(1)
 	}
 
-	computeCaps, err := NewFakeComputeCapabilities(ctx, lggr, registry)
+	computeCaps, err := utils.NewFakeComputeCapabilities(ctx, lggr, registry)
 	if err != nil {
 		fmt.Printf("Failed to create compute capabilities: %v\n", err)
 		os.Exit(1)
 	}
 
 	if enableBeholder {
-		_ = setupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
+		_ = utils.SetupBeholder(lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
 	if billingClientAddr != "" {
-		bs := NewBillingService(lggr.Named("Fake_Billing_Client"))
+		bs := utils.NewBillingService(lggr.Named("Fake_Billing_Client"))
 		err = bs.Start(ctx)
 		if err != nil {
 			fmt.Printf("Failed to start billing service: %v\n", err)
 			os.Exit(1)
 		}
 
-		defer func(bs *BillingService) {
-			cerr := bs.close()
+		defer func(bs *utils.BillingService) {
+			cerr := bs.Close()
 			if cerr != nil {
 				fmt.Printf("Failed to close billing service: %v\n", cerr)
 			}
@@ -136,7 +137,7 @@ func run(
 	initializedCh := make(chan struct{})
 	executionFinishedCh := make(chan struct{})
 
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
+	engine, err := utils.NewStandaloneEngine(ctx, lggr, registry, binary, config, billingClientAddr, v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			lggr.Info("Engine initialized")
 			close(initializedCh)

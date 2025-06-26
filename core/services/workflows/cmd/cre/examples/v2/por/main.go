@@ -22,22 +22,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/examples/v2/por/bindings"
+	"gopkg.in/yaml.v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
 )
 
 type EvmConfig struct {
-	TokenAddress  string
-	PorAddress    string
-	ChainSelector uint32
-	GasLimit      uint64
+	TokenAddress  string `yaml:"tokenAddress"`
+	PorAddress    string `yaml:"porAddress"`
+	ChainSelector uint32 `yaml:"chainSelector"`
+	GasLimit      uint64 `yaml:"gasLimit"`
 }
 
 type Config struct {
-	PublicKey string
-	Schedule  string
-	Url       string
-	Evms      []EvmConfig
+	PublicKey string      `yaml:"publicKey"`
+	Schedule  string      `yaml:"schedule"`
+	Url       string      `yaml:"url"`
+	Evms      []EvmConfig `yaml:"evms"`
 }
 
 type ReserveInfo struct {
@@ -51,12 +52,7 @@ type PorResponse struct {
 	Data          string `json:"data"`
 }
 
-func RunSimpleCronWorkflow(runner sdk.Runner[[]byte]) {
-	// cron := &croncap.Cron{}
-	cfg := &croncap.Config{
-		Schedule: "*/3 * * * * *", // every three seconds
-	}
-
+func RunSimpleCronWorkflow(runner sdk.Runner[*Config]) {
 	// runner.Run(&sdk.[sdk.DonRuntime]{
 	// 	Handlers: []sdk.Handler[sdk.DonRuntime]{
 	// 		sdk.New(
@@ -66,8 +62,12 @@ func RunSimpleCronWorkflow(runner sdk.Runner[[]byte]) {
 	// 	},
 	// })
 
-	runner.Run(func(env *sdk.Environment[[]byte]) (sdk.Workflow[[]byte], error) {
-		return sdk.Workflow[[]byte]{
+	runner.Run(func(env *sdk.Environment[*Config]) (sdk.Workflow[*Config], error) {
+		cfg := &croncap.Config{
+			Schedule: env.Config.Schedule, // every three seconds
+		}
+
+		return sdk.Workflow[*Config]{
 			sdk.Handler(
 				croncap.Trigger(cfg),
 				onTrigger),
@@ -75,23 +75,15 @@ func RunSimpleCronWorkflow(runner sdk.Runner[[]byte]) {
 	})
 }
 
-func onTrigger(env *sdk.Environment[[]byte], runtime sdk.Runtime, outputs *croncap.Payload) (string, error) {
-	// TODO: Fix
-	return doPor(env, runtime, outputs.ScheduledExecutionTime.AsTime(), "http://localhost:3000", "publicKey", []EvmConfig{
-		{
-			TokenAddress:  "0x9b41EB05aC02c4fBD5eFFa657c627BfA1dC8f2e6",
-			PorAddress:    "0x2f4f914826fEf265345A9752fa6B113594E4DD8b",
-			ChainSelector: 1,
-			GasLimit:      1000000,
-		},
-	})
+func onTrigger(env *sdk.Environment[*Config], runtime sdk.Runtime, outputs *croncap.Payload) (string, error) {
+	return doPor(env, runtime, outputs.ScheduledExecutionTime.AsTime())
 }
 
-func doPor(env *sdk.Environment[[]byte], runtime sdk.Runtime, runTime time.Time, url string, publicKey string, evms []EvmConfig) (string, error) {
+func doPor(env *sdk.Environment[*Config], runtime sdk.Runtime, runTime time.Time) (string, error) {
 	// Fetch Por
-	env.Logger.Info("fetching por", "url", url, "publicKey", publicKey, "evms", evms)
-	reserveInfo, err := sdk.RunInNodeMode(env, runtime, func(env *sdk.NodeEnvironment[[]byte], nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
-		reserveInfo, err := fetchPor(url, publicKey, nodeRuntime)
+	env.Logger.Info("fetching por", "url", env.Config.Url, "publicKey", env.Config.PublicKey, "evms", env.Config.Evms)
+	reserveInfo, err := sdk.RunInNodeMode(env, runtime, func(env *sdk.NodeEnvironment[*Config], nodeRuntime sdk.NodeRuntime) (*ReserveInfo, error) {
+		reserveInfo, err := fetchPor(env.Config.Url, env.Config.PublicKey, nodeRuntime)
 		if err != nil {
 			env.Logger.Error("error fetching por", "err", err)
 			return nil, err
@@ -110,7 +102,7 @@ func doPor(env *sdk.Environment[[]byte], runtime sdk.Runtime, runTime time.Time,
 	}
 
 	// TODO: Make this work
-	totalSupply, err := getTotalSupply(env, runtime, evms)
+	totalSupply, err := getTotalSupply(env, runtime, env.Config.Evms)
 	if err != nil {
 		return "", err
 	}
@@ -119,14 +111,14 @@ func doPor(env *sdk.Environment[[]byte], runtime sdk.Runtime, runTime time.Time,
 	totalReserveScaled := reserveInfo.TotalReserve.Mul(decimal.NewFromUint64(1e18)).BigInt()
 	env.Logger.Info("TotalReserveScaled", totalReserveScaled)
 
-	if err = updateReserve(env, runtime, totalSupply, totalReserveScaled, evms); err != nil {
+	if err = updateReserve(env, runtime, totalSupply, totalReserveScaled, env.Config.Evms); err != nil {
 		return "", err
 	}
 
 	return reserveInfo.TotalReserve.String(), nil
 }
 
-func updateReserve(env *sdk.Environment[[]byte], runtime sdk.Runtime, totalSupply, totalReserveScaled *big.Int, evms []EvmConfig) error {
+func updateReserve(env *sdk.Environment[*Config], runtime sdk.Runtime, totalSupply, totalReserveScaled *big.Int, evms []EvmConfig) error {
 	reportWrites := make([]sdk.Promise[*evmcap.WriteReportReply], len(evms))
 	for i, evmConfig := range evms {
 		evmClient := &evmcap.Client{}
@@ -160,7 +152,7 @@ func updateReserve(env *sdk.Environment[[]byte], runtime sdk.Runtime, totalSuppl
 	return errors.Join(errs...)
 }
 
-func getTotalSupply(env *sdk.Environment[[]byte], runtime sdk.Runtime, evms []EvmConfig) (*big.Int, error) {
+func getTotalSupply(env *sdk.Environment[*Config], runtime sdk.Runtime, evms []EvmConfig) (*big.Int, error) {
 	// Fetch supply from all EVMs in parallel
 	supplyPromises := make([]sdk.Promise[*big.Int], len(evms))
 	for i, evmConfig := range evms {
@@ -266,7 +258,11 @@ func hexToBytes(hexStr string) ([]byte, error) {
 }
 
 func main() {
-	RunSimpleCronWorkflow(wasm.NewRunner(func(configBytes []byte) ([]byte, error) {
-		return configBytes, nil
+	RunSimpleCronWorkflow(wasm.NewRunner(func(configBytes []byte) (*Config, error) {
+		cfg := &Config{}
+		if err := yaml.Unmarshal(configBytes, cfg); err != nil {
+			return nil, err
+		}
+		return cfg, nil
 	}))
 }

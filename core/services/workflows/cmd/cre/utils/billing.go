@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func NewBillingService(lggr logger.Logger) *BillingService {
 	b.Service, b.eng = services.Config{
 		Name:  "fakeBillingService",
 		Start: b.start,
-		Close: b.close,
+		Close: b.Close,
 	}.NewServiceEngine(lggr)
 	return b
 }
@@ -80,12 +80,12 @@ func (s *BillingService) start(ctx context.Context) error {
 	return nil
 }
 
-func (s *BillingService) close() error {
+func (s *BillingService) Close() error {
 	s.server.Stop()
 	return nil
 }
 
-func setupBeholder(lggr logger.Logger) error {
+func SetupBeholder(lggr logger.Logger) error {
 	writer := &lggrWriter{lggr: lggr}
 
 	client, err := beholder.NewWriterClient(writer)

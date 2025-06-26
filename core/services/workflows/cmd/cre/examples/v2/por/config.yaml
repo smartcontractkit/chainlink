@@ -1,0 +1,8 @@
+publicKey: "publicKey"
+schedule: "*/3 * * * * *"
+url: "http://localhost:3000"
+evms:
+  - tokenAddress: "0x9b41EB05aC02c4fBD5eFFa657c627BfA1dC8f2e6"
+    porAddress: "0x2f4f914826fEf265345A9752fa6B113594E4DD8b"
+    chainSelector: 1
+    gasLimit: 1000000
