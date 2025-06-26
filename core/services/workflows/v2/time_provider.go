@@ -30,13 +30,19 @@ func (tp *TimeProvider) GetDONTime() time.Time {
 		tp.timeRequestNum++
 	}()
 
-	donTime := <-tp.donTimeStore.RequestDonTime(tp.workflowExecutionID, tp.timeRequestNum)
+	donTimeResp := <-tp.donTimeStore.RequestDonTime(tp.workflowExecutionID, tp.timeRequestNum)
 
-	if donTime.Err != nil {
-		// TODO: Handle error or timeout; do we still want to increment timeRequestNum?
+	if donTimeResp.Err != nil {
+		// An error implies a timeout occured on this request, which means this node did not include the request
+		// in its observation. Consensus may still have been reached for this DON Time.
+		if donTime := tp.donTimeStore.GetDonTimeForSeqNum(tp.workflowExecutionID, tp.timeRequestNum); donTime != nil {
+			return fromUnixMilli(*donTime)
+		}
+		// Consensus was not reached for this DON Time. Return the last observed DON Time and be a faulty node.
 		return tp.GetNodeTime()
 	}
-	return fromUnixMilli(donTime.Timestamp)
+
+	return fromUnixMilli(donTimeResp.Timestamp)
 }
 
 func fromUnixMilli(ms int64) time.Time {
