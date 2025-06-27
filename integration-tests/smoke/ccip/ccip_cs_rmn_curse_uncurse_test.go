@@ -181,7 +181,7 @@ var testCases = []CurseTestCase{
 	},
 
 	{
-		name: "two chain",
+		name: "two chain globally",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
 			return []v1_6.CurseAction{
 				v1_6.CurseChain(mapIDToSelector(Evm1)),

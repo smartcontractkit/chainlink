@@ -558,6 +558,9 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	}
 	switch errCode {
 	case 9006: // Globally cursed
+		if subject == globals.GlobalCurseSubject() {
+			return true, nil
+		}
 		return false, nil
 	case 9005: // Subject cursed
 		return true, nil
