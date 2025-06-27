@@ -13,7 +13,6 @@ import (
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
-	"github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	evmpb "github.com/smartcontractkit/chainlink-common/pkg/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -32,7 +31,7 @@ type FakeEVMChain struct {
 	lggr logger.Logger
 
 	// log trigger callback channel
-	callbackCh chan commonCap.TriggerAndId[*evm.Log]
+	callbackCh chan commonCap.TriggerAndId[*evmpb.Log]
 }
 
 var evmExecInfo = commonCap.MustNewCapabilityInfo(
@@ -51,7 +50,7 @@ func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKe
 		lggr:           lggr,
 		gethClient:     gethClient,
 		privateKey:     privateKey,
-		callbackCh:     make(chan commonCap.TriggerAndId[*evm.Log]),
+		callbackCh:     make(chan commonCap.TriggerAndId[*evmpb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -120,7 +119,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	}, nil
 }
 
-func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evm.Log], error) {
+func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmpb.Log], error) {
 	return fc.callbackCh, nil
 }
 
@@ -128,7 +127,7 @@ func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID stri
 	return nil
 }
 
-func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evm.Log) error {
+func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmpb.Log) error {
 	fc.eng.Debugf("ManualTrigger: %s", log.String())
 
 	go func() {
@@ -144,8 +143,8 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evm.Log) error {
 	return nil
 }
 
-func (fc *FakeEVMChain) createManualTriggerResponse(log *evm.Log) commonCap.TriggerAndId[*evm.Log] {
-	return commonCap.TriggerAndId[*evm.Log]{
+func (fc *FakeEVMChain) createManualTriggerResponse(log *evmpb.Log) commonCap.TriggerAndId[*evmpb.Log] {
+	return commonCap.TriggerAndId[*evmpb.Log]{
 		Trigger: log,
 		Id:      "manual-evm-chain-trigger-id",
 	}
