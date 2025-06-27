@@ -54,6 +54,10 @@ var (
 		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
 		capabilities.CapabilitySpendType(testUnitC): decimal.NewFromFloat(0.6), // 60%
 	}
+	spendRatiosAlt = map[capabilities.CapabilitySpendType]decimal.Decimal{
+		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
+		capabilities.CapabilitySpendType(testUnitB): decimal.NewFromFloat(0.6), // 60%
+	}
 	validConfig, _ = values.NewMap(map[string]any{
 		ratiosKey: map[string]string{
 			testUnitA: "0.4",
@@ -208,26 +212,99 @@ func Test_Report_MeteringMode(t *testing.T) {
 		require.Equal(t, balanceBefore, balanceAfter)
 	})
 
-	t.Run("CreditToSpendingLimits switches to metering mode if rate does not exist", func(t *testing.T) {
+	t.Run("CreditToSpendingLimits switches to metering mode", func(t *testing.T) {
 		t.Parallel()
 
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, lggr, billingClient)
+		t.Run("if only one spend type and rate does not exist", func(t *testing.T) {
+			t.Parallel()
 
-		// trigger metering mode with a billing reserve error
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
-		require.NoError(t, report.Reserve(t.Context()))
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
 
-		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
-		}, spendRatios, decimal.NewFromInt(1_000))
+			// trigger metering mode with a billing reserve error
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
 
-		assert.Nil(t, limits)
-		assert.True(t, report.meteringMode)
-		assert.Len(t, logs.All(), 1)
-		billingClient.AssertExpectations(t)
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
+			}, spendRatios, decimal.NewFromInt(1_000))
+
+			assert.Nil(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if ratio and spend type lengths do not match", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			// trigger metering mode with a billing reserve error
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// 3 spend types and 2 ratios creates the mismatch
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB, testUnitC},
+			}, spendRatios, decimal.NewFromInt(1_000))
+
+			assert.Nil(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if multiple spend types and ratio does not exist", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithMultiRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// spend types and rates should match
+			// spend types and ratios should not match and return an error
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
+			}, spendRatiosAlt, decimal.NewFromInt(1_000))
+
+			assert.Nil(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if multiple spend types and rate does not exist", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithMultiRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// ratios for spend types should match
+			// rates for spend types should not match
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB},
+			}, spendRatiosAlt, decimal.NewFromInt(1_000))
+
+			assert.Nil(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
 	})
 }
 
