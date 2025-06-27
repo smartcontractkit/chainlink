@@ -27,16 +27,16 @@ type RunnerConfig struct {
 }
 
 type RunnerHooks struct {
-	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
-	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
-	Close      func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	AfterRun   func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	Cleanup    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	Finally    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Initialize  func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
+	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
+	Close       func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Cleanup     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Finally     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
-var emptyBeforeRun = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription) {
+var emptyBeforeStart = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription) {
 }
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
@@ -109,12 +109,12 @@ var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capab
 
 func DefaultHooks() *RunnerHooks {
 	return &RunnerHooks{
-		Initialize: defaultInitialize,
-		BeforeRun:  emptyBeforeRun,
-		AfterRun:   emptyHook,
-		Close:      defaultClose,
-		Cleanup:    defaultCleanup,
-		Finally:    emptyHook,
+		Initialize:  defaultInitialize,
+		BeforeStart: emptyBeforeStart,
+		AfterRun:    emptyHook,
+		Close:       defaultClose,
+		Cleanup:     defaultCleanup,
+		Finally:     emptyHook,
 	}
 }
 
@@ -151,7 +151,7 @@ func (r *Runner) Run(
 
 	services = append(services, engine)
 
-	r.hooks.BeforeRun(ctx, cfg, registry, services, triggerSub)
+	r.hooks.BeforeStart(ctx, cfg, registry, services, triggerSub)
 
 	err = engine.Start(ctx)
 	if err != nil {
