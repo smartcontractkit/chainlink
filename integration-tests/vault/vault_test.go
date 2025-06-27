@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -96,8 +97,8 @@ F = 0
 	for _, client := range gatewayNodeSetClients {
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
 		require.NoError(t, err, "Gateway job creation request must not error")
-		require.Len(t, job.Errors, 0, "Gateway job creation response must not return any errors")
-		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v", job))
+		require.Empty(t, job.Errors, "Gateway job creation response must not return any errors")
+		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v.", job))
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 		fmt.Println(job.Data.ID)
 	}
@@ -125,9 +126,9 @@ F = 0
 			// Make HTTP request to gateway endpoint
 			parsedURL, err := url.Parse(n.Node.ExternalURL)
 			require.NoError(t, err)
-			parsedURL.Host = fmt.Sprintf("%s:5002", parsedURL.Hostname())
-			gatewayURL := fmt.Sprintf("%s/", parsedURL.String())
-			req, err := http.NewRequest("POST", gatewayURL, bytes.NewBuffer(requestBody))
+			parsedURL.Host = parsedURL.Hostname() + ":5002"
+			gatewayURL := parsedURL.String() + "/"
+			req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 			require.NoError(t, err)
 
 			req.Header.Set("Content-Type", "application/jsonrpc")

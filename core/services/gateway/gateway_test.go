@@ -10,10 +10,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
@@ -137,16 +137,16 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	servicetest.Run(t, gateway)
 }
 
-func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {
-	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedId, expectedResult), string(response))
+func requireJsonRPCResult(t *testing.T, response []byte, expectedID string, expectedResult string) {
+	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedID, expectedResult), string(response))
 }
 
-func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedId string, expectedCode int64, expectedMsg string) {
+func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedID string, expectedCode int64, expectedMsg string) {
 	var response jsonrpc.Response
 	err := json.Unmarshal(responseBytes, &response)
 	require.NoError(t, err)
 	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
-	require.Equal(t, expectedId, response.ID)
+	require.Equal(t, expectedID, response.ID)
 	require.Equal(t, expectedCode, response.Error.Code)
 	require.Equal(t, expectedMsg, response.Error.Message)
 	require.Nil(t, response.Error.Data)

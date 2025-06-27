@@ -3,9 +3,10 @@ package api_test
 import (
 	"testing"
 
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
