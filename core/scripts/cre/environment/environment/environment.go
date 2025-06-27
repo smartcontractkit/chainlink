@@ -39,6 +39,7 @@ import (
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
 	vaultcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	securemintcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/securemint"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -53,6 +54,7 @@ import (
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
+	cresecuremint "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/securemint"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -116,6 +118,43 @@ var EnvironmentCmd = &cobra.Command{
 	Short: "Environment commands",
 	Long:  `Commands to manage the environment`,
 }
+
+const (
+	TopologySimplified = "simplified"
+	TopologyFull       = "full"
+
+	WorkflowTriggerWebTrigger = "web-trigger"
+	WorkflowTriggerCron       = "cron"
+)
+
+type Config struct {
+	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
+	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
+	JD                *jd.Input               `toml:"jd" validate:"required"`
+	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
+	S3ProviderInput   *s3provider.Input       `toml:"s3provider"`
+}
+
+func (c Config) Validate() error {
+	if c.JD.CSAEncryptionKey == "" {
+		return errors.New("jd.csa_encryption_key must be provided")
+	}
+	return nil
+}
+
+type ExtraCapabilitiesConfig struct {
+	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
+	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
+	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
+	SecureMintBinaryPath      string `toml:"secure_mint_capability_binary_path"`
+}
+
+// DX tracking
+var (
+	dxTracker             tracking.Tracker
+	provisioningStartTime time.Time
+)
 
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
@@ -563,6 +602,11 @@ func StartCLIEnvironment(
 			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
 		}
 
+		if in.ExtraCapabilities.SecureMintBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.SecureMintCapability)
+			capabilitiesBinaryPaths[cretypes.SecureMintCapability] = in.ExtraCapabilities.SecureMintBinaryPath
+		}
+
 		for capabilityName, binaryPath := range extraBinaries {
 			if binaryPath != "" || withPluginsDockerImageFlag != "" {
 				workflowDONCapabilities = append(workflowDONCapabilities, capabilityName)
@@ -598,6 +642,11 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.SecureMintBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.SecureMintCapability)
+			capabilitiesBinaryPaths[cretypes.SecureMintCapability] = in.ExtraCapabilities.SecureMintBinaryPath
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -766,6 +815,7 @@ func StartCLIEnvironment(
 		mock.CapabilityFactoryFn,
 		httpcap.HTTPTriggerCapabilityFactoryFn,
 		httpcap.HTTPActionCapabilityFactoryFn,
+		securemintcap.SecureMintCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
@@ -813,6 +863,12 @@ func StartCLIEnvironment(
 	}
 
 	jobSpecFactoryFunctions := []cre.JobSpecFactoryFn{
+	secureMintBinaryName := filepath.Base(in.ExtraCapabilities.SecureMintBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		secureMintBinaryName = "secure-mint"
+	}
+
+	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
 		webapi.WebAPITriggerJobSpecFactoryFn,
 		webapi.WebAPITargetJobSpecFactoryFn,
@@ -824,6 +880,7 @@ func StartCLIEnvironment(
 		mock2.MockJobSpecFactoryFn(7777),
 		crehttpaction.HTTPActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
 		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
+		cresecuremint.SecureMintJobSpecFactoryFn(filepath.Join(containerPath, secureMintBinaryName)),
 	}
 
 	// Consensus V2 (standard capability)
