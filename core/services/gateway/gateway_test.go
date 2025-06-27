@@ -226,7 +226,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
-	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(2).(*api.Message)
 		callbackCh := args.Get(3).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
@@ -235,7 +235,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		var rawMsg json.RawMessage
 		rawMsg, err := json.Marshal(msg)
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
 	})
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
@@ -249,7 +249,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
-	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(2).(*api.Message)
 		callbackCh := args.Get(3).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
@@ -258,7 +258,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 		var rawMsg json.RawMessage
 		rawMsg, err := json.Marshal(msg)
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
 	})
 
 	req := newSignedLegacyRequest(t, "abcd", "testDON", "", []byte{})
@@ -272,7 +272,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
-	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Millisecond*10)
 	defer cancel()
 
@@ -286,7 +286,7 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
-	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("failure"))
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("failure"))
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")

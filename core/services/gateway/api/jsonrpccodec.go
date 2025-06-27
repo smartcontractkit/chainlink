@@ -45,7 +45,7 @@ func (*JsonRPCCodec) EncodeLegacyRequest(msg *Message) ([]byte, error) {
 	return json.Marshal(request)
 }
 
-func (*JsonRPCCodec) DecodeResponse(msgBytes []byte) (*Message, error) {
+func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 	var response jsonrpc2.Response
 	err := json.Unmarshal(msgBytes, &response)
 	if err != nil {
@@ -63,13 +63,15 @@ func (*JsonRPCCodec) DecodeResponse(msgBytes []byte) (*Message, error) {
 	return &msg, nil
 }
 
-func (*JsonRPCCodec) EncodeResponse(id string, msg *json.RawMessage) ([]byte, error) {
+func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) ([]byte, error) {
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
+	}
 	response := jsonrpc2.Response{
 		Version: jsonrpc2.JsonRpcVersion,
-		ID:      id,
-	}
-	if msg != nil {
-		response.Result = *msg
+		ID:      msg.Body.MessageId,
+		Result:  msgBytes,
 	}
 	return json.Marshal(response)
 }
@@ -79,7 +81,7 @@ func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int64, message strin
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{
-			Code:    int64(code),
+			Code:    code,
 			Message: message,
 			Data:    (*json.RawMessage)(&data),
 		},

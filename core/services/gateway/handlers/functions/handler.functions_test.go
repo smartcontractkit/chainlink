@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -94,7 +93,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 
 	// empty message should always error out
 	msg := &api.Message{}
-	err = handler.HandleUserMessage(testutils.Context(t), jsonrpc2.Request{}, msg, nil)
+	err = handler.HandleLegacyUserMessage(testutils.Context(t), msg, nil)
 	require.Error(t, err)
 }
 
@@ -133,9 +132,9 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				defer close(done)
 				// wait on a response from Gateway to the user
 				response := <-callbachCh
-				require.Equal(t, api.NoError, response.ErrCode)
+				require.Equal(t, api.NoError, response.ErrorCode)
 				var msg api.Message
-				require.NoError(t, json.Unmarshal(*response.RawMsg, &msg))
+				require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
 				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
@@ -146,7 +145,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleUserMessage(testutils.Context(t), jsonrpc2.Request{}, &userRequestMsg, callbachCh))
+			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
 			<-done
 		})
@@ -179,9 +178,9 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 				defer close(done)
 				// wait on a response from Gateway to the user
 				response := <-callbachCh
-				require.Equal(t, api.NoError, response.ErrCode)
+				require.Equal(t, api.NoError, response.ErrorCode)
 				var msg api.Message
-				require.NoError(t, json.Unmarshal(*response.RawMsg, &msg))
+				require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
 				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
@@ -191,7 +190,7 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleUserMessage(testutils.Context(t), jsonrpc2.Request{}, &userRequestMsg, callbachCh))
+			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
 			<-done
 		})
@@ -206,7 +205,7 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
-	err := handler.HandleUserMessage(testutils.Context(t), jsonrpc2.Request{}, &userRequestMsg, make(chan handlers.UserCallbackPayload))
+	err := handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, make(chan handlers.UserCallbackPayload))
 	require.Error(t, err)
 }
 
@@ -223,15 +222,15 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 		defer close(done)
 		// wait on a response from Gateway to the user
 		response := <-callbachCh
-		require.Equal(t, api.RequestTimeoutError, response.ErrCode)
+		require.Equal(t, api.RequestTimeoutError, response.ErrorCode)
 		var msg api.Message
-		require.NoError(t, json.Unmarshal(*response.RawMsg, &msg))
+		require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
 		require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 	}()
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	require.NoError(t, handler.HandleUserMessage(testutils.Context(t), jsonrpc2.Request{}, &userRequestMsg, callbachCh))
+	require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 	<-done
 }

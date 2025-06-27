@@ -214,7 +214,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	rawResp, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	codec := api.JsonRPCCodec{}
-	respMsg, err := codec.DecodeResponse(rawResp)
+	respMsg, err := codec.DecodeLegacyResponse(rawResp)
 	require.NoError(t, err)
 	require.NoError(t, respMsg.Validate())
 	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)

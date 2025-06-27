@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -274,6 +275,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
+	codec := api.JsonRPCCodec{}
 
 	t.Run("happy case", func(t *testing.T) {
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
@@ -288,7 +290,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 			require.Equal(t, nodeReq, args.Get(2))
 		}).Return(nil).Once()
 
-		err := handler.HandleUserMessage(ctx, emptyRequest, msg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, msg, ch)
 		require.NoError(t, err)
 		requireNoChanMsg(t, ch)
 
@@ -298,12 +300,10 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 
 		userPayload := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, userPayload)
-		resp := <-ch
 		var rawMsg json.RawMessage
 		rawMsg, err = json.Marshal(msg)
 		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}, userPayload)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -311,10 +311,13 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid method", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
+
+		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJsonRPCErrorCode(api.UnsupportedMethodError), "invalid method foo", nil)
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UnsupportedMethodError}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -322,10 +325,12 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case stale message", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
+		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJsonRPCErrorCode(api.HandlerError), "stale message", nil)
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.HandlerError}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -333,10 +338,12 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case empty payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "{}")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJsonRPCErrorCode(api.UserMessageParseError), "error decoding payload field params in TriggerRequestPayload: required", nil)
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UserMessageParseError}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -344,10 +351,14 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, emptyRequest, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{RawMsg: nil, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		jResp := jsonrpc.Response{}
+		json.Unmarshal(resp.RawResponse, &jResp)
+		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJsonRPCErrorCode(api.UserMessageParseError), "error decoding payload field params in TriggerRequestPayload: required", nil)
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UserMessageParseError}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})

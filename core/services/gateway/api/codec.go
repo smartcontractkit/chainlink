@@ -1,8 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
@@ -17,9 +15,9 @@ type Codec interface {
 	// which add payload fields directly in jsonrpc2.Request.Params.
 	EncodeLegacyRequest(msg *Message) ([]byte, error)
 
-	DecodeResponse(msgBytes []byte) (*Message, error)
+	DecodeLegacyResponse(msgBytes []byte) (*Message, error)
 
-	EncodeResponse(id string, msg *json.RawMessage) ([]byte, error)
+	EncodeLegacyResponse(msg *Message) ([]byte, error)
 
 	EncodeNewErrorResponse(id string, code int64, message string, data []byte) ([]byte, error)
 }

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"go.uber.org/multierr"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
@@ -40,7 +40,12 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 	}, nil
 }
 
-func (d *dummyHandler) HandleUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {
+func (h *dummyHandler) HandleJsonRpcUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- UserCallbackPayload) error {
+	panic("DummyHandler does not support JSON-RPC messages")
+	return nil
+}
+
+func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := d.don
@@ -87,8 +92,7 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 		if err != nil {
 			return err
 		}
-		savedCb.callbackCh <- UserCallbackPayload{RawMsg: &rawMsg, ErrCode: api.NoError, ErrMsg: ""}
-		savedCb.callbackCh <- UserCallbackPayload{Msg: &msg, ErrCode: api.NoError, ErrMsg: ""}
+		savedCb.callbackCh <- UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
 		close(savedCb.callbackCh)
 	}
 	return nil

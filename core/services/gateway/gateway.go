@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -141,59 +140,64 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	// decode
 	jsonRequest, err := jsonrpc2.DecodeRequest(rawRequest, auth)
 	if err != nil {
-		return newError(g.codec, "", api.UserMessageParseError, err.Error())
+		return newError("", api.UserMessageParseError, err.Error())
 	}
 	msg, err := g.codec.DecodeJsonRequest(jsonRequest)
 	if err != nil {
-		return newError(g.codec, jsonRequest.ID, api.UserMessageParseError, err.Error())
+		return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 	}
+	var isLegacyRequest bool = false
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {
-		// if no DON ID is specified, use the service name as handler key
+		// if no DON ID is specified, it is a new JsonRPC request. Use the service name as handler key
 		handlerKey = jsonRequest.ServiceName()
 	} else {
 		// Means legacy request. Proceed to validate it and fetch DonId
+		isLegacyRequest = true
 		if err = msg.Validate(); err != nil {
-			return newError(g.codec, jsonRequest.ID, api.UserMessageParseError, err.Error())
+			return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 		}
 		handlerKey = msg.Body.DonId
 	}
 	h, ok := g.handlers[handlerKey]
 	if !ok {
-		return newError(g.codec, jsonRequest.ID, api.UnsupportedDONIdError, fmt.Sprintf("Unsupported DON ID or Handler: %s", handlerKey))
+		return newError(jsonRequest.ID, api.UnsupportedDONIdError, fmt.Sprintf("Unsupported DON ID or Handler: %s", handlerKey))
 	}
-	// send to the handler
+	// send to the right handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
-	err = h.HandleUserMessage(ctx, jsonRequest, msg, responseCh)
+	if isLegacyRequest {
+		err = h.HandleLegacyUserMessage(ctx, msg, responseCh)
+	} else {
+		err = h.HandleJsonRpcUserMessage(ctx, jsonRequest, responseCh)
+	}
 	if err != nil {
-		return newError(g.codec, jsonRequest.ID, api.HandlerError, err.Error())
+		return newError(jsonRequest.ID, api.HandlerError, err.Error())
 	}
 	// await response
 	var response handlers.UserCallbackPayload
 	select {
 	case <-ctx.Done():
-		return newError(g.codec, jsonRequest.ID, api.RequestTimeoutError, "handler timeout")
+		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout")
 	case response = <-responseCh:
 		break
 	}
-	if response.ErrCode != api.NoError {
-		return newError(g.codec, jsonRequest.ID, response.ErrCode, response.ErrMsg)
-	}
-	// encode
-	rawResponse, err = g.codec.EncodeResponse(jsonRequest.ID, response.RawMsg)
-	if err != nil {
-		return newError(g.codec, jsonRequest.ID, api.NodeReponseEncodingError, "")
-	}
-	promRequest.WithLabelValues(api.NoError.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(api.NoError)
+	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
+	return rawResponse, api.ToHttpErrorCode(response.ErrorCode)
 }
 
-func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
-	rawResponse, err := codec.EncodeNewErrorResponse(id, api.ToJsonRPCErrorCode(errCode), errMsg, nil)
+func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
+	response := jsonrpc2.Response{
+		Version: jsonrpc2.JsonRpcVersion,
+		ID:      id,
+		Error: &jsonrpc2.WireError{
+			Code:    api.ToJsonRPCErrorCode(errCode),
+			Message: errMsg,
+			Data:    nil,
+		},
+	}
+	rawResponse, err := json.Marshal(response)
 	if err != nil {
-		// we're not even able to encode a valid JSON response
-		promRequest.WithLabelValues(api.FatalError.String()).Inc()
-		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
+		rawResponse = []byte("fatal error" + err.Error())
 	}
 	promRequest.WithLabelValues(errCode.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(errCode)

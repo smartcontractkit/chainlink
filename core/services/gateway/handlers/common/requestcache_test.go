@@ -37,12 +37,12 @@ func TestRequestCache_Simple(t *testing.T) {
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
-			return &handlers.UserCallbackPayload{RawMsg: &rawResponse}, nil, nil
+			return &handlers.UserCallbackPayload{RawResponse: rawResponse}, nil, nil
 		}))
 	}()
 	finalResp := <-callbackCh
 	var msg api.Message
-	require.NoError(t, json.Unmarshal(*finalResp.RawMsg, &msg))
+	require.NoError(t, json.Unmarshal(finalResp.RawResponse, &msg))
 	require.Equal(t, "aa", msg.Body.MessageId)
 }
 
@@ -78,7 +78,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 						if err != nil {
 							return nil, nil, fmt.Errorf("failed to marshal response: %w", err)
 						}
-						return &handlers.UserCallbackPayload{RawMsg: &rawResponse}, nil, nil
+						return &handlers.UserCallbackPayload{RawResponse: rawResponse}, nil, nil
 					}
 					return nil, responseData, nil
 				}))
@@ -89,7 +89,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 	for i := 0; i < nRequests; i++ {
 		resp := <-chans[i]
 		var msg api.Message
-		require.NoError(t, json.Unmarshal(*resp.RawMsg, &msg))
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &msg))
 		require.Equal(t, "abcd", msg.Body.MessageId)
 		require.Equal(t, reqs[i].Body.Sender, msg.Body.Receiver)
 	}
@@ -107,9 +107,9 @@ func TestRequestCache_Timeout(t *testing.T) {
 
 	finalResp := <-callbackCh
 	var msg api.Message
-	require.NoError(t, json.Unmarshal(*finalResp.RawMsg, &msg))
+	require.NoError(t, json.Unmarshal(finalResp.RawResponse, &msg))
 	require.Equal(t, "aa", msg.Body.MessageId)
-	require.Equal(t, api.RequestTimeoutError, finalResp.ErrCode)
+	require.Equal(t, api.RequestTimeoutError, finalResp.ErrorCode)
 }
 
 func TestRequestCache_MaxSize(t *testing.T) {

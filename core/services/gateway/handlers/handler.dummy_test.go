@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -68,7 +68,7 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	err = msg.Validate()
 	require.NoError(t, err)
 	callbackCh := make(chan handlers.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleUserMessage(ctx, jsonrpc2.Request{}, &msg, callbackCh))
+	require.NoError(t, handler.HandleLegacyUserMessage(ctx, &msg, callbackCh))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
@@ -78,6 +78,6 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	response := <-callbackCh
 	var msg2 api.Message
-	require.NoError(t, json.Unmarshal(*response.RawMsg, &msg2))
+	require.NoError(t, json.Unmarshal(response.RawResponse, &msg2))
 	require.Equal(t, "1234", msg2.Body.MessageId)
 }

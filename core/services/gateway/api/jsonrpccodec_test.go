@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -73,7 +72,7 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "result": {"body": {"don_id": "functions_local", "payload": {"field": 123}}}}`)
 	codec := api.JsonRPCCodec{}
-	msg, err := codec.DecodeResponse(input)
+	msg, err := codec.DecodeLegacyResponse(input)
 	require.NoError(t, err)
 	require.Equal(t, "functions_local", msg.Body.DonId)
 	require.Equal(t, "aa-bb", msg.Body.MessageId)
@@ -90,13 +89,10 @@ func TestJsonRPCResponse_Encode(t *testing.T) {
 		Method:    "upload",
 	}
 	codec := api.JsonRPCCodec{}
-	var rawMsg json.RawMessage
-	rawMsg, err := json.Marshal(msg)
-	require.NoError(t, err)
-	bytes, err := codec.EncodeResponse("aA-bB", &rawMsg)
+	bytes, err := codec.EncodeLegacyResponse(&msg)
 	require.NoError(t, err)
 
-	decoded, err := codec.DecodeResponse(bytes)
+	decoded, err := codec.DecodeLegacyResponse(bytes)
 	require.NoError(t, err)
 	require.Equal(t, "aA-bB", decoded.Body.MessageId)
 	require.Equal(t, "0x1234", decoded.Body.Receiver)
