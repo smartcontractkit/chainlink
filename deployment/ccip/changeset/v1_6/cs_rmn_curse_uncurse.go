@@ -375,7 +375,8 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
+	description := "proposal to curse RMNs: " + cfg.Reason
+	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -440,9 +441,8 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
 			}
 			if family == chain_selectors.FamilyAptos {
-				aptosChain := e.BlockChains.AptosChains()[selector]
 				proposal, err := aptosUtils.GenerateProposal(
-					aptosChain.Client,
+					e,
 					state.AptosChains[selector].MCMSAddress,
 					selector,
 					[]mcmstypes.BatchOperation{chain.(*AptosCursableChain).MCMSOp},
@@ -464,10 +464,30 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	if len(aptosProposals) == 0 {
 		return partialOut, nil
 	}
+	// TODO: can't have Aptos curse/uncurse without MCMS, validate this
 	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
 	}
-	proposalutils.AggregateProposals()
+	proposals := partialOut.MCMSTimelockProposals
+	proposals = append(proposals, aptosProposals...)
+	aggProposal, err := proposalutils.AggregateProposalsV2(
+		e,
+		proposalutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			MCMSAptosState:  state.AptosMCMSStateByChain(),
+		},
+		proposals,
+		description,
+		cfg.MCMS,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals:      []mcms.TimelockProposal{*aggProposal},
+		DescribedTimelockProposals: []string{}, // TODO: figure this out
+	}, nil
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
