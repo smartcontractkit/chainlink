@@ -133,8 +133,9 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				// wait on a response from Gateway to the user
 				response := <-callbachCh
 				require.Equal(t, api.NoError, response.ErrorCode)
-				var msg api.Message
-				require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
+				codec := api.JsonRPCCodec{}
+				msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+				require.NoError(t, err)
 				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
@@ -179,8 +180,9 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 				// wait on a response from Gateway to the user
 				response := <-callbachCh
 				require.Equal(t, api.NoError, response.ErrorCode)
-				var msg api.Message
-				require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
+				codec := api.JsonRPCCodec{}
+				msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+				require.NoError(t, err)
 				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
