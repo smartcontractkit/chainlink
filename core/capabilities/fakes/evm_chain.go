@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type fakeEvmChain struct {
+type FakeEVMChain struct {
 	commonCap.CapabilityInfo
 	services.Service
 	eng *services.Engine
@@ -30,6 +30,9 @@ type fakeEvmChain struct {
 	privateKey *ecdsa.PrivateKey
 
 	lggr logger.Logger
+
+	// log trigger callback channel
+	callbackCh chan capabilities.TriggerAndId[*evm.Log]
 }
 
 var evmExecInfo = capabilities.MustNewCapabilityInfo(
@@ -38,26 +41,27 @@ var evmExecInfo = capabilities.MustNewCapabilityInfo(
 	"A fake evm chain capability that can be used to execute evm chain actions.",
 )
 
-var _ services.Service = (*fakeEvmChain)(nil)
-var _ evmserver.ClientCapability = (*fakeEvmChain)(nil)
-var _ commonCap.ExecutableCapability = (*fakeEvmChain)(nil)
+var _ services.Service = (*FakeEVMChain)(nil)
+var _ evmserver.ClientCapability = (*FakeEVMChain)(nil)
+var _ commonCap.ExecutableCapability = (*FakeEVMChain)(nil)
 
-func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKey *ecdsa.PrivateKey) *fakeEvmChain {
-	fc := &fakeEvmChain{
+func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKey *ecdsa.PrivateKey) *FakeEVMChain {
+	fc := &FakeEVMChain{
 		CapabilityInfo: evmExecInfo,
 		lggr:           lggr,
 		gethClient:     gethClient,
 		privateKey:     privateKey,
+		callbackCh:     make(chan capabilities.TriggerAndId[*evm.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
-		Name:  "fakeEvmChain",
+		Name:  "FakeEVMChain",
 		Start: fc.Start,
 		Close: fc.Close,
 	}.NewServiceEngine(lggr)
 	return fc
 }
 
-func (fc *fakeEvmChain) Initialise(ctx context.Context, config string, _ core.TelemetryService,
+func (fc *FakeEVMChain) Initialise(ctx context.Context, config string, _ core.TelemetryService,
 	_ core.KeyValueStore,
 	_ core.ErrorLog,
 	_ core.PipelineRunnerService,
@@ -75,7 +79,7 @@ func (fc *fakeEvmChain) Initialise(ctx context.Context, config string, _ core.Te
 	return nil
 }
 
-func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.CallContractRequest) (*evmpb.CallContractReply, error) {
+func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.CallContractRequest) (*evmpb.CallContractReply, error) {
 	fc.eng.Infow("EVM Chain CallContract Started")
 	fc.eng.Debugw("EVM Chain CallContract Input", "input", input)
 
@@ -103,7 +107,7 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 	}, nil
 }
 
-func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
+func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 	fc.eng.Infow("EVM Chain WriteReport Finished")
@@ -117,15 +121,38 @@ func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.R
 	}, nil
 }
 
-func (fc *fakeEvmChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan capabilities.TriggerAndId[*evm.Log], error) {
-	return nil, nil
+func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan capabilities.TriggerAndId[*evm.Log], error) {
+	return fc.callbackCh, nil
 }
 
-func (fc *fakeEvmChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) error {
+func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) error {
 	return nil
 }
 
-func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.FilterLogsRequest) (*evmpb.FilterLogsReply, error) {
+func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evm.Log) error {
+	fc.eng.Debugf("ManualTrigger: %s", log.String())
+
+	go func() {
+		select {
+		case fc.callbackCh <- fc.createManualTriggerResponse(log):
+			// Successfully sent trigger response
+		case <-ctx.Done():
+			// Context cancelled, cleanup goroutine
+			fc.eng.Debug("ManualTrigger goroutine cancelled due to context cancellation")
+		}
+	}()
+
+	return nil
+}
+
+func (fc *FakeEVMChain) createManualTriggerResponse(log *evm.Log) capabilities.TriggerAndId[*evm.Log] {
+	return capabilities.TriggerAndId[*evm.Log]{
+		Trigger: log,
+		Id:      "manual-evm-chain-trigger-id",
+	}
+}
+
+func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.FilterLogsRequest) (*evmpb.FilterLogsReply, error) {
 	fc.eng.Infow("EVM Chain FilterLogs Started", "input", input)
 
 	// Prepare filter query
@@ -162,7 +189,7 @@ func (fc *fakeEvmChain) FilterLogs(ctx context.Context, metadata capabilities.Re
 	}, nil
 }
 
-func (fc *fakeEvmChain) BalanceAt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.BalanceAtRequest) (*evmpb.BalanceAtReply, error) {
+func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.BalanceAtRequest) (*evmpb.BalanceAtReply, error) {
 	fc.eng.Infow("EVM Chain BalanceAt Started", "input", input)
 
 	// Prepare balance at request
@@ -181,7 +208,7 @@ func (fc *fakeEvmChain) BalanceAt(ctx context.Context, metadata capabilities.Req
 	}, nil
 }
 
-func (fc *fakeEvmChain) EstimateGas(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.EstimateGasRequest) (*evmpb.EstimateGasReply, error) {
+func (fc *FakeEVMChain) EstimateGas(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.EstimateGasRequest) (*evmpb.EstimateGasReply, error) {
 	fc.eng.Infow("EVM Chain EstimateGas Started", "input", input)
 
 	// Prepare estimate gas request
@@ -205,7 +232,7 @@ func (fc *fakeEvmChain) EstimateGas(ctx context.Context, metadata capabilities.R
 	}, nil
 }
 
-func (fc *fakeEvmChain) GetTransactionByHash(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionByHashRequest) (*evmpb.GetTransactionByHashReply, error) {
+func (fc *FakeEVMChain) GetTransactionByHash(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionByHashRequest) (*evmpb.GetTransactionByHashReply, error) {
 	fc.eng.Infow("EVM Chain GetTransactionByHash Started", "input", input)
 
 	// Prepare get transaction by hash request
@@ -233,7 +260,7 @@ func (fc *fakeEvmChain) GetTransactionByHash(ctx context.Context, metadata capab
 	}, nil
 }
 
-func (fc *fakeEvmChain) GetTransactionReceipt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionReceiptRequest) (*evmpb.GetTransactionReceiptReply, error) {
+func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.GetTransactionReceiptRequest) (*evmpb.GetTransactionReceiptReply, error) {
 	fc.eng.Infow("EVM Chain GetTransactionReceipt Started", "input", input)
 
 	// Prepare get transaction receipt request
@@ -269,7 +296,7 @@ func (fc *fakeEvmChain) GetTransactionReceipt(ctx context.Context, metadata capa
 	}, nil
 }
 
-func (fc *fakeEvmChain) LatestAndFinalizedHead(ctx context.Context, metadata capabilities.RequestMetadata, input *emptypb.Empty) (*evmpb.LatestAndFinalizedHeadReply, error) {
+func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata capabilities.RequestMetadata, input *emptypb.Empty) (*evmpb.LatestAndFinalizedHeadReply, error) {
 	fc.eng.Infow("EVM Chain latest and finalized head", "input", input)
 
 	// Get latest and finalized head
@@ -290,7 +317,7 @@ func (fc *fakeEvmChain) LatestAndFinalizedHead(ctx context.Context, metadata cap
 	return headPb, nil
 }
 
-func (fc *fakeEvmChain) QueryTrackedLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.QueryTrackedLogsRequest) (*evmpb.QueryTrackedLogsReply, error) {
+func (fc *FakeEVMChain) QueryTrackedLogs(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.QueryTrackedLogsRequest) (*evmpb.QueryTrackedLogsReply, error) {
 	fc.eng.Infow("EVM Chain QueryTrackedLogs Started", "input", input)
 
 	// Prepare query tracked logs request
@@ -308,49 +335,49 @@ func (fc *fakeEvmChain) QueryTrackedLogs(ctx context.Context, metadata capabilit
 	return nil, nil
 }
 
-func (fc *fakeEvmChain) RegisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.RegisterLogTrackingRequest) (*emptypb.Empty, error) {
+func (fc *FakeEVMChain) RegisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.RegisterLogTrackingRequest) (*emptypb.Empty, error) {
 	fc.eng.Infow("EVM Chain registered log tracking", "input", input)
 	return nil, nil
 }
 
-func (fc *fakeEvmChain) UnregisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.UnregisterLogTrackingRequest) (*emptypb.Empty, error) {
+func (fc *FakeEVMChain) UnregisterLogTracking(ctx context.Context, metadata capabilities.RequestMetadata, input *evmpb.UnregisterLogTrackingRequest) (*emptypb.Empty, error) {
 	fc.eng.Infow("EVM Chain unregistered log tracking", "input", input)
 	return nil, nil
 }
 
-func (fc *fakeEvmChain) Name() string {
+func (fc *FakeEVMChain) Name() string {
 	return fc.CapabilityInfo.ID
 }
 
-func (fc *fakeEvmChain) HealthReport() map[string]error {
+func (fc *FakeEVMChain) HealthReport() map[string]error {
 	return map[string]error{fc.Name(): nil}
 }
 
-func (fc *fakeEvmChain) Start(ctx context.Context) error {
+func (fc *FakeEVMChain) Start(ctx context.Context) error {
 	fc.eng.Debugw("EVM Chain started")
 	return nil
 }
 
-func (fc *fakeEvmChain) Close() error {
+func (fc *FakeEVMChain) Close() error {
 	fc.eng.Debugw("EVM Chain closed")
 	return nil
 }
 
-func (fc *fakeEvmChain) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
+func (fc *FakeEVMChain) RegisterToWorkflow(ctx context.Context, request commonCap.RegisterToWorkflowRequest) error {
 	fc.eng.Infow("Registered to EVM Chain", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
-func (fc *fakeEvmChain) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
+func (fc *FakeEVMChain) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
 	fc.eng.Infow("Unregistered from EVM Chain", "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
-func (fc *fakeEvmChain) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
+func (fc *FakeEVMChain) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
 	fc.eng.Infow("EVM Chain executed", "request", request)
 	return commonCap.CapabilityResponse{}, nil
 }
 
-func (fc *fakeEvmChain) Description() string {
+func (fc *FakeEVMChain) Description() string {
 	return "EVM Chain"
 }
