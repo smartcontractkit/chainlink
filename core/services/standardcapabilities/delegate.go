@@ -131,7 +131,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			signers = append(signers, key)
 		}
 	}
-	keystore := core.NewMultiAccountSigner(accountIDs, signers)
+	keystore, err := core.NewMultiAccountSigner(accountIDs, signers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create multi-account signer: %w", err)
+	}
 
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}

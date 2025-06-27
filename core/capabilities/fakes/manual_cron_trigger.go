@@ -59,7 +59,8 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 
 	var cronConfig ManualCronConfig
