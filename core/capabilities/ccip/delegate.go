@@ -199,6 +199,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		logger.Named(d.lggr, "HomeChainReader"),
 		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
+		// HomeChain reader initialization is heavily coupled with the EVM chain family
+		chainsel.FamilyEVM,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)
 

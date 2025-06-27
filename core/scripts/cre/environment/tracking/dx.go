@@ -9,10 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -29,13 +31,24 @@ const (
 	EnvVarTestMode         = "DX_TEST_MODE"
 	EnvVarForceOfflineMode = "DX_FORCE_OFFLINE_MODE"
 	EnvVarDisableTracking  = "DISABLE_DX_TRACKING"
+
+	MinGHCLIVersion = "v2.50.0"
 )
+
+type Tracker interface {
+	Track(event string, metadata map[string]any) error
+}
+
+type NoOpTracker struct{}
+
+func (t *NoOpTracker) Track(event string, metadata map[string]any) error {
+	return nil
+}
 
 // DxTracker manages event tracking with automatic retry and offline support.
 type DxTracker struct {
 	mode     Mode
 	testMode bool
-	noOp     bool
 
 	logger zerolog.Logger
 
@@ -44,7 +57,7 @@ type DxTracker struct {
 }
 
 // NewDxTracker initializes a tracker with automatic GitHub CLI integration for authentication.
-func NewDxTracker() (*DxTracker, error) {
+func NewDxTracker() (Tracker, error) {
 	t := &DxTracker{}
 
 	lvlStr := os.Getenv(EnvVarLogLevel)
@@ -59,10 +72,9 @@ func NewDxTracker() (*DxTracker, error) {
 	t.logger.Debug().Msg("Initializing DxTracker")
 
 	if os.Getenv(EnvVarDisableTracking) == "true" {
-		t.noOp = true
 		t.logger.Debug().Msg("Tracking disabled by environment variable")
 
-		return t, nil
+		return &NoOpTracker{}, nil
 	}
 
 	if os.Getenv(EnvVarTestMode) == "true" {
@@ -80,30 +92,18 @@ func NewDxTracker() (*DxTracker, error) {
 		t.logger.Debug().Msg("Valid local config found")
 		t.mode = ModeOnline
 	} else {
-		// if local config is not available check if gh cli is available
-		// try to configure tracker with gh cli
+		// if local config is not available check if GH CLI is available
+		// and if so, try to configure tracker with it
 		if t.checkIfGhCLIAvailable() {
-			t.logger.Debug().Msg("GH CLI available, creating config")
-			var userNameErr error
-			c = &config{}
-			c.GithubUsername, userNameErr = t.readGHUsername()
-			if userNameErr != nil {
-				return nil, errors.Wrap(userNameErr, "failed to read github username")
+			var configErr error
+			c, configErr = t.buildConfigWithGhCLI()
+			if configErr != nil {
+				t.mode = ModeOffline
+				t.logger.Warn().Msgf("Failed to build config with GH CLI: %s", configErr.Error())
+			} else {
+				t.mode = ModeOnline
+				t.logger.Debug().Msg("Config created, setting mode to online")
 			}
-
-			var apiTokenErr error
-			c.DxAPIToken, apiTokenErr = t.readDXAPIToken()
-			if apiTokenErr != nil {
-				return nil, errors.Wrap(apiTokenErr, "failed to read github api token")
-			}
-
-			saveErr := saveConfig(c)
-			if saveErr != nil {
-				return nil, errors.Wrap(saveErr, "failed to save config")
-			}
-
-			t.mode = ModeOnline
-			t.logger.Debug().Msg("Config created, setting mode to online")
 		} else {
 			// if gh cli is not available, set mode to offline
 			t.mode = ModeOffline
@@ -123,7 +123,7 @@ func NewDxTracker() (*DxTracker, error) {
 		go func() {
 			sendErr := t.sendSavedEvents()
 			if sendErr != nil {
-				log.Debug().Msgf("failed to send saved events: %s\n", sendErr)
+				log.Debug().Msgf("Failed to send saved events: %s\n", sendErr)
 			}
 		}()
 	}
@@ -133,12 +133,30 @@ func NewDxTracker() (*DxTracker, error) {
 	return t, nil
 }
 
-// Track queues or sends an event, automatically handling offline scenarios.
-func (t *DxTracker) Track(event string, metadata map[string]any) error {
-	if t.noOp {
-		return nil
+func (t *DxTracker) buildConfigWithGhCLI() (*config, error) {
+	var userNameErr error
+	c := &config{}
+	c.GithubUsername, userNameErr = t.readGHUsername()
+	if userNameErr != nil {
+		return nil, errors.Wrap(userNameErr, "failed to read github username")
 	}
 
+	var apiTokenErr error
+	c.DxAPIToken, apiTokenErr = t.readDXAPIToken()
+	if apiTokenErr != nil {
+		return nil, errors.Wrap(apiTokenErr, "failed to read DX API token")
+	}
+
+	saveErr := saveConfig(c)
+	if saveErr != nil {
+		return nil, errors.Wrap(saveErr, "failed to save config")
+	}
+
+	return c, nil
+}
+
+// Track queues or sends an event, automatically handling offline scenarios.
+func (t *DxTracker) Track(event string, metadata map[string]any) error {
 	if validateErr := validateEvent(event, time.Now().Unix(), metadata); validateErr != nil {
 		return errors.Wrap(validateErr, "failed to validate event")
 	}
@@ -222,9 +240,41 @@ func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]
 // checkIfGhCLIAvailable determines if GitHub CLI is available for authentication.
 func (t *DxTracker) checkIfGhCLIAvailable() bool {
 	cmd := exec.Command("gh", "auth", "status")
-	_, err := cmd.Output()
+	_, outputErr := cmd.Output()
 
-	return err == nil
+	isAvailable := outputErr == nil
+	if !isAvailable {
+		return false
+	}
+
+	cmd = exec.Command("gh", "--version")
+	output, outputErr := cmd.Output()
+	if outputErr != nil {
+		t.logger.Warn().Msgf("failed to get GH CLI version: %s", outputErr.Error())
+		return false
+	}
+
+	re := regexp.MustCompile(`gh version (\d+\.\d+\.\d+)`)
+	matches := re.FindStringSubmatch(string(output))
+	if len(matches) < 2 {
+		t.logger.Warn().Msgf("failed to parse GH CLI version: %s", string(output))
+		return false
+	}
+
+	version, versionErr := semver.NewVersion(matches[1])
+	if versionErr != nil {
+		t.logger.Warn().Msgf("failed to parse GH CLI version: %s", versionErr.Error())
+		return false
+	}
+
+	isEnoughVersion := version.Compare(semver.MustParse(MinGHCLIVersion)) >= 0
+	if !isEnoughVersion {
+		t.logger.Warn().Msgf("GH CLI version is too old, please update to at least %s", MinGHCLIVersion)
+	}
+
+	t.logger.Debug().Msgf("GH CLI version found: %s", version)
+
+	return true
 }
 
 // readGHUsername fetches the authenticated GitHub username via CLI.

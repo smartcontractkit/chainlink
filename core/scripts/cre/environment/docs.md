@@ -40,6 +40,8 @@ If you want to run an example workflow you also need to:
       export "PATH=$(pwd):$PATH"
       ```
 
+> Minimum required version of the `GH CLI` is `v2.50.0`
+
 Optionally:
 1. **Choose the Right Topology**
    - For a single DON with all capabilities: `configs/single-don.toml` (default)
@@ -156,6 +158,8 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
 
+> Minimum required version of the `GH CLI` is `v2.50.0`
+
 To opt out from tracing use the following environment variable:
 ```bash
 DISABLE_DX_TRACKING=true
@@ -176,6 +180,7 @@ DX API token can be found in 1 Password in the engineering vault as `DX - Local 
 Other environment variables:
 * `DX_LOG_LEVEL` -- log level of a rudimentary logger
 * `DX_TEST_MODE` -- executes in test mode, which means that data sent to DX won't be included in any reports
+* `DX_FORCE_OFFLINE_MODE` -- doesn't send any events, instead saves them on the disk
 
 ---
 
