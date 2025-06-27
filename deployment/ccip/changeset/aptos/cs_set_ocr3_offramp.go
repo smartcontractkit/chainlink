@@ -61,7 +61,7 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
-			deps.AptosChain.Client,
+			env,
 			state.AptosChains[remoteSelector].MCMSAddress,
 			deps.AptosChain.Selector,
 			[]mcmstypes.BatchOperation{setOCR3SeqReport.Output},

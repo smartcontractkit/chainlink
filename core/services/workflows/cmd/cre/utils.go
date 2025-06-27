@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
+	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -46,6 +48,11 @@ type standardCapConfig struct {
 	// Set enabled to true to run the loop plugin.  Requires the plugin be installed.
 	// Config will be passed to Initialise method of plugin.
 	Enabled bool
+}
+
+type ManualTriggers struct {
+	ManualCronTrigger *fakes.ManualCronTriggerService
+	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
 }
 
 var (
@@ -222,6 +229,27 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
+}
+
+func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
+	// Cron
+	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
+	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
+	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	// HTTP
+	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
+	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
+	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	return ManualTriggers{
+		ManualCronTrigger: manualCronTrigger,
+		ManualHTTPTrigger: manualHTTPTrigger,
+	}, nil
 }
 
 // standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
