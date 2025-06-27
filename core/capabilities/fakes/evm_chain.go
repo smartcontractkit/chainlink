@@ -6,10 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -109,115 +106,14 @@ func (fc *fakeEvmChain) CallContract(ctx context.Context, metadata capabilities.
 func (fc *fakeEvmChain) WriteReport(ctx context.Context, metadata capabilities.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
-
-	toAddress := common.Address(input.Receiver)
-	data := input.Report.RawReport
-	fc.eng.Debugw("EVM Chain WriteReport Receiver", "receiver", toAddress)
-	fc.eng.Debugw("EVM Chain WriteReport Report", "report", input.Report)
-	fc.eng.Debugw("EVM Chain WriteReport Data", "data", data)
-
-	fromAddress := crypto.PubkeyToAddress(fc.privateKey.PublicKey)
-
-	// Get the current nonce
-	nonce, err := fc.gethClient.PendingNonceAt(ctx, fromAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the chain ID
-	chainID, err := fc.gethClient.NetworkID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Estimate gas for the transaction
-	msg := ethereum.CallMsg{
-		From:  fromAddress,
-		To:    &toAddress,
-		Value: big.NewInt(0),
-		Data:  data,
-	}
-	gasLimit, err := fc.gethClient.EstimateGas(ctx, msg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the suggested gas price
-	_, err = fc.gethClient.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// For EIP-1559 transactions, get the base fee and priority fee
-	head, err := fc.gethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set max priority fee (tip) - typically 2 gwei
-	maxPriorityFeePerGas := big.NewInt(2000000000) // 2 gwei
-
-	// Set max fee per gas - base fee + priority fee with some buffer
-	maxFeePerGas := new(big.Int).Add(head.BaseFee, maxPriorityFeePerGas)
-	maxFeePerGas.Mul(maxFeePerGas, big.NewInt(2)) // 2x buffer for base fee fluctuations
-
-	rawTx := types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     nonce,
-		GasTipCap: maxPriorityFeePerGas,
-		GasFeeCap: maxFeePerGas,
-		Gas:       gasLimit,
-		To:        &toAddress,
-		Value:     big.NewInt(0),
-		Data:      data,
-	}
-
-	signedTx, err := types.SignNewTx(
-		fc.privateKey,
-		types.LatestSignerForChainID(chainID),
-		&rawTx,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	err = fc.gethClient.SendTransaction(ctx, signedTx)
-	if err != nil {
-		return nil, err
-	}
-
-	// wait for the transaction to be mined
-	receipt, err := bind.WaitMined(ctx, fc.gethClient, signedTx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Calculate actual transaction fee
-	txFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
-
-	errMsg := ""
-	txStatus := evm.TxStatus_TX_SUCCESS
-	contractStatus := evmcappb.ReceiverContractExecutionStatus_SUCCESS
-
-	// Check if transaction failed
-	if receipt.Status == 0 {
-		txStatus = evm.TxStatus_TX_REVERTED
-		contractStatus = evmcappb.ReceiverContractExecutionStatus_REVERTED
-		errMsg = "transaction reverted"
-	}
-
-	fc.eng.Debugw("EVM Chain WriteReport Transaction Hash", "hash", signedTx.Hash().String())
-	fc.eng.Debugw("EVM Chain WriteReport Transaction Status", "status", receipt.Status)
-	fc.eng.Debugw("EVM Chain WriteReport Receipt", "receipt", receipt)
-
 	fc.eng.Infow("EVM Chain WriteReport Finished")
 
 	return &evmcappb.WriteReportReply{
-		TxStatus:                        txStatus,
-		TxHash:                          signedTx.Hash().Bytes(),
-		ReceiverContractExecutionStatus: contractStatus.Enum(),
-		TransactionFee:                  pb.NewBigIntFromInt(txFee),
-		ErrorMessage:                    &errMsg,
+		TxStatus:                        evmpb.TxStatus_TX_SUCCESS,
+		TxHash:                          []byte{},
+		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
+		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)), // TODO: add transaction fee
+		ErrorMessage:                    nil,
 	}, nil
 }
 
