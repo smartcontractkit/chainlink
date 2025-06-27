@@ -984,18 +984,17 @@ func (e *Engine) executeStep(
 
 	var spendLimits []capabilities.SpendLimit
 	if spendLimit.Valid {
-		info, err := curStep.capability.Info(ctx)
-		if err != nil {
+		info, iErr := curStep.capability.Info(ctx)
+		if iErr != nil {
 			e.logger.Errorf("failed to get capability info: %s", err)
 		}
 
-		err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal)
-		if err != nil {
+		if err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal); err != nil {
 			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
 		}
 
-		ratios, err := metering.RatiosFromConfig(info, config)
-		if err != nil {
+		ratios, rErr := metering.RatiosFromConfig(info, config)
+		if rErr != nil {
 			e.logger.Error(err)
 		}
 

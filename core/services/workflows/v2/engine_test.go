@@ -582,6 +582,19 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			Return(wrappedActionMock, nil).
 			Twice()
 
+		testConf, _ := values.NewMap(map[string]any{
+			"spendRatios": map[string]string{
+				"spendTypeA": "0.4",
+				"spendTypeB": "0.6",
+			},
+		})
+
+		capreg.EXPECT().
+			ConfigForCapability(matches.AnyContext, mock.Anything, mock.Anything).
+			Return(capabilities.CapabilityConfiguration{
+				RestrictedConfig: testConf,
+			}, nil)
+
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
 		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)

@@ -24,6 +24,7 @@ import (
 const (
 	ComputeResourceDimension = "COMPUTE"
 	defaultDecimalPrecision  = 3 // one thousandth of a dollar
+	ratiosKey                = "spendRatios"
 )
 
 var (
@@ -39,6 +40,7 @@ var (
 	ErrReportNotFound        = errors.New("report not found")
 	ErrReportExists          = errors.New("report already exists")
 	ErrRatiosAndTypesNoMatch = errors.New("spending types and ratios do not match")
+	ErrInvalidRatios         = errors.New("invalid spending type ratios")
 )
 
 type BillingClient interface {
@@ -223,10 +225,26 @@ func (r *Report) CreditToSpendingLimits(
 	ratios map[capabilities.CapabilitySpendType]decimal.Decimal,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
+	// no spend types results in no limits and is not a failure case
 	if len(info.SpendTypes) == 0 {
 		return nil
 	}
 
+	// assume 100% ratio for a single spend type
+	if len(info.SpendTypes) == 1 {
+		spendLimit, err := r.balance.ConvertFromBalance(string(info.SpendTypes[0]), amount)
+		if err != nil {
+			r.switchToMeteringMode(err)
+
+			return nil
+		}
+
+		return []capabilities.SpendLimit{
+			{SpendType: info.SpendTypes[0], Limit: spendLimit.StringFixed(defaultDecimalPrecision)},
+		}
+	}
+
+	// spend types do not have matching ratios; this is a bad configuration
 	if len(info.SpendTypes) != len(ratios) {
 		r.switchToMeteringMode(fmt.Errorf("%w: %d spend types and %d ratios", ErrRatiosAndTypesNoMatch, len(info.SpendTypes), len(ratios)))
 
@@ -234,9 +252,11 @@ func (r *Report) CreditToSpendingLimits(
 	}
 
 	limits := []capabilities.SpendLimit{}
+
 	for _, spendType := range info.SpendTypes {
 		ratio, hasRatio := ratios[spendType]
 		if !hasRatio {
+			// the spend type does not exist in the ratios mapping; this is a bad configuration
 			r.switchToMeteringMode(fmt.Errorf("%w: ratios missing %s spend type", ErrRatiosAndTypesNoMatch, spendType))
 
 			return nil
@@ -560,30 +580,48 @@ func (s *Reports) Len() int {
 	return len(s.reports)
 }
 
+// RatiosFromConfig collects all ratios from a value map that match specified spend types. Any error will return an
+// empty set of ratios with the error.
 func RatiosFromConfig(
 	info capabilities.CapabilityInfo,
 	config *values.Map,
 ) (map[capabilities.CapabilitySpendType]decimal.Decimal, error) {
 	ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
 
+	if config == nil {
+		return nil, fmt.Errorf("%w: spending ratios not set; config is nil", ErrInvalidRatios)
+	}
+
+	rawRatiosValue, hasRatios := config.Underlying[ratiosKey]
+	if !hasRatios {
+		return nil, fmt.Errorf("%w: spending ratios not set", ErrInvalidRatios)
+	}
+
+	rawRatiosAny, err := rawRatiosValue.Unwrap()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidRatios, err)
+	}
+
+	rawRatios, ok := rawRatiosAny.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: not a value map", ErrInvalidRatios)
+	}
+
 	for _, spendType := range info.SpendTypes {
 		// using a namespace on the config key to distinguish billing specific keys
-		key := fmt.Sprintf("billing_%s", spendType)
-
-		value, hasRatio := config.Underlying[key]
+		value, hasRatio := rawRatios[string(spendType)]
 		if !hasRatio {
-			// if any single ratio is missing, send an empty set to metering report
-			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
-
-			break
+			return nil, fmt.Errorf("%w: ratio does not exist for: %s", ErrInvalidRatios, spendType)
 		}
 
-		var ratio decimal.Decimal
-		if err := value.UnwrapTo(&ratio); err != nil {
-			// if any single ratio is not parseable, send an empty set to metering report
-			ratios = make(map[capabilities.CapabilitySpendType]decimal.Decimal)
+		strValue, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("%w: ratio for key '%s' should be type string", ErrInvalidRatios, spendType)
+		}
 
-			return ratios, fmt.Errorf("could not unwrap decimal ratio value: %s", value)
+		ratio, err := decimal.NewFromString(strValue)
+		if err != nil {
+			return nil, fmt.Errorf("%w: could not unwrap decimal ratio value: %s", ErrInvalidRatios, value)
 		}
 
 		ratios[spendType] = ratio

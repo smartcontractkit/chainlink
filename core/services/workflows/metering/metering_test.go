@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -53,6 +54,18 @@ var (
 		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
 		capabilities.CapabilitySpendType(testUnitC): decimal.NewFromFloat(0.6), // 60%
 	}
+	validConfig, _ = values.NewMap(map[string]any{
+		ratiosKey: map[string]string{
+			testUnitA: "0.4",
+			testUnitB: "0.6",
+		},
+	})
+	invalidConfig, _ = values.NewMap(map[string]any{
+		ratiosKey: map[string]any{
+			testUnitA: "invalid",
+			testUnitB: 5,
+		},
+	})
 )
 
 func Test_Report(t *testing.T) {
@@ -937,6 +950,88 @@ func Test_MeterReports_End(t *testing.T) {
 		require.Error(t, mrs.End(t.Context(), "exec1"))
 		assert.Empty(t, mrs.reports)
 		billingClient.AssertExpectations(t)
+	})
+}
+
+func TestRatiosFromConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitA,
+				testUnitB,
+			},
+		}, validConfig)
+
+		require.Nil(t, err)
+		require.Len(t, ratios, 2)
+
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitA))
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitB))
+	})
+
+	t.Run("error when spend ratios key does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, new(values.Map))
+		assert.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Nil(t, ratios)
+	})
+
+	t.Run("error when spend ratios fails to unwrap to map", func(t *testing.T) {
+		t.Parallel()
+
+		config := &values.Map{
+			Underlying: map[string]values.Value{
+				"spendRatios": &values.String{Underlying: "invalid"},
+			},
+		}
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, config)
+		assert.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Nil(t, ratios)
+	})
+
+	t.Run("error when spend type is not in ratios map", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitC,
+			},
+		}, validConfig)
+
+		assert.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Nil(t, ratios)
+	})
+
+	t.Run("error when ratio contains invalid data type", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitB,
+			},
+		}, invalidConfig)
+
+		assert.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Nil(t, ratios)
+	})
+
+	t.Run("error when ratio contains invalid decimal", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitA,
+			},
+		}, invalidConfig)
+
+		assert.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Nil(t, ratios)
 	})
 }
 

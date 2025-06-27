@@ -49,7 +49,16 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability info not found: %w", err)
 	}
 
-	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, info.DON.ID)
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	var donID uint32
+	if !info.IsLocal {
+		donID = info.DON.ID
+	} else {
+		donID = c.localNode.WorkflowDON.ID
+	}
+
+	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
 	if err != nil {
 		return nil, fmt.Errorf("capability config not found: %w", err)
 	}
@@ -93,13 +102,9 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, ratios, spendLimit.Decimal)
 	}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
-	// convert balance to CapabilityInfo resource types for use in Capability call
-	// pass deducted amount as max spend to capability.Execute
-
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef))
+	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef)
 
 	execCtx, execCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(c.cfg.LocalLimits.CapabilityCallTimeoutMs))
 	defer execCancel()
@@ -107,14 +112,14 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	capResp, err := capability.Execute(execCtx, capReq)
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef), store.StatusErrored)
+		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored)
 		c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
-	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, string(meteringRef), store.StatusCompleted)
+	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted)
 
 	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
 	if err != nil {
