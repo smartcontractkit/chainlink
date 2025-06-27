@@ -42,7 +42,7 @@ func NewStandaloneEngine(
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
-) (services.Service, *sdkpb.TriggerSubscriptionRequest, error) {
+) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -162,7 +162,7 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-	return engine, triggerSubscriptions, nil
+	return engine, triggerSubscriptions.GetSubscriptions(), nil
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.

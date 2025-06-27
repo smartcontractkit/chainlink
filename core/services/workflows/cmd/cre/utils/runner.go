@@ -28,7 +28,7 @@ type RunnerConfig struct {
 
 type RunnerHooks struct {
 	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
-	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, *pb.TriggerSubscriptionRequest)
+	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
 	Close      func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	AfterRun   func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Cleanup    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
@@ -36,7 +36,7 @@ type RunnerHooks struct {
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
-var emptyBeforeRun = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, *pb.TriggerSubscriptionRequest) {
+var emptyBeforeRun = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription) {
 }
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
