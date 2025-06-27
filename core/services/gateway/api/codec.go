@@ -8,7 +8,7 @@ import (
 type Codec interface {
 	DecodeRawRequest(msgBytes []byte, jwtToken string) (*Message, error)
 
-	DecodeJsonRequest(request jsonrpc2.Request) (*Message, error)
+	DecodeJSONRequest(request jsonrpc2.Request) (*Message, error)
 
 	// EncodeLegacyRequest creates a Json request with a Message object
 	// embedded in jsonrpc2.Request.Params as opposed to new requests,

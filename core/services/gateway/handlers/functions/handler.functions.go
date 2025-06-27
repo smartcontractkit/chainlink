@@ -199,9 +199,8 @@ func NewFunctionsHandler(
 	}
 }
 
-func (h *functionsHandler) HandleJsonRpcUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
 	panic("FunctionsHandler does not support JSON-RPC messages")
-	return nil
 }
 
 func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {

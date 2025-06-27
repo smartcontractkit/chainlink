@@ -47,13 +47,12 @@ var _ gw_handlers.Handler = (*service)(nil)
 type service struct {
 	services.StateMachine
 	gw_handlers.Handler
-	methodConfig VaultConfig
+	methodConfig Config
 	donConfig    *config.DONConfig
 	don          gw_handlers.DON
 	lggr         logger.Logger
 	codec        api.JsonRPCCodec
 
-	mu                sync.RWMutex
 	userRateLimiter   *ratelimit.RateLimiter
 	nodeRateLimiter   *ratelimit.RateLimiter
 	requestTimeoutSec int
@@ -78,15 +77,14 @@ type SecretEntry struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
-type VaultConfig struct {
+type Config struct {
 	UserRateLimiterConfig ratelimit.RateLimiterConfig `json:"user_rate_limiter"`
 	NodeRateLimiterConfig ratelimit.RateLimiterConfig `json:"node_rate_limiter"`
 	RequestTimeoutSec     int                         `json:"request_timeout_sec"`
 }
 
 func NewService(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) *service {
-
-	var cfg VaultConfig
+	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		// Return a minimal implementation that will fail gracefully
 		return &service{
@@ -134,10 +132,9 @@ func (s *service) Close() error {
 
 func (s *service) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	panic("Vault Service does not support legacy messages")
-	return nil
 }
 
-func (s *service) HandleJsonRpcUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("handling vault request", "method", jsonRequest.Method, "id", jsonRequest.ID)
 
 	// Create timeout context
@@ -152,7 +149,7 @@ func (s *service) HandleJsonRpcUserMessage(ctx context.Context, jsonRequest json
 		s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 		promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJsonRPCErrorCode(api.UnsupportedMethodError), fmt.Sprintf("Unsupported method: %s", jsonRequest.Method), nil)
+		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "Unsupported method: "+jsonRequest.Method, nil)
 		if err != nil {
 			rawErrMsg = []byte("fatal error" + err.Error())
 		}
@@ -178,9 +175,9 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response,
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var req SecretsCreateRequest
 	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJsonRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to parse request: %v", err), nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to parse request: %v", err), nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -191,7 +188,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 	// Validate request
 	if req.ID == "" {
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJsonRPCErrorCode(api.InvalidParamsError), "Secret ID cannot be empty", nil)
+		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret ID cannot be empty", nil)
 		if err != nil {
 			rawErrMsg = []byte("fatal error" + err.Error())
 		}
@@ -214,7 +211,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 	// Check if secret already exists
 	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJsonRPCErrorCode(api.InvalidParamsError), "Secret with this ID already exists", nil)
+		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret with this ID already exists", nil)
 		if err != nil {
 			rawErrMsg = []byte("fatal error" + err.Error())
 		}
@@ -246,9 +243,9 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	resultBytes, err := json.Marshal(responseData)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJsonRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,

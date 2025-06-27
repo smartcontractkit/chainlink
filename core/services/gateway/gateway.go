@@ -142,11 +142,11 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	if err != nil {
 		return newError("", api.UserMessageParseError, err.Error())
 	}
-	msg, err := g.codec.DecodeJsonRequest(jsonRequest)
+	msg, err := g.codec.DecodeJSONRequest(jsonRequest)
 	if err != nil {
 		return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 	}
-	var isLegacyRequest bool = false
+	var isLegacyRequest = false
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {
 		// if no DON ID is specified, it is a new JsonRPC request. Use the service name as handler key
@@ -161,14 +161,14 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	}
 	h, ok := g.handlers[handlerKey]
 	if !ok {
-		return newError(jsonRequest.ID, api.UnsupportedDONIdError, fmt.Sprintf("Unsupported DON ID or Handler: %s", handlerKey))
+		return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID or Handler: "+handlerKey)
 	}
 	// send to the right handler
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
 	if isLegacyRequest {
 		err = h.HandleLegacyUserMessage(ctx, msg, responseCh)
 	} else {
-		err = h.HandleJsonRpcUserMessage(ctx, jsonRequest, responseCh)
+		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, responseCh)
 	}
 	if err != nil {
 		return newError(jsonRequest.ID, api.HandlerError, err.Error())
@@ -190,7 +190,7 @@ func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{
-			Code:    api.ToJsonRPCErrorCode(errCode),
+			Code:    api.ToJSONRPCErrorCode(errCode),
 			Message: errMsg,
 			Data:    nil,
 		},

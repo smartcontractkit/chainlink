@@ -17,10 +17,10 @@ func (j *JsonRPCCodec) DecodeRawRequest(msgBytes []byte, jwtToken string) (*Mess
 	if err != nil {
 		return nil, err
 	}
-	return j.DecodeJsonRequest(jsonRequest)
+	return j.DecodeJSONRequest(jsonRequest)
 }
 
-func (*JsonRPCCodec) DecodeJsonRequest(request jsonrpc2.Request) (*Message, error) {
+func (*JsonRPCCodec) DecodeJSONRequest(request jsonrpc2.Request) (*Message, error) {
 	var msg Message
 	err := json.Unmarshal(request.Params, &msg)
 	if err != nil {
@@ -60,7 +60,7 @@ func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 	}
 	err = json.Unmarshal(response.Result, &msg)
 	msg.Body.MessageId = response.ID
-	return &msg, nil
+	return &msg, err
 }
 
 func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) ([]byte, error) {

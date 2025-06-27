@@ -244,13 +244,11 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleJsonRpcUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
 	panic("This handler does not support JSON-RPC messages")
-	return nil
 }
 
 func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-
 	h.mu.Lock()
 	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := h.don
@@ -261,9 +259,9 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
-		rawErrMsg, err := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJsonRPCErrorCode(api.UserMessageParseError), "error decoding payload "+err.Error(), nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJSONRPCErrorCode(api.UserMessageParseError), "error decoding payload "+err.Error(), nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawErrMsg, ErrorCode: api.UserMessageParseError}
 		close(callbackCh)
@@ -272,9 +270,9 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 
 	if payload.Timestamp == 0 {
 		h.lggr.Errorw("error decoding payload")
-		rawErrMsg, err := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJsonRPCErrorCode(api.UserMessageParseError), "error decoding payload", nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJSONRPCErrorCode(api.UserMessageParseError), "error decoding payload", nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawErrMsg, ErrorCode: api.UserMessageParseError}
 		close(callbackCh)
@@ -283,9 +281,9 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 
 	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
 		h.lggr.Errorw("stale message")
-		rawErrMsg, err := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJsonRPCErrorCode(api.HandlerError), "stale message", nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJSONRPCErrorCode(api.HandlerError), "stale message", nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawErrMsg, ErrorCode: api.HandlerError}
 		close(callbackCh)
@@ -294,9 +292,9 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		rawErrMsg, err := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJsonRPCErrorCode(api.UnsupportedMethodError), "invalid method "+msg.Body.Method, nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "invalid method "+msg.Body.Method, nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawErrMsg, ErrorCode: api.UnsupportedMethodError}
 		close(callbackCh)
@@ -305,9 +303,9 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	req, err := common.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		h.lggr.Errorw("error transforming message to request")
-		rawErrMsg, err := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJsonRPCErrorCode(api.UserMessageParseError), "error transforming message to request", nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+		rawErrMsg, errInner := codec.EncodeNewErrorResponse(msg.Body.MessageId, api.ToJSONRPCErrorCode(api.UserMessageParseError), "error transforming message to request", nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawErrMsg, ErrorCode: api.UserMessageParseError}
 		close(callbackCh)

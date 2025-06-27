@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -141,11 +141,11 @@ func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expe
 	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedId, expectedResult), string(response))
 }
 
-func requireJsonRPCError(t *testing.T, responseBytes []byte, expectedId string, expectedCode int64, expectedMsg string) {
-	var response jsonrpc2.Response
+func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedId string, expectedCode int64, expectedMsg string) {
+	var response jsonrpc.Response
 	err := json.Unmarshal(responseBytes, &response)
 	require.NoError(t, err)
-	require.Equal(t, jsonrpc2.JsonRpcVersion, response.Version)
+	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
 	require.Equal(t, expectedId, response.ID)
 	require.Equal(t, expectedCode, response.Error.Code)
 	require.Equal(t, expectedMsg, response.Error.Message)
@@ -165,10 +165,10 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Ha
 
 // newSignedLegacyRequest creates a signed legacy request message for testing purposes.
 // Legacy requests embed
-func newSignedLegacyRequest(t *testing.T, messageId string, method string, donID string, payload []byte) []byte {
+func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID string, payload []byte) []byte {
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageId,
+			MessageId: messageID,
 			Method:    method,
 			DonId:     donID,
 			Payload:   payload,
@@ -183,12 +183,25 @@ func newSignedLegacyRequest(t *testing.T, messageId string, method string, donID
 	return rawRequest
 }
 
+// newJSONRpcRequest creates a json rpc based request message for testing purposes.
+func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []byte) []byte {
+	request := jsonrpc.Request{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
+		Method:  method,
+		Params:  payload,
+	}
+	rawRequest, err := json.Marshal(&request)
+	require.NoError(t, err)
+	return rawRequest
+}
+
 func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), []byte("{{}"), "")
-	requireJsonRPCError(t, response, "", jsonrpc2.ErrParse, "invalid character '{' looking for beginning of object key string")
+	requireJSONRPCError(t, response, "", jsonrpc.ErrParse, "invalid character '{' looking for beginning of object key string")
 	require.Equal(t, 400, statusCode)
 }
 
@@ -198,7 +211,7 @@ func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", api.NullChar, []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCError(t, response, "abc", jsonrpc2.ErrParse, "DON ID ending with null bytes")
+	requireJSONRPCError(t, response, "abc", jsonrpc.ErrParse, "DON ID ending with null bytes")
 	require.Equal(t, 400, statusCode)
 }
 
@@ -208,7 +221,7 @@ func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCError(t, response, "abc", jsonrpc2.ErrInvalidParams, "Unsupported DON ID or Handler: request")
+	requireJSONRPCError(t, response, "abc", jsonrpc.ErrInvalidParams, "Unsupported DON ID or Handler: request")
 	require.Equal(t, 400, statusCode)
 }
 
@@ -218,7 +231,7 @@ func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "unknownDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCError(t, response, "abc", jsonrpc2.ErrInvalidParams, "Unsupported DON ID or Handler: unknownDON")
+	requireJSONRPCError(t, response, "abc", jsonrpc.ErrInvalidParams, "Unsupported DON ID or Handler: unknownDON")
 	require.Equal(t, 400, statusCode)
 }
 
@@ -227,13 +240,13 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		msg := args.Get(2).(*api.Message)
-		callbackCh := args.Get(3).(chan<- handlers.UserCallbackPayload)
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
-		var rawMsg json.RawMessage
-		rawMsg, err := json.Marshal(msg)
+		codec := api.JsonRPCCodec{}
+		rawMsg, err := codec.EncodeLegacyResponse(msg)
 		require.NoError(t, err)
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
 	})
@@ -249,22 +262,23 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
-	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		msg := args.Get(2).(*api.Message)
-		callbackCh := args.Get(3).(chan<- handlers.UserCallbackPayload)
+	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		request := args.Get(1).(jsonrpc.Request)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
-		msg.Body.Payload = []byte(`{"result":"OK"}`)
-		msg.Signature = ""
-		var rawMsg json.RawMessage
-		rawMsg, err := json.Marshal(msg)
+		response := jsonrpc.Response{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      request.ID,
+			Result:  []byte(`{"result":"OK"}`),
+		}
+		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
 	})
 
-	req := newSignedLegacyRequest(t, "abcd", "testDON", "", []byte{})
+	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCResult(t, response, "abcd",
-		`{"signature":"","body":{"message_id":"abcd","method":"testDON","don_id":"","receiver":"","payload":{"result":"OK"}}}`)
+	requireJsonRPCResult(t, response, "abcd", `{"result":"OK"}`)
 	require.Equal(t, 200, statusCode)
 }
 
@@ -278,7 +292,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(timeoutCtx, req, "")
-	requireJsonRPCError(t, response, "abcd", jsonrpc2.ErrServerOverloaded, "handler timeout")
+	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrServerOverloaded, "handler timeout")
 	require.Equal(t, 504, statusCode)
 }
 
@@ -290,6 +304,6 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCError(t, response, "abcd", jsonrpc2.ErrInvalidRequest, "failure")
+	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrInvalidRequest, "failure")
 	require.Equal(t, 400, statusCode)
 }

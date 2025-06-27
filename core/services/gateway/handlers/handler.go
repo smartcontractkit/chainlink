@@ -3,15 +3,13 @@ package handlers
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// UserCallbackPayload is a response to user request sent to HandleLegacyUserMessage()/HandleJsonRpcUserMessage().
+// UserCallbackPayload is a response to user request sent to HandleLegacyUserMessage()/HandleJSONRPCUserMessage().
 // Each message needs to receive at most one response on the provided channel.
 type UserCallbackPayload struct {
 	RawResponse []byte
@@ -37,7 +35,7 @@ type Handler interface {
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
 	//   2. waits on callbackCh with a timeout
-	HandleJsonRpcUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request, callbackCh chan<- UserCallbackPayload) error
+	HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- UserCallbackPayload) error
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
 	// should be non-blocking

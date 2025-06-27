@@ -3,7 +3,7 @@ package api_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -14,9 +14,9 @@ func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
 	codec := api.JsonRPCCodec{}
-	jsonRequest, err := jsonrpc2.DecodeRequest(input, "")
+	jsonRequest, err := jsonrpc.DecodeRequest(input, "")
 	require.NoError(t, err)
-	msg, err := codec.DecodeJsonRequest(jsonRequest)
+	msg, err := codec.DecodeJSONRequest(jsonRequest)
 	require.NoError(t, err)
 	msg2, err := codec.DecodeRawRequest(input, "")
 	require.NoError(t, err)

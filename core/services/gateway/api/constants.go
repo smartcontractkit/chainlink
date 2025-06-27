@@ -42,8 +42,8 @@ func (e ErrorCode) String() string {
 }
 
 // See https://www.jsonrpc.org/specification#error_object
-func ToJsonRPCErrorCode(errorCode ErrorCode) int64 {
-	gatewayErrorToJsonRPCError := map[ErrorCode]int64{
+func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
+	gatewayErrorToJSONRPCError := map[ErrorCode]int64{
 		NoError:                  0,
 		UserMessageParseError:    jsonrpc2.ErrParse,            // Parse Error
 		UnsupportedDONIdError:    jsonrpc2.ErrInvalidParams,    // Invalid Params
@@ -55,7 +55,7 @@ func ToJsonRPCErrorCode(errorCode ErrorCode) int64 {
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
 	}
 
-	code, ok := gatewayErrorToJsonRPCError[errorCode]
+	code, ok := gatewayErrorToJSONRPCError[errorCode]
 	if !ok {
 		return jsonrpc2.ErrInternal
 	}
