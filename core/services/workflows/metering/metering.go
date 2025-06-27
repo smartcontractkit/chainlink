@@ -412,7 +412,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 }
 
 func (r *Report) switchToMeteringMode(err error) {
-	// r.lggr.Errorf("switching to metering mode: %s", err)
+	r.lggr.Errorf("switching to metering mode: %s", err)
 	r.meteringMode = true
 	r.ready = true
 }

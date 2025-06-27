@@ -107,7 +107,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 
 	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
 	if err != nil {
-		// c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
 	return &sdkpb.CapabilityResponse{
