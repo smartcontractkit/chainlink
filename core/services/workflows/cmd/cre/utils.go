@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
+	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -48,6 +50,11 @@ type standardCapConfig struct {
 	Enabled bool
 }
 
+type ManualTriggers struct {
+	ManualCronTrigger *fakes.ManualCronTriggerService
+	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
+}
+
 var (
 	goBinPath            = os.Getenv("GOBIN")
 	standardCapabilities = map[string]standardCapConfig{
@@ -65,7 +72,7 @@ func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
 	registry *capabilities.Registry,
-	binary []byte, config []byte,
+	binary, config []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, error) {
@@ -168,6 +175,20 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 	return map[string]string{}, nil
 }
 
+// NewCapabilities builds capabilities using latest standard capabilities where possible, otherwise filled in with faked capabilities.
+// Capabilities are then registered with the capability registry.
+func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+	caps, err := NewFakeCapabilities(ctx, lggr, registry)
+	if err != nil {
+		return nil, err
+	}
+
+	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
+
+	return caps, nil
+}
+
+// NewFakeCapabilities builds faked capabilities, then registers them with the capability registry.
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -182,8 +203,6 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 		return nil, err
 	}
 	caps = append(caps, httpAction)
-
-	caps = append(caps, newStandardCapabilities(standardCapabilities, lggr, registry)...)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
@@ -210,6 +229,27 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
+}
+
+func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
+	// Cron
+	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
+	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
+	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	// HTTP
+	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
+	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
+	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
+		return ManualTriggers{}, err
+	}
+
+	return ManualTriggers{
+		ManualCronTrigger: manualCronTrigger,
+		ManualHTTPTrigger: manualHTTPTrigger,
+	}, nil
 }
 
 // standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service

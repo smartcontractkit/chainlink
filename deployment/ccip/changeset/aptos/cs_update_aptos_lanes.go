@@ -120,7 +120,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
-			deps.AptosChain.Client,
+			env,
 			state.AptosChains[aptosChainSel].MCMSAddress,
 			deps.AptosChain.Selector,
 			mcmsOperations,
