@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mr-tron/base58"
+
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"

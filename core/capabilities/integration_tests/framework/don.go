@@ -253,7 +253,7 @@ func (d *DON) GetF() uint8 {
 }
 
 func (d *DON) GetPeerIDsAndOCRSigners() []peerIDAndOCRSigner {
-	var peers []peerIDAndOCRSigner
+	peers := make([]peerIDAndOCRSigner, 0, len(d.nodes))
 	for _, node := range d.nodes {
 		peers = append(peers, node.peer)
 	}
