@@ -132,7 +132,7 @@ func (t p2pPeer) IsBootstrap() bool {
 	return false
 }
 
-func GetSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error) {
+func getSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error) {
 	if keyBundle == nil {
 		return "", fmt.Errorf("key bundle is nil")
 	}

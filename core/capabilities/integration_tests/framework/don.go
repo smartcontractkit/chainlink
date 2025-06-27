@@ -164,7 +164,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 			CapabilityDONs: dependentDONs,
 		}
 
-		signer, err := GetSignerStringFromOCRKeyBundle(donConfig.KeyBundles[i])
+		signer, err := getSignerStringFromOCRKeyBundle(donConfig.KeyBundles[i])
 		require.NoError(t, err)
 		cn := &capabilityNode{
 			registry:  capabilityRegistry,
