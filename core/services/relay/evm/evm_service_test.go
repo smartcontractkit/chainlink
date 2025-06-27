@@ -1,7 +1,9 @@
 package evm
 
 import (
+	"errors"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,10 +13,13 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -22,11 +27,25 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
-func TestEVMService(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
+const ExpectedTxHash = "0xabcd"
+
+type Mocks struct {
+	Chain     *evmmocks.Chain
+	TxManager *txmmocks.MockEvmTxManager
+	Config    *configmocks.ChainScopedConfig
+	EVM       *configmocks.EVM
+	Workflow  *configmocks.Workflow
+	EvmClient *clienttest.Client
+	Poller    *lpmocks.LogPoller
+	Relayer   *Relayer
+}
+
+func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
+	mockConfig := configmocks.NewChainScopedConfig(t)
+	mockEVM := configmocks.NewEVM(t)
+	mockWorkflow := configmocks.NewWorkflow(t)
 	evmClient := clienttest.NewClient(t)
 	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
@@ -35,28 +54,102 @@ func TestEVMService(t *testing.T) {
 	chain.On("LogPoller").Return(poller).Maybe()
 	chain.On("HeadTracker").Return(ht).Maybe()
 	chain.On("Client").Return(evmClient).Maybe()
+	chain.EXPECT().Config().Return(mockConfig).Maybe()
+	mockConfig.EXPECT().EVM().Return(mockEVM).Maybe()
+	mockEVM.EXPECT().Workflow().Return(mockWorkflow).Maybe()
 
 	relayer := &Relayer{
 		chain: chain,
 	}
 
+	return &Mocks{
+		Chain:     chain,
+		TxManager: txManager,
+		Config:    mockConfig,
+		EVM:       mockEVM,
+		Workflow:  mockWorkflow,
+		EvmClient: evmClient,
+		Poller:    poller,
+	}, relayer
+}
+
+type SubmitTransactionTestCase struct {
+	Name           string
+	SetupMocks     func(m *Mocks, ctx any)
+	ExpectedResult *evm.TransactionResult
+	ExpectedError  string
+}
+
+func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
+	ctx := t.Context()
+	mocks, relayer := setupMocksAndRelayer(t)
+
+	if tc.SetupMocks != nil {
+		tc.SetupMocks(mocks, ctx)
+	}
+
+	setCommonSubmitTransactionMocks(mocks, ctx)
+
+	receiver := createToAddress()
+	gasLimit := uint64(1000)
+	result, err := relayer.SubmitTransaction(ctx, evm.SubmitTransactionRequest{
+		To:   receiver,
+		Data: createPayload(),
+		GasConfig: &evm.GasConfig{
+			GasLimit: &gasLimit,
+		},
+	})
+
+	if tc.ExpectedError != "" {
+		require.Error(t, err)
+		require.Contains(t, err.Error(), tc.ExpectedError)
+	} else {
+		require.NoError(t, err)
+		require.Equal(t, tc.ExpectedResult, result)
+	}
+}
+
+func setCommonSubmitTransactionMocks(m *Mocks, ctx any) {
+	fromAddress := createFromAddress()
+	m.Workflow.EXPECT().FromAddress().Return(&fromAddress)
+	m.EVM.EXPECT().ConfirmationTimeout().Return(500 * time.Millisecond)
+}
+
+func createFromAddress() types.EIP55Address {
+	address, _ := types.NewEIP55Address("0x222")
+	return address
+}
+
+func createToAddress() common.Address {
+	return common.HexToAddress("0x555")
+}
+
+func createPayload() evm.ABIPayload {
+	return evm.ABIPayload("kitties")
+}
+
+func TestEVMService(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
 	t.Run("RegisterLogTracking", func(t *testing.T) {
-		filter := evmtypes.LPFilterQuery{
+		mocks, relayer := setupMocksAndRelayer(t)
+		filter := evm.LPFilterQuery{
 			Name:         "filter-1",
 			Retention:    time.Second,
-			Addresses:    []evmtypes.Address{common.HexToAddress("0x123")},
-			EventSigs:    []evmtypes.Hash{common.HexToHash("0x321")},
-			Topic2:       []evmtypes.Hash{common.HexToHash("0x222")},
-			Topic3:       []evmtypes.Hash{common.HexToHash("0x543")},
-			Topic4:       []evmtypes.Hash{common.HexToHash("0x432")},
+			Addresses:    []evm.Address{common.HexToAddress("0x123")},
+			EventSigs:    []evm.Hash{common.HexToHash("0x321")},
+			Topic2:       []evm.Hash{common.HexToHash("0x222")},
+			Topic3:       []evm.Hash{common.HexToHash("0x543")},
+			Topic4:       []evm.Hash{common.HexToHash("0x432")},
 			MaxLogsKept:  100,
 			LogsPerBlock: 10,
 		}
 
-		poller.On("HasFilter", mock.MatchedBy(func(fname string) bool {
+		mocks.Poller.On("HasFilter", mock.MatchedBy(func(fname string) bool {
 			return fname == filter.Name
 		})).Return(false)
-		poller.On("RegisterFilter", ctx, mock.MatchedBy(func(f logpoller.Filter) bool {
+		mocks.Poller.On("RegisterFilter", ctx, mock.MatchedBy(func(f logpoller.Filter) bool {
 			return f.LogsPerBlock == filter.LogsPerBlock &&
 				f.Retention == filter.Retention &&
 				f.Topic2[0] == filter.Topic2[0] &&
@@ -73,6 +166,8 @@ func TestEVMService(t *testing.T) {
 	})
 
 	t.Run("GetTransactionByHash", func(t *testing.T) {
+		mocks, relayer := setupMocksAndRelayer(t)
+
 		hash := common.HexToHash("0x123")
 		nonce := uint64(1)
 		to := common.HexToAddress("0x555")
@@ -82,7 +177,7 @@ func TestEVMService(t *testing.T) {
 		data := []byte("kitties")
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-		evmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
+		mocks.EvmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
 		tx, err := relayer.GetTransactionByHash(ctx, hash)
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
@@ -92,6 +187,114 @@ func TestEVMService(t *testing.T) {
 		require.Equal(t, transaction.Gas(), tx.Gas)
 		require.Equal(t, transaction.To().Bytes(), tx.To[:])
 	})
+
+	submitTxCases := []SubmitTransactionTestCase{
+		{
+			Name: "Executes successfully",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTxRequest := txmgr.TxRequest{
+					FromAddress:    createFromAddress().Address(),
+					ToAddress:      createToAddress(),
+					EncodedPayload: createPayload(),
+				}
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
+					return txRequest.FromAddress == expectedTxRequest.FromAddress &&
+						txRequest.ToAddress == expectedTxRequest.ToAddress &&
+						slices.Equal(txRequest.EncodedPayload, expectedTxRequest.EncodedPayload)
+				})).Return(expectedTx, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
+				txHash := common.HexToHash(ExpectedTxHash)
+				mockReceipt := NewChainReceipt(txHash, t)
+				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Fail creating transaction",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Unconfirmed, nil)
+				expectedMessage := "fail creating transaction"
+				m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(nil, errors.New(expectedMessage))
+			},
+			ExpectedError: "fail creating transaction",
+		},
+		{
+			Name: "Fails getting transaction status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+				expectedMessage := "fail getting transaction status"
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Fatal, errors.New(expectedMessage))
+			},
+			ExpectedError: "fail getting transaction status",
+		},
+		{
+			Name: "Success with pending status and then finalized status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Pending, commontypes.Finalized)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Success with unknown status and then finalized status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Unknown, commontypes.Finalized)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Success with unknown status and then unconfirmed status",
+			SetupMocks: func(m *Mocks, ctx any) {
+				runSubmitTxGettingDifferentStatus(t, m, ctx, commontypes.Unknown, commontypes.Unconfirmed)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.HexToHash(ExpectedTxHash),
+				TxStatus: evm.TxSuccess,
+			},
+		},
+		{
+			Name: "Fails with pending and later on Fatal",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Pending, nil).Once()
+				m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(commontypes.Fatal, nil).Once()
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.Hash{},
+				TxStatus: evm.TxFatal,
+			},
+		},
+	}
+
+	for _, tc := range submitTxCases {
+		t.Run("SubmitTransaction - "+tc.Name, func(t *testing.T) {
+			runSubmitTransactionTest(t, tc)
+		})
+	}
+}
+
+func runSubmitTxGettingDifferentStatus(t *testing.T, m *Mocks, ctx any, expectedStatus ...commontypes.TransactionStatus) {
+	expectedTx := txmgr.Tx{}
+	m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+	for _, status := range expectedStatus {
+		m.TxManager.EXPECT().GetTransactionStatus(ctx, mock.Anything).Return(status, nil).Once()
+	}
+	txHash := common.HexToHash(ExpectedTxHash)
+	mockReceipt := NewChainReceipt(txHash, t)
+	m.TxManager.EXPECT().GetTransactionReceipt(ctx, mock.Anything).Return(&mockReceipt, nil)
 }
 
 func TestConverters(t *testing.T) {
@@ -127,4 +330,10 @@ func TestConverters(t *testing.T) {
 		require.Equal(t, tx.To().Bytes(), result.To[:])
 		require.Equal(t, tx.Data(), result.Data)
 	})
+}
+
+func NewChainReceipt(txHash common.Hash, t *testing.T) txmgr.ChainReceipt {
+	mock := txmmocks.NewChainReceipt[common.Hash, common.Hash](t)
+	mock.EXPECT().GetTxHash().Return(txHash)
+	return mock
 }

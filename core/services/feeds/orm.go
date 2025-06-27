@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -64,18 +65,23 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	ds sqlutil.DataSource
+	ds   sqlutil.DataSource
+	lggr logger.Logger
 }
 
-func NewORM(ds sqlutil.DataSource) *orm {
-	return &orm{ds: ds}
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
+	namedLogger := logger.Sugared(lggr.Named("FeedsORM"))
+	return &orm{
+		ds:   ds,
+		lggr: namedLogger,
+	}
 }
 
 func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
 	return sqlutil.Transact(ctx, o.WithDataSource, o.ds, nil, fn)
 }
 
-func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds} }
+func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds: ds, lggr: o.lggr} }
 
 // Count counts the number of feeds manager records.
 // TODO: delete once multiple feeds managers support is released
@@ -419,6 +425,7 @@ WHERE remote_uuid = $1
 AND status <> $2;
 `
 
+	o.lggr.Infow("getting job proposal by remote uuid", "remoteUUID", id)
 	jp = new(JobProposal)
 	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
@@ -547,6 +554,7 @@ WHERE id = $2
 RETURNING job_proposal_id;
 `
 
+	o.lggr.Infow("cancelling job proposal spec", "specID", id)
 	var jpID int64
 	if err := o.ds.GetContext(ctx, &jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
@@ -565,6 +573,7 @@ SET status = (
 	updated_at = NOW()
 WHERE id = $1;
 `
+	o.lggr.Infow("updating job proposal after spec cancellation", "jobProposalID", jpID)
 	result, err := o.ds.ExecContext(ctx, stmt, jpID, nil)
 	if err != nil {
 		return err
@@ -625,6 +634,7 @@ WHERE (job_proposal_id, version) IN
 AND job_proposal_id = $1
 `
 
+	o.lggr.Infow("getting latest spec for job proposal", "jobProposalID", id)
 	var spec JobProposalSpec
 	err := o.ds.GetContext(ctx, &spec, stmt, id)
 	if err != nil {
@@ -642,6 +652,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
+	o.lggr.Infow("deleting job proposal", "id", id, "pendingUpdate", pendingUpdate)
 	result, err := o.ds.ExecContext(ctx, stmt, JobProposalStatusDeleted, id, pendingUpdate)
 	if err != nil {
 		return err
@@ -680,6 +691,7 @@ WHERE status = $1
 AND job_proposal_id = $2
 `
 
+	o.lggr.Infow("getting approved spec for job proposal", "jobProposalID", jpID)
 	var spec JobProposalSpec
 	err := o.ds.GetContext(ctx, &spec, stmt, SpecStatusApproved, jpID)
 
