@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/libocr/ragep2p/types"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/stretchr/testify/require"
 )
@@ -94,7 +94,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	for i, p2pkey := range donInfo.p2pKeys {
 		signer, innerErr := getSignerStringFromOCRKeyBundle(donInfo.KeyBundles[i])
 		require.NoError(r.t, innerErr)
-		peer := peerIDAndOCRSigner{PeerID: types.PeerID(p2pkey.PeerID()), Signer: signer}
+		peer := peerIDAndOCRSigner{PeerID: p2ptypes.PeerID(p2pkey.PeerID()), Signer: signer}
 		peerIDs = append(peerIDs, p2pkey.PeerID())
 		n, innerErr := peerToNode(r.nodeOperatorID, peer)
 		require.NoError(r.t, innerErr)
