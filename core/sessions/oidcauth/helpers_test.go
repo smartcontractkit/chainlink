@@ -127,7 +127,7 @@ func (t *TestConfig) SessionTimeout() commonconfig.Duration {
 }
 
 func (t *TestConfig) UserAPITokenEnabled() bool {
-	return false
+	return true
 }
 
 func (t *TestConfig) UserAPITokenDuration() commonconfig.Duration {

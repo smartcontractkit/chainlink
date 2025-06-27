@@ -344,7 +344,7 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken st
 	if err != nil {
 		if errors.Is(err, clsessions.ErrUserSessionExpired) {
 			// API Token expired, purge
-			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
+			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); execErr != nil {
 				oi.lggr.Errorf("error purging stale oidc API token session: %v", execErr)
 			}
 		}
@@ -366,7 +366,7 @@ func (oi *oidcAuthenticator) ListUsers(ctx context.Context) ([]clsessions.User, 
 }
 
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
-// exists and hasn't expired, and update session's LastUsed field
+// exists and hasn't expired
 func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sessionID string) (clsessions.User, error) {
 	if len(sessionID) == 0 {
 		return clsessions.User{}, errors.New("session ID cannot be empty")
