@@ -33,11 +33,10 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg            *EngineConfig
-	lggr           logger.Logger
-	loggerLabels   map[string]string
-	localNode      capabilities.Node
-	secretsFetcher SecretsFetcher
+	cfg          *EngineConfig
+	lggr         logger.Logger
+	loggerLabels map[string]string
+	localNode    capabilities.Node
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -117,7 +116,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		lggr:                    beholderLogger,
 		loggerLabels:            labelsMap,
 		localNode:               localNode,
-		secretsFetcher:          cfg.SecretsFetcher,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
@@ -185,7 +183,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.secretsFetcher, UserLogChan: userLogChan})
+	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.cfg.SecretsFetcher, UserLogChan: userLogChan})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -366,7 +364,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.secretsFetcher})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.cfg.SecretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -503,8 +501,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				logLine.Message = logLine.Message[:e.cfg.LocalLimits.MaxUserLogLineLength] + " ...(truncated)"
 			}
 
-			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
-			if err != nil {
+			if err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
 				e.lggr.Errorw("Failed to emit user logs", "err", err)
 			}
 			count++
