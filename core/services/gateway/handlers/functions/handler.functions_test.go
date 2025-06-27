@@ -125,30 +125,27 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 			nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 			handler, don, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24, user.Address)
 			userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)
-
 			callbachCh := make(chan handlers.UserCallbackPayload)
-			done := make(chan struct{})
-			go func() {
-				defer close(done)
-				// wait on a response from Gateway to the user
-				response := <-callbachCh
-				require.Equal(t, api.NoError, response.ErrorCode)
-				codec := api.JsonRPCCodec{}
-				msg, err := codec.DecodeLegacyResponse(response.RawResponse)
-				require.NoError(t, err)
-				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
-				var payload functions.CombinedResponse
-				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
-				require.Equal(t, test.expectedGatewayResult, payload.Success)
-				require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
-			}()
-
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
-			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
-			<-done
+			go func() {
+				// Ensure the response is sent on another thread to avoid deadlock
+				sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
+			}()
+
+			// wait on a response from Gateway to the user
+			response := <-callbachCh
+			require.Equal(t, api.NoError, response.ErrorCode)
+			codec := api.JsonRPCCodec{}
+			msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+			require.NoError(t, err)
+			require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
+			var payload functions.CombinedResponse
+			require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
+			require.Equal(t, test.expectedGatewayResult, payload.Success)
+			require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
 		})
 	}
 }
@@ -172,29 +169,26 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 			nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 			handler, don, allowlist, _ := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24, user.Address)
 			userRequestMsg := newSignedMessage(t, "1234", "heartbeat", "don_id", user.PrivateKey)
-
 			callbachCh := make(chan handlers.UserCallbackPayload)
-			done := make(chan struct{})
-			go func() {
-				defer close(done)
-				// wait on a response from Gateway to the user
-				response := <-callbachCh
-				require.Equal(t, api.NoError, response.ErrorCode)
-				codec := api.JsonRPCCodec{}
-				msg, err := codec.DecodeLegacyResponse(response.RawResponse)
-				require.NoError(t, err)
-				require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
-				var payload functions.CombinedResponse
-				require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
-				require.Equal(t, test.expectedGatewayResult, payload.Success)
-				require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
-			}()
-
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
-			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
-			<-done
+			go func() {
+				// Ensure the response is sent on another thread to avoid deadlock
+				sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
+			}()
+
+			// wait on a response from Gateway to the user
+			response := <-callbachCh
+			require.Equal(t, api.NoError, response.ErrorCode)
+			codec := api.JsonRPCCodec{}
+			msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+			require.NoError(t, err)
+			require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
+			var payload functions.CombinedResponse
+			require.NoError(t, json.Unmarshal(msg.Body.Payload, &payload))
+			require.Equal(t, test.expectedGatewayResult, payload.Success)
+			require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
 		})
 	}
 }
@@ -217,23 +211,17 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, don, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Millisecond*10, user.Address)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)
-
 	callbachCh := make(chan handlers.UserCallbackPayload)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		// wait on a response from Gateway to the user
-		response := <-callbachCh
-		require.Equal(t, api.RequestTimeoutError, response.ErrorCode)
-		codec := api.JsonRPCCodec{}
-		msg, err := codec.DecodeLegacyResponse(response.RawResponse)
-		require.NoError(t, err)
-		require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
-	}()
-
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
-	<-done
+
+	// wait on a response from Gateway to the user
+	response := <-callbachCh
+	require.Equal(t, api.RequestTimeoutError, response.ErrorCode)
+	codec := api.JsonRPCCodec{}
+	msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+	require.NoError(t, err)
+	require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 }
