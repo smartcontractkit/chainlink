@@ -182,7 +182,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		break
 	}
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(response.ErrorCode)
+	return response.RawResponse, api.ToHttpErrorCode(response.ErrorCode)
 }
 
 func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {

@@ -2,7 +2,6 @@ package handlers_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -77,7 +76,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	response := <-callbackCh
-	var msg2 api.Message
-	require.NoError(t, json.Unmarshal(response.RawResponse, &msg2))
-	require.Equal(t, "1234", msg2.Body.MessageId)
+	codec := api.JsonRPCCodec{}
+	responseMsg, err := codec.DecodeLegacyResponse(response.RawResponse)
+	require.NoError(t, err)
+	require.Equal(t, "1234", responseMsg.Body.MessageId)
 }

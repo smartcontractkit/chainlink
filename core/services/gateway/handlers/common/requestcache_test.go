@@ -106,9 +106,10 @@ func TestRequestCache_Timeout(t *testing.T) {
 	require.NoError(t, cache.NewRequest(req, callbackCh, initialState))
 
 	finalResp := <-callbackCh
-	var msg api.Message
-	require.NoError(t, json.Unmarshal(finalResp.RawResponse, &msg))
-	require.Equal(t, "aa", msg.Body.MessageId)
+	codec := api.JsonRPCCodec{}
+	rawResp, err := codec.DecodeLegacyResponse(finalResp.RawResponse)
+	require.NoError(t, err)
+	require.Equal(t, "aa", rawResp.Body.MessageId)
 	require.Equal(t, api.RequestTimeoutError, finalResp.ErrorCode)
 }
 
