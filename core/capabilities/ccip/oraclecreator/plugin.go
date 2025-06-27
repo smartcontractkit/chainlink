@@ -314,7 +314,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         pluginConfig.RMNCrypto})
-		factory = promwrapper.NewReportingPluginFactory(factory, i.lggr, destChainFamily, destChainID, "CCIPCommit")
+		factory = promwrapper.NewReportingPluginFactory(
+			factory,
+			i.lggr,
+			destChainFamily,
+			destChainID,
+			"CCIPCommit",
+		)
 		if destChainWriter == nil {
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
