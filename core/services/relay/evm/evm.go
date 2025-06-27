@@ -1004,16 +1004,8 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
 }
 
-func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {
-	return nil, nil
-}
-
 func (r *Relayer) IsTxFinalized(ctx context.Context, hash evm.Hash, timeout time.Duration) (bool, error) {
 	return false, nil
-}
-
-func (r *Relayer) SubmitTransaction(ctx context.Context, tx evm.SubmitTransactionRequest) (*evm.TransactionResult, error) {
-	return nil, nil
 }
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
