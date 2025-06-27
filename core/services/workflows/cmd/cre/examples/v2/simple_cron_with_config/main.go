@@ -21,7 +21,7 @@ func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*
 	}
 
 	return sdk.Workflow[*runtimeConfig]{
-		sdk.On(
+		sdk.Handler(
 			cron.Trigger(cfg),
 			onTrigger,
 		),

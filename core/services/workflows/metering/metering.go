@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -287,12 +289,14 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	}
 
 	step, ok := r.steps[ref]
-	if !ok {
-		return ErrNoDeduct
-	}
+	if !r.meteringMode {
+		if !ok {
+			return ErrNoDeduct
+		}
 
-	if step.Spends != nil {
-		return ErrStepSpendExists
+		if step.Spends != nil {
+			return ErrStepSpendExists
+		}
 	}
 
 	spentCredits := decimal.NewFromInt(0)
@@ -306,27 +310,29 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		})
 	}
 
-	// Aggregate node responses to a single number
-	for unit, spendDetails := range resourceSpends {
-		deciVals := []decimal.Decimal{}
-		for _, detail := range spendDetails {
-			value, err := decimal.NewFromString(detail.SpendValue)
-			if err != nil {
-				r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-				// throw out invalid values for local balance settlement. they will still be included in metering report.
-				continue
+	if !r.meteringMode {
+		// Aggregate node responses to a single number
+		for unit, spendDetails := range resourceSpends {
+			deciVals := []decimal.Decimal{}
+			for _, detail := range spendDetails {
+				value, err := decimal.NewFromString(detail.SpendValue)
+				if err != nil {
+					r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+					// throw out invalid values for local balance settlement. they will still be included in metering report.
+					continue
+				}
+
+				deciVals = append(deciVals, value)
 			}
 
-			deciVals = append(deciVals, value)
-		}
+			aggregateSpend := medianSpend(deciVals)
+			bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
+			if err != nil {
+				r.switchToMeteringMode(err)
+			}
 
-		aggregateSpend := medianSpend(deciVals)
-		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
-		if err != nil {
-			r.switchToMeteringMode(err)
+			spentCredits = spentCredits.Add(bal)
 		}
-
-		spentCredits = spentCredits.Add(bal)
 	}
 
 	step.Spends = resourceSpends
@@ -391,6 +397,57 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		Metering:            r.FormatReport(),
 	}
 
+	// Output metering report to file for local testing
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		r.lggr.Warnw("failed to get home directory, skipping metering report file output", "error", err)
+	} else {
+		executionTestDir := filepath.Join(homeDir, ".execution-test")
+		if err := os.MkdirAll(executionTestDir, 0755); err != nil {
+			r.lggr.Warnw("failed to create execution-test directory, skipping metering report file output", "error", err)
+		} else {
+			reportPath := filepath.Join(executionTestDir, "metering-report.txt")
+			file, err := os.Create(reportPath)
+			if err != nil {
+				r.lggr.Warnw("failed to create metering report file, skipping file output", "error", err)
+			} else {
+				defer file.Close()
+
+				// Write human-readable metering report
+				fmt.Fprintf(file, "Metering Report\n")
+				fmt.Fprintf(file, "===============\n\n")
+				fmt.Fprintf(file, "Account ID: %s\n", req.AccountId)
+				fmt.Fprintf(file, "Workflow ID: %s\n", req.WorkflowId)
+				fmt.Fprintf(file, "Workflow Execution ID: %s\n\n", req.WorkflowExecutionId)
+
+				if req.Metering != nil && req.Metering.Steps != nil {
+					fmt.Fprintf(file, "Steps:\n")
+					for stepRef, step := range req.Metering.Steps {
+						fmt.Fprintf(file, "  Step: %s\n", stepRef)
+						if step.Nodes != nil {
+							for i, node := range step.Nodes {
+								fmt.Fprintf(file, "    Node %d:\n", i+1)
+								fmt.Fprintf(file, "      Peer 2 Peer ID: %s\n", node.Peer_2PeerId)
+								fmt.Fprintf(file, "      Spend Unit: %s\n", node.SpendUnit)
+								fmt.Fprintf(file, "      Spend Value: %s\n", node.SpendValue)
+							}
+						}
+						fmt.Fprintf(file, "\n")
+					}
+				}
+
+				r.lggr.Infow("metering report written to file", "path", reportPath)
+			}
+		}
+	}
+
+	// Log metering report for easy searching in container logs
+	r.lggr.Errorw("METERING_REPORT_SUMMARY",
+		"account_id", req.AccountId,
+		"workflow_id", req.WorkflowId,
+		"workflow_execution_id", req.WorkflowExecutionId,
+		"metering_steps", req.Metering.Steps,
+	)
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
 	if err != nil {
 		return err
