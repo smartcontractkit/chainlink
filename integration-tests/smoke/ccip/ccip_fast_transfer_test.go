@@ -22,6 +22,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -1239,6 +1240,46 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
 		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
+
+		if tc.expectNoExecutionError {
+			return
+		}
+
+		ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
+		// We want to ensure regular transfer works as expected
+		state, err := stateview.LoadOnchainState(ctx.env)
+		require.NoError(t, err)
+
+		message := router.ClientEVM2AnyMessage{
+			Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),
+			Data:     []byte{},
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  sourceToken.Address(),
+					Amount: initialUserTokenAmountOnSource,
+				},
+			},
+			FeeToken:  common.HexToAddress("0x0"),
+			ExtraArgs: nil,
+		}
+		userBalance, err := destinationToken.BalanceOf(nil, userAddress)
+		require.NoError(t, err)
+		// Top-up user account on source chain
+		fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
+		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, ctx.sourceChainState.Router.Address(), ctx.sourceLock)
+		func() {
+			ctx.sendLock.Lock()
+			defer ctx.sendLock.Unlock()
+			seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
+			require.NoError(t, err)
+			testhelpers.TestSendRequest(t, ctx.env, state, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), false, message, testhelpers.WithSender(userTransactor()))
+		}()
+
+		ctx.waitForExecution(t, seqNum)
+		finalBalance, err := destinationToken.BalanceOf(nil, userAddress)
+		require.NoError(t, err)
+		expectedBalance := new(big.Int).Add(userBalance, initialUserTokenAmountOnSource)
+		require.Equal(t, expectedBalance.String(), finalBalance.String(), "Final balance after regular transfer does not match expected value")
 	})
 }
 
