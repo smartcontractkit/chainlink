@@ -19,7 +19,6 @@ import (
 	"crypto/subtle"
 	"database/sql"
 
-	// "database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -243,7 +242,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
-	// Map the groups and insert a newly created session paired with role mapping for user
+	// Map the claims to a role and insert a newly created session paired with role mapping for user
 	role, err := idClaimsToUserRole(
 		idClaims,
 		oi.config.AdminClaim(),

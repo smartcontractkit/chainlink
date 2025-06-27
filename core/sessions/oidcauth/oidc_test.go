@@ -17,15 +17,14 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	// "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
-	// "github.com/smartcontractkit/chainlink/v2/core/sessions/oidc/mocks"
 )
 
 // Setup oidc Auth authenticator
@@ -153,11 +152,38 @@ func TestORM_CreateSession(t *testing.T) {
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
 	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
 
+	// create session for the user
 	sessionRequest := sessions.SessionRequest{
 		Email:    user1.Email,
 		Password: cltest.Password,
 	}
-
 	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
+}
+
+func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, "admin")
+
+	// create session with correct password, expect ok
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+
+	// create session with a invalid password, expect error
+	sessionRequest = sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: "incorrect",
+	}
+	_, err = oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.ErrorContains(t, err, "invalid password")
 }
