@@ -39,6 +39,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/workflowLib"
+	workflowLibCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/workflowLib/pb"
+
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -551,6 +554,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.VaultPlugin:
 		return d.newServicesVaultPlugin(ctx, lggr, jb, d.gatewayConnectorServiceWrapper)
 
+	case types.WorkflowLib:
+		return d.newWorkflowLibPlugin(ctx, lggr, jb)
+
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -638,6 +644,29 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 
 	return []job.ServiceCtx{service, handler}, nil
+}
+
+func (d *Delegate) newWorkflowLibPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	cfg := &workflowLibCfg.WorkflowLibConfig{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
+	}
+
+	service, err := workflowLib.NewFactory(workflowLib.GetDonTimeStore(), lggr)
+	// TODO: Implement initialization
+	plugin, pluginInfo, err := service.NewReportingPlugin(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return []job.ServiceCtx{service}, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(
