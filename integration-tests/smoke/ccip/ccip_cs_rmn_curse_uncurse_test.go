@@ -26,9 +26,10 @@ import (
 )
 
 const (
-	Evm1 = uint64(0)
-	Evm2 = uint64(1)
-	Sol1 = uint64(2)
+	Evm1   = iota // 0
+	Evm2          // 1
+	Sol1          // 2
+	Aptos1        // 3
 )
 
 type curseAssertion struct {
@@ -482,6 +483,85 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
+}
+
+func TestRMNCurseUncurseAptos(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSolChains(1),
+		// testhelpers.WithAptosChains(1),
+	)
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+	}
+
+	config := v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{
+			v1_6.CurseChain(mapIDToSelector(Evm1)),
+			v1_6.CurseChain(mapIDToSelector(Sol1)),
+			// v1_6.CurseChain(mapIDToSelector(Aptos1)),
+		},
+		Reason:                   "test curse",
+		IncludeNotConnectedLanes: true,
+		MCMS: &proposalutils.TimelockConfig{
+			MinDelay:   1 * time.Second,
+			MCMSAction: types.TimelockActionSchedule,
+		},
+	}
+
+	// tc := CurseTestCase{
+	// 	curseAssertions: []curseAssertion{
+	// 		{chainID: Evm1, globalCurse: true, cursed: true},
+	// 		{chainID: Aptos1, globalCurse: true, cursed: true},
+	// 		{chainID: Evm1, subject: Evm2, cursed: true},
+	// 		{chainID: Evm1, subject: Sol1, cursed: true},
+	// 		{chainID: Evm2, subject: Evm1, cursed: false},
+	// 		{chainID: Evm2, subject: Sol1, cursed: false},
+	// 		{chainID: Sol1, subject: Evm1, cursed: true},
+	// 		{chainID: Sol1, subject: Evm2, cursed: false},
+	// 	},
+	// }
+
+	_, err := ccipChangesetSolana.AddRemoteChainToOffRamp(e.Env, ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+		ChainSelector: mapIDToSelector(Sol1),
+		UpdatesByChain: map[uint64]*ccipChangesetSolana.OffRampConfig{
+			mapIDToSelector(Evm1): {
+				EnabledAsSource: true,
+				IsUpdate:        false,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	transferRMNContractToMCMS(t, &e, state)
+
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+		[]commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+				config,
+			)},
+	)
+	require.NoError(t, err)
+
+	// verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+		[]commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
+				config,
+			)},
+	)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {

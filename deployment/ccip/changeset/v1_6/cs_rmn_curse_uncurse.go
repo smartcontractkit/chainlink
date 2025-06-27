@@ -1076,10 +1076,13 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 }
 
 func GetAllCursableChainsSelector(env cldf.Environment) []uint64 {
+	// This function has to list family by family to guarantee order for tests
 	selectors := make([]uint64, 0)
 	selectors = append(selectors, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))...)
 	solSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	selectors = append(selectors, solSelectors...)
+	aptosSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
+	selectors = append(selectors, aptosSelectors...)
 	return selectors
 }
 
