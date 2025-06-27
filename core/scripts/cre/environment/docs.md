@@ -7,7 +7,7 @@
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
-
+   - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
 4. [Troubleshooting](#troubleshooting)
@@ -39,6 +39,8 @@ If you want to run an example workflow you also need to:
       xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64
       export "PATH=$(pwd):$PATH"
       ```
+
+> Minimum required version of the `GH CLI` is `v2.50.0`
 
 Optionally:
 1. **Choose the Right Topology**
@@ -152,7 +154,37 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ---
 
-## Job Distributor Image
+## DX Tracing
+
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
+
+> Minimum required version of the `GH CLI` is `v2.50.0`
+
+To opt out from tracing use the following environment variable:
+```bash
+DISABLE_DX_TRACKING=true
+```
+
+### Manually creating config file
+
+Valid config file has the following content:
+```json
+{
+  "dx_api_token":"xxx",
+  "github_username":"your-gh-username"
+}
+```
+
+DX API token can be found in 1 Password in the engineering vault as `DX - Local CRE Environment`.
+
+Other environment variables:
+* `DX_LOG_LEVEL` -- log level of a rudimentary logger
+* `DX_TEST_MODE` -- executes in test mode, which means that data sent to DX won't be included in any reports
+* `DX_FORCE_OFFLINE_MODE` -- doesn't send any events, instead saves them on the disk
+
+---
+
+# Job Distributor Image
 
 Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
 

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -67,7 +67,7 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		config:            config,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              lggr.Named("WebSocketServer"),
+		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))

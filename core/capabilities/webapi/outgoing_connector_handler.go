@@ -12,12 +12,17 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -42,21 +47,21 @@ type OutgoingConnectorHandler struct {
 	gc                  connector.GatewayConnector
 	method              string
 	lggr                logger.Logger
-	incomingRateLimiter *common.RateLimiter
-	outgoingRateLimiter *common.RateLimiter
+	incomingRateLimiter *ratelimit.RateLimiter
+	outgoingRateLimiter *ratelimit.RateLimiter
 	responses           *responses
-	selectorOpts        []func(*RoundRobinSelector)
+	selectorOpts        []func(*gateway.RoundRobinSelector)
 	metrics             *metrics
 }
 
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*gateway.RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
 	outgoingRLCfg := outgoingRateLimiterConfigDefaults(config.OutgoingRateLimiter)
-	outgoingRateLimiter, err := common.NewRateLimiter(outgoingRLCfg)
+	outgoingRateLimiter, err := ratelimit.NewRateLimiter(outgoingRLCfg)
 	if err != nil {
 		return nil, err
 	}
 	incomingRLCfg := incomingRateLimiterConfigDefaults(config.RateLimiter)
-	incomingRateLimiter, err := common.NewRateLimiter(incomingRLCfg)
+	incomingRateLimiter, err := ratelimit.NewRateLimiter(incomingRLCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +139,16 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	}
 	defer c.responses.cleanup(messageID)
 
+	donID, err := c.gc.DonID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DON ID: %w", err)
+	}
+
 	lggr.Debugw("sending request to gateway")
 
 	body := &api.MessageBody{
 		MessageId: messageID,
-		DonId:     c.gc.DonID(),
+		DonId:     donID,
 		Method:    c.method,
 		Payload:   payload,
 	}
@@ -153,8 +163,30 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 		return nil, err
 	}
 
-	if err := c.gc.SignAndSendToGateway(ctx, selectedGateway, body); err != nil {
-		return nil, errors.Wrap(err, "failed to send request to gateway")
+	signature, err := c.gc.SignMessage(ctx, common.Flatten(api.GetRawMessageBody(body)...))
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign request: %w", err)
+	}
+
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: body.MessageId,
+			DonId:     body.DonId,
+			Method:    body.Method,
+			Payload:   body.Payload,
+			Receiver:  body.Receiver,
+		},
+		Signature: utils.StringToHex(string(signature)),
+	}
+
+	resp, err := hc.ValidatedResponseFromMessage(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate request: %w", err)
+	}
+
+	err = c.gc.SendToGateway(ctx, selectedGateway, resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to gateway %s: %w", selectedGateway, err)
 	}
 
 	select {
@@ -189,7 +221,11 @@ type awaitContext struct {
 // cancellation or timeout.
 func (c *OutgoingConnectorHandler) awaitConnection(ctx context.Context, md awaitContext) (string, error) {
 	lggr := logger.With(c.lggr, "messageID", md.messageID, "workflowID", md.workflowID)
-	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
+	gatewayIDs, err := c.gc.GatewayIDs(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get gateway IDs: %w", err)
+	}
+	selector := gateway.NewRoundRobinSelector(gatewayIDs, c.selectorOpts...)
 	attempts := make(map[string]int)
 	backoff := 10 * time.Millisecond
 
@@ -264,14 +300,19 @@ func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context,
 
 // HandleGatewayMessage processes incoming messages from the Gateway,
 // which are in response to a HandleSingleNodeRequest call.
-func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
+func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+	msg, err := hc.ValidatedMessageFromReq(req)
+	if err != nil {
+		c.lggr.Errorw("failed to validate request", "err", err, "gatewayID", gatewayID)
+		return nil
+	}
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 
 	ch, ok := c.responses.get(body.MessageId)
 	if !ok {
 		l.Warnw("no response channel found; this may indicate that the node timed out the request")
-		return
+		return nil
 	}
 
 	senderAllow, globalAllow := c.incomingRateLimiter.AllowVerbose(body.Sender)
@@ -304,7 +345,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 			},
 		}
 		ch <- &errMsg
-		return
+		return nil
 	}
 
 	l.Debugw("handling gateway request")
@@ -315,22 +356,27 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)
-			return
+			return nil
 		}
 		select {
 		case ch <- msg:
-			return
+			return nil
 		case <-ctx.Done():
-			return
+			return nil
 		}
 	default:
 		l.Errorw("unsupported method")
 	}
+	return nil
+}
+
+func (c *OutgoingConnectorHandler) ID(context.Context) (string, error) {
+	return c.Name(), nil
 }
 
 func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
 	return c.StartOnce("OutgoingConnectorHandler", func() error {
-		return c.gc.AddHandler([]string{c.method}, c)
+		return c.gc.AddHandler(ctx, []string{c.method}, c)
 	})
 }
 
@@ -348,7 +394,7 @@ func (c *OutgoingConnectorHandler) Name() string {
 	return c.lggr.Name()
 }
 
-func incomingRateLimiterConfigDefaults(config common.RateLimiterConfig) common.RateLimiterConfig {
+func incomingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratelimit.RateLimiterConfig {
 	if config.GlobalBurst == 0 {
 		config.GlobalBurst = DefaultGlobalBurst
 	}
@@ -363,7 +409,7 @@ func incomingRateLimiterConfigDefaults(config common.RateLimiterConfig) common.R
 	}
 	return config
 }
-func outgoingRateLimiterConfigDefaults(config common.RateLimiterConfig) common.RateLimiterConfig {
+func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratelimit.RateLimiterConfig {
 	if config.GlobalBurst == 0 {
 		config.GlobalBurst = DefaultGlobalBurst
 	}

@@ -31,13 +31,13 @@ type AddTokenPool struct{}
 func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddTokenPoolConfig) error {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 	var errs []error
 	// Validate supported chain
 	supportedChains := state.SupportedChains()
 	if _, ok := supportedChains[cfg.ChainSelector]; !ok {
-		errs = append(errs, fmt.Errorf("chain is not a supported: %d", cfg.ChainSelector))
+		errs = append(errs, fmt.Errorf("unsupported chain: %d", cfg.ChainSelector))
 	}
 	// Validate CCIP deployed
 	if state.AptosChains[cfg.ChainSelector].CCIPAddress == (aptos.AccountAddress{}) {
@@ -184,7 +184,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 
 	// Generate Aptos MCMS proposals
 	proposal, err := utils.GenerateProposal(
-		aptosChain.Client,
+		env,
 		state.AptosChains[cfg.ChainSelector].MCMSAddress,
 		cfg.ChainSelector,
 		mcmsOperations,

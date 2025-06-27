@@ -121,7 +121,7 @@ func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 		if !ok {
 			return fmt.Errorf("missing chain %d in environment", sourceSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.OnRamp); err != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.NonceManager); err != nil {
 			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
 		}
 		for _, prevRamp := range update.PreviousRampsArgs {

@@ -26,7 +26,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -37,6 +37,18 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version }}
           persist-credentials: false
+
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Set up Go
+        id: setup-go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: true
 
       - name: Define test matrix
         id: define-matrix
@@ -58,9 +70,7 @@ jobs:
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
     needs: [define-test-matrix]
-    # TODO at some point we might want to use self-hosted runners
-    # E.g. by using: "runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu22-full-x64/extras=s3-cache+tmpfs"
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
     timeout-minutes: 30
     steps:
@@ -137,7 +147,9 @@ jobs:
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
-          { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+          # Sleep to allow testcontainers to stop
+          # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
 
       - name: Upload all artifacts as single package
         if: failure()

@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -122,16 +121,17 @@ func (n Nodes) BootstrapLocators() []string {
 
 // P2PIDsPresentInJD - For a given p2pIDs, check if the nodes are present in JD.
 func (n Nodes) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
-	var allErrs error
+	var err error
 	for _, p2pID := range p2pIDs {
 		p2pIDString := "p2p_" + libocrtypes.PeerID(p2pID).String()
 		if !slices.ContainsFunc(n, func(n Node) bool {
 			return p2pIDString == n.PeerID.String()
 		}) {
-			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
+			err = errors.Join(err, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
 		}
 	}
-	return allErrs
+
+	return err
 }
 
 func isValidMultiAddr(s string) bool {
