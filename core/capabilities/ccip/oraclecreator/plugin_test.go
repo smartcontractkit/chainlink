@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -130,15 +131,15 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 func Test_defaultLocalConfigProperties(t *testing.T) {
 	lc := defaultLocalConfig()
 
-	require.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)
-	require.Equal(t, 10*time.Second, lc.BlockchainTimeout)
-	require.Equal(t, 10*time.Second, lc.ContractConfigLoadTimeout)
-	require.Equal(t, uint16(1), lc.ContractConfigConfirmations)
-	require.Equal(t, true, lc.SkipContractConfigConfirmations)
-	require.Equal(t, 10*time.Second, lc.ContractConfigTrackerPollInterval)
-	require.Equal(t, 10*time.Second, lc.ContractTransmitterTransmitTimeout)
-	require.Equal(t, 10*time.Second, lc.DatabaseTimeout)
-	require.Equal(t, 1*time.Second, lc.MinOCR2MaxDurationQuery)
-	require.Equal(t, "false", lc.DevelopmentMode)
-	require.Equal(t, true, lc.EnableTransmissionTelemetry)
+	assert.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)
+	assert.Equal(t, 10*time.Second, lc.BlockchainTimeout)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigLoadTimeout)
+	assert.Equal(t, uint16(1), lc.ContractConfigConfirmations)
+	assert.True(t, lc.SkipContractConfigConfirmations)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigTrackerPollInterval)
+	assert.Equal(t, 10*time.Second, lc.ContractTransmitterTransmitTimeout)
+	assert.Equal(t, 10*time.Second, lc.DatabaseTimeout)
+	assert.Equal(t, 1*time.Second, lc.MinOCR2MaxDurationQuery)
+	assert.Equal(t, "false", lc.DevelopmentMode)
+	assert.True(t, lc.EnableTransmissionTelemetry)
 }
