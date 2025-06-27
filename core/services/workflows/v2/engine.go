@@ -173,10 +173,15 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	subCtx, subCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerSubscriptionRequestTimeoutMs))
 	defer subCancel()
 
+	subExecutionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, "subscription")
+	if err != nil {
+		e.lggr.Errorw("Failed to generate execution ID for subscription", "err", err)
+	}
+
 	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, "")
+		e.emitUserLogs(subCtx, userLogChan, subExecutionID)
 	})
 
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
