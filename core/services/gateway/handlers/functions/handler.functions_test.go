@@ -225,8 +225,9 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 		// wait on a response from Gateway to the user
 		response := <-callbachCh
 		require.Equal(t, api.RequestTimeoutError, response.ErrorCode)
-		var msg api.Message
-		require.NoError(t, json.Unmarshal(response.RawResponse, &msg))
+		codec := api.JsonRPCCodec{}
+		msg, err := codec.DecodeLegacyResponse(response.RawResponse)
+		require.NoError(t, err)
 		require.Equal(t, userRequestMsg.Body.MessageId, msg.Body.MessageId)
 	}()
 

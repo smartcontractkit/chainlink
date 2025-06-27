@@ -317,7 +317,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 
 	senderAllow, globalAllow := c.incomingRateLimiter.AllowVerbose(body.Sender)
-	errJSON := jsonrpc2.WireError{
+	errJSON := jsonrpc.WireError{
 		Code:    500,
 		Message: "",
 	}
