@@ -2,7 +2,6 @@ package cre
 
 import (
 	"bytes"
-	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	benchspy2 "github.com/smartcontractkit/chainlink/system-tests/lib/benchspy"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -403,43 +403,73 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Schedule: wasp.Combine(
 			wasp.Plain(4, 5*time.Minute),
 		),
-		Gun:    NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
-		Labels: labels,
-		// LokiConfig:            wasp.NewEnvLokiConfig(), // TODO: Set up loki after we have the observability stack working
+		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
+		Labels:                labels,
 		RateLimitUnitDuration: time.Minute,
 	})
 	require.NoError(t, err, "could not create generator")
 	// run the load
 	generator.Run(true)
 
-	tag := "local-test"
+	tag := "local-test-" + time.Now().Format("20060102150405")
 	if os.Getenv("CI") == "true" {
 		// When running in CI, use the GitHub commit SHA
 		commitSHA := os.Getenv("GITHUB_SHA")
 		if commitSHA != "" {
-			tag = commitSHA
+			tag = commitSHA + time.Now().Format("20060102150405")
 		}
 	} else if gitSHA := os.Getenv("GITHUB_SHA"); gitSHA != "" {
 		// For local runs with manually set GITHUB_SHA
 		tag = gitSHA
 	}
 
+	promConfig := benchspy.NewPrometheusConfig()
+
+	prometheusExecutor, err := benchspy.NewPrometheusQueryExecutor(
+		map[string]string{
+			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[5m]) * 100)`,
+			"mem_peak_mb":          `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"mem_avg_mb":           `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_tx_mb":        `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_rx_mb":        `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
+		},
+		promConfig,
+	)
+	require.NoError(t, err)
+
 	benchmarkReport, err := benchspy.NewStandardReport(
 		tag,
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
+		benchspy.WithQueryExecutors(prometheusExecutor),
 		benchspy.WithGenerators(generator),
 	)
-	require.NoError(t, err, "failed to create baseline report")
+	require.NoError(t, err, "failed to create benchmark report")
 
-	fetchCtx, cancelFn := context.WithTimeout(ctx, 60*time.Second)
-	defer cancelFn()
-
-	fetchErr := benchmarkReport.FetchData(fetchCtx)
-	require.NoError(t, fetchErr, "failed to fetch data for baseline report")
+	fetchErr := benchmarkReport.FetchData(ctx)
+	require.NoError(t, fetchErr, "failed to fetch data for benchmark report")
 
 	path, storeErr := benchmarkReport.Store()
-	require.NoError(t, storeErr, "failed to store baseline report", path)
+	require.NoError(t, storeErr, "failed to store benchmark report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
+
+	// Run chartGenerator
+	metricConfigs := map[string]benchspy2.MetricConfig{
+		"99th_percentile_latency": {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
+		"95th_percentile_latency": {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
+		"median_latency":          {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
+		"max_latency":             {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
+		"error_rate":              {Group: "Performance Metrics", UnitLabel: "", ScaleFactor: 1.0},
+		"cpu_percent":             {Group: "Resource Metrics", UnitLabel: "%", ScaleFactor: 1.0},
+		"mem_peak_mb":             {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
+		"mem_avg_mb":              {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
+		"disk_io_time_seconds":    {Group: "Resource Metrics", UnitLabel: "s", ScaleFactor: 1},
+		"network_tx_mb":           {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
+		"network_rx_mb":           {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
+	}
+
+	// Generate the markdown report
+	require.NoError(t, benchspy2.GenerateMarkdownReport("performance_reports", "performance_reports/chart.md", metricConfigs), "failed to generate markdown report")
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and

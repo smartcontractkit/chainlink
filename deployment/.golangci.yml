@@ -49,6 +49,8 @@ linters:
               desc: Use github.com/stretchr/testify/require instead
             - pkg: go.uber.org/multierr
               desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
+            - pkg: "github.com/hashicorp/go-multierror"
+              desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
             - pkg: gopkg.in/guregu/null.v1
               desc: Use gopkg.in/guregu/null.v4 instead
             - pkg: gopkg.in/guregu/null.v2
@@ -61,6 +63,8 @@ linters:
               desc: Use github.com/smartcontractkit/chainlink-evm instead
             - pkg: github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal
               desc: Use github.com/smartcontractkit/mcms instead
+            - pkg: github.com/pkg/errors
+              desc: Use the standard library instead
     exhaustive:
       default-signifies-exhaustive: true
     gosec:

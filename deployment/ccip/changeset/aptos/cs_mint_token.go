@@ -20,8 +20,8 @@ var _ cldf.ChangeSetV2[config.MintTokenInput] = MintToken{}
 
 type MintToken struct{}
 
-func (m MintToken) VerifyPreconditions(e cldf.Environment, cfg config.MintTokenInput) error {
-	state, err := stateview.LoadOnchainState(e)
+func (m MintToken) VerifyPreconditions(env cldf.Environment, cfg config.MintTokenInput) error {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
@@ -48,13 +48,13 @@ func (m MintToken) VerifyPreconditions(e cldf.Environment, cfg config.MintTokenI
 	return errors.Join(errs...)
 }
 
-func (m MintToken) Apply(e cldf.Environment, cfg config.MintTokenInput) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+func (m MintToken) Apply(env cldf.Environment, cfg config.MintTokenInput) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	aptosChain := e.BlockChains.AptosChains()[cfg.ChainSelector]
+	aptosChain := env.BlockChains.AptosChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
 	deps := operation.AptosDeps{
@@ -68,13 +68,13 @@ func (m MintToken) Apply(e cldf.Environment, cfg config.MintTokenInput) (cldf.Ch
 		To:                     cfg.To,
 		Amount:                 cfg.Amount,
 	}
-	report, err := operations.ExecuteOperation(e.OperationsBundle, operation.MintTokensOp, deps, input)
+	report, err := operations.ExecuteOperation(env.OperationsBundle, operation.MintTokensOp, deps, input)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute MintTokensOp: %w", err)
 	}
 
 	proposal, err := utils.GenerateProposal(
-		aptosChain.Client,
+		env,
 		state.AptosChains[cfg.ChainSelector].MCMSAddress,
 		cfg.ChainSelector,
 		[]mcmstypes.BatchOperation{
