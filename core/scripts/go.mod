@@ -37,8 +37,8 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.60
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250624142741-45c8e9237804
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250626141212-e50b2e7ffe2d
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250624161023-93f383781b0a
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250627002929-2cbb7418aaa5
+	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250626141212-e50b2e7ffe2d
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
 	github.com/smartcontractkit/chainlink-deployments-framework v0.14.0
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250625151958-31b61ac8e1d9
@@ -398,7 +398,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250616180023-87b70c08d7c0 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250618135814-7e3f79ab707e // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a // indirect
-	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250612182447-1c32d2efe48f // indirect
+	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250613145823-b518eb015b07 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
