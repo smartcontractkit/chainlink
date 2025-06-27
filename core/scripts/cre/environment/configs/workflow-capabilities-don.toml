@@ -45,7 +45,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
@@ -76,7 +76,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -105,7 +105,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       custom_ports = ["5002:5002"]
       user_config_overrides = """

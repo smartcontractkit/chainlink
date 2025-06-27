@@ -220,26 +220,23 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.sha }}
 
-      - name: Setup Github Token
-        if: ${{ inputs.evm-ref }}
-        id: get-gh-token
-        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          set-git-config: "true"
-
       - name: Build Chainlink Image
-        if: ${{ needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true '}}
-        uses: ./.github/actions/build-chainlink-image
+        if: needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true'
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          tag_suffix: ${{ matrix.image.tag-suffix }}
+          image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          git_commit_sha: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          dep_evm_sha: ${{ inputs.evm-ref }}
+          docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          docker-repository-name: "chainlink"
+          aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          docker-additional-build-args: |
+            GO_COVER_FLAG=true
+          go-get-overrides: |
+            github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
+          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   run-core-cre-e2e-tests-for-pr:
     name: Run Core CRE E2E Tests For PR
@@ -253,10 +250,9 @@ jobs:
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-     chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
-    secrets:
-      inherit
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+    secrets: inherit
 
   #TODO migrate to using cre-system-tests.yaml once it has soaked in
   run-core-cre-e2e-tests-for-merge-queue:
@@ -269,7 +265,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -347,7 +343,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -378,6 +374,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-core-e2e-tests-for-merge-queue:
     name: Run Core E2E Tests For Merge Queue
@@ -389,7 +387,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -422,6 +420,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-core-e2e-tests-for-push:
     name: Run Core E2E Tests For Push
@@ -433,7 +433,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-core-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -466,6 +466,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-core-e2e-tests-for-workflow-dispatch:
     name: Run Core E2E Tests For Workflow Dispatch
@@ -477,7 +479,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -509,6 +511,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-ccip-e2e-tests-for-pr:
     name: Run CCIP E2E Tests For PR
@@ -520,7 +524,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025 # june 2, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -554,6 +558,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-ccip-e2e-tests-for-merge-queue:
     name: Run CCIP E2E Tests For Merge Queue
@@ -565,7 +571,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -601,6 +607,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-ccip-e2e-tests-for-push:
     name: Run CCIP E2E Tests For Push
@@ -612,7 +620,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-ccip-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Push
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -648,6 +656,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-ccip-e2e-tests-for-workflow-dispatch:
     name: Run CCIP E2E Tests For Workflow Dispatch
@@ -659,7 +669,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@856452d10c1498fcb4b4fb66d8cea059364e203f # june 19, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -694,6 +704,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   check-e2e-test-results:
     if: always()
@@ -791,7 +803,9 @@ jobs:
 
   cleanup:
     name: Clean up integration environment deployments
-    if: always()
+    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
+    # By always running this, it delays the start of the next workflow run due to concurrency rules.
+    if: always() && !cancelled()
     needs:
       [
         run-core-e2e-tests-for-pr,
@@ -934,12 +948,7 @@ jobs:
       contents: read
     name: Solana Build Artifacts
     runs-on: ubuntu22.04-8cores-32GB
-    needs:
-      [
-        changes,
-        solana-test-image-exists,
-        get_solana_sha,
-      ]
+    needs: [changes, solana-test-image-exists, get_solana_sha]
     steps:
       - name: Checkout the solana repo
         uses: actions/checkout@v4
