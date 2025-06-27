@@ -3,22 +3,13 @@ package utils
 import (
 	"context"
 	"fmt"
-	"os"
-	"path"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
-	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
-	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
-	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -26,15 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -46,41 +34,9 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-type standardCapConfig struct {
-	Config string
-
-	// Set enabled to true to run the loop plugin.  Requires the plugin be installed.
-	// Config will be passed to Initialise method of plugin.
-	Enabled bool
-}
-
-type ManualTriggers struct {
-	ManualCronTrigger *fakes.ManualCronTriggerService
-	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
-}
-
-var (
-	goBinPath            = os.Getenv("GOBIN")
-	standardCapabilities = map[string]standardCapConfig{
-		"cron": {
-			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
-			Enabled: true,
-		},
-		"readcontract":  {},
-		"kvstore":       {},
-		"workflowevent": {},
-	}
-)
-
-type StandaloneEngineLoggerConfig struct {
-	ModuleLogger         logger.Logger
-	WorkflowLimitsLogger logger.Logger
-	EngineLogger         logger.Logger
-}
-
 func NewStandaloneEngine(
 	ctx context.Context,
-	lggrCfg StandaloneEngineLoggerConfig,
+	lggr logger.Logger,
 	registry *capabilities.Registry,
 	binary, config []byte,
 	billingClientAddr string,
@@ -88,7 +44,7 @@ func NewStandaloneEngine(
 ) (services.Service, *sdkpb.TriggerSubscriptionRequest, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                  lggrCfg.ModuleLogger,
+		Logger:                  lggr,
 		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
@@ -111,10 +67,6 @@ func NewStandaloneEngine(
 		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
 	}
 	triggerSubscriptions := result.GetTriggerSubscriptions()
-	// for _, sub := range result.GetTriggerSubscriptions().Subscriptions {
-	// 	fmt.Println("Registered Trigger: ", sub.Id)
-	// 	fmt.Println("Method: ", sub.Method)
-	// }
 
 	name, err := types.NewWorkflowName(defaultName)
 	if err != nil {
@@ -131,7 +83,7 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggrCfg.WorkflowLimitsLogger, syncerlimiter.Config{
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
 	})
@@ -151,13 +103,13 @@ func NewStandaloneEngine(
 		}
 
 		cfg := workflows.Config{
-			Lggr:                 lggrCfg.EngineLogger,
+			Lggr:                 lggr,
 			Workflow:             *sdkSpec,
 			WorkflowID:           defaultWorkflowID,
 			WorkflowOwner:        defaultOwner,
 			WorkflowName:         name,
 			Registry:             registry,
-			Store:                store.NewInMemoryStore(lggrCfg.EngineLogger, clockwork.NewRealClock()),
+			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 			Config:               config,
 			Binary:               binary,
 			SecretsFetcher:       SecretsFor,
@@ -177,11 +129,11 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggrCfg.EngineLogger,
+		Lggr:            lggr,
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     registry,
-		ExecutionsStore: store.NewInMemoryStore(lggrCfg.EngineLogger, clockwork.NewRealClock()),
+		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
@@ -224,49 +176,6 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 	return caps, nil
 }
 
-// NewFakeCapabilities builds faked capabilities, then registers them with the capability registry.
-func NewFakeComputeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
-	caps := make([]services.Service, 0)
-
-	// EVM
-	// evmClient, err := ethclient.Dial("https://sepolia.infura.io/v3/dbe1bfd45172477084dfe080e0754c1e")
-	evmClient, err := ethclient.Dial("http://localhost:8545")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: get private key from env var
-	privateKey, err := crypto.HexToECDSA("bc2c4e2ed2af93035d2e616de9d8dfb6fc35117cf2bf00bf7f7a7ab54981536d")
-	if err != nil {
-		return nil, err
-	}
-
-	evm := fakes.NewFakeEvmChain(lggr, evmClient, privateKey)
-	evmServer := evmserver.NewClientServer(evm)
-	if err := registry.Add(ctx, evmServer); err != nil {
-		return nil, err
-	}
-	caps = append(caps, evm)
-
-	// Consensus
-	consensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
-	consensusServer := consensusserver.NewConsensusServer(consensus)
-	if err := registry.Add(ctx, consensusServer); err != nil {
-		return nil, err
-	}
-	caps = append(caps, consensusServer)
-
-	// HTTP Action
-	httpAction := fakes.NewDirectHTTPAction(lggr)
-	httpActionServer := httpserver.NewClientServer(httpAction)
-	if err := registry.Add(ctx, httpActionServer); err != nil {
-		return nil, err
-	}
-	caps = append(caps, httpActionServer)
-
-	return caps, nil
-}
-
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
@@ -295,72 +204,4 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
-}
-
-func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
-	// Cron
-	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
-	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
-	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	// HTTP
-	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
-	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
-	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	return ManualTriggers{
-		ManualCronTrigger: manualCronTrigger,
-		ManualHTTPTrigger: manualHTTPTrigger,
-	}, nil
-}
-
-// standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
-type standaloneLoopWrapper struct {
-	*standardcapabilities.StandardCapabilities
-}
-
-func (l *standaloneLoopWrapper) Ready() error { return l.StandardCapabilities.Ready() }
-
-func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(map[string]error) }
-
-func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
-
-func newStandardCapabilities(
-	standardCapabilities map[string]standardCapConfig,
-	lggr logger.Logger,
-	registry *capabilities.Registry,
-) []services.Service {
-	caps := make([]services.Service, 0)
-
-	pluginRegistrar := plugins.NewRegistrarConfig(
-		loop.GRPCOpts{},
-		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
-		func(loopId string) {})
-
-	for name, config := range standardCapabilities {
-		if !config.Enabled {
-			continue
-		}
-
-		spec := &job.StandardCapabilitiesSpec{
-			Command: path.Join(goBinPath, name),
-			Config:  config.Config,
-		}
-
-		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
-			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
-			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{})
-
-		service := &standaloneLoopWrapper{
-			StandardCapabilities: loop,
-		}
-		caps = append(caps, service)
-	}
-
-	return caps
 }

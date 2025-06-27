@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -13,6 +14,8 @@ import (
 
 type Runner struct {
 	hooks RunnerHooks
+
+	// Capabilities
 }
 
 type RunnerConfig struct {
@@ -20,24 +23,27 @@ type RunnerConfig struct {
 	EnableBilling              bool
 	EnableStandardCapabilities bool
 	Lggr                       logger.Logger
+	LifecycleHooks             v2.LifecycleHooks
 }
 
 type RunnerHooks struct {
 	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
-	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, *pb.TriggerSubscriptionRequest)
+	Close      func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	AfterRun   func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Cleanup    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Finally    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
+var emptyBeforeRun = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, *pb.TriggerSubscriptionRequest) {
+}
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
 	registry := capabilities.NewRegistry(cfg.Lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
 	srvcs := []services.Service{}
-
 	if cfg.EnableBilling {
 		bs := NewBillingService(cfg.Lggr.Named("Fake_Billing_Client"))
 		err := bs.Start(ctx)
@@ -88,6 +94,10 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	return registry, srvcs
 }
 
+var defaultClose = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
+	<-ctx.Done()
+}
+
 var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
 	for _, service := range services {
 		cfg.Lggr.Infow("Shutting down", "id", service.Name())
@@ -100,8 +110,9 @@ var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capab
 func DefaultHooks() *RunnerHooks {
 	return &RunnerHooks{
 		Initialize: defaultInitialize,
-		BeforeRun:  emptyHook,
+		BeforeRun:  emptyBeforeRun,
 		AfterRun:   emptyHook,
+		Close:      defaultClose,
 		Cleanup:    defaultCleanup,
 		Finally:    emptyHook,
 	}
@@ -132,13 +143,7 @@ func (r *Runner) Run(
 		billingAddress = "localhost:4319"
 	}
 
-	standaloneEngineLoggerConfig := StandaloneEngineLoggerConfig{
-		ModuleLogger:         cfg.Lggr,
-		WorkflowLimitsLogger: cfg.Lggr.Named("WorkflowLimits"),
-		EngineLogger:         cfg.Lggr,
-	}
-
-	engine, _, err := NewStandaloneEngine(ctx, standaloneEngineLoggerConfig, registry, binary, config, billingAddress, v2.LifecycleHooks{})
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, billingAddress, cfg.LifecycleHooks)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
@@ -146,7 +151,7 @@ func (r *Runner) Run(
 
 	services = append(services, engine)
 
-	r.hooks.BeforeRun(ctx, cfg, registry, services)
+	r.hooks.BeforeRun(ctx, cfg, registry, services, triggerSub)
 
 	err = engine.Start(ctx)
 	if err != nil {
@@ -154,7 +159,7 @@ func (r *Runner) Run(
 		os.Exit(1)
 	}
 
-	<-ctx.Done()
+	r.hooks.Close(ctx, cfg, registry, services)
 
 	r.hooks.AfterRun(ctx, cfg, registry, services)
 
