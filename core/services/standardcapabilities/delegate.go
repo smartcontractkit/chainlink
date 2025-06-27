@@ -126,10 +126,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
 			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
-		} else {
-			accountIDs = append(accountIDs, "P2P_SIGNER")
-			signers = append(signers, key)
 		}
+		accountIDs = append(accountIDs, "P2P_SIGNER")
+		signers = append(signers, key)
 	}
 	keystore, err := core.NewMultiAccountSigner(accountIDs, signers)
 	if err != nil {

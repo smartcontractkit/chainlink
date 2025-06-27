@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -134,7 +135,7 @@ func (t p2pPeer) IsBootstrap() bool {
 
 func getSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error) {
 	if keyBundle == nil {
-		return "", fmt.Errorf("key bundle is nil")
+		return "", errors.New("keyBundle is nil")
 	}
 
 	return fmt.Sprintf("0x%x", keyBundle.PublicKey()), nil
