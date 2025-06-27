@@ -20,6 +20,7 @@ type RunnerConfig struct {
 	enableBilling              bool
 	enableStandardCapabilities bool
 	lggr                       logger.Logger
+	engineHooks                v2.LifecycleHooks
 }
 
 type RunnerHooks struct {
@@ -120,7 +121,7 @@ func NewRunner(hooks *RunnerHooks) *Runner {
 // run instantiates the engine, starts it and blocks until the context is canceled.
 func (r *Runner) run(
 	ctx context.Context,
-	binary, config []byte,
+	binary, config, secrets []byte,
 	cfg RunnerConfig,
 ) {
 	cfg.lggr.Infof("executing engine in process: %d", os.Getpid())
@@ -132,7 +133,7 @@ func (r *Runner) run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, err := NewStandaloneEngine(ctx, cfg.lggr, registry, binary, config, billingAddress, v2.LifecycleHooks{})
+	engine, err := NewStandaloneEngine(ctx, cfg.lggr, registry, binary, config, secrets, billingAddress, cfg.engineHooks)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
