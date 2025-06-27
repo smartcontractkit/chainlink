@@ -48,6 +48,139 @@ type mapIDToSelectorFunc func(uint64) uint64
 
 var testCases = []CurseTestCase{
 	{
+		name: "lane",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Evm2))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: false},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: false},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+
+	{
+		name: "solana lane",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+
+	{
+		name: "lane duplicate",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{
+				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1)),
+				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+
+	{
+		name: "chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+
+	{
+		name: "solana chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
+		},
+	},
+
+	{
+		name: "chain duplicate",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseChain(mapIDToSelector(Evm1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: false},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: false},
+		},
+	},
+
+	{
+		name: "solana chain duplicate",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1)), v1_6.CurseChain(mapIDToSelector(Sol1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: false},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: false},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
+		},
+	},
+
+	{
+		name: "chain and lanes",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm2), mapIDToSelector(Sol1))}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+			{chainID: Sol1, subject: Evm1, cursed: true},
+			{chainID: Sol1, subject: Evm2, cursed: true},
+		},
+	},
+
+	{
+		name: "all chain",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{v1_6.CurseGloballyAllChains()}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Evm2, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+		},
+	},
+
+	{
 		name: "two chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
 			return []v1_6.CurseAction{
@@ -57,138 +190,6 @@ var testCases = []CurseTestCase{
 		},
 		curseAssertions: []curseAssertion{},
 	},
-	//	{
-	//		name: "lane",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Evm2))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, subject: Evm2, cursed: true},
-	//			{chainID: Evm1, subject: Sol1, cursed: false},
-	//			{chainID: Evm2, subject: Evm1, cursed: true},
-	//			{chainID: Evm2, subject: Sol1, cursed: false},
-	//			{chainID: Sol1, subject: Evm1, cursed: false},
-	//			{chainID: Sol1, subject: Evm2, cursed: false},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "solana lane",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, subject: Evm2, cursed: false},
-	//			{chainID: Evm1, subject: Sol1, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: false},
-	//			{chainID: Evm2, subject: Sol1, cursed: false},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: false},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "lane duplicate",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{
-	//				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1)),
-	//				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, subject: Evm2, cursed: false},
-	//			{chainID: Evm1, subject: Sol1, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: false},
-	//			{chainID: Evm2, subject: Sol1, cursed: false},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: false},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "chain",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, globalCurse: true, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: true},
-	//			{chainID: Evm2, subject: Sol1, cursed: false},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: false},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "solana chain",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Sol1, globalCurse: true, cursed: true},
-	//			{chainID: Evm1, subject: Evm2, cursed: false},
-	//			{chainID: Evm1, subject: Sol1, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: false},
-	//			{chainID: Evm2, subject: Sol1, cursed: true},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: true},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "chain duplicate",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseChain(mapIDToSelector(Evm1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, globalCurse: true, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: true},
-	//			{chainID: Evm2, subject: Sol1, cursed: false},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: false},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "solana chain duplicate",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Sol1)), v1_6.CurseChain(mapIDToSelector(Sol1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Sol1, globalCurse: true, cursed: true},
-	//			{chainID: Evm1, subject: Evm2, cursed: false},
-	//			{chainID: Evm1, subject: Sol1, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: false},
-	//			{chainID: Evm2, subject: Sol1, cursed: true},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: true},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "chain and lanes",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1)), v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm2), mapIDToSelector(Sol1))}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, globalCurse: true, cursed: true},
-	//			{chainID: Evm2, subject: Evm1, cursed: true},
-	//			{chainID: Evm2, subject: Sol1, cursed: true},
-	//			{chainID: Sol1, subject: Evm1, cursed: true},
-	//			{chainID: Sol1, subject: Evm2, cursed: true},
-	//		},
-	//	},
-	//
-	//	{
-	//		name: "all chain",
-	//		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
-	//			return []v1_6.CurseAction{v1_6.CurseGloballyAllChains()}
-	//		},
-	//		curseAssertions: []curseAssertion{
-	//			{chainID: Evm1, globalCurse: true, cursed: true},
-	//			{chainID: Evm2, globalCurse: true, cursed: true},
-	//			{chainID: Sol1, globalCurse: true, cursed: true},
-	//		},
-	//	},
 }
 
 func TestRMNCurse(t *testing.T) {
