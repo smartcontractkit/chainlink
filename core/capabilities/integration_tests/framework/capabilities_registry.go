@@ -92,8 +92,8 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	peerIDs := make([][32]byte, 0, len(donInfo.p2pKeys))
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
 	for i, p2pkey := range donInfo.p2pKeys {
-		signer, err := getSignerStringFromOCRKeyBundle(donInfo.KeyBundles[i])
-		require.NoError(r.t, err)
+		signer, innerErr := getSignerStringFromOCRKeyBundle(donInfo.KeyBundles[i])
+		require.NoError(r.t, innerErr)
 		peer := peerIDAndOCRSigner{PeerID: types.PeerID(p2pkey.PeerID()), Signer: signer}
 		peerIDs = append(peerIDs, p2pkey.PeerID())
 		n, innerErr := peerToNode(r.nodeOperatorID, peer)
