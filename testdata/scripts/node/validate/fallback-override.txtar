@@ -37,6 +37,7 @@ MaxQueued = 250
 ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
+ConfirmationTimeout = '5m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -510,6 +511,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '5m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
