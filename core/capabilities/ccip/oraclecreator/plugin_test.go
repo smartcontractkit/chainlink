@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -123,4 +124,21 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Sanity-check that these parameters are not accidentally changed without breaking CI
+func Test_defaultLocalConfigProperties(t *testing.T) {
+	lc := defaultLocalConfig()
+
+	require.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)
+	require.Equal(t, 10*time.Second, lc.BlockchainTimeout)
+	require.Equal(t, 10*time.Second, lc.ContractConfigLoadTimeout)
+	require.Equal(t, uint16(1), lc.ContractConfigConfirmations)
+	require.Equal(t, true, lc.SkipContractConfigConfirmations)
+	require.Equal(t, 10*time.Second, lc.ContractConfigTrackerPollInterval)
+	require.Equal(t, 10*time.Second, lc.ContractTransmitterTransmitTimeout)
+	require.Equal(t, 10*time.Second, lc.DatabaseTimeout)
+	require.Equal(t, 1*time.Second, lc.MinOCR2MaxDurationQuery)
+	require.Equal(t, "false", lc.DevelopmentMode)
+	require.Equal(t, true, lc.EnableTransmissionTelemetry)
 }
