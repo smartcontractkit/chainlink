@@ -2,10 +2,12 @@ package framework
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
+	"github.com/mr-tron/base58"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -136,6 +138,14 @@ func GetSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error
 	}
 
 	return fmt.Sprintf("0x%x", keyBundle.PublicKey()), nil
+}
+
+func NewPeerID(donName string, nodeOrdinal int) string {
+	privKeyString := fmt.Sprintf("privatekey:%s:%d", donName, nodeOrdinal)
+	privKey := sha256.Sum256([]byte(privKeyString))
+	peerID := append(libp2pMagic(), privKey[:]...)
+
+	return base58.Encode(peerID)
 }
 
 func libp2pMagic() []byte {
