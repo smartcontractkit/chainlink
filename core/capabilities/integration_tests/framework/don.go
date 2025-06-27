@@ -189,7 +189,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 						modifier(c, cn)
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
-			node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i])
+			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
