@@ -145,7 +145,7 @@ type ExtraCapabilitiesConfig struct {
 
 // DX tracking
 var (
-	dxTracker             *tracking.DxTracker
+	dxTracker             tracking.Tracker
 	provisioningStartTime time.Time
 )
 
@@ -156,6 +156,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	dxTracker, dxErr = tracking.NewDxTracker()
 	if dxErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", dxErr)
+		dxTracker = &tracking.NoOpTracker{}
 	}
 
 	// remove all containers before starting the environment, just in case
