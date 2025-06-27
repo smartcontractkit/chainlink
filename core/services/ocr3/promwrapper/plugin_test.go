@@ -42,8 +42,8 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[string]{err: errors.New("error")},
-		"evm",
-		"43113",
+		"aptos",
+		"1",
 		"empty",
 		"abc",
 		promOCR3ReportsGenerated,
@@ -84,12 +84,12 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Equal(t, 1, int(g3))
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
-		"evm", "43113", "empty", "reports"),
+		"aptos", "1", "empty", "reports"),
 	)
 	require.Equal(t, 0, int(g4))
 
 	pluginHealth := testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues(
-		"evm", "43113", "empty", "abc"),
+		"aptos", "1", "empty", "abc"),
 	)
 	require.Equal(t, 1, int(pluginHealth))
 
