@@ -16,9 +16,9 @@ import (
 )
 
 func randomTONExecuteReport(t *testing.T, sourceChainSelector uint64) cciptypes.ExecutePluginReport {
-	const numChainReports = 1
-	const msgsPerReport = 1
-	const numTokensPerMsg = 1
+	const numChainReports = 2
+	const msgsPerReport = 2
+	const numTokensPerMsg = 2
 
 	chainReports := make([]cciptypes.ExecutePluginReportSingleChain, numChainReports)
 	for i := 0; i < numChainReports; i++ {

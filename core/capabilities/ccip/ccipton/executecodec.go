@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
 	cell "github.com/xssnick/tonutils-go/tvm/cell"
 )
 
@@ -35,146 +34,148 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, nil
 	}
 
-	if len(report.ChainReports) != 1 {
-		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
-	}
+	tonReports := make([]binding.ExecuteReport, 0, len(report.ChainReports))
+	for _, chainReport := range report.ChainReports {
+		var offChainTokenData *cell.Cell
+		var err error
+		rampMessages := make([]binding.Any2TONRampMessage, 0, len(chainReport.Messages))
 
-	chainReport := report.ChainReports[0]
-	if len(chainReport.Messages) > 1 {
-		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
-	}
+		for _, msg := range chainReport.Messages {
+			tokenAmounts := make([]binding.Any2TONTokenTransfer, 0, len(msg.TokenAmounts))
+			for _, tokenAmount := range msg.TokenAmounts {
+				if tokenAmount.Amount.IsEmpty() {
+					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
+				}
 
-	var offChainTokenData *cell.Cell
-	var err error
-	var rampMsg binding.Any2TONRampMessage
+				if tokenAmount.Amount.Int.Sign() < 0 {
+					return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
+				}
 
-	if len(chainReport.Messages) > 0 {
-		msg := chainReport.Messages[0]
-		tokenAmounts := make([]binding.Any2TONTokenTransfer, 0, len(msg.TokenAmounts))
-		for _, tokenAmount := range msg.TokenAmounts {
-			if tokenAmount.Amount.IsEmpty() {
-				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
-			}
+				if len(tokenAmount.DestTokenAddress) != 36 {
+					return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
+				}
 
-			if tokenAmount.Amount.Int.Sign() < 0 {
-				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
-			}
+				//_, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+				//if err != nil {
+				//	return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+				//}
 
-			if len(tokenAmount.DestTokenAddress) != 36 {
-				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
-			}
+				// TODO pending implementation of dest gas amount extraction, waiting for router contract design
+				//destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
+				//if err != nil {
+				//	return nil, err
+				//}
 
-			//_, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
-			//if err != nil {
-			//	return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
-			//}
+				poolAddrCell, err := binding.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
+				if err != nil {
+					return nil, fmt.Errorf("pack source pool address: %w", err)
+				}
 
-			// TODO pending implementation of dest gas amount extraction, waiting for router contract design
-			//destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
-			//if err != nil {
-			//	return nil, err
-			//}
+				extraData, err := binding.PackByteArrayToCell(tokenAmount.ExtraData)
+				if err != nil {
+					return nil, fmt.Errorf("pack extra data: %w", err)
+				}
 
-			poolAddrCell, err := binding.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
-			if err != nil {
-				return nil, fmt.Errorf("pack source pool address: %w", err)
-			}
+				if len(tokenAmount.DestTokenAddress) < 36 {
+					return nil, fmt.Errorf("invalid dest token address length: %d", len(tokenAmount.DestTokenAddress))
+				}
 
-			extraData, err := binding.PackByteArrayToCell(tokenAmount.ExtraData)
-			if err != nil {
-				return nil, fmt.Errorf("pack extra data: %w", err)
-			}
+				destTokenTonAddr, err := convertBase64ToAddress(tokenAmount.DestTokenAddress)
+				if err != nil {
+					return nil, fmt.Errorf("error convert dest token address: %w", err)
+				}
 
-			if len(tokenAmount.DestTokenAddress) < 36 {
-				return nil, fmt.Errorf("invalid dest token address length: %d", len(tokenAmount.DestTokenAddress))
-			}
+				tokenAmounts = append(tokenAmounts, binding.Any2TONTokenTransfer{
+					SourcePoolAddress: poolAddrCell,
+					ExtraData:         extraData,
+					DestPoolAddress:   destTokenTonAddr,
+					Amount:            tokenAmount.Amount.Int,
+					//DestGasAmount:     destGasAmount, // TODO pending implementation
+				})
 
-			destTokenTonAddr, err := convertBase64ToAddress(tokenAmount.DestTokenAddress)
-			if err != nil {
-				return nil, fmt.Errorf("error convert dest token address: %w", err)
-			}
+				tokenAmountsDict, err := binding.PackArrayWithRefChaining(tokenAmounts)
+				if err != nil {
+					return nil, fmt.Errorf("pack token amounts: %w", err)
+				}
 
-			tokenAmounts = append(tokenAmounts, binding.Any2TONTokenTransfer{
-				SourcePoolAddress: poolAddrCell,
-				ExtraData:         extraData,
-				DestPoolAddress:   destTokenTonAddr,
-				Amount:            tokenAmount.Amount.Int,
-				//DestGasAmount:     destGasAmount, // TODO pending implementation
-			})
+				header := binding.RampMessageHeader{
+					MessageID:           msg.Header.MessageID[:],
+					SourceChainSelector: uint64(msg.Header.SourceChainSelector),
+					DestChainSelector:   uint64(msg.Header.DestChainSelector),
+					SequenceNumber:      uint64(msg.Header.SequenceNumber),
+					Nonce:               msg.Header.Nonce,
+				}
 
-			tokenAmountsDict, err := binding.SliceToDict(tokenAmounts)
-			if err != nil {
-				return nil, fmt.Errorf("pack token amounts: %w", err)
-			}
+				senderAddr, err := binding.PackByteArrayToCell(msg.Sender)
+				if err != nil {
+					return nil, fmt.Errorf("pack sender address: %w", err)
+				}
 
-			header := binding.RampMessageHeader{
-				MessageID:           msg.Header.MessageID[:],
-				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
-				DestChainSelector:   uint64(msg.Header.DestChainSelector),
-				SequenceNumber:      uint64(msg.Header.SequenceNumber),
-				Nonce:               msg.Header.Nonce,
-			}
+				dataCell, err := binding.PackByteArrayToCell(msg.Data)
+				if err != nil {
+					return nil, fmt.Errorf("pack data: %w", err)
+				}
 
-			senderAddr, err := binding.PackByteArrayToCell(msg.Sender)
-			if err != nil {
-				return nil, fmt.Errorf("pack sender address: %w", err)
-			}
+				tonReceiverAddr, err := convertBase64ToAddress(msg.Receiver)
+				if err != nil {
+					return nil, fmt.Errorf("error convert receiver address: %w", err)
+				}
 
-			dataCell, err := binding.PackByteArrayToCell(msg.Data)
-			if err != nil {
-				return nil, fmt.Errorf("pack data: %w", err)
-			}
+				rampMsg := binding.Any2TONRampMessage{
+					Header:       header,
+					Sender:       senderAddr,
+					Data:         dataCell,
+					Receiver:     tonReceiverAddr,
+					GasLimit:     make([]byte, 32), // TODO: implement gas limit handling with extra data codec
+					TokenAmounts: tokenAmountsDict,
+				}
 
-			tonReceiverAddr, err := convertBase64ToAddress(msg.Receiver)
-			if err != nil {
-				return nil, fmt.Errorf("error convert receiver address: %w", err)
-			}
-
-			rampMsg = binding.Any2TONRampMessage{
-				Header:       header,
-				Sender:       senderAddr,
-				Data:         dataCell,
-				Receiver:     tonReceiverAddr,
-				GasLimit:     make([]byte, 32), // TODO: implement gas limit handling with extra data codec
-				TokenAmounts: tokenAmountsDict,
+				rampMessages = append(rampMessages, rampMsg)
 			}
 		}
 
-		// should only have an offchain token data if there are tokens as part of the message
-		if len(chainReport.OffchainTokenData) > 0 {
+		packedRampMsgsCell, err := binding.PackArrayWithRefChaining(rampMessages)
+		if err != nil {
+			return nil, fmt.Errorf("pack ramp messages: %w", err)
+		}
+
+		if len(chainReport.Messages) > 0 && len(chainReport.OffchainTokenData) > 0 {
+			// should only have an offchain token data if there are tokens as part of the message
 			offChainTokenData, err = binding.Pack2DByteArrayToCell(chainReport.OffchainTokenData[0])
 			if err != nil {
 				return nil, fmt.Errorf("pack offchain token data: %w", err)
 			}
 		}
+
+		sigs := make([]binding.Signature, 0, len(chainReport.Proofs))
+		for _, proof := range chainReport.Proofs {
+			sigs = append(sigs, binding.Signature{
+				Sig: proof[:],
+			})
+		}
+
+		sigCell, err := binding.PackArrayWithStaticType(sigs)
+		if err != nil {
+			return nil, fmt.Errorf("pack signatures: %w", err)
+		}
+
+		message := binding.ExecuteReport{
+			SourceChainSelector: uint64(chainReport.SourceChainSelector),
+			OffChainTokenData:   offChainTokenData,
+			Messages:            packedRampMsgsCell,
+			Proofs:              sigCell,
+			ProofFlagBits:       chainReport.ProofFlagBits.Int,
+		}
+
+		tonReports = append(tonReports, message)
 	}
 
-	sigs := make([]binding.Signature, 0, len(chainReport.Proofs))
-	for _, proof := range chainReport.Proofs {
-		sigs = append(sigs, binding.Signature{
-			Sig: proof[:],
-		})
-	}
-
-	sigCell, err := binding.PackArray(sigs)
+	chainedReports, err := binding.PackArrayWithRefChaining(tonReports)
 	if err != nil {
-		return nil, fmt.Errorf("pack signatures: %w", err)
+		return nil, fmt.Errorf("pack execute reports: %w", err)
 	}
 
-	message := binding.ExecuteReport{
-		SourceChainSelector: uint64(chainReport.SourceChainSelector),
-		OffChainTokenData:   offChainTokenData,
-		Message:             rampMsg,
-		Proofs:              sigCell,
-		ProofFlagBits:       chainReport.ProofFlagBits.Int,
-	}
-
-	c, err := tlb.ToCell(message)
-	if err != nil {
-		return nil, fmt.Errorf("convert message to cell: %w", err)
-	}
-
-	return c.ToBOC(), nil
+	return chainedReports.ToBOC(), nil
 }
 
 func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptypes.ExecutePluginReport, error) {
@@ -183,16 +184,62 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("decode BOC: %w", err)
 	}
 
-	var report binding.ExecuteReport
-	err = tlb.LoadFromCell(&report, c.BeginParse())
+	unpackedReports, err := binding.UnPackArrayWithRefChaining[binding.ExecuteReport](c)
 	if err != nil {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("decode cell: %w", err)
+		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack execute reports: %w", err)
 	}
 
-	//executeReport := cciptypes.ExecutePluginReport{
-	//	sourceChainSelector: cciptypes.ChainSelector(report.SourceChainSelector),
-	//}
-	return cciptypes.ExecutePluginReport{}, nil
+	executeReport := cciptypes.ExecutePluginReport{
+		ChainReports: make([]cciptypes.ExecutePluginReportSingleChain, 0, len(unpackedReports)),
+	}
+
+	for _, tonReport := range unpackedReports {
+		signatures, err := binding.UnpackArrayWithStaticType[binding.Signature](tonReport.Proofs)
+		if err != nil {
+			return cciptypes.ExecutePluginReport{}, err
+		}
+
+		proofs := make([]cciptypes.Bytes32, 0, len(signatures))
+		for _, proof := range signatures {
+			proofs = append(proofs, cciptypes.Bytes32(proof.Sig))
+		}
+
+		unpackedMsgs, err := binding.UnPackArrayWithRefChaining[binding.Any2TONRampMessage](tonReport.Messages)
+		if err != nil {
+			return executeReport, fmt.Errorf("unpack ramp messages: %w", err)
+		}
+
+		messages := make([]cciptypes.Message, 0, len(unpackedMsgs))
+		for _, msg := range unpackedMsgs {
+			tonTokenAmounts, err := binding.UnPackArrayWithRefChaining[binding.Any2TONTokenTransfer](msg.TokenAmounts)
+			if err != nil {
+				return executeReport, fmt.Errorf("unpack token amounts: %w", err)
+			}
+
+			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(tonTokenAmounts))
+			for _, tokenAmount := range tonTokenAmounts {
+				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+
+				})
+			}
+			messages = append(messages, cciptypes.Message{
+				Header: cciptypes.RampMessageHeader{
+					MessageID:           cciptypes.Bytes32(msg.Header.MessageID),
+					SourceChainSelector: cciptypes.ChainSelector(msg.Header.SourceChainSelector),
+					DestChainSelector:   cciptypes.ChainSelector(msg.Header.DestChainSelector),
+					SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
+					Nonce:               msg.Header.Nonce,
+				},
+				Sender:       ,
+				Data:         ,
+				Receiver:     ,
+				// ExtraArgs: ,// TODO: implement gas limit handling with extra data codec
+				TokenAmounts: ,
+			})
+		}
+	}
+
+	return executeReport, nil
 }
 
 // Convert the raw address bytes to a TON address.
