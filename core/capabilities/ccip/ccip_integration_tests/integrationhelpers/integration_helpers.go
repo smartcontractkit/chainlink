@@ -19,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -139,7 +141,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
 	cr := NewReader(t, lp, headTracker, cl, ccAddress, configsevm.HomeChainReaderConfigRaw)
-	hcr := NewHomeChainReader(t, cr, ccAddress, "evm", strconv.Itoa(chainID))
+	hcr := NewHomeChainReader(t, cr, ccAddress, chainsel.FamilyEVM, strconv.Itoa(chainID))
 	return TestUniverse{
 		Transactor:         transactor,
 		Backend:            backend,
