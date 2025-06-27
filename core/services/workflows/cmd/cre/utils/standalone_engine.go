@@ -121,19 +121,6 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
-	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(1000000000),
-		Config:          config,
-	}, &v2.DisallowedExecutionHelper{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
-	}
-	if result.GetError() != "" {
-		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
-	}
-	triggerSubscriptions := result.GetTriggerSubscriptions()
-
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
 		Module:          module,
@@ -162,6 +149,20 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		Config:          config,
+	}, &v2.DisallowedExecutionHelper{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	triggerSubscriptions := result.GetTriggerSubscriptions()
+
 	return engine, triggerSubscriptions.GetSubscriptions(), nil
 }
 
