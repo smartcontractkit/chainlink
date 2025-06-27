@@ -82,7 +82,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	}
 
 	if cfg.EnableBeholder {
-		_ = setupBeholder(cfg.Lggr.Named("Fake_Stdlog_Beholder"))
+		_ = SetupBeholder(cfg.Lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
 	return registry, srvcs
