@@ -92,7 +92,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	return registry, srvcs
 }
 
-var defaultClose = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
+var defaultWait = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
 	<-ctx.Done()
 }
 
@@ -110,7 +110,7 @@ func DefaultHooks() *RunnerHooks {
 		Initialize:  defaultInitialize,
 		BeforeStart: emptyBeforeStart,
 		AfterRun:    emptyHook,
-		Wait:        defaultClose,
+		Wait:        defaultWait,
 		Cleanup:     defaultCleanup,
 		Finally:     emptyHook,
 	}
