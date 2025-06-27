@@ -14,8 +14,6 @@ import (
 
 type Runner struct {
 	hooks RunnerHooks
-
-	// Capabilities
 }
 
 type RunnerConfig struct {
@@ -29,7 +27,7 @@ type RunnerConfig struct {
 type RunnerHooks struct {
 	Initialize  func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
 	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
-	Close       func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Wait        func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Cleanup     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Finally     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
@@ -112,7 +110,7 @@ func DefaultHooks() *RunnerHooks {
 		Initialize:  defaultInitialize,
 		BeforeStart: emptyBeforeStart,
 		AfterRun:    emptyHook,
-		Close:       defaultClose,
+		Wait:        defaultClose,
 		Cleanup:     defaultCleanup,
 		Finally:     emptyHook,
 	}
@@ -159,7 +157,7 @@ func (r *Runner) Run(
 		os.Exit(1)
 	}
 
-	r.hooks.Close(ctx, cfg, registry, services)
+	r.hooks.Wait(ctx, cfg, registry, services)
 
 	r.hooks.AfterRun(ctx, cfg, registry, services)
 
