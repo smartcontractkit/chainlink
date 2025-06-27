@@ -97,7 +97,20 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 
 	var cfg cctypes.OCR3ConfigWithMeta // zero value => commit plugin type
 
-	factory, transmitter, err := creator.createFactoryAndTransmitter(1, cfg, types.NewRelayID(chainsel.FamilyEVM, "1"), map[cciptypes.ChainSelector]types.ContractReader{}, map[cciptypes.ChainSelector]types.ContractWriter{}, nil, nil, ocr3confighelper.PublicConfig{}, "1", "", ccipcommon.PluginConfig{}, "")
+	factory, transmitter, err := creator.createFactoryAndTransmitter(
+		1,
+		cfg,
+		types.NewRelayID(chainsel.FamilyEVM, "1"),
+		map[cciptypes.ChainSelector]types.ContractReader{},
+		map[cciptypes.ChainSelector]types.ContractWriter{},
+		/* destChainWriter */ nil,
+		/* destFromAccounts */ nil,
+		ocr3confighelper.PublicConfig{},
+		"evm",
+		"1",
+		ccipcommon.PluginConfig{},
+		"",
+	)
 
 	require.Error(t, err, "expected error when peer wrapper not started")
 	require.Nil(t, factory)
@@ -132,6 +145,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 			},
 		},
 	}
+	destChainFamily := "evm"
 	destChainID := "1"
 	pluginCfg := ccipcommon.PluginConfig{
 		// Provide a dummy factory that creates identifiable (or nil) transmitters
@@ -164,7 +178,20 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				},
 			}
 
-			factory, transmitter, err := creator.createFactoryAndTransmitter(donID, cfg, relayID, contractReaders, chainWriters, nil, nil, publicCfg, destChainID, "", pluginCfg, offrampAddrStr)
+			factory, transmitter, err := creator.createFactoryAndTransmitter(
+				donID,
+				cfg,
+				relayID,
+				contractReaders,
+				chainWriters,
+				nil, // Key: destChainWriter is nil
+				nil, // destFromAccounts can be nil as it's not used before NoOpTransmitter creation
+				publicCfg,
+				destChainFamily,
+				destChainID,
+				pluginCfg,
+				offrampAddrStr,
+			)
 
 			require.NoError(t, err)
 			require.NotNil(t, factory, "factory should not be nil")
