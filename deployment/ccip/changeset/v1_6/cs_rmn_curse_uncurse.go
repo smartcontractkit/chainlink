@@ -3,12 +3,15 @@ package v1_6
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -523,9 +526,10 @@ type CursableChain interface {
 }
 
 type SolanaCursableChain struct {
-	selector uint64
-	env      cldf.Environment
-	chain    solanastateview.CCIPChainState
+	selector       uint64
+	env            cldf.Environment
+	chain          solanastateview.CCIPChainState
+	cursedSubjects *[]globals.Subject
 }
 
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
@@ -544,13 +548,62 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	_, err = solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	if txErr == nil {
+		return false, nil
+	}
+	errCode, err := parseSolanaErrorCode(txErr)
 	if err != nil {
-		c.env.Logger.Infof("Curse already exists for chain %d and curse subject %v", c.selector, curseSubject)
+		c.env.Logger.Errorf("failed to parse solana error code: %w", err)
+		return false, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
+	}
+	switch errCode {
+	case 9006: // Globally cursed
+		return false, nil
+	case 9005: // Subject cursed
 		return true, nil
+	default:
+		return false, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
+	}
+}
+
+func parseSolanaErrorCode(err error) (int64, error) {
+	rpcErr, ok := err.(*jsonrpc.RPCError)
+	if !ok {
+		return 0, fmt.Errorf("not a jsonrpc.RPCError")
 	}
 
-	return false, nil
+	data, ok := rpcErr.Data.(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("invalid data format")
+	}
+
+	errData, ok := data["err"].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("no err field found")
+	}
+
+	instrErr, ok := errData["InstructionError"].([]interface{})
+	if !ok || len(instrErr) < 2 {
+		return 0, fmt.Errorf("invalid InstructionError format")
+	}
+
+	customErr, ok := instrErr[1].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("invalid custom error format")
+	}
+
+	custom, ok := customErr["Custom"].(json.Number)
+	if !ok {
+		return 0, fmt.Errorf("no Custom field found")
+	}
+
+	errorCode, err := custom.Int64()
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse custom error number: %v", err)
+	}
+
+	return errorCode, nil
 }
 
 func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
