@@ -80,6 +80,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("invalid dest token address length: %d", len(tokenAmount.DestTokenAddress))
 				}
 
+				// TODO consider using address codec ?
 				destTokenTonAddr, err := convertBase64ToAddress(tokenAmount.DestTokenAddress)
 				if err != nil {
 					return nil, fmt.Errorf("error convert dest token address: %w", err)
@@ -116,6 +117,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("pack data: %w", err)
 				}
 
+				// TODO consider using address codec ?
 				tonReceiverAddr, err := convertBase64ToAddress(msg.Receiver)
 				if err != nil {
 					return nil, fmt.Errorf("error convert receiver address: %w", err)
@@ -218,10 +220,46 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(tonTokenAmounts))
 			for _, tokenAmount := range tonTokenAmounts {
-				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+				sourceTokenPoolAddr, err := binding.UnloadCellToByteArray(tokenAmount.SourcePoolAddress)
+				if err != nil {
+					return executeReport, err
+				}
 
+				extraData, err := binding.UnloadCellToByteArray(tokenAmount.ExtraData)
+				if err != nil {
+					return executeReport, err
+				}
+
+				// TODO consider using address codec ?
+				destTokenAddr, err := convertAddressToBase64(tokenAmount.DestPoolAddress)
+				if err != nil {
+					return executeReport, err
+				}
+
+				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+					SourcePoolAddress: sourceTokenPoolAddr,
+					DestTokenAddress:  destTokenAddr,
+					ExtraData:         extraData,
+					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
+					// DestExecData: tokenAmount.ExtraData, // TODO pending implementation of dest gas amount extraction
 				})
 			}
+
+			senderAddr, err := binding.UnloadCellToByteArray(msg.Sender)
+			if err != nil {
+				return executeReport, fmt.Errorf("unload sender address: %w", err)
+			}
+
+			receiverAddr, err := convertAddressToBase64(msg.Receiver)
+			if err != nil {
+				return executeReport, fmt.Errorf("convert receiver address: %w", err)
+			}
+
+			msgData, err := binding.UnloadCellToByteArray(msg.Data)
+			if err != nil {
+				return executeReport, fmt.Errorf("unload message data: %w", err)
+			}
+
 			messages = append(messages, cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
 					MessageID:           cciptypes.Bytes32(msg.Header.MessageID),
@@ -230,13 +268,31 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
 					Nonce:               msg.Header.Nonce,
 				},
-				Sender:       ,
-				Data:         ,
-				Receiver:     ,
+				Sender:   senderAddr,
+				Data:     msgData,
+				Receiver: receiverAddr,
 				// ExtraArgs: ,// TODO: implement gas limit handling with extra data codec
-				TokenAmounts: ,
+				TokenAmounts: tokenAmounts,
 			})
 		}
+
+		offchainTokenData := make([][][]byte, 0)
+		// TODO check if TON will support multiple offchain token data, then change binding to 3DByteArray
+		if tonReport.OffChainTokenData != nil {
+			offchainData, err := binding.Unpack2DByteArrayFromCell(tonReport.OffChainTokenData)
+			if err != nil {
+				return executeReport, fmt.Errorf("unload offchain token data: %w", err)
+			}
+			offchainTokenData = append(offchainTokenData, offchainData)
+		}
+
+		executeReport.ChainReports = append(executeReport.ChainReports, cciptypes.ExecutePluginReportSingleChain{
+			SourceChainSelector: cciptypes.ChainSelector(tonReport.SourceChainSelector),
+			Messages:            messages,
+			OffchainTokenData:   offchainTokenData,
+			Proofs:              proofs,
+			ProofFlagBits:       cciptypes.NewBigInt(tonReport.ProofFlagBits),
+		})
 	}
 
 	return executeReport, nil
@@ -251,4 +307,16 @@ func convertBase64ToAddress(rawAddr []byte) (*address.Address, error) {
 	}
 
 	return tonAddr, nil
+}
+
+func convertAddressToBase64(addr *address.Address) ([]byte, error) {
+	if addr == nil {
+		return nil, fmt.Errorf("nil address")
+	}
+
+	addrStr := addr.String()
+	if len(addrStr) == 0 {
+		return nil, fmt.Errorf("empty address string")
+	}
+	return base64.RawURLEncoding.DecodeString(addrStr)
 }
