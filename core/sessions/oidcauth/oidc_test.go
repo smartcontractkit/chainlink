@@ -1,8 +1,9 @@
 package oidcauth_test
 
 import (
-	// "errors"
+	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -186,4 +187,158 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	}
 	_, err = oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.ErrorContains(t, err, "invalid password")
+}
+
+func Test_IdClaimsToUserRole(t *testing.T) {
+	t.Parallel()
+	cfg := oidcauth.TestConfig{}
+	db := pgtest.NewSqlxDB(t)
+	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	if err != nil {
+		t.Errorf("error calling NewTestOIDCAuthenticator: %v", err)
+		return
+	}
+
+	tests := []struct {
+		name       string
+		idClaims   []string
+		adminClaim string
+		editClaim  string
+		runClaim   string
+		readClaim  string
+		wantRole   sessions.UserRole
+		wantErr    error
+	}{
+		{
+			name:       "Admin role",
+			idClaims:   []string{"admin_group", "other_group"},
+			adminClaim: "admin_group",
+			editClaim:  "edit_group",
+			runClaim:   "run_group",
+			readClaim:  "read_group",
+			wantRole:   sessions.UserRoleAdmin,
+			wantErr:    nil,
+		},
+		{
+			name:       "Edit role",
+			idClaims:   []string{"edit_group", "other_group"},
+			adminClaim: "admin_group",
+			editClaim:  "edit_group",
+			runClaim:   "run_group",
+			readClaim:  "read_group",
+			wantRole:   sessions.UserRoleEdit,
+			wantErr:    nil,
+		},
+		{
+			name:       "Run role",
+			idClaims:   []string{"run_group", "other_group"},
+			adminClaim: "admin_group",
+			editClaim:  "edit_group",
+			runClaim:   "run_group",
+			readClaim:  "read_group",
+			wantRole:   sessions.UserRoleRun,
+			wantErr:    nil,
+		},
+		{
+			name:       "View role",
+			idClaims:   []string{"read_group", "other_group"},
+			adminClaim: "admin_group",
+			editClaim:  "edit_group",
+			runClaim:   "run_group",
+			readClaim:  "read_group",
+			wantRole:   sessions.UserRoleView,
+			wantErr:    nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotRole, err := oidcAuthProvider.IdClaimsToUserRole(tt.idClaims, tt.adminClaim, tt.editClaim, tt.runClaim, tt.readClaim)
+			if err != nil && err != tt.wantErr {
+				t.Errorf("err %v", err)
+			}
+
+			if gotRole != tt.wantRole {
+				t.Errorf("mismatch got %v want %v", gotRole, tt.wantRole)
+			}
+
+		})
+	}
+}
+
+func Test_ExtractIDClaimValues(t *testing.T) {
+	t.Parallel()
+	cfg := oidcauth.TestConfig{}
+	db := pgtest.NewSqlxDB(t)
+	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	if err != nil {
+		t.Errorf("error calling NewTestOIDCAuthenticator: %v", err)
+		return
+	}
+	tests := []struct {
+		name    string
+		claims  map[string]interface{}
+		key     string
+		want    []string
+		wantErr error
+	}{
+		{
+			name:    "String array claim",
+			claims:  map[string]interface{}{"groups": []string{"group1", "group2"}},
+			key:     "groups",
+			want:    []string{"group1", "group2"},
+			wantErr: nil,
+		},
+		{
+			name:    "Interface array claim",
+			claims:  map[string]interface{}{"groups": []interface{}{"group1", "group2"}},
+			key:     "groups",
+			want:    []string{"group1", "group2"},
+			wantErr: nil,
+		},
+		{
+			name:    "Single string claim",
+			claims:  map[string]interface{}{"groups": "group1"},
+			key:     "groups",
+			want:    []string{"group1"},
+			wantErr: nil,
+		},
+		{
+			name:    "Key not found",
+			claims:  map[string]interface{}{"other": []string{"group1"}},
+			key:     "groups",
+			want:    nil,
+			wantErr: fmt.Errorf("claim 'groups' not found in ID token"),
+		},
+		{
+			name:    "Invalid item type in array",
+			claims:  map[string]interface{}{"groups": []interface{}{"group1", 42}},
+			key:     "groups",
+			want:    nil,
+			wantErr: fmt.Errorf("invalid type for item in 'groups': expected string, got %T", 42),
+		},
+		{
+			name:    "Invalid claim type",
+			claims:  map[string]interface{}{"groups": 42},
+			key:     "groups",
+			want:    nil,
+			wantErr: fmt.Errorf("claim 'groups' is not a string or array: got %T", 42),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := oidcAuthProvider.ExtractIDClaimValues(tt.claims, tt.key)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractIDClaimValues() got = %v, want %v", got, tt.want)
+			}
+			if tt.wantErr != nil && gotErr != nil {
+				if gotErr.Error() != tt.wantErr.Error() {
+					t.Errorf("ExtractIDClaimValues() gotErr = %v, want %v", gotErr, tt.wantErr)
+				}
+			} else if !errors.Is(gotErr, tt.wantErr) {
+				t.Errorf("ExtractIDClaimValues() gotErr = %v, want %v", gotErr, tt.wantErr)
+			}
+		})
+	}
 }

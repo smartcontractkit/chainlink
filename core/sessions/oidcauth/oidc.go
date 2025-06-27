@@ -229,7 +229,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
 		return
 	}
-	idClaims, err := extractIDClaimValues(claims, oi.config.ClaimName())
+	idClaims, err := oi.ExtractIDClaimValues(claims, oi.config.ClaimName())
 	if err != nil {
 		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimName: '%s': error %v", oi.config.ClaimName(), err)
 		c.String(http.StatusInternalServerError, "Failed to extract ID claims from claims")
@@ -243,7 +243,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
 	// Map the claims to a role and insert a newly created session paired with role mapping for user
-	role, err := idClaimsToUserRole(
+	role, err := oi.IdClaimsToUserRole(
 		idClaims,
 		oi.config.AdminClaim(),
 		oi.config.EditClaim(),
@@ -607,7 +607,7 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func idClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
+func (oi *oidcAuthenticator) IdClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
 	for _, group := range idClaims {
 		if group == adminClaim {
@@ -637,7 +637,7 @@ func idClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, 
 }
 
 // extractIDClaimValues extracts groups from the claims using the specified key
-func extractIDClaimValues(claims map[string]interface{}, key string) ([]string, error) {
+func (oi *oidcAuthenticator) ExtractIDClaimValues(claims map[string]interface{}, key string) ([]string, error) {
 	claimValues, ok := claims[key]
 	if !ok {
 		return nil, fmt.Errorf("claim '%s' not found in ID token", key)
