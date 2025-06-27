@@ -566,8 +566,8 @@ func defaultLocalConfig() ocrtypes.LocalConfig {
 		ContractTransmitterTransmitTimeout: 10 * time.Second,
 		DatabaseTimeout:                    10 * time.Second,
 		MinOCR2MaxDurationQuery:            1 * time.Second,
-		DevelopmentMode:                    "false",
 		EnableTransmissionTelemetry:        true,
+		DevelopmentMode:                    "false",
 	}
 }
 
