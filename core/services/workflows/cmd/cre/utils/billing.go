@@ -33,7 +33,7 @@ func NewBillingService(lggr logger.Logger) *BillingService {
 	b.Service, b.eng = services.Config{
 		Name:  "fakeBillingService",
 		Start: b.start,
-		Close: b.Close,
+		Close: b.close,
 	}.NewServiceEngine(lggr)
 	return b
 }
@@ -80,8 +80,10 @@ func (s *BillingService) start(ctx context.Context) error {
 	return nil
 }
 
-func (s *BillingService) Close() error {
-	s.server.Stop()
+func (s *BillingService) close() error {
+	if s.server != nil {
+		s.server.Stop()
+	}
 	return nil
 }
 
