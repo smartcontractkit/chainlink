@@ -36,6 +36,7 @@
 # cron_capability_binary_path = "./cron"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
+# secure_mint_capability_binary_path = "./securemint"
 
 [[nodesets]]
   nodes = 5
