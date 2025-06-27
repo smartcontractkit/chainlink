@@ -560,6 +560,7 @@ func defaultLocalConfig() ocrtypes.LocalConfig {
 		DatabaseTimeout:                    10 * time.Second,
 		MinOCR2MaxDurationQuery:            1 * time.Second,
 		DevelopmentMode:                    "false",
+		EnableTransmissionTelemetry:        true,
 	}
 }
 

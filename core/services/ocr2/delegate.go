@@ -530,8 +530,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			kvStore)
 
 	case types.CCIPCommit:
+		lc.EnableTransmissionTelemetry = true
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
+		lc.EnableTransmissionTelemetry = true
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
