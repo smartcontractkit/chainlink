@@ -653,6 +653,7 @@ func (d *Delegate) newWorkflowLibPlugin(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
+	// TODO: Create and deploy workflowLib Job Spec https://smartcontract-it.atlassian.net/browse/CAPPL-944
 	cfg := &workflowLibCfg.WorkflowLibConfig{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
@@ -660,12 +661,6 @@ func (d *Delegate) newWorkflowLibPlugin(
 	}
 
 	service, err := workflowLib.NewFactory(workflowLib.GetDonTimeStore(), lggr)
-	// TODO: Implement initialization
-	plugin, pluginInfo, err := service.NewReportingPlugin(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	return []job.ServiceCtx{service}, nil
 }
 
