@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -87,7 +87,7 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
-	OnResultReceived       func(*wasmpb.ExecutionResult)
+	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 }
 
@@ -194,7 +194,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
 	}
 	if h.OnResultReceived == nil {
-		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
+		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}

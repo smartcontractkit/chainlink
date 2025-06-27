@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -174,8 +173,8 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerSubscriptionRequestTimeoutMs))
 	defer subCancel()
-	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
-		Request:         &wasmpb.ExecuteRequest_Subscribe{},
+	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, &DisallowedExecutionHelper{SecretsFetcher: e.secretsFetcher})
@@ -350,8 +349,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
-	result, err := e.cfg.Module.Execute(execCtx, &wasmpb.ExecuteRequest{
-		Request: &wasmpb.ExecuteRequest_Trigger{
+	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
 				Payload: triggerEvent.Payload,
@@ -474,7 +473,9 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string) {
+	e.lggr.Debugw("Listening for user logs ...")
 	count := 0
+	defer func() { e.lggr.Debugw("Listening for user logs done.", "processedLogLines", count) }()
 	for {
 		select {
 		case <-ctx.Done():
