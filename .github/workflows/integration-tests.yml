@@ -357,7 +357,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@57d5adc43c13885f310ebcea5e6cba98512497d4 # SHA from this PR
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@af23efdd21b4fe3dd0ad8a5120c2d12f4d226045 # SHA from this PR
     with:
      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
      chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
