@@ -645,19 +645,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
 
-	report, exists := e.meterReports.Get(executionID)
-	if exists {
-		// send metering report to beholder
-		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.FormatReport()); err != nil {
-			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
-		}
-
-		// send metering report to billing if billing client is not nil
-		if err = e.meterReports.End(ctx, executionID); err != nil {
-			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
-		}
+	err = e.meterReports.End(ctx, executionID)
+	if err != nil {
+		l.Errorf("failed to end metering report %s", err)
 	}
 
 	// clean all per execution state trackers
@@ -1455,10 +1445,12 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	lggr := cfg.Lggr.With("workflowID", cfg.WorkflowID)
 
+	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
+
 	engine = &Engine{
 		cma:            cma,
 		logger:         lggr.Named("WorkflowEngine"),
-		metrics:        monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()),
+		metrics:        metrics,
 		registry:       cfg.Registry,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,
@@ -1484,7 +1476,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics),
 	}
 
 	return engine, nil

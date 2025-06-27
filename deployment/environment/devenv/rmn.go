@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/exec"
@@ -268,7 +267,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 	_, reader, err := container.Exec(context.Background(), []string{
 		"cat", ProxyKeyStore}, exec.Multiplexed())
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to cat keystore")
+		return nil, fmt.Errorf("unable to cat keystore: %w", err)
 	}
 	b, err := io.ReadAll(reader)
 	if err != nil {
@@ -276,7 +275,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 	}
 	peerID, err := extractPeerID(b)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to extract peerID %s", string(b))
+		return nil, fmt.Errorf("unable to extract peerID: %w", err)
 	}
 	proxy.PeerID = peerID
 	proxy.Container = container
@@ -397,7 +396,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 	_, reader, err := container.Exec(context.Background(), []string{
 		"cat", RMNKeyStore}, exec.Multiplexed())
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to cat keystore")
+		return nil, fmt.Errorf("unable to cat keystore: %w", err)
 	}
 	b, err := io.ReadAll(reader)
 	if err != nil {
@@ -405,7 +404,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 	}
 	onchainPubKey, offchainPubKey, err := extractKeys(b)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Unable to extract peerID %s", string(b))
+		return nil, fmt.Errorf("unable to extract peerID %s: %w", string(b), err)
 	}
 	rmn.OffchainPublicKey = offchainPubKey
 	rmn.EVMOnchainPublicKey = onchainPubKey

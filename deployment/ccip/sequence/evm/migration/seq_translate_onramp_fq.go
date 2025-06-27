@@ -17,6 +17,7 @@ import (
 
 type OnRampToFeeQuoterDestChainConfigInput struct {
 	OnRamps            map[uint64]common.Address
+	NewFeeQuoterParams map[uint64]NewFeeQuoterDestChainConfigParams
 	TokenAdminRegistry common.Address
 }
 
@@ -66,14 +67,17 @@ var (
 						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to execute TranslateOnRampToFQDestDynamicCfgOps: %w", err)
 					}
 
-					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterDynamicConfig(destChainSel, evm2evmOnRampDynamicCfgReport.Output)
+					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterDynamicConfig(destChainSel, evm2evmOnRampDynamicCfgReport.Output, update.CallInput.NewFeeQuoterParams[destChainSel])
 
 					allFeeTokensOp, err := operations.ExecuteOperation(
 						b, migration_ops.PriceRegistryGetAllFeeTokensOps,
 						migration_ops.MigrateOnRampToFQDeps{
 							Chain: srcChain,
 						},
-						evm2evmOnRampDynamicCfgReport.Output.PriceRegistry,
+						migration_ops.PriceRegistryGetAllFeeTokensIn{
+							Address:       evm2evmOnRampDynamicCfgReport.Output.PriceRegistry,
+							ChainSelector: chainSel,
+						},
 					)
 					if err != nil {
 						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetAllFeeTokensOps: %w", err)
@@ -93,9 +97,10 @@ var (
 							migration_ops.MigrateOnRampToFQDeps{
 								Chain: srcChain,
 							},
-							migration_ops.OnRampGetTokenCfgInput{
-								OnRamp:  onRamp1_5,
-								Address: ft,
+							migration_ops.OnRampGetTokenCfgIn{
+								OnRamp:        onRamp1_5,
+								Address:       ft,
+								ChainSelector: chainSel,
 							},
 						)
 						if err != nil {
@@ -110,7 +115,6 @@ var (
 							onRampFeeTokenCfgReport = feetokenCfgReport.Output
 						}
 					}
-					feeQuoterTranslatedDestCfg.TranslateOnrampToFeequoterFeeTokenCfg(onRampFeeTokenCfgReport)
 
 					if _, ok := feeQuoterUpdates[chainSel]; !ok {
 						feeQuoterUpdates[chainSel] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
@@ -159,7 +163,10 @@ var (
 						migration_ops.MigrateOnRampToFQDeps{
 							Chain: srcChain,
 						},
-						update.CallInput.TokenAdminRegistry,
+						migration_ops.TokenAdminRegistryGetAllConfiguredTokensIn{
+							Address:       update.CallInput.TokenAdminRegistry,
+							ChainSelector: chainSel,
+						},
 					)
 					if err != nil {
 						return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", chainSel, err)
@@ -171,9 +178,10 @@ var (
 							migration_ops.MigrateOnRampToFQDeps{
 								Chain: srcChain,
 							},
-							migration_ops.OnRampGetTokenCfgInput{
-								OnRamp:  onRamp1_5,
-								Address: token,
+							migration_ops.OnRampGetTokenCfgIn{
+								OnRamp:        onRamp1_5,
+								Address:       token,
+								ChainSelector: chainSel,
 							},
 						)
 						if err != nil {

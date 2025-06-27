@@ -15,11 +15,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -110,7 +110,7 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 		client:             client,
 		contractV1:         contractV1,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
-		lggr:               lggr.Named("OnchainAllowlist"),
+		lggr:               logger.Named(lggr, "OnchainAllowlist"),
 		stopCh:             make(services.StopChan),
 	}
 	emptyMap := make(map[common.Address]struct{})

@@ -211,7 +211,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainID, pluginServices.PluginConfig, offrampAddrStr)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainFamily, destChainID, pluginServices.PluginConfig, offrampAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -273,6 +273,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainWriter types.ContractWriter,
 	destFromAccounts []string,
 	publicConfig ocr3confighelper.PublicConfig,
+	destChainFamily string,
 	destChainID string,
 	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
@@ -313,7 +314,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         pluginConfig.RMNCrypto})
-		factory = promwrapper.NewReportingPluginFactory(factory, i.lggr, destChainID, "CCIPCommit")
+		factory = promwrapper.NewReportingPluginFactory(
+			factory,
+			i.lggr,
+			destChainFamily,
+			destChainID,
+			"CCIPCommit",
+		)
 		if destChainWriter == nil {
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
@@ -363,7 +370,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractReaders:  contractReaders,
 				ContractWriters:  chainWriters,
 			})
-		factory = promwrapper.NewReportingPluginFactory(factory, i.lggr, destChainID, "CCIPExec")
+		factory = promwrapper.NewReportingPluginFactory(
+			factory,
+			i.lggr,
+			destChainFamily,
+			destChainID,
+			"CCIPExec",
+		)
 
 		if destChainWriter == nil {
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",

@@ -375,6 +375,7 @@ MaxQueued = 99
 ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
+ConfirmationTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -427,7 +428,7 @@ HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [[EVM.KeySpecific]]

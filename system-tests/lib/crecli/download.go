@@ -33,7 +33,7 @@ func DownloadAndInstallChainlinkCLI(ghToken, version string) (string, error) {
 	creCLIAssetFile := fmt.Sprintf("cre_%s_%s_%s.tar.gz", version, system, arch)
 
 	ghClient := client.NewGithubClient(ghToken)
-	content, err := ghClient.DownloadAssetFromRelease("smartcontractkit", "dev-platform", version, creCLIAssetFile)
+	content, _, err := ghClient.DownloadAssetFromRelease("smartcontractkit", "dev-platform", version, creCLIAssetFile)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to download CRE CLI asset %s", creCLIAssetFile)
 	}

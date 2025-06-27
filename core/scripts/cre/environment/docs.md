@@ -1,5 +1,8 @@
 # Local CRE environment
 
+## Contact Us
+Slack: #topic-local-dev-environments
+
 ## Table of content
 
 1. [Using the CLI](#using-the-cli)
@@ -7,7 +10,7 @@
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
-
+   - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
 4. [Troubleshooting](#troubleshooting)
@@ -16,81 +19,32 @@
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
 
+
+
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
     - with usage of default Docker socket **enabled**
     - with Apple Virtualization framework **enabled**
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
-2. **Job Distributor Docker image available**
-    - Either build it locally as described in [this section](#job-distributor-image)
-    - or download it from the PROD ECR (if you have access) and tag as `job-distributor:0.9.0`
+2. **AWS SSO access to SDLC**
+  - REQUIRED: `sdlc` profile
+3. **gh cli**
+  - To pull the `cre` cli. Minimum version `v.2.50.0`
 
-If you want to run an example workflow you also need to:
 
-1. **Download CRE CLI v0.2.0**
-    - download it either from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0)
-    - or using GH CLI by running: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern 'cre_v0.2.0_darwin_arm64.tar.gz'`
-    - once you have the archive downloaded run:
-      ```bash
-      tar -xf cre_v0.2.0_darwin_arm64.tar.gz
-      rm cre_v0.2.0_darwin_arm64.tar.gz
-      # do not worry about potential 'No such xattr: com.apple.quarantine' error
-      xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64
-      export "PATH=$(pwd):$PATH"
-      ```
+   [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
-Optionally:
-1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/single-don.toml` (default)
-   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
-2. **Download or Build Capability Binaries**
-   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If your use case requires them, you can either:
-      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
-      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
-      Make sure they are built for `linux/amd64`!
 
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
-       # log even trigger and read-contract binaries go here
-       # they are all commented out by default
-       ```
-     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
-3.  **Decide whether to build or reuse Chainlink Docker Image**
-     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
-     ```toml
-     [nodesets.node_specs.node]
-     image = "<your-Docker-image>:<your-tag>"
-     ```
-      - Make these changes for **all** nodes in the nodeset in the TOML config.
-      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
-        You will need to make sure that all the capabilities you need are baked in the image you are using.
+# QUICKSTART
+```
+go run main.go env setup --config single-don.toml
+go run main.go env start
+```
 
-4. **Decide whether to use Docker or k8s**
-    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
-5. **Start Observability Stack (Docker-only)**
-      ```bash
-      # to start Loki, Grafana and Prometheus run:
-      ctf obs up
-
-     # to start Blockscout block explorer run:
-      ctf bs u
-      ```
-    - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
-
-Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
-- `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
-
-When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
-
----
-
+The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
+If you are missing requirements, you may need to fix the errors and re-run.
+Use `#topic-local-dev-environments` for help
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
@@ -152,7 +106,91 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ---
 
-## Job Distributor Image
+
+### Advanced Usage:
+1. **Choose the Right Topology**
+   - For a single DON with all capabilities: `configs/single-don.toml` (default)
+   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
+2. **Download or Build Capability Binaries**
+   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
+   - If your use case requires them, you can either:
+      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
+      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
+      Make sure they are built for `linux/amd64`!
+
+     Once that is done reference them in your TOML like:
+       ```toml
+       [extra_capabilities]
+       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
+       # log even trigger and read-contract binaries go here
+       # they are all commented out by default
+       ```
+     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
+3.  **Decide whether to build or reuse Chainlink Docker Image**
+     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
+     ```toml
+     [nodesets.node_specs.node]
+     image = "<your-Docker-image>:<your-tag>"
+     ```
+      - Make these changes for **all** nodes in the nodeset in the TOML config.
+      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
+        You will need to make sure that all the capabilities you need are baked in the image you are using.
+
+4. **Decide whether to use Docker or k8s**
+    - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
+5. **Start Observability Stack (Docker-only)**
+      ```bash
+      # to start Loki, Grafana and Prometheus run:
+      ctf obs up
+
+     # to start Blockscout block explorer run:
+      ctf bs u
+      ```
+    - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
+
+Optional environment variables used by the CLI:
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
+- `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
+
+When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
+
+---
+
+
+
+## DX Tracing
+
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
+
+> Minimum required version of the `GH CLI` is `v2.50.0`
+
+To opt out from tracing use the following environment variable:
+```bash
+DISABLE_DX_TRACKING=true
+```
+
+### Manually creating config file
+
+Valid config file has the following content:
+```json
+{
+  "dx_api_token":"xxx",
+  "github_username":"your-gh-username"
+}
+```
+
+DX API token can be found in 1 Password in the engineering vault as `DX - Local CRE Environment`.
+
+Other environment variables:
+* `DX_LOG_LEVEL` -- log level of a rudimentary logger
+* `DX_TEST_MODE` -- executes in test mode, which means that data sent to DX won't be included in any reports
+* `DX_FORCE_OFFLINE_MODE` -- doesn't send any events, instead saves them on the disk
+
+---
+
+# Job Distributor Image
 
 Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
 
@@ -195,6 +233,16 @@ You might see multiple attempts to trigger and verify that workflow, when runnin
 
 ### Docker fails to download public images
 Make sure you are logged in to Docker. Run: `docker login`
+
+```
+Error: failed to setup test environment: failed to create blockchains: failed to deploy blockchain: create container: Error response from daemon: Head "https://ghcr.io/v2/foundry-rs/foundry/manifests/stable": denied: denied
+```
+your ghcr token is stale. do
+```
+docker logout ghcr.io
+docker pull ghcr.io/foundry-rs/foundry
+```
+and try starting the environment
 
 ### GH CLI is not installed
 Either download from [cli.github.com](https://cli.github.com) or install with Homebrew with:

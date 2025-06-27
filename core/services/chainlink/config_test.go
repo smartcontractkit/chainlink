@@ -678,6 +678,7 @@ func TestConfig_Marshal(t *testing.T) {
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
 						Enabled: ptr(false),
 					},
+					ConfirmationTimeout: &minute,
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -1118,6 +1119,7 @@ MaxQueued = 99
 ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
+ConfirmationTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
