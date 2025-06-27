@@ -1183,12 +1183,8 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
-	}
-	if fromFamily == chainsel.FamilyTon {
+	case chainsel.FamilyTon:
 		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
-	}
-	if toFamily == chainsel.FamilyTon {
-		changesets = append(changesets, AddLaneTONChangesets(e, to, from, toFamily, fromFamily))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
