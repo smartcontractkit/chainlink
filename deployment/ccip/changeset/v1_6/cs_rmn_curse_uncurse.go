@@ -435,7 +435,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 			}
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 
-			// Aptos have no deployerGroup implementation, collecting MCMS operations separately
+			// Aptos has no deployerGroup implementation, collecting MCMS operations separately
 			family, err := chain_selectors.GetSelectorFamily(selector)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
@@ -517,7 +517,8 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
+	description := "proposal to curse RMNs: " + cfg.Reason
+	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -540,6 +541,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
+	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only keep the subject that are actually cursed
@@ -567,10 +569,60 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
+
+			// Aptos has no deployerGroup implementation, collecting MCMS operations separately
+			family, err := chain_selectors.GetSelectorFamily(selector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
+			}
+			if family == chain_selectors.FamilyAptos {
+				proposal, err := aptosUtils.GenerateProposal(
+					e,
+					state.AptosChains[selector].MCMSAddress,
+					selector,
+					[]mcmstypes.BatchOperation{chain.(*AptosCursableChain).MCMSOp},
+					cfg.Reason,
+					*cfg.MCMS,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", selector, err)
+				}
+				aptosProposals = append(aptosProposals, *proposal)
+			}
 		}
 	}
 
-	return deployerGroup.Enact()
+	partialOut, err := deployerGroup.Enact()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
+	}
+	if len(aptosProposals) == 0 {
+		return partialOut, nil
+	}
+	// TODO: can't have Aptos curse/uncurse without MCMS, validate this
+	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
+	}
+	proposals := partialOut.MCMSTimelockProposals
+	proposals = append(proposals, aptosProposals...)
+	aggProposal, err := proposalutils.AggregateProposalsV2(
+		e,
+		proposalutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			MCMSAptosState:  state.AptosMCMSStateByChain(),
+		},
+		proposals,
+		description,
+		cfg.MCMS,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals:      []mcms.TimelockProposal{*aggProposal},
+		DescribedTimelockProposals: []string{}, // TODO: figure this out
+	}, nil
 }
 
 type CursableChain interface {
@@ -922,6 +974,9 @@ func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 		CCIPAddress: c.chain.CCIPAddress,
 	}
 	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, chain, in)
+	if err != nil {
+		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
+	}
 	c.MCMSOp = mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(c.selector),
 		Transactions:  []mcmstypes.Transaction{report.Output},
@@ -946,6 +1001,9 @@ func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 		CCIPAddress: c.chain.CCIPAddress,
 	}
 	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, chain, in)
+	if err != nil {
+		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
+	}
 	c.MCMSOp = mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(c.selector),
 		Transactions:  []mcmstypes.Transaction{report.Output},
