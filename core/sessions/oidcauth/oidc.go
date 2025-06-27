@@ -439,7 +439,7 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 	// Sessions are set to expire after the duration + creation date elapsed
 	session := clsessions.NewSession()
 	_, err = oi.ds.ExecContext(ctx,
-		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, $4, now())",
+		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
 		session.ID,
 		strings.ToLower(sr.Email),
 		foundUser.Role,

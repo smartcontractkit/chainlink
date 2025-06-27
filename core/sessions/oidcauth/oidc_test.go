@@ -142,3 +142,22 @@ func TestORM_ListUsers(t *testing.T) {
 		}
 	}
 }
+
+func TestORM_CreateSession(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+
+	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+}
