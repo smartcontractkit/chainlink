@@ -18,6 +18,7 @@ func main() {
 	var (
 		wasmPath                   string
 		configPath                 string
+		secretsPath                string
 		debugMode                  bool
 		enableBeholder             bool
 		enableBilling              bool
@@ -26,6 +27,7 @@ func main() {
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
+	flag.StringVar(&secretsPath, "secrets", "", "Path to the secrets file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
 	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
 	flag.BoolVar(&enableBilling, "billing", false, "Enable to run a faked billing service that prints to the standard log.")
@@ -52,6 +54,15 @@ func main() {
 		}
 	}
 
+	var secrets []byte
+	if secretsPath != "" {
+		secrets, err = os.ReadFile(secretsPath)
+		if err != nil {
+			fmt.Printf("Failed to read secrets file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -65,7 +76,7 @@ func main() {
 	lggr, _ := logCfg.New()
 
 	runner := utils.NewRunner(nil)
-	runner.Run(ctx, binary, config, utils.RunnerConfig{
+	runner.Run(ctx, binary, config, secrets, utils.RunnerConfig{
 		EnableBilling:              enableBilling,
 		EnableBeholder:             enableBeholder,
 		EnableStandardCapabilities: enableStandardCapabilities,

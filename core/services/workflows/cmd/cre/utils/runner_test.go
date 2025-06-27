@@ -35,12 +35,20 @@ func TestRunner(t *testing.T) {
 		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
 
 		runner := NewRunner(hooks)
+<<<<<<< HEAD:core/services/workflows/cmd/cre/utils/runner_test.go
 		runner.Run(ctx, binary, []byte{}, RunnerConfig{
 			EnableBeholder:             false,
 			EnableBilling:              true,
 			EnableStandardCapabilities: false,
 			Lggr:                       logger.TestLogger(t),
 			LifecycleHooks:             v2.LifecycleHooks{},
+=======
+		runner.run(ctx, binary, []byte{}, []byte{}, RunnerConfig{
+			enableBeholder:             false,
+			enableBilling:              true,
+			enableStandardCapabilities: false,
+			lggr:                       logger.TestLogger(t),
+>>>>>>> develop:core/services/workflows/cmd/cre/runner_test.go
 		})
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
@@ -38,7 +39,7 @@ func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
 	registry *capabilities.Registry,
-	binary, config []byte,
+	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 ) (services.Service, *sdkpb.TriggerSubscriptionRequest, error) {
@@ -54,19 +55,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
-
-	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(1000000000),
-		Config:          config,
-	}, &v2.DisallowedExecutionHelper{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
-	}
-	if result.GetError() != "" {
-		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
-	}
-	triggerSubscriptions := result.GetTriggerSubscriptions()
 
 	name, err := types.NewWorkflowName(defaultName)
 	if err != nil {
@@ -125,8 +113,26 @@ func NewStandaloneEngine(
 		if err != nil {
 			return nil, nil, err
 		}
-		return engine, triggerSubscriptions, nil
+		return engine, nil, nil
 	}
+
+	secretsFetcher, err := NewFileBasedSecrets(secrets)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(1000000000),
+		Config:          config,
+	}, &v2.DisallowedExecutionHelper{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	triggerSubscriptions := result.GetTriggerSubscriptions()
 
 	cfg := &v2.EngineConfig{
 		Lggr:            lggr,
@@ -148,7 +154,8 @@ func NewStandaloneEngine(
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,
 
-		DebugMode: true,
+		SecretsFetcher: secretsFetcher,
+		DebugMode:      true,
 	}
 
 	engine, err := v2.NewEngine(cfg)
@@ -156,6 +163,67 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 	return engine, triggerSubscriptions, nil
+}
+
+// yamlConfig represents the structure of your secrets.yaml file.
+type yamlConfig struct {
+	SecretsNames map[string][]string `yaml:"secretsNames"`
+}
+
+type fileBasedSecrets struct {
+	secrets yamlConfig
+}
+
+func NewFileBasedSecrets(secrets []byte) (*fileBasedSecrets, error) {
+	fbs := new(fileBasedSecrets)
+	if err := yaml.Unmarshal(secrets, &fbs.secrets); err != nil {
+		return nil, err
+	}
+
+	return fbs, nil
+}
+
+func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	responses := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
+	for _, req := range request.Requests {
+		values, ok := f.secrets.SecretsNames[req.Id]
+
+		// Handle secret not found
+		if !ok {
+			responses = append(responses, &sdkpb.SecretResponse{
+				Response: &sdkpb.SecretResponse_Error{
+					Error: &sdkpb.SecretError{
+						Error: "secret not found",
+					},
+				},
+			})
+			continue
+		}
+
+		// Handle secret found but no value associated
+		if len(values) == 0 {
+			responses = append(responses, &sdkpb.SecretResponse{
+				Response: &sdkpb.SecretResponse_Error{
+					Error: &sdkpb.SecretError{
+						Error: "secret found but no value associated"},
+				},
+			})
+			continue
+		}
+
+		// Secret found with value
+		secret := &sdkpb.Secret{
+			Id:        req.Id,
+			Namespace: req.Namespace, // Use the namespace from the request
+			Value:     values[0],     // Take the first value as the secret
+		}
+		responses = append(responses, &sdkpb.SecretResponse{
+			Response: &sdkpb.SecretResponse_Secret{
+				Secret: secret,
+			},
+		})
+	}
+	return responses, nil
 }
 
 // TODO support fetching secrets (from a local file)
