@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
-	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/stretchr/testify/require"
 )
@@ -175,7 +174,7 @@ func TestORM_DeleteSession(t *testing.T) {
 	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 
-	oidcAuthProvider.DeleteUserSession(ctx, sid)
+	err = oidcAuthProvider.DeleteUserSession(ctx, sid)
 	require.NoError(t, err)
 }
 
@@ -198,7 +197,7 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 
-	oidcAuthProvider.ClearNonCurrentSessions(ctx, sid)
+	err = oidcAuthProvider.ClearNonCurrentSessions(ctx, sid)
 	require.NoError(t, err)
 }
 
@@ -242,7 +241,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 	require.NoError(t, err)
 
 	// create session for the user
-	session := clsessions.NewSession()
+	session := sessions.NewSession()
 
 	// token expired 4 hours ago
 	expiredTime := time.Now().Add(-cfg.SessionTimeout().Duration() - 4*time.Hour)
@@ -257,7 +256,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 
 	// get user from session, expect error
 	_, err = oidcAuthProvider.AuthorizedUserWithSession(ctx, session.ID)
-	require.Equal(t, err, clsessions.ErrUserSessionExpired)
+	require.Equal(t, err, sessions.ErrUserSessionExpired)
 }
 
 func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
@@ -268,7 +267,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, clsessions.UserRoleView)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, sessions.UserRoleView)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -283,7 +282,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	user, err := oidcAuthProvider.AuthorizedUserWithSession(ctx, sid)
 	require.NoError(t, err)
 	require.Equal(t, user1.Email, user.Email)
-	require.Equal(t, clsessions.UserRoleView, user.Role)
+	require.Equal(t, sessions.UserRoleView, user.Role)
 }
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
@@ -303,6 +302,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	_, err = oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
 
 	// create session with a invalid password, expect error
 	sessionRequest = sessions.SessionRequest{
