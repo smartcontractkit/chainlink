@@ -8,24 +8,16 @@ import (
 	"testing"
 	"time"
 
-	// "time"
-
-	// "github.com/stretchr/testify/assert"
-	// "github.com/stretchr/testify/mock"
-	// "github.com/stretchr/testify/require"
-
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/jmoiron/sqlx"
-	"github.com/stretchr/testify/require"
-
-	// "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
+	"github.com/stretchr/testify/require"
 )
 
 // Setup oidc Auth authenticator
@@ -137,8 +129,7 @@ func TestORM_ListUsers(t *testing.T) {
 			}
 		}
 		if !match {
-			log.Error("user not found in ListUsers result: %#v", u.Email)
-			panic("match not found")
+			t.Errorf("user not found in ListUsers result: %#v", u.Email)
 		}
 	}
 }
@@ -160,6 +151,131 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
+}
+
+func TestORM_DeleteSession(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+
+	// create session for the user
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+
+	oidcAuthProvider.DeleteUserSession(ctx, sid)
+	require.NoError(t, err)
+}
+
+func TestORM_ClearNonConcurrentSession(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+
+	// create session for the user
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+
+	oidcAuthProvider.ClearNonCurrentSessions(ctx, sid)
+	require.NoError(t, err)
+}
+
+func Test_AuthorizeUserWithSession_Success(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+
+	// create session for the user
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+
+	// get user from session, expect ok
+	user, err := oidcAuthProvider.AuthorizedUserWithSession(ctx, sid)
+	require.NoError(t, err)
+
+	require.Equal(t, user1.Email, user.Email)
+	require.Equal(t, user1.Role, user.Role)
+}
+
+func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	cfg := oidcauth.TestConfig{}
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+
+	// create session for the user
+	session := clsessions.NewSession()
+
+	// token expired 4 hours ago
+	expiredTime := time.Now().Add(-cfg.SessionTimeout().Duration() - 4*time.Hour)
+	_, err := db.ExecContext(ctx,
+		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, $4)",
+		session.ID,
+		strings.ToLower(user1.Email),
+		user1.Role,
+		expiredTime,
+	)
+	require.NoError(t, err)
+
+	// get user from session, expect error
+	_, err = oidcAuthProvider.AuthorizedUserWithSession(ctx, session.ID)
+	require.Equal(t, err, clsessions.ErrUserSessionExpired)
+}
+
+func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	db, oidcAuthProvider := setupAuthenticationProvider(t)
+	user1 := cltest.MustRandomUser(t)
+
+	// create user
+	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
+	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, clsessions.UserRoleView)
+
+	// create session for the user
+	sessionRequest := sessions.SessionRequest{
+		Email:    user1.Email,
+		Password: cltest.Password,
+	}
+	sid, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	require.NoError(t, err)
+
+	// get user from session id
+	user, err := oidcAuthProvider.AuthorizedUserWithSession(ctx, sid)
+	require.NoError(t, err)
+	require.Equal(t, user.Email, user1.Email)
+	require.Equal(t, user.Role, clsessions.UserRoleView)
 }
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
