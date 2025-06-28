@@ -1,16 +1,6 @@
-// TODO: harry update this comment
 /*
-The OIDC module handles implementation of the initial auth flow redirects by requiring
-conustruction with a reference to the HTTP router, verifying the attestation against
-the config's Provider service, and then creating a sesion based on the OIDC response
-id claim e.g 'groups' with roles mapped within the config.
-
-This module configures and spins up its own gin http api router to handle the single callback endpoint.
-
-NewApplication would have needed to rely on the created router engine, but the router
-engine requires the application to have already been created. It works better to have a
-second, standalone router and http listener initiated conditionally here when the OIDC
-driver is used, where the callback routes are self contained and managed within this module.
+The OIDC module handles authentication by redirecting to a
+Open ID Connect Identity Provider.
 */
 package oidcauth
 
