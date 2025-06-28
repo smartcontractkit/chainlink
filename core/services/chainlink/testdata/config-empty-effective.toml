@@ -104,7 +104,7 @@ EditClaim = 'NodeEditors'
 RunClaim = 'NodeRunners'
 ReadClaim = 'NodeReadOnly'
 SessionTimeout = '15m0s'
-UserApiTokenEnabled = false
+UserAPITokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
 
 [WebServer.MFA]
