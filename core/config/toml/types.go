@@ -834,13 +834,13 @@ func (w *WebServer) ValidateConfig() (err error) {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
 		}
 		if w.OIDC.ProviderURL == nil || *w.OIDC.ProviderURL == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderURL", Msg: "OIDC ProviderDomain can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderURL", Msg: "OIDC ProviderURL can not be empty"})
 		}
 		if w.OIDC.RedirectURL == nil || *w.OIDC.RedirectURL == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURL", Msg: "OIDC OIDCCallbackURL can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.RedirectURL", Msg: "OIDC RedirectURL can not be empty"})
 		}
 		if w.OIDC.ClaimName == nil || *w.OIDC.ClaimName == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClaimName", Msg: "OIDC IDClaimKey can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClaimName", Msg: "OIDC ClaimName can not be empty"})
 		}
 		if w.OIDC.AdminClaim == nil || *w.OIDC.AdminClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminClaim", Msg: "OIDC AdminClaim can not be empty"})
@@ -1104,7 +1104,6 @@ func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 func (w *WebServerSecrets) ValidateConfig() (err error) {
 	// Validate LDAP if it has non-zero values
 	if w.LDAP != (WebServerLDAPSecrets{}) {
-
 		if w.LDAP.ServerAddress == nil || w.LDAP.ServerAddress.URL().String() == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ServerAddress", Msg: "WebServerLDAPSecrets ServerAddress cannot be empty"})
 		}

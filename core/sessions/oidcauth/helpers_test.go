@@ -21,7 +21,6 @@ func NewTestOIDCAuthenticator(
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
 ) (*oidcAuthenticator, error) {
-
 	var provider *oidc.Provider
 	var oidcConfig *oidc.Config
 	var oauth2Config *oauth2.Config

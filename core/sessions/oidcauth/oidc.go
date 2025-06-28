@@ -244,7 +244,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
 	// Map the claims to a role and insert a newly created session paired with role mapping for user
-	role, err := oi.IdClaimsToUserRole(
+	role, err := oi.IDClaimsToUserRole(
 		idClaims,
 		oi.config.AdminClaim(),
 		oi.config.EditClaim(),
@@ -299,12 +299,12 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 
 	if err != nil {
 		// If the error is not that no local user was found, log and exit
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return clsessions.User{}, errors.New("user not found")
-		} else {
-			oi.lggr.Errorf("error searching users table: %v", err)
-			return clsessions.User{}, errors.New("error finding user")
 		}
+
+		oi.lggr.Errorf("error searching users table: %v", err)
+		return clsessions.User{}, errors.New("error finding user")
 	}
 
 	return foundUser, nil
@@ -608,7 +608,7 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func (oi *oidcAuthenticator) IdClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
+func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
 	for _, group := range idClaims {
 		if group == adminClaim {
