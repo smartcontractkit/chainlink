@@ -53,7 +53,8 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// Find user
 	foundUser, err := oidcAuthProvider.FindUser(ctx, user1.Email)
@@ -113,7 +114,8 @@ func TestORM_ListUsers(t *testing.T) {
 	for _, u := range users {
 		// create user
 		sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-		db.GetContext(ctx, u, sql, strings.ToLower(u.Email), u.HashedPassword, u.Role)
+		_, err := db.ExecContext(ctx, sql, strings.ToLower(u.Email), u.HashedPassword, u.Role)
+		require.NoError(t, err)
 	}
 
 	// List User
@@ -142,14 +144,15 @@ func TestORM_CreateSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// create session for the user
 	sessionRequest := sessions.SessionRequest{
 		Email:    user1.Email,
 		Password: cltest.Password,
 	}
-	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
+	_, err = oidcAuthProvider.CreateSession(ctx, sessionRequest)
 	require.NoError(t, err)
 }
 
@@ -161,7 +164,8 @@ func TestORM_DeleteSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// create session for the user
 	sessionRequest := sessions.SessionRequest{
@@ -183,7 +187,8 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// create session for the user
 	sessionRequest := sessions.SessionRequest{
@@ -205,7 +210,8 @@ func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// create session for the user
 	sessionRequest := sessions.SessionRequest{
@@ -232,14 +238,15 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	require.NoError(t, err)
 
 	// create session for the user
 	session := clsessions.NewSession()
 
 	// token expired 4 hours ago
 	expiredTime := time.Now().Add(-cfg.SessionTimeout().Duration() - 4*time.Hour)
-	_, err := db.ExecContext(ctx,
+	_, err = db.ExecContext(ctx,
 		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, $4)",
 		session.ID,
 		strings.ToLower(user1.Email),
@@ -261,7 +268,8 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, clsessions.UserRoleView)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, clsessions.UserRoleView)
+	require.NoError(t, err)
 
 	// create session for the user
 	sessionRequest := sessions.SessionRequest{
@@ -274,8 +282,8 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	// get user from session id
 	user, err := oidcAuthProvider.AuthorizedUserWithSession(ctx, sid)
 	require.NoError(t, err)
-	require.Equal(t, user.Email, user1.Email)
-	require.Equal(t, user.Role, clsessions.UserRoleView)
+	require.Equal(t, user1.Email, user.Email)
+	require.Equal(t, clsessions.UserRoleView, user.Role)
 }
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
@@ -286,15 +294,15 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	db.GetContext(ctx, user1, sql, strings.ToLower(user1.Email), user1.HashedPassword, "admin")
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, "admin")
+	require.NoError(t, err)
 
 	// create session with correct password, expect ok
 	sessionRequest := sessions.SessionRequest{
 		Email:    user1.Email,
 		Password: cltest.Password,
 	}
-	_, err := oidcAuthProvider.CreateSession(ctx, sessionRequest)
-	require.NoError(t, err)
+	_, err = oidcAuthProvider.CreateSession(ctx, sessionRequest)
 
 	// create session with a invalid password, expect error
 	sessionRequest = sessions.SessionRequest{
@@ -305,15 +313,12 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	require.ErrorContains(t, err, "invalid password")
 }
 
-func Test_IdClaimsToUserRole(t *testing.T) {
+func Test_IDClaimsToUserRole(t *testing.T) {
 	t.Parallel()
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
-	if err != nil {
-		t.Errorf("error calling NewTestOIDCAuthenticator: %v", err)
-		return
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name       string
@@ -369,15 +374,14 @@ func Test_IdClaimsToUserRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotRole, err := oidcAuthProvider.IdClaimsToUserRole(tt.idClaims, tt.adminClaim, tt.editClaim, tt.runClaim, tt.readClaim)
-			if err != nil && err != tt.wantErr {
+			gotRole, err := oidcAuthProvider.IDClaimsToUserRole(tt.idClaims, tt.adminClaim, tt.editClaim, tt.runClaim, tt.readClaim)
+			if !errors.Is(err, nil) && !errors.Is(err, tt.wantErr) {
 				t.Errorf("err %v", err)
 			}
 
 			if gotRole != tt.wantRole {
 				t.Errorf("mismatch got %v want %v", gotRole, tt.wantRole)
 			}
-
 		})
 	}
 }
@@ -387,10 +391,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
 	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
-	if err != nil {
-		t.Errorf("error calling NewTestOIDCAuthenticator: %v", err)
-		return
-	}
+	require.NoError(t, err)
 	tests := []struct {
 		name    string
 		claims  map[string]interface{}
@@ -424,7 +425,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 			claims:  map[string]interface{}{"other": []string{"group1"}},
 			key:     "groups",
 			want:    nil,
-			wantErr: fmt.Errorf("claim 'groups' not found in ID token"),
+			wantErr: errors.New("claim 'groups' not found in ID token"),
 		},
 		{
 			name:    "Invalid item type in array",
