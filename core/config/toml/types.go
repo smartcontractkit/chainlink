@@ -866,7 +866,7 @@ func (w *WebServer) ValidateConfig() (err error) {
 		return err
 	}
 
-	return nil
+	return err
 }
 
 type WebServerMFA struct {
