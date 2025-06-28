@@ -243,7 +243,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	resultBytes, err := json.Marshal(responseData)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
+		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
 		if errInner != nil {
 			rawErrMsg = []byte("fatal error" + errInner.Error())
 		}
@@ -253,14 +253,31 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 		}
 		return s.sendResponse(ctx, response, callbackCh)
 	}
-
-	response := gw_handlers.UserCallbackPayload{
-		RawResponse: resultBytes,
+	jsonResponse := jsonrpc.Response{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      jsonRequest.ID,
+		Result:  resultBytes,
+	}
+	rawResponse, err := json.Marshal(jsonResponse)
+	if err != nil {
+		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
+		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
+		if errInner != nil {
+			rawErrMsg = []byte("fatal error" + errInner.Error())
+		}
+		response := gw_handlers.UserCallbackPayload{
+			RawResponse: rawErrMsg,
+			ErrorCode:   api.NodeReponseEncodingError,
+		}
+		return s.sendResponse(ctx, response, callbackCh)
+	}
+	responseObj := gw_handlers.UserCallbackPayload{
+		RawResponse: rawResponse,
 		ErrorCode:   api.NoError,
 	}
 
 	promSecretsCreateSuccess.WithLabelValues(s.donConfig.DonId).Inc()
-	return s.sendResponse(ctx, response, callbackCh)
+	return s.sendResponse(ctx, responseObj, callbackCh)
 }
 
 func (s *service) sendResponse(ctx context.Context, response gw_handlers.UserCallbackPayload, callbackCh chan<- gw_handlers.UserCallbackPayload) error {

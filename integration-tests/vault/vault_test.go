@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"testing"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 type Config struct {
@@ -71,7 +73,7 @@ CORSEnabled = false
 CORSAllowedOrigins = []
 
 [[gatewayConfig.Dons]]
-DonId = ""
+DonId = "vault"
 HandlerName = "vault"
 F = 0
 
@@ -141,34 +143,26 @@ F = 0
 
 			// Print response body
 			body, err := io.ReadAll(resp.Body)
+			fmt.Println("Response Body:", string(body))
 			require.NoError(t, err)
 
 			// Check response status
 			require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
 			// Parse response
-			var response map[string]interface{}
+			var response jsonrpc.Response
 			err = json.Unmarshal(body, &response)
 			require.NoError(t, err)
 
 			// Verify JSON-RPC response structure
-			require.Contains(t, response, "jsonrpc")
-			require.Equal(t, "2.0", response["jsonrpc"])
-			require.Contains(t, response, "id")
-			require.Equal(t, "1", response["id"])
-
-			// Verify the result contains success status
-			if result, ok := response["result"].(map[string]interface{}); ok {
-				require.Contains(t, result, "success")
-				require.True(t, result["success"].(bool), "Secret creation should succeed")
-				if secretID, exists := result["id"]; exists {
-					require.Equal(t, "test-secret", secretID, "Secret ID should match the provided ID")
-				}
-			} else {
-				// If there's an error, log it for debugging
-				t.Logf("Response: %+v", response)
-				require.Contains(t, response, "error", "Expected either result or error in response")
-			}
+			require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
+			require.Equal(t, "1", response.ID)
+			var result vault.SecretsCreateResponse
+			err = json.Unmarshal(response.Result, &result)
+			require.NoError(t, err)
+			require.True(t, result.Success)
+			require.Equal(t, "test-secret", result.ID)
+			require.Empty(t, result.ErrorMessage)
 		}
 	})
 }
