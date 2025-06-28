@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/solana"
 )
 
 func TestContractReaderConfigRaw(t *testing.T) {
@@ -16,7 +16,7 @@ func TestContractReaderConfigRaw(t *testing.T) {
 	raw, err := json.Marshal(cfg)
 	require.NoError(t, err)
 
-	var result config.ContractReader
+	var result solana.ContractReader
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.Equal(t, cfg, result)
 

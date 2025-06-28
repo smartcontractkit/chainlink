@@ -8,8 +8,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	soltypes "github.com/smartcontractkit/chainlink-common/pkg/types/solana"
 	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 )
@@ -47,7 +47,7 @@ func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.
 // GetChainReader returns a new ContractReader for Solana chains.
 func (g ChainRWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	var err error
-	var cfg config.ContractReader
+	var cfg soltypes.ContractReader
 	if params.ChainID == params.DestChainID && params.ChainFamily == params.DestChainFamily {
 		cfg, err = ccipconfig.DestContractReaderConfig()
 		if err != nil {
