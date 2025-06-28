@@ -250,8 +250,8 @@ EditUserGroupCN = 'NodeEditors' # Default
 RunUserGroupCN = 'NodeRunners' # Default
 # ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
 ReadUserGroupCN = 'NodeReadOnly' # Default
-# UserAPITokenEnabled enables the users to issue API tokens with the same access of their role
-UserAPITokenEnabled = false # Default
+# UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+UserApiTokenEnabled = false # Default
 # UserAPITokenDuration is the duration of time an API token is active for before expiring
 UserAPITokenDuration = '240h0m0s' # Default
 # UpstreamSyncInterval is the interval at which the background LDAP sync task will be called. A '0s' value disables the background sync being run on an interval. This check is already performed during login/logout actions, all sessions and API tokens stored in the local ldap tables are updated to match the remote server

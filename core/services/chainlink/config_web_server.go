@@ -297,11 +297,11 @@ func (l *ldapConfig) ReadUserGroupCN() string {
 	return *l.c.ReadUserGroupCN
 }
 
-func (l *ldapConfig) UserAPITokenEnabled() bool {
-	if l.c.UserAPITokenEnabled == nil {
+func (l *ldapConfig) UserApiTokenEnabled() bool {
+	if l.c.UserApiTokenEnabled == nil {
 		return false
 	}
-	return *l.c.UserAPITokenEnabled
+	return *l.c.UserApiTokenEnabled
 }
 
 func (l *ldapConfig) UpstreamSyncInterval() commonconfig.Duration {

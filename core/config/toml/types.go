@@ -830,28 +830,28 @@ func (w *WebServer) ValidateConfig() (err error) {
 		}
 		return err
 	case string(sessions.OIDCAuth):
-		if *w.OIDC.ClientID == "" {
+		if w.OIDC.ClientID == nil || *w.OIDC.ClientID == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
 		}
-		if *w.OIDC.ProviderURL == "" {
+		if w.OIDC.ProviderURL == nil || *w.OIDC.ProviderURL == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderURL", Msg: "OIDC ProviderDomain can not be empty"})
 		}
-		if *w.OIDC.RedirectURL == "" {
+		if w.OIDC.RedirectURL == nil || *w.OIDC.RedirectURL == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURL", Msg: "OIDC OIDCCallbackURL can not be empty"})
 		}
-		if *w.OIDC.ClaimName == "" {
+		if w.OIDC.ClaimName == nil || *w.OIDC.ClaimName == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClaimName", Msg: "OIDC IDClaimKey can not be empty"})
 		}
-		if *w.OIDC.AdminClaim == "" {
+		if w.OIDC.AdminClaim == nil || *w.OIDC.AdminClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminClaim", Msg: "OIDC AdminClaim can not be empty"})
 		}
-		if *w.OIDC.EditClaim == "" {
+		if w.OIDC.EditClaim == nil || *w.OIDC.EditClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.EditClaim", Msg: "OIDC EditClaim can not be empty"})
 		}
-		if *w.OIDC.RunClaim == "" {
+		if w.OIDC.RunClaim == nil || *w.OIDC.RunClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.RunClaim", Msg: "OIDC RunClaim can not be empty"})
 		}
-		if *w.OIDC.ReadClaim == "" {
+		if w.OIDC.ReadClaim == nil || *w.OIDC.ReadClaim == "" {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ReadClaim", Msg: "OIDC ReadClaim can not be empty"})
 		}
 		if w.OIDC.SessionTimeout == commonconfig.MustNewDuration(0) {
@@ -949,7 +949,7 @@ type WebServerLDAP struct {
 	EditUserGroupCN             *string
 	RunUserGroupCN              *string
 	ReadUserGroupCN             *string
-	UserAPITokenEnabled         *bool
+	UserApiTokenEnabled         *bool
 	UserAPITokenDuration        *commonconfig.Duration
 	UpstreamSyncInterval        *commonconfig.Duration
 	UpstreamSyncRateLimit       *commonconfig.Duration
@@ -998,8 +998,8 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.ReadUserGroupCN; v != nil {
 		w.ReadUserGroupCN = v
 	}
-	if v := f.UserAPITokenEnabled; v != nil {
-		w.UserAPITokenEnabled = v
+	if v := f.UserApiTokenEnabled; v != nil {
+		w.UserApiTokenEnabled = v
 	}
 	if v := f.UserAPITokenDuration; v != nil {
 		w.UserAPITokenDuration = v

@@ -113,7 +113,7 @@ func (t *TestConfig) ReadUserGroupCN() string {
 	return NodeReadOnlyGroupCN
 }
 
-func (t *TestConfig) UserAPITokenEnabled() bool {
+func (t *TestConfig) UserApiTokenEnabled() bool {
 	return true
 }
 

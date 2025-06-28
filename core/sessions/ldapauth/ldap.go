@@ -203,7 +203,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 
 // FindUserByAPIToken retrieves a possible stored user and role from the ldap_user_api_tokens table store
 func (l *ldapAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (sessions.User, error) {
-	if !l.config.UserAPITokenEnabled() {
+	if !l.config.UserApiTokenEnabled() {
 		return sessions.User{}, errors.New("API token is not enabled ")
 	}
 
@@ -539,7 +539,7 @@ func (l *ldapAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *ses
 
 // SetAuthToken updates the user to use the given Authentication Token.
 func (l *ldapAuthenticator) SetAuthToken(ctx context.Context, user *sessions.User, token *auth.Token) error {
-	if !l.config.UserAPITokenEnabled() {
+	if !l.config.UserApiTokenEnabled() {
 		return errors.New("API token is not enabled ")
 	}
 
