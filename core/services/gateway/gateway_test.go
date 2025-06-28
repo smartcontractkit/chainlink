@@ -137,7 +137,7 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	servicetest.Run(t, gateway)
 }
 
-func requireJsonRPCResult(t *testing.T, response []byte, expectedID string, expectedResult string) {
+func requireJSONRPCResult(t *testing.T, response []byte, expectedID string, expectedResult string) {
 	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedID, expectedResult), string(response))
 }
 
@@ -253,7 +253,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCResult(t, response, "abcd",
+	requireJSONRPCResult(t, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"request","don_id":"testDON","receiver":"","payload":{"result":"OK"}}}`)
 	require.Equal(t, 200, statusCode)
 }
@@ -278,7 +278,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJsonRPCResult(t, response, "abcd", `{"result":"OK"}`)
+	requireJSONRPCResult(t, response, "abcd", `{"result":"OK"}`)
 	require.Equal(t, 200, statusCode)
 }
 
