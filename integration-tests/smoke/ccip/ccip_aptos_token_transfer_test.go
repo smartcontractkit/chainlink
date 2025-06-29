@@ -182,7 +182,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 
 	callOpts := &bind.CallOpts{Context: ctx}
 	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
-	require.NoError(t, err, "Failed to get destination chain config")
+	require.NoError(t, err, "Failed to get destination chain fee quoter config")
 
 	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
 		msg := router.ClientEVM2AnyMessage{
@@ -449,7 +449,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 		e.Env.BlockChains.AptosChains()[sourceChain].Client)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
-	require.NoError(t, err, "Failed to get destination chain config")
+	require.NoError(t, err, "Failed to get destination chain fee quoter config")
 
 	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
 		msg := testhelpers.AptosSendRequest{
