@@ -91,6 +91,7 @@ type TestCase struct {
 	ExtraArgs              []byte
 	FeeToken               string
 	ExpectedExecutionState int
+	ExpRevertOnSource      bool
 	ExtraAssertions        []func(t *testing.T)
 	NumberOfMessages       int // number of messages to send, use same data and extraArgs
 }

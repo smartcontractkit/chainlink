@@ -66,7 +66,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			Name:      "hit limit on data",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
-				Data:     []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
+				Data:     []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 				FeeToken: common.HexToAddress("0x0"),
 			},
 		},
@@ -77,7 +77,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				Receiver: common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: testSetup.SrcToken, Amount: big.NewInt(1)},
-				}, int(testSetup.SrcFeeQuoterDestChainConfig.MaxNumberOfTokensPerMsg)),
+				}, int(chain0DestConfig.MaxNumberOfTokensPerMsg)),
 				FeeToken: common.HexToAddress("0x0"),
 			},
 		},
@@ -86,9 +86,9 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			Name:      "hit limit on gas limit",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:  common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
-				Data:      []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes))),
+				Data:      []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
 			},
 		},
 		// { // TODO: exec plugin never executed this message. CCIP-4471
@@ -110,7 +110,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 			Name:      "exceeding maxDataBytes",
 			Msg: router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.MustGetEVMChainState(testSetup.DestChain).Receiver.Address().Bytes(), 32),
-				Data:         []byte(strings.Repeat("0", int(testSetup.SrcFeeQuoterDestChainConfig.MaxDataBytes)+1)),
+				Data:         []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes)+1)),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
@@ -125,7 +125,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				Data:     []byte("abc"),
 				TokenAmounts: slices.Repeat([]router.ClientEVMTokenAmount{
 					{Token: testSetup.SrcToken, Amount: big.NewInt(1)},
-				}, int(testSetup.SrcFeeQuoterDestChainConfig.MaxNumberOfTokensPerMsg)+1),
+				}, int(chain0DestConfig.MaxNumberOfTokensPerMsg)+1),
 				FeeToken:  common.HexToAddress("0x0"),
 				ExtraArgs: nil,
 			},
@@ -139,7 +139,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				Data:         []byte("abc"),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true),
+				ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit)+1, true),
 			},
 			ExpRevert: true,
 		},
