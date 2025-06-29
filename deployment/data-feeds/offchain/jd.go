@@ -18,11 +18,11 @@ import (
 
 type NodesFilter struct {
 	DONID        uint64   `json:"donId"` // Required
-	EnvLabel     string   `json:"envLabel"`
-	ProductLabel string   `json:"productLabel"`
-	Size         int      `json:"size"`
-	IsBootstrap  bool     `json:"isBootstrap"`
-	NodeIDs      []string `json:"nodeIds"` // Optional, if other filters are provided
+	EnvLabel     string   `json:"envLabel,omitempty" yaml:"envLabel,omitempty"`
+	ProductLabel string   `json:"productLabel,omitempty" yaml:"productLabel,omitempty"`
+	Size         int      `json:"size,omitempty" yaml:"size,omitempty"`
+	IsBootstrap  bool     `json:"isBootstrap,omitempty" yaml:"isBootstrap,omitempty"`
+	NodeIDs      []string `json:"nodeIds,omitempty" yaml:"nodeIds,omitempty"` // Optional, if other filters are provided
 }
 
 func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {

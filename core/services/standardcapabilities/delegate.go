@@ -12,12 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -50,7 +52,7 @@ type Delegate struct {
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
-	selectorOpts            []func(*webapi.RoundRobinSelector)
+	selectorOpts            []func(*gateway.RoundRobinSelector)
 
 	isNewlyCreatedJob bool
 }
@@ -77,7 +79,7 @@ func NewDelegate(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
-	opts ...func(*webapi.RoundRobinSelector),
+	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -195,13 +197,16 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
 	}
+	var connector connector.GatewayConnector
+	if d.gatewayConnectorWrapper != nil {
+		connector = d.gatewayConnectorWrapper.GetGatewayConnector()
+	}
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
 		if d.gatewayConnectorWrapper == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
-		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
@@ -213,7 +218,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.gatewayConnectorWrapper == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
-		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
@@ -253,7 +257,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 			lggr := d.logger.Named("ComputeAction")
 
-			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
+			handler, err := webapi.NewOutgoingConnectorHandler(connector, cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
 			if err != nil {
 				return nil, err
 			}
@@ -283,7 +287,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory)
+		pr, relayerSet, oracleFactory, connector)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }

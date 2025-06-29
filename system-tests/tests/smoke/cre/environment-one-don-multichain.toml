@@ -60,7 +60,7 @@
 
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]

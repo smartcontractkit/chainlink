@@ -124,6 +124,8 @@ LogBroadcasterEnabled = true # Default
 NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
+# ConfirmationTimeout time to wait for a TX to get into a block in the blockchain. This is used for the EVMService.SubmitTransaction operation.
+ConfirmationTimeout = '60s' # Default
 # Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 Enabled = true # Default
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
@@ -387,7 +389,7 @@ SamplingInterval = '1s' # Default
 # FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
 # It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
 # Has no effect if `FinalityTagsEnabled` = false
-FinalityTagBypass = true # Default
+FinalityTagBypass = false # Default
 # MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false

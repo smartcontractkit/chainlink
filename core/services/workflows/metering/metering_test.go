@@ -2,7 +2,7 @@ package metering
 
 import (
 	"errors"
-	"math"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -10,12 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
-	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -25,6 +32,182 @@ const (
 	testUnitA               = "a"
 	testUnitB               = "b"
 )
+
+var (
+	successReserveResponse          = billing.ReserveCreditsResponse{Success: true, Credits: 10_000}
+	successReserveResponseWithRates = billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+		{ResourceUnit: testUnitA, ConversionRate: "2"},
+	}, Credits: 10_000}
+	failureReserveResponse = billing.ReserveCreditsResponse{Success: false}
+	defaultLabels          = map[string]string{
+		platform.KeyWorkflowOwner:       "accountId",
+		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowExecutionID: "workflowExecutionId",
+	}
+)
+
+func Test_Report(t *testing.T) {
+	t.Parallel()
+
+	t.Run("error if incorrect labels", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		_, err := NewReport(map[string]string{}, logger.Nop(), billingClient)
+		require.ErrorIs(t, err, ErrMissingLabels)
+	})
+}
+
+func Test_Report_MeteringMode(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Reserve switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("if billing client is nil", func(t *testing.T) {
+			t.Parallel()
+
+			report := newTestReport(t, logger.Nop(), nil)
+
+			require.NoError(t, report.Reserve(t.Context()))
+			assert.True(t, report.meteringMode)
+		})
+
+		t.Run("if billing client returns an error", func(t *testing.T) {
+			t.Parallel()
+
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, logger.Nop(), billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
+			require.NoError(t, report.Reserve(t.Context()))
+			require.True(t, report.meteringMode)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if rate card contains invalid entry", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+					{ResourceUnit: "unit", ConversionRate: "invalid"},
+				}, Credits: 10_000}, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+			require.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+	})
+
+	t.Run("ConvertToBalance falls back to 1:1 when rate is not found and switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+				{ResourceUnit: testUnitB, ConversionRate: "10"},
+			}}, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		amount, err := report.ConvertToBalance(testUnitA, decimal.NewFromInt(1))
+		require.NoError(t, err)
+		assert.True(t, amount.Equal(decimal.NewFromInt(1)))
+		require.True(t, report.meteringMode)
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("GetMaxSpendForInvocation returns null decimal in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		emptyUserSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("nope"))
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		available, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 1)
+		require.NoError(t, err)
+		assert.False(t, available.Valid)
+		billingClient.AssertExpectations(t)
+	})
+
+	two := decimal.NewFromInt(2)
+
+	t.Run("Deduct does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("everything is on fire"))
+		require.NoError(t, report.Reserve(t.Context()))
+
+		balanceBefore := report.balance.balance
+		require.NoError(t, report.Deduct("ref1", two))
+
+		balanceAfter := report.balance.balance
+		assert.Equal(t, balanceBefore, balanceAfter)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("Settle does not modify local balance in metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		// trigger metering mode with a billing reserve error
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errors.New("everything is still on fire"))
+		require.NoError(t, report.Reserve(t.Context()))
+
+		balanceBefore := report.balance.balance
+
+		require.NoError(t, report.Deduct("ref1", two))
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
+		}
+		require.NoError(t, report.Settle("ref1", steps))
+
+		balanceAfter := report.balance.balance
+		require.Equal(t, balanceBefore, balanceAfter)
+	})
+
+	t.Run("CreditToSpendingLimits switches to metering mode if rate does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, lggr, billingClient)
+
+		// trigger metering mode with a billing reserve error
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
+		}, decimal.NewFromInt(1_000))
+
+		assert.Nil(t, limits)
+		assert.True(t, report.meteringMode)
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
+}
 
 func Test_medianSpend(t *testing.T) {
 	t.Parallel()
@@ -93,182 +276,183 @@ func Test_medianSpend(t *testing.T) {
 func Test_Report_Reserve(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Reserve returns an error if no billing client is given", func(t *testing.T) {
+	t.Run("returns an error if insufficient funding", func(t *testing.T) {
 		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		err := report.Reserve(t.Context())
-		require.ErrorIs(t, err, ErrNoBillingClient)
-	})
 
-	t.Run("Reserve turns on metering mode if the billing client cannot be communicated with", func(t *testing.T) {
-		t.Parallel()
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("some err"))
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		require.True(t, report.balance.allowNegative)
+		lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&failureReserveResponse, nil)
+		require.ErrorIs(t, report.Reserve(t.Context()), ErrInsufficientFunding)
+		assert.False(t, report.meteringMode)
+		assert.Empty(t, logs.All())
+		billingClient.AssertExpectations(t)
 	})
 
-	t.Run("Reserve returns an error if insufficient funding", func(t *testing.T) {
+	t.Run("returns no error on success", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: false}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.ErrorIs(t, err, ErrInsufficientFunding)
-	})
-}
+		lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+		report := newTestReport(t, lggr, billingClient)
 
-func Test_Report_ConvertFromBalance(t *testing.T) {
-	t.Parallel()
-
-	t.Run("error if reserve is not called first", func(t *testing.T) {
-		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		_, err := report.ConvertFromBalance("ref1", 1)
-		require.ErrorIs(t, ErrNoReserve, err)
-	})
-
-	t.Run("happy path", func(t *testing.T) {
-		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "0.5"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		amount, err := report.ConvertFromBalance(testUnitA, 1)
-		require.NoError(t, err)
-		require.Equal(t, int64(2), amount)
-	})
-
-	t.Run("falls back to 1:1 when rate is not found", func(t *testing.T) {
-		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitB, ConversionRate: "10"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		amount, err := report.ConvertFromBalance(testUnitA, 1)
-		require.NoError(t, err)
-		require.Equal(t, int64(1), amount)
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+		assert.False(t, report.meteringMode)
+		assert.Empty(t, logs.All())
+		billingClient.AssertExpectations(t)
 	})
 }
 
 func Test_Report_ConvertToBalance(t *testing.T) {
 	t.Parallel()
 
+	one, two := decimal.NewFromInt(1), decimal.NewFromInt(2)
+
 	t.Run("error if reserve is not called first", func(t *testing.T) {
 		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		_, err := report.ConvertToBalance("ref1", 1)
-		require.ErrorIs(t, ErrNoReserve, err)
+
+		report := newTestReport(t, logger.Nop(), nil)
+		_, err := report.ConvertToBalance("ref1", one)
+
+		require.ErrorIs(t, err, ErrNoReserve)
 	})
 
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		amount, err := report.ConvertToBalance(testUnitA, 1)
-		require.NoError(t, err)
-		require.Equal(t, int64(2), amount)
-	})
 
-	t.Run("falls back to 1:1 when rate is not found", func(t *testing.T) {
-		t.Parallel()
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitB, ConversionRate: "10"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
+				{ResourceUnit: testUnitA, ConversionRate: "2"},
+			}}, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		amount, err := report.ConvertToBalance(testUnitA, one)
 		require.NoError(t, err)
-		amount, err := report.ConvertToBalance(testUnitA, 1)
-		require.NoError(t, err)
-		require.Equal(t, int64(1), amount)
+		assert.True(t, amount.Equal(two))
+		billingClient.AssertExpectations(t)
 	})
 }
 
 func Test_Report_GetAvailableForInvocation(t *testing.T) {
 	t.Parallel()
 
+	emptyUserSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+	emptyUserSpendLimit.Valid = false
+
 	t.Run("error if open slots is 0", func(t *testing.T) {
 		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		_, err := report.GetAvailableForInvocation(0)
+
+		report := newTestReport(t, logger.Nop(), nil)
+		_, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 0)
+
 		require.ErrorIs(t, ErrNoOpenCalls, err)
 	})
 
 	t.Run("error if reserve is not called first", func(t *testing.T) {
 		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		_, err := report.GetAvailableForInvocation(1)
+
+		report := newTestReport(t, logger.Nop(), nil)
+		_, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 1)
+
 		require.ErrorIs(t, ErrNoReserve, err)
 	})
 
-	t.Run("returns maxint64 in metering mode", func(t *testing.T) {
+	t.Run("happy path without user-defined spending limit", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("nope"))
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		// 1 slot = all of available balance
+		available, err := report.GetMaxSpendForInvocation(emptyUserSpendLimit, 1)
 		require.NoError(t, err)
-		available, err := report.GetAvailableForInvocation(1)
-		require.NoError(t, err)
-		require.Equal(t, int64(math.MaxInt64), available)
+
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance take out dummy balance
+		assert.True(t, available.Decimal.Equal(decimal.NewFromInt(10_000)),
+			"unexpected available balance %s", available.Decimal.String())
+		assert.True(t, available.Valid, "available value should be a valid amount")
+		billingClient.AssertExpectations(t)
 	})
 
-	t.Run("happy path", func(t *testing.T) {
+	t.Run("happy path with user-defined spending limit", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
 		// 1 slot = all of available balance
-		available, err := report.GetAvailableForInvocation(1)
+		nonEmptyUserSpendLimit := decimal.NewNullDecimal(decimal.NewFromInt(5_000))
+		nonEmptyUserSpendLimit.Valid = true
+		available, err := report.GetMaxSpendForInvocation(nonEmptyUserSpendLimit, 1)
 		require.NoError(t, err)
+
 		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-290 once billing client response contains balance take out dummy balance
-		require.Equal(t, int64(10000), available)
+		assert.True(t, available.Decimal.Equal(decimal.NewFromInt(5_000)), available.Decimal.String())
+		assert.True(t, available.Valid, "available value should be a valid amount")
+		billingClient.AssertExpectations(t)
 	})
 }
 
 func Test_Report_Deduct(t *testing.T) {
 	t.Parallel()
 
+	one := decimal.NewFromInt(1)
+	two := decimal.NewFromInt(2)
+
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), nil)
-		err := report.Deduct("ref1", 1)
-		require.ErrorIs(t, err, ErrNoReserve)
+
+		report := newTestReport(t, logger.Nop(), nil)
+
+		require.ErrorIs(t, report.Deduct("ref1", one), ErrNoReserve)
 	})
 
 	t.Run("returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		err = report.Deduct("ref1", 2)
-		require.NoError(t, err)
-		err = report.Deduct("ref1", 1)
-		require.ErrorIs(t, err, ErrStepDeductExists)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		require.NoError(t, report.Deduct("ref1", two))
+		require.ErrorIs(t, report.Deduct("ref1", one), ErrStepDeductExists)
+		billingClient.AssertExpectations(t)
 	})
 
-	t.Run("does not modify local balance in metering mode", func(t *testing.T) {
+	t.Run("returns insufficient balance when not in metering mode", func(t *testing.T) {
 		t.Parallel()
+
+		deductValue := decimal.NewFromInt(11_000)
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("everything is on fire"))
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		balanceBefore := report.balance.balance
-		err = report.Deduct("ref1", 2)
-		require.NoError(t, err)
-		balanceAfter := report.balance.balance
-		require.Equal(t, balanceBefore, balanceAfter)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		require.ErrorIs(t, report.Deduct("ref1", deductValue), ErrInsufficientBalance)
+		billingClient.AssertExpectations(t)
 	})
 }
 
@@ -277,100 +461,86 @@ func Test_Report_Settle(t *testing.T) {
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		spendsByNode := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
-		}
 
-		err := report.Settle("ref1", spendsByNode)
-		require.ErrorIs(t, err, ErrNoReserve)
+		report := newTestReport(t, logger.Nop(), nil)
+
+		require.ErrorIs(t, report.Settle("ref1", []capabilities.MeteringNodeDetail{}), ErrNoReserve)
 	})
 
 	t.Run("returns an error if Deduct is not called first", func(t *testing.T) {
 		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		spendsByNode := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
-		}
 
-		require.ErrorIs(t, report.Settle("ref1", spendsByNode), ErrNoDeduct)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+		require.ErrorIs(t, report.Settle("ref1", []capabilities.MeteringNodeDetail{}), ErrNoDeduct)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("returns an error if step already exists", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
 
 		steps := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
-		require.NoError(t, report.Deduct("ref1", 2))
+		require.NoError(t, report.Deduct("ref1", decimal.NewFromInt(2)))
 		require.NoError(t, report.Settle("ref1", steps))
-		err = report.Settle("ref1", steps)
-		require.ErrorIs(t, err, ErrStepSpendExists)
+		require.ErrorIs(t, report.Settle("ref1", steps), ErrStepSpendExists)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("ignores invalid spend values", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
 
 		steps := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "????"},
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
-		err = report.Deduct("ref1", 2)
-		require.NoError(t, err)
+		require.NoError(t, report.Deduct("ref1", decimal.NewFromInt(2)))
 		require.NoError(t, report.Settle("ref1", steps))
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("does not error when spend exceeds reservation", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
 
 		steps := []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
 		}
 
-		err = report.Deduct("ref1", 1)
-		require.NoError(t, err)
+		require.NoError(t, report.Deduct("ref1", decimal.NewFromInt(1)))
 		require.NoError(t, report.Settle("ref1", steps))
-	})
-
-	t.Run("does not modify local balance in metering mode", func(t *testing.T) {
-		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("everything is still on fire"))
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		balanceBefore := report.balance.balance
-		err = report.Deduct("ref1", 2)
-		require.NoError(t, err)
-		steps := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
-		}
-		err = report.Settle("ref1", steps)
-		require.NoError(t, err)
-		balanceAfter := report.balance.balance
-		require.Equal(t, balanceBefore, balanceAfter)
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
 	})
 }
 
@@ -379,36 +549,39 @@ func Test_Report_FormatReport(t *testing.T) {
 
 	t.Run("does not contain metadata", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
 		meteringReport := report.FormatReport()
-		require.Equal(t, &events.WorkflowMetadata{}, meteringReport.Metadata)
+		require.Equal(t, &eventspb.WorkflowMetadata{}, meteringReport.Metadata)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("contains all step data", func(t *testing.T) {
 		t.Parallel()
+
 		numSteps := 100
 		billingClient := mocks.NewBillingClient(t)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		report := newTestReport(t, logger.Nop(), billingClient)
 
-		expected := map[string]*events.MeteringReportStep{}
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		expected := map[string]*eventspb.MeteringReportStep{}
 
 		for i := range numSteps {
 			stepRef := strconv.Itoa(i)
-			err := report.Deduct(stepRef, 1)
-			require.NoError(t, err)
-			spendsByNode := []capabilities.MeteringNodeDetail{
+
+			require.NoError(t, report.Deduct(stepRef, decimal.NewFromInt(1)))
+			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
 				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
-			}
-			err = report.Settle(stepRef, spendsByNode)
-			require.NoError(t, err)
-			expected[stepRef] = &events.MeteringReportStep{Nodes: []*events.MeteringReportNodeDetail{
+			}))
+
+			expected[stepRef] = &eventspb.MeteringReportStep{Nodes: []*eventspb.MeteringReportNodeDetail{
 				{
 					Peer_2PeerId: "xyz",
 					SpendUnit:    "a",
@@ -417,7 +590,8 @@ func Test_Report_FormatReport(t *testing.T) {
 			}}
 		}
 
-		require.Equal(t, expected, report.FormatReport().Steps)
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		billingClient.AssertExpectations(t)
 	})
 }
 
@@ -426,42 +600,131 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
-		billingClient := mocks.NewBillingClient(t)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.SendReceipt(t.Context())
-		require.ErrorIs(t, err, ErrNoReserve)
+
+		report := newTestReport(t, logger.Nop(), nil)
+
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrNoReserve)
+	})
+
+	t.Run("returns an error billing client not set", func(t *testing.T) {
+		t.Parallel()
+
+		report := newTestReport(t, logger.Nop(), nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrNoBillingClient)
 	})
 
 	t.Run("returns an error if unable to call billing client", func(t *testing.T) {
 		t.Parallel()
+
 		someErr := errors.New("error")
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, someErr)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
-		err = report.SendReceipt(t.Context())
-		require.ErrorIs(t, err, someErr)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(nil, someErr)
+
+		require.NoError(t, report.Reserve(t.Context()))
+		require.ErrorIs(t, report.SendReceipt(t.Context()), someErr)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("returns an error if billing client call is unsuccessful", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		report := NewReport(testAccountID, testWorkflowID, testWorkflowExecutionID, logger.TestSugared(t), billingClient)
-		err := report.Reserve(t.Context())
-		require.NoError(t, err)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
 
 		// errors on nil response
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, nil)
-		err = report.SendReceipt(t.Context())
-		require.ErrorIs(t, err, ErrReceiptFailed)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(nil, nil)
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
 
 		// errors on unsuccessful response
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: false}, nil)
-		err = report.SendReceipt(t.Context())
-		require.ErrorIs(t, err, ErrReceiptFailed)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&billing.SubmitWorkflowReceiptResponse{Success: false}, nil)
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
+
+		billingClient.AssertExpectations(t)
+	})
+}
+
+func Test_Report_EmitReceipt(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// No parallel
+		beholderTester := beholdertest.NewObserver(t)
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		require.NoError(t, report.EmitReceipt(t.Context()))
+
+		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
+
+		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity))
+
+		for _, msg := range messages {
+			entity := msg.Attrs["beholder_entity"]
+			if entity == fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity) {
+				var report eventspb.MeteringReport
+				require.NoError(t, proto.Unmarshal(msg.Body, &report))
+				assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
+				assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
+				assert.Equal(t, testAccountID, report.Metadata.WorkflowOwner)
+			}
+		}
+	})
+
+	t.Run("returns an error if not initialized", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		require.ErrorIs(t, report.EmitReceipt(t.Context()), ErrNoReserve)
+	})
+}
+
+func Test_Report_CreditToSpendingLimits(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path puts entire balance as first spend type", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB},
+		}, decimal.NewFromInt(1_000))
+
+		require.NotNil(t, limits)
+		require.Len(t, limits, 1)
+		assert.Equal(t, testUnitA, string(limits[0].SpendType))
+		assert.Equal(t, "500.000", limits[0].Limit)
+	})
+
+	t.Run("empty limits for empty spend types", func(t *testing.T) {
+		t.Parallel()
+
+		report := newTestReport(t, logger.Nop(), nil)
+		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{}, decimal.NewFromInt(1_000))
+
+		assert.Nil(t, limits)
 	})
 }
 
@@ -473,48 +736,55 @@ func Test_MeterReports(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
-		err = r.Reserve(t.Context())
-		require.NoError(t, err)
-		err = r.Deduct(capabilityCall1, 1)
-		require.NoError(t, err)
-		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+
+		require.NoError(t, r.Reserve(t.Context()))
+		require.NoError(t, r.Deduct(capabilityCall1, decimal.NewFromInt(1)))
+		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "0.8"},
 			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "0.9"},
 			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
-		})
-		require.NoError(t, err)
-		err = mrs.End(t.Context(), workflowExecutionID1)
-		require.NoError(t, err)
+		}))
+		require.NoError(t, mrs.End(t.Context(), workflowExecutionID1))
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("happy path in metering mode", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(nil, errors.New("cannot"))
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("cannot"))
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
-		err = r.Reserve(t.Context())
-		require.NoError(t, err)
-		err = r.Deduct(capabilityCall1, 1)
-		require.NoError(t, err)
-		err = r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+
+		require.NoError(t, r.Reserve(t.Context()))
+		require.NoError(t, r.Deduct(capabilityCall1, decimal.NewFromInt(1)))
+		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
-		})
-		require.NoError(t, err)
-		err = mrs.End(t.Context(), workflowExecutionID1)
-		require.NoError(t, err)
+		}))
+		require.NoError(t, mrs.End(t.Context(), workflowExecutionID1))
+		billingClient.AssertExpectations(t)
 	})
 }
 
@@ -522,22 +792,28 @@ func Test_MeterReports_Length(t *testing.T) {
 	t.Parallel()
 
 	billingClient := mocks.NewBillingClient(t)
-	billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-	billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-	mrs := NewReports(billingClient, "", "", logger.Test(t))
-
-	_, err := mrs.Start(t.Context(), "exec1")
+	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
+	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
+	mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
+	billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+		Return(&successReserveResponse, nil)
+	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
+	_, err = mrs.Start(t.Context(), "exec1")
+	require.NoError(t, err)
+
 	mr, err := mrs.Start(t.Context(), "exec2")
 	require.NoError(t, err)
+
 	_, err = mrs.Start(t.Context(), "exec3")
 	require.NoError(t, err)
 	assert.Equal(t, 3, mrs.Len())
 
-	err = mr.Reserve(t.Context())
-	require.NoError(t, err)
-	err = mrs.End(t.Context(), "exec2")
-	require.NoError(t, err)
+	require.NoError(t, mr.Reserve(t.Context()))
+	require.NoError(t, mrs.End(t.Context(), "exec2"))
 	assert.Equal(t, 2, mrs.Len())
 }
 
@@ -548,9 +824,12 @@ func Test_MeterReports_Start(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
+
 		_, err = mrs.Start(t.Context(), "exec1")
 		require.ErrorIs(t, err, ErrReportExists)
 	})
@@ -561,19 +840,26 @@ func Test_MeterReports_Get(t *testing.T) {
 
 	t.Run("returns when report exists", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		lggr := logger.Test(t)
-		mrs := NewReports(billingClient, "", "", lggr)
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
 		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
+
 		report, exists := mrs.Get("exec1")
 		require.True(t, exists)
 		require.NotEmpty(t, report)
 	})
+
 	t.Run("returns when no report exists", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
 		report, exists := mrs.Get("exec1")
 		require.False(t, exists)
 		require.Nil(t, report)
@@ -585,41 +871,76 @@ func Test_MeterReports_End(t *testing.T) {
 
 	t.Run("can only end existing report", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
-		err := mrs.End(t.Context(), "exec1")
-		require.ErrorIs(t, err, ErrReportNotFound)
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
+		require.ErrorIs(t, mrs.End(t.Context(), "exec1"), ErrReportNotFound)
 	})
 
 	t.Run("cleans up report on successful transmission to billing client", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+
 		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
-		require.Len(t, mrs.reports, 1)
-		err = mr.Reserve(t.Context())
-		require.NoError(t, err)
-		err = mrs.End(t.Context(), "exec1")
-		require.NoError(t, err)
-		require.Empty(t, mrs.reports)
+		assert.Len(t, mrs.reports, 1)
+
+		require.NoError(t, mr.Reserve(t.Context()))
+		require.NoError(t, mrs.End(t.Context(), "exec1"))
+		assert.Empty(t, mrs.reports)
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("cleans up report on failed transmission to billing client", func(t *testing.T) {
 		t.Parallel()
+
 		billingClient := mocks.NewBillingClient(t)
-		billingClient.On("ReserveCredits", mock.Anything, mock.Anything).Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: testUnitA, ConversionRate: "2"}}, Credits: 10000}, nil)
-		billingClient.On("SubmitWorkflowReceipt", mock.Anything, mock.Anything).Return(nil, errors.New("errrrr"))
-		mrs := NewReports(billingClient, "", "", logger.Test(t))
+		metrics := defaultMetrics(t)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(nil, errors.New("errrrr"))
+
 		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
-		require.Len(t, mrs.reports, 1)
-		err = mr.Reserve(t.Context())
-		require.NoError(t, err)
-		err = mrs.End(t.Context(), "exec1")
-		require.Error(t, err)
-		require.Empty(t, mrs.reports)
+		assert.Len(t, mrs.reports, 1)
+
+		require.NoError(t, mr.Reserve(t.Context()))
+		require.Error(t, mrs.End(t.Context(), "exec1"))
+		assert.Empty(t, mrs.reports)
+		billingClient.AssertExpectations(t)
 	})
+}
+
+func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
+	t.Helper()
+
+	if client == nil {
+		meteringReport, err := NewReport(defaultLabels, lggr, nil)
+		require.NoError(t, err)
+		return meteringReport
+	}
+
+	meteringReport, err := NewReport(defaultLabels, lggr, client)
+	require.NoError(t, err)
+
+	return meteringReport
+}
+
+func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
+	em, err := monitoring.InitMonitoringResources()
+	require.NoError(t, err)
+	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }

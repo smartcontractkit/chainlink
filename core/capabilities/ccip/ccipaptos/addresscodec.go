@@ -48,8 +48,8 @@ func addressStringToBytes(addr string) ([]byte, error) {
 	if len(a) > 64 {
 		return nil, fmt.Errorf("invalid Aptos address length, expected at most 64 characters: %s", addr)
 	}
-	for len(a) < 64 {
-		a = "0" + a
+	if len(a) < 64 {
+		a = strings.Repeat("0", 64-len(a)) + a
 	}
 
 	bytes, err := hex.DecodeString(a)
