@@ -27,7 +27,6 @@ func NewTestOIDCAuthenticator(
 	var oauth2Config *oauth2.Config
 	ctx := context.Background()
 	// Initialize provider based on config domain, this contains a blocking call to as part of the OpenID Connect discovery process
-	// TODO:  harry - mock this?
 	provider, err := NewMockProvider(ctx, oidcCfg.ProviderURL())
 	if err != nil {
 		log.Fatalf("Failed to get provider: %v", err)
