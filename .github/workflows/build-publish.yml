@@ -108,7 +108,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-        CL_INSTALL_PRIVATE_PLUGINS=false
+        CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
       docker-cache-behaviour: "disable"
