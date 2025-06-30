@@ -28,6 +28,7 @@ import (
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
@@ -316,9 +317,9 @@ func NewNode(
 		evmchain := EVMChain{
 			DeployerKey: chain.DeployerKey,
 		}
-		backend, ok := chain.Client.(*Backend)
+		simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 		if ok {
-			evmchain.Backend = backend.Sim
+			evmchain.Backend = simClient.Backend()
 		}
 		evmchains[evmChainID] = evmchain
 	}
@@ -568,11 +569,11 @@ func CreateKeys(t *testing.T,
 			}
 			transmitters[chain.Selector] = transmitter.String()
 
-			backend, ok := chain.Client.(*Backend)
+			simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 			if ok {
-				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
 				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
 			}
 		case chainsel.FamilyAptos:
 			keystore := app.GetKeyStore().Aptos()

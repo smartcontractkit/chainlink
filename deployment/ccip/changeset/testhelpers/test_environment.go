@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
@@ -377,28 +379,37 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	var chains map[uint64]cldf_evm.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
-		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
+		chains = cldf_chain.NewBlockChainsFromSlice(
+			memory.NewMemoryChainsEVMWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain),
+		).EVMChains()
+		users = usersMap(t, chains)
+
 		if tc.Chains > len(tc.ChainIDs) {
-			additionalChains, additionalUsers := memory.NewMemoryChains(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain)
-			for k, v := range additionalChains {
-				chains[k] = v
-			}
-			for k, v := range additionalUsers {
-				users[k] = v
-			}
+			additionalChains := cldf_chain.NewBlockChainsFromSlice(
+				memory.NewMemoryChainsEVM(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain),
+			)
+
+			maps.Copy(chains, additionalChains.EVMChains())
+
+			additionalUsers := usersMap(t, chains)
+			maps.Copy(users, additionalUsers)
 		}
 	} else {
-		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
+		chains = cldf_chain.NewBlockChainsFromSlice(
+			memory.NewMemoryChainsEVM(t, tc.Chains, tc.NumOfUsersPerChain),
+		).EVMChains()
+		users = usersMap(t, chains)
 	}
 
 	m.Chains = chains
 	solChains := memory.NewMemoryChainsSol(t, tc.SolChains)
 	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	m.TonChains = memory.NewMemoryChainsTon(t, tc.TonChains)
+	tonChains := memory.NewMemoryChainsTon(t, tc.TonChains)
 	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
 	// environment, so we have to convert it back to the concrete type. This needs to be refactored
 	m.AptosChains = cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
 	m.SolChains = cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
+	m.TonChains = cldf_chain.NewBlockChainsFromSlice(tonChains).TonChains()
 
 	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for selector, ch := range m.Chains {
@@ -492,7 +503,7 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 
 // mineBlocks forces the simulated backend to produce a new block every X seconds
 // NOTE: based on implementation in cltest/simulated_backend.go
-func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining func()) {
+func mineBlocks(simClient *cldf_evm_provider.SimClient, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
 	done := make(chan struct{})
@@ -501,7 +512,7 @@ func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining fu
 		for {
 			select {
 			case <-timer.C:
-				backend.Commit()
+				simClient.Commit()
 			case <-chStop:
 				return
 			}
@@ -516,7 +527,7 @@ func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining fu
 
 func (m *MemoryEnvironment) MineBlocks(t *testing.T, blockTime time.Duration) {
 	for _, chain := range m.Chains {
-		if backend, ok := chain.Client.(*memory.Backend); ok {
+		if backend, ok := chain.Client.(*cldf_evm_provider.SimClient); ok {
 			stopMining := mineBlocks(backend, blockTime)
 			t.Cleanup(stopMining)
 		}
@@ -677,6 +688,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 	return e
 }
+
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
@@ -1201,4 +1213,18 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NoError(t, err)
 	e.SetupJobs(t)
 	return e
+}
+
+// usersMap generates a map of chain selectors to additional users (bind.TransactOpts) for each
+// chain.
+func usersMap(t *testing.T, chains map[uint64]cldf_evm.Chain) map[uint64][]*bind.TransactOpts {
+	t.Helper()
+
+	users := make(map[uint64][]*bind.TransactOpts, 0)
+
+	for _, c := range chains {
+		users[c.ChainSelector()] = c.Users
+	}
+
+	return users
 }
