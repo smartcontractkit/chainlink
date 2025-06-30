@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
@@ -17,16 +18,24 @@ import (
 type ChainRWProvider struct{}
 
 // GetChainWriter ChainRWProvider returns a new ContractWriter for Solana chains.
-func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
+func (g ChainRWProvider) GetChainWriter(ctx context.Context, params ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	var offrampProgramAddress solana.PublicKey
+	var solConfig chainwriter.ChainWriterConfig
+	var err error
 	// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
 	// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
-	if len(pararms.OfframpProgramAddress) == solana.PublicKeyLength {
-		offrampProgramAddress = solana.PublicKeyFromBytes(pararms.OfframpProgramAddress)
+	if len(params.OfframpProgramAddress) == solana.PublicKeyLength {
+		offrampProgramAddress = solana.PublicKeyFromBytes(params.OfframpProgramAddress)
 	}
 
-	transmitter := pararms.Transmitters[types.NewRelayID(pararms.ChainFamily, pararms.ChainID)]
-	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0])
+	transmitter := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
+
+	if len(transmitter) > 0 {
+		solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0])
+	} else {
+		return nil, fmt.Errorf("there must be at least one transmitter for Solana chain: %s", params.ChainID)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 	}
@@ -35,9 +44,9 @@ func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.
 		return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
 	}
 
-	cw, err := pararms.Relayer.NewContractWriter(ctx, chainWriterConfig)
+	cw, err := params.Relayer.NewContractWriter(ctx, chainWriterConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", pararms.ChainID, err)
+		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", params.ChainID, err)
 	}
 
 	return cw, nil

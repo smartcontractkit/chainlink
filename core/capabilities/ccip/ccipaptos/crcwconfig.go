@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	aptosloop "github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/loop"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/chainwriter"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	aptosconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/aptos"
@@ -38,7 +39,16 @@ func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.C
 // GetChainWriter returns a new ContractWriter for Aptos chains.
 func (g ChainCWProvider) GetChainWriter(ctx context.Context, params ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	transmitter := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
-	cfg, err := aptosconfig.GetChainWriterConfig(transmitter[0])
+
+	var cfg chainwriter.ChainWriterConfig
+	var err error
+
+	if len(transmitter) > 0 {
+		cfg, err = aptosconfig.GetChainWriterConfig(transmitter[0])
+	} else {
+		return nil, fmt.Errorf("there must be at least one transmitter for Aptos chain: %s", params.ChainID)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Aptos chain writer config: %w", err)
 	}

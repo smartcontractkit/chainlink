@@ -56,8 +56,10 @@ func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.C
 func (g ChainCWProvider) GetChainWriter(ctx context.Context, params ccipcommon.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
-	if ok {
+	if ok && len(transmitter) > 0 {
 		fromAddress = common.HexToAddress(transmitter[0])
+	} else {
+		return nil, fmt.Errorf("there must be at least one transmitter for EVM chain: %s", params.ChainID)
 	}
 
 	evmConfig, err := evmconfig.ChainWriterConfigRaw(
