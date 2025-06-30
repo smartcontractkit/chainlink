@@ -54,7 +54,15 @@ type Credentials struct {
 	Password string `json:"password"`
 }
 
+// Deprecated: use NewV2 instead
 func New(baseURI string, creds Credentials) (Client, error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return NewWithContext(ctx, baseURI, creds)
+}
+
+func NewWithContext(ctx context.Context, baseURI string, creds Credentials) (Client, error) {
 	ep := endpoints{
 		Sessions: baseURI + "/sessions",
 		Query:    baseURI + "/query",
@@ -64,7 +72,12 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		credentials: creds,
 	}
 
-	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
+	// extract duration from context
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(10 * time.Second)
+	}
+	err := retry.Do(ctx, retry.WithMaxDuration(time.Until(deadline), retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
 		err := c.login()
 		if err != nil {
 			return retry.RetryableError(fmt.Errorf("retrying login to node: %w", err))

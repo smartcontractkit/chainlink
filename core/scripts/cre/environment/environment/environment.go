@@ -3,6 +3,8 @@ package environment
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -145,17 +147,19 @@ type ExtraCapabilitiesConfig struct {
 
 // DX tracking
 var (
-	dxTracker             *tracking.DxTracker
+	dxTracker             tracking.Tracker
 	provisioningStartTime time.Time
 )
 
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
 
-	var dxErr error
-	dxTracker, dxErr = tracking.NewDxTracker()
-	if dxErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", dxErr)
+	// ensure non-nil dxTracker by default
+	dxTracker = new(tracking.DxTracker)
+	if t, err := tracking.NewDxTracker(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", err)
+	} else {
+		dxTracker = t
 	}
 
 	// remove all containers before starting the environment, just in case
@@ -221,7 +225,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		homeChainOut.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
@@ -306,7 +310,7 @@ var startCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-			dxErr := trackStartup(false, output.InfraInput.InfraType, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+			dxErr := trackStartup(false, "unknown", ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -627,6 +631,15 @@ func StartCLIEnvironment(
 		))
 	}
 
+	if in.JD.CSAEncryptionKey == "" {
+		// generate a new key
+		key, keyErr := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+		if keyErr != nil {
+			return nil, fmt.Errorf("failed to generate CSA encryption key: %w", keyErr)
+		}
+		in.JD.CSAEncryptionKey = hex.EncodeToString(crypto.FromECDSA(key)[:32])
+		fmt.Printf("Generated new CSA encryption key for JD: %s\n", in.JD.CSAEncryptionKey)
+	}
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            capabilitiesAwareNodeSets,
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
