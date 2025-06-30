@@ -90,7 +90,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250619160901-79b609b1021c
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250611193111-99542a0c5d58
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250630191426-9619763670ec
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250630202215-fbaa0066242c
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250528121202-292529af39df
 	github.com/smartcontractkit/freeport v0.1.1
 	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
