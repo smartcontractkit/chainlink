@@ -140,7 +140,7 @@ func (f *ManualCronTriggerService) Start(ctx context.Context) error {
 }
 
 func (f *ManualCronTriggerService) Close() error {
-	f.lggr.Debugw("Closing ManualCronTriggerService")
+	f.lggr.Debug("Closing ManualCronTriggerService")
 	return nil
 }
 

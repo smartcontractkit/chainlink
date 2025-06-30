@@ -25,18 +25,18 @@ type RunnerConfig struct {
 }
 
 type RunnerHooks struct {
-        // Initialize hook sets up resources used by the Runner
-	Initialize  func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
-         // BeforeStart hook is a testing hook that can be used to check that resources were set up
+	// Initialize hook sets up resources used by the Runner
+	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
+	// BeforeStart hook is a testing hook that can be used to check that resources were set up
 	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
-        // Wait hook handles blocking for the runner to keep the standalone engine running
-	Wait        func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-        //  AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting 
-	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// Wait hook handles blocking for the runner to keep the standalone engine running
+	Wait func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting
+	AfterRun func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	// Cleanup hook shuts down the services that were started in the Initialize hook
-	Cleanup     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Cleanup func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	// Finally hook is a testing hook that can be used to check that resources were cleaned up
-	Finally     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Finally func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
