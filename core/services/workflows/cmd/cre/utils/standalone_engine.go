@@ -154,7 +154,7 @@ func NewStandaloneEngine(
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          config,
-	}, &v2.DisallowedExecutionHelper{SecretsFetcher: secretsFetcher})
+	}, v2.NewDisallowedExecutionHelper(lggr, nil, nil, secretsFetcher))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}
