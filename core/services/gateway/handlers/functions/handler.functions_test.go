@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -69,7 +70,9 @@ func newSignedMessage(t *testing.T, id string, method string, donId string, priv
 	return msg
 }
 
-func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api.Message, nodes []gc.TestNode, responses []bool) {
+func getNodeReponse(t *testing.T, handler handlers.Handler, userRequestMsg api.Message, nodes []gc.TestNode, responses []bool) (jsonResponses []*jsonrpc.Response, err []error) {
+	jsonResponses = make([]*jsonrpc.Response, len(responses))
+	err = make([]error, len(responses))
 	for id, resp := range responses {
 		nodeResponseMsg := userRequestMsg
 		nodeResponseMsg.Body.Receiver = userRequestMsg.Body.Sender
@@ -79,10 +82,11 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
 		require.NoError(t, nodeResponseMsg.Sign(nodes[id].PrivateKey))
-		resp, err := hc.ValidatedResponseFromMessage(&nodeResponseMsg) // ensure the message is valid
-		require.NoError(t, err)
-		_ = handler.HandleNodeMessage(testutils.Context(t), resp, nodes[id].Address)
+		jsonResponses[id], err[id] = hc.ValidatedResponseFromMessage(&nodeResponseMsg) // ensure the message is valid
+
+		_ = handler.HandleNodeMessage(testutils.Context(t), jsonResponses[id], nodes[id].Address)
 	}
+	return jsonResponses, err
 }
 
 func TestFunctionsHandler_Minimal(t *testing.T) {
@@ -130,9 +134,15 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 			subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
+			resps, errs := getNodeReponse(t, handler, userRequestMsg, nodes, test.nodeResults)
+			for _, err := range errs {
+				require.NoError(t, err)
+			}
 			go func() {
 				// Ensure the response is sent on another thread to avoid deadlock
-				sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
+				for id, resp := range resps {
+					_ = handler.HandleNodeMessage(testutils.Context(t), resp, nodes[id].Address)
+				}
 			}()
 
 			// wait on a response from Gateway to the user
@@ -173,11 +183,16 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
+			resps, errs := getNodeReponse(t, handler, userRequestMsg, nodes, test.nodeResults)
+			for _, err := range errs {
+				require.NoError(t, err)
+			}
 			go func() {
 				// Ensure the response is sent on another thread to avoid deadlock
-				sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
+				for id, resp := range resps {
+					_ = handler.HandleNodeMessage(testutils.Context(t), resp, nodes[id].Address)
+				}
 			}()
-
 			// wait on a response from Gateway to the user
 			response := <-callbachCh
 			require.Equal(t, api.NoError, response.ErrorCode)

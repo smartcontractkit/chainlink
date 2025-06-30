@@ -10,8 +10,9 @@ import (
 	"net/url"
 	"testing"
 
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
+
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
