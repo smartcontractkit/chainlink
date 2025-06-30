@@ -78,7 +78,7 @@ var (
 	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
 	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
 
-	// TON
+	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
 	TonCCIP     deployment.ContractType = "TonCCIP"
 	TonReceiver deployment.ContractType = "TonReceiver"
 )
