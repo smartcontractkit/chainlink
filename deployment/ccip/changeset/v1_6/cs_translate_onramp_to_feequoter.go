@@ -24,8 +24,9 @@ var (
 )
 
 type TranslateEVM2EVMOnRampsToFeeQuoterConfig struct {
-	DestChainSelector uint64
-	MCMS              *proposalutils.TimelockConfig
+	DestChainSelector           uint64
+	NewFeeQuoterParamsPerSource map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams
+	MCMS                        *proposalutils.TimelockConfig
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) Validate(e cldf.Environment) error {
@@ -44,25 +45,32 @@ func ValidatePreReqContractsInState(e cldf.Environment, cfg TranslateEVM2EVMOnRa
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	sel := cfg.DestChainSelector
-	srcChain, ok := e.BlockChains.EVMChains()[sel]
-	if !ok {
-		return fmt.Errorf("chain selector not found in environment, skipping (chainSelector: %d)", sel)
-	}
-	srcChainState := state.MustGetEVMChainState(sel)
 
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
+	for sourceChainSel, sourceChain := range state.Chains {
+		if sourceChainSel == cfg.DestChainSelector {
+			continue // Skip the destination chain, we are not processing OnRamps for it.
+		}
+
+		var hasRampToDest bool
+		for destChainOnSrc := range sourceChain.EVM2EVMOnRamp {
+			if _, ok := cfg.NewFeeQuoterParamsPerSource[sourceChainSel]; destChainOnSrc == cfg.DestChainSelector && !ok {
+				return fmt.Errorf("no new FeeQuoter params found for source chain %d to destination chain %d", sourceChainSel, cfg.DestChainSelector)
+			} else if destChainOnSrc == cfg.DestChainSelector {
+				hasRampToDest = true
+			}
+		}
+
+		if hasRampToDest {
+			if sourceChain.PriceRegistry == nil {
+				return fmt.Errorf("priceRegistry not found for source chain %d, cannot process 1.5.0 OnRamps", sourceChainSel)
+			}
+			if sourceChain.TokenAdminRegistry == nil {
+				return fmt.Errorf("tokenAdminRegistry not found for source chain %d, cannot process 1.5.0 OnRamps", sourceChainSel)
+			}
+		}
+
 	}
-	if len(srcChainState.EVM2EVMOnRamp) == 0 {
-		return fmt.Errorf("no 1.5.0 OnRamps found, skipping (chainSelector: %d, chainName: %s)", srcChain.Selector, srcChain.Name())
-	}
-	if srcChainState.PriceRegistry == nil {
-		return fmt.Errorf("priceRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
-	}
-	if srcChainState.TokenAdminRegistry == nil {
-		return fmt.Errorf("tokenAdminRegistry not found for source chain %d (%s), cannot process 1.5.0 OnRamps", srcChain.Selector, srcChain.Name())
-	}
+
 	return nil
 }
 
@@ -140,16 +148,19 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(e cldf.Envir
 	input := make(map[uint64]opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput])
 	for sel := range e.BlockChains.EVMChains() {
 		onRamps := make(map[uint64]common.Address)
+		newFeeQuoterParams := make(map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams)
 		srcChainState := state.Chains[sel]
 		for destChainSel, onRamp1_5 := range srcChainState.EVM2EVMOnRamp {
 			if destChainSel == cfg.DestChainSelector && onRamp1_5 != nil {
 				onRamps[destChainSel] = onRamp1_5.Address()
+				newFeeQuoterParams[destChainSel] = cfg.NewFeeQuoterParamsPerSource[sel]
 			}
 		}
 		input[sel] = opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput]{
 			ChainSelector: sel,
 			Address:       state.Chains[sel].FeeQuoter.Address(),
 			CallInput: migrate_seq.OnRampToFeeQuoterDestChainConfigInput{
+				NewFeeQuoterParams: newFeeQuoterParams,
 				OnRamps:            onRamps,
 				TokenAdminRegistry: srcChainState.TokenAdminRegistry.Address(),
 			},

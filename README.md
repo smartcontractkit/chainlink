@@ -47,6 +47,7 @@ For the latest information on setting up a development environment, see the [Dev
 ### Build from PR
 
 To build an unofficial testing-only image from a feature branch or PR. You can do one of the following:
+
 1. Send a workflow dispatch event from our [`docker-build` workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml).
 2. Add the `build-publish` label to your PR and then either retry the `docker-build` workflow, or push a new commit.
 
@@ -54,7 +55,13 @@ To build an unofficial testing-only image from a feature branch or PR. You can d
 
 Plugins are defined in yaml files within the `plugins/` directory. Each plugin file is a yaml file and has a `plugins.` prefix name. Plugins are installed with [loopinstall](https://github.com/smartcontractkit/chainlink-common/tree/main/pkg/loop/cmd/loopinstall).
 
-Some plugins (such as those in `plugins/plugins.private.yaml`) reference private GitHub repositories. To build these plugins, you must have a GITHUB_TOKEN env var set, or preferably use the [gh](https://cli.github.com/manual/gh) GitHub CLI tool to use the [GitHub CLI credential helper](https://cli.github.com/manual/gh_auth_setup-git) like:
+To install the plugins, run:
+
+```bash
+make install-plugins
+```
+
+Some plugins (such as those in `plugins/plugins.private.yaml`) reference private GitHub repositories. To build these plugins, you must have a GITHUB_TOKEN environment variable set, or preferably use the [gh](https://cli.github.com/manual/gh) GitHub CLI tool to use the [GitHub CLI credential helper](https://cli.github.com/manual/gh_auth_setup-git) like:
 
 ```shell
 # Sets up a credential helper.
@@ -64,7 +71,7 @@ gh auth setup-git
 Then you can build the plugins with:
 
 ```shell
-make install-plugins
+make install-plugins-private
 ```
 
 ### Apple Silicon - ARM64
