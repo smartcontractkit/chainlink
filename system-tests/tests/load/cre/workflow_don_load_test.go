@@ -397,7 +397,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs))
 	generator, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
@@ -405,15 +404,13 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Schedule: wasp.Combine(
 			wasp.Plain(4, 5*time.Minute),
 		),
-		Gun:                   sg,
+		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
 		Labels:                labels,
 		RateLimitUnitDuration: time.Minute,
-		FailOnErr:             false,
 	})
 	require.NoError(t, err, "could not create generator")
 	// run the load
 	generator.Run(true)
-	sg.Debug()
 
 	tag := "local-test-" + time.Now().Format("20060102150405")
 	if os.Getenv("CI") == "true" {
@@ -550,13 +547,6 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 	}
 	go sg.waitLoop()
 	return sg
-}
-
-func (s *StreamsGun) Debug() {
-	framework.L.Info().Msgf("did not get ACK for %d reports", len(s.waitChans))
-	for t := range s.waitChans {
-		framework.L.Info().Msgf("missing ACK for report with timestamp %d", t)
-	}
 }
 
 func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
