@@ -992,6 +992,12 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	startVersion *uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
+	if startVersion != nil {
+		t.Logf("[DEBUG] startVersion = %d", *startVersion)
+	} else {
+		t.Log("[DEBUG] startVersion = nil (streaming from latest)")
+	}
+
 	if len(expectedSeqNrs) == 0 {
 		t.Log("[DEBUG] expectedSeqNrs is empty")
 		return nil, errors.New("no expected sequence numbers provided")
