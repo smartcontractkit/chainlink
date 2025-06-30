@@ -435,11 +435,13 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 					labels[k] = v
 				}
 			}
-			ncfg = append(ncfg, envtest.NodeConfig{
+			cfg := envtest.NodeConfig{
 				ChainSelectors: []uint64{registryChainSel},
 				Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
 				Labels:         labels,
-			})
+			}
+			cfg.ChainSelectors = append(cfg.ChainSelectors, donCfg.ChainSelectors...)
+			ncfg = append(ncfg, cfg)
 		}
 		n := envtest.NewNodes(t, ncfg)
 		require.Len(t, n, donCfg.N)
@@ -525,7 +527,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, nil, dons.AllNodes())
 	return dons, env
 }
 

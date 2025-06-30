@@ -140,7 +140,7 @@ func cleanupStagingArea(b operations.Bundle, deps AptosDeps, mcmsAddress aptos.A
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to check if MCMS staging area is clean: %w", err)
 	}
 	if IsMCMSStagingAreaClean {
-		b.Logger.Infow("MCMS Staging Area already clean", "addr", mcmsAddress.String())
+		b.Logger.Infow("MCMS Staging Area already clean", "addr", mcmsAddress.StringLong())
 		return mcmstypes.BatchOperation{}, nil
 	}
 

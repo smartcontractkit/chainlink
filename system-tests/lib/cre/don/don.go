@@ -89,10 +89,11 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 		}
 
 		donsWithMetadata[i] = &cretypes.DonMetadata{
-			ID:            libc.MustSafeUint32(i + 1),
-			Flags:         flags,
-			NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
-			Name:          nodeSetInput[i].Name,
+			ID:              libc.MustSafeUint32(i + 1),
+			Flags:           flags,
+			NodesMetadata:   make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
+			Name:            nodeSetInput[i].Name,
+			SupportedChains: nodeSetInput[i].SupportedChains,
 		}
 	}
 

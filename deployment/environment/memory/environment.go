@@ -11,19 +11,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -52,6 +50,7 @@ type MemoryEnvironmentConfig struct {
 	SolChains          int
 	AptosChains        int
 	ZkChains           int
+	TonChains          int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -66,7 +65,9 @@ type NewNodesConfig struct {
 	// Solana chains to be configured. Optional.
 	SolChains map[uint64]cldf_solana.Chain
 	// Aptos chains to be configured. Optional.
-	AptosChains    map[uint64]cldf_aptos.Chain
+	AptosChains map[uint64]cldf_aptos.Chain
+	// TON chains to be configured. Optional.
+	TonChains      map[uint64]cldf_ton.Chain
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -99,17 +100,20 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]cldf
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]cldf_solana.Chain {
-	mchains := GenerateChainsSol(t, numChains)
-	return generateMemoryChainSol(mchains)
+func NewMemoryChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return generateChainsSol(t, numChains)
 }
 
 func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsAptos(t, numChains)
 }
 
-func NewMemoryChainsZk(t *testing.T, numChains int) map[uint64]cldf_evm.Chain {
+func NewMemoryChainsZk(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return GenerateChainsZk(t, numChains)
+}
+
+func NewMemoryChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
+	return GenerateChainsTon(t, numChains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]cldf_evm.Chain, map[uint64][]*bind.TransactOpts) {
@@ -164,29 +168,6 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]cl
 	return chains
 }
 
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]cldf_solana.Chain {
-	chains := make(map[uint64]cldf_solana.Chain)
-	for cid, chain := range inputs {
-		chain := chain
-		chains[cid] = cldf_solana.Chain{
-			Selector:     cid,
-			Client:       chain.Client,
-			DeployerKey:  &chain.DeployerKey,
-			URL:          chain.URL,
-			WSURL:        chain.WSURL,
-			KeypairPath:  chain.KeypairPath,
-			ProgramsPath: ProgramsPath,
-			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
-				_, err := solCommonUtil.SendAndConfirm(
-					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
-				)
-				return err
-			},
-		}
-	}
-	return chains
-}
-
 func NewNodes(
 	t *testing.T,
 	cfg NewNodesConfig,
@@ -209,6 +190,7 @@ func NewNodes(
 			Chains:         cfg.Chains,
 			Solchains:      cfg.SolChains,
 			Aptoschains:    cfg.AptosChains,
+			Tonchains:      cfg.TonChains,
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      true,
 			RegistryConfig: cfg.RegistryConfig,
@@ -224,6 +206,7 @@ func NewNodes(
 			Chains:         cfg.Chains,
 			Solchains:      cfg.SolChains,
 			Aptoschains:    cfg.AptosChains,
+			Tonchains:      cfg.TonChains,
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      false,
 			RegistryConfig: cfg.RegistryConfig,
@@ -243,6 +226,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	chains map[uint64]cldf_evm.Chain,
 	solChains map[uint64]cldf_solana.Chain,
 	aptosChains map[uint64]cldf_aptos.Chain,
+	tonChains map[uint64]cldf_ton.Chain,
 	nodes map[string]Node,
 ) cldf.Environment {
 	var nodeIDs []string
@@ -258,6 +242,9 @@ func NewMemoryEnvironmentFromChainsNodes(
 		blockChains[c.Selector] = c
 	}
 	for _, c := range aptosChains {
+		blockChains[c.Selector] = c
+	}
+	for _, c := range tonChains {
 		blockChains[c.Selector] = c
 	}
 
@@ -280,20 +267,25 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	solChains := NewMemoryChainsSol(t, config.SolChains)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
-	for chainSel, chain := range zkChains {
-		chains[chainSel] = chain
+	tonChains := NewMemoryChainsTon(t, config.TonChains)
+
+	// Cast zkChains to cldf_evm.Chain temporarily since we still use the concrete types for EVM
+	for _, zkc := range zkChains {
+		chains[zkc.ChainSelector()] = zkc.(cldf_evm.Chain)
 	}
 
-	// Convert aptos chains to concrete type to pass to the NewNodesConfig.
+	// Convert chains to concrete type to pass to the NewNodesConfig.
 	// This is a temporary workaround until we have a better way to handle bringing up configuring
 	// the memory nodes.
 	concreteAptosChains := cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
+	concreteSolanaChains := cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
 
 	c := NewNodesConfig{
 		LogLevel:       logLevel,
 		Chains:         chains,
-		SolChains:      solChains,
+		SolChains:      concreteSolanaChains,
 		AptosChains:    concreteAptosChains,
+		TonChains:      tonChains,
 		NumNodes:       config.Nodes,
 		NumBootstraps:  config.Bootstraps,
 		RegistryConfig: config.RegistryConfig,
@@ -314,7 +306,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		blockChains[c.Selector] = c
 	}
 	for _, c := range solChains {
-		blockChains[c.Selector] = c
+		blockChains[c.ChainSelector()] = c
 	}
 	for _, c := range aptosChains {
 		blockChains[c.ChainSelector()] = c

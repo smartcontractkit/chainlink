@@ -4,7 +4,10 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type TokenParams struct {
@@ -17,8 +20,8 @@ type TokenParams struct {
 }
 
 func (tp TokenParams) Validate() error {
-	if tp.MaxSupply == nil || tp.MaxSupply.Sign() <= 0 {
-		return errors.New("maxSupply must be a positive integer")
+	if tp.MaxSupply != nil && tp.MaxSupply.Sign() <= 0 {
+		return errors.New("maxSupply must be a positive integer or nil")
 	}
 	if tp.Name == "" {
 		return errors.New("name cannot be empty")
@@ -30,4 +33,22 @@ func (tp TokenParams) Validate() error {
 		return errors.New("decimals must be between 1 and 8")
 	}
 	return nil
+}
+
+type TokenMint struct {
+	Amount uint64
+	To     aptos.AccountAddress
+}
+
+type DeployTokenFaucetInput struct {
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
+}
+
+type MintTokenInput struct {
+	ChainSelector          uint64
+	TokenCodeObjectAddress aptos.AccountAddress
+	MCMSConfig             *proposalutils.TimelockConfig
+	TokenMint
 }

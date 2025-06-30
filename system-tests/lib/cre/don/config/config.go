@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -50,6 +51,11 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*WorkerEVMInput, 0)
 	for chainSelector, bcOut := range input.BlockchainOutput {
+		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
+		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
+			continue
+		}
+
 		c, exists := chain_selectors.ChainByEvmChainID(bcOut.ChainID)
 		if !exists {
 			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", bcOut.ChainID)

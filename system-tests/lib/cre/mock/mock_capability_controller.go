@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -127,7 +128,7 @@ func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string,
 			Payload: payload,
 		}
 
-		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
+		framework.L.Info().Msg(fmt.Sprintf("Sending trigger event %s to subscribers of %s", eventID, id))
 
 		_, err := client.API.SendTriggerEvent(ctx, &data)
 		if err != nil {
@@ -177,7 +178,7 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 
 		go func() {
 			for {
-				c.lggr.Info().Msg("Waiting for hook event")
+				c.lggr.Info().Msg("Waiting for execute events")
 				resp, err := hook.Recv()
 				if errors.Is(err, io.EOF) {
 					c.lggr.Error().Msgf("Received EOF from hook %s", err)
@@ -196,7 +197,7 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 					log.Fatalf("can not decode input: %v", err)
 				}
 
-				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
+				c.lggr.Info().Msgf("Got execute event for %s with workflowID %s, executionID %s", resp.ID, resp.RequestMetadata.WorkflowID, resp.RequestMetadata.WorkflowExecutionID)
 				ch <- capabilities.CapabilityRequest{
 					Metadata: capabilities.RequestMetadata{
 						WorkflowID:               resp.RequestMetadata.WorkflowID,
@@ -211,7 +212,6 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 					Config: config,
 					Inputs: input,
 				}
-				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
 
 				r := pb2.ExecutableResponse{
 					ID:             resp.ID,
@@ -226,6 +226,127 @@ func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.C
 		}()
 	}
 	return nil
+}
+
+func (c *Controller) WaitForCapability(ctx context.Context, capability string, timeoutDuration time.Duration) error {
+	// Create a context with timeout if not already set
+	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	c.lggr.Info().Msgf("Waiting for capability %s on all nodes...", capability)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out or context cancelled while waiting for capability %s: %w", capability, ctx.Err())
+		case <-ticker.C:
+			capInfos, err := c.List(ctx)
+			if err != nil {
+				c.lggr.Error().Err(err).Msgf("Failed to list capabilities while waiting for %s", capability)
+				continue
+			}
+
+			allNodesHaveCapability := true
+			for _, nodeInfo := range capInfos {
+				hasCapability := false
+				for _, singleCap := range nodeInfo.Capabilities {
+					if singleCap.ID == capability {
+						hasCapability = true
+						break
+					}
+				}
+				if !hasCapability {
+					c.lggr.Debug().Msgf("Node %s does not have capability %s yet", nodeInfo.Node, capability)
+					allNodesHaveCapability = false
+					break
+				}
+			}
+
+			if allNodesHaveCapability {
+				c.lggr.Info().Msgf("All nodes now have capability %s", capability)
+				return nil
+			}
+		}
+	}
+}
+
+// GetTriggerSubscribers retrieves all subscribers for a specific trigger ID from all nodes
+func (c *Controller) GetTriggerSubscribers(ctx context.Context, triggerID string) (map[string][]string, error) {
+	subscribers := make(map[string][]string, 0)
+
+	for _, client := range c.Nodes {
+		resp, err := client.API.GetTriggerSubscribers(ctx, &pb2.GetTriggerSubscribersRequest{
+			ID: triggerID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get trigger subscribers from node %s: %w", client.URL, err)
+		}
+
+		c.lggr.Debug().
+			Str("node", client.URL).
+			Str("triggerID", triggerID).
+			Int("subscriberCount", len(resp.WorkflowIDs)).
+			Msg("Retrieved trigger subscribers")
+
+		subscribers[client.URL] = resp.WorkflowIDs
+	}
+
+	return subscribers, nil
+}
+
+// WaitForTriggerSubscribers waits until all nodes have at least one subscriber for the specified trigger
+func (c *Controller) WaitForTriggerSubscribers(ctx context.Context, triggerID string, timeoutDuration time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
+	defer cancel()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	c.lggr.Info().Msgf("Waiting for subscribers on trigger %s for all nodes...", triggerID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out or context cancelled while waiting for subscribers on trigger %s: %w", triggerID, ctx.Err())
+		case <-ticker.C:
+			subscribers, err := c.GetTriggerSubscribers(ctx, triggerID)
+			if err != nil {
+				c.lggr.Error().Err(err).Msgf("Failed to get trigger subscribers while waiting for %s", triggerID)
+				continue
+			}
+
+			allNodesHaveSubscribers := true
+			for nodeURL, workflowIDs := range subscribers {
+				if len(workflowIDs) == 0 {
+					c.lggr.Debug().Msgf("Node %s does not have subscribers for trigger %s yet", nodeURL, triggerID)
+					allNodesHaveSubscribers = false
+					break
+				}
+			}
+
+			// Check if all nodes are represented in the subscribers map
+			if len(subscribers) < len(c.Nodes) {
+				missingNodes := []string{}
+				for _, node := range c.Nodes {
+					if _, exists := subscribers[node.URL]; !exists {
+						missingNodes = append(missingNodes, node.URL)
+					}
+				}
+				if len(missingNodes) > 0 {
+					c.lggr.Debug().Msgf("Some nodes have no subscribers for trigger %s: %v", triggerID, missingNodes)
+					allNodesHaveSubscribers = false
+				}
+			}
+
+			if allNodesHaveSubscribers {
+				c.lggr.Info().Msgf("All nodes now have subscribers for trigger %s", triggerID)
+				return nil
+			}
+		}
+	}
 }
 
 func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {

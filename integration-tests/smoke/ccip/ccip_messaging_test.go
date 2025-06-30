@@ -11,23 +11,19 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
@@ -92,6 +88,9 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	monitorCtx, monitorCancel := context.WithCancel(ctx)
 	ms := &monitorState{}
@@ -177,6 +176,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 			},
 		)
+		msgSentEvent := out.MsgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 		err := manualexechelpers.ManuallyExecuteAll(
 			ctx,
@@ -186,7 +186,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 			sourceChain,
 			destChain,
 			[]int64{
-				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
+				int64(msgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
 			},
 			24*time.Hour, // lookbackDurationMsgs
 			24*time.Hour, // lookbackDurationCommitReport
@@ -196,7 +196,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Logf("successfully manually executed message %x",
-			out.MsgSentEvent.Message.Header.MessageId)
+			msgSentEvent.Message.Header.MessageId)
 	})
 
 	monitorCancel()
@@ -254,6 +254,9 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	receiverProgram := state.SolChains[destChain].Receiver
 	receiver := receiverProgram.Bytes()
@@ -372,7 +375,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		// nonce    uint64 // Nonce not used as Solana check is skipped
@@ -388,6 +391,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	receiverProgram := state.SolChains[destChain].Receiver
 	receiver := receiverProgram.Bytes()
@@ -456,9 +462,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		accountsFailure[2] = solana.SystemProgramID
 
 		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes(writableIndexes),
-			Accounts:                accountsFailure,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes(writableIndexes),
+			Accounts:                 accountsFailure,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for failing message")
 
@@ -485,9 +492,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		}
 
 		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
-			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
-			Accounts:                accountsSuccess,
-			ComputeUnits:            80_000,
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
+			Accounts:                 accountsSuccess,
+			ComputeUnits:             80_000,
+			AllowOutOfOrderExecution: true,
 		})
 		require.NoError(t, err, "failed to serialize extra args for successful message")
 
@@ -511,6 +519,43 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						require.NoError(t, err, "failed to get account info after second message")
 						require.Equal(t, uint8(2), receiverCounterAccountAfterSuccess.Value, "Counter should have incremented to 2")
 						t.Logf("Confirmed counter incremented to 2 after second (successful) message")
+					},
+				},
+			},
+		)
+	})
+
+	t.Run("message requiring buffering", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             1_000_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint8(3), receiverCounterAccount.Value)
 					},
 				},
 			},
@@ -556,6 +601,9 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			false, // testRouter
 		)
 	)
+
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	emptyEVMExtraArgsV2 := []byte{}
 

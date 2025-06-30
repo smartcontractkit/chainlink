@@ -3,6 +3,7 @@ package fakes
 import (
 	"context"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
@@ -53,3 +54,37 @@ type OracleMock struct{}
 
 func (o *OracleMock) Start(ctx context.Context) error { return nil }
 func (o *OracleMock) Close(ctx context.Context) error { return nil }
+
+type GatewayConnectorMock struct{}
+
+func (g *GatewayConnectorMock) Start(context.Context) error {
+	return nil
+}
+
+func (g *GatewayConnectorMock) Close() error {
+	return nil
+}
+
+func (g *GatewayConnectorMock) AddHandler(context.Context, []string, core.GatewayConnectorHandler) error {
+	return nil
+}
+
+func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response) error {
+	return nil
+}
+
+func (g *GatewayConnectorMock) SignMessage(context.Context, []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (g *GatewayConnectorMock) GatewayIDs(context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (g *GatewayConnectorMock) DonID(context.Context) (string, error) {
+	return "", nil
+}
+
+func (g *GatewayConnectorMock) AwaitConnection(context.Context, string) error {
+	return nil
+}

@@ -2,6 +2,7 @@ package ocrimpls
 
 import (
 	"context"
+	"fmt"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -18,12 +19,16 @@ type configTracker struct {
 	contractConfig types.ContractConfig
 }
 
-func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) *configTracker {
+func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) (*configTracker, error) {
+	contractConfig, err := contractConfigFromOCRConfig(cfg, addressCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create contract config from ocr config: %w", err)
+	}
 	return &configTracker{
 		cfg:            cfg,
 		addressCodec:   addressCodec,
-		contractConfig: contractConfigFromOCRConfig(cfg, addressCodec),
-	}
+		contractConfig: contractConfig,
+	}, nil
 }
 
 // LatestBlockHeight implements types.ContractConfigTracker.
@@ -46,9 +51,10 @@ func (c *configTracker) Notify() <-chan struct{} {
 	return nil
 }
 
-func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) types.ContractConfig {
+func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) (types.ContractConfig, error) {
 	var signers [][]byte
 	var transmitters [][]byte
+	var err error
 	for oracleID, node := range cfg.Config.Nodes {
 		signers = append(signers, node.SignerKey)
 
@@ -60,21 +66,29 @@ func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec cc
 		transmitter := node.TransmitterKey
 		if len(transmitter) == 0 {
 			// #nosec G115 - Overflow is not a concern in this test scenario
-			transmitter, _ = addressCodec.OracleIDAsAddressBytes(uint8(oracleID), cfg.Config.ChainSelector)
+			transmitter, err = addressCodec.OracleIDAsAddressBytes(uint8(oracleID), cfg.Config.ChainSelector)
+			if err != nil {
+				return types.ContractConfig{}, fmt.Errorf("failed to get transmitter from oracle ID: %w", err)
+			}
 		}
 		transmitters = append(transmitters, transmitter)
+	}
+
+	transmitterAccounts, err := toOCRAccounts(transmitters, addressCodec, cfg.Config.ChainSelector)
+	if err != nil {
+		return types.ContractConfig{}, fmt.Errorf("failed to get transmitter accounts: %w", err)
 	}
 
 	return types.ContractConfig{
 		ConfigDigest:          cfg.ConfigDigest,
 		ConfigCount:           uint64(cfg.Version),
 		Signers:               toOnchainPublicKeys(signers),
-		Transmitters:          toOCRAccounts(transmitters, addressCodec, cfg.Config.ChainSelector),
+		Transmitters:          transmitterAccounts,
 		F:                     cfg.Config.FRoleDON,
 		OnchainConfig:         []byte{},
 		OffchainConfigVersion: cfg.Config.OffchainConfigVersion,
 		OffchainConfig:        cfg.Config.OffchainConfig,
-	}
+	}, nil
 }
 
 // PublicConfig returns the OCR configuration as a PublicConfig so that we can
@@ -91,13 +105,16 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 	return keys
 }
 
-func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) []types.Account {
+func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) ([]types.Account, error) {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
-		address, _ := addressCodec.AddressBytesToString(transmitter, chainSelector)
+		address, err := addressCodec.TransmitterBytesToString(transmitter, chainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get address from transmitter bytes: %w", err)
+		}
 		accounts[i] = types.Account(address)
 	}
-	return accounts
+	return accounts, nil
 }
 
 var _ types.ContractConfigTracker = (*configTracker)(nil)

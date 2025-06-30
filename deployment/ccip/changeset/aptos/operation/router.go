@@ -3,7 +3,6 @@ package operation
 import (
 	"fmt"
 
-	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
@@ -14,8 +13,7 @@ import (
 
 // UpdateRouterDestInput contains configuration for updating FeeQuoter destination configs
 type UpdateRouterDestInput struct {
-	MCMSAddress aptos.AccountAddress
-	Updates     []aptos_router.OnRampSet
+	Updates []aptos_router.OnRampSet
 }
 
 // UpdateRouterOp...

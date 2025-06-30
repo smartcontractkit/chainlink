@@ -130,7 +130,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if info.Name == "" {
 			info.Name = fmt.Sprintf("node-%d", i)
 		}
-		node, err := NewNode(info)
+		node, err := NewNodeWithContext(ctx, info)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
@@ -176,8 +176,13 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 	return don, nil
 }
 
+// Deprecated: use NewNodeWithContext
 func NewNode(nodeInfo NodeInfo) (*Node, error) {
-	gqlClient, err := client.New(nodeInfo.CLConfig.URL, client.Credentials{
+	return NewNodeWithContext(context.Background(), nodeInfo)
+}
+
+func NewNodeWithContext(ctx context.Context, nodeInfo NodeInfo) (*Node, error) {
+	gqlClient, err := client.NewWithContext(ctx, nodeInfo.CLConfig.URL, client.Credentials{
 		Email:    nodeInfo.CLConfig.Email,
 		Password: nodeInfo.CLConfig.Password,
 	})
@@ -239,6 +244,11 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
 		var account string
+
+		if n.AccountAddr == nil {
+			n.AccountAddr = make(map[string]string)
+		}
+
 		switch chain.ChainType {
 		case "EVM":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
@@ -247,9 +257,6 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			}
 			if accountAddr == nil {
 				return fmt.Errorf("no account address found for node %s", n.Name)
-			}
-			if n.AccountAddr == nil {
-				n.AccountAddr = make(map[string]string)
 			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
@@ -261,8 +268,6 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			if len(accounts) == 0 {
 				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
-
-			n.AccountAddr[chain.ChainID] = accounts[0]
 			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]
 		default:

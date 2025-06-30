@@ -30,6 +30,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -1701,9 +1702,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.Zero(t, key.Cmp(keys[0]))
 
 	require.NoError(t, app.Start(ctx))
-	var chain legacyevm.Chain
-	chain, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	var chainService commontypes.ChainService
+	chainService, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	listenerV2 := v22.MakeTestListenerV2(chain)
 
 	jbs := createVRFJobs(
@@ -2118,8 +2121,10 @@ func TestStartingCountsV1(t *testing.T) {
 		ListenerConfig: cfg.Database().Listener(),
 		TxManager:      txm,
 	})
-	chain, err := legacyChains.Get(testutils.SimulatedChainID.String())
+	chainService, err := legacyChains.Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	listenerV1 := &v1.Listener{
 		Chain: chain,
 	}

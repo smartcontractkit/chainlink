@@ -18,7 +18,7 @@ import (
 )
 
 type TokenRegistry interface {
-	GetSymbol(desc string) (TokenSymbol, bool)
+	GetSymbols(desc string) ([]TokenSymbol, bool)
 }
 
 // Default implementation
@@ -31,25 +31,25 @@ func SetRegistry(r TokenRegistry) {
 	registry = r
 }
 
-// GetSymbolFromDescription retrieves the TokenSymbol associated with the given description.
+// GetSymbolsFromDescription retrieves the TokenSymbol associated with the given description.
 // Delegates the lookup to the current registry implementation.
-func GetSymbolFromDescription(desc string) (TokenSymbol, bool) {
-	return registry.GetSymbol(desc)
+func GetSymbolsFromDescription(desc string) ([]TokenSymbol, bool) {
+	return registry.GetSymbols(desc)
 }
 
-// GetSymbol implements the default registry's lookup logic.
+// GetSymbols implements the default registry's lookup logic.
 // It returns the TokenSymbol corresponding to a description, if found.
-func (defaultRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
-	symbol, ok := DescriptionToTokenSymbol[desc]
+func (defaultRegistry) GetSymbols(desc string) ([]TokenSymbol, bool) {
+	symbol, ok := DescriptionToTokenSymbols[desc]
 	return symbol, ok
 }
 
 // NewMergedRegistry combines the defaultPriceFeed with new priceFeeds retrieved from CLD or elsewhere.
-func NewMergedRegistry(tokens map[string]TokenSymbol) TokenRegistry {
-	combined := make(map[string]TokenSymbol)
+func NewMergedRegistry(tokens map[string][]TokenSymbol) TokenRegistry {
+	combined := make(map[string][]TokenSymbol)
 
 	// Add core defaults from Chainlink
-	maps.Copy(combined, DescriptionToTokenSymbol)
+	maps.Copy(combined, DescriptionToTokenSymbols)
 
 	// Override or extend with CLD-provided tokens
 	maps.Copy(combined, tokens)
@@ -59,10 +59,10 @@ func NewMergedRegistry(tokens map[string]TokenSymbol) TokenRegistry {
 
 // mergedRegistry is a local wrapper
 type mergedRegistry struct {
-	entries map[string]TokenSymbol
+	entries map[string][]TokenSymbol
 }
 
-func (r mergedRegistry) GetSymbol(desc string) (TokenSymbol, bool) {
+func (r mergedRegistry) GetSymbols(desc string) ([]TokenSymbol, bool) {
 	sym, ok := r.entries[desc]
 	return sym, ok
 }
@@ -74,22 +74,36 @@ func (ts TokenSymbol) String() string {
 }
 
 const (
-	LinkSymbol                 TokenSymbol = "LINK"
-	WethSymbol                 TokenSymbol = "WETH"
-	WAVAXSymbol                TokenSymbol = "WAVAX"
-	WBNBSymbol                 TokenSymbol = "WBNB"
-	WPOLSymbol                 TokenSymbol = "WPOL"
-	WSSymbol                   TokenSymbol = "WS"
-	USDCSymbol                 TokenSymbol = "USDC"
+	LinkSymbol  TokenSymbol = "LINK"
+	WethSymbol  TokenSymbol = "WETH"
+	WAVAXSymbol TokenSymbol = "WAVAX"
+	WBNBSymbol  TokenSymbol = "WBNB"
+	WPOLSymbol  TokenSymbol = "WPOL"
+	WSSymbol    TokenSymbol = "WS"
+	WSBYSymbol  TokenSymbol = "WSBY"
+	USDCSymbol  TokenSymbol = "USDC"
+	WBTCNSymbol TokenSymbol = "WBTCN"
+	WBTCSymbol  TokenSymbol = "WBTC"
+	WHSKSymbol  TokenSymbol = "WHSK"
+	WHYPESymbol TokenSymbol = "WHYPE"
+	WAPESymbol  TokenSymbol = "WAPE"
+	WCoreSymbol TokenSymbol = "WCORE"
+	WCROSymbol  TokenSymbol = "WCRO"
+	WA0GISymbol TokenSymbol = "WA0GI"
+
 	LBTCSymbol                 TokenSymbol = "LBTC"
 	FactoryBurnMintERC20Symbol TokenSymbol = "Factory-BnM-ERC20"
 	CCIPBnMSymbol              TokenSymbol = "CCIP-BnM"
 	CCIPLnMSymbol              TokenSymbol = "CCIP-LnM"
 	CLCCIPLnMSymbol            TokenSymbol = "clCCIP-LnM"
+	APTSymbol                  TokenSymbol = "APT"
 	USDCName                   string      = "USD Coin"
 	LinkDecimals                           = 18
 	WethDecimals                           = 18
 	UsdcDecimals                           = 6
+
+	// Aptos APT Fungible Asset address
+	AptosAPTAddress = "0xa"
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"
@@ -98,6 +112,11 @@ const (
 	MaticUSD = "MATIC / USD"
 	BNBUSD   = "BNB / USD"
 	FTMUSD   = "FTM / USD" // S token uses FTM / USD price feed under the hood
+	USDCUSD  = "USDC / USD"
+	BTCUSD   = "BTC / USD"
+	LTCUSD   = "LTC / USD"
+	ARBUSD   = "ARB / USD"
+	APTUSD   = "APT / USD"
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
@@ -110,16 +129,20 @@ const (
 var (
 	MockLinkPrice = deployment.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
-	// DescriptionToTokenSymbol maps price feed description to token descriptor
-	DescriptionToTokenSymbol = map[string]TokenSymbol{
-		MockLinkAggregatorDescription: LinkSymbol,
-		MockWETHAggregatorDescription: WethSymbol,
-		LinkUSD:                       LinkSymbol,
-		AvaxUSD:                       WAVAXSymbol,
-		EthUSD:                        WethSymbol,
-		MaticUSD:                      WPOLSymbol,
-		BNBUSD:                        WBNBSymbol,
-		FTMUSD:                        WSSymbol,
+	// DescriptionToTokenSymbols maps price feed description to token descriptor
+	DescriptionToTokenSymbols = map[string][]TokenSymbol{
+		MockLinkAggregatorDescription: {LinkSymbol},
+		MockWETHAggregatorDescription: {WethSymbol},
+		LinkUSD:                       {LinkSymbol},
+		AvaxUSD:                       {WAVAXSymbol},
+		EthUSD:                        {WethSymbol, WA0GISymbol},
+		MaticUSD:                      {WPOLSymbol},
+		BNBUSD:                        {WBNBSymbol},
+		FTMUSD:                        {WSSymbol},
+		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
+		LTCUSD:                        {WHYPESymbol},
+		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
+		ARBUSD:                        {WCoreSymbol},
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
 		LinkSymbol: MockLinkAggregatorDescription,

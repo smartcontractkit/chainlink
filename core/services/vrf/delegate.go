@@ -3,6 +3,7 @@ package vrf
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -92,9 +93,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("vrf is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {

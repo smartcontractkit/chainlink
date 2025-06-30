@@ -3,6 +3,7 @@ package ccip
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -25,6 +26,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -565,7 +567,8 @@ func commitSqNrs(
 	s *testSetupData,
 	chainSel cciptypes.ChainSelector,
 	seqNums []uint64,
-	state uint8) error {
+	state uint8,
+) error {
 	for _, sqnr := range seqNums {
 		_, err := s.contract.EmitExecutionStateChanged(
 			s.auth,
@@ -587,11 +590,21 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
+	// State 0 should never be emitted by the contract, but
+	// checking if they are ignored properly by the reader
+	err := commitSqNrs(s, chainS1, []uint64{13}, 0)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{14}, 0)
 	require.NoError(t, err)
 	s.sb.Commit()
 
 	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -605,7 +618,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			ctx,
 			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
 				chainS1: {
-					cciptypes.NewSeqNumRange(14, 15),
+					cciptypes.NewSeqNumRange(15, 16),
 				},
 			},
 			primitives.Unconfirmed,
@@ -614,7 +627,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 		return len(executedMsgs[chainS1]) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
 }
 
 func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
@@ -625,7 +638,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -662,11 +675,11 @@ func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -860,8 +873,8 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	for i = 1; i < maxExpectedSeqNum; i++ {
 		msg := testhelpers.DefaultRouterMessage(state.MustGetEVMChainState(destChain).Receiver.Address())
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
-		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
-		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
+		require.Equal(t, i, msgSentEvent.SequenceNumber)
+		require.Equal(t, i, msgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent).Message.Header.Nonce) // check outbound nonce incremented
 		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain))
 		require.NoError(t, err2)
 		require.Equal(t, cciptypes.SeqNum(i+1), seqNum)
@@ -945,7 +958,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	ctx := t.Context()
 	sb, auth := setupSimulatedBackendAndAuth(t)
 
-	//--------------------------------Setup--------------------------------//
+	// --------------------------------Setup-------------------------------- //
 	onRampS1StaticConfig := onramp.OnRampStaticConfig{
 		ChainSelector:      uint64(chainS1),
 		RmnRemote:          utils.RandomAddress(),
@@ -1065,10 +1078,13 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		assert.NoError(t, crD.Close())
 		assert.NoError(t, lpD.Close())
 	})
-	//--------------------------------Setup done--------------------------------//
+	// --------------------------------Setup done-------------------------------- //
 
 	// Call the ccip chain reader with DiscoverContracts for test
-	contractAddresses, err := reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err := reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD},
+	)
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1087,7 +1103,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
 	require.Eventually(t, func() bool {
-		contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+		contractAddresses, err = reader.DiscoverContracts(ctx,
+			[]cciptypes.ChainSelector{chainS1, chainD},
+			[]cciptypes.ChainSelector{chainS1, chainD})
 		if err != nil {
 			return false
 		}
@@ -1102,7 +1120,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	}, tests.WaitTimeout(t), 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
-	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	contractAddresses, err = reader.DiscoverContracts(ctx,
+		[]cciptypes.ChainSelector{chainS1, chainD},
+		[]cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1305,9 +1325,6 @@ func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 		logsInsertedFirst    int
 		logsInsertedMatching int
 	}{
-		{0, 0},
-		{1, 10},
-		{10, 100},
 		{100, 10_000},
 	}
 
@@ -1429,67 +1446,134 @@ func populateDatabaseForCommitReportAccepted(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
-// Benchmark Results:
-// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_0_StartSeq_0_EndSeq_10-14               13599            93414 ns/op           43389 B/op        654 allocs/op
-// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_10_StartSeq_10_EndSeq_20-14             13471            88392 ns/op           43011 B/op        651 allocs/op
-// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_10_StartSeq_0_EndSeq_9-14                2799           473396 ns/op          303737 B/op       4535 allocs/op
-// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_100_StartSeq_0_EndSeq_100-14              438          2724414 ns/op         2477573 B/op      37468 allocs/op
-// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14     40         29118796 ns/op        12607995 B/op     179396 allocs/op
+// Benchmark_CCIPReader_ExecutedMessages/5_source_chains_and_5_destination_chains-12         	      49	  24335313 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/20_dest_chains_and_40_sources_chains-12             	     187	   6190834 ns/op
 func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
-		logsInserted int
-		startSeqNum  cciptypes.SeqNum
-		endSeqNum    cciptypes.SeqNum
+		name                 string
+		logsInsertedPerChain int
+		sourceChainsCount    int
+		destChainsCount      int
+		startSeqNum          cciptypes.SeqNum
+		endSeqNum            cciptypes.SeqNum
+
+		expectedChains       int
+		expectedLogsPerChain int
 	}{
-		{0, 0, 10},                        // no logs
-		{10, 10, 20},                      // out of bounds
-		{10, 0, 9},                        // get all messages with 10 logs
-		{100, 0, 100},                     // get all messages with 100 logs
-		{100_000, 100_000 - 256, 100_000}, // get the last 256 messages
+		{
+			// Case in which we have 5 chains densely connected generating large volume of logs
+			name:                 "5 source chains and 5 destination chains",
+			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
+			startSeqNum:          11,
+			endSeqNum:            20,
+			sourceChainsCount:    5,
+			destChainsCount:      5,
+			expectedChains:       4,
+			expectedLogsPerChain: 10,
+		},
+		{
+			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
+			name:                 "20 dest chains and 40 sources chains",
+			logsInsertedPerChain: 70_000, // 1.4kk logs in total inserted
+			startSeqNum:          101,
+			endSeqNum:            110,
+			sourceChainsCount:    40,
+			destChainsCount:      20,
+			expectedChains:       39,
+			expectedLogsPerChain: 10,
+		},
 	}
 
 	for _, tt := range tests {
-		b.Run(fmt.Sprintf("LogsInserted_%d_StartSeq_%d_EndSeq_%d", tt.logsInserted, tt.startSeqNum, tt.endSeqNum), func(b *testing.B) {
-			benchmarkExecutedMessages(b, tt.logsInserted, tt.startSeqNum, tt.endSeqNum)
+		reader := prepareExecutedStateChangesEventsInDb(
+			b,
+			tt.logsInsertedPerChain,
+			tt.sourceChainsCount,
+			tt.destChainsCount,
+		)
+
+		filters := map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{}
+		for i := 0; i < tt.sourceChainsCount; i++ {
+			// #nosec G115
+			chainSelector := cciptypes.ChainSelector(i + 1)
+			if chainSelector == chainD {
+				continue
+			}
+			// This enforces variation in seqNum ranges
+			start := cciptypes.SeqNum(i*16) + tt.startSeqNum
+			stop := cciptypes.SeqNum(i*16) + tt.endSeqNum
+
+			filters[chainSelector] = append(
+				filters[chainSelector],
+				cciptypes.NewSeqNumRange(start, stop),
+			)
+		}
+
+		b.Run(tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				executedRanges, err := reader.ExecutedMessages(
+					b.Context(),
+					filters,
+					primitives.Unconfirmed,
+				)
+
+				require.NoError(b, err)
+				require.Len(b, executedRanges, tt.expectedChains)
+				for _, seqNrs := range executedRanges {
+					require.Len(b, seqNrs, tt.expectedLogsPerChain)
+				}
+			}
 		})
 	}
 }
 
-func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum, endSeqNum cciptypes.SeqNum) {
-	// Initialize test setup
+func prepareExecutedStateChangesEventsInDb(
+	b *testing.B,
+	logsInsertedPerChain int,
+	sourceChainsCount int,
+	destChainsCount int,
+) ccipreaderpkg.CCIPReader {
 	ctx := b.Context()
 	s := setupExecutedMessagesTest(ctx, b, true)
-	expectedRangeLen := calculateExpectedRangeLen(logsInsertedFirst, startSeqNum, endSeqNum)
 
-	// Insert logs in two phases based on parameters
-	if logsInsertedFirst > 0 {
-		populateDatabaseForExecutionStateChanged(ctx, b, s, chainS1, chainD, logsInsertedFirst, 0)
+	err := s.extendedCR.Bind(ctx, []types.BoundContract{
+		{
+			Address: s.contractAddr.String(),
+			Name:    consts.ContractNameOffRamp,
+		},
+	})
+	require.NoError(b, err)
+
+	// Insert logs if needed
+	if logsInsertedPerChain > 0 {
+		for j := 0; j < destChainsCount; j++ {
+			// #nosec G115
+			orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
+
+			// #nosec G115
+			populateDatabaseForExecutionStateChanged(
+				ctx,
+				b,
+				s,
+				orm,
+				cciptypes.ChainSelector(j+1),
+				sourceChainsCount,
+				logsInsertedPerChain,
+				0,
+			)
+		}
 	}
 
-	// Reset timer to measure only the query time
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		executedRanges, err := s.reader.ExecutedMessages(
-			ctx,
-			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
-				chainS1: {
-					cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
-				},
-			},
-			primitives.Unconfirmed,
-		)
-		require.NoError(b, err)
-		require.Len(b, executedRanges[chainS1], expectedRangeLen)
-	}
+	return s.reader
 }
 
 func populateDatabaseForExecutionStateChanged(
 	ctx context.Context,
 	b *testing.B,
 	testEnv *testSetupData,
-	sourceChain cciptypes.ChainSelector,
+	orm *logpoller.DSORM,
 	destChain cciptypes.ChainSelector,
+	sourceChainCount int,
 	numOfEvents int,
 	offset int,
 ) {
@@ -1505,13 +1589,14 @@ func populateDatabaseForExecutionStateChanged(
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
-		// Populate fields for the event
-		sourceChainSelector := uint64(sourceChain)
+		// Every source chain will have its own message
 		// #nosec G115
-		sequenceNumber := uint64(offset + i)
+		sourceChainSelector := uint64(i%sourceChainCount + 1)
+		// #nosec G115
+		sequenceNumber := uint64(i / sourceChainCount)
 		messageID := utils.NewHash()
 		messageHash := utils.NewHash()
-		state := uint8(1)
+		state := uint8(2)
 		returnData := []byte{0x01, 0x02}
 		gasUsed := big.NewInt(int64(10000 + i))
 
@@ -1549,39 +1634,87 @@ func populateDatabaseForExecutionStateChanged(
 	}
 
 	// Insert logs into the database
-	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
-	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
+	require.NoError(b, orm.InsertLogs(ctx, logs))
+	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
-// Benchmark Results:
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14                     13729             85838 ns/op           43473 B/op        647 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14                      870           1405208 ns/op         1156315 B/op      21102 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14                    90          12129488 ns/op        10833395 B/op     201076 allocs/op
-// Benchmark_CCIPReader_MessageSentRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14          10         105741438 ns/op        49103282 B/op     796213 allocs/op
-func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
+func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
-		logsInserted int
-		startSeqNum  cciptypes.SeqNum
-		endSeqNum    cciptypes.SeqNum
+		name                 string
+		logsInsertedPerChain int
+		startSeqNum          cciptypes.SeqNum
+		endSeqNum            cciptypes.SeqNum
+		sourceChainsCount    int
+		destChainsCount      int
+
+		expectedLogs   int
+		expectedLatest cciptypes.SeqNum
 	}{
-		{0, 0, 10},                        // No logs
-		{10, 0, 9},                        // Get all messages with 10 logs
-		{100, 0, 100},                     // Get all messages with 100 logs
-		{100_000, 100_000 - 256, 100_000}, // Get the last 256 messages
+		{
+			// Case in which we have 5 chains densely connected generating large volume of logs
+			name:                 "5 source chains and 5 destination chains",
+			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
+			startSeqNum:          5_000,
+			endSeqNum:            5_256,
+			sourceChainsCount:    5,
+			destChainsCount:      5,
+			expectedLogs:         257,
+			expectedLatest:       9_899, // it's always smaller than latestBlock, because last 500 logs are not finalized
+		},
+		{
+			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
+			name:                 "70 source chains and 10 destination chains",
+			logsInsertedPerChain: 25_000, // 1.75kk logs in total inserted (25000 * 70 chains)
+			startSeqNum:          2_000,
+			endSeqNum:            2_300,
+			sourceChainsCount:    70,
+			destChainsCount:      10,
+			expectedLogs:         301,
+			expectedLatest:       2_449,
+		},
 	}
 
 	for _, tt := range tests {
-		b.Run(fmt.Sprintf("LogsInserted_%d_StartSeq_%d_EndSeq_%d", tt.logsInserted, tt.startSeqNum, tt.endSeqNum), func(b *testing.B) {
-			benchmarkMessageSentRanges(b, tt.logsInserted, tt.startSeqNum, tt.endSeqNum)
+		reader := prepareMessageSentEventsInDb(
+			b,
+			tt.logsInsertedPerChain,
+			tt.sourceChainsCount,
+			tt.destChainsCount,
+		)
+
+		b.Run("MsgsBetweenSeqNums "+tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				msgs, err := reader.MsgsBetweenSeqNums(
+					b.Context(),
+					chainS1,
+					cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
+				)
+				require.NoError(b, err)
+				require.Len(b, msgs, tt.expectedLogs)
+			}
+		})
+
+		b.Run("LatestMsgSeqNum "+tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				latest, err := reader.LatestMsgSeqNum(
+					b.Context(),
+					chainS1,
+				)
+				require.NoError(b, err)
+				require.Equal(b, tt.expectedLatest, latest)
+			}
 		})
 	}
 }
 
-func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, endSeqNum cciptypes.SeqNum) {
+func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCount, destChainsCount int) ccipreaderpkg.CCIPReader {
 	// Initialize test setup
 	ctx := b.Context()
 	s := setupMsgsBetweenSeqNumsTest(ctx, b, true, chainS1)
-	expectedRangeLen := calculateExpectedRangeLen(logsInserted, startSeqNum, endSeqNum)
 
 	err := s.extendedCR.Bind(ctx, []types.BoundContract{
 		{
@@ -1593,29 +1726,25 @@ func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, end
 
 	// Insert logs if needed
 	if logsInserted > 0 {
-		populateDatabaseForMessageSent(ctx, b, s, chainS1, chainD, logsInserted, 0)
+		for j := 0; j < sourceChainsCount; j++ {
+			// #nosec G115
+			orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
+
+			// #nosec G115
+			populateDatabaseForMessageSent(ctx, b, s, orm, cciptypes.ChainSelector(j+1), destChainsCount, logsInserted, 0)
+		}
 	}
 
-	// Reset timer to measure only the query time
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		msgs, err := s.reader.MsgsBetweenSeqNums(
-			ctx,
-			chainS1,
-			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
-		)
-		require.NoError(b, err)
-		require.Len(b, msgs, expectedRangeLen)
-	}
+	return s.reader
 }
 
 func populateDatabaseForMessageSent(
 	ctx context.Context,
 	b *testing.B,
 	testEnv *testSetupData,
+	orm *logpoller.DSORM,
 	sourceChain cciptypes.ChainSelector,
-	destChain cciptypes.ChainSelector,
+	destChainCount int,
 	numOfEvents int,
 	offset int,
 ) {
@@ -1626,15 +1755,21 @@ func populateDatabaseForMessageSent(
 	messageSentEventSig := messageSentEvent.ID
 	messageSentEventAddress := testEnv.contractAddr
 
+	largePayload := make([]byte, 8*1024)
+	_, err := rand.Read(largePayload)
+	require.NoError(b, err)
+
 	for i := 0; i < numOfEvents; i++ {
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
-		// Populate fields for the event
-		destChainSelector := uint64(destChain)
+		// Every event targets a different destination chain
 		// #nosec G115
-		sequenceNumber := uint64(offset + i)
+		destChainSelector := uint64(i%destChainCount + 1)
+		// Every destination chain has its own sequence number
+		// #nosec G115
+		sequenceNumber := uint64(i / destChainCount)
 
 		// Create InternalRampMessageHeader struct
 		header := onramp.InternalRampMessageHeader{
@@ -1658,11 +1793,19 @@ func populateDatabaseForMessageSent(
 			},
 		}
 
+		// Make it large every 1000th event to simulate large payloads
+		// especially to verify lack of errors related to index sizes
+		// e.g. index row requires 9560 bytes, maximum size is 8191 (SQLSTATE 54000)
+		data := []byte{0x04, 0x05}
+		if i%1000 == 0 {
+			data = largePayload
+		}
+
 		// Create InternalEVM2AnyRampMessage struct
 		message := onramp.InternalEVM2AnyRampMessage{
 			Header:    header,
 			Sender:    utils.RandomAddress(),
-			Data:      []byte{0x04, 0x05},
+			Data:      data,
 			Receiver:  []byte{0x06, 0x07},
 			ExtraArgs: []byte{0x08},
 			FeeToken:  utils.RandomAddress(),
@@ -1704,29 +1847,18 @@ func populateDatabaseForMessageSent(
 	}
 
 	// Insert logs into the database
-	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
-	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
-}
-
-func calculateExpectedRangeLen(logsInserted int, startSeq, endSeq cciptypes.SeqNum) int {
-	if logsInserted == 0 {
-		return 0
-	}
-	start := uint64(startSeq)
-	end := uint64(endSeq)
-	// #nosec G115
-	logs := uint64(logsInserted)
-
-	if start >= logs {
-		return 0
-	}
-
-	if end >= logs {
-		end = logs - 1
-	}
-
-	// #nosec G115
-	return int(end - start + 1)
+	require.NoError(b, orm.InsertLogs(ctx, logs))
+	latestBlock := int64(numOfEvents)
+	finalityDepth := int64(500)
+	require.NoError(
+		b,
+		orm.InsertBlock(
+			ctx,
+			utils.RandomHash(),
+			latestBlock,
+			time.Now(),
+			latestBlock-finalityDepth,
+		))
 }
 
 func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.TransactOpts) {
@@ -1839,14 +1971,22 @@ func testSetup(
 	assert.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.ErrorLevel)
-	// Parameterize database selection
-	var db *sqlx.DB
-	if params.UseHeavyDB {
-		_, db = heavyweight.FullTestDBV2(t, nil) // Heavyweight database for benchmarks
-	} else {
-		db = pgtest.NewSqlxDB(t) // Simple in-memory DB for tests
+	// Change that to DebugLevel to enable SQL logs
+	lggr.SetLogLevel(zapcore.DebugLevel)
+
+	var dbs sqlutil.DataSource
+	{
+		var db *sqlx.DB //
+		if params.UseHeavyDB {
+			_, db = heavyweight.FullTestDBV2(t, nil) // Heavyweight database for benchmarks
+		} else {
+			db = pgtest.NewSqlxDB(t) // Simple in-memory DB for tests
+		}
+		dbs = sqlutil.WrapDataSource(db, lggr, sqlutil.MonitorHook(func() bool {
+			return true
+		}))
 	}
+
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
@@ -1856,7 +1996,7 @@ func testSetup(
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
+	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), dbs, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
 		cl,
@@ -1898,7 +2038,7 @@ func testSetup(
 	for chain, bindings := range params.ToBindContracts {
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
+		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), dbs, lggr),
 			cl2,
 			lggr,
 			headTracker2,
@@ -1942,7 +2082,6 @@ func testSetup(
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
 		require.NoError(t, lp.Close())
-		require.NoError(t, db.Close())
 	})
 
 	return &testSetupData{
@@ -1955,6 +2094,7 @@ func testSetup(
 		cl:           cl,
 		reader:       reader,
 		extendedCR:   extendedCr,
+		dbs:          dbs,
 	}
 }
 
@@ -1983,6 +2123,7 @@ type testSetupData struct {
 	cl           client.Client
 	reader       ccipreaderpkg.CCIPReader
 	extendedCR   contractreader.Extended
+	dbs          sqlutil.DataSource
 }
 
 func cs(i uint64) cciptypes.ChainSelector {
