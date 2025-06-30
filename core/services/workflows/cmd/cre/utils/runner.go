@@ -27,6 +27,7 @@ type RunnerConfig struct {
 type RunnerHooks struct {
         // Initialize hook sets up resources used by the Runner
 	Initialize  func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
+         // BeforeStart hook is a testing hook that can be used to check that resources were set up
 	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
 	Wait        func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
