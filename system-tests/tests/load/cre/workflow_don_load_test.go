@@ -150,6 +150,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
+	require.NotEmpty(t, os.Getenv("PROMETHEUS_URL"), "PROMETHEUS_URL must be set")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
