@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
@@ -208,6 +209,7 @@ type ApplicationOpts struct {
 	LLOTransmissionReaper    services.ServiceCtx
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
+	DonTimeStore             *dontime.Store
 }
 
 type Heartbeat struct {
@@ -290,6 +292,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	if opts.DonTimeStore == nil {
+		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
+	}
+
 	csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
 	if err != nil {
@@ -363,7 +369,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient, opts.DonTimeStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -653,6 +659,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Relayers:                       relayChainInterops,
 				MailMon:                        mailMon,
 				CapabilitiesRegistry:           opts.CapabilitiesRegistry,
+				DonTimeStore:                   opts.DonTimeStore,
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 			},
@@ -828,6 +835,7 @@ func newCREServices(
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
 	billingClient metering.BillingClient,
+	dontimeStore *dontime.Store,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
@@ -960,6 +968,7 @@ func newCREServices(
 					lggr,
 					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
+					dontimeStore,
 					engineRegistry,
 					custmsg.NewLabeler(),
 					workflowRateLimiter,

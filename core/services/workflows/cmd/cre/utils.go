@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -110,6 +111,8 @@ func NewStandaloneEngine(
 		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
 	}
 
+	dontimeStore := dontime.NewStore(dontime.DefaultRequestTimeout)
+
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
@@ -123,6 +126,7 @@ func NewStandaloneEngine(
 			WorkflowOwner:        defaultOwner,
 			WorkflowName:         name,
 			Registry:             registry,
+			DonTimeStore:         dontimeStore,
 			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 			Config:               config,
 			Binary:               binary,
@@ -142,6 +146,7 @@ func NewStandaloneEngine(
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     registry,
+		DonTimeStore:    dontimeStore,
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,

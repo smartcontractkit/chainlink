@@ -37,8 +37,8 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.60
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250624142741-45c8e9237804
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250626211815-6523485d04a3
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250626141212-e50b2e7ffe2d
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250630202505-317745609bac
+	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250630193947-e5537c1af16f
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
 	github.com/smartcontractkit/chainlink-deployments-framework v0.14.0
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250625151958-31b61ac8e1d9
@@ -138,8 +138,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a // indirect
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.1 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -487,11 +487,11 @@ require (
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect

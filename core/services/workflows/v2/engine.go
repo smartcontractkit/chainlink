@@ -359,7 +359,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: NewTimeProvider(executionID, e.lggr), SecretsFetcher: e.secretsFetcher})
+		TimeProvider: NewTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr), SecretsFetcher: e.secretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)

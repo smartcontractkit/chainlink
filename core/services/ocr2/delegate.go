@@ -39,8 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/workflowLib"
-	workflowLibCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/workflowLib/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -131,6 +131,7 @@ type Delegate struct {
 
 	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry           core.CapabilitiesRegistry
+	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 }
 
@@ -238,6 +239,7 @@ type DelegateOpts struct {
 	Relayers                       RelayGetter
 	MailMon                        *mailbox.Monitor
 	CapabilitiesRegistry           core.CapabilitiesRegistry
+	DonTimeStore                   *dontime.Store
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 }
@@ -264,6 +266,7 @@ func NewDelegate(
 		isNewlyCreatedJob:              false,
 		mailMon:                        opts.MailMon,
 		capabilitiesRegistry:           opts.CapabilitiesRegistry,
+		dontimeStore:                   opts.DonTimeStore,
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 	}
@@ -554,7 +557,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.VaultPlugin:
 		return d.newServicesVaultPlugin(ctx, lggr, jb, d.gatewayConnectorServiceWrapper)
 
-	case types.WorkflowLib:
+	case types.DonTimePlugin:
 		return d.newWorkflowLibPlugin(ctx, lggr, jb)
 
 	default:
@@ -654,13 +657,13 @@ func (d *Delegate) newWorkflowLibPlugin(
 	spec := jb.OCR2OracleSpec
 
 	// TODO: Create and deploy workflowLib Job Spec https://smartcontract-it.atlassian.net/browse/CAPPL-944
-	cfg := &workflowLibCfg.WorkflowLibConfig{}
+	cfg := &dontimeCfg.Config{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
 	}
 
-	service, err := workflowLib.NewFactory(workflowLib.GetDonTimeStore(), lggr)
+	service, err := dontime.NewFactory(d.dontimeStore, lggr)
 	return []job.ServiceCtx{service}, nil
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
@@ -107,6 +108,7 @@ type Engine struct {
 	metrics              *monitoring.WorkflowsMetricLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
+	dontimeStore         *dontime.Store
 	workflow             *workflow
 	secretsFetcher       SecretsFor
 	env                  exec.Env
@@ -1287,6 +1289,7 @@ type Config struct {
 	WorkflowName         types.WorkflowName
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
+	DonTimeStore         *dontime.Store
 	MaxWorkerLimit       int
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
@@ -1402,6 +1405,14 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
+	if cfg.DonTimeStore == nil {
+		return nil, &workflowError{reason: "dontime store must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
@@ -1452,6 +1463,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		logger:         lggr.Named("WorkflowEngine"),
 		metrics:        metrics,
 		registry:       cfg.Registry,
+		dontimeStore:   cfg.DonTimeStore,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,
 		env: exec.Env{

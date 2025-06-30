@@ -47,7 +47,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250624142741-45c8e9237804
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250626211815-6523485d04a3
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250630202505-317745609bac
 	github.com/smartcontractkit/chainlink-deployments-framework v0.14.0
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250625151958-31b61ac8e1d9
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
@@ -70,7 +70,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.15.0
 	golang.org/x/text v0.25.0
 	google.golang.org/grpc v1.72.0
 	gopkg.in/guregu/null.v4 v4.0.0
@@ -163,8 +163,8 @@ require (
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
-	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.1 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -457,7 +457,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250624090157-6b89f926f864 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250626141212-e50b2e7ffe2d // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250630193947-e5537c1af16f // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250623155929-df514c92ffe1 // indirect
@@ -559,7 +559,7 @@ require (
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect

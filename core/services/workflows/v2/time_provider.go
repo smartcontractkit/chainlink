@@ -5,21 +5,21 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/workflowLib"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 )
 
 type TimeProvider struct {
 	workflowExecutionID string
 	timeSeqNum          int
-	donTimeStore        *workflowLib.DonTimeStore
+	donTimeStore        *dontime.Store
 	lggr                logger.Logger
 }
 
-func NewTimeProvider(workflowExecutionID string, lggr logger.Logger) TimeProvider {
+func NewTimeProvider(store *dontime.Store, workflowExecutionID string, lggr logger.Logger) TimeProvider {
 	return TimeProvider{
 		workflowExecutionID: workflowExecutionID,
 		timeSeqNum:          0,
-		donTimeStore:        workflowLib.GetDonTimeStore(),
+		donTimeStore:        store,
 		lggr:                logger.Named(lggr, "TimeProvider"),
 	}
 }

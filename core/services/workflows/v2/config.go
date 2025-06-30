@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -24,6 +25,7 @@ type EngineConfig struct {
 	Module          host.ModuleV2
 	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
+	DonTimeStore    *dontime.Store
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
