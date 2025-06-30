@@ -29,6 +29,7 @@ type RunnerHooks struct {
 	Initialize  func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
          // BeforeStart hook is a testing hook that can be used to check that resources were set up
 	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
+        // Wait hook handles blocking for the runner to keep the standalone engine running
 	Wait        func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
         //  AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting 
 	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
