@@ -428,54 +428,30 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 
 	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
 
-	testCases := []struct {
-		name             string
-		updates          map[uint64][]v1_5_1.GroupUpdateConfig
-		expectError      bool
-		expectedErrorMsg string
-	}{
-		{
-			name: "Nil_RemoteChainSupply_DefaultsToZero",
-			updates: map[uint64][]v1_5_1.GroupUpdateConfig{
-				selectorA: {
-					{
-						RemoteChainSelector: selectorB,
-						Group:               v1_5_1.BurnAndMint,
-						RemoteChainSupply:   nil,
-					},
+	config := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
+		TokenSymbol:     testhelpers.TestTokenSymbol,
+		ContractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+		ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+		Updates: map[uint64][]v1_5_1.GroupUpdateConfig{
+			selectorA: {
+				{
+					RemoteChainSelector: selectorB,
+					Group:               v1_5_1.BurnAndMint,
+					RemoteChainSupply:   nil,
 				},
 			},
-			expectError: false,
 		},
 	}
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			config := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
-				TokenSymbol:     testhelpers.TestTokenSymbol,
-				ContractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
-				ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
-				Updates:         tc.updates,
-			}
-			state, err := stateview.LoadOnchainState(e)
-			require.NoError(t, err)
-			pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
+	_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
+	require.NoError(t, err)
 
-			_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
-
-			if tc.expectError {
-				require.Error(t, err)
-				if tc.expectedErrorMsg != "" {
-					require.Contains(t, err.Error(), tc.expectedErrorMsg)
-				}
-				return
-			}
-
-			currentGroup, err := pool.GetGroup(nil, selectorB)
-			require.NoError(t, err)
-			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(currentGroup))
-		})
-	}
+	currentGroup, err := pool.GetGroup(nil, selectorB)
+	require.NoError(t, err)
+	require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(currentGroup))
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
