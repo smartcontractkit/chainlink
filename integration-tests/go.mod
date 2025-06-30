@@ -502,7 +502,7 @@ require (
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
-	github.com/urfave/cli/v2 v2.27.5 // indirect
+	github.com/urfave/cli/v2 v2.27.6 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.14 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
