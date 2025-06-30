@@ -66,7 +66,10 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 
 	for _, donConfig := range config.Dons {
 		donConfig := donConfig
-
+		_, ok := handlerMap[donConfig.DonId]
+		if ok {
+			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
+		}
 		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
@@ -81,16 +84,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		if err != nil {
 			return nil, err
 		}
-		handlerKey := donConfig.DonId
-		if handlerKey == "" {
-			// If no DON ID is specified, use the Handler Name as handlerKey
-			handlerKey = donConfig.HandlerName
-		}
-		_, ok := handlerMap[handlerKey]
-		if ok {
-			return nil, fmt.Errorf("duplicate DON ID %s", handlerKey)
-		}
-		handlerMap[handlerKey] = handler
+		handlerMap[donConfig.DonId] = handler
 		donConnMgr.SetHandler(handler)
 	}
 	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil

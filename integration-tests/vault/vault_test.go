@@ -101,7 +101,7 @@ F = 0
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
 		require.NoError(t, err, "Gateway job creation request must not error")
 		require.Empty(t, job.Errors, "Gateway job creation response must not return any errors")
-		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v.", job))
+		require.NotEmpty(t, job.Data.ID, "Gateway job creation response must return a job ID")
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 		fmt.Println(job.Data.ID)
 	}
