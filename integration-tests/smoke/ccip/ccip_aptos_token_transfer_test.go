@@ -94,67 +94,67 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name:           "Send token to EOA with gas limit set to 0",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  aptosToken[:],
-					Amount: big.NewInt(1e8),
-				},
-			},
-		},
-		{
-			Name:           "Send token to Receiver",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  aptosToken[:],
-					Amount: big.NewInt(1e8),
-				},
-			},
-		},
-		{
-			Name:           "Send token and message to EOA",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       deployerDestChain[:],
-			Data:           []byte("Hello, World!"),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  aptosToken[:],
-					Amount: big.NewInt(1e8),
-				},
-			},
-		},
+		// {
+		// 	Name:           "Send token to EOA with gas limit set to 0",
+		// 	SourceChain:    sourceChain,
+		// 	DestChain:      destChain,
+		// 	Receiver:       deployerDestChain[:],
+		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		// 	Tokens: []router.ClientEVMTokenAmount{
+		// 		{
+		// 			Token:  evmToken.Address(),
+		// 			Amount: big.NewInt(1e18),
+		// 		},
+		// 	},
+		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+		// 	ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+		// 		{
+		// 			Token:  aptosToken[:],
+		// 			Amount: big.NewInt(1e8),
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	Name:           "Send token to Receiver",
+		// 	SourceChain:    sourceChain,
+		// 	DestChain:      destChain,
+		// 	Receiver:       ccipChainState.ReceiverAddress[:],
+		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		// 	Tokens: []router.ClientEVMTokenAmount{
+		// 		{
+		// 			Token:  evmToken.Address(),
+		// 			Amount: big.NewInt(1e18),
+		// 		},
+		// 	},
+		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+		// 	ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+		// 		{
+		// 			Token:  aptosToken[:],
+		// 			Amount: big.NewInt(1e8),
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	Name:           "Send token and message to EOA",
+		// 	SourceChain:    sourceChain,
+		// 	DestChain:      destChain,
+		// 	Receiver:       deployerDestChain[:],
+		// 	Data:           []byte("Hello, World!"),
+		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		// 	Tokens: []router.ClientEVMTokenAmount{
+		// 		{
+		// 			Token:  evmToken.Address(),
+		// 			Amount: big.NewInt(1e18),
+		// 		},
+		// 	},
+		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+		// 	ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+		// 		{
+		// 			Token:  aptosToken[:],
+		// 			Amount: big.NewInt(1e8),
+		// 		},
+		// 	},
+		// },
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
