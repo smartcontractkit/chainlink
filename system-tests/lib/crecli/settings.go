@@ -1,7 +1,7 @@
 package crecli
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+	"github.com/google/uuid"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,6 +10,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -73,12 +74,21 @@ type RPC struct {
 }
 
 type WorkflowStorage struct {
-	Gist  Gist               `yaml:"gist"`
-	Minio *s3provider.Output `yaml:"minio,omitempty"` // Optional, if not provided, Gist will be used
+	Gist  Gist                 `yaml:"gist"`
+	Minio MinioStorageSettings `yaml:"minio,omitempty"` // Optional, if not provided, Gist will be used
 }
 
 type Gist struct {
 	GithubToken string `yaml:"github_token"`
+}
+
+type MinioStorageSettings struct {
+	Endpoint        string `yaml:"endpoint"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	SecretAccessKey string `yaml:"secret_access_key"`
+	SessionToken    string `yaml:"session_token"`
+	UseSSL          bool   `yaml:"use_ssl"`
+	Region          string `yaml:"region"`
 }
 
 type PoRWorkflowConfig struct {
@@ -110,7 +120,7 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 
 // rpcs: chainSelector -> url
 func PrepareCRECLISettingsFile(
-	mockMinioStorageSettingsprofile string,
+	profile string,
 	workflowOwner common.Address,
 	addressBook cldf.AddressBook,
 	donID uint32,
@@ -161,8 +171,14 @@ func PrepareCRECLISettingsFile(
 	}
 
 	if s3ProviderOutput != nil {
-		// TODO: WorkflowStorage: mockMinioStorageSettings{
-		profileSettings.WorkflowStorage.Minio = s3ProviderOutput
+		profileSettings.WorkflowStorage.Minio = MinioStorageSettings{
+			Endpoint:        s3ProviderOutput.Endpoint,
+			AccessKeyID:     s3ProviderOutput.AccessKey,
+			SecretAccessKey: s3ProviderOutput.SecretKey,
+			SessionToken:    uuid.NewString(),
+			UseSSL:          false,
+			Region:          s3ProviderOutput.Region,
+		}
 	} else {
 		profileSettings.WorkflowStorage.Gist = Gist{
 			GithubToken: `${CRE_GITHUB_API_TOKEN}`,

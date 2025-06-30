@@ -63,41 +63,24 @@ func prepEnv(t *testing.T) {
 	require.NoError(t, err)
 }
 
-type mockMinioStorageSettings struct {
-	Endpoint        string `yaml:"endpoint"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	SecretAccessKey string `yaml:"secret_access_key"`
-	SessionToken    string `yaml:"session_token"`
-	UseSSL          bool   `yaml:"use_ssl"`
-	Region          string `yaml:"region"`
+type WorkflowStorageSettings struct {
+	Minio crecli.MinioStorageSettings `yaml:"minio"`
 }
 
-type mockWorkflowStorageSettings struct {
-	Minio mockMinioStorageSettings `yaml:"minio"`
-}
-
-type mockSettings struct {
-	DevPlatform     crecli.DevPlatform          `yaml:"dev-platform"`
-	StorageSettings mockWorkflowStorageSettings `yaml:"workflow_storage"`
-	UserWorkflow    crecli.UserWorkflow         `yaml:"user-workflow"`
-	Contracts       crecli.Contracts            `yaml:"contracts"`
-	RPCS            []crecli.RPC                `json:"rpcs"`
+type CRESettings struct {
+	DevPlatform     crecli.DevPlatform      `yaml:"dev-platform"`
+	StorageSettings WorkflowStorageSettings `yaml:"workflow_storage"`
+	UserWorkflow    crecli.UserWorkflow     `yaml:"user-workflow"`
+	Contracts       crecli.Contracts        `yaml:"contracts"`
+	RPCS            []crecli.RPC            `json:"rpcs"`
 }
 
 type mockProfileSettings struct {
-	Settings mockSettings `yaml:"mytestprofile"`
-}
-
-type PoRWorkflowConfig struct {
-	FeedID            string  `yaml:"feed_id"`
-	URL               string  `yaml:"url"`
-	ConsumerAddress   string  `yaml:"consumer_address"`
-	WriteTargetName   string  `yaml:"write_target_name"`
-	AuthKeySecretName *string `yaml:"auth_key_secret_name,omitempty"`
+	Settings CRESettings `yaml:"mytestprofile"`
 }
 
 func mockWorkflowConfig(t *testing.T, workflowConfigPath string) {
-	workflowConfig := PoRWorkflowConfig{
+	workflowConfig := crecli.PoRWorkflowConfig{
 		FeedID:            FakeFeedID,
 		URL:               FakeFeedURL,
 		ConsumerAddress:   SomeAddr,
@@ -119,12 +102,12 @@ func mockWorkflowConfig(t *testing.T, workflowConfigPath string) {
 
 func mockCreConfig(t *testing.T, configPath string, provider s3provider.Provider) {
 	settings := mockProfileSettings{
-		Settings: mockSettings{
+		Settings: CRESettings{
 			DevPlatform: crecli.DevPlatform{
 				DonID: 1,
 			},
-			StorageSettings: mockWorkflowStorageSettings{
-				Minio: mockMinioStorageSettings{
+			StorageSettings: WorkflowStorageSettings{
+				Minio: crecli.MinioStorageSettings{
 					Endpoint:        provider.GetEndpoint(),
 					AccessKeyID:     provider.GetAccessKey(),
 					SecretAccessKey: provider.GetSecretKey(),
