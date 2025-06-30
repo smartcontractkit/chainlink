@@ -49,7 +49,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowExecutionID: c.WorkflowExecutionID,
-			ReferenceID:         fmt.Sprintf("%d", request.CallbackId),
+			ReferenceID:         strconv.Itoa(int(request.CallbackId)),
 		},
 		Config: values.EmptyMap(),
 	}
