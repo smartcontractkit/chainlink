@@ -13,7 +13,11 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
+
+COPY ./plugins/scripts ./plugins/scripts
 RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=secret,id=GIT_AUTH_TOKEN \
+    ./plugins/scripts/setup_git_auth.sh && \
     GOPRIVATE=github.com/smartcontractkit/chainlink-sui go mod download
 COPY . .
 
