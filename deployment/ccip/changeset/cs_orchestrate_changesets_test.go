@@ -74,7 +74,7 @@ func mockV2ChangesetLogic(e cldf.Environment, c mockChangesetConfig) (cldf.Chang
 
 func mockV2ChangesetPrecondition(e cldf.Environment, c mockChangesetConfig) error {
 	if c.Value == 0 {
-		return fmt.Errorf("precondition failed: value must not be zero")
+		return errors.New("precondition failed: value must not be zero")
 	}
 
 	return nil
