@@ -993,21 +993,31 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	if len(expectedSeqNrs) == 0 {
+		t.Log("[DEBUG] expectedSeqNrs is empty")
 		return nil, errors.New("no expected sequence numbers provided")
 	}
+
+	t.Logf("[DEBUG] Binding OffRamp at address %s", offRampAddress.String())
 	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
+	t.Log("[DEBUG] Fetching OffRamp state address...")
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
+	t.Logf("[DEBUG] Got OffRamp state address: %s", offRampStateAddress.String())
 
 	done := make(chan any)
 	defer close(done)
+
+	t.Log("[DEBUG] Subscribing to Aptos events...")
 	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
+
+	t.Log("[DEBUG] Event subscription established")
 
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]bool)
 	for _, seqNr := range expectedSeqNrs {
 		seqNrsToWatch[seqNr] = true
 	}
+	t.Logf("[DEBUG] Watching for sequence numbers: %+v", seqNrsToWatch)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -1015,6 +1025,19 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	for {
 		select {
 		case event := <-sink:
+			t.Logf("[DEBUG] Received event: %+v", event)
+
+			if !seqNrsToWatch[event.Event.SequenceNumber] {
+				t.Logf("[DEBUG] Ignoring event with unexpected sequence number: %d", event.Event.SequenceNumber)
+				continue
+			}
+
+			if event.Event.SourceChainSelector != srcSelector {
+				t.Logf("[DEBUG] Ignoring event with unexpected source chain selector: got %d, expected %d",
+					event.Event.SourceChainSelector, srcSelector)
+				continue
+			}
+
 			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
 				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,

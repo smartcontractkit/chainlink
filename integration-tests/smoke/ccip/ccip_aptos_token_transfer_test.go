@@ -159,6 +159,8 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
+	t.Log("STARTBLOCKS", startBlocks)
+
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		e.Env,
