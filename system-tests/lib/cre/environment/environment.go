@@ -124,7 +124,7 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
 		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
-		err := cribv2.CreateNamespace(&input.InfraInput)
+		err := cribv2.Bootstrap(&input.InfraInput)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to create namespace")
 		}

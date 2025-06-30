@@ -11,12 +11,13 @@ import (
 	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 )
 
-func CreateNamespace(infraInput *libtypes.InfraInput) error {
+func Bootstrap(infraInput *libtypes.InfraInput) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),
 		crib.ComponentSet(
 			namespacev1.Component(infraInput.CRIB.Namespace),
+			// todo: add telepresence install here for now
 		),
 	)
 	_, err := plan.Apply(context.Background())
@@ -76,7 +77,7 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 }
 
 func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
-	//ctx := context.Background()
+
 	//
 	//nodeset := anvilv1.Component(&nodesetv1.Props{
 	//	Namespace: input.Namespace,

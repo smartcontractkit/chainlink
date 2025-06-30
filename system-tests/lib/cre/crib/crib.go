@@ -1,7 +1,10 @@
 package crib
 
 import (
+	"context"
 	"fmt"
+	"github.com/smartcontractkit/crib-sdk/crib"
+	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -122,20 +125,9 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 			return nil, errors.Wrapf(err, "failed to create crib configs directory '%s' for %s", cribConfigsDirAbs, donMetadata.Name)
 		}
 
-		// validate that all nodes in the same node set use the same Docker image
-		dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSetInputs[j])
-		if dockerImagesErr != nil {
-			return nil, errors.Wrap(dockerImagesErr, "failed to validate node set Docker images")
-		}
-
-		imageName, imageErr := dockerImageName(dockerImage)
-		if imageErr != nil {
-			return nil, errors.Wrap(imageErr, "failed to get image name")
-		}
-
-		imageTag, imageErr := dockerImageTag(dockerImage)
-		if imageErr != nil {
-			return nil, errors.Wrap(imageErr, "failed to get image tag")
+		imageName, imageTag, err := imageNameAndTag(input, j)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
 		}
 
 		deployDonEnvVars["DEVSPACE_IMAGE"] = imageName
@@ -144,22 +136,6 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		bootstrapNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.BootstrapNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
-		}
-
-		var cleanToml = func(tomlStr string) ([]byte, error) {
-			// unmarshall and marshall to conver it into proper multi-line string
-			// that will be correctly serliazed to YAML
-			var data interface{}
-			tomlErr := toml.Unmarshal([]byte(tomlStr), &data)
-			if tomlErr != nil {
-				return nil, errors.Wrapf(tomlErr, "failed to unmarshal toml: %s", tomlStr)
-			}
-			newTOMLBytes, marshallErr := toml.Marshal(data)
-			if marshallErr != nil {
-				return nil, errors.Wrap(marshallErr, "failed to marshal toml")
-			}
-
-			return newTOMLBytes, nil
 		}
 
 		var writeOverrides = func(nodeMetadata *types.NodeMetadata, i int, nodeType types.NodeType) error {
@@ -173,7 +149,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 				return errors.Wrapf(convErr, "failed to convert node index '%s' to int for %s node %d in nodeset %s", nodeIndexStr, nodeType, i, donMetadata.Name)
 			}
 
-			cleanToml, tomlErr := cleanToml(input.NodeSetInputs[j].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
+			cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[j].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
 			if tomlErr != nil {
 				return errors.Wrap(tomlErr, "failed to clean TOML")
 			}
@@ -186,7 +162,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 				secretsFileMask = "secrets-override-%d.toml"
 			}
 
-			writeErr := os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(configFileMask, i)), cleanToml, 0600)
+			writeErr := os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(configFileMask, i)), cleanedToml, 0600)
 			if writeErr != nil {
 				return errors.Wrapf(writeErr, "failed to write config override for bootstrap node %d to file", i)
 			}
@@ -298,6 +274,91 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 
 		input.NodeSetInputs[j].Out = nsOutput
 	}
+
+	return input.NodeSetInputs, nil
+}
+
+func imageNameAndTag(input *types.DeployCribDonsInput, j int) (string, string, error) {
+	// validate that all nodes in the same node set use the same Docker image
+	dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSetInputs[j])
+	if dockerImagesErr != nil {
+		return "", "", errors.Wrap(dockerImagesErr, "failed to validate node set Docker images")
+	}
+
+	imageName, imageErr := dockerImageName(dockerImage)
+	if imageErr != nil {
+		return "", "", errors.Wrap(imageErr, "failed to get image name")
+	}
+
+	imageTag, imageErr := dockerImageTag(dockerImage)
+	if imageErr != nil {
+		return "", "", errors.Wrap(imageErr, "failed to get image tag")
+	}
+	return imageName, imageTag, nil
+}
+
+func cleanToml(tomlStr string) ([]byte, error) {
+	// unmarshall and marshall to conver it into proper multi-line string
+	// that will be correctly serliazed to YAML
+	var data interface{}
+	tomlErr := toml.Unmarshal([]byte(tomlStr), &data)
+	if tomlErr != nil {
+		return nil, errors.Wrapf(tomlErr, "failed to unmarshal toml: %s", tomlStr)
+	}
+	newTOMLBytes, marshallErr := toml.Marshal(data)
+	if marshallErr != nil {
+		return nil, errors.Wrap(marshallErr, "failed to marshal toml")
+	}
+
+	return newTOMLBytes, nil
+}
+
+// todo: after it's done it will replace DeployDonsCrib
+func DeployDonsCribV2(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
+	if input == nil {
+		return nil, errors.New("DeployCribDonsInput is nil")
+	}
+
+	if valErr := input.Validate(); valErr != nil {
+		return nil, errors.Wrap(valErr, "input validation failed")
+	}
+
+	// component funcs with all nodes from all nodesets
+	componentFuncs := make([]crib.ComponentFunc, 0)
+
+	for j, donMetadata := range input.Topology.DonsMetadata {
+		nodesCount := len(input.NodeSetInputs[j].NodeSpecs)
+
+		imageName, imageTag, err := imageNameAndTag(input, j)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
+		}
+
+		for i := 0; i < nodesCount; i++ {
+			component := nodev1.Component(&nodev1.Props{
+				Image:       fmt.Sprintf("%s:%s", imageName, imageTag),
+				ReleaseName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
+				// todo: set remaining fields based on the input
+			})
+			componentFuncs = append(componentFuncs, component)
+		}
+	}
+
+	plan := crib.NewPlan(
+		"dons",
+		crib.Namespace(input.Namespace),
+		crib.ComponentSet(
+			componentFuncs...,
+		),
+	)
+
+	planState, err := plan.Apply(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to apply plan")
+	}
+
+	// todo: set outputs basd on the plan results
+	planState.ComponentByName("todo")
 
 	return input.NodeSetInputs, nil
 }
