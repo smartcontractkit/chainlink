@@ -413,6 +413,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TODO: this test produces a error from the metering package because the spending types and ratios are not set.
 func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -461,8 +462,18 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Setup a slow capability that will timeout
 	slowCapability := capmocks.NewExecutableCapability(t)
 	capreg.EXPECT().GetExecutable(matches.AnyContext, "slow-capability").Return(slowCapability, nil).Once()
+	capreg.EXPECT().
+		ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
 
-	slowCapability.EXPECT().Info(matches.AnyContext).Return(capabilities.CapabilityInfo{}, nil)
+	slowCapability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{
+			DON: &capabilities.DON{
+				ID: 42,
+			},
+		}, nil)
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
