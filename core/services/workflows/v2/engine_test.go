@@ -413,7 +413,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-// TODO: this test produces a error from the metering package because the spending types and ratios are not set.
+// TODO [https://smartcontract-it.atlassian.net/browse/CRE-532]: this test produces a error from the metering package because the spending types and ratios are not set.
 func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
 
