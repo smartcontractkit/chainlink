@@ -1,38 +1,29 @@
-package main
+package utils
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"path"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
-	crontrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron/server"
-	httptrigger "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -44,32 +35,6 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-type standardCapConfig struct {
-	Config string
-
-	// Set enabled to true to run the loop plugin.  Requires the plugin be installed.
-	// Config will be passed to Initialise method of plugin.
-	Enabled bool
-}
-
-type ManualTriggers struct {
-	ManualCronTrigger *fakes.ManualCronTriggerService
-	ManualHTTPTrigger *fakes.ManualHTTPTriggerService
-}
-
-var (
-	goBinPath            = os.Getenv("GOBIN")
-	standardCapabilities = map[string]standardCapConfig{
-		"cron": {
-			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
-			Enabled: true,
-		},
-		"readcontract":  {},
-		"kvstore":       {},
-		"workflowevent": {},
-	}
-)
-
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -77,7 +42,7 @@ func NewStandaloneEngine(
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
-) (services.Service, error) {
+) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -88,12 +53,12 @@ func NewStandaloneEngine(
 
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create module from config: %w", err)
+		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
 	name, err := types.NewWorkflowName(defaultName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
@@ -103,7 +68,7 @@ func NewStandaloneEngine(
 		PerSenderBurst: defaultBurst,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
@@ -111,7 +76,7 @@ func NewStandaloneEngine(
 		PerOwner: 1000000000,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var billingClient billing.WorkflowClient
@@ -122,7 +87,7 @@ func NewStandaloneEngine(
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		cfg := workflows.Config{
@@ -143,12 +108,17 @@ func NewStandaloneEngine(
 			MaxExecutionDuration: time.Minute,
 			BillingClient:        billingClient,
 		}
-		return workflows.NewEngine(ctx, cfg)
+
+		engine, err := workflows.NewEngine(ctx, cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		return engine, nil, nil
 	}
 
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cfg := &v2.EngineConfig{
@@ -175,7 +145,25 @@ func NewStandaloneEngine(
 		DebugMode:      true,
 	}
 
-	return v2.NewEngine(cfg)
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		Config:          config,
+	}, v2.NewDisallowedExecutionHelper(lggr, nil, v2.TimeProvider{}, secretsFetcher))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	triggerSubscriptions := result.GetTriggerSubscriptions()
+
+	return engine, triggerSubscriptions.GetSubscriptions(), nil
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.
@@ -257,21 +245,8 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 	return caps, nil
 }
 
-// NewFakeCapabilities builds faked capabilities, then registers them with the capability registry.
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	if err := registry.Add(ctx, streamsTrigger); err != nil {
-		return nil, err
-	}
-	caps = append(caps, streamsTrigger)
-
-	httpAction := fakes.NewDirectHTTPAction(lggr)
-	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
-		return nil, err
-	}
-	caps = append(caps, httpAction)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
@@ -298,72 +273,4 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
-}
-
-func NewManualTriggerCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) (ManualTriggers, error) {
-	// Cron
-	manualCronTrigger := fakes.NewManualCronTriggerService(lggr)
-	manualCronTriggerServer := crontrigger.NewCronServer(manualCronTrigger)
-	if err := registry.Add(ctx, manualCronTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	// HTTP
-	manualHTTPTrigger := fakes.NewManualHTTPTriggerService(lggr)
-	manualHTTPTriggerServer := httptrigger.NewHTTPServer(manualHTTPTrigger)
-	if err := registry.Add(ctx, manualHTTPTriggerServer); err != nil {
-		return ManualTriggers{}, err
-	}
-
-	return ManualTriggers{
-		ManualCronTrigger: manualCronTrigger,
-		ManualHTTPTrigger: manualHTTPTrigger,
-	}, nil
-}
-
-// standaloneLoopWrapper wraps a StandardCapabilities to implement services.Service
-type standaloneLoopWrapper struct {
-	*standardcapabilities.StandardCapabilities
-}
-
-func (l *standaloneLoopWrapper) Ready() error { return l.StandardCapabilities.Ready() }
-
-func (l *standaloneLoopWrapper) HealthReport() map[string]error { return make(map[string]error) }
-
-func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
-
-func newStandardCapabilities(
-	standardCapabilities map[string]standardCapConfig,
-	lggr logger.Logger,
-	registry *capabilities.Registry,
-) []services.Service {
-	caps := make([]services.Service, 0)
-
-	pluginRegistrar := plugins.NewRegistrarConfig(
-		loop.GRPCOpts{},
-		func(name string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
-		func(loopId string) {})
-
-	for name, config := range standardCapabilities {
-		if !config.Enabled {
-			continue
-		}
-
-		spec := &job.StandardCapabilitiesSpec{
-			Command: path.Join(goBinPath, name),
-			Config:  config.Config,
-		}
-
-		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
-			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
-			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{})
-
-		service := &standaloneLoopWrapper{
-			StandardCapabilities: loop,
-		}
-		caps = append(caps, service)
-	}
-
-	return caps
 }
