@@ -18,11 +18,11 @@ type disallowedExecutionHelper struct {
 	SecretsFetcher
 }
 
-func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider *TimeProvider, secretsFetcher SecretsFetcher) *disallowedExecutionHelper {
+func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider, secretsFetcher SecretsFetcher) *disallowedExecutionHelper {
 	return &disallowedExecutionHelper{
 		lggr:           lggr,
 		UserLogChan:    userLogChan,
-		TimeProvider:   *timeProvider,
+		TimeProvider:   timeProvider,
 		SecretsFetcher: secretsFetcher,
 	}
 }
