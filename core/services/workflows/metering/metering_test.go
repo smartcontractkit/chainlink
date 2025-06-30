@@ -1043,7 +1043,7 @@ func TestRatiosFromConfig(t *testing.T) {
 			},
 		}, validConfig)
 
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, ratios, 2)
 
 		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitA))
@@ -1054,7 +1054,7 @@ func TestRatiosFromConfig(t *testing.T) {
 		t.Parallel()
 
 		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, new(values.Map))
-		assert.ErrorIs(t, err, ErrInvalidRatios)
+		require.ErrorIs(t, err, ErrInvalidRatios)
 		assert.Nil(t, ratios)
 	})
 
@@ -1068,7 +1068,7 @@ func TestRatiosFromConfig(t *testing.T) {
 		}
 
 		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, config)
-		assert.ErrorIs(t, err, ErrInvalidRatios)
+		require.ErrorIs(t, err, ErrInvalidRatios)
 		assert.Nil(t, ratios)
 	})
 
@@ -1081,7 +1081,7 @@ func TestRatiosFromConfig(t *testing.T) {
 			},
 		}, validConfig)
 
-		assert.ErrorIs(t, err, ErrInvalidRatios)
+		require.ErrorIs(t, err, ErrInvalidRatios)
 		assert.Nil(t, ratios)
 	})
 
@@ -1094,7 +1094,7 @@ func TestRatiosFromConfig(t *testing.T) {
 			},
 		}, invalidConfig)
 
-		assert.ErrorIs(t, err, ErrInvalidRatios)
+		require.ErrorIs(t, err, ErrInvalidRatios)
 		assert.Nil(t, ratios)
 	})
 
@@ -1107,7 +1107,7 @@ func TestRatiosFromConfig(t *testing.T) {
 			},
 		}, invalidConfig)
 
-		assert.ErrorIs(t, err, ErrInvalidRatios)
+		require.ErrorIs(t, err, ErrInvalidRatios)
 		assert.Nil(t, ratios)
 	})
 }
@@ -1118,6 +1118,7 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 	if client == nil {
 		meteringReport, err := NewReport(defaultLabels, lggr, nil)
 		require.NoError(t, err)
+
 		return meteringReport
 	}
 
@@ -1130,5 +1131,6 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
+
 	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }
