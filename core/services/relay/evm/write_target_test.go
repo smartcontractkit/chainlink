@@ -17,6 +17,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -531,7 +533,7 @@ func TestExtractNetwork(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.networkName, func(t *testing.T) {
-			networkName, err := evm.ExtractNetwork(tc.networkName)
+			networkName, err := chainselectors.ExtractNetworkName(tc.networkName)
 			if tc.expectedErr {
 				require.Error(t, err)
 				return

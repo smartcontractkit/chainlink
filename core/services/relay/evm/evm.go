@@ -286,6 +286,10 @@ func (r *Relayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, 
 	return r.chain.GetChainStatus(ctx)
 }
 
+func (r *Relayer) GetChainInfo(ctx context.Context) (commontypes.ChainInfo, error) {
+	return r.chain.GetChainInfo(ctx)
+}
+
 func (r *Relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
 	return r.chain.ListNodeStatuses(ctx, pageSize, pageToken)
 }
