@@ -94,26 +94,26 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			},
 		},
-		// {
-		// 	Name:           "Send token to EOA with gas limit set to 0",
-		// 	SourceChain:    sourceChain,
-		// 	DestChain:      destChain,
-		// 	Receiver:       deployerDestChain[:],
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		// 	Tokens: []router.ClientEVMTokenAmount{
-		// 		{
-		// 			Token:  evmToken.Address(),
-		// 			Amount: big.NewInt(1e18),
-		// 		},
-		// 	},
-		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
-		// 	ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-		// 		{
-		// 			Token:  aptosToken[:],
-		// 			Amount: big.NewInt(1e8),
-		// 		},
-		// 	},
-		// },
+		{
+			Name:           "Send token to EOA with gas limit set to 0",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       deployerDestChain[:],
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(0, true),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  aptosToken[:],
+					Amount: big.NewInt(1e8),
+				},
+			},
+		},
 		// {
 		// 	Name:           "Send token to Receiver",
 		// 	SourceChain:    sourceChain,
