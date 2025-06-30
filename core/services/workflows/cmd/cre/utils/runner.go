@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -16,30 +17,39 @@ type Runner struct {
 }
 
 type RunnerConfig struct {
-	enableBeholder             bool
-	enableBilling              bool
-	enableStandardCapabilities bool
-	lggr                       logger.Logger
+	EnableBeholder             bool
+	EnableBilling              bool
+	EnableStandardCapabilities bool
+	Lggr                       logger.Logger
+	LifecycleHooks             v2.LifecycleHooks
 }
 
 type RunnerHooks struct {
+	// Initialize hook sets up resources used by the Runner
 	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
-	BeforeRun  func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	AfterRun   func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	Cleanup    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
-	Finally    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// BeforeStart hook is a testing hook that can be used to check that resources were set up
+	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
+	// Wait hook handles blocking for the runner to keep the standalone engine running
+	Wait func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting
+	AfterRun func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// Cleanup hook shuts down the services that were started in the Initialize hook
+	Cleanup func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// Finally hook is a testing hook that can be used to check that resources were cleaned up
+	Finally func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
+var emptyBeforeStart = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription) {
+}
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
-	registry := capabilities.NewRegistry(cfg.lggr)
+	registry := capabilities.NewRegistry(cfg.Lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 
 	srvcs := []services.Service{}
-
-	if cfg.enableBilling {
-		bs := NewBillingService(cfg.lggr.Named("Fake_Billing_Client"))
+	if cfg.EnableBilling {
+		bs := NewBillingService(cfg.Lggr.Named("Fake_Billing_Client"))
 		err := bs.Start(ctx)
 		if err != nil {
 			fmt.Printf("Failed to start billing service: %v\n", err)
@@ -52,10 +62,10 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	var caps []services.Service
 	var err error
 
-	if cfg.enableStandardCapabilities {
-		caps, err = NewCapabilities(ctx, cfg.lggr, registry)
+	if cfg.EnableStandardCapabilities {
+		caps, err = NewCapabilities(ctx, cfg.Lggr, registry)
 	} else {
-		caps, err = NewFakeCapabilities(ctx, cfg.lggr, registry)
+		caps, err = NewFakeCapabilities(ctx, cfg.Lggr, registry)
 	}
 	if err != nil {
 		fmt.Printf("Failed to create capabilities: %v\n", err)
@@ -81,16 +91,20 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 		srvcs = append(srvcs, cap)
 	}
 
-	if cfg.enableBeholder {
-		_ = setupBeholder(cfg.lggr.Named("Fake_Stdlog_Beholder"))
+	if cfg.EnableBeholder {
+		_ = SetupBeholder(cfg.Lggr.Named("Fake_Stdlog_Beholder"))
 	}
 
 	return registry, srvcs
 }
 
+var defaultWait = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
+	<-ctx.Done()
+}
+
 var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
 	for _, service := range services {
-		cfg.lggr.Infow("Shutting down", "id", service.Name())
+		cfg.Lggr.Infow("Shutting down", "id", service.Name())
 		_ = service.Close()
 	}
 
@@ -99,11 +113,12 @@ var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capab
 
 func DefaultHooks() *RunnerHooks {
 	return &RunnerHooks{
-		Initialize: defaultInitialize,
-		BeforeRun:  emptyHook,
-		AfterRun:   emptyHook,
-		Cleanup:    defaultCleanup,
-		Finally:    emptyHook,
+		Initialize:  defaultInitialize,
+		BeforeStart: emptyBeforeStart,
+		AfterRun:    emptyHook,
+		Wait:        defaultWait,
+		Cleanup:     defaultCleanup,
+		Finally:     emptyHook,
 	}
 }
 
@@ -118,21 +133,21 @@ func NewRunner(hooks *RunnerHooks) *Runner {
 }
 
 // run instantiates the engine, starts it and blocks until the context is canceled.
-func (r *Runner) run(
+func (r *Runner) Run(
 	ctx context.Context,
-	binary, config []byte,
+	binary, config, secrets []byte,
 	cfg RunnerConfig,
 ) {
-	cfg.lggr.Infof("executing engine in process: %d", os.Getpid())
+	cfg.Lggr.Infof("executing engine in process: %d", os.Getpid())
 
 	registry, services := r.hooks.Initialize(ctx, cfg)
 
 	billingAddress := ""
-	if cfg.enableBilling {
+	if cfg.EnableBilling {
 		billingAddress = "localhost:4319"
 	}
 
-	engine, err := NewStandaloneEngine(ctx, cfg.lggr, registry, binary, config, billingAddress, v2.LifecycleHooks{})
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
@@ -140,7 +155,7 @@ func (r *Runner) run(
 
 	services = append(services, engine)
 
-	r.hooks.BeforeRun(ctx, cfg, registry, services)
+	r.hooks.BeforeStart(ctx, cfg, registry, services, triggerSub)
 
 	err = engine.Start(ctx)
 	if err != nil {
@@ -148,7 +163,7 @@ func (r *Runner) run(
 		os.Exit(1)
 	}
 
-	<-ctx.Done()
+	r.hooks.Wait(ctx, cfg, registry, services)
 
 	r.hooks.AfterRun(ctx, cfg, registry, services)
 

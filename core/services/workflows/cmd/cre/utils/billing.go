@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -81,11 +81,13 @@ func (s *BillingService) start(ctx context.Context) error {
 }
 
 func (s *BillingService) close() error {
-	s.server.Stop()
+	if s.server != nil {
+		s.server.Stop()
+	}
 	return nil
 }
 
-func setupBeholder(lggr logger.Logger) error {
+func SetupBeholder(lggr logger.Logger) error {
 	writer := &lggrWriter{lggr: lggr}
 
 	client, err := beholder.NewWriterClient(writer)

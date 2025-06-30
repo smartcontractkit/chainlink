@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func TestRunner(t *testing.T) {
@@ -34,11 +35,12 @@ func TestRunner(t *testing.T) {
 		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
 
 		runner := NewRunner(hooks)
-		runner.run(ctx, binary, []byte{}, RunnerConfig{
-			enableBeholder:             false,
-			enableBilling:              true,
-			enableStandardCapabilities: false,
-			lggr:                       logger.TestLogger(t),
+		runner.Run(ctx, binary, []byte{}, []byte{}, RunnerConfig{
+			EnableBeholder:             false,
+			EnableBilling:              true,
+			EnableStandardCapabilities: false,
+			Lggr:                       logger.TestLogger(t),
+			LifecycleHooks:             v2.LifecycleHooks{},
 		})
 	})
 }

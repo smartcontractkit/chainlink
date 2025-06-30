@@ -50,6 +50,7 @@ packages:
       dir: common/txmgr/mocks
     interfaces:
       EvmTxStore:
+      ChainReceipt:
   github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm:
     config:
       dir: common/chains/mocks
