@@ -1187,7 +1187,7 @@ func AddLane(
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
-		return errors.Wrapf(err, "failed to apply changesets for lane %d -> %d", from, to)
+		return err
 	}
 	return nil
 }
