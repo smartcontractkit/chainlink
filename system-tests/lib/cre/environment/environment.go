@@ -123,6 +123,11 @@ func SetupTestEnvironment(
 		if nixErr != nil {
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
+		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
+		err := cribv2.CreateNamespace(&input.InfraInput)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to create namespace")
+		}
 	}
 
 	defer func() {
@@ -793,6 +798,7 @@ func CreateBlockchains(
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
+			// todo: replace with internal URL call, once telepresence is set up
 			err := libinfra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")

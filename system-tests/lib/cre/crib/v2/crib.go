@@ -2,13 +2,30 @@ package cribv2
 
 import (
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/crib-sdk/crib"
 	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/anvil/v1"
+	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 )
+
+func CreateNamespace(infraInput *libtypes.InfraInput) error {
+	plan := crib.NewPlan(
+		"namespace",
+		crib.Namespace(infraInput.CRIB.Namespace),
+		crib.ComponentSet(
+			namespacev1.Component(infraInput.CRIB.Namespace),
+		),
+	)
+	_, err := plan.Apply(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to apply plan")
+	}
+
+	return nil
+}
 
 func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Output, error) {
 	err := input.Validate()
@@ -39,8 +56,7 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 	anvilComponents := result.ComponentByName("sdk.AnvilCompositeV1")
 
 	for component := range anvilComponents {
-		res := crib.ComponentState[*anvilv1.Result](component)
-		fmt.Printf("The args used: %v\n", res.InternalWSUrl())
+		res := crib.ComponentState[anvilv1.Result](component)
 
 		return &blockchain.Output{
 			Type:    input.BlockchainInput.Type,
@@ -48,10 +64,8 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 			ChainID: input.BlockchainInput.ChainID,
 			Nodes: []*blockchain.Node{
 				{
-					ExternalWSUrl:   "todo, requires telepresence",
-					ExternalHTTPUrl: "todo, requires telepresence",
-					InternalWSUrl:   res.InternalWSUrl(),
-					InternalHTTPUrl: "do we need that?",
+					InternalWSUrl:   res.RPCWebsocketURL(),
+					InternalHTTPUrl: res.RPCHTTPURL(),
 				},
 			},
 		}, nil
@@ -98,6 +112,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 	//fmt.Printf("Successfully applied plan: %s\n", plan.Name())
 	//
 	//// todo, and now how to get access to the Component props?
+
 	return make([]*types.CapabilitiesAwareNodeSet, 0), nil
 
 }
