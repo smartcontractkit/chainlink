@@ -48,6 +48,7 @@ import (
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
+	cribv2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib/v2"
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
@@ -786,8 +787,9 @@ func CreateBlockchains(
 				BlockchainInput: bi,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
+				Namespace:       input.infra.CRIB.Namespace,
 			}
-			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
+			bcOut, bcErr = cribv2.DeployBlockchain(deployCribBlockchainInput)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}

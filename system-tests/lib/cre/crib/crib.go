@@ -279,7 +279,11 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 			if err != nil {
 				return nil, errors.Wrapf(pathErr, "failed to get absolute path to capability %s", capability)
 			}
-
+			// ensure +x chmod in capability binary before copying to pods
+			err := os.Chmod(capability, 0755)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to chmod capability %s", capability)
+			}
 			destination := filepath.Join(destinationDir, filepath.Base(capability))
 			_, copyErr := input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
 			if copyErr != nil {

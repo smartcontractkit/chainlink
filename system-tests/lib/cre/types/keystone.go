@@ -540,6 +540,9 @@ func (d *DeployCribBlockchainInput) Validate() error {
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
 	}
+	if d.Namespace == "" {
+		return errors.New("namespace not set")
+	}
 	return nil
 }
 
