@@ -199,14 +199,14 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		req := newLegacyHttpRequestObject(t, messageId1, userUrl, userKeys.PrivateKey)
+		req := newLegacyHTTPRequestObject(t, messageId1, userUrl, userKeys.PrivateKey)
 		httpClient := &http.Client{}
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.Equal(true))
 
 	// Send another request and validate that response has correct content and sender
-	req := newLegacyHttpRequestObject(t, messageId2, userUrl, userKeys.PrivateKey)
+	req := newLegacyHTTPRequestObject(t, messageId2, userUrl, userKeys.PrivateKey)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	require.NoError(t, err)
@@ -223,7 +223,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newLegacyHttpRequestObject(t *testing.T, messageId string, userUrl string, signerKey *ecdsa.PrivateKey) *http.Request {
+func newLegacyHTTPRequestObject(t *testing.T, messageId string, userUrl string, signerKey *ecdsa.PrivateKey) *http.Request {
 	msg := &api.Message{Body: api.MessageBody{MessageId: messageId, Method: "test", DonId: "test_don"}}
 	require.NoError(t, msg.Sign(signerKey))
 	codec := api.JsonRPCCodec{}
