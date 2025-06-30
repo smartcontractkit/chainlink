@@ -2,6 +2,7 @@ package changeset_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ var multiplyBy2 = operations.NewOperation(
 	"Multiply an integer by 2",
 	func(b operations.Bundle, deps any, input int) (int, error) {
 		if input == 1234 {
-			return 0, fmt.Errorf("random error")
+			return 0, errors.New("random error")
 		}
 
 		return input * 2, nil
@@ -132,7 +133,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
-			ChangeSets: []changeset.ChangeSetWithConfig{
+			ChangeSets: []changeset.WithConfig{
 				changeset.CreateGenericChangeSetWithConfig(
 					cldf.CreateLegacyChangeSet(mockV1Changeset),
 					mockChangesetConfig{Value: 1},
@@ -154,7 +155,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
-			ChangeSets: []changeset.ChangeSetWithConfig{
+			ChangeSets: []changeset.WithConfig{
 				changeset.CreateGenericChangeSetWithConfig(
 					cldf.CreateLegacyChangeSet(mockV1Changeset),
 					mockChangesetConfig{Value: 1},
@@ -177,7 +178,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
-			ChangeSets: []changeset.ChangeSetWithConfig{
+			ChangeSets: []changeset.WithConfig{
 				changeset.CreateGenericChangeSetWithConfig(
 					cldf.CreateLegacyChangeSet(mockV1Changeset),
 					mockChangesetConfig{Value: 1234},
@@ -189,7 +190,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 			},
 		})
 		require.Error(t, err)
-		require.Len(t, output.Reports, 0)
+		require.Empty(t, output.Reports)
 	})
 
 	t.Run("first succeeds, second fails", func(t *testing.T) {
@@ -199,7 +200,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
-			ChangeSets: []changeset.ChangeSetWithConfig{
+			ChangeSets: []changeset.WithConfig{
 				changeset.CreateGenericChangeSetWithConfig(
 					cldf.CreateLegacyChangeSet(mockV1Changeset),
 					mockChangesetConfig{Value: 1},
@@ -213,7 +214,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 		require.Error(t, err)
 		require.Len(t, output.Reports, 1)
 		require.Equal(t, 2, output.Reports[0].Output)
-		require.Len(t, output.MCMSTimelockProposals, 0)
+		require.Empty(t, output.MCMSTimelockProposals)
 	})
 
 	t.Run("both succeed", func(t *testing.T) {
@@ -223,7 +224,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
-			ChangeSets: []changeset.ChangeSetWithConfig{
+			ChangeSets: []changeset.WithConfig{
 				changeset.CreateGenericChangeSetWithConfig(
 					cldf.CreateLegacyChangeSet(mockV1Changeset),
 					mockChangesetConfig{Value: 1},

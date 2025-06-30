@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/mcms"
@@ -16,9 +17,9 @@ var OrchestrateChangesets = cldf.CreateChangeSet(
 	orchestrateChangesetsPrecondition,
 )
 
-// ChangeSetWithConfig is a struct that holds a changeset and its associated configuration.
+// WithConfig is a struct that holds a changeset and its associated configuration.
 // Changesets are applied in the provided order.
-type ChangeSetWithConfig struct {
+type WithConfig struct {
 	Config    any
 	ChangeSet cldf.ChangeSetV2[any]
 }
@@ -26,7 +27,7 @@ type ChangeSetWithConfig struct {
 // CreateGenericChangeSetWithConfig creates a ChangeSetWithConfig instance.
 // It converts a strictly typed changeset with a specific configuration type C into a generic ChangeSetWithConfig.
 // This allows for any changeset to be used with OrchestrateChangesets.
-func CreateGenericChangeSetWithConfig[C any](changeSet cldf.ChangeSetV2[C], cfg C) ChangeSetWithConfig {
+func CreateGenericChangeSetWithConfig[C any](changeSet cldf.ChangeSetV2[C], cfg C) WithConfig {
 	applyFunc := func(e cldf.Environment, c any) (cldf.ChangesetOutput, error) {
 		// Type assert the config to the expected type C
 		configC, ok := c.(C)
@@ -43,7 +44,7 @@ func CreateGenericChangeSetWithConfig[C any](changeSet cldf.ChangeSetV2[C], cfg 
 		}
 		return changeSet.VerifyPreconditions(e, configC)
 	}
-	return ChangeSetWithConfig{
+	return WithConfig{
 		ChangeSet: cldf.CreateChangeSet(applyFunc, verifyFunc),
 		Config:    cfg,
 	}
@@ -53,7 +54,7 @@ func CreateGenericChangeSetWithConfig[C any](changeSet cldf.ChangeSetV2[C], cfg 
 type OrchestrateChangesetsConfig struct {
 	Description string
 	MCMS        *proposalutils.TimelockConfig
-	ChangeSets  []ChangeSetWithConfig
+	ChangeSets  []WithConfig
 }
 
 func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfig) (cldf.ChangesetOutput, error) {
@@ -68,13 +69,13 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 	for i, cs := range c.ChangeSets {
 		output, err := cs.ChangeSet.Apply(e, cs.Config)
 		if err != nil {
-			reports := append(finalOutput.Reports, output.Reports...)
-			return cldf.ChangesetOutput{Reports: reports}, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
+			finalOutput.Reports = append(finalOutput.Reports, output.Reports...)
+			return cldf.ChangesetOutput{Reports: finalOutput.Reports}, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
 		err = mergeChangesetOutput(e, &finalOutput, output)
 		if err != nil {
-			reports := append(finalOutput.Reports, output.Reports...)
-			return cldf.ChangesetOutput{Reports: reports}, fmt.Errorf("failed to merge output of changeset at index %d: %w", i, err)
+			finalOutput.Reports = append(finalOutput.Reports, output.Reports...)
+			return cldf.ChangesetOutput{Reports: finalOutput.Reports}, fmt.Errorf("failed to merge output of changeset at index %d: %w", i, err)
 		}
 	}
 
@@ -105,10 +106,10 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 
 func orchestrateChangesetsPrecondition(e cldf.Environment, c OrchestrateChangesetsConfig) error {
 	if c.Description == "" {
-		return fmt.Errorf("description must not be empty")
+		return errors.New("description must not be empty")
 	}
 	if c.MCMS == nil {
-		return fmt.Errorf("mcms must not be nil")
+		return errors.New("mcms must not be nil")
 	}
 	for i, cs := range c.ChangeSets {
 		if err := cs.ChangeSet.VerifyPreconditions(e, cs.Config); err != nil {
@@ -131,7 +132,10 @@ func mergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cl
 	if dest.DataStore == nil {
 		dest.DataStore = src.DataStore
 	} else if src.DataStore != nil {
-		dest.DataStore.Merge(src.DataStore.Seal())
+		err := dest.DataStore.Merge(src.DataStore.Seal())
+		if err != nil {
+			return fmt.Errorf("failed to merge data store: %w", err)
+		}
 	}
 	// 2. Merge Reports
 	if dest.Reports == nil {
