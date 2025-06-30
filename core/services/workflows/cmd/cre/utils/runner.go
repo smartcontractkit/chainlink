@@ -35,6 +35,7 @@ type RunnerHooks struct {
 	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	// Cleanup hook shuts down the services that were started in the Initialize hook
 	Cleanup     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// Finally hook is a testing hook that can be used to check that resources were cleaned up
 	Finally     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
 
