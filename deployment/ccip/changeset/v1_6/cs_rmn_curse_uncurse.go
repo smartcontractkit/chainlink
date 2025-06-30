@@ -520,6 +520,7 @@ type CursableChain interface {
 	Name() string
 	IsConnectedToSourceChain(selector uint64) (bool, error)
 	IsCursable() (bool, error)
+	IsCursed(subject globals.Subject) (bool, error)
 	IsSubjectCursed(subject globals.Subject) (bool, error)
 	Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
 	Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
@@ -531,7 +532,37 @@ type SolanaCursableChain struct {
 	chain    solanastateview.CCIPChainState
 }
 
+func (c SolanaCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	isCursed, _, err := c.getIsCursed(subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject %x is cursed on chain %d: %w", subject, c.selector, err)
+	}
+	return isCursed, nil
+}
+
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+	isCursed, curseType, err := c.getIsCursed(subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject %x is cursed on chain %d: %w", subject, c.selector, err)
+	}
+	if !isCursed {
+		return false, nil
+	}
+	switch curseType {
+	case 9006: // Globally cursed
+		if subject == globals.GlobalCurseSubject() {
+			return true, nil
+		}
+		return false, nil
+	case 9005: // Subject cursed
+		return true, nil
+	default:
+		return false, fmt.Errorf("unknown curseType %d: %w", curseType, err)
+	}
+}
+
+// getIsCursed checks if a subject is cursed on the Solana chain.
+func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool, curseType int64, err error) {
 	chain := c.env.BlockChains.SolanaChains()[c.selector]
 	curseSubject := solRmnRemote.CurseSubject{
 		Value: subject,
@@ -545,28 +576,19 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 		rmnRemoteConfigPDA,
 	).ValidateAndBuild()
 	if err != nil {
-		return false, fmt.Errorf("failed to generate instructions: %w", err)
+		return false, 0, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
 	if txErr == nil {
-		return false, nil
+		// If no error return then it's not cursed
+		return false, 0, nil
 	}
 	errCode, err := parseSolanaErrorCode(txErr)
 	if err != nil {
 		c.env.Logger.Errorf("failed to parse solana error code: %w", err)
-		return false, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
+		return false, 0, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
 	}
-	switch errCode {
-	case 9006: // Globally cursed
-		if subject == globals.GlobalCurseSubject() {
-			return true, nil
-		}
-		return false, nil
-	case 9005: // Subject cursed
-		return true, nil
-	default:
-		return false, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
-	}
+	return true, errCode, nil
 }
 
 func parseSolanaErrorCode(err error) (int64, error) {
@@ -734,19 +756,34 @@ func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool,
 	return true, nil
 }
 
-func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	if c.cursedSubjectsCache == nil {
-		c.cursedSubjectsCache = make(map[globals.Subject]struct{})
-		cursedSubjects, err := c.chain.RMNRemote.GetCursedSubjects(nil)
-		if err != nil {
-			return false, fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
-		}
-		for _, subj := range cursedSubjects {
-			c.cursedSubjectsCache[subj] = struct{}{}
-		}
+func (c *EvmCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	c.cacheCurses()
+	if _, isGloballyCursed := c.cursedSubjectsCache[globals.GlobalCurseSubject()]; isGloballyCursed {
+		return true, nil
 	}
+	_, isCursed := c.cursedSubjectsCache[subject]
+	return isCursed, nil
+}
+
+func (c *EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+	c.cacheCurses()
 	_, cursed := c.cursedSubjectsCache[subject]
 	return cursed, nil
+}
+
+func (c *EvmCursableChain) cacheCurses() error {
+	if c.cursedSubjectsCache != nil {
+		return nil
+	}
+	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+	cursedSubjects, err := c.chain.RMNRemote.GetCursedSubjects(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+	}
+	for _, subj := range cursedSubjects {
+		c.cursedSubjectsCache[subj] = struct{}{}
+	}
+	return nil
 }
 
 func (c EvmCursableChain) IsCursable() (bool, error) {
@@ -796,7 +833,7 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	}
 	cursableChains := make(map[uint64]CursableChain)
 	for selector := range state.Chains {
-		cursableChains[selector] = EvmCursableChain{
+		cursableChains[selector] = &EvmCursableChain{
 			selector: selector,
 			chain:    state.Chains[selector], // Access chain state directly
 			env:      env,

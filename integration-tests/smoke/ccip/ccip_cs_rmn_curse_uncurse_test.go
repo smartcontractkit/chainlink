@@ -61,7 +61,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
-
 	{
 		name: "solana lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -76,7 +75,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
-
 	{
 		name: "lane duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -93,7 +91,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
-
 	{
 		name: "chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -107,7 +104,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
-
 	{
 		name: "solana chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -123,7 +119,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
-
 	{
 		name: "chain duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -137,7 +132,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	},
-
 	{
 		name: "solana chain duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -153,7 +147,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
-
 	{
 		name: "chain and lanes",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -167,7 +160,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, subject: Evm2, cursed: true},
 		},
 	},
-
 	{
 		name: "all chain",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -179,7 +171,6 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, globalCurse: true, cursed: true},
 		},
 	},
-
 	{
 		name: "two chain globally",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -768,7 +759,7 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 			cursedSubject = globals.GlobalCurseSubject()
 		}
 
-		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsSubjectCursed(cursedSubject)
+		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsCursed(cursedSubject)
 		require.NoError(t, err)
 		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainID, assertion.subject)
 	}
@@ -783,7 +774,7 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			require.NoError(t, err)
 
-			isCursed, err := chain.IsSubjectCursed(globals.FamilyAwareSelectorToSubject(selector, family))
+			isCursed, err := chain.IsCursed(globals.FamilyAwareSelectorToSubject(selector, family))
 			require.NoError(t, err)
 			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
