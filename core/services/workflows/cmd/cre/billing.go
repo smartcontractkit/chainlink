@@ -98,6 +98,15 @@ func setupBeholder(lggr logger.Logger) error {
 	return nil
 }
 
+func cleanupBeholder() error {
+	client := beholder.GetClient()
+	if client != nil {
+		return client.Close()
+	}
+
+	return nil
+}
+
 type lggrWriter struct {
 	lggr logger.Logger
 }

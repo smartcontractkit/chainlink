@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -34,11 +33,10 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg            *EngineConfig
-	lggr           logger.Logger
-	loggerLabels   map[string]string
-	localNode      capabilities.Node
-	secretsFetcher SecretsFetcher
+	cfg          *EngineConfig
+	lggr         logger.Logger
+	loggerLabels map[string]string
+	localNode    capabilities.Node
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -47,7 +45,7 @@ type Engine struct {
 
 	allTriggerEventsQueueCh chan enqueuedTriggerEvent
 	executionsSemaphore     chan struct{}
-	capCallsSemaphore       chan struct{}
+	capCallsSemaphore       *semaphore[*sdkpb.CapabilityResponse]
 
 	meterReports *metering.Reports
 
@@ -71,6 +69,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+
 	em, err := monitoring.InitMonitoringResources()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
@@ -109,6 +108,24 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		labelsMap[labels[i].(string)] = labels[i+1].(string)
 	}
 
+	if cfg.DebugMode {
+		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
+	}
+
+	if cfg.SecretsFetcher == nil {
+		cfg.SecretsFetcher = NewSecretsFetcher(
+			metricsLabeler,
+			cfg.CapRegistry,
+			beholderLogger,
+			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
+			cfg.WorkflowOwner,
+			cfg.WorkflowName.String(),
+			func(shares []string) (string, error) {
+				return "", errors.New("decryption not implemented in v2 engine")
+			},
+		)
+	}
+
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
@@ -117,8 +134,8 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
-		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger),
+		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -170,11 +187,18 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerSubscriptionRequestTimeoutMs))
 	defer subCancel()
-	result, err := e.cfg.Module.Execute(subCtx, &wasmpb.ExecuteRequest{
-		Request:         &wasmpb.ExecuteRequest_Subscribe{},
+
+	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+	defer close(userLogChan)
+	e.srvcEng.Go(func(_ context.Context) {
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
+	})
+
+	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{SecretsFetcher: e.secretsFetcher})
+	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.cfg.SecretsFetcher, UserLogChan: userLogChan})
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -311,14 +335,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
 	if meteringErr != nil {
-		e.cfg.Lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
+		e.lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
 	}
 
 	isMetering := meteringErr == nil
 	if isMetering {
 		mrErr := meteringReport.Reserve(ctx)
 		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not reserve metering", "err", mrErr)
+			e.lggr.Errorw("could not reserve metering", "err", mrErr)
 			return
 		}
 
@@ -346,8 +370,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
-	result, err := e.cfg.Module.Execute(execCtx, &wasmpb.ExecuteRequest{
-		Request: &wasmpb.ExecuteRequest_Trigger{
+	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
 				Payload: triggerEvent.Payload,
@@ -355,7 +379,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.secretsFetcher})
+	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan, SecretsFetcher: e.cfg.SecretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -368,11 +392,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
 			}})
 		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not set metering for compute", "err", mrErr)
+			e.lggr.Errorw("could not set metering for compute", "err", mrErr)
 		}
 		mrErr = e.meterReports.End(ctx, executionID)
 		if mrErr != nil {
-			e.cfg.Lggr.Errorw("could not send metering report", "err", mrErr)
+			e.lggr.Errorw("could not end metering report", "err", mrErr)
 		}
 	}
 
@@ -386,6 +410,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		return
 	}
+
+	if e.cfg.DebugMode {
+		e.lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
+	}
+
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
 	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
@@ -418,7 +447,7 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 			Payload: trigger.payload,
 		})
 		if err != nil {
-			e.cfg.Lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
+			e.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 		}
 	}
 	e.triggers = make(map[string]*triggerCapability)
@@ -452,20 +481,22 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 	compMs := decimal.NewFromInt(int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs) + ctxCancelPadding)
 	computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, compMs)
 	if mrErr != nil {
-		e.cfg.Lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
+		e.lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
 	}
 
 	if mrErr = meteringReport.Deduct(
 		metering.ComputeResourceDimension,
 		computeAmount,
 	); mrErr != nil {
-		e.cfg.Lggr.Errorw("could not meter compute", "err", mrErr)
+		e.lggr.Errorw("could not meter compute", "err", mrErr)
 	}
 }
 
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string) {
+	e.lggr.Debugw("Listening for user logs ...")
 	count := 0
+	defer func() { e.lggr.Debugw("Listening for user logs done.", "processedLogLines", count) }()
 	for {
 		select {
 		case <-ctx.Done():
@@ -474,17 +505,19 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			if !ok {
 				return
 			}
+			if e.cfg.DebugMode {
+				e.lggr.Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
+			}
 			if count >= int(e.cfg.LocalLimits.MaxUserLogEventsPerExecution) {
-				e.cfg.Lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+				e.lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
 				return
 			}
 			if len(logLine.Message) > int(e.cfg.LocalLimits.MaxUserLogLineLength) {
 				logLine.Message = logLine.Message[:e.cfg.LocalLimits.MaxUserLogLineLength] + " ...(truncated)"
 			}
 
-			err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID)
-			if err != nil {
-				e.cfg.Lggr.Errorw("Failed to emit user logs", "err", err)
+			if err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+				e.lggr.Errorw("Failed to emit user logs", "err", err)
 			}
 			count++
 		}

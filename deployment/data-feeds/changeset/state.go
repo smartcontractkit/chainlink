@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -222,7 +222,7 @@ func (c DataFeedsChainState) GenerateView() (view.ChainView, error) {
 		for _, cacheContract := range c.DataFeedsCache {
 			cacheView, err := v1_0.GenerateDataFeedsCacheView(cacheContract)
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate cache view %s", cacheContract.Address().String())
+				return chainView, fmt.Errorf("failed to generate cache view %s: %w", cacheContract.Address().String(), err)
 			}
 			chainView.DataFeedsCache[cacheContract.Address().Hex()] = cacheView
 		}
@@ -231,7 +231,7 @@ func (c DataFeedsChainState) GenerateView() (view.ChainView, error) {
 		for _, proxyContract := range c.AggregatorProxy {
 			proxyView, err := v1_0.GenerateAggregatorProxyView(proxyContract)
 			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate proxy view %s", proxyContract.Address().String())
+				return chainView, fmt.Errorf("failed to generate proxy view %s: %w", proxyContract.Address().String(), err)
 			}
 			chainView.AggregatorProxy[proxyContract.Address().Hex()] = proxyView
 		}

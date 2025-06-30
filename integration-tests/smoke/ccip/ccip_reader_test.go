@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
@@ -42,7 +43,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -567,7 +567,8 @@ func commitSqNrs(
 	s *testSetupData,
 	chainSel cciptypes.ChainSelector,
 	seqNums []uint64,
-	state uint8) error {
+	state uint8,
+) error {
 	for _, sqnr := range seqNums {
 		_, err := s.contract.EmitExecutionStateChanged(
 			s.auth,
@@ -589,11 +590,21 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
+	// State 0 should never be emitted by the contract, but
+	// checking if they are ignored properly by the reader
+	err := commitSqNrs(s, chainS1, []uint64{13}, 0)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{14}, 0)
 	require.NoError(t, err)
 	s.sb.Commit()
 
 	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS1, []uint64{16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -607,7 +618,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			ctx,
 			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
 				chainS1: {
-					cciptypes.NewSeqNumRange(14, 15),
+					cciptypes.NewSeqNumRange(15, 16),
 				},
 			},
 			primitives.Unconfirmed,
@@ -616,7 +627,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 		return len(executedMsgs[chainS1]) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
 }
 
 func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
@@ -627,7 +638,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -664,11 +675,11 @@ func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s := setupExecutedMessagesTest(ctx, t, false)
-	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -1157,8 +1168,8 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	be := env.Env.BlockChains.EVMChains()[dest].Client.(*memory.Backend)
-	be.Commit()
+	simClient := env.Env.BlockChains.EVMChains()[dest].Client.(*cldf_evm_provider.SimClient)
+	simClient.Commit()
 
 	// Verify the updates took effect on-chain (optional sanity check)
 	gas1, err := feeQuoterDest.GetDestinationChainGasPrice(&bind.CallOpts{}, source1)
@@ -1314,9 +1325,6 @@ func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 		logsInsertedFirst    int
 		logsInsertedMatching int
 	}{
-		{0, 0},
-		{1, 10},
-		{10, 100},
 		{100, 10_000},
 	}
 
@@ -1438,8 +1446,8 @@ func populateDatabaseForCommitReportAccepted(
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
-// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_5_source_chains_and_5_destination_chains,_any-to-any-12         	      52	  25540214 ns/op
-// Benchmark_CCIPReader_ExecutedMessages/ExecutedMessages_Populating_database_with_20_dest_chains_and_40_sources_chains-12                         	     139	   8373795 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/5_source_chains_and_5_destination_chains-12         	      49	  24335313 ns/op
+// Benchmark_CCIPReader_ExecutedMessages/20_dest_chains_and_40_sources_chains-12             	     187	   6190834 ns/op
 func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -1454,7 +1462,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
-			name:                 "Populating database with 5 source chains and 5 destination chains, any-to-any",
+			name:                 "5 source chains and 5 destination chains",
 			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
 			startSeqNum:          11,
 			endSeqNum:            20,
@@ -1465,7 +1473,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 		},
 		{
 			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
-			name:                 "Populating database with 20 dest chains and 40 sources chains",
+			name:                 "20 dest chains and 40 sources chains",
 			logsInsertedPerChain: 70_000, // 1.4kk logs in total inserted
 			startSeqNum:          101,
 			endSeqNum:            110,
@@ -1491,13 +1499,17 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 			if chainSelector == chainD {
 				continue
 			}
+			// This enforces variation in seqNum ranges
+			start := cciptypes.SeqNum(i*16) + tt.startSeqNum
+			stop := cciptypes.SeqNum(i*16) + tt.endSeqNum
+
 			filters[chainSelector] = append(
 				filters[chainSelector],
-				cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
+				cciptypes.NewSeqNumRange(start, stop),
 			)
 		}
 
-		b.Run("ExecutedMessages_"+tt.name, func(b *testing.B) {
+		b.Run(tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				executedRanges, err := reader.ExecutedMessages(
 					b.Context(),
@@ -1584,7 +1596,7 @@ func populateDatabaseForExecutionStateChanged(
 		sequenceNumber := uint64(i / sourceChainCount)
 		messageID := utils.NewHash()
 		messageHash := utils.NewHash()
-		state := uint8(1)
+		state := uint8(2)
 		returnData := []byte{0x01, 0x02}
 		gasUsed := big.NewInt(int64(10000 + i))
 
@@ -1626,7 +1638,11 @@ func populateDatabaseForExecutionStateChanged(
 	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
 }
 
-func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_5_source_chains_and_5_destination_chains-12         	      49	  21842648 ns/op
+// Benchmark_CCIPReader_CCIPMessageSent/MsgsBetweenSeqNums_70_source_chains_and_10_destination_chains-12       	     114	  12192915 ns/op
+func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
 		name                 string
 		logsInsertedPerChain int
@@ -1640,7 +1656,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
-			name:                 "Populating database with 5 source chains and 5 destination chains, any-to-any",
+			name:                 "5 source chains and 5 destination chains",
 			logsInsertedPerChain: 50_000, // 250k logs in total inserted (50k * 5 chains)
 			startSeqNum:          5_000,
 			endSeqNum:            5_256,
@@ -1651,7 +1667,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 		},
 		{
 			// Case in which we have multiple a lot of source chains, but only a few destinations are in use
-			name:                 "Populating database with 70 source chains and 10 destination chains",
+			name:                 "70 source chains and 10 destination chains",
 			logsInsertedPerChain: 25_000, // 1.75kk logs in total inserted (25000 * 70 chains)
 			startSeqNum:          2_000,
 			endSeqNum:            2_300,
@@ -1670,7 +1686,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 			tt.destChainsCount,
 		)
 
-		b.Run("MsgsBetweenSeqNums -"+tt.name, func(b *testing.B) {
+		b.Run("MsgsBetweenSeqNums "+tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				msgs, err := reader.MsgsBetweenSeqNums(
 					b.Context(),
@@ -1682,7 +1698,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 			}
 		})
 
-		b.Run("LatestMsgSeqNum - "+tt.name, func(b *testing.B) {
+		b.Run("LatestMsgSeqNum "+tt.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				latest, err := reader.LatestMsgSeqNum(
 					b.Context(),
@@ -1883,8 +1899,8 @@ func testSetupRealContracts(
 
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range toBindContracts {
-		be := env.Env.BlockChains.EVMChains()[uint64(chain)].Client.(*memory.Backend)
-		cl := client.NewSimulatedBackendClient(t, be.Sim, big.NewInt(0).SetUint64(uint64(chain)))
+		simClient := env.Env.BlockChains.EVMChains()[uint64(chain)].Client.(*cldf_evm_provider.SimClient)
+		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
 			cl,
@@ -1956,7 +1972,7 @@ func testSetup(
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr.SetLogLevel(zapcore.DebugLevel)
 
 	var dbs sqlutil.DataSource
 	{

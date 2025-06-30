@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -223,6 +226,24 @@ func InitTron(factory RelayerFactory, ks keystore.Tron, csaKS keystore.CSA, chai
 	}
 }
 
+// InitTON is an option for instantiating TON relayers
+func InitTON(factory RelayerFactory, ks keystore.TON, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) error {
+		loopKs := &keystore.TONLooppSigner{TON: ks}
+		tonRelayers, err := factory.NewTON(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
+		if err != nil {
+			return fmt.Errorf("failed to setup TON relayer: %w", err)
+		}
+
+		for id, relayer := range tonRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
 // Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
 	rs.mu.Lock()
@@ -331,7 +352,15 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		result   []types.NodeStatus
 	)
 	if len(relayerIDs) == 0 {
-		for _, lr := range rs.loopRelayers {
+		keys := slices.Collect(maps.Keys(rs.loopRelayers))
+		slices.SortFunc(keys, func(a, b types.RelayID) int {
+			if c := strings.Compare(a.Network, b.Network); c != 0 {
+				return c
+			}
+			return strings.Compare(a.ChainID, b.ChainID)
+		})
+		for _, key := range keys {
+			lr := rs.loopRelayers[key]
 			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)

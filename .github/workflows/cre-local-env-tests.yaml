@@ -136,6 +136,7 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          DISABLE_DX_TRACKING: "true"
         run: |
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
@@ -154,13 +155,14 @@ jobs:
           START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
           RUNNER: ${{ matrix.runner }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
             success=false
             if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
 
             echo "::debug::success: $success"
 
-            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
@@ -173,12 +175,13 @@ jobs:
           EXECUTION_TIME: ${{ steps.start-cli.outputs.execution_time }}
           CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
           DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
             echo "::debug::execution_time: ${EXECUTION_TIME}"
             echo "::debug::cache_hit: ${CACHE_HIT}"
             echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
 

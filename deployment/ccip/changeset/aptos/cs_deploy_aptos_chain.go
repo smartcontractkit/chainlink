@@ -30,7 +30,7 @@ func (cs DeployAptosChain) VerifyPreconditions(env cldf.Environment, config conf
 	// Validate env and prerequisite contracts
 	state, err := aptosstate.LoadOnchainStateAptos(env)
 	if err != nil {
-		return fmt.Errorf("failed to load existing Aptos onchain state: %w", err)
+		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 	aptosChains := env.BlockChains.AptosChains()
 	var errs []error
@@ -165,7 +165,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
-			aptosChain.Client,
+			env,
 			mcmsSeqReport.Output.MCMSAddress,
 			chainSel,
 			mcmsOperations,

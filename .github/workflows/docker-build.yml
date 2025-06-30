@@ -75,7 +75,6 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-        CL_SOLANA_CMD=chainlink-solana
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -87,6 +86,8 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins:
     needs: [init]
@@ -105,8 +106,6 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_APTOS_CMD=chainlink-aptos
-        CL_SOLANA_CMD=chainlink-solana
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -140,8 +139,6 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
-        CL_APTOS_CMD=chainlink-aptos
-        CL_SOLANA_CMD=chainlink-solana
       docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
@@ -173,9 +170,10 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=false
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
-        COMMIT_SHA=${{ github.sha }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -203,10 +201,9 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        CL_CHAIN_DEFAULTS=/ccip-config
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_APTOS_CMD=chainlink-aptos
+        CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -233,7 +230,7 @@ jobs:
 
   call-cre-workflow-don-benchmark:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [ docker-core-plugins-testing ]
+    needs: [docker-core-plugins-testing]
     permissions:
       contents: read
       id-token: write

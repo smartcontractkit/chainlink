@@ -633,7 +633,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
 	}
 
-	if err := gwconnector.AddHandler([]string{vault.ConnectorMethod}, handler); err != nil {
+	if err := gwconnector.AddHandler(ctx, []string{vault.ConnectorMethod}, handler); err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", err)
 	}
 
@@ -1163,6 +1163,7 @@ func (d *Delegate) newServicesMedian(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
