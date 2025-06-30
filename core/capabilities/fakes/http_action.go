@@ -44,8 +44,8 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 
 	fc.Service, fc.eng = services.Config{
 		Name:  "directHttpAction",
-		Start: fc.Start,
-		Close: fc.Close,
+		Start: fc.start,
+		Close: fc.close,
 	}.NewServiceEngine(lggr)
 	return fc
 }
@@ -135,26 +135,18 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	return response, nil
 }
 
-func (fh *DirectHTTPAction) Start(ctx context.Context) error {
+func (fh *DirectHTTPAction) start(ctx context.Context) error {
 	fh.eng.Infow("Http Action Start Started")
 	return nil
 }
 
-func (fh *DirectHTTPAction) Close() error {
+func (fh *DirectHTTPAction) close() error {
 	fh.eng.Infow("Http Action Close Started")
 	return nil
 }
 
-func (fh *DirectHTTPAction) Name() string {
-	return HTTPActionServiceName
-}
-
 func (fh *DirectHTTPAction) Description() string {
 	return directHTTPActionInfo.Description
-}
-
-func (fh *DirectHTTPAction) Ready() error {
-	return nil
 }
 
 func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,

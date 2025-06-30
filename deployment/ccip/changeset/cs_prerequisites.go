@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -50,7 +49,7 @@ var (
 func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	err = deployPrerequisiteChainContracts(env, ab, cfg)

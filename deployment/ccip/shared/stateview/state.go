@@ -2,7 +2,7 @@ package stateview
 
 import (
 	"context"
-	std_errors "errors"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -54,7 +54,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -488,7 +487,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 	close(errs)
 	var multiErr error
 	for err := range errs {
-		multiErr = std_errors.Join(multiErr, err)
+		multiErr = errors.Join(multiErr, err)
 	}
 	if multiErr != nil {
 		return multiErr
@@ -1230,7 +1229,7 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if !std_errors.Is(err, cldf.ErrChainNotFound) {
+			if !errors.Is(err, cldf.ErrChainNotFound) {
 				return state, err
 			}
 			addresses = make(map[string]cldf.TypeAndVersion)
