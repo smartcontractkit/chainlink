@@ -462,4 +462,9 @@ runner-test-matrix:
     aptos_cli_version: 7.2.0
     install_plugins_public: true
 
+  # TON tests
+  - id: smoke/ccip/ccip_ton_messaging_test.go:*
+    path: integration-tests/smoke/ccip/ccip_ton_messaging_test.go
+    test_cmd: cd smoke/ccip && go test ccip_ton_messaging_test.go -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
   # END: CCIP tests

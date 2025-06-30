@@ -404,9 +404,12 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 		family = chain_selectors.FamilySolana
 	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
 		family = chain_selectors.FamilyStarknet
+	case nodev1.ChainType_CHAIN_TYPE_TON:
+		family = chain_selectors.FamilyTon
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
+
 	if family == chain_selectors.FamilySolana {
 		// Temporary workaround to handle cases when solana chainId was not using the standard genesis hash,
 		// but using old strings mainnet/testnet/devnet.

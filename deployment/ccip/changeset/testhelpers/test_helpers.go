@@ -1150,7 +1150,7 @@ func AddLane(
 	gasPrices map[uint64]*big.Int,
 	tokenPrices map[string]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
-) {
+) error {
 	var err error
 	fromFamily, err := chainsel.GetSelectorFamily(from)
 	require.NoError(t, err)
@@ -1182,10 +1182,14 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
+	case chainsel.FamilyTon:
+		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
 	}
-
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
@@ -1513,7 +1517,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 	require.NoError(t, err)
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) error {
 	gasPrices := map[uint64]*big.Int{
 		to: DefaultGasPrice,
 	}
@@ -1534,7 +1538,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
-	AddLane(
+	err = AddLane(
 		t,
 		e,
 		from, to,
@@ -1543,6 +1547,10 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices,
 		fqCfg,
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
@@ -1584,8 +1592,10 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	chains := []uint64{}
 	allEvmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
+	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	chains = slices.AppendSeq(chains, allEvmChainSelectors)
 	chains = slices.AppendSeq(chains, allSolChainSelectors)
+	chains = slices.AppendSeq(chains, allTonChainSelectors)
 
 	for _, source := range chains {
 		for _, dest := range chains {

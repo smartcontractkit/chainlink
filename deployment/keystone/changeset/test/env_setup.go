@@ -527,7 +527,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, nil, dons.AllNodes())
 	return dons, env
 }
 
