@@ -188,7 +188,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				Receiver:       ccipChainState.ReceiverAddress[:],
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit-300), true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               nativeFeeToken,
 				ExtraAssertions: []func(t *testing.T){
@@ -228,7 +228,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				Receiver:       ccipChainState.ReceiverAddress[:],
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               evmLinkToken.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
@@ -248,7 +248,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				Receiver:       ccipChainState.ReceiverAddress[:],
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				FeeToken:               wethToken.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
