@@ -314,7 +314,7 @@ func cleanToml(tomlStr string) ([]byte, error) {
 }
 
 // todo: after it's done it will replace DeployDonsCrib
-func DeployDonsCribV2(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
+func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
 	}
