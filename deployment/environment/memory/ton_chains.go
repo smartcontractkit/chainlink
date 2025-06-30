@@ -100,7 +100,6 @@ func tonChain(t *testing.T, chainID uint64) *ton.APIClient {
 	bcInput := &blockchain.Input{
 		ChainID: strconv.FormatUint(chainID, 10),
 		Type:    "ton",
-		Image:   "ghcr.io/neodix42/mylocalton-docker:latest",
 		Port:    strconv.Itoa(freeport.GetOne(t)),
 	}
 	var bc *blockchain.Output
