@@ -132,7 +132,7 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmpb.Log) error
 
 	go func() {
 		select {
-		case fc.callbackCh <- fc.createManualTriggerResponse(log):
+		case fc.callbackCh <- fc.createManualTriggerEvent(log):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine
@@ -143,7 +143,7 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmpb.Log) error
 	return nil
 }
 
-func (fc *FakeEVMChain) createManualTriggerResponse(log *evmpb.Log) commonCap.TriggerAndId[*evmpb.Log] {
+func (fc *FakeEVMChain) createManualTriggerEvent(log *evmpb.Log) commonCap.TriggerAndId[*evmpb.Log] {
 	return commonCap.TriggerAndId[*evmpb.Log]{
 		Trigger: log,
 		Id:      "manual-evm-chain-trigger-id",
@@ -318,18 +318,6 @@ func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata com
 func (fc *FakeEVMChain) QueryTrackedLogs(ctx context.Context, metadata commonCap.RequestMetadata, input *evmpb.QueryTrackedLogsRequest) (*evmpb.QueryTrackedLogsReply, error) {
 	fc.eng.Infow("EVM Chain QueryTrackedLogs Started", "input", input)
 
-	// Prepare query tracked logs request
-	// fc.gethClient.
-	// 	filterQueryPb := input.GetFilterQuery()
-	// addresses := make([]common.Address, len(filterQueryPb.Addresses))
-	// for i, address := range filterQueryPb.Addresses {
-	// 	addresses[i] = common.Address(address.Address)
-	// }
-	// filterQuery := ethereum.FilterQuery{
-	// 	FromBlock: new(big.Int).SetBytes(filterQueryPb.FromBlock.AbsVal),
-	// 	ToBlock:   new(big.Int).SetBytes(filterQueryPb.ToBlock.AbsVal),
-	// 	Addresses: addresses,
-	// }
 	return nil, nil
 }
 

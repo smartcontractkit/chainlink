@@ -65,7 +65,7 @@ func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *h
 	// Run in a goroutine to avoid blocking
 	go func() {
 		select {
-		case f.callbackCh <- f.createManualTriggerResponse(payload):
+		case f.callbackCh <- f.createManualTriggerEvent(payload):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine
@@ -76,7 +76,7 @@ func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *h
 	return nil
 }
 
-func (f *ManualHTTPTriggerService) createManualTriggerResponse(payload *httptypedapi.Payload) capabilities.TriggerAndId[*httptypedapi.Payload] {
+func (f *ManualHTTPTriggerService) createManualTriggerEvent(payload *httptypedapi.Payload) capabilities.TriggerAndId[*httptypedapi.Payload] {
 	return capabilities.TriggerAndId[*httptypedapi.Payload]{
 		Trigger: payload,
 		Id:      "manual-http-trigger-id",
