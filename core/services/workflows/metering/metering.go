@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"maps"
 	"sort"
 	"sync"
@@ -23,8 +24,8 @@ import (
 
 const (
 	ComputeResourceDimension = "COMPUTE"
+	RatiosKey                = "spendRatios"
 	defaultDecimalPrecision  = 3 // one thousandth of a dollar
-	ratiosKey                = "spendRatios"
 )
 
 var (
@@ -222,33 +223,30 @@ func (r *Report) Deduct(ref string, amount decimal.Decimal) error {
 // this function.
 func (r *Report) CreditToSpendingLimits(
 	info capabilities.CapabilityInfo,
-	ratios map[capabilities.CapabilitySpendType]decimal.Decimal,
+	config *values.Map,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
-	// no spend types results in no limits and is not a failure case
-	if len(info.SpendTypes) == 0 {
-		return nil
+	if r.meteringMode {
+		return []capabilities.SpendLimit{}
 	}
 
-	// assume 100% ratio for a single spend type
-	if len(info.SpendTypes) == 1 {
-		spendLimit, err := r.balance.ConvertFromBalance(string(info.SpendTypes[0]), amount)
-		if err != nil {
-			r.switchToMeteringMode(err)
+	// no spend types results in no limits and is not a failure case
+	if len(info.SpendTypes) == 0 {
+		return []capabilities.SpendLimit{}
+	}
 
-			return nil
-		}
+	ratios, err := ratiosFromConfig(info, config)
+	if err != nil {
+		r.switchToMeteringMode(err)
 
-		return []capabilities.SpendLimit{
-			{SpendType: info.SpendTypes[0], Limit: spendLimit.StringFixed(defaultDecimalPrecision)},
-		}
+		return []capabilities.SpendLimit{}
 	}
 
 	// spend types do not have matching ratios; this is a bad configuration
 	if len(info.SpendTypes) != len(ratios) {
 		r.switchToMeteringMode(fmt.Errorf("%w: %d spend types and %d ratios", ErrRatiosAndTypesNoMatch, len(info.SpendTypes), len(ratios)))
 
-		return nil
+		return []capabilities.SpendLimit{}
 	}
 
 	limits := []capabilities.SpendLimit{}
@@ -259,7 +257,7 @@ func (r *Report) CreditToSpendingLimits(
 			// the spend type does not exist in the ratios mapping; this is a bad configuration
 			r.switchToMeteringMode(fmt.Errorf("%w: ratios missing %s spend type", ErrRatiosAndTypesNoMatch, spendType))
 
-			return nil
+			return []capabilities.SpendLimit{}
 		}
 
 		// use rate card to convert capSpendLimit to native units
@@ -267,7 +265,7 @@ func (r *Report) CreditToSpendingLimits(
 		if err != nil {
 			r.switchToMeteringMode(err)
 
-			return nil
+			return []capabilities.SpendLimit{}
 		}
 
 		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
@@ -580,48 +578,61 @@ func (s *Reports) Len() int {
 	return len(s.reports)
 }
 
-// RatiosFromConfig collects all ratios from a value map that match specified spend types. Any error will return an
+// ratiosFromConfig collects all ratios from a value map that match specified spend types. Any error will return an
 // empty set of ratios with the error.
-func RatiosFromConfig(
+//
+// CapabilityInfo contains information about the spend types while the registry config contains ratios for splitting
+// spend types. This allows capability authors to not have to redeploy a capability to change spending ratios. The
+// spending ratios was not put in the billing service because the ratios are not expected to change often. The registry
+// is mutable enough for this purpose while the capability info.
+func ratiosFromConfig(
 	info capabilities.CapabilityInfo,
 	config *values.Map,
 ) (map[capabilities.CapabilitySpendType]decimal.Decimal, error) {
 	ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
 
-	if config == nil {
-		return nil, fmt.Errorf("%w: spending ratios not set; config is nil", ErrInvalidRatios)
+	// if info.SpendTypes has only 1, return ratio 100%
+	if len(info.SpendTypes) == 1 {
+		ratios[info.SpendTypes[0]] = decimal.NewFromInt(1)
+
+		return ratios, nil
 	}
 
-	rawRatiosValue, hasRatios := config.Underlying[ratiosKey]
+	if config == nil {
+		return ratios, fmt.Errorf("%w: spending ratios not set; config is nil", ErrInvalidRatios)
+	}
+
+	rawRatiosValue, hasRatios := config.Underlying[RatiosKey]
 	if !hasRatios {
-		return nil, fmt.Errorf("%w: spending ratios not set", ErrInvalidRatios)
+		return ratios, fmt.Errorf("%w: spending ratios not set", ErrInvalidRatios)
 	}
 
 	rawRatiosAny, err := rawRatiosValue.Unwrap()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidRatios, err)
+		return ratios, fmt.Errorf("%w: %w", ErrInvalidRatios, err)
 	}
 
 	rawRatios, ok := rawRatiosAny.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("%w: not a value map", ErrInvalidRatios)
+		return ratios, fmt.Errorf("%w: not a value map", ErrInvalidRatios)
 	}
 
 	for _, spendType := range info.SpendTypes {
 		// using a namespace on the config key to distinguish billing specific keys
 		value, hasRatio := rawRatios[string(spendType)]
 		if !hasRatio {
-			return nil, fmt.Errorf("%w: ratio does not exist for: %s", ErrInvalidRatios, spendType)
+			return make(map[capabilities.CapabilitySpendType]decimal.Decimal), fmt.Errorf("%w: ratio does not exist for: %s", ErrInvalidRatios, spendType)
 		}
 
 		strValue, ok := value.(string)
 		if !ok {
-			return nil, fmt.Errorf("%w: ratio for key '%s' should be type string", ErrInvalidRatios, spendType)
+			log.Println(strValue)
+			return make(map[capabilities.CapabilitySpendType]decimal.Decimal), fmt.Errorf("%w: ratio for key '%s' should be type string", ErrInvalidRatios, spendType)
 		}
 
 		ratio, err := decimal.NewFromString(strValue)
 		if err != nil {
-			return nil, fmt.Errorf("%w: could not unwrap decimal ratio value: %s", ErrInvalidRatios, value)
+			return make(map[capabilities.CapabilitySpendType]decimal.Decimal), fmt.Errorf("%w: could not unwrap decimal ratio value: %s", ErrInvalidRatios, value)
 		}
 
 		ratios[spendType] = ratio

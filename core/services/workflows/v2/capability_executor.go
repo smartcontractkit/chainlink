@@ -15,7 +15,6 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -63,11 +62,6 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability config not found: %w", err)
 	}
 
-	ratios, err := metering.RatiosFromConfig(info, config.RestrictedConfig)
-	if err != nil {
-		c.lggr.Error(err)
-	}
-
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
 		Method:       request.Method,
@@ -99,7 +93,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 
-		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, ratios, spendLimit.Decimal)
+		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, config.RestrictedConfig, spendLimit.Decimal)
 	}
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)

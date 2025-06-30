@@ -982,23 +982,9 @@ func (e *Engine) executeStep(
 		return nil, capabilities.CapabilityResponse{}, err
 	}
 
-	var spendLimits []capabilities.SpendLimit
-	if spendLimit.Valid {
-		info, iErr := curStep.capability.Info(ctx)
-		if iErr != nil {
-			e.logger.Errorf("failed to get capability info: %s", err)
-		}
-
-		if err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal); err != nil {
-			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
-		}
-
-		ratios, rErr := metering.RatiosFromConfig(info, config)
-		if rErr != nil {
-			e.logger.Error(err)
-		}
-
-		spendLimits = meteringReport.CreditToSpendingLimits(info, ratios, spendLimit.Decimal)
+	info, iErr := curStep.capability.Info(ctx)
+	if iErr != nil {
+		e.logger.Errorf("failed to get capability info: %s", err)
 	}
 
 	stepTimeoutDuration := e.stepTimeoutDuration
@@ -1031,8 +1017,15 @@ func (e *Engine) executeStep(
 			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 			DecodedWorkflowName:      e.workflow.name.String(),
-			SpendLimits:              spendLimits,
 		},
+	}
+
+	if spendLimit.Valid {
+		if err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal); err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
+
+		tr.Metadata.SpendLimits = meteringReport.CreditToSpendingLimits(info, config, spendLimit.Decimal)
 	}
 
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)

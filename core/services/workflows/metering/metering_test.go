@@ -50,24 +50,10 @@ var (
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 	}
-	spendRatios = map[capabilities.CapabilitySpendType]decimal.Decimal{
-		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
-		capabilities.CapabilitySpendType(testUnitC): decimal.NewFromFloat(0.6), // 60%
-	}
-	spendRatiosAlt = map[capabilities.CapabilitySpendType]decimal.Decimal{
-		capabilities.CapabilitySpendType(testUnitA): decimal.NewFromFloat(0.4), // 40%
-		capabilities.CapabilitySpendType(testUnitB): decimal.NewFromFloat(0.6), // 60%
-	}
 	validConfig, _ = values.NewMap(map[string]any{
-		ratiosKey: map[string]string{
+		RatiosKey: map[string]string{
 			testUnitA: "0.4",
 			testUnitB: "0.6",
-		},
-	})
-	invalidConfig, _ = values.NewMap(map[string]any{
-		ratiosKey: map[string]any{
-			testUnitA: "invalid",
-			testUnitB: 5,
 		},
 	})
 )
@@ -222,16 +208,23 @@ func Test_Report_MeteringMode(t *testing.T) {
 			billingClient := mocks.NewBillingClient(t)
 			report := newTestReport(t, lggr, billingClient)
 
-			// trigger metering mode with a billing reserve error
 			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-				Return(&successReserveResponseWithRates, nil)
+				Return(&successReserveResponseWithMultiRates, nil)
 			require.NoError(t, report.Reserve(t.Context()))
 
+			// ratios and spend types should match
+			config, _ := values.NewMap(map[string]any{
+				RatiosKey: map[string]string{
+					testUnitB: "1",
+				},
+			})
+
+			// trigger metering mode spending type that doesn't match rates in reserve response
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 				SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
-			}, spendRatios, decimal.NewFromInt(1_000))
+			}, config, decimal.NewFromInt(1_000))
 
-			assert.Nil(t, limits)
+			assert.Empty(t, limits)
 			assert.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)
 			billingClient.AssertExpectations(t)
@@ -244,7 +237,6 @@ func Test_Report_MeteringMode(t *testing.T) {
 			billingClient := mocks.NewBillingClient(t)
 			report := newTestReport(t, lggr, billingClient)
 
-			// trigger metering mode with a billing reserve error
 			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 				Return(&successReserveResponseWithRates, nil)
 			require.NoError(t, report.Reserve(t.Context()))
@@ -252,9 +244,9 @@ func Test_Report_MeteringMode(t *testing.T) {
 			// 3 spend types and 2 ratios creates the mismatch
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB, testUnitC},
-			}, spendRatios, decimal.NewFromInt(1_000))
+			}, validConfig, decimal.NewFromInt(1_000))
 
-			assert.Nil(t, limits)
+			assert.Empty(t, limits)
 			assert.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)
 			billingClient.AssertExpectations(t)
@@ -275,9 +267,9 @@ func Test_Report_MeteringMode(t *testing.T) {
 			// spend types and ratios should not match and return an error
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
-			}, spendRatiosAlt, decimal.NewFromInt(1_000))
+			}, validConfig, decimal.NewFromInt(1_000))
 
-			assert.Nil(t, limits)
+			assert.Empty(t, limits)
 			assert.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)
 			billingClient.AssertExpectations(t)
@@ -298,9 +290,9 @@ func Test_Report_MeteringMode(t *testing.T) {
 			// rates for spend types should not match
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB},
-			}, spendRatiosAlt, decimal.NewFromInt(1_000))
+			}, validConfig, decimal.NewFromInt(1_000))
 
-			assert.Nil(t, limits)
+			assert.Empty(t, limits)
 			assert.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)
 			billingClient.AssertExpectations(t)
@@ -807,9 +799,16 @@ func Test_Report_CreditToSpendingLimits(t *testing.T) {
 
 		require.NoError(t, report.Reserve(t.Context()))
 
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitA: "0.4",
+				testUnitC: "0.6",
+			},
+		})
+
 		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
-		}, spendRatios, decimal.NewFromInt(1_000))
+		}, config, decimal.NewFromInt(1_000))
 
 		require.NotNil(t, limits)
 		require.Len(t, limits, 2)
@@ -826,11 +825,11 @@ func Test_Report_CreditToSpendingLimits(t *testing.T) {
 		report := newTestReport(t, logger.Nop(), nil)
 		limits := report.CreditToSpendingLimits(
 			capabilities.CapabilityInfo{},
-			map[capabilities.CapabilitySpendType]decimal.Decimal{},
+			validConfig,
 			decimal.NewFromInt(1_000),
 		)
 
-		assert.Nil(t, limits)
+		assert.Empty(t, limits)
 	})
 }
 
@@ -1036,7 +1035,7 @@ func TestRatiosFromConfig(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		t.Parallel()
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
 				testUnitA,
 				testUnitB,
@@ -1050,12 +1049,25 @@ func TestRatiosFromConfig(t *testing.T) {
 		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitB))
 	})
 
+	t.Run("automatic ratio of 1 for single spend type", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{testUnitA},
+		}, nil)
+
+		require.NoError(t, err)
+		require.Len(t, ratios, 1)
+
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitA))
+	})
+
 	t.Run("error when spend ratios key does not exist", func(t *testing.T) {
 		t.Parallel()
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, new(values.Map))
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{}, new(values.Map))
 		require.ErrorIs(t, err, ErrInvalidRatios)
-		assert.Nil(t, ratios)
+		assert.Empty(t, ratios)
 	})
 
 	t.Run("error when spend ratios fails to unwrap to map", func(t *testing.T) {
@@ -1067,48 +1079,65 @@ func TestRatiosFromConfig(t *testing.T) {
 			},
 		}
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{}, config)
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{}, config)
 		require.ErrorIs(t, err, ErrInvalidRatios)
-		assert.Nil(t, ratios)
+		assert.Empty(t, ratios)
 	})
 
 	t.Run("error when spend type is not in ratios map", func(t *testing.T) {
 		t.Parallel()
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitA,
 				testUnitC,
 			},
 		}, validConfig)
 
 		require.ErrorIs(t, err, ErrInvalidRatios)
-		assert.Nil(t, ratios)
+		assert.Empty(t, ratios)
 	})
 
 	t.Run("error when ratio contains invalid data type", func(t *testing.T) {
 		t.Parallel()
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]any{
+				testUnitA: "0.2",
+				testUnitB: 5,
+			},
+		})
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
+				testUnitA,
 				testUnitB,
 			},
-		}, invalidConfig)
+		}, config)
 
 		require.ErrorIs(t, err, ErrInvalidRatios)
-		assert.Nil(t, ratios)
+		assert.Empty(t, ratios)
 	})
 
 	t.Run("error when ratio contains invalid decimal", func(t *testing.T) {
 		t.Parallel()
 
-		ratios, err := RatiosFromConfig(capabilities.CapabilityInfo{
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]any{
+				testUnitA: "invalid",
+				testUnitB: "0.2",
+			},
+		})
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
 				testUnitA,
+				testUnitB,
 			},
-		}, invalidConfig)
+		}, config)
 
 		require.ErrorIs(t, err, ErrInvalidRatios)
-		assert.Nil(t, ratios)
+		assert.Empty(t, ratios)
 	})
 }
 
