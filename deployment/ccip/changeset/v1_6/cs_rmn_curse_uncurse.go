@@ -551,6 +551,8 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	if !isCursed {
 		return false, nil
 	}
+	// Curse types are returned as errors.
+	// ref: https://github.com/smartcontractkit/chainlink-ccip/blob/1d85eec090976eaa0a3063d89f4fccc5e29323fa/chains/solana/contracts/target/idl/rmn_remote.json#L478
 	switch curseType {
 	case 9006: // Globally cursed
 		if subject == globals.GlobalCurseSubject() {
