@@ -33,6 +33,7 @@ type RunnerHooks struct {
 	Wait        func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
         //  AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting 
 	AfterRun    func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	// Cleanup hook shuts down the services that were started in the Initialize hook
 	Cleanup     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	Finally     func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 }
