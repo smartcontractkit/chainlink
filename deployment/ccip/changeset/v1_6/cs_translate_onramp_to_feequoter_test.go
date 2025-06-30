@@ -27,12 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	v1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
@@ -126,9 +128,27 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Len(t, allFeeTokens, 2, "Expected 2 fee tokens in PriceRegistry before translation")
 
 	// 7. Apply Translation Changeset
+	newFeeQuoterParams := migrate_seq.NewFeeQuoterDestChainConfigParams{
+		DestGasPerPayloadByteBase:      ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:      ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold: ccipevm.CalldataGasPerByteThreshold,
+		DefaultTxGasLimit:              200_000,
+		ChainFamilySelector:            [4]byte{0x28, 0x12, 0xd5, 0x2c},
+		GasPriceStalenessThreshold:     0,
+		GasMultiplierWeiPerEth:         11e17,
+		NetworkFeeUSDCents:             10,
+	}
+	newFeeQuoterParamsPerSource := make(map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams)
+	for _, chain := range tenv.BlockChains.EVMChains() {
+		if chain.Selector == destChainSelector {
+			continue
+		}
+		newFeeQuoterParamsPerSource[chain.Selector] = newFeeQuoterParams
+	}
 	translateConfig := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterConfig{
-		DestChainSelector: destChainSelector,
-		MCMS:              nil, // Not testing MCMS interactions in this specific test
+		NewFeeQuoterParamsPerSource: newFeeQuoterParamsPerSource,
+		DestChainSelector:           destChainSelector,
+		MCMS:                        nil, // Not testing MCMS interactions in this specific test
 	}
 
 	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
@@ -159,8 +179,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.Equal(t, defaultCfgForFamily.ChainFamilySelector, actualFeeQuoterDestCfg.ChainFamilySelector, "ChainFamilySelector mismatch")
 	// These two should come from the GetFeeTokenConfig
 	// Criteria 4 (b): Ports fee token config args from all 1.5.0 OnRamps into PremiumMultiplierWeiPerEthArgs
-	require.Equal(t, feeTokenCfg.GasMultiplierWeiPerEth, actualFeeQuoterDestCfg.GasMultiplierWeiPerEth, "GasMultiplierWeiPerEth mismatch")
-	require.Equal(t, feeTokenCfg.NetworkFeeUSDCents, actualFeeQuoterDestCfg.NetworkFeeUSDCents, "NetworkFeeUSDCents mismatch")
+	require.Equal(t, newFeeQuoterParams.GasMultiplierWeiPerEth, actualFeeQuoterDestCfg.GasMultiplierWeiPerEth, "GasMultiplierWeiPerEth mismatch")
+	require.Equal(t, newFeeQuoterParams.NetworkFeeUSDCents, actualFeeQuoterDestCfg.NetworkFeeUSDCents, "NetworkFeeUSDCents mismatch")
 
 	// Criteria 3: Port supported fee tokens to the FeeQuoter if they do not yet exist on the FeeQuoter
 	feetokensFromFeeQ, err = feeQuoterContract.GetFeeTokens(&bind.CallOpts{Context: ctx})

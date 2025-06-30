@@ -184,7 +184,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 
 	// Generate Aptos MCMS proposals
 	proposal, err := utils.GenerateProposal(
-		aptosChain.Client,
+		env,
 		state.AptosChains[cfg.ChainSelector].MCMSAddress,
 		cfg.ChainSelector,
 		mcmsOperations,

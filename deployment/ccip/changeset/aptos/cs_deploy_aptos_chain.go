@@ -165,7 +165,7 @@ func (cs DeployAptosChain) Apply(env cldf.Environment, cfg config.DeployAptosCha
 
 		// Generate MCMS proposals
 		proposal, err := utils.GenerateProposal(
-			aptosChain.Client,
+			env,
 			mcmsSeqReport.Output.MCMSAddress,
 			chainSel,
 			mcmsOperations,

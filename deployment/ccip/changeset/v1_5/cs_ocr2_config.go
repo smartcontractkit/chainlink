@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -57,8 +56,8 @@ func (c *CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.A
 		c.PriceReportingDisabled,
 	).Encode()
 	if err != nil {
-		return errors.Wrapf(err, "failed to encode offchain config for source chain %d and destination chain %d",
-			c.SourceChainSelector, c.DestinationChainSelector)
+		return fmt.Errorf("failed to encode offchain config for source chain %d and destination chain %d: %w",
+			c.SourceChainSelector, c.DestinationChainSelector, err)
 	}
 	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewCommitOnchainConfig(priceReg))
 	if err != nil {
@@ -317,10 +316,10 @@ func deriveOCR2Config(
 	for _, transmitter := range transmitters {
 		bytes, err := hexutil.Decode(string(transmitter))
 		if err != nil {
-			return FinalOCR2Config{}, errors.Wrap(err, fmt.Sprintf("given address is not valid %s", transmitter))
+			return FinalOCR2Config{}, fmt.Errorf("given address is not valid %s: %w", transmitter, err)
 		}
 		if len(bytes) != 20 {
-			return FinalOCR2Config{}, errors.Errorf("address is not 20 bytes %s", transmitter)
+			return FinalOCR2Config{}, fmt.Errorf("address is not 20 bytes %s", transmitter)
 		}
 		transmittersAddresses = append(transmittersAddresses, common.BytesToAddress(bytes))
 	}

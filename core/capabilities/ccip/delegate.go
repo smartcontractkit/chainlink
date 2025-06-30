@@ -199,6 +199,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		logger.Named(d.lggr, "HomeChainReader"),
 		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
+		// HomeChain reader initialization is heavily coupled with the EVM chain family
+		chainsel.FamilyEVM,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)
 
@@ -336,6 +338,9 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 			keys, err = getKeys(d.keystore.Cosmos())
 		case relay.NetworkStarkNet:
 			keys, err = getKeys(d.keystore.StarkNet())
+		case relay.NetworkTON:
+			keys, err = getKeys(d.keystore.TON())
+
 		default:
 			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
