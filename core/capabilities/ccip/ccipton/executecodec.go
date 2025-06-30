@@ -3,8 +3,12 @@ package ccipton
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
+	ag_binary "github.com/gagliardetto/binary"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -55,16 +59,20 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 				}
 
-				//_, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
-				//if err != nil {
-				//	return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
-				//}
+				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+				}
 
-				// TODO pending implementation of dest gas amount extraction, waiting for router contract design
-				//destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
-				//if err != nil {
-				//	return nil, err
-				//}
+				destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
+				if err != nil {
+					return nil, fmt.Errorf("extract dest gas amount: %w", err)
+				}
+
+				extraArgsDecodeMap, err := e.extraDataCodec.DecodeExtraArgs(tokenAmount.ExtraData, chainReport.SourceChainSelector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode extra args: %w", err)
+				}
 
 				poolAddrCell, err := binding.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
 				if err != nil {
@@ -91,7 +99,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					ExtraData:         extraData,
 					DestPoolAddress:   destTokenTonAddr,
 					Amount:            tokenAmount.Amount.Int,
-					//DestGasAmount:     destGasAmount, // TODO pending implementation
+					DestGasAmount:     destGasAmount,
 				})
 
 				tokenAmountsDict, err := binding.PackArrayWithRefChaining(tokenAmounts)
@@ -241,7 +249,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					DestTokenAddress:  destTokenAddr,
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
-					// DestExecData: tokenAmount.ExtraData, // TODO pending implementation of dest gas amount extraction
+					// DestExecData: tokenAmount.DestGasAmount, // TODO pending implementation of dest gas amount extraction
 				})
 			}
 
@@ -319,4 +327,48 @@ func convertAddressToBase64(addr *address.Address) ([]byte, error) {
 		return nil, fmt.Errorf("empty address string")
 	}
 	return base64.RawURLEncoding.DecodeString(addrStr)
+}
+
+func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
+	// Search for the gas fields
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "destgasamount":
+			// Expect uint32
+			if v, ok := fieldValue.(uint32); ok {
+				return v, nil
+			} else {
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			}
+		default:
+
+		}
+	}
+
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
+	var outputGas *big.Int
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "gaslimit":
+			if val, ok := fieldValue.(); ok {
+				outputGas = val
+				return outputGas, nil
+			} else {
+				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
+				if val, ok := fieldValue.(ag_binary.Uint128); ok {
+					outputGas = val.BigInt()
+					return outputGas, nil
+				}
+				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
+			}
+		default:
+			// no error here, as we only need the keys to gasLimit, other keys can be skipped without like AllowOutOfOrderExecution	etc.
+		}
+	}
+	return outputGas, errors.New("gas limit not found in extra data map")
 }
