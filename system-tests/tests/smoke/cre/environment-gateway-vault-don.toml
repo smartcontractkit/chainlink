@@ -13,8 +13,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../"
-      docker_file = "./core/chainlink.Dockerfile"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
 
       # A port opened for the gateway job
       custom_ports = ["5002:5002"]
