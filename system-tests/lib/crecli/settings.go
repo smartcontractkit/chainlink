@@ -1,6 +1,7 @@
 package crecli
 
 import (
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -72,7 +73,8 @@ type RPC struct {
 }
 
 type WorkflowStorage struct {
-	Gist Gist `yaml:"gist"`
+	Gist  Gist               `yaml:"gist"`
+	Minio *s3provider.Output `yaml:"minio,omitempty"` // Optional, if not provided, Gist will be used
 }
 
 type Gist struct {
@@ -107,7 +109,15 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 }
 
 // rpcs: chainSelector -> url
-func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, addressBook cldf.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
+func PrepareCRECLISettingsFile(
+	mockMinioStorageSettingsprofile string,
+	workflowOwner common.Address,
+	addressBook cldf.AddressBook,
+	donID uint32,
+	homeChainSelector uint64,
+	rpcs map[uint64]string,
+	s3ProviderOutput *s3provider.Output,
+) (*os.File, error) {
 	settingsFile, err := os.Create(CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
@@ -148,11 +158,15 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 				},
 			},
 		},
-		WorkflowStorage: WorkflowStorage{
-			Gist: Gist{
-				GithubToken: `${CRE_GITHUB_API_TOKEN}`,
-			},
-		},
+	}
+
+	if s3ProviderOutput != nil {
+		// TODO: WorkflowStorage: mockMinioStorageSettings{
+		profileSettings.WorkflowStorage.Minio = s3ProviderOutput
+	} else {
+		profileSettings.WorkflowStorage.Gist = Gist{
+			GithubToken: `${CRE_GITHUB_API_TOKEN}`,
+		}
 	}
 
 	for chainSelector, rpc := range rpcs {

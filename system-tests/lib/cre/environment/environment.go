@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"math/big"
 	"os"
 	"strconv"
@@ -77,6 +78,7 @@ type SetupOutput struct {
 	DonTopology                         *cretypes.DonTopology
 	NodeOutput                          []*cretypes.WrappedNodeOutput
 	InfraInput                          libtypes.InfraInput
+	S3ProviderOutput                    *s3provider.Output
 }
 
 type SetupInput struct {
@@ -89,6 +91,7 @@ type SetupInput struct {
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
 	OCR3Config                           *keystone_changeset.OracleConfig
+	S3ProviderInput                      *s3provider.Input
 }
 
 type backgroundStageResult struct {
@@ -106,6 +109,16 @@ func SetupTestEnvironment(
 	if topologyErr != nil {
 		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
+
+	var s3ProviderOutput *s3provider.Output
+	if input.S3ProviderInput != nil {
+		var s3ProviderErr error
+		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
+		if s3ProviderErr != nil {
+			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed XD")
+		}
+	}
+	fmt.Print(libformat.PurpleText("\nMinio: %#v\n\n", s3ProviderOutput))
 
 	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
 	// We need to have this reference in the outer scope, because subsequent functions will need it
@@ -744,7 +757,6 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
-		InfraInput:                          input.InfraInput,
 	}, nil
 }
 
