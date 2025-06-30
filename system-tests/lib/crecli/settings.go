@@ -1,8 +1,9 @@
 package crecli
 
 import (
-	"github.com/google/uuid"
 	"os"
+
+	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

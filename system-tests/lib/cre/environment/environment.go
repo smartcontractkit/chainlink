@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"math/big"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
@@ -757,7 +758,7 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
-		S3ProviderOutput: s3ProviderOutput,
+		S3ProviderOutput:                    s3ProviderOutput,
 	}, nil
 }
 
