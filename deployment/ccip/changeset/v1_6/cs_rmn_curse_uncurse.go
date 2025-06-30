@@ -520,7 +520,10 @@ type CursableChain interface {
 	Name() string
 	IsConnectedToSourceChain(selector uint64) (bool, error)
 	IsCursable() (bool, error)
+	// IsCursed has the default RMN behavior.
+	// Returns true if subject is cursed or chain is globally cursed. False otherwise.
 	IsCursed(subject globals.Subject) (bool, error)
+	// IsSubjectCursed checks if that specific subject is cursed.
 	IsSubjectCursed(subject globals.Subject) (bool, error)
 	Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
 	Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
@@ -561,7 +564,7 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 	}
 }
 
-// getIsCursed checks if a subject is cursed on the Solana chain.
+// getIsCursed checks if a subject is cursed on the Solana chain. And returns the curseType if it is cursed.
 func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool, curseType int64, err error) {
 	chain := c.env.BlockChains.SolanaChains()[c.selector]
 	curseSubject := solRmnRemote.CurseSubject{
