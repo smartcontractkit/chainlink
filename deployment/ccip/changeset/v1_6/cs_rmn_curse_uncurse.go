@@ -585,46 +585,45 @@ func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool
 	}
 	errCode, err := parseSolanaErrorCode(txErr)
 	if err != nil {
-		c.env.Logger.Errorf("failed to parse solana error code: %w", err)
-		return false, 0, fmt.Errorf("failed to VerifyNotCursed: %w", txErr)
+		return false, 0, fmt.Errorf("failed to parse solana error code: %w", err)
 	}
 	return true, errCode, nil
 }
 
 func parseSolanaErrorCode(err error) (int64, error) {
-	rpcErr, ok := err.(*jsonrpc.RPCError)
-	if !ok {
-		return 0, fmt.Errorf("not a jsonrpc.RPCError")
+	var rpcErr *jsonrpc.RPCError
+	if !errors.As(err, &rpcErr) {
+		return 0, fmt.Errorf("not a jsonrpc.RPCError: %w", err)
 	}
 
 	data, ok := rpcErr.Data.(map[string]interface{})
 	if !ok {
-		return 0, fmt.Errorf("invalid data format")
+		return 0, fmt.Errorf("invalid data format: %w", err)
 	}
 
 	errData, ok := data["err"].(map[string]interface{})
 	if !ok {
-		return 0, fmt.Errorf("no err field found")
+		return 0, fmt.Errorf("no err field found: %w", err)
 	}
 
 	instrErr, ok := errData["InstructionError"].([]interface{})
 	if !ok || len(instrErr) < 2 {
-		return 0, fmt.Errorf("invalid InstructionError format")
+		return 0, fmt.Errorf("invalid InstructionError format: %w", err)
 	}
 
 	customErr, ok := instrErr[1].(map[string]interface{})
 	if !ok {
-		return 0, fmt.Errorf("invalid custom error format")
+		return 0, fmt.Errorf("invalid custom error format: %w", err)
 	}
 
 	custom, ok := customErr["Custom"].(json.Number)
 	if !ok {
-		return 0, fmt.Errorf("no Custom field found")
+		return 0, fmt.Errorf("no Custom field found: %w", err)
 	}
 
 	errorCode, err := custom.Int64()
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse custom error number: %v", err)
+		return 0, fmt.Errorf("failed to parse custom error number: %w", err)
 	}
 
 	return errorCode, nil
@@ -757,7 +756,10 @@ func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool,
 }
 
 func (c *EvmCursableChain) IsCursed(subject globals.Subject) (bool, error) {
-	c.cacheCurses()
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
 	if _, isGloballyCursed := c.cursedSubjectsCache[globals.GlobalCurseSubject()]; isGloballyCursed {
 		return true, nil
 	}
@@ -766,7 +768,10 @@ func (c *EvmCursableChain) IsCursed(subject globals.Subject) (bool, error) {
 }
 
 func (c *EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	c.cacheCurses()
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
 	_, cursed := c.cursedSubjectsCache[subject]
 	return cursed, nil
 }
