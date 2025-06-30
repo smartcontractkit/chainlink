@@ -90,7 +90,7 @@ type fastTransferE2ETestCase struct {
 var (
 	initialFillerTokenAmountOnDest = big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000))
 	initialUserTokenAmountOnSource = big.NewInt(200000)
-	defaultEthAmount               = big.NewInt(0).Mul(big.NewInt(params.Ether), big.NewInt(1000))
+	defaultEthAmount               = big.NewInt(0).Mul(big.NewInt(params.Ether), big.NewInt(10000))
 	transferAmount                 = big.NewInt(100000)
 	expectedFastTransferFee        = big.NewInt(100)
 	tokenDecimals                  = uint8(18)
@@ -1241,45 +1241,49 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
 		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
 
-		if tc.expectNoExecutionError {
-			return
-		}
-
-		ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
-		// We want to ensure regular transfer works as expected
-		state, err := stateview.LoadOnchainState(ctx.env)
-		require.NoError(t, err)
-
-		message := router.ClientEVM2AnyMessage{
-			Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),
-			Data:     []byte{},
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  sourceToken.Address(),
-					Amount: initialUserTokenAmountOnSource,
+		if !tc.expectNoExecutionError {
+			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
+			// We want to ensure regular transfer works as expected
+			message := router.ClientEVM2AnyMessage{
+				Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),
+				Data:     []byte{},
+				TokenAmounts: []router.ClientEVMTokenAmount{
+					{
+						Token:  sourceToken.Address(),
+						Amount: initialUserTokenAmountOnSource,
+					},
 				},
-			},
-			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
-		}
-		userBalance, err := destinationToken.BalanceOf(nil, userAddress)
-		require.NoError(t, err)
-		// Top-up user account on source chain
-		fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
-		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, ctx.sourceChainState.Router.Address(), ctx.sourceLock)
-		func() {
-			ctx.sendLock.Lock()
-			defer ctx.sendLock.Unlock()
-			seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
+				FeeToken:  common.HexToAddress("0x0"),
+				ExtraArgs: nil,
+			}
+			userBalance, err := destinationToken.BalanceOf(nil, userAddress)
 			require.NoError(t, err)
-			testhelpers.TestSendRequest(t, ctx.env, state, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), false, message, testhelpers.WithSender(userTransactor()))
-		}()
+			// Top-up user account on source chain
+			fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
+			approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, ctx.sourceChainState.Router.Address(), ctx.sourceLock)
+			func() {
+				ctx.sendLock.Lock()
+				defer ctx.sendLock.Unlock()
+				seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
+				require.NoError(t, err)
+				router := onChainState.Chains[ctx.SourceChainSelector()].Router
+				fee, err := router.GetFee(&bind.CallOpts{Context: context.Background()}, ctx.DestinationChainSelector(), message)
+				require.NoError(t, err)
+				userTransac := userTransactor()
+				userTransac.Value = fee
+				tx, err := router.CcipSend(userTransac, ctx.DestinationChainSelector(), message)
+				require.NoError(t, err)
+				ctx.env.Logger.Infof("Sending regular transfer transaction: %s", tx.Hash().Hex())
+				_, err = ctx.SourceChain().Confirm(tx)
+				require.NoError(t, err)
+			}()
 
-		ctx.waitForExecution(t, seqNum)
-		finalBalance, err := destinationToken.BalanceOf(nil, userAddress)
-		require.NoError(t, err)
-		expectedBalance := new(big.Int).Add(userBalance, initialUserTokenAmountOnSource)
-		require.Equal(t, expectedBalance.String(), finalBalance.String(), "Final balance after regular transfer does not match expected value")
+			ctx.waitForExecution(t, seqNum)
+			finalBalance, err := destinationToken.BalanceOf(nil, userAddress)
+			require.NoError(t, err)
+			expectedBalance := new(big.Int).Add(userBalance, initialUserTokenAmountOnSource)
+			require.Equal(t, expectedBalance.String(), finalBalance.String(), "Final balance after regular transfer does not match expected value")
+		}
 	})
 }
 
