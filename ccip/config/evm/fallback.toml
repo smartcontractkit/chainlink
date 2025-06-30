@@ -70,7 +70,6 @@ CacheTimeout = '10s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '5s'
-FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
 
