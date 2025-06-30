@@ -2,6 +2,7 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -396,6 +397,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
+	sg := NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs))
 	generator, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
@@ -403,13 +405,15 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		Schedule: wasp.Combine(
 			wasp.Plain(4, 5*time.Minute),
 		),
-		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
+		Gun:                   sg,
 		Labels:                labels,
 		RateLimitUnitDuration: time.Minute,
+		FailOnErr:             false,
 	})
 	require.NoError(t, err, "could not create generator")
 	// run the load
 	generator.Run(true)
+	sg.Debug()
 
 	tag := "local-test-" + time.Now().Format("20060102150405")
 	if os.Getenv("CI") == "true" {
@@ -514,6 +518,7 @@ func TestWithReconnect(t *testing.T) {
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
+			FailOnErr:             false,
 		})).
 		Run(true)
 	require.NoError(t, err, "wasp load test did not finish successfully")
@@ -531,9 +536,6 @@ type StreamsGun struct {
 	mu          sync.Mutex
 	feedLimit   int
 	jobLimit    int
-	event       *capabilities.OCRTriggerEvent
-	eventID     string
-	timestamp   time.Time
 }
 
 func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
@@ -546,43 +548,52 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 		feedLimit:   feedLimit,
 		jobLimit:    jobLimit,
 	}
-	sg.precomputeReports()
-	go sg.waitHOOKloop()
+	go sg.waitLoop()
 	return sg
 }
 
+func (s *StreamsGun) Debug() {
+	framework.L.Info().Msgf("did not get ACK for %d reports", len(s.waitChans))
+	for t := range s.waitChans {
+		framework.L.Info().Msgf("missing ACK for report with timestamp %d", t)
+	}
+}
+
 func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
-	workingTimestamp := s.timestamp.Unix()
-	err := s.prepareWaitHOOK(workingTimestamp)
+	event, eventID, timestamp, err := s.createReport()
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		return &wasp.Response{Failed: true, Error: err.Error()}
+	}
+	err = s.createWaitChannelForTimestamp(timestamp.Unix())
+	if err != nil {
+		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	payload, err := s.event.ToMap()
+	payload, err := event.ToMap()
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
 	payloadBytes, err := mock_capability.MapToBytes(payload)
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payloadBytes)
+	err = s.capProxy.SendTrigger(context.Background(), s.triggerID, eventID, payloadBytes)
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		framework.L.Error().Msgf("error sending trigger: %s", err.Error())
+		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	go s.precomputeReports()
 	// Wait for the DON to execute on the write target
-	err = s.waitForHOOK(workingTimestamp)
+	err = s.waitForReportWithTimestamp(timestamp.Unix())
 	if err != nil {
-		return &wasp.Response{Error: err.Error()}
+		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 	return &wasp.Response{}
 }
 
-func (s *StreamsGun) waitHOOKloop() {
+func (s *StreamsGun) waitLoop() {
 	for {
 		m, ok := <-s.receiveChan
 		if !ok {
@@ -604,8 +615,8 @@ func (s *StreamsGun) waitHOOKloop() {
 			framework.L.Error().Msg("error parsing timestamp")
 			return
 		}
-
 		s.mu.Lock()
+
 		// Check if exist
 		if ch, exist := s.waitChans[timestamp]; exist {
 			s.mu.Unlock()
@@ -616,33 +627,34 @@ func (s *StreamsGun) waitHOOKloop() {
 	}
 }
 
-func (s *StreamsGun) prepareWaitHOOK(reportTimestamp int64) error {
+func (s *StreamsGun) createWaitChannelForTimestamp(reportTimestamp int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waitChans == nil {
 		s.waitChans = make(map[int64]chan interface{})
 	}
 	if _, exists := s.waitChans[reportTimestamp]; exists {
-		return fmt.Errorf("cannot prepare for HOOK, timestamp  %d already exits", reportTimestamp)
+		return fmt.Errorf("cannot create wait channel, timestamp  %d already exits", reportTimestamp)
 	}
 	s.waitChans[reportTimestamp] = make(chan interface{})
 	return nil
 }
 
-func (s *StreamsGun) waitForHOOK(timestamp int64) error {
+func (s *StreamsGun) waitForReportWithTimestamp(timestamp int64) error {
 	s.mu.Lock()
 	ch, exists := s.waitChans[timestamp]
 	if !exists {
 		s.mu.Unlock()
-		return fmt.Errorf("cannot wait for HOOK, timestamp  %q does not exist", timestamp)
+		return fmt.Errorf("cannot wait, timestamp  %q does not exist", timestamp)
 	}
 	s.mu.Unlock()
 	<-ch
 	delete(s.waitChans, timestamp)
+	framework.L.Info().Msgf("ACK report with timestamp %d", timestamp)
 	return nil
 }
 
-func (s *StreamsGun) precomputeReports() {
+func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.Time, error) {
 	timestamp := time.Now()
 	start := time.Now()
 
@@ -664,14 +676,11 @@ func (s *StreamsGun) precomputeReports() {
 
 	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
-		panic(err)
+		return capabilities.OCRTriggerEvent{}, "", time.Time{}, err
 	}
 
-	s.event = event
-	s.eventID = eventID
-	s.timestamp = timestamp
-
-	framework.L.Info().Msgf("create %d reports in %s", len(feeds), time.Since(start))
+	framework.L.Info().Msgf("create report with timestamp %d containing %d feeds in %s", timestamp.Unix(), len(feeds), time.Since(start))
+	return *event, eventID, timestamp, nil
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
@@ -721,7 +730,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	for i, key := range keyBundles {
 		sig, err2 := key.Sign3(ocrTypes.ConfigDigest(event.ConfigDigest), event.SeqNr, reportBytes)
 		if err2 != nil {
-			return nil, "", err
+			return nil, "", err2
 		}
 		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
 			Signer:    uint32(i), //nolint:gosec // G115 don't care in test code
