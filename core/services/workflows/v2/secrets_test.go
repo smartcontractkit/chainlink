@@ -10,10 +10,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
+
+func MetricsLabelerTest(t *testing.T) *monitoring.WorkflowsMetricLabeler {
+	m, err := monitoring.InitMonitoringResources()
+	require.NoError(t, err)
+	l := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), m)
+	return l
+}
 
 func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -51,7 +60,8 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	err := reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -68,7 +78,6 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 			return "", errors.New("unexpected shares")
 		},
 	)
-	require.NoError(t, err)
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -99,7 +108,8 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -107,9 +117,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		func(shares []string) (string, error) { return "", nil },
 	)
-	require.NoError(t, err)
 
-	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+	_, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
 			{
 				Id:        "Foo",
@@ -132,7 +141,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	err := reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -142,7 +152,6 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 			return "", nil
 		},
 	)
-	require.NoError(t, err)
 
 	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -169,7 +178,8 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	err := reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -179,7 +189,6 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 			return "", nil
 		},
 	)
-	require.NoError(t, err)
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -225,7 +234,8 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 	err := reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -235,7 +245,6 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 			return "", nil
 		},
 	)
-	require.NoError(t, err)
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -250,7 +259,7 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 	assert.Len(t, resp, 1)
 	assert.NotNil(t, resp[0].GetError())
 	errVal := resp[0].GetError()
-	assert.Equal(t, "expected one set of decryption shares, got 2", errVal.Error)
+	assert.Equal(t, "unexpected error when getting secret for owner::Bar::Foo", errVal.Error)
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
@@ -278,7 +287,8 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	err := reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	sf, err := NewSecretsFetcher(
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		NewSemaphore[[]*sdkpb.SecretResponse](5),
@@ -288,7 +298,6 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 			return "", errors.New("could not combine shares")
 		},
 	)
-	require.NoError(t, err)
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -303,5 +312,5 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	assert.Len(t, resp, 1)
 	assert.NotNil(t, resp[0].GetError())
 	errVal := resp[0].GetError()
-	assert.Equal(t, "could not combine shares", errVal.Error)
+	assert.Equal(t, "unexpected error when getting secret for owner::Bar::Foo", errVal.Error)
 }

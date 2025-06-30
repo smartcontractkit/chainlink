@@ -113,7 +113,8 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	}
 
 	if cfg.SecretsFetcher == nil {
-		sf, err := NewSecretsFetcher(
+		cfg.SecretsFetcher = NewSecretsFetcher(
+			metricsLabeler,
 			cfg.CapRegistry,
 			beholderLogger,
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
@@ -123,11 +124,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 				return "", errors.New("decryption not implemented in v2 engine")
 			},
 		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create default secrets fetcher: %w", err)
-		}
-
-		cfg.SecretsFetcher = sf
 	}
 
 	engine := &Engine{

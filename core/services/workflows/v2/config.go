@@ -55,7 +55,7 @@ const (
 
 	defaultMaxConcurrentWorkflowExecutions         = 100
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
-	defaultMaxConcurrentSecretsCallsPerWorkflow    = 10
+	defaultMaxConcurrentSecretsCallsPerWorkflow    = 3
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 	defaultMaxUserLogEventsPerExecution            = 1000

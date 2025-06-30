@@ -733,6 +733,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	expectedSecret := "encryptedShare1"
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -743,7 +744,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						Owner:     testWorkflowOwnerA,
 						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 							{
-								Shares: []string{"encryptedShare1"},
+								Shares: []string{expectedSecret, "encryptedShare2"},
 							},
 						},
 					},
@@ -791,19 +792,17 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		Capability: triggerMock,
 	}
 
-	expectedSecret := "combinedSecret"
-	sf, err := v2.NewSecretsFetcher(
+	cfg.SecretsFetcher = v2.NewSecretsFetcher(
+		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
 		cfg.Lggr,
 		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
-		func([]string) (string, error) {
-			return "combinedSecret", nil
+		func(shares []string) (string, error) {
+			return shares[0], nil
 		},
 	)
-	require.NoError(t, err)
-	cfg.SecretsFetcher = sf
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
 

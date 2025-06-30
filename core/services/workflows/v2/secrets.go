@@ -6,16 +6,14 @@ import (
 	"strconv"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 type SecretsFetcher interface {
@@ -32,22 +30,18 @@ type secretsFetcher struct {
 	workflowName  string
 	decrypter     func(shares []string) (string, error)
 
-	m *m
+	metrics *monitoring.WorkflowsMetricLabeler
 }
 
 func NewSecretsFetcher(
+	metrics *monitoring.WorkflowsMetricLabeler,
 	capRegistry core.CapabilitiesRegistry,
 	lggr logger.Logger,
 	semaphore *semaphore[[]*sdkpb.SecretResponse],
 	workflowOwner string,
 	workflowName string,
 	decrypter func(shares []string) (string, error),
-) (*secretsFetcher, error) {
-	m, err := newM()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metrics: %w", err)
-	}
-
+) *secretsFetcher {
 	return &secretsFetcher{
 		capRegistry:   capRegistry,
 		lggr:          logger.Named(lggr, "SecretsFetcher"),
@@ -55,8 +49,8 @@ func NewSecretsFetcher(
 		workflowOwner: workflowOwner,
 		workflowName:  workflowName,
 		decrypter:     decrypter,
-		m:             m,
-	}, nil
+		metrics:       metrics,
+	}
 }
 
 func keyFor(owner, namespace, id string) string {
@@ -69,16 +63,11 @@ func (s secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecret
 		return s.getSecrets(ctx, request)
 	})
 
-	s.m.getSecretsDuration.Record(
-		ctx,
-		time.Since(start).Milliseconds(),
-		metric.WithAttributes(
-			attribute.String("workflowOwner", s.workflowOwner),
-			attribute.String("workflowName", s.workflowName),
-			// Beholder only supports string attributes
-			attribute.String("success", strconv.FormatBool(err == nil)),
-		),
-	)
+	s.metrics.With(
+		"workflowOwner", s.workflowOwner,
+		"workflowName", s.workflowName,
+		"success", strconv.FormatBool(err == nil),
+	).RecordGetSecretsDuration(ctx, time.Since(start).Milliseconds())
 
 	return resp, err
 }
@@ -185,7 +174,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 						Id:        r.Id,
 						Namespace: r.Namespace,
 						Owner:     s.workflowOwner,
-						Error:     fmt.Sprintf("expected one set of decryption shares, got %d", len(resp.EncryptedDecryptionKeyShares)),
+						Error:     "unexpected error when getting secret for " + key,
 					},
 				},
 			})
@@ -202,7 +191,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 						Id:        r.Id,
 						Namespace: r.Namespace,
 						Owner:     s.workflowOwner,
-						Error:     err.Error(),
+						Error:     "unexpected error when getting secret for " + key,
 					},
 				},
 			})
@@ -222,24 +211,4 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 	}
 
 	return sdkResp, nil
-}
-
-type m struct {
-	getSecretsDuration metric.Int64Histogram
-}
-
-func newM() (*m, error) {
-	metrics := &m{}
-
-	var err error
-	metrics.getSecretsDuration, err = beholder.GetMeter().Int64Histogram(
-		"platform_engine_get_secrets_duration_ms",
-		metric.WithDescription("Duration of GetSecrets calls in ms"),
-		metric.WithUnit("ms"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
-	}
-
-	return metrics, nil
 }
