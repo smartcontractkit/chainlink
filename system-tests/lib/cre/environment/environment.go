@@ -757,6 +757,7 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
+		S3ProviderOutput: s3ProviderOutput,
 	}, nil
 }
 
