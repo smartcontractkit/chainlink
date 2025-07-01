@@ -16,7 +16,7 @@ type LocalExecutableCapability struct {
 	capabilityID string
 }
 
-func NewLocalExecutableCapability(lggr logger.Logger, capabilityID string, localDON capabilities.Node, underlying capabilities.TargetCapability) *LocalExecutableCapability {
+func NewLocalExecutableCapability(lggr logger.Logger, capabilityID string, localDON capabilities.Node, underlying capabilities.ExecutableCapability) *LocalExecutableCapability {
 	return &LocalExecutableCapability{
 		ExecutableCapability: underlying,
 		capabilityID:         capabilityID,
