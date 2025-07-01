@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	benchspy2 "github.com/smartcontractkit/chainlink/system-tests/lib/benchspy"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -455,23 +454,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.NoError(t, storeErr, "failed to store benchmark report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
 
-	// Run chartGenerator
-	metricConfigs := map[string]benchspy2.MetricConfig{
-		"99th_percentile_latency": {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
-		"95th_percentile_latency": {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
-		"median_latency":          {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
-		"max_latency":             {Group: "Performance Metrics", UnitLabel: "s", ScaleFactor: 1000.0},
-		"error_rate":              {Group: "Performance Metrics", UnitLabel: "", ScaleFactor: 1.0},
-		"cpu_percent":             {Group: "Resource Metrics", UnitLabel: "%", ScaleFactor: 1.0},
-		"mem_peak_mb":             {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
-		"mem_avg_mb":              {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
-		"disk_io_time_seconds":    {Group: "Resource Metrics", UnitLabel: "s", ScaleFactor: 1},
-		"network_tx_mb":           {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
-		"network_rx_mb":           {Group: "Resource Metrics", UnitLabel: "MB", ScaleFactor: 1048576},
-	}
-
-	// Generate the markdown report
-	require.NoError(t, benchspy2.GenerateMarkdownReport("performance_reports", "performance_reports/chart.md", metricConfigs), "failed to generate markdown report")
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
