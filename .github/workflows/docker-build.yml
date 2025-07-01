@@ -222,7 +222,7 @@ jobs:
   call-cre-local-env-tests:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@051813389f8480a4ada4606abdb260c7a59412ee # develop SHA from 18th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@f74ffbc053ad5a87d2c348a5d986a0e1098a615f # develop SHA from 30th June 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}

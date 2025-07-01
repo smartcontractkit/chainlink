@@ -55,6 +55,21 @@ type LDAP interface {
 	UpstreamSyncRateLimit() commonconfig.Duration
 }
 
+type OIDC interface {
+	ClientID() string
+	ClientSecret() string
+	ProviderURL() string
+	RedirectURL() string
+	ClaimName() string
+	AdminClaim() string
+	EditClaim() string
+	RunClaim() string
+	ReadClaim() string
+	SessionTimeout() commonconfig.Duration
+	UserAPITokenEnabled() bool
+	UserAPITokenDuration() commonconfig.Duration
+}
+
 type WebServer interface {
 	AuthenticationMethod() string
 	AllowOrigins() string
@@ -74,4 +89,5 @@ type WebServer interface {
 	RateLimit() RateLimit
 	MFA() MFA
 	LDAP() LDAP
+	OIDC() OIDC
 }

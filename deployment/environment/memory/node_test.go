@@ -17,13 +17,11 @@ import (
 )
 
 func TestNode(t *testing.T) {
-	chains := cldf_chain.NewBlockChainsFromSlice(NewMemoryChainsEVM(t, 3, 5))
+	blockchains := cldf_chain.NewBlockChainsFromSlice(NewMemoryChainsEVM(t, 3, 5))
 	ports := freeport.GetN(t, 1)
 	c := NewNodeConfig{
 		Port:           ports[0],
-		Chains:         chains.EVMChains(),
-		Solchains:      nil,
-		Aptoschains:    nil,
+		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
 		Bootstrap:      false,
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
@@ -50,7 +48,7 @@ func TestNode(t *testing.T) {
 			gotChains[i] = k.ChainSelector
 			i++
 		}
-		assert.ElementsMatch(t, slices.Collect(maps.Keys(chains.EVMChains())), gotChains)
+		assert.ElementsMatch(t, slices.Collect(maps.Keys(blockchains.EVMChains())), gotChains)
 	})
 
 	t.Run("JDChainConfigs", func(t *testing.T) {

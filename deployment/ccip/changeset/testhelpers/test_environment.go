@@ -451,10 +451,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	tc := m.TestConfig
 	c := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
-		Chains:         m.Chains,
-		SolChains:      m.SolChains,
-		AptosChains:    m.AptosChains,
-		TonChains:      m.TonChains,
+		BlockChains:    m.Env.BlockChains,
 		NumNodes:       tc.Nodes,
 		NumBootstraps:  tc.Bootstraps,
 		RegistryConfig: crConfig,
@@ -470,7 +467,12 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		})
 	}
 	m.nodes = nodes
-	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, m.TonChains, nodes)
+	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(
+		func() context.Context { return ctx },
+		lggr,
+		m.Env.BlockChains,
+		nodes,
+	)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
