@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	evmchaintypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"math/big"
 	"testing"
 	"time"
@@ -53,6 +54,11 @@ import (
 // For deep dive you can enable logging SQL queries and then testing them manually on
 // the database (e.g. with `explain (analyze, buffers, verbose)`)
 // Change lggr.SetLogLevel(zapcore.ErrorLevel) to zapcore.DebugLevel
+
+var (
+	onrampABI  = evmchaintypes.MustGetABI(onramp.OnRampABI)
+	offrampABI = evmchaintypes.MustGetABI(offramp.OffRampABI)
+)
 
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_5_source_chains_and_5_destination_chains-12            	    2649	    456123 ns/op
 // Benchmark_CCIPReader_CCIPMessageSent/LatestMsgSeqNum_70_source_chains_and_10_destination_chains-12          	    2475	    501386 ns/op
