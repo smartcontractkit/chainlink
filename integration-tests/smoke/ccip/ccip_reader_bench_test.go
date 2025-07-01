@@ -3,7 +3,6 @@ package ccip
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -139,15 +138,50 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 // Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       2          582712583 ns/op    454375304 B/op      8931990 allocs/op
 func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 	tests := []struct {
+		name                 string
 		logsInsertedFirst    int
 		logsInsertedMatching int
+		numberOfChains       int
 	}{
-		{100, 10_000},
+		{
+			name:                 "5 chains, only some logs are matched",
+			logsInsertedFirst:    1_000,
+			logsInsertedMatching: 100,
+			numberOfChains:       5,
+		},
+		{
+			name:                 "70 chains, little logs matched",
+			logsInsertedFirst:    10_000,
+			logsInsertedMatching: 1,
+			numberOfChains:       70,
+		},
+		{
+			name:                 "70 chains, everything is matched",
+			logsInsertedFirst:    1,
+			logsInsertedMatching: 5_000,
+			numberOfChains:       70,
+		},
 	}
 
 	for _, tt := range tests {
-		b.Run(fmt.Sprintf("FirstLogs_%d_MatchLogs_%d", tt.logsInsertedMatching, tt.logsInsertedFirst), func(b *testing.B) {
-			benchmarkCommitReports(b, tt.logsInsertedFirst, tt.logsInsertedMatching)
+		reader := prepareCommitReportsEventsInDb(
+			b,
+			tt.logsInsertedFirst,
+			tt.logsInsertedMatching,
+			tt.numberOfChains,
+		)
+
+		b.Run(tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				reports, err := reader.CommitReportsGTETimestamp(
+					b.Context(),
+					time.Now().Add(-10*time.Minute),
+					primitives.Unconfirmed,
+					tt.logsInsertedMatching,
+				)
+				require.NoError(b, err)
+				require.Len(b, reports, tt.logsInsertedMatching)
+			}
 		})
 	}
 }
@@ -235,7 +269,12 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	}
 }
 
-func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMatching int) {
+func prepareCommitReportsEventsInDb(
+	b *testing.B,
+	firstInserted int,
+	matchingLogs int,
+	numberOfChains int,
+) ccipreaderpkg.CCIPReader {
 	ctx := b.Context()
 	s := benchSetup(ctx, b, benchSetupParams{
 		ReaderChain:        chainD,
@@ -244,30 +283,40 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 		ContractNameToBind: consts.ContractNameOffRamp,
 	})
 
-	if logsInsertedFirst > 0 {
-		populateDatabaseForCommitReportAccepted(ctx, b, s, chainD, chainS1, logsInsertedFirst, 0)
+	for j := 0; j < numberOfChains; j++ {
+		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
+
+		populateDatabaseForCommitReportAccepted(
+			ctx,
+			b,
+			s,
+			orm,
+			cciptypes.ChainSelector(j+1),
+			cciptypes.ChainSelector(j+2),
+			firstInserted,
+			0,
+		)
+
+		populateDatabaseForCommitReportAccepted(
+			ctx,
+			b,
+			s,
+			orm,
+			cciptypes.ChainSelector(j+1),
+			cciptypes.ChainSelector(j+3),
+			matchingLogs,
+			firstInserted,
+		)
 	}
 
-	queryTimestamp := time.Now()
-
-	if logsInsertedMatching > 0 {
-		populateDatabaseForCommitReportAccepted(ctx, b, s, chainD, chainS1, logsInsertedMatching, logsInsertedFirst)
-	}
-
-	// Reset timer to measure only the query time
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, primitives.Unconfirmed, logsInsertedFirst)
-		require.NoError(b, err)
-		require.Len(b, reports, logsInsertedFirst)
-	}
+	return s.reader
 }
 
 func populateDatabaseForCommitReportAccepted(
 	ctx context.Context,
 	b *testing.B,
 	testEnv *benchSetupData,
+	orm *logpoller.DSORM,
 	destChain cciptypes.ChainSelector,
 	sourceChain cciptypes.ChainSelector,
 	numOfReports int,
@@ -284,7 +333,7 @@ func populateDatabaseForCommitReportAccepted(
 	var timestamp time.Time
 	if offset == 0 {
 		// For first set of logs, set timestamp to 1 hour ago
-		timestamp = time.Now().Add(-1 * time.Hour)
+		timestamp = time.Now().Add(-10 * time.Hour)
 	} else {
 		// For matching logs, use current time
 		timestamp = time.Now()
@@ -349,8 +398,8 @@ func populateDatabaseForCommitReportAccepted(
 	}
 
 	// Insert logs into the database
-	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
-	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
+	require.NoError(b, orm.InsertLogs(ctx, logs))
+	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
 func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCount, destChainsCount int) ccipreaderpkg.CCIPReader {
@@ -694,7 +743,6 @@ func benchSetup(
 		reader:       reader,
 		extendedCR:   extendedCr,
 		dbs:          dbs,
-		orm:          orm,
 	}
 }
 
@@ -712,5 +760,4 @@ type benchSetupData struct {
 	reader       ccipreaderpkg.CCIPReader
 	extendedCR   contractreader.Extended
 	dbs          sqlutil.DataSource
-	orm          *logpoller.DSORM
 }
