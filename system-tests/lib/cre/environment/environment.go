@@ -274,7 +274,7 @@ func SetupTestEnvironment(
 		startTime = time.Now()
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 1/3] Configuring Workflow Registry contract\n"))
 
-		allAddresses, addrErr := allChainsCLDEnvironment.ExistingAddresses.Addresses()
+		allAddresses, addrErr := allChainsCLDEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 		if addrErr != nil {
 			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(addrErr, "failed to get addresses from address book")}
 			return
@@ -294,7 +294,7 @@ func SetupTestEnvironment(
 
 		nonEmptyChainsCLDEnvironment := &cldf.Environment{
 			Logger:            singeFileLogger,
-			ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses,
+			ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 			GetContext: func() context.Context {
 				return ctx
 			},

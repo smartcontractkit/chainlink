@@ -280,7 +280,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	// remove chains that do not require any configurations
 	configurableEnv := *input.CldEnv
 
-	allAddresses, addrErr := configurableEnv.ExistingAddresses.Addresses()
+	allAddresses, addrErr := configurableEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 	if addrErr != nil {
 		return errors.Wrap(addrErr, "failed to get addresses from address book")
 	}
