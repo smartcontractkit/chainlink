@@ -473,7 +473,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
 		oi.lggr.Errorf("Error hashing user password: err: %v", err)
-		return errors.New("Unable to hash password")
+		return errors.New("unable to hash password")
 	}
 	if err := oi.ds.GetContext(ctx, user,
 		"UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *",
