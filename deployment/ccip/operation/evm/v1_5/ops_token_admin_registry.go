@@ -10,15 +10,20 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
+type TokenAdminRegistryGetAllConfiguredTokensIn struct {
+	Address       common.Address
+	ChainSelector uint64
+}
+
 var (
 	TokenAdminRegistryGetAllConfiguredTokensOp = operations.NewOperation(
 		"TokenAdminRegistryGetAllConfiguredTokensOp",
 		semver.MustParse("1.0.0"),
 		"Gets all configured tokens from the TokenAdminRegistry",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input common.Address) ([]common.Address, error) {
-			tokenAdminReg, err := token_admin_registry.NewTokenAdminRegistry(input, deps.Chain.Client)
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input TokenAdminRegistryGetAllConfiguredTokensIn) ([]common.Address, error) {
+			tokenAdminReg, err := token_admin_registry.NewTokenAdminRegistry(input.Address, deps.Chain.Client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create TokenAdminRegistry contract binding: chainSelector=%v, TokenAdminRegistry Address=%s, error=%w", deps.Chain.ChainSelector(), input.Hex(), err)
+				return nil, fmt.Errorf("failed to create TokenAdminRegistry contract binding: chainSelector=%v, TokenAdminRegistry Address=%s, error=%w", deps.Chain.ChainSelector(), input.Address.Hex(), err)
 			}
 
 			allTransferTokens := []common.Address{}

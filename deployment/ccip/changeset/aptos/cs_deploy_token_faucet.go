@@ -20,8 +20,8 @@ var _ cldf.ChangeSetV2[config.DeployTokenFaucetInput] = DeployTokenFaucet{}
 
 type DeployTokenFaucet struct{}
 
-func (d DeployTokenFaucet) VerifyPreconditions(e cldf.Environment, cfg config.DeployTokenFaucetInput) error {
-	state, err := stateview.LoadOnchainState(e)
+func (d DeployTokenFaucet) VerifyPreconditions(env cldf.Environment, cfg config.DeployTokenFaucetInput) error {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
@@ -42,13 +42,13 @@ func (d DeployTokenFaucet) VerifyPreconditions(e cldf.Environment, cfg config.De
 	return errors.Join(errs...)
 }
 
-func (d DeployTokenFaucet) Apply(e cldf.Environment, cfg config.DeployTokenFaucetInput) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+func (d DeployTokenFaucet) Apply(env cldf.Environment, cfg config.DeployTokenFaucetInput) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Aptos onchain state: %w", err)
 	}
 
-	aptosChain := e.BlockChains.AptosChains()[cfg.ChainSelector]
+	aptosChain := env.BlockChains.AptosChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
 
 	deps := operation.AptosDeps{
@@ -61,13 +61,13 @@ func (d DeployTokenFaucet) Apply(e cldf.Environment, cfg config.DeployTokenFauce
 		MCMSAddress:         state.AptosChains[cfg.ChainSelector].MCMSAddress,
 		TokenCodeObjAddress: cfg.TokenCodeObjectAddress,
 	}
-	report, err := operations.ExecuteSequence(e.OperationsBundle, seq.DeployTokenFaucetSequence, deps, input)
+	report, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployTokenFaucetSequence, deps, input)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute DeployTokenFaucetSequence: %w", err)
 	}
 
 	proposal, err := utils.GenerateProposal(
-		aptosChain.Client,
+		env,
 		state.AptosChains[cfg.ChainSelector].MCMSAddress,
 		cfg.ChainSelector,
 		report.Output,

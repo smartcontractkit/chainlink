@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       testToRun:
-        description: Select a test to run from .github/e2e-tests.yml
+        description: Test to run (from .github/e2e-tests.yml)
         required: true
-        default: soak/ocr_test.go:TestOCRv1Soak
+        default: soak/ocr_test.go:TestOCRv2Soak
         type: choice
         options:
           - soak/ocr_test.go:TestOCRv1Soak
@@ -18,40 +18,102 @@ on:
           - soak/ocr_test.go:TestOCRSoak_ChangeBlockGasLimit
           - soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
           - soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
+      chainlink_version:
+        description: Chainlink image version (e.g. "v2.25.0-beta.0" or "develop")
+        required: true
+        default: develop
+        type: string
       test_config_override_path:
-        description: Path to a test config file used to override the default test config
+        description: Path to the override test config TOML (defaults to OCR2 on Eth Sepolia, 12h soak)
         required: false
+        default: 'integration-tests/testconfig/ocr2/overrides/ethereum_sepolia_12h.toml'
         type: string
       test_secrets_override_key:
-        description: 'Key to run tests with custom test secrets'
+        description: Test secrets (default EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
         required: false
+        default: 'aws:testsecrets/DEFAULT_TEST_SECRETS'
         type: string
-      chainlink_version:
-        description: Chainlink image version to use
-        default: develop
+      team:
+        description: Team (e.g. BIX, CCIP, CRE, etc.)
         required: true
         type: string
       slackMemberID:
-        description: Slack Member ID (Not your @)
+        description: Slack Member ID (to tag when results published in \#test-run-notifications Slack channel).
         required: true
         default: U01A2B2C3D4
-      team:
-        description: Team to run the tests for (e.g. BIX, CCIP)
-        required: true
-        type: string
 
 jobs:
+  # Check if ECR registry is public or private
+  # Skip building image if public registry is used
+  check-registry-type:
+    name: Check used ECR registry type
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+    outputs:
+      skip-image-build: ${{ steps.skip-image-build.outputs.skip-image-build}}
+    steps:
+      - name: Validate if AWS Secrets
+        id: validate-secrets-type
+        run: |
+          if [[ "${{ inputs.test_secrets_override_key }}" =~ ^aws:* ]]; then
+            echo "Detected AWS secret"
+            echo "is-aws-secret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Detected non-AWS secret"
+            echo "is-aws-secret=false" >> "$GITHUB_OUTPUT"
+            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get AWS test secret ID (strip 'aws:' prefix)
+        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
+        id: get-secret-id
+        run: echo "secret_id=${{ inputs.test_secrets_override_key }}" | sed 's/aws://' >> $GITHUB_OUTPUT
+
+      - name: Get test secrets from AWS Secret Manager
+        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
+        id: aws-test-secrets
+        uses: smartcontractkit/.github/actions/ctf-fetch-aws-secret@921f4b0ca850dd473dcef9082e3169ccbb83cc52 # ctf-fetch-aws-secret@0.0.0
+        with:
+          secret_id: ${{ steps.get-secret-id.outputs.secret_id }}
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+      - name: Parse and mask test secrets
+        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
+        id: parsed-aws-test-secrets
+        uses: smartcontractkit/.github/actions/parse-and-mask-test-secrets@parse-and-mask-test-secrets/0.1.0 # parse-and-mask-test-secrets@0.1.0
+        with:
+          encoded_test_secrets: ${{ steps.aws-test-secrets.outputs.secret_value }}
+
+      - name: Check registry type
+        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
+        id: skip-image-build
+        shell: bash
+        run: |
+          if [[ "$E2E_TEST_CHAINLINK_IMAGE" =~ ^public\.ecr ]]; then
+            echo "Using public registry. No image will be built."
+            echo "skip-image-build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using private registry for Chainlink image."
+            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@608298f511acfbcfd1099e5907ba1b1b0dda8b14
+    needs: check-registry-type
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9271f82b74a6dcc92bb66e1363460146897c8637
     with:
+      chainlink_version: ${{ inputs.chainlink_version }}
       test_path: .github/e2e-tests.yml
       test_ids: ${{ inputs.testToRun}}
+      test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
-      chainlink_version: ${{ inputs.chainlink_version }}
+      # Fallback is used to properly convert a string to boolean 
+      skip_image_build: ${{ needs.check-registry-type.outputs.skip-image-build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}
-      test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
