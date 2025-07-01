@@ -236,9 +236,13 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 }
 
 func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMatching int) {
-	// Initialize test setup
 	ctx := b.Context()
-	s, _, _ := setupGetCommitGTETimestampTest(ctx, b, 0, true)
+	s := benchSetup(ctx, b, benchSetupParams{
+		ReaderChain:        chainD,
+		DestChain:          chainD,
+		Cfg:                evmconfig.DestReaderConfig,
+		ContractNameToBind: consts.ContractNameOffRamp,
+	})
 
 	if logsInsertedFirst > 0 {
 		populateDatabaseForCommitReportAccepted(ctx, b, s, chainD, chainS1, logsInsertedFirst, 0)
@@ -263,7 +267,7 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 func populateDatabaseForCommitReportAccepted(
 	ctx context.Context,
 	b *testing.B,
-	testEnv *testSetupData,
+	testEnv *benchSetupData,
 	destChain cciptypes.ChainSelector,
 	sourceChain cciptypes.ChainSelector,
 	numOfReports int,
@@ -297,9 +301,9 @@ func populateDatabaseForCommitReportAccepted(
 				SourceChainSelector: uint64(sourceChain),
 				OnRampAddress:       utils.RandomAddress().Bytes(),
 				// #nosec G115
-				MinSeqNr: uint64(i * 100),
+				MinSeqNr: uint64(i*100 + 1),
 				// #nosec G115
-				MaxSeqNr:   uint64(i*100 + 99),
+				MaxSeqNr:   uint64(i*100 + 100),
 				MerkleRoot: utils.RandomBytes32(),
 			},
 		}
@@ -690,6 +694,7 @@ func benchSetup(
 		reader:       reader,
 		extendedCR:   extendedCr,
 		dbs:          dbs,
+		orm:          orm,
 	}
 }
 
@@ -707,4 +712,5 @@ type benchSetupData struct {
 	reader       ccipreaderpkg.CCIPReader
 	extendedCR   contractreader.Extended
 	dbs          sqlutil.DataSource
+	orm          *logpoller.DSORM
 }
