@@ -41,7 +41,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 }
 
 func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- UserCallbackPayload) error {
-	panic("DummyHandler does not support JSON-RPC messages")
+	return fmt.Errorf("dummy handler does not support JSON-RPC user messages")
 }
 
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {

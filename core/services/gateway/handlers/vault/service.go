@@ -131,7 +131,7 @@ func (s *service) Close() error {
 }
 
 func (s *service) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	panic("Vault Service does not support legacy messages")
+	return fmt.Errorf("vault service does not support legacy messages")
 }
 
 func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
