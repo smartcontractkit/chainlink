@@ -131,11 +131,9 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	}
 }
 
-// Benchmark Results:
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_0_MatchLogs_0-14             16948      67728 ns/op        30387 B/op          417 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1650       741741 ns/op       528334 B/op         9929 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_10_MatchLogs_100-14          195        6096328 ns/op      4739856 B/op        92345 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       2          582712583 ns/op    454375304 B/op      8931990 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/5_chains,_only_some_logs_are_matched-12         	     304	   4502751 ns/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/70_chains,_little_logs_matched-12               	    2228	    516133 ns/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/100_chains,_everything_is_matched-12            	      37	  34224577 ns/op
 func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 	tests := []struct {
 		name                 string
@@ -156,10 +154,10 @@ func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 			numberOfChains:       70,
 		},
 		{
-			name:                 "70 chains, everything is matched",
+			name:                 "100 chains, everything is matched",
 			logsInsertedFirst:    1,
-			logsInsertedMatching: 5_000,
-			numberOfChains:       70,
+			logsInsertedMatching: 1_000,
+			numberOfChains:       100,
 		},
 	}
 
