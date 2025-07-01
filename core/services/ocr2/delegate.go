@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -30,6 +31,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -631,7 +633,13 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	service := vault.NewService()
+	store := requests.NewStore[*vault.Request, *vault.Response]()
+	service := vault.NewService(
+		lggr,
+		store,
+		clockwork.NewRealClock(),
+		cfg.RequestExpiryDuration,
+	)
 	srvs = append(srvs, service)
 
 	err = capabilitiesRegistry.Add(ctx, service)
@@ -702,7 +710,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory()
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(store)
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
