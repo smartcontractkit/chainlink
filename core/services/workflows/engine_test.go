@@ -366,6 +366,15 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
 				Value: m,
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   "Gas",
+							SpendValue:  "100",
+						},
+					},
+				},
 			}, nil
 		},
 	)

@@ -74,7 +74,7 @@ type Report struct {
 	// dependencies
 	balance *balanceStore
 	client  BillingClient
-	lggr    logger.Logger
+	lggr    logger.SugaredLogger
 
 	// internal state
 	mu    sync.RWMutex
@@ -295,6 +295,36 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		return ErrStepSpendExists
 	}
 
+	// Track metering data
+	r.trackSpends(ref, step, spendsByNode)
+
+	// if in metering mode, exit early without modifying local balance
+	if r.meteringMode {
+		return nil
+	}
+
+	// Settle local balance
+	return r.settleLocalBalance(ref, step, spendsByNode)
+}
+
+// trackSpends sets the necessary spendsByNode on the Report for metering data tracking
+func (r *Report) trackSpends(ref string, step ReportStep, spendsByNode []capabilities.MeteringNodeDetail) {
+	resourceSpends := make(map[string][]ReportStepDetail)
+
+	// Group by resource dimension
+	for _, nodeDetail := range spendsByNode {
+		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
+			Peer2PeerID: nodeDetail.Peer2PeerID,
+			SpendValue:  nodeDetail.SpendValue,
+		})
+	}
+
+	step.Spends = resourceSpends
+	r.steps[ref] = step
+}
+
+// settleLocalBalance handles local balance settlement when not in metering mode
+func (r *Report) settleLocalBalance(ref string, step ReportStep, spendsByNode []capabilities.MeteringNodeDetail) error {
 	spentCredits := decimal.NewFromInt(0)
 	resourceSpends := make(map[string][]ReportStepDetail)
 
@@ -329,17 +359,8 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		spentCredits = spentCredits.Add(bal)
 	}
 
-	step.Spends = resourceSpends
-	r.steps[ref] = step
-
-	// if in metering mode, exit early without modifying local balance
-	if r.meteringMode {
-		return nil
-	}
-
 	// Refund the difference between what local balance had been earmarked and the actual spend
 	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
-		// invariant: capability should not let spend exceed reserve
 		r.lggr.Error("invariant: spend exceeded reserve")
 	}
 
@@ -390,7 +411,6 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
 		Metering:            r.FormatReport(),
 	}
-
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
 	if err != nil {
 		return err

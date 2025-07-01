@@ -287,7 +287,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 			e.logger,
 			step.ID,
 			*e.localNode.Load(),
-			cp.(capabilities.TargetCapability),
+			cp.(capabilities.ExecutableCapability),
 		)
 	}
 
@@ -296,6 +296,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	cc, ok := cp.(capabilities.ExecutableCapability)
 	if !ok {
 		return newCPErr("capability does not satisfy CallbackCapability")
+	}
+
+	// Wrap local executable capabilities to set peer2peerID
+	if info.IsLocal {
+		l.Debug("wrapping local executable capability")
+		cc = transmission.NewLocalExecutableCapability(
+			e.logger,
+			step.ID,
+			*e.localNode.Load(),
+			cc,
+		)
 	}
 
 	stepConfig, err := e.configForStep(ctx, l, step)
@@ -490,6 +501,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
+	e.logger.Errorw("ENGINE ATTEMPT NUMBER 5")
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
