@@ -275,13 +275,14 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		return errors.New("sender missing from message")
 	}
 
+	c.lggr.Debugw("OnMessage called for client request")
+
 	sender, err := remote.ToPeerID(msg.Sender)
 	if err != nil {
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
 
 	received, expected := c.responseReceived[sender]
-
 	if !expected {
 		return fmt.Errorf("response from peer %s not expected", sender)
 	}
@@ -305,7 +306,6 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
 
 		nodeReports, exists := c.meteringResponses[responseID]
-
 		if !exists {
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
 		}
@@ -313,6 +313,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		if len(metadata.Metering) == 1 {
 			rpt := metadata.Metering[0]
 			rpt.Peer2PeerID = sender.String()
+
 			nodeReports = append(nodeReports, rpt)
 		} else {
 			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
@@ -335,7 +336,6 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
-
 		c.errorCount[msg.ErrorMsg]++
 		c.totalErrorCount++
 
@@ -349,7 +349,6 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
 		}
 	}
-
 	return nil
 }
 

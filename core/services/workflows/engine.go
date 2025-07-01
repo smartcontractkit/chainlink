@@ -287,7 +287,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 			e.logger,
 			step.ID,
 			*e.localNode.Load(),
-			cp.(capabilities.ExecutableCapability),
+			cp.(capabilities.TargetCapability),
 		)
 	}
 
@@ -501,7 +501,6 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
-	e.logger.Errorw("ENGINE ATTEMPT NUMBER 5")
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
