@@ -3,7 +3,6 @@ package ccip
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -132,22 +131,55 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	}
 }
 
-// Benchmark Results:
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_0_MatchLogs_0-14             16948      67728 ns/op        30387 B/op          417 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_1_MatchLogs_10-14            1650       741741 ns/op       528334 B/op         9929 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_10_MatchLogs_100-14          195        6096328 ns/op      4739856 B/op        92345 allocs/op
-// Benchmark_CCIPReader_CommitReportsGTETimestamp/FirstLogs_100_MatchLogs_10000-14       2          582712583 ns/op    454375304 B/op      8931990 allocs/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/5_chains,_only_some_logs_are_matched-12         	     304	   4502751 ns/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/70_chains,_little_logs_matched-12               	    2228	    516133 ns/op
+// Benchmark_CCIPReader_CommitReportsGTETimestamp/100_chains,_everything_is_matched-12            	      37	  34224577 ns/op
 func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 	tests := []struct {
+		name                 string
 		logsInsertedFirst    int
 		logsInsertedMatching int
+		numberOfChains       int
 	}{
-		{100, 10_000},
+		{
+			name:                 "5 chains, only some logs are matched",
+			logsInsertedFirst:    1_000,
+			logsInsertedMatching: 100,
+			numberOfChains:       5,
+		},
+		{
+			name:                 "70 chains, little logs matched",
+			logsInsertedFirst:    10_000,
+			logsInsertedMatching: 1,
+			numberOfChains:       70,
+		},
+		{
+			name:                 "100 chains, everything is matched",
+			logsInsertedFirst:    1,
+			logsInsertedMatching: 1_000,
+			numberOfChains:       100,
+		},
 	}
 
 	for _, tt := range tests {
-		b.Run(fmt.Sprintf("FirstLogs_%d_MatchLogs_%d", tt.logsInsertedMatching, tt.logsInsertedFirst), func(b *testing.B) {
-			benchmarkCommitReports(b, tt.logsInsertedFirst, tt.logsInsertedMatching)
+		reader := prepareCommitReportsEventsInDb(
+			b,
+			tt.logsInsertedFirst,
+			tt.logsInsertedMatching,
+			tt.numberOfChains,
+		)
+
+		b.Run(tt.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				reports, err := reader.CommitReportsGTETimestamp(
+					b.Context(),
+					time.Now().Add(-10*time.Minute),
+					primitives.Unconfirmed,
+					tt.logsInsertedMatching,
+				)
+				require.NoError(b, err)
+				require.Len(b, reports, tt.logsInsertedMatching)
+			}
 		})
 	}
 }
@@ -235,37 +267,58 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	}
 }
 
-func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMatching int) {
-	// Initialize test setup
+func prepareCommitReportsEventsInDb(
+	b *testing.B,
+	firstInserted int,
+	matchingLogs int,
+	numberOfChains int,
+) ccipreaderpkg.CCIPReader {
 	ctx := b.Context()
-	s, _, _ := setupGetCommitGTETimestampTest(ctx, b, 0, true)
+	s := benchSetup(ctx, b, benchSetupParams{
+		ReaderChain:        chainD,
+		DestChain:          chainD,
+		Cfg:                evmconfig.DestReaderConfig,
+		ContractNameToBind: consts.ContractNameOffRamp,
+	})
 
-	if logsInsertedFirst > 0 {
-		populateDatabaseForCommitReportAccepted(ctx, b, s, chainD, chainS1, logsInsertedFirst, 0)
+	for j := 0; j < numberOfChains; j++ {
+		// #nosec G115
+		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
+		// #nosec G115
+		destChainID := cciptypes.ChainSelector(j + 1)
+		populateDatabaseForCommitReportAccepted(
+			ctx,
+			b,
+			s,
+			orm,
+			destChainID,
+			numberOfChains,
+			firstInserted,
+			0,
+		)
+
+		populateDatabaseForCommitReportAccepted(
+			ctx,
+			b,
+			s,
+			orm,
+			destChainID,
+			numberOfChains,
+			matchingLogs,
+			firstInserted,
+		)
 	}
 
-	queryTimestamp := time.Now()
-
-	if logsInsertedMatching > 0 {
-		populateDatabaseForCommitReportAccepted(ctx, b, s, chainD, chainS1, logsInsertedMatching, logsInsertedFirst)
-	}
-
-	// Reset timer to measure only the query time
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, primitives.Unconfirmed, logsInsertedFirst)
-		require.NoError(b, err)
-		require.Len(b, reports, logsInsertedFirst)
-	}
+	return s.reader
 }
 
 func populateDatabaseForCommitReportAccepted(
 	ctx context.Context,
 	b *testing.B,
-	testEnv *testSetupData,
+	testEnv *benchSetupData,
+	orm *logpoller.DSORM,
 	destChain cciptypes.ChainSelector,
-	sourceChain cciptypes.ChainSelector,
+	numberOfChains int,
 	numOfReports int,
 	offset int,
 ) {
@@ -279,8 +332,8 @@ func populateDatabaseForCommitReportAccepted(
 	// Calculate timestamp based on whether these are the first logs or matching logs
 	var timestamp time.Time
 	if offset == 0 {
-		// For first set of logs, set timestamp to 1 hour ago
-		timestamp = time.Now().Add(-1 * time.Hour)
+		// For first set of logs, set timestamp to very old
+		timestamp = time.Now().Add(-10 * time.Hour)
 	} else {
 		// For matching logs, use current time
 		timestamp = time.Now()
@@ -291,18 +344,26 @@ func populateDatabaseForCommitReportAccepted(
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
+		// #nosec G115
+		sourceChain := cciptypes.ChainSelector(i%numberOfChains + 1)
+		if sourceChain == destChain {
+			sourceChain++
+		}
+
 		// Simulate merkleRoots
 		merkleRoots := []offramp.InternalMerkleRoot{
 			{
 				SourceChainSelector: uint64(sourceChain),
 				OnRampAddress:       utils.RandomAddress().Bytes(),
 				// #nosec G115
-				MinSeqNr: uint64(i * 100),
+				MinSeqNr: uint64(i*100 + 1),
 				// #nosec G115
-				MaxSeqNr:   uint64(i*100 + 99),
+				MaxSeqNr:   uint64(i*100 + 100),
 				MerkleRoot: utils.RandomBytes32(),
 			},
 		}
+
+		var unblessed []offramp.InternalMerkleRoot
 
 		sourceToken := utils.RandomAddress()
 
@@ -317,7 +378,8 @@ func populateDatabaseForCommitReportAccepted(
 		}
 
 		// Combine encoded data
-		encodedData, err := commitReportEvent.Inputs.Pack(merkleRoots, priceUpdates)
+		encodedData, err := commitReportEvent.Inputs.
+			Pack(merkleRoots, unblessed, priceUpdates)
 		require.NoError(b, err)
 
 		// Topics (first one is the event signature)
@@ -342,8 +404,8 @@ func populateDatabaseForCommitReportAccepted(
 	}
 
 	// Insert logs into the database
-	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
-	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
+	require.NoError(b, orm.InsertLogs(ctx, logs))
+	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
 }
 
 func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCount, destChainsCount int) ccipreaderpkg.CCIPReader {
