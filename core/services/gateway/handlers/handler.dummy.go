@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -41,7 +42,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 }
 
 func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- UserCallbackPayload) error {
-	return fmt.Errorf("dummy handler does not support JSON-RPC user messages")
+	return errors.New("dummy handler does not support JSON-RPC user messages")
 }
 
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error {

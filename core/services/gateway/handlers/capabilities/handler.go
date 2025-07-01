@@ -245,7 +245,7 @@ func (h *handler) Close() error {
 }
 
 func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
-	return fmt.Errorf("capabilities handler does not support JSON-RPC user messages")
+	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
 func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
