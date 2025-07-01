@@ -763,12 +763,18 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Default",
-						Owner:     testWorkflowOwnerA,
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{expectedSecret, "encryptedShare2"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Default",
+							Owner:     testWorkflowOwnerA,
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{expectedSecret},
+									},
+								},
 							},
 						},
 					},
