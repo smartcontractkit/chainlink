@@ -3,12 +3,8 @@ package ccipton
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"math/big"
-	"strings"
 
-	ag_binary "github.com/gagliardetto/binary"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
 	"github.com/xssnick/tonutils-go/address"
@@ -105,7 +101,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("pack data: %w", err)
 			}
 
-			// TODO consider using address codec ?
+			// TODO consider using address codec once it's merged
 			tonReceiverAddr, err := convertBase64ToAddress(msg.Receiver)
 			if err != nil {
 				return nil, fmt.Errorf("error convert receiver address: %w", err)
@@ -216,7 +212,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					return executeReport, err
 				}
 
-				// TODO consider using address codec ?
+				// TODO consider using address codec once it's merged
 				destTokenAddr, err := convertAddressToBase64(tokenAmount.DestPoolAddress)
 				if err != nil {
 					return executeReport, err
@@ -262,7 +258,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 		}
 
 		offchainTokenData := make([][][]byte, 0)
-		// TODO check if TON will support multiple offchain token data, then change binding to 3DByteArray
 		if tonReport.OffChainTokenData != nil {
 			offchainData, err := binding.Unpack2DByteArrayFromCell(tonReport.OffChainTokenData)
 			if err != nil {
@@ -304,49 +299,4 @@ func convertAddressToBase64(addr *address.Address) ([]byte, error) {
 		return nil, fmt.Errorf("empty address string")
 	}
 	return base64.RawURLEncoding.DecodeString(addrStr)
-}
-
-func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
-	// Search for the gas fields
-	for fieldName, fieldValue := range input {
-		lowercase := strings.ToLower(fieldName)
-		switch lowercase {
-		case "destgasamount":
-			// Expect uint32
-			if v, ok := fieldValue.(uint32); ok {
-				return v, nil
-			} else {
-				return 0, errors.New("invalid type for destgasamount, expected uint32")
-			}
-		default:
-
-		}
-	}
-
-	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
-}
-
-// TODO could be duplicate from ccipevm, consider moving to common package
-func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
-	var outputGas *big.Int
-	for fieldName, fieldValue := range input {
-		lowercase := strings.ToLower(fieldName)
-		switch lowercase {
-		case "gaslimit":
-			if val, ok := fieldValue.(*big.Int); ok {
-				outputGas = val
-				return outputGas, nil
-			} else {
-				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
-				if val, ok := fieldValue.(ag_binary.Uint128); ok {
-					outputGas = val.BigInt()
-					return outputGas, nil
-				}
-				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
-			}
-		default:
-			// no error here, as we only need the keys to gasLimit, other keys can be skipped without like AllowOutOfOrderExecution	etc.
-		}
-	}
-	return outputGas, errors.New("gas limit not found in extra data map")
 }
