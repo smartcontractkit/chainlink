@@ -105,7 +105,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, scheduledE
 
 	go func() {
 		select {
-		case f.callbackCh <- createManualTriggerResponse(scheduledExecutionTime):
+		case f.callbackCh <- f.createManualTriggerEvent(scheduledExecutionTime):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine
@@ -116,7 +116,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, scheduledE
 	return nil
 }
 
-func createManualTriggerResponse(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*crontypedapi.Payload] {
+func (f *ManualCronTriggerService) createManualTriggerEvent(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*crontypedapi.Payload] {
 	// Ensure UTC time is used for consistency across nodes.
 	scheduledExecutionTimeUTC := scheduledExecutionTime.UTC()
 
@@ -135,12 +135,12 @@ func createManualTriggerResponse(scheduledExecutionTime time.Time) capabilities.
 }
 
 func (f *ManualCronTriggerService) Start(ctx context.Context) error {
-	f.lggr.Info("Starting ManualCronTriggerService")
+	f.lggr.Debugw("Starting ManualCronTriggerService")
 	return nil
 }
 
 func (f *ManualCronTriggerService) Close() error {
-	f.lggr.Info("Closing ManualCronTriggerService")
+	f.lggr.Debug("Closing ManualCronTriggerService")
 	return nil
 }
 
