@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	ComputeResourceDimension = "COMPUTE"
-	RatiosKey                = "spendRatios"
-	defaultDecimalPrecision  = 3 // one thousandth of a dollar
+	RatiosKey               = "spendRatios"
+	defaultDecimalPrecision = 3 // one thousandth of a dollar
 )
 
 var (
