@@ -45,7 +45,7 @@ type Engine struct {
 
 	allTriggerEventsQueueCh chan enqueuedTriggerEvent
 	executionsSemaphore     chan struct{}
-	capCallsSemaphore       chan struct{}
+	capCallsSemaphore       *semaphore[*sdkpb.CapabilityResponse]
 
 	meterReports *metering.Reports
 
@@ -69,6 +69,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+
 	em, err := monitoring.InitMonitoringResources()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
@@ -111,6 +112,20 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
 	}
 
+	if cfg.SecretsFetcher == nil {
+		cfg.SecretsFetcher = NewSecretsFetcher(
+			metricsLabeler,
+			cfg.CapRegistry,
+			beholderLogger,
+			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
+			cfg.WorkflowOwner,
+			cfg.WorkflowName.String(),
+			func(shares []string) (string, error) {
+				return "", errors.New("decryption not implemented in v2 engine")
+			},
+		)
+	}
+
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
@@ -119,7 +134,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
-		capCallsSemaphore:       make(chan struct{}, cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
+		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
 		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler),
 		metrics:                 metricsLabeler,
 	}
@@ -183,7 +198,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.cfg.SecretsFetcher, UserLogChan: userLogChan})
+	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, TimeProvider{}, e.cfg.SecretsFetcher))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}

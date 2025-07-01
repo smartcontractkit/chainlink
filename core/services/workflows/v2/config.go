@@ -55,6 +55,7 @@ const (
 
 	defaultMaxConcurrentWorkflowExecutions         = 100
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
+	defaultMaxConcurrentSecretsCallsPerWorkflow    = 3
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 	defaultMaxUserLogEventsPerExecution            = 1000
@@ -74,6 +75,7 @@ type EngineLimits struct {
 
 	MaxConcurrentWorkflowExecutions         uint16
 	MaxConcurrentCapabilityCallsPerWorkflow uint16
+	MaxConcurrentSecretsCallsPerWorkflow    uint16
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 	MaxUserLogEventsPerExecution            uint32
@@ -106,10 +108,6 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
-	}
-	if c.SecretsFetcher == nil {
-		// TODO: implement
-		c.SecretsFetcher = &unimplementedSecretsFetcher{}
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
@@ -164,6 +162,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	}
 	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
 		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
+	}
+	if l.MaxConcurrentSecretsCallsPerWorkflow == 0 {
+		l.MaxConcurrentSecretsCallsPerWorkflow = defaultMaxConcurrentSecretsCallsPerWorkflow
 	}
 	if l.WorkflowExecutionTimeoutMs == 0 {
 		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs

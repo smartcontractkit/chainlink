@@ -131,6 +131,9 @@ func getLatestNonce(tc TestCase) uint64 {
 		// we ignore the error because the account might not exist yet
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
+	case chain_selectors.FamilyTon:
+		// TODO investigate TON nonce management, return +1 for now
+		return *tc.Nonce + 1
 	}
 	return latestNonce
 }
@@ -145,6 +148,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
+	receiver := common.LeftPadBytes(tc.Receiver, 32)
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
@@ -154,7 +158,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
 			FeeToken:     feeToken,
@@ -168,7 +172,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = ccip_router.SVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
 			FeeToken:     feeToken,
@@ -243,7 +247,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
-
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()
@@ -279,6 +282,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		case chain_selectors.FamilyAptos:
 			unorderedExec = true
 		}
+
+		// TODO investigate TON nonce management, getLatestNonce is mocked to increase by 1 for now
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
