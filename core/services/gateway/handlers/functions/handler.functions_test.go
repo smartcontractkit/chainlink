@@ -138,13 +138,19 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 			subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
+
+			done := make(chan struct{})
 			go func() {
+				defer close(done)
 				// Ensure the response is sent on another thread to avoid deadlock
 				sendNodeReponse(t, handler, userRequestMsg, nodes, test.nodeResults)
 			}()
 
 			// wait on a response from Gateway to the user
 			response := <-callbachCh
+			// wait for goroutine to complete to avoid race condition
+			<-done
+
 			require.Equal(t, api.NoError, response.ErrorCode)
 			codec := api.JsonRPCCodec{}
 			msg, err := codec.DecodeLegacyResponse(response.RawResponse)
@@ -179,12 +185,19 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
+
+			done := make(chan struct{})
 			go func() {
+				defer close(done)
 				// Ensure the response is sent on another thread to avoid deadlock
 				sendNodeReponse(t, handler, userRequestMsg, nodes, test.nodeResults)
 			}()
+
 			// wait on a response from Gateway to the user
 			response := <-callbachCh
+			// wait for goroutine to complete to avoid race condition
+			<-done
+
 			require.Equal(t, api.NoError, response.ErrorCode)
 			codec := api.JsonRPCCodec{}
 			msg, err := codec.DecodeLegacyResponse(response.RawResponse)
