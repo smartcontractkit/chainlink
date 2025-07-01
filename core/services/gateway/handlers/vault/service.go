@@ -157,28 +157,28 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response,
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var req SecretsCreateRequest
 	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
-		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to parse request: %v", err), nil)
-		if errInner != nil {
-			rawErrMsg = fatal(errInner)
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.InvalidParamsError,
-		}
-		return s.sendResponse(ctx, response, callbackCh)
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.InvalidParamsError),
+				fmt.Sprintf("Failed to parse request: %v", err),
+				nil,
+			),
+			ErrorCode: api.InvalidParamsError,
+		}, callbackCh)
 	}
 
 	// Validate request
 	if req.ID == "" {
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret ID cannot be empty", nil)
-		if err != nil {
-			rawErrMsg = fatal(err)
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.InvalidParamsError,
-		}
-		return s.sendResponse(ctx, response, callbackCh)
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.InvalidParamsError),
+				"Secret ID cannot be empty",
+				nil,
+			),
+			ErrorCode: api.InvalidParamsError,
+		}, callbackCh)
 	}
 
 	// Store secret
@@ -193,15 +193,15 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 	// Check if secret already exists
 	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret with this ID already exists", nil)
-		if err != nil {
-			rawErrMsg = fatal(err)
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.InvalidParamsError,
-		}
-		return s.sendResponse(ctx, response, callbackCh)
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.InvalidParamsError),
+				"Secret with this ID already exists",
+				nil,
+			),
+			ErrorCode: api.InvalidParamsError,
+		}, callbackCh)
 	}
 
 	// Create new secret
@@ -225,15 +225,15 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	resultBytes, err := json.Marshal(responseData)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
-		if errInner != nil {
-			rawErrMsg = fatal(errInner)
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.NodeReponseEncodingError,
-		}
-		return s.sendResponse(ctx, response, callbackCh)
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.NodeReponseEncodingError),
+				fmt.Sprintf("Failed to marshal response: %v", err),
+				nil,
+			),
+			ErrorCode: api.NodeReponseEncodingError,
+		}, callbackCh)
 	}
 	jsonResponse := jsonrpc.Response{
 		Version: jsonrpc.JsonRpcVersion,
@@ -243,15 +243,15 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	rawResponse, err := json.Marshal(jsonResponse)
 	if err != nil {
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
-		if errInner != nil {
-			rawErrMsg = fatal(errInner)
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.NodeReponseEncodingError,
-		}
-		return s.sendResponse(ctx, response, callbackCh)
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.NodeReponseEncodingError),
+				fmt.Sprintf("Failed to marshal response: %v", err),
+				nil,
+			),
+			ErrorCode: api.NodeReponseEncodingError,
+		}, callbackCh)
 	}
 	responseObj := gw_handlers.UserCallbackPayload{
 		RawResponse: rawResponse,
@@ -266,14 +266,14 @@ func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonr
 	s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 	promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 
-	rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "Unsupported method: "+jsonRequest.Method, nil)
-	if err != nil {
-		rawErrMsg = fatal(err)
-	}
-
 	return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
-		RawResponse: rawErrMsg,
-		ErrorCode:   api.UnsupportedMethodError,
+		RawResponse: s.codec.EncodeNewErrorResponse(
+			jsonRequest.ID,
+			api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
+			"Unsupported method: "+jsonRequest.Method,
+			nil,
+		),
+		ErrorCode: api.UnsupportedMethodError,
 	}, callbackCh)
 }
 
@@ -284,8 +284,4 @@ func (s *service) sendResponse(ctx context.Context, response gw_handlers.UserCal
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func fatal(err error) []byte {
-	return []byte("fatal error" + err.Error())
 }

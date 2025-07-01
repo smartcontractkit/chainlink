@@ -313,9 +313,15 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		resp := <-ch
 
-		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "invalid method foo", nil)
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UnsupportedMethodError}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
+				"invalid method foo",
+				nil,
+			),
+			ErrorCode: api.UnsupportedMethodError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -326,9 +332,15 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJSONRPCErrorCode(api.HandlerError), "stale message", nil)
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.HandlerError}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.HandlerError),
+				"stale message",
+				nil,
+			),
+			ErrorCode: api.HandlerError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -339,9 +351,15 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJSONRPCErrorCode(api.UserMessageParseError), "error decoding payload field params in TriggerRequestPayload: required", nil)
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UserMessageParseError}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				"error decoding payload field params in TriggerRequestPayload: required",
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -352,9 +370,15 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		rawMsg, err := codec.EncodeNewErrorResponse(invalidMsg.Body.MessageId, api.ToJSONRPCErrorCode(api.UserMessageParseError), "error decoding payload field params in TriggerRequestPayload: required", nil)
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.UserMessageParseError}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				"error decoding payload field params in TriggerRequestPayload: required",
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
