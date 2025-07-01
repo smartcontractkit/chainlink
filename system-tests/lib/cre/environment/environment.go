@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -138,9 +139,11 @@ func SetupTestEnvironment(
 	homeChainOutput := blockchainOutputs[0]
 	blockChains := startBlockchainsOutput.BlockChains
 
+	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
 		Logger:            singleFileLogger,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		DataStore:         memoryDatastore.Seal(),
 		GetContext: func() context.Context {
 			return ctx
 		},
@@ -175,10 +178,19 @@ func SetupTestEnvironment(
 	if err = allChainsCLDEnvironment.ExistingAddresses.Merge(deployKeystoneReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
 		return nil, pkgerrors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}
+	if err = memoryDatastore.Merge(deployKeystoneReport.Output.Datastore); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
+	}
 
-	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()))                        //nolint:staticcheck // won't migrate now
-	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String())) //nolint:staticcheck // won't migrate now
-	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String()))         //nolint:staticcheck // won't migrate now
+	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
+
+	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String())         //nolint:staticcheck // won't migrate now
+	wfRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())      //nolint:staticcheck // won't migrate now
+	capRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()) //nolint:staticcheck // won't migrate now
+
+	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
 	for _, forwarderSelector := range forwardersSelectors {
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, forwarderSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
 	}
@@ -231,10 +243,11 @@ func SetupTestEnvironment(
 
 		// Configure Workflow Registry contract
 		workflowRegistryInput = &cretypes.WorkflowRegistryInput{
-			ChainSelector:  homeChainOutput.ChainSelector,
-			CldEnv:         allChainsCLDEnvironment,
-			AllowedDonIDs:  []uint32{topology.WorkflowDONID},
-			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+			ContractAddress: wfRegAddr,
+			ChainSelector:   homeChainOutput.ChainSelector,
+			CldEnv:          allChainsCLDEnvironment,
+			AllowedDonIDs:   []uint32{topology.WorkflowDONID},
+			WorkflowOwners:  []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 		}
 
 		_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
@@ -269,6 +282,7 @@ func SetupTestEnvironment(
 		SethClients:       sethClients,
 		NodeSetOutput:     nodeSetOutput,
 		ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		Datastore:         allChainsCLDEnvironment.DataStore,
 		Topology:          topology,
 		OperationsBundle:  allChainsCLDEnvironment.OperationsBundle,
 	}
@@ -386,9 +400,11 @@ func SetupTestEnvironment(
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
-		ChainSelector: homeChainOutput.ChainSelector,
-		CldEnv:        fullCldOutput.Environment,
-		Topology:      topology,
+		ChainSelector:               homeChainOutput.ChainSelector,
+		CldEnv:                      fullCldOutput.Environment,
+		Topology:                    topology,
+		CapabilitiesRegistryAddress: &capRegAddr,
+		OCR3Address:                 &ocr3Addr,
 	}
 
 	if input.OCR3Config != nil {
