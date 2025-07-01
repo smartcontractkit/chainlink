@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -57,8 +58,18 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 		"id":      1,
 	}
 	b, _ := json.Marshal(payload)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
 	//nolint:gosec // G107 - URL is from trusted configuration
-	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -95,6 +106,10 @@ func main() {
 	// Track last block number for each endpoint
 	lastBlockNumbers := make(map[string]uint64)
 
+	// Track last time we printed full status
+	lastStatusPrint := time.Now()
+	statusInterval := 120 * time.Second
+
 	for {
 		blockNumbers := make([]uint64, len(endpoints))
 		minBlock, maxBlock := uint64(math.MaxUint64), uint64(0)
@@ -128,6 +143,22 @@ func main() {
 			fmt.Printf("[%s] All endpoints failed, retrying...\n", time.Now().Format(time.RFC3339))
 			time.Sleep(time.Duration(*interval) * time.Second)
 			continue
+		}
+
+		// Print full status every 90 seconds
+		if time.Since(lastStatusPrint) >= statusInterval {
+			fmt.Printf("\n[%s] === PERIODIC STATUS CHECK ===\n", time.Now().Format(time.RFC3339))
+			fmt.Println("Current finalized blocks:")
+			for i, ep := range endpoints {
+				if blockNumbers[i] > 0 {
+					fmt.Printf("  %s: %d\n", ep.Name, blockNumbers[i])
+				} else {
+					fmt.Printf("  %s: ERROR\n", ep.Name)
+				}
+			}
+			fmt.Printf("Block difference: %d (min: %d, max: %d)\n", maxBlock-minBlock, minBlock, maxBlock)
+			fmt.Println("================================")
+			lastStatusPrint = time.Now()
 		}
 
 		currentDiff := maxBlock - minBlock
