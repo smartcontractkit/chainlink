@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -56,15 +56,17 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 		"id":      1,
 	}
 	b, _ := json.Marshal(payload)
+	//nolint //nosec G107 - URL is from trusted configuration
 	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
 	if err != nil {
 		return 0, err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 
 	var br BlockResponse
-	if err := json.Unmarshal(body, &br); err != nil {
+	err = json.Unmarshal(body, &br)
+	if err != nil {
 		return 0, err
 	}
 	if br.Result == nil || br.Result.Number == "" {
@@ -73,7 +75,7 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 	var blockNum uint64
 	_, err = fmt.Sscanf(br.Result.Number, "0x%x", &blockNum)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse block number: %v", err)
+		return 0, fmt.Errorf("failed to parse block number: %w", err)
 	}
 	return blockNum, nil
 }
@@ -91,7 +93,7 @@ func main() {
 
 	for {
 		blockNumbers := make([]uint64, len(endpoints))
-		min, max := uint64(^uint64(0)), uint64(0)
+		minBlock, maxBlock := uint64(^uint64(0)), uint64(0)
 		hasValidData := false
 
 		for i, ep := range endpoints {
@@ -102,11 +104,11 @@ func main() {
 			}
 			blockNumbers[i] = num
 			hasValidData = true
-			if num < min {
-				min = num
+			if num < minBlock {
+				minBlock = num
 			}
-			if num > max {
-				max = num
+			if num > maxBlock {
+				maxBlock = num
 			}
 		}
 
@@ -116,7 +118,7 @@ func main() {
 			continue
 		}
 
-		currentDiff := max - min
+		currentDiff := maxBlock - minBlock
 		currentSynced := currentDiff == 0
 		now := time.Now()
 
