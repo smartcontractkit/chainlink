@@ -39,13 +39,13 @@ import (
 )
 
 // This file contains benchmarks for the CCIPReader methods, we test here only performance of
-// CCIPReader methods which are reaching to the database to fetch matching logs.
+// CCIPReader methods which are reaching the database to fetch matching logs (e.g. CCIPMessageSent)
 // Under the hood, we verify if the CCIPReader/ChainAccessorLayer database queries are efficient enough to
 // handle large number of logs.
 //
 // These tests are not fully e2e, because we don't interact with contracts, but rather
 // we insert logs directly into the database, so we can control the amount of logs inserted and their content.
-// Also, for the number of logs inserted, using contracts would be too slow, because we would have to wait for the
+// Also, using contracts would be too slow, because we would have to wait for the
 // transactions to be mined and consumed by LogPoller. Therefore, these tests should not be used to verify correctness
 // of the CCIPReader methods, but rather their performance under various circumstances
 // (different number of logs, different number of source and destination chains, etc.).
