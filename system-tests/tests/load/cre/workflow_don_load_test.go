@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/model"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
@@ -429,17 +430,18 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	prometheusExecutor, err := benchspy.NewPrometheusQueryExecutor(
 		map[string]string{
 			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[5m]) * 100)`,
-			"mem_peak_mb":          `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
-			"mem_avg_mb":           `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"mem_peak":             `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"mem_avg":              `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
 			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9][0-9]*"})`,
-			"network_tx_mb":        `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
-			"network_rx_mb":        `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_tx":           `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
+			"network_rx":           `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
 		},
 		promConfig,
 	)
 	require.NoError(t, err)
 
-	benchmarkReport, err := benchspy.NewStandardReport(
+	benchmarkReport, baselineReport, err := benchspy.FetchNewStandardReportAndLoadLatestPrevious(
+		ctx,
 		tag,
 		benchspy.WithStandardQueries(benchspy.StandardQueryExecutor_Direct),
 		benchspy.WithQueryExecutors(prometheusExecutor),
@@ -453,6 +455,104 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	path, storeErr := benchmarkReport.Store()
 	require.NoError(t, storeErr, "failed to store benchmark report", path)
 	require.NoError(t, err, "workflow load test did not finish successfully")
+
+	// Compare benchmark with baseline if available
+	if baselineReport != nil {
+		// Define threshold percentages for different metrics
+		thresholds := map[string]float64{
+			"cpu_percent":             10.0, // 10% increase
+			"mem_peak":                10.0,
+			"mem_avg":                 10.0,
+			"network_tx":              10.0,
+			"network_rx":              10.0,
+			"95th_percentile_latency": 10.0,
+			"99th_percentile_latency": 10.0,
+			"median_latency":          10.0,
+			"error_rate":              10.0,
+			"max_latency":             10.0,
+		}
+
+		// Fetch all metrics
+		require.Len(t, baselineReport.QueryExecutors, 2, "expected two query executors in baseline report")
+		require.Len(t, benchmarkReport.QueryExecutors, 2, "expected two query executors in benchmark report")
+
+		baselineReportMetrics := make(map[string]float64)
+		for _, qe := range baselineReport.QueryExecutors {
+			for metricName, metricValue := range qe.Results() {
+				// Check if the metricValue is a slice
+				if sliceVal, ok := metricValue.([]float64); ok && len(sliceVal) > 0 {
+					// If it's a slice of float64, get the last element
+					baselineReportMetrics[metricName] = sliceVal[len(sliceVal)-1]
+				} else if floatVal, ok := metricValue.(float64); ok {
+					// If it's a single float64, use it directly
+					baselineReportMetrics[metricName] = floatVal
+				} else if vector, ok := metricValue.(model.Vector); ok {
+					if len(vector) > 0 {
+						// Use the most recent sample's value from the vector
+						baselineReportMetrics[metricName] = float64(vector[len(vector)-1].Value)
+					} else {
+						// Log the case where vector is empty
+						framework.L.Warn().Msgf("Metric %s has empty vector value", metricName)
+					}
+				} else {
+					// Log the case where the value is not a float64 or slice of float64
+					framework.L.Warn().Msgf("Metric %s has unsupported value type: %T", metricName, metricValue)
+				}
+			}
+		}
+
+		currentReportMetrics := make(map[string]float64)
+		for _, qe := range benchmarkReport.QueryExecutors {
+			for metricName, metricValue := range qe.Results() {
+				// Check if the metricValue is a slice
+				if sliceVal, ok := metricValue.([]float64); ok && len(sliceVal) > 0 {
+					// If it's a slice of float64, get the last element
+					currentReportMetrics[metricName] = sliceVal[len(sliceVal)-1]
+				} else if floatVal, ok := metricValue.(float64); ok {
+					// If it's a single float64, use it directly
+					currentReportMetrics[metricName] = floatVal
+				} else if vector, ok := metricValue.(model.Vector); ok {
+					if len(vector) > 0 {
+						// Use the most recent sample's value from the vector
+						currentReportMetrics[metricName] = float64(vector[len(vector)-1].Value)
+					} else {
+						// Log the case where vector is empty
+						framework.L.Warn().Msgf("Metric %s has empty vector value", metricName)
+					}
+				} else {
+					// Log the case where the value is not a float64 or slice of float64
+					framework.L.Warn().Msgf("Metric %s has unsupported value type: %T", metricName, metricValue)
+				}
+			}
+		}
+
+		// 	// Compare metrics
+		var warnings []string
+		for metric, threshold := range thresholds {
+
+			if baselineReportMetrics[metric] > 0 {
+				percentIncrease := ((currentReportMetrics[metric] - baselineReportMetrics[metric]) / baselineReportMetrics[metric]) * 100
+				if percentIncrease > threshold {
+					warnings = append(warnings, fmt.Sprintf(
+						"PERFORMANCE REGRESSION: %s increased by %.2f%% (baseline: %.2f, current: %.2f, threshold: %.2f%%)",
+						metric, percentIncrease, baselineReportMetrics[metric], currentReportMetrics[metric], threshold,
+					))
+				}
+			}
+		}
+
+		// Log any warnings
+		if len(warnings) > 0 {
+			testLogger.Warn().Msgf("Performance regression detected compared to baseline %s", baselineReport.CommitOrTag)
+			for _, warning := range warnings {
+				framework.L.Warn().Msg(warning)
+			}
+			// Optionally fail the test if regressions are severe
+			// require.Empty(t, warnings, "Performance regression detected")
+		} else {
+			framework.L.Info().Msgf("No significant performance regressions detected compared to baseline %s", baselineReport.CommitOrTag)
+		}
+	}
 
 }
 
