@@ -1,0 +1,147 @@
+package environment
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
+	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
+	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+)
+
+func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraType libtypes.InfraType) (*jd.Output, error) {
+	startTime := time.Now()
+	lggr.Info().Msg("Starting Jod Distributor")
+
+	var jdOutput *jd.Output
+	if infraType == libtypes.CRIB {
+		deployCribJdInput := &cretypes.DeployCribJdInput{
+			JDInput:        &jdInput,
+			NixShell:       nixShell,
+			CribConfigsDir: cribConfigsDir,
+		}
+
+		var jdErr error
+		jdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
+		if jdErr != nil {
+			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
+		}
+	}
+
+	var jdErr error
+	jdOutput, jdErr = CreateJobDistributor(&jdInput)
+	if jdErr != nil {
+		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
+
+		// useful end user messages
+		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
+			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
+		}
+		return nil, jdErr
+	}
+
+	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())
+
+	return jdOutput, nil
+}
+
+func StartDONs(
+	lggr zerolog.Logger,
+	nixShell *nix.Shell,
+	topology *cretypes.Topology,
+	infraType libtypes.InfraType,
+	registryChainBlockchainOutput *blockchain.Output,
+	capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet,
+) ([]*cretypes.WrappedNodeOutput, error) {
+	startTime := time.Now()
+	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
+
+	if infraType == libtypes.CRIB {
+		lggr.Info().Msg("Saving node configs and secret overrides")
+		deployCribDonsInput := &cretypes.DeployCribDonsInput{
+			Topology:       topology,
+			NodeSetInputs:  capabilitiesAwareNodeSets,
+			NixShell:       nixShell,
+			CribConfigsDir: cribConfigsDir,
+		}
+
+		var devspaceErr error
+		capabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
+		if devspaceErr != nil {
+			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
+		}
+	}
+
+	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+
+	// TODO we could parallelize this as well in the future, but for single DON env this doesn't matter
+	for _, nodeSetInput := range capabilitiesAwareNodeSets {
+		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
+		if nodesetErr != nil {
+			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
+		}
+
+		nodeSetOutput = append(nodeSetOutput, &cretypes.WrappedNodeOutput{
+			Output:       nodeset,
+			NodeSetName:  nodeSetInput.Name,
+			Capabilities: nodeSetInput.Capabilities,
+		})
+	}
+
+	lggr.Info().Msgf("DONs started in %.2f seconds", time.Since(startTime).Seconds())
+
+	return nodeSetOutput, nil
+}
+
+func SetupJobs(
+	lggr zerolog.Logger,
+	jdInput jd.Input,
+	nixShell *nix.Shell,
+	registryChainBlockchainOutput *blockchain.Output,
+	topology *cretypes.Topology,
+	infraType libtypes.InfraType,
+	capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet,
+) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
+
+	var jdOutput *jd.Output
+	jdAndDonsErrGroup := &errgroup.Group{}
+
+	jdAndDonsErrGroup.Go(func() error {
+		var startJDErr error
+		jdOutput, startJDErr = StartJD(lggr, nixShell, jdInput, infraType)
+		if startJDErr != nil {
+			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
+		}
+
+		return nil
+	})
+
+	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+
+	jdAndDonsErrGroup.Go(func() error {
+		var startDonsErr error
+		nodeSetOutput, startDonsErr = StartDONs(lggr, nixShell, topology, infraType, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
+		if startDonsErr != nil {
+			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
+		}
+
+		return nil
+	})
+
+	if jdAndDonErr := jdAndDonsErrGroup.Wait(); jdAndDonErr != nil {
+		return nil, nil, pkgerrors.Wrap(jdAndDonErr, "failed to start Job Distributor or DONs")
+	}
+
+	return jdOutput, nodeSetOutput, nil
+}

@@ -1,4 +1,4 @@
-package operations
+package contracts
 
 import (
 	"github.com/Masterminds/semver/v3"

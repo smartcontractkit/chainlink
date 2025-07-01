@@ -1,4 +1,4 @@
-package operations
+package contracts
 
 import (
 	"github.com/Masterminds/semver/v3"
@@ -30,7 +30,9 @@ var DeployCapabilityRegistryOp = operations.NewOperation[DeployCapabilityRegistr
 	semver.MustParse("1.0.0"),
 	"Deploy CapabilityRegistry Contract",
 	func(b operations.Bundle, deps DeployCapabilityRegistryOpDeps, input DeployCapabilityRegistryInput) (DeployCapabilityRegistryOutput, error) {
-		capabilityRegistryOutput, err := changeset.DeployCapabilityRegistry(*deps.Env, input.ChainSelector)
+		capabilityRegistryOutput, err := changeset.DeployCapabilityRegistryV2(*deps.Env, &changeset.DeployRequestV2{
+			ChainSel: input.ChainSelector,
+		})
 		if err != nil {
 			return DeployCapabilityRegistryOutput{}, errors.Wrap(err, "DeployCapabilityRegistry error: failed to deploy capability registry")
 		}

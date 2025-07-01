@@ -112,7 +112,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		if !ok {
 			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
 		}
-		ops, err := configureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
+		ops, err := ConfigureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
