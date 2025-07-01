@@ -533,7 +533,7 @@ func TestExtractNetwork(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.networkName, func(t *testing.T) {
-			networkName, err := chainselectors.ExtractNetworkName(tc.networkName)
+			networkName, err := chainselectors.ExtractNetworkEnvName(tc.networkName)
 			if tc.expectedErr {
 				require.Error(t, err)
 				return
