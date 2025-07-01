@@ -40,13 +40,15 @@ import (
 
 // This file contains benchmarks for the CCIPReader methods, we test here only performance of
 // CCIPReader methods which are reaching to the database to fetch matching logs.
-// Under the hood, we verify if the CCIPReader/ChainAccessorLayer database queries are efficient enough to handle large number of logs.
+// Under the hood, we verify if the CCIPReader/ChainAccessorLayer database queries are efficient enough to
+// handle large number of logs.
 //
 // These tests are not fully e2e, because we don't interact with contracts, but rather
 // we insert logs directly into the database, so we can control the amount of logs inserted and their content.
 // Also, for the number of logs inserted, using contracts would be too slow, because we would have to wait for the
 // transactions to be mined and consumed by LogPoller. Therefore, these tests should not be used to verify correctness
-// of the CCIPReader methods, but rather their performance.
+// of the CCIPReader methods, but rather their performance under various circumstances
+// (different number of logs, different number of source and destination chains, etc.).
 //
 // For deep dive you can enable logging SQL queries and then testing them manually on
 // the database (e.g. with `explain (analyze, buffers, verbose)`)
@@ -490,17 +492,13 @@ func prepareExecutedStateChangesEventsInDb(
 	destChainsCount int,
 ) ccipreaderpkg.CCIPReader {
 	ctx := b.Context()
-	s := setupExecutedMessagesTest(ctx, b, true)
-
-	err := s.extendedCR.Bind(ctx, []types.BoundContract{
-		{
-			Address: s.contractAddr.String(),
-			Name:    consts.ContractNameOffRamp,
-		},
+	s := benchSetup(ctx, b, benchSetupParams{
+		ReaderChain:        chainD,
+		DestChain:          chainD,
+		Cfg:                evmconfig.DestReaderConfig,
+		ContractNameToBind: consts.ContractNameOffRamp,
 	})
-	require.NoError(b, err)
 
-	// Insert logs if needed
 	if logsInsertedPerChain > 0 {
 		for j := 0; j < destChainsCount; j++ {
 			// #nosec G115
@@ -526,7 +524,7 @@ func prepareExecutedStateChangesEventsInDb(
 func populateDatabaseForExecutionStateChanged(
 	ctx context.Context,
 	b *testing.B,
-	testEnv *testSetupData,
+	testEnv *benchSetupData,
 	orm *logpoller.DSORM,
 	destChain cciptypes.ChainSelector,
 	sourceChainCount int,
