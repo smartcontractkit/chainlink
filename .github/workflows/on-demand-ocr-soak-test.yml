@@ -1,5 +1,10 @@
 name: On Demand OCR Soak Test
 on:
+  push:
+    tags:
+      # Run soak on release tags
+      - 'v*'
+
   workflow_dispatch:
     inputs:
       testToRun:
@@ -19,9 +24,8 @@ on:
           - soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
           - soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
       chainlink_version:
-        description: Chainlink image version (e.g. "v2.25.0-beta.0" or "develop")
+        description: Version to test (e.g. "v2.25.0-beta.0", "develop", etc.)
         required: true
-        default: develop
         type: string
       test_config_override_path:
         description: Path to the override test config TOML (defaults to OCR2 on Eth Sepolia, 12h soak)
@@ -43,18 +47,52 @@ on:
         default: U01A2B2C3D4
 
 jobs:
+  # Prefix `v` should be stripped for Docker images
+  resolve-docker-version:
+    name: Resolve Chainlink Docker Version
+    runs-on: ubuntu-latest
+    outputs:
+      chainlink_image_version: ${{ steps.resolve.outputs.chainlink_image_version }}
+      skip_image_build: ${{ steps.resolve.outputs.skip_image_build }}
+    env:
+      GIT_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Validate if the tag is a 'core' version
+        if: startsWith(github.ref, 'refs/tags/')
+        id: is-core-tag
+        run: |
+          # Examples: `2.23.1-beta.0`, `v2.23.1-rc.1`
+          if [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta.*$ || "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc.*$ ]]; then
+            echo "is-core-tag=true" >> $GITHUB_OUTPUT
+            echo "Used tag '$GIT_TAG' is a 'core' version"
+          else
+            echo "is-core-tag=false" >> $GITHUB_OUTPUT
+            echo "Used tag '$GIT_TAG' is not a 'core' version. Skipping version resolution for docker image."
+          fi    
+
+      - name: Resolve version from a tag and skip image build
+        if: ${{ steps.is-core-tag.outputs.is-core-tag == 'true' }}
+        id: resolve
+        run: |
+          chainlink_version="$GIT_TAG"
+          echo "chainlink_image_version=${chainlink_version#v}" >> $GITHUB_OUTPUT
+          echo "skip_image_build=true" >> $GITHUB_OUTPUT
+          echo "Resolved image version from a tag is '$chainlink_image_version'. Skipping image build."
+
   # Check if ECR registry is public or private
   # Skip building image if public registry is used
   check-registry-type:
     name: Check used ECR registry type
+    needs: resolve-docker-version
     runs-on: ubuntu-latest
     environment: integration
     permissions:
       id-token: write
     outputs:
-      skip-image-build: ${{ steps.skip-image-build.outputs.skip-image-build}}
+      skip-image-build: ${{ steps.skip-image-build.outputs.skip-image-build }}
     steps:
       - name: Validate if AWS Secrets
+        if: ${{ needs.resolve-docker-version.outputs.skip_image_build != 'true' }}
         id: validate-secrets-type
         run: |
           if [[ "${{ inputs.test_secrets_override_key }}" =~ ^aws:* ]]; then
@@ -102,16 +140,16 @@ jobs:
 
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    needs: check-registry-type
+    needs: [check-registry-type, resolve-docker-version]
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9271f82b74a6dcc92bb66e1363460146897c8637
     with:
-      chainlink_version: ${{ inputs.chainlink_version }}
+      chainlink_version: ${{ inputs.chainlink_version || needs.resolve-docker-version.outputs.chainlink_image_version || github.ref_name || 'develop' }}
       test_path: .github/e2e-tests.yml
-      test_ids: ${{ inputs.testToRun}}
+      test_ids: ${{ inputs.testToRun }}
       test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
       # Fallback is used to properly convert a string to boolean 
-      skip_image_build: ${{ needs.check-registry-type.outputs.skip-image-build == 'true' && true || false }}
+      skip_image_build: ${{ needs.resolve-docker-version.outputs.skip_image_build == 'true' && true || needs.check-registry-type.outputs.skip-image-build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}
     secrets:
