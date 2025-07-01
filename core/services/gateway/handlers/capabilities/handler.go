@@ -273,12 +273,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 
 	if payload.Timestamp == 0 {
-		h.lggr.Errorw("error decoding payload")
+		h.lggr.Errorw(ErrDecodingPayload)
 		callbackCh <- handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				"error decoding payload",
+				ErrDecodingPayload,
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
