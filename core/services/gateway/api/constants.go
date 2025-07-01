@@ -51,7 +51,7 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 		HandlerError:             jsonrpc2.ErrInvalidRequest,   // Invalid Request
 		RequestTimeoutError:      jsonrpc2.ErrServerOverloaded, // Server Error
 		NodeReponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
-		FatalError:               jsonrpc2.ErrServerOverloaded, // Server Error
+		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
 	}
 
