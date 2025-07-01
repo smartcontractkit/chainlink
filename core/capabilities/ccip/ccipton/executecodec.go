@@ -3,7 +3,6 @@ package ccipton
 import (
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -12,23 +11,17 @@ import (
 	ag_binary "github.com/gagliardetto/binary"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
 	cell "github.com/xssnick/tonutils-go/tvm/cell"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
-type ExecutePluginCodecV1 struct {
-	extraDataCodec common.ExtraDataCodec
-}
+type ExecutePluginCodecV1 struct{}
 
-func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
-	return &ExecutePluginCodecV1{
-		extraDataCodec: extraDataCodec,
-	}
+func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
+	return &ExecutePluginCodecV1{}
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
@@ -61,16 +54,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 				}
 
-				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
-				if err != nil {
-					return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
-				}
-
-				destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
-				if err != nil {
-					return nil, fmt.Errorf("extract dest gas amount: %w", err)
-				}
-
 				poolAddrCell, err := binding.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
 				if err != nil {
 					return nil, fmt.Errorf("pack source pool address: %w", err)
@@ -96,7 +79,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					ExtraData:         extraData,
 					DestPoolAddress:   destTokenTonAddr,
 					Amount:            tokenAmount.Amount.Int,
-					DestGasAmount:     destGasAmount,
 				})
 			}
 
@@ -129,22 +111,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("error convert receiver address: %w", err)
 			}
 
-			extraArgsDecodeMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode extra args: %w", err)
-			}
-
-			gasLimitBigInt, err := parseExtraArgsMap(extraArgsDecodeMap)
-			if err != nil {
-				return nil, fmt.Errorf("parse extra args map to get gas limit: %w", err)
-			}
-
 			rampMsg := binding.Any2TONRampMessage{
 				Header:       header,
 				Sender:       senderAddr,
 				Data:         dataCell,
 				Receiver:     tonReceiverAddr,
-				GasLimit:     tlb.FromNanoTON(gasLimitBigInt), // TODO double check if this match with on-chain decimal
 				TokenAmounts: tokenAmountsDict,
 			}
 
@@ -251,16 +222,11 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					return executeReport, err
 				}
 
-				// big endian encoding for dest gas amount
-				destGasAmount := make([]byte, 4)
-				binary.BigEndian.PutUint32(destGasAmount, tokenAmount.DestGasAmount)
-
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 					SourcePoolAddress: sourceTokenPoolAddr,
 					DestTokenAddress:  destTokenAddr,
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
-					DestExecData:      destGasAmount,
 				})
 			}
 
@@ -279,17 +245,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 				return executeReport, fmt.Errorf("unload message data: %w", err)
 			}
 
-			// TODO make sure generic
-			extraArgs := binding.GenericExtraArgsV2{
-				GasLimit:                 msg.GasLimit.Nano(),
-				AllowOutOfOrderExecution: true,
-			}
-
-			extraArgsCell, err := tlb.ToCell(extraArgs)
-			if err != nil {
-				return cciptypes.ExecutePluginReport{}, fmt.Errorf("convert extra args to cell: %w", err)
-			}
-
 			messages = append(messages, cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
 					MessageID:           cciptypes.Bytes32(msg.Header.MessageID),
@@ -298,10 +253,10 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
 					Nonce:               msg.Header.Nonce,
 				},
-				Sender:       senderAddr,
-				Data:         msgData,
-				Receiver:     receiverAddr,
-				ExtraArgs:    extraArgsCell.ToBOC(),
+				Sender:   senderAddr,
+				Data:     msgData,
+				Receiver: receiverAddr,
+				//ExtraArgs:    extraArgsCell.ToBOC(),
 				TokenAmounts: tokenAmounts,
 			})
 		}
