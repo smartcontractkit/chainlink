@@ -35,17 +35,17 @@ type BlockResponse struct {
 // 	{"SimplyVC", "https://rpcs.cldev.sh/base/sepolia/simplyvc1"},
 // }
 
-// var endpoints = []Endpoint{
-// 	{"Chainstack", "https://rpcs.cldev.sh/base/mainnet/chainstack1"},
-// 	{"LinkPool", "https://rpcs.cldev.sh/base/mainnet/linkpool1"},
-// 	{"SimplyVC", "https://rpcs.cldev.sh/base/mainnet/simplyvc1"},
-// }
-
 var endpoints = []Endpoint{
-	{"SimplyVC", "https://rpcs.cldev.sh/optimism/sepolia/simplyvc1"},
-	{"LinkPool", "https://rpcs.cldev.sh/optimism/sepolia/linkpool1"},
-	{"Chainstack", "https://rpcs.cldev.sh/optimism/sepolia/chainstack1"},
+	{"Chainstack", "https://rpcs.cldev.sh/base/mainnet/chainstack1"},
+	{"LinkPool", "https://rpcs.cldev.sh/base/mainnet/linkpool1"},
+	{"SimplyVC", "https://rpcs.cldev.sh/base/mainnet/simplyvc1"},
 }
+
+// var endpoints = []Endpoint{
+// 	{"SimplyVC", "https://rpcs.cldev.sh/optimism/sepolia/simplyvc1"},
+// 	{"LinkPool", "https://rpcs.cldev.sh/optimism/sepolia/linkpool1"},
+// 	{"Chainstack", "https://rpcs.cldev.sh/optimism/sepolia/chainstack1"},
+// }
 
 func getFinalizedBlockNumber(url string) (uint64, error) {
 	// JSON-RPC request
@@ -56,7 +56,7 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 		"id":      1,
 	}
 	b, _ := json.Marshal(payload)
-	//nolint //nosec G107 - URL is from trusted configuration
+	//nolint:nosec G107 - URL is from trusted configuration
 	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
 	if err != nil {
 		return 0, err
@@ -91,9 +91,12 @@ func main() {
 	var timestamps []time.Time
 	var states []string
 
+	// Track last block number for each endpoint
+	lastBlockNumbers := make(map[string]uint64)
+
 	for {
 		blockNumbers := make([]uint64, len(endpoints))
-		minBlock, maxBlock := uint64(^uint64(0)), uint64(0)
+		minBlock, maxBlock := uint64(0), uint64(0)
 		hasValidData := false
 
 		for i, ep := range endpoints {
@@ -104,6 +107,14 @@ func main() {
 			}
 			blockNumbers[i] = num
 			hasValidData = true
+
+			// Check if block number changed for this endpoint
+			if lastBlock, exists := lastBlockNumbers[ep.Name]; !exists || lastBlock != num {
+				fmt.Printf("[%s] %s block changed: %d -> %d\n",
+					time.Now().Format(time.RFC3339), ep.Name, lastBlock, num)
+				lastBlockNumbers[ep.Name] = num
+			}
+
 			if num < minBlock {
 				minBlock = num
 			}
