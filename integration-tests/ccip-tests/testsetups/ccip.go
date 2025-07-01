@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
 	"github.com/smartcontractkit/chainlink-testing-framework/sentinel/blockchain_client_wrapper"
+
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -1172,7 +1173,7 @@ func CCIPDefaultTestSetUp(
 			// if it's a new LBTC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockAdapterWithLBTCAttestation(setUpArgs.Env.LocalCluster.MockAdapter)
+			err = actions.SetMockServerWithLBTCAttestation(setUpArgs.Env.LocalCluster.MockAdapter, false)
 			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}

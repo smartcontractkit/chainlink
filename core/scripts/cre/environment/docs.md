@@ -1,5 +1,8 @@
 # Local CRE environment
 
+## Contact Us
+Slack: #topic-local-dev-environments
+
 ## Table of content
 
 1. [Using the CLI](#using-the-cli)
@@ -7,7 +10,7 @@
    - [Start Environment](#start-environment)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
-
+   - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
 4. [Troubleshooting](#troubleshooting)
@@ -16,31 +19,104 @@
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
 
+
+
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
     - with usage of default Docker socket **enabled**
     - with Apple Virtualization framework **enabled**
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
-2. **Job Distributor Docker image available**
-    - Either build it locally as described in [this section](#job-distributor-image)
-    - or download it from the PROD ECR (if you have access) and tag as `job-distributor:0.9.0`
+2. **AWS SSO access to SDLC**
+  - REQUIRED: `sdlc` profile
+3. **gh cli**
+  - To pull the `cre` cli. Minimum version `v.2.50.0`
 
-If you want to run an example workflow you also need to:
 
-1. **Download CRE CLI v0.2.0**
-    - download it either from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0)
-    - or using GH CLI by running: `gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern 'cre_v0.2.0_darwin_arm64.tar.gz'`
-    - once you have the archive downloaded run:
-      ```bash
-      tar -xf cre_v0.2.0_darwin_arm64.tar.gz
-      rm cre_v0.2.0_darwin_arm64.tar.gz
-      # do not worry about potential 'No such xattr: com.apple.quarantine' error
-      xattr -d com.apple.quarantine cre_v0.2.0_darwin_arm64
-      export "PATH=$(pwd):$PATH"
-      ```
+   [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
-Optionally:
+
+# QUICKSTART
+```
+go run main.go env setup --config single-don.toml
+go run main.go env start
+```
+
+The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
+If you are missing requirements, you may need to fix the errors and re-run.
+Use `#topic-local-dev-environments` for help
+## Start Environment
+```bash
+# while in core/scripts/cre/environment
+go run main.go env start
+
+# to start environment with an example workflow web API-based workflow
+go run main.go env start --with-example
+
+ # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+go run main.go env start --with-example --example-workflow-trigger cron
+
+# to start environment using image with all supported capabilities
+go run main.go env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
+```
+
+> Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
+
+Optional parameters:
+- `-t`: Topology (`simplified` or `full`)
+- `-w`: Wait on error before removing up Docker containers (e.g. to inspect Docker logs, e.g. `-w 5m`)
+- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
+- `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
+- `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
+- `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
+- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in.
+
+### Using existing Docker Plugins image
+
+If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
+
+### Storage
+
+The environment supports two storage backends for workflow uploads:
+- Gist (remote)
+- S3 MinIO (built-in, local)
+
+Configuration details are generated automatically into the `cre.yaml` file
+(path is printed after starting the environment).
+
+## Stop Environment
+```bash
+# while in core/scripts/cre/environment
+go run main.go env stop
+
+# or... if you have the CTF binary
+ctf d rm
+```
+---
+
+## Restarting the environment
+
+If you are using Blockscout and you restart the environment **you need to restart the block explorer** if you want to see current block history. If you don't you will see stale state of the previous environment. To restart execute:
+```bash
+ctf bs r
+```
+
+---
+
+## Further use
+To manage workflows you will need the CRE CLI. You can either:
+- download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
+- using GH CLI:
+  ```bash
+  gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'
+  ```
+
+Remember that the CRE CLI version needs to match your CPU architecture and operating system.
+
+---
+
+
+### Advanced Usage:
 1. **Choose the Right Topology**
    - For a single DON with all capabilities: `configs/single-don.toml` (default)
    - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
@@ -91,68 +167,39 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 
 ---
 
-## Start Environment
+
+
+## DX Tracing
+
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.local/share/dx/` and uploaded once either `gh cli` is available or valid `~/.local/share/dx/config.json` file appears.
+
+> Minimum required version of the `GH CLI` is `v2.50.0`
+
+To opt out from tracing use the following environment variable:
 ```bash
-# while in core/scripts/cre/environment
-go run main.go env start
-
-# to start environment with an example workflow web API-based workflow
-go run main.go env start --with-example
-
- # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
-go run main.go env start --with-example --example-workflow-trigger cron
-
-# to start environment using image with all supported capabilities
-go run main.go env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
+DISABLE_DX_TRACKING=true
 ```
 
-> Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
+### Manually creating config file
 
-Optional parameters:
-- `-t`: Topology (`simplified` or `full`)
-- `-w`: Wait on error before removing up Docker containers (e.g. to inspect Docker logs, e.g. `-w 5m`)
-- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
-- `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
-- `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
-- `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
-- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in.
-
-### Using existing Docker Plugins image
-
-If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
-
-## Stop Environment
-```bash
-# while in core/scripts/cre/environment
-go run main.go env stop
-
-# or... if you have the CTF binary
-ctf d rm
+Valid config file has the following content:
+```json
+{
+  "dx_api_token":"xxx",
+  "github_username":"your-gh-username"
+}
 ```
----
 
-## Restarting the environment
+DX API token can be found in 1 Password in the engineering vault as `DX - Local CRE Environment`.
 
-If you are using Blockscout and you restart the environment **you need to restart the block explorer** if you want to see current block history. If you don't you will see stale state of the previous environment. To restart execute:
-```bash
-ctf bs r
-```
+Other environment variables:
+* `DX_LOG_LEVEL` -- log level of a rudimentary logger
+* `DX_TEST_MODE` -- executes in test mode, which means that data sent to DX won't be included in any reports
+* `DX_FORCE_OFFLINE_MODE` -- doesn't send any events, instead saves them on the disk
 
 ---
 
-## Further use
-To manage workflows you will need the CRE CLI. You can either:
-- download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
-- using GH CLI:
-  ```bash
-  gh release download v0.2.0 --repo smartcontractkit/dev-platform --pattern '*darwin_arm64*'
-  ```
-
-Remember that the CRE CLI version needs to match your CPU architecture and operating system.
-
----
-
-## Job Distributor Image
+# Job Distributor Image
 
 Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
 
@@ -178,14 +225,14 @@ The only difference between is the trigger.
 ### cron-based workflow
 This workflow is triggered every 30s, on a schedule. It will keep executing until it is paused or deleted. It requires an external `cron` capability binary, which you have to either manually compile or download **and** a manual TOML config change to indicate its location.
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/main/dx-891-web-api-trigger-workflow/cron-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/cron-based/main.go) repository.
 
 ### web API trigger-based workflow
 This workflow is triggered only, when a precisely crafed and cryptographically signed request is made to the gateway node. It will only trigger the workflow **once** and only if:
 * sender is whitelisted in the workflow
 * topic is whitelisted in the workflow
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/dx-891-web-api-trigger-workflow/web-api-trigger-based/main.go) repository.
+Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/web-api-trigger-based/main.go) repository.
 
 You might see multiple attempts to trigger and verify that workflow, when running the example. This is expected and could be happening, because:
 - topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
@@ -195,6 +242,16 @@ You might see multiple attempts to trigger and verify that workflow, when runnin
 
 ### Docker fails to download public images
 Make sure you are logged in to Docker. Run: `docker login`
+
+```
+Error: failed to setup test environment: failed to create blockchains: failed to deploy blockchain: create container: Error response from daemon: Head "https://ghcr.io/v2/foundry-rs/foundry/manifests/stable": denied: denied
+```
+your ghcr token is stale. do
+```
+docker logout ghcr.io
+docker pull ghcr.io/foundry-rs/foundry
+```
+and try starting the environment
 
 ### GH CLI is not installed
 Either download from [cli.github.com](https://cli.github.com) or install with Homebrew with:

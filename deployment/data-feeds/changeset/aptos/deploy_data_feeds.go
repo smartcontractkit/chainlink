@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cs "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -55,7 +56,7 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
 				Address:       dataFeedsResponse.Address.String(),
-				Type:          "ChainlinkDataFeeds",
+				Type:          cs.DataFeedsCache,
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     c.Qualifier,
 				Labels:        datastore.NewLabelSet(c.Labels...),

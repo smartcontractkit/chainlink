@@ -3,10 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -52,14 +54,21 @@ func (c ChainContractParams) Validate() error {
 }
 
 type FeeQuoterParams struct {
-	MaxFeeJuelsPerMsg            uint64
-	TokenPriceStalenessThreshold uint64
-	FeeTokens                    []aptos.AccountAddress
+	MaxFeeJuelsPerMsg                    *big.Int
+	TokenPriceStalenessThreshold         uint64
+	FeeTokens                            []aptos.AccountAddress
+	PremiumMultiplierWeiPerEthByFeeToken map[shared.TokenSymbol]uint64
 }
 
 func (f FeeQuoterParams) Validate() error {
 	if f.TokenPriceStalenessThreshold == 0 {
 		return errors.New("TokenPriceStalenessThreshold can't be 0")
+	}
+	if len(f.PremiumMultiplierWeiPerEthByFeeToken) == 0 {
+		return errors.New("PremiumMultiplierWeiPerEthByFeeToken is nil or empty, at least one token must be configured")
+	}
+	if f.MaxFeeJuelsPerMsg == nil {
+		return errors.New("MaxFeeJuelsPerMsg is nil, it must be set")
 	}
 	return nil
 }

@@ -102,7 +102,7 @@ func createQueryName(eventQueries []EventQuery) string {
 	queryName := ""
 	contractToEvents := map[string][]string{}
 	for _, eq := range eventQueries {
-		contractName := eq.EventBinding.contractName + "-" + eq.Address.String()
+		contractName := eq.EventBinding.contractName
 
 		if _, exists := contractToEvents[contractName]; !exists {
 			contractToEvents[contractName] = []string{}
@@ -170,6 +170,7 @@ func decodeMultiEventTypeLogsIntoSequences(ctx context.Context, logs []logpoller
 		seqWithKey := sequenceWithKey{
 			Key: eq.Filter.Key,
 			Sequence: commontypes.Sequence{
+				TxHash: logEntry.TxHash.Bytes(),
 				Cursor: logpoller.FormatContractReaderCursor(logEntry),
 				Head: commontypes.Head{
 					Height:    strconv.FormatInt(logEntry.BlockNumber, 10),

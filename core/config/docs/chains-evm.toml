@@ -16,6 +16,24 @@ BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 # Available types: `arbitrum`, `celo`, `gnosis`, `hedera`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 ChainType = 'arbitrum' # Example
+# SafeDepth is the number of blocks after which an ethereum transaction is considered "safe."
+# Note that this setting is only used for chains with FinalityTags = false
+# This number represents a number of blocks we consider large enough that reorgs are generally not likely to happen.
+# Note that this number is different from FinalityDepth, which is the number of blocks after which a transaction is considered final.
+# It is used in cases where we don't want to wait for finality.
+#
+# Special cases:
+# `SafeDepth`=0 would imply that its value will fall back to the `FinalityDepth` value, if FinalityTagEnabled is false.
+#
+# Examples:
+#
+# Transaction sending:
+# A transaction is sent at block height 42
+#
+# `SafeDepth` is set to 5, FinalityTagEnabled = false, and FinalityDepth = 10
+# At block height 47, the transaction is considered safe, but not final.
+# At block height 52, the transaction is considered final.
+SafeDepth = 0 # Default
 # FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID, so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 # There is not a large performance penalty to setting this relatively high (on the order of hundreds)
@@ -106,6 +124,8 @@ LogBroadcasterEnabled = true # Default
 NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
+# ConfirmationTimeout time to wait for a TX to get into a block in the blockchain. This is used for the EVMService.SubmitTransaction operation.
+ConfirmationTimeout = '60s' # Default
 # Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
 Enabled = true # Default
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
@@ -369,7 +389,7 @@ SamplingInterval = '1s' # Default
 # FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
 # It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
 # Has no effect if `FinalityTagsEnabled` = false
-FinalityTagBypass = true # Default
+FinalityTagBypass = false # Default
 # MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false
@@ -527,3 +547,9 @@ FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # GasLimitDefault is the default gas limit for workflow transactions.
 GasLimitDefault = 400_000 # Default
+# TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState = 2 # Default
+# PollPeriod is the default poll period for checking transmission state
+PollPeriod = '2s' # Default
+# AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout = '30s' # Default

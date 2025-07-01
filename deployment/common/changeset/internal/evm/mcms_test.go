@@ -6,9 +6,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
@@ -22,9 +22,9 @@ import (
 func TestDeployMCMSWithConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
-		chainsel.TEST_90000001.EvmChainID,
-	}, 1)
+	chains := cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chainsel.TEST_90000001.EvmChainID}, 1),
+	).EVMChains()
 	ab := cldf.NewMemoryAddressBook()
 
 	// 1) Test WITHOUT a label
@@ -55,12 +55,16 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 
 func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
-		chainsel.TEST_90000001.EvmChainID,
-	}, 1)
-	ctx := testutils.Context(t)
+
+	chains := cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chainsel.TEST_90000001.EvmChainID}, 1),
+	).EVMChains()
+
 	ab := cldf.NewMemoryAddressBook()
-	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(ctx, lggr,
+	tenv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	_, err := evminternal.DeployMCMSWithTimelockContractsEVM(tenv,
 		chains[chainsel.TEST_90000001.Selector],
 		ab, proposalutils.SingleGroupTimelockConfigV2(t), nil)
 	require.NoError(t, err)

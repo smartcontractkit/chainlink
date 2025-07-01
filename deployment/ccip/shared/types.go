@@ -37,19 +37,21 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken                  deployment.ContractType = "BurnMintToken"
-	FactoryBurnMintERC20Token      deployment.ContractType = "FactoryBurnMintERC20Token"
-	ERC20Token                     deployment.ContractType = "ERC20Token"
-	ERC677Token                    deployment.ContractType = "ERC677Token"
-	ERC677TokenHelper              deployment.ContractType = "ERC677TokenHelper"
-	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                      deployment.ContractType = "USDCToken"
-	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
-	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	BurnMintToken                                   deployment.ContractType = "BurnMintToken"
+	FactoryBurnMintERC20Token                       deployment.ContractType = "FactoryBurnMintERC20Token"
+	ERC20Token                                      deployment.ContractType = "ERC20Token"
+	ERC677Token                                     deployment.ContractType = "ERC677Token"
+	ERC677TokenHelper                               deployment.ContractType = "ERC677TokenHelper"
+	BurnMintTokenPool                               deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool                       deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnMintFastTransferTokenPool                   deployment.ContractType = "BurnMintFastTransferTokenPool"
+	BurnMintWithExternalMinterFastTransferTokenPool deployment.ContractType = "BurnMintWithExternalMinterFastTransferTokenPool"
+	BurnFromMintTokenPool                           deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool                            deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                                       deployment.ContractType = "USDCToken"
+	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
@@ -75,4 +77,8 @@ var (
 	AptosReceiverType         deployment.ContractType = "AptosReceiver"
 	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
 	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
+
+	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
+	TonCCIP     deployment.ContractType = "TonCCIP"
+	TonReceiver deployment.ContractType = "TonReceiver"
 )

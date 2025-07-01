@@ -7,13 +7,15 @@ There are two step to executing the engine in stand alone mode:
 2. Run the engine with the compiled workflow binary
 
 ## Installing Capability Binaries
+Ensure GOBIN is set in your shell. The asdf tool manager does not currently work for this setup (sorry!).
+
 Install the capability binaries you need in a workflow via the core node make file scripts:
 
 ```bash
 make install-loopinstall
 make install-plugins-private
 ```
-
+Run `$GOBIN/cron -h` to confirm the installation.
 
 ### Legacy `data_feeds` Example
 
@@ -43,5 +45,31 @@ GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron/main.go
 2. Run the engine with the workflow:
 
 ```bash
-go run . --wasm cron.wasm --debug 2> stderr.log
+go run . --wasm cron.wasm --debug --beholder 2> stderr.log
+```
+
+### V2 `cron` Example with Config
+
+Build the example workflow with config
+
+```bash
+GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron_with_config/main.go
+```
+
+Run the script with the config passed as an argument
+```bash
+go run . --wasm cron.wasm --config ./examples/v2/simple_cron_with_config/config.yaml --debug 2> stderr.log
+```
+
+### V2 `cron` Example with Config + Secrets
+
+Build the example workflow with secrets
+
+```bash
+GOOS=wasip1 GOARCH=wasm go build -o cron.wasm ./examples/v2/simple_cron_with_secrets/main.go
+```
+
+Run the script with the config and secrets file paths passed as an argument
+```bash
+go run . --wasm cron.wasm --config ./examples/v2/simple_cron_with_secrets/config.yaml --secrets ./examples/v2/simple_cron_with_secrets/secrets.yaml --debug
 ```

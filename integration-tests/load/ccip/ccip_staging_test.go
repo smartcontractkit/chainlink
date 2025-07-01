@@ -28,7 +28,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	lggr := logger.Test(t)
 
 	evmSourceKey := simChainTestKey
-	solSourceKey := solChainTestKey
+	solSourceKey := solTestKey
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
@@ -48,6 +48,11 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
+	require.NoError(t, err)
+
+	// Discover lanes from deployed state
+	laneConfig := &crib.LaneConfiguration{}
+	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
 	require.NoError(t, err)
 
 	// gunMap holds a destinationGun for every enabled destination chain
@@ -73,18 +78,18 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			}(src)
 		}
 		wg2.Wait()
-
+		srcChains := laneConfig.GetSourceChainsForDestination(cs)
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
 			cs,
 			*env,
 			&state,
-			state.MustGetEVMChainState(cs).Receiver.Address(),
+			state.MustGetEVMChainState(cs).Receiver.Address().Bytes(),
 			userOverrides,
 			messageKeys,
 			nil,
-			ind,
 			nil,
+			srcChains,
 		)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)

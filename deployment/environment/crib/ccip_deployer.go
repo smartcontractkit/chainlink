@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -17,9 +18,12 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -134,7 +138,10 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
-func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig,
+	homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool,
+	evmFundingEth uint64, laneConfig *LaneConfiguration,
+) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -154,9 +161,25 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// Set up EVM lanes
-	lggr.Infow("setting up EVM lanes...")
-	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel)
+	err = laneConfig.Validate(len(e.BlockChains.ListChainSelectors()))
+	if err != nil {
+		return DeployCCIPOutput{},
+			fmt.Errorf("failed to validate lane configuration against deployed env: %w", err)
+	}
+
+	allChains := e.BlockChains.ListChainSelectors()
+	laneConfig.GenerateLanes(allChains)
+	laneConfig.LogLaneConfigInfo(lggr)
+
+	// Set up lanes
+	lggr.Infow("setting up EVM <> EVM lanes...")
+	*e, err = setupEVM2EVMLanes(e, state, laneConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting evm lanes changesets: %w", err)
+	}
+
+	lggr.Infow("setting up EVM <> Sol lanes...")
+	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel, laneConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
 	}
@@ -173,7 +196,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
 	lggr.Infow("distributing funds...")
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to distribute funds to node transmitters: %w", err)
 	}
@@ -189,7 +212,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 }
 
 // ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
-func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, evmFundingEth uint64) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -201,7 +224,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}
@@ -218,7 +241,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 
 // FundCCIPTransmitters is used from CRIB to provide funds to the node transmitters
 // This function sends funds from the deployer key to the chainlink node transmitters
-func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab cldf.AddressBook) (DeployCCIPOutput, error) {
+func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab cldf.AddressBook, evmFundingEth uint64) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -229,7 +252,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
 	lggr.Infow("distributing funds...")
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}
@@ -599,24 +622,95 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	return *e, nil
 }
 
-func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.CCIPOnChainState, homeCS, feedCS uint64) (cldf.Environment, error) {
+func hasLaneFromTo(lanes []LaneConfig, from, to uint64) bool {
+	for _, lane := range lanes {
+		if lane.SourceChain == from && lane.DestinationChain == to {
+			return true
+		}
+	}
+	return false
+}
+
+func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.CCIPOnChainState, homeCS, feedCS uint64, laneConfig *LaneConfiguration) (cldf.Environment, error) {
 	var err error
+
+	lanes, err := laneConfig.GetLanes()
+	if err != nil {
+		return *e, fmt.Errorf("failed to get lanes from lane configuration: %w", err)
+	}
+
 	evmSelectors := e.BlockChains.EVMChains()
 	solSelectors := e.BlockChains.SolanaChains()
 	g := new(xerrgroup.Group)
 	mu := sync.Mutex{}
 
+	// Filter lanes to only include Sol <-> EVM combinations
+	solEvmLanes := make([]LaneConfig, 0)
+	evmChainSet := make(map[uint64]bool)
+	solChainSet := make(map[uint64]bool)
+
+	for _, evmSelector := range evmSelectors {
+		evmChainSet[evmSelector.ChainSelector()] = true
+	}
+	for _, solSelector := range solSelectors {
+		solChainSet[solSelector.ChainSelector()] = true
+	}
+
+	for _, lane := range lanes {
+		isSolToEvm := solChainSet[lane.SourceChain] && evmChainSet[lane.DestinationChain]
+		isEvmToSol := evmChainSet[lane.SourceChain] && solChainSet[lane.DestinationChain]
+
+		if isSolToEvm || isEvmToSol {
+			solEvmLanes = append(solEvmLanes, lane)
+		}
+	}
+
+	// Group lanes by Solana chain
+	lanesBySolChain := make(map[uint64][]LaneConfig)
+	for _, lane := range solEvmLanes {
+		if solChainSet[lane.SourceChain] {
+			lanesBySolChain[lane.SourceChain] = append(lanesBySolChain[lane.SourceChain], lane)
+		}
+		if solChainSet[lane.DestinationChain] {
+			lanesBySolChain[lane.DestinationChain] = append(lanesBySolChain[lane.DestinationChain], lane)
+		}
+	}
+
 	for _, solSelector := range solSelectors {
 		solSelector := solSelector // capture range variable
-		solChainState := state.SolChains[solSelector.ChainSelector()]
+		solChainSel := solSelector.ChainSelector()
+		relevantLanes := lanesBySolChain[solChainSel]
+
+		if len(relevantLanes) == 0 {
+			continue // Skip if no lanes involve this Solana chain
+		}
+
+		solChainState := state.SolChains[solChainSel]
 		poolUpdates := make(map[uint64]ccipChangesetSolana.EVMRemoteConfig)
+
 		for _, evmSelector := range evmSelectors {
-			lggr.Infow("running against evm chain", "evm", evmSelector)
-			evmSelector := evmSelector // capture range variables
+			evmChainSel := evmSelector.ChainSelector()
+
+			// Check if there's a lane between this Sol and EVM chain
+			hasLane := false
+			for _, lane := range relevantLanes {
+				if (lane.SourceChain == solChainSel && lane.DestinationChain == evmChainSel) ||
+					(lane.SourceChain == evmChainSel && lane.DestinationChain == solChainSel) {
+					hasLane = true
+					break
+				}
+			}
+
+			if !hasLane {
+				continue // Skip if no lane exists between these chains
+			}
+
+			lggr.Infow("running against evm chain", "evm", evmChainSel)
+			evmSelector := evmSelector
 			g.Go(func() error {
-				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmSelector, "solSelector", solSelector)
+				lggr.Infow("Setting up sol evm lanes for chains", "evmSelector", evmChainSel, "solSelector", solChainSel)
 				laneChangesets := make([]commonchangeset.ConfiguredChangeSet, 0)
-				evmChainState := state.Chains[evmSelector.ChainSelector()]
+				evmChainState := state.Chains[evmChainSel]
 
 				deployedEnv := testhelpers.DeployedEnv{
 					Env:          *e,
@@ -624,17 +718,17 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 					FeedChainSel: feedCS,
 				}
 				gasPrices := map[uint64]*big.Int{
-					solSelector.ChainSelector(): testhelpers.DefaultGasPrice,
+					solChainSel: testhelpers.DefaultGasPrice,
 				}
 				stateChainFrom := evmChainState
 				tokenPrices := map[common.Address]*big.Int{
 					stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
 				}
-				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solSelector.ChainSelector())
+				fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solChainSel)
 
 				mu.Lock()
-				poolUpdates[evmSelector.ChainSelector()] = ccipChangesetSolana.EVMRemoteConfig{
+				poolUpdates[evmChainSel] = ccipChangesetSolana.EVMRemoteConfig{
 					TokenSymbol: shared.LinkSymbol,
 					PoolType:    shared.BurnMintTokenPool,
 					PoolVersion: shared.CurrentTokenPoolVersion,
@@ -645,15 +739,21 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				}
 				mu.Unlock()
 
-				// EVM -> SOL
-				cs := testhelpers.AddEVMSrcChangesets(evmSelector.ChainSelector(), solSelector.ChainSelector(), false, gasPrices, tokenPrices, fqCfg)
-				laneChangesets = append(laneChangesets, cs...)
-				cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
-				laneChangesets = append(laneChangesets, cs...)
+				// TODO: Maybe use maps to make it more efficient (for the n chains/lanes we use now it doesn't really
+				//  matter
+				// EVM -> SOL (only if lane exists)
+				if hasLaneFromTo(relevantLanes, evmChainSel, solChainSel) {
+					cs := testhelpers.AddEVMSrcChangesets(evmChainSel, solChainSel, false, gasPrices, tokenPrices, fqCfg)
+					laneChangesets = append(laneChangesets, cs...)
+					cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
+					laneChangesets = append(laneChangesets, cs...)
+				}
 
-				// SOL -> EVM
-				cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector.Selector, solSelector.Selector, false)
-				laneChangesets = append(laneChangesets, cs...)
+				// SOL -> EVM (only if lane exists)
+				if hasLaneFromTo(relevantLanes, solChainSel, evmChainSel) {
+					cs := testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector.Selector, solSelector.Selector, false)
+					laneChangesets = append(laneChangesets, cs...)
+				}
 
 				bnm := solTestTokenPool.BurnAndMint_PoolType
 				laneChangesets = append(laneChangesets,
@@ -677,7 +777,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 						},
 					),
 				)
-				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmSelector, "svmSel", solSelector)
+				lggr.Infow("Applying evm <> svm lane changesets", "len", len(laneChangesets), "evmSel", evmChainSel, "svmSel", solChainSel)
 				_, err = commonchangeset.Apply(nil, *e, laneChangesets[0], laneChangesets[1:]...)
 				return err
 			})
@@ -690,24 +790,230 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	return *e, nil
 }
 
+func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, laneConfig *LaneConfiguration) (cldf.Environment, error) {
+	lanes, err := laneConfig.GetLanes()
+	if err != nil {
+		return *e, fmt.Errorf("failed to get lanes from config: %w", err)
+	}
+
+	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
+	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
+	evmChains := e.BlockChains.EVMChains()
+
+	// Filter to only include EVM chains
+	evmLanes := make([]LaneConfig, 0)
+
+	for _, lane := range lanes {
+		_, srcExists := evmChains[lane.SourceChain]
+		_, dstExists := evmChains[lane.DestinationChain]
+		if srcExists && dstExists {
+			evmLanes = append(evmLanes, lane)
+		}
+	}
+
+	eg := new(xerrgroup.Group)
+	mu := sync.Mutex{}
+
+	globalUpdateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	globalUpdateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+
+	// Initialize maps for all chains that will be used
+	for chainID := range evmChains {
+		globalUpdateOffRampSources[chainID] = make(map[uint64]v1_6.OffRampSourceUpdate)
+		globalUpdateRouterChanges[chainID] = v1_6.RouterUpdates{
+			OffRampUpdates: make(map[uint64]bool),
+			OnRampUpdates:  make(map[uint64]bool),
+		}
+	}
+
+	// Group lanes by source chain for parallel processing
+	lanesBySource := make(map[uint64][]LaneConfig)
+	for _, lane := range evmLanes {
+		lanesBySource[lane.SourceChain] = append(lanesBySource[lane.SourceChain], lane)
+	}
+
+	for src := range evmChains {
+		src := src
+		lanesFromSrc := lanesBySource[src]
+		if len(lanesFromSrc) == 0 {
+			continue // Skip chains that don't have any outgoing lanes
+		}
+
+		eg.Go(func() error {
+			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
+			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
+
+			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
+				TokenPrices: map[common.Address]*big.Int{
+					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
+				},
+				GasPrices: map[uint64]*big.Int{},
+			}
+			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]evm_fee_quoter.FeeQuoterDestChainConfig)
+
+			mu.Lock()
+			poolUpdates[src] = v1_5_1.TokenPoolConfig{
+				Type:         shared.BurnMintTokenPool,
+				Version:      deployment.Version1_5_1,
+				ChainUpdates: rateLimitPerChain,
+			}
+			mu.Unlock()
+
+			// Only configure lanes that actually exist in our configuration
+			for _, lane := range lanesFromSrc {
+				dst := lane.DestinationChain
+
+				onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
+					IsEnabled:        true,
+					AllowListEnabled: false,
+				}
+				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
+				feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
+
+				mu.Lock()
+				// Use the pre-initialized global maps
+				globalUpdateOffRampSources[dst][src] = v1_6.OffRampSourceUpdate{
+					IsEnabled:                 true,
+					IsRMNVerificationDisabled: true,
+				}
+
+				globalUpdateRouterChanges[dst].OffRampUpdates[src] = true
+				globalUpdateRouterChanges[src].OnRampUpdates[dst] = true
+
+				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
+					Inbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+					Outbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+				}
+				mu.Unlock()
+			}
+
+			appliedChangesets := []commonchangeset.ConfiguredChangeSet{
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+					v1_6.UpdateOnRampDestsConfig{
+						UpdatesByChain: onRampUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+					v1_6.UpdateFeeQuoterPricesConfig{
+						PricesByChain: pricesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+					v1_6.UpdateFeeQuoterDestsConfig{
+						UpdatesByChain: feeQuoterDestsUpdatesByChain,
+					},
+				),
+			}
+			_, err := commonchangeset.Apply(nil, *e, appliedChangesets[0], appliedChangesets[1:]...)
+			return err
+		})
+	}
+
+	err = eg.Wait()
+	if err != nil {
+		return *e, err
+	}
+
+	// Apply the global updates after all goroutines complete
+	finalChangesets := []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: globalUpdateOffRampSources,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: globalUpdateRouterChanges,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: shared.LinkSymbol,
+				PoolUpdates: poolUpdates,
+			},
+		),
+	}
+
+	_, err = commonchangeset.Apply(nil, *e, finalChangesets[0], finalChangesets[1:]...)
+	return *e, err
+}
+
 func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
-	chainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	// need to have extra definition here for golint
+	var allSelectors = make([]uint64, 0)
+	allSelectors = append(allSelectors, evmSelectors...)
+	allSelectors = append(allSelectors, solSelectors...)
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-
-	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
-	if rmnEnabled {
-		overrides = func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.CommitOffChainConfig.RMNEnabled = true
-			return params
-		}
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	if err != nil {
+		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
+	}
+	state, err := stateview.LoadOnchainState(*e)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for selector := range e.BlockChains.EVMChains() {
+	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
+
+	tokenConfig := shared.NewTestTokenConfig(state.Chains[feedChainSel].USDFeeds)
+	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
+
+	for _, selector := range evmSelectors {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
-		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders, nil)
+	}
+
+	for _, selector := range solSelectors {
+		// TODO: this is a workaround for tokenConfig.GetTokenInfo
+		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		// TODO: point this to proper SOL feed, apparently 0 signified SOL
+		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond
+				params.OCRParameters.DeltaRound = 5 * time.Second
+				params.CommitOffChainConfig.RMNEnabled = false
+				params.CommitOffChainConfig.RMNSignaturesTimeout = 100 * time.Millisecond
+				params.CommitOffChainConfig.MultipleReportsEnabled = true
+				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+				params.CommitOffChainConfig.MaxPricesPerReport = 3
+				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
+
+				return params
+			})
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+				params.ExecuteOffChainConfig.BatchGasLimit = 1000000
+				params.ExecuteOffChainConfig.MaxReportMessages = 1
+				params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+
+				return params
+			})
+		commitOCRConfigPerSelector[selector].CommitOffChainConfig.RMNEnabled = false
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet
@@ -767,11 +1073,11 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 			HomeChainSelector: homeChainSel,
 			PluginInfo: []v1_6.PromoteCandidatePluginInfo{
 				{
-					RemoteChainSelectors: chainSelectors,
+					RemoteChainSelectors: allSelectors,
 					PluginType:           types.PluginTypeCCIPCommit,
 				},
 				{
-					RemoteChainSelectors: chainSelectors,
+					RemoteChainSelectors: allSelectors,
 					PluginType:           types.PluginTypeCCIPExec,
 				},
 			},
@@ -781,10 +1087,19 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 		v1_6.SetOCR3OffRampConfig{
 			HomeChainSel:       homeChainSel,
-			RemoteChainSels:    chainSelectors,
+			RemoteChainSels:    evmSelectors,
 			CCIPHomeConfigType: globals.ConfigTypeActive,
 		},
-	))
+	), commonchangeset.Configure(
+		// Enable the OCR config on the remote chains.
+		cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+		v1_6.SetOCR3OffRampConfig{
+			HomeChainSel:       homeChainSel,
+			RemoteChainSels:    solSelectors,
+			CCIPHomeConfigType: globals.ConfigTypeActive,
+		},
+	),
+	)
 }
 
 type RMNNodeConfig struct {

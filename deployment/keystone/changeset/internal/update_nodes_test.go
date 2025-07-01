@@ -21,6 +21,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -683,7 +684,7 @@ func TestAppendCapabilities(t *testing.T) {
 	require.Len(t, appendedResp2, 1)
 	gotCaps2 := appendedResp2[testPeerID(t, "peerID_1")]
 	require.Len(t, gotCaps2, 3)
-	require.EqualValues(t, gotCaps, gotCaps2)
+	require.Equal(t, gotCaps, gotCaps2)
 }
 
 func testPeerID(t *testing.T, s string) p2pkey.PeerID {
@@ -694,14 +695,12 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 }
 
 func testChain(t *testing.T) cldf_evm.Chain {
-	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf_evm.Chain
-	for _, c := range chains {
-		chain = c
-		break
-	}
-	require.NotEmpty(t, chain)
-	return chain
+	t.Helper()
+
+	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 5))
+	require.NotEmpty(t, chains)
+
+	return chains.EVMChains()[chains.ListChainSelectors()[0]]
 }
 
 func testNop(t *testing.T, name string) kcr.CapabilitiesRegistryNodeOperator {

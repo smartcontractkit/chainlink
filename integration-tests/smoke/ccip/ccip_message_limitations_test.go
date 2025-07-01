@@ -91,7 +91,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(testSetup.SrcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
 			},
 		},
-		//{ // TODO: exec plugin never executed this message. CCIP-4471
+		// { // TODO: exec plugin never executed this message. CCIP-4471
 		//	name:      "hit limit on maxDataBytes, tokens, gasLimit should succeed",
 		//	fromChain: chains[0],
 		//	toChain:   chains[1],
@@ -104,7 +104,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		//		FeeToken:  common.HexToAddress("0x0"),
 		//		ExtraArgs: changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
 		//	},
-		//},
+		// },
 		{
 			TestSetup: testSetup,
 			Name:      "exceeding maxDataBytes",

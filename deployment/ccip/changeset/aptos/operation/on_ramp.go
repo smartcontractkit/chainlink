@@ -15,8 +15,7 @@ import (
 
 // UpdateOnRampDestsInput contains configuration for updating OnRamp destinations
 type UpdateOnRampDestsInput struct {
-	MCMSAddress aptos.AccountAddress
-	Updates     map[uint64]v1_6.OnRampDestinationUpdate
+	Updates map[uint64]v1_6.OnRampDestinationUpdate
 }
 
 // UpdateOnRampDestsOp operation to update OnRamp destination configurations

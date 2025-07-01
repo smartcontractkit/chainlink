@@ -1,6 +1,7 @@
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+SafeDepth = 0
 FinalityDepth = 50
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -26,6 +27,7 @@ MaxQueued = 250
 ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -68,7 +70,7 @@ CacheTimeout = '10s'
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '5s'
-FinalityTagBypass = true
+FinalityTagBypass = false 
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
 

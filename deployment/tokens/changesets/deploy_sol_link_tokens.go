@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/seqs"
 )
 
@@ -38,7 +37,7 @@ func (deploySolLinkTokens) VerifyPreconditions(
 		return err
 	}
 
-	return deployment.ValidateSelectorsInEnvironment(e, input.ChainSelectors)
+	return validateSelectorsInEnvironment(e.BlockChains, input.ChainSelectors)
 }
 
 // Apply executes the SeqDeploySolTokens sequence to deploy Link Token contracts to the specified

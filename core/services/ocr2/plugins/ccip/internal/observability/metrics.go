@@ -10,22 +10,13 @@ import (
 
 var (
 	latencyBuckets = []float64{
-		float64(10 * time.Millisecond),
-		float64(25 * time.Millisecond),
-		float64(50 * time.Millisecond),
-		float64(75 * time.Millisecond),
+		float64(30 * time.Millisecond),
 		float64(100 * time.Millisecond),
-		float64(200 * time.Millisecond),
 		float64(300 * time.Millisecond),
-		float64(400 * time.Millisecond),
-		float64(500 * time.Millisecond),
-		float64(750 * time.Millisecond),
 		float64(1 * time.Second),
-		float64(2 * time.Second),
 		float64(3 * time.Second),
-		float64(4 * time.Second),
 	}
-	labels          = []string{"evmChainID", "plugin", "reader", "function", "success"}
+	labels          = []string{"evmChainID", "reader", "function"}
 	readerHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ccip_reader_duration",
 		Help:    "Duration of calls to Reader instance",
@@ -40,7 +31,6 @@ var (
 type metricDetails struct {
 	interactionDuration *prometheus.HistogramVec
 	resultSetSize       *prometheus.GaugeVec
-	pluginName          string
 	readerName          string
 	chainId             int64
 }
@@ -51,10 +41,8 @@ func withObservedInteraction[T any](metric metricDetails, function string, f fun
 	metric.interactionDuration.
 		WithLabelValues(
 			strconv.FormatInt(metric.chainId, 10),
-			metric.pluginName,
 			metric.readerName,
 			function,
-			strconv.FormatBool(err == nil),
 		).
 		Observe(float64(time.Since(contractExecutionStarted)))
 	return value, err
@@ -65,10 +53,8 @@ func withObservedInteractionAndResults[T any](metric metricDetails, function str
 	if err == nil {
 		metric.resultSetSize.WithLabelValues(
 			strconv.FormatInt(metric.chainId, 10),
-			metric.pluginName,
 			metric.readerName,
 			function,
-			strconv.FormatBool(err == nil),
 		).Set(float64(len(results)))
 	}
 	return results, err

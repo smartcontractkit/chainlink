@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -18,6 +19,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -31,8 +36,10 @@ import (
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -241,6 +248,16 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					expectedSeqNum,
 					true,
 				))
+			case chainsel.FamilyAptos:
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeAptos(
+					t,
+					srcChain,
+					e.BlockChains.AptosChains()[dstChain],
+					state.AptosChains[dstChain].CCIPAddress,
+					startBlock,
+					expectedSeqNum,
+					true,
+				))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -345,6 +362,17 @@ func ConfirmMultipleCommits(
 					env.BlockChains.SolanaChains()[destChain],
 					state.SolChains[destChain].OffRamp,
 					startSlot,
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilyAptos:
+				_, err := ConfirmCommitWithExpectedSeqNumRangeAptos(
+					t,
+					srcChain,
+					env.BlockChains.AptosChains()[destChain],
+					state.AptosChains[destChain].CCIPAddress,
+					startBlocks[destChain],
 					seqRange,
 					enforceSingleCommit,
 				)
@@ -456,19 +484,16 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 }
 
+type EventWithTxn[T any] struct {
+	Event T
+	Txn   *solrpc.GetTransactionResult
+}
+
 // Scan for events referencing address
-func SolEventEmitter[T any](
-	t *testing.T,
-	client *solrpc.Client,
-	address solana.PublicKey,
-	eventType string,
-	startSlot uint64,
-	done chan any,
-) (<-chan T, <-chan error) {
-	ch := make(chan T)
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
+	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		var until solana.Signature
 		for {
@@ -477,7 +502,6 @@ func SolEventEmitter[T any](
 				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
-				ctx := context.Background()
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
 					ctx,
 					address,
@@ -531,7 +555,10 @@ func SolEventEmitter[T any](
 
 					for _, event := range events {
 						select {
-						case ch <- event:
+						case ch <- EventWithTxn[T]{
+							Event: event,
+							Txn:   tx,
+						}:
 						case <-done:
 							return
 						}
@@ -559,14 +586,15 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case commitEvent := <-sink:
+		case eventWithTxn := <-sink:
+			commitEvent := eventWithTxn.Event
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
 				t.Logf("Skipping CommitReportAccepted with only price updates")
@@ -592,6 +620,142 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 			require.NoError(t, err)
 		case <-timeout.C:
 			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
+		}
+	}
+}
+
+func AptosEventEmitter[T any](
+	t *testing.T,
+	client aptos.AptosRpcClient,
+	address aptos.AccountAddress,
+	eventHandle, fieldname string,
+	startVersion *uint64,
+	done chan any,
+) (<-chan struct {
+	Event   T
+	Version uint64
+}, <-chan error) {
+	ch := make(chan struct {
+		Event   T
+		Version uint64
+	}, 200)
+	errChan := make(chan error)
+	limit := uint64(100)
+	seqNum := uint64(0)
+	go func() {
+		ticker := time.NewTicker(time.Second * 2)
+		defer ticker.Stop()
+
+		for {
+			for {
+				// As this can take a few iterations if there are many events, check for done before each request
+				select {
+				case <-done:
+					return
+				default:
+				}
+				events, err := client.EventsByHandle(address, eventHandle, fieldname, &seqNum, &limit)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				if len(events) == 0 {
+					// No new events found
+					break
+				}
+				for _, event := range events {
+					seqNum = event.SequenceNumber + 1
+					if startVersion != nil && event.Version < *startVersion {
+						continue
+					}
+					var out T
+					if err := codec.DecodeAptosJsonValue(event.Data, &out); err != nil {
+						errChan <- err
+						continue
+					}
+					ch <- struct {
+						Event   T
+						Version uint64
+					}{
+						Event:   out,
+						Version: event.Version,
+					}
+				}
+			}
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				continue
+			}
+		}
+	}()
+	return ch, errChan
+}
+
+func ConfirmCommitWithExpectedSeqNumRangeAptos(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_aptos.Chain,
+	offRampAddress aptos.AccountAddress,
+	startVersion *uint64,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
+	enforceSingleCommit bool,
+) (*module_offramp.CommitReportAccepted, error) {
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
+	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
+	require.NoError(t, err)
+
+	done := make(chan any)
+	defer close(done)
+	sink, errChan := AptosEventEmitter[module_offramp.CommitReportAccepted](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "commit_report_accepted_events", startVersion, done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	verifyCommitReport := func(report module_offramp.CommitReportAccepted) bool {
+		processRoots := func(roots []module_offramp.MerkleRoot) bool {
+			for _, mr := range roots {
+				t.Logf("(Aptos) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+				)
+				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
+
+				if mr.SourceChainSelector == srcSelector && uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr && uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+					t.Logf("(Aptos) All sequence numbers committed in a single report [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
+					return true
+				}
+
+				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+					t.Logf(
+						"(Aptos) All sequence numbers already committed from range [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
+					return true
+				}
+			}
+			return false
+		}
+
+		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
+	}
+
+	for {
+		select {
+		case event := <-sink:
+			verified := verifyCommitReport(event.Event)
+			if verified {
+				return &event.Event, nil
+			}
+		case err := <-errChan:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("(aptos) timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
@@ -656,6 +820,18 @@ func ConfirmExecWithSeqNrsForAll(
 					e.BlockChains.SolanaChains()[dstChain],
 					state.SolChains[dstChain].OffRamp,
 					startSlot,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilyAptos:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsAptos(
+					t,
+					srcChain,
+					e.BlockChains.AptosChains()[dstChain],
+					state.AptosChains[dstChain].CCIPAddress,
+					startBlock,
 					seqRange,
 				)
 				if err != nil {
@@ -775,14 +951,15 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
 	for {
 		select {
-		case execEvent := <-sink:
+		case eventWithTxn := <-sink:
+			execEvent := eventWithTxn.Event
 			// TODO: share with EVM
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == srcSelector {
@@ -807,6 +984,60 @@ func ConfirmExecWithSeqNrsSol(
 	}
 }
 
+func ConfirmExecWithExpectedSeqNrsAptos(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_aptos.Chain,
+	offRampAddress aptos.AccountAddress,
+	startVersion *uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	if len(expectedSeqNrs) == 0 {
+		return nil, errors.New("no expected sequence numbers provided")
+	}
+	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
+	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
+	require.NoError(t, err)
+
+	done := make(chan any)
+	defer close(done)
+	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
+
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]bool)
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = true
+	}
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case event := <-sink:
+			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
+				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
+					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,
+				)
+				if event.Event.State == EXECUTION_STATE_INPROGRESS {
+					continue
+				}
+				executionStates[event.Event.SequenceNumber] = int(event.Event.State)
+				delete(seqNrsToWatch, event.Event.SequenceNumber)
+				if len(seqNrsToWatch) == 0 {
+					return executionStates, nil
+				}
+			}
+
+		case err := <-errChan:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("(Aptos) timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offRampAddress.String(), srcSelector, expectedSeqNrs)
+		}
+	}
+}
+
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	sourceSelector uint64,
@@ -826,6 +1057,27 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 		return false
 	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
+}
+
+func ConfirmNoExecSuccessConsistentlyWithSeqNr(
+	t *testing.T,
+	sourceSelector uint64,
+	dest cldf_evm.Chain,
+	offRamp offramp.OffRampInterface,
+	expectedSeqNr uint64,
+	timeout time.Duration,
+) {
+	RequireConsistently(t, func() bool {
+		scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+			dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+		if executionState == EXECUTION_STATE_SUCCESS {
+			t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+				executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
+			return false
+		}
+		return true
+	}, timeout, 3*time.Second, "Expected no execution success on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 }
 
 func getExecutionState(t *testing.T, sourceSelector uint64, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {

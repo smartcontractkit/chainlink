@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -122,7 +123,7 @@ type eventHandler struct {
 	ratelimiter            *ratelimiter.RateLimiter
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
-	billingClient          workflows.BillingClient
+	billingClient          metering.BillingClient
 }
 
 type Event struct {
@@ -150,7 +151,7 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	}
 }
 
-func WithBillingClient(client workflows.BillingClient) func(*eventHandler) {
+func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
 	}
@@ -185,6 +186,12 @@ func NewEventHandler(
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
+	if workflowStore == nil {
+		return nil, errors.New("workflow store must be provided")
+	}
+	if capRegistry == nil {
+		return nil, errors.New("capabilities registry must be provided")
+	}
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
@@ -527,6 +534,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	cfg := &v2.EngineConfig{
 		Lggr:            h.lggr,
 		Module:          module,
+		WorkflowConfig:  config,
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 
@@ -541,7 +549,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
 	}
-	return v2.NewEngine(ctx, cfg)
+	return v2.NewEngine(cfg)
 }
 
 // workflowUpdatedEvent handles the WorkflowUpdatedEvent event type by first finding the

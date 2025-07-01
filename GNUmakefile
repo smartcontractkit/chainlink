@@ -7,6 +7,7 @@ GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
+CL_INSTALL_TESTING_PLUGINS ?= false
 # Output directory for loopinstall plugin manifests (set by caller)
 CL_LOOPINSTALL_OUTPUT_DIR ?=
 
@@ -30,6 +31,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
+	go run ./tools/plugout --update
 
 .PHONY: tidy
 tidy: gomodtidy ## Tidy all modules and add to git.
@@ -75,22 +77,44 @@ install-plugins-public: ## Build & install public remote LOOPP binaries (plugins
 
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
-	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
 		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
 	else \
 		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
 	fi
 
+.PHONY: install-plugins-testing
+install-plugins-testing: ## Build & install testing LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.testing.yaml; \
+	fi
+
 .PHONY: install-plugins-local
-install-plugins-local: ## Build & install local plugins.
+install-plugins-local: ## Build & install local plugins
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
+
+.PHONY: make install-plugins
+install-plugins: install-loopinstall install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
+	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
+		exit 1; \
+	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-f core/chainlink.Dockerfile .
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	$(PRIVATE_PLUGIN_ARGS) \
+	-f core/chainlink.Dockerfile . \
+	-t chainlink:develop \
+	--load
 
 .PHONY: docker-ccip ## Build the chainlink docker image
 docker-ccip:
@@ -104,16 +128,16 @@ docker-ccip:
 
 # Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
 comma := ,
-.PHONY: docker-plugins ## Build the chainlink-plugins docker image
+.PHONY: docker-plugins ## Build the EXPERIMENTAL chainlink-plugins docker image
 docker-plugins:
-	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] && [ -z "$(GITHUB_TOKEN)" ]; then \
-		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true"; \
+	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
 		exit 1; \
 	fi
-	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	--build-arg CL_APTOS_CMD=chainlink-aptos \
+	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile . \

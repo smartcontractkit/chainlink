@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -54,6 +55,12 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 		if err != nil {
 			return configOverrides, errors.Wrapf(err, "failed to parse chain ID %s", bcOut.ChainID)
 		}
+
+		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
+		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, cID) {
+			continue
+		}
+
 		c, exists := chain_selectors.ChainByEvmChainID(cID)
 		if !exists {
 			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", cID)

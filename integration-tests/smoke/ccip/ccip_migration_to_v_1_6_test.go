@@ -704,7 +704,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	startBlocks[dest] = &block
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
-	msgSentEvent, err := testhelpers.SendRequest(
+	out, err := testhelpers.SendRequest(
 		e.Env, state,
 		testhelpers.WithSourceChain(src1),
 		testhelpers.WithDestChain(dest),
@@ -721,14 +721,16 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}))
 	require.NoError(t, err)
 
+	msgSentEvent := out.RawEvent.(*onramp.OnRampCCIPMessageSent)
+
 	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: src1,
 		DestChainSelector:   dest,
-	}] = []uint64{msgSentEvent.SequenceNumber}
+	}] = []uint64{out.SequenceNumber}
 	expectedSeqNums[testhelpers.SourceDestPair{
 		SourceChainSelector: src1,
 		DestChainSelector:   dest,
-	}] = msgSentEvent.SequenceNumber
+	}] = out.SequenceNumber
 
 	// This sleep is needed so that plugins come up and start indexing logs.
 	// Otherwise test will flake.

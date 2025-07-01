@@ -2,56 +2,61 @@ package memory
 
 import (
 	"context"
+
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
-	solrpc "github.com/gagliardetto/solana-go/rpc"
-
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -65,9 +70,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -95,12 +101,43 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		family, _ := chainsel.GetSelectorFamily(sel)
 		chainID, _ := chainsel.GetChainIDFromSelector(sel)
-
+		if family == "aptos" {
+			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
+			continue
+		}
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	if err != nil {
+		return false, err
+	}
+	chainID, err := chainsel.GetChainIDFromSelector(chainSel)
+	if err != nil {
+		return false, err
+	}
+
+	var exists bool
+	switch family {
+	case chainsel.FamilyEVM:
+		orm := evmlptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventSig(ctx, chainID, common.HexToHash(eventName), address)
+	case chainsel.FamilySolana:
+		orm := sollptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
+	default:
+		return false, fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	if err != nil || !exists {
+		return false, err
+	}
+	return true, nil
 }
 
 // DeploymentNode is an adapter for deployment.Node
@@ -145,6 +182,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			return nil, err
 		}
 
+		var keyBundle *nodev1.OCR2Config_OCRKeyBundle
 		var ocrtype chaintype.ChainType
 		switch family {
 		case chainsel.FamilyEVM:
@@ -157,6 +195,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = chaintype.Cosmos
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
+		case chainsel.FamilyTon:
+			ocrtype = chaintype.TON
 		default:
 			return nil, fmt.Errorf("Unsupported chain family %v", family)
 		}
@@ -165,7 +205,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		offpk := bundle.OffchainPublicKey()
 		cpk := bundle.ConfigEncryptionPublicKey()
 
-		keyBundle := &nodev1.OCR2Config_OCRKeyBundle{
+		keyBundle = &nodev1.OCR2Config_OCRKeyBundle{
 			BundleId:              bundle.ID(),
 			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
 			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
@@ -182,6 +222,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
 		case chainsel.FamilyAptos:
 			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
+		case chainsel.FamilyTon:
+			ctype = nodev1.ChainType_CHAIN_TYPE_TON
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
@@ -233,12 +275,8 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
-	// EVM chains to be configured. Optional.
-	Chains map[uint64]cldf_evm.Chain
-	// Solana chains to be configured. Optional.
-	Solchains map[uint64]cldf_solana.Chain
-	// Aptos chains to be configured. Optional.
-	Aptoschains    map[uint64]cldf_aptos.Chain
+	// BlockChains to be configured.
+	BlockChains    cldf_chain.BlockChains
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -256,15 +294,7 @@ func NewNode(
 	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
-	for _, chain := range nodecfg.Chains {
-		family, err := chainsel.GetSelectorFamily(chain.Selector)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// we're only mapping evm chains here, currently this list could also contain non-EVMs, e.g. Aptos
-		if family != chainsel.FamilyEVM {
-			continue
-		}
+	for _, chain := range nodecfg.BlockChains.EVMChains() {
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
@@ -272,10 +302,11 @@ func NewNode(
 		evmchain := EVMChain{
 			DeployerKey: chain.DeployerKey,
 		}
-		backend, ok := chain.Client.(*Backend)
+		simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 		if ok {
-			evmchain.Backend = backend.Sim
+			evmchain.Backend = simClient.Backend()
 		}
+
 		evmchains[evmChainID] = evmchain
 	}
 
@@ -314,7 +345,7 @@ func NewNode(
 		c.EVM = evmConfigs
 
 		var solConfigs solcfg.TOMLConfigs
-		for chainID, chain := range nodecfg.Solchains {
+		for chainID, chain := range nodecfg.BlockChains.SolanaChains() {
 			solanaChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -324,7 +355,7 @@ func NewNode(
 		c.Solana = solConfigs
 
 		var aptosConfigs chainlink.RawConfigs
-		for chainID, chain := range nodecfg.Aptoschains {
+		for chainID, chain := range nodecfg.BlockChains.AptosChains() {
 			aptosChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -332,6 +363,16 @@ func NewNode(
 			aptosConfigs = append(aptosConfigs, createAptosChainConfig(aptosChainID, chain))
 		}
 		c.Aptos = aptosConfigs
+
+		var tonConfigs chainlink.RawConfigs
+		for chainID, chain := range nodecfg.BlockChains.TonChains() {
+			tonChainID, err := chainsel.GetChainIDFromSelector(chainID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tonConfigs = append(tonConfigs, createTonChainConfig(tonChainID, chain))
+		}
+		c.TON = tonConfigs
 
 		for _, opt := range configOpts {
 			opt(c)
@@ -393,7 +434,12 @@ func NewNode(
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
-	keys := CreateKeys(t, app, nodecfg.Chains, nodecfg.Solchains, nodecfg.Aptoschains)
+	keys := CreateKeys(t, app,
+		nodecfg.BlockChains.EVMChains(),
+		nodecfg.BlockChains.SolanaChains(),
+		nodecfg.BlockChains.AptosChains(),
+		nodecfg.BlockChains.TonChains(),
+	)
 
 	nodeLabels := make([]*ptypes.Label, 1)
 	if nodecfg.Bootstrap {
@@ -412,14 +458,10 @@ func NewNode(
 
 	setupJD(t, app)
 	return &Node{
-		Name: "node-" + keys.PeerID.String(),
-		ID:   app.ID().String(),
-		App:  app,
-		Chains: slices.Concat(
-			maps.Keys(nodecfg.Chains),
-			maps.Keys(nodecfg.Solchains),
-			maps.Keys(nodecfg.Aptoschains),
-		),
+		Name:       "node-" + keys.PeerID.String(),
+		ID:         app.ID().String(),
+		App:        app,
+		Chains:     nodecfg.BlockChains.ListChainSelectors(),
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
 		IsBoostrap: nodecfg.Bootstrap,
@@ -440,6 +482,7 @@ func CreateKeys(t *testing.T,
 	chains map[uint64]cldf_evm.Chain,
 	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
+	tonchains map[uint64]cldf_ton.Chain,
 ) Keys {
 	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
@@ -473,6 +516,9 @@ func CreateKeys(t *testing.T,
 			ctype = chaintype.Cosmos
 		case chainsel.FamilyAptos:
 			ctype = chaintype.Aptos
+		case chainsel.FamilyTon:
+			ctype = chaintype.TON
+
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
@@ -509,11 +555,11 @@ func CreateKeys(t *testing.T,
 			}
 			transmitters[chain.Selector] = transmitter.String()
 
-			backend, ok := chain.Client.(*Backend)
+			simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 			if ok {
-				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
 				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
 			}
 		case chainsel.FamilyAptos:
 			keystore := app.GetKeyStore().Aptos()
@@ -526,7 +572,7 @@ func CreateKeys(t *testing.T,
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
+			t.Logf("Created Aptos Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
 			// TODO: funding
 		case chainsel.FamilyStarknet:
 			keystore := app.GetKeyStore().StarkNet()
@@ -585,8 +631,33 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, aptoskeys, 1)
 		transmitter := aptoskeys[0]
-		for chainSelector := range aptoschains {
+		for chainSelector, aptosChain := range aptoschains {
 			transmitters[chainSelector] = transmitter.ID()
+			transmitterAccountAddress := aptos.AccountAddress{}
+			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
+			fundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
+		}
+	}
+
+	if len(tonchains) > 0 {
+		ctype := chaintype.TON
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().TON().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for TON")
+
+		tonkeys, err := app.GetKeyStore().TON().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tonkeys, 1)
+		transmitter := tonkeys[0]
+		for chainSelector := range tonchains {
+			transmitters[chainSelector] = transmitter.AddressBase64()
 		}
 	}
 

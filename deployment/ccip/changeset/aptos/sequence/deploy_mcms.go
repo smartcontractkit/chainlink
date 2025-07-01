@@ -27,7 +27,7 @@ func deployMCMSSequence(b operations.Bundle, deps operation.AptosDeps, configMCM
 	// Check if MCMS package is already deployed
 	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	if onChainState.MCMSAddress != (aptos.AccountAddress{}) {
-		b.Logger.Infow("MCMS Package already deployed", "addr", onChainState.MCMSAddress.String())
+		b.Logger.Infow("MCMS Package already deployed", "addr", onChainState.MCMSAddress.StringLong())
 		return DeployMCMSSeqOutput{}, nil
 	}
 	// Deploy MCMS

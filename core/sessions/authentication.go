@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 )
@@ -15,6 +17,7 @@ type AuthenticationProviderName string
 const (
 	LocalAuth AuthenticationProviderName = "local"
 	LDAPAuth  AuthenticationProviderName = "ldap"
+	OIDCAuth  AuthenticationProviderName = "oidc"
 )
 
 // ErrUserSessionExpired defines the error triggered when the user session has expired
@@ -58,6 +61,7 @@ type AuthenticationProvider interface {
 	Sessions(ctx context.Context, offset, limit int) ([]Session, error)
 	GetUserWebAuthn(ctx context.Context, email string) ([]WebAuthn, error)
 	SaveWebAuthn(ctx context.Context, token *WebAuthn) error
+	ExtendRouter(r *gin.RouterGroup) error
 
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
