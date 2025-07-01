@@ -37,17 +37,17 @@ type BlockResponse struct {
 // 	{"SimplyVC", "https://rpcs.cldev.sh/base/sepolia/simplyvc1"},
 // }
 
-var endpoints = []Endpoint{
-	{"Chainstack", "https://rpcs.cldev.sh/base/mainnet/chainstack1"},
-	{"LinkPool", "https://rpcs.cldev.sh/base/mainnet/linkpool1"},
-	{"SimplyVC", "https://rpcs.cldev.sh/base/mainnet/simplyvc1"},
-}
-
 // var endpoints = []Endpoint{
-// 	{"SimplyVC", "https://rpcs.cldev.sh/optimism/sepolia/simplyvc1"},
-// 	{"LinkPool", "https://rpcs.cldev.sh/optimism/sepolia/linkpool1"},
-// 	{"Chainstack", "https://rpcs.cldev.sh/optimism/sepolia/chainstack1"},
+// 	{"Chainstack", "https://rpcs.cldev.sh/base/mainnet/chainstack1"},
+// 	{"LinkPool", "https://rpcs.cldev.sh/base/mainnet/linkpool1"},
+// 	{"SimplyVC", "https://rpcs.cldev.sh/base/mainnet/simplyvc1"},
 // }
+
+var endpoints = []Endpoint{
+	{"SimplyVC", "https://rpcs.cldev.sh/optimism/sepolia/simplyvc1"},
+	{"LinkPool", "https://rpcs.cldev.sh/optimism/sepolia/linkpool1"},
+	{"Chainstack", "https://rpcs.cldev.sh/optimism/sepolia/chainstack1"},
+}
 
 func getFinalizedBlockNumber(url string) (uint64, error) {
 	// JSON-RPC request
@@ -68,7 +68,6 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	//nolint:gosec // G107 - URL is from trusted configuration
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0, err
