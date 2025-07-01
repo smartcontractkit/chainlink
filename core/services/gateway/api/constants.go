@@ -12,8 +12,8 @@ const (
 	RequestTimeoutError
 	NodeReponseEncodingError
 	FatalError
-	UnsupportedMethodError = 7
-	InvalidParamsError     = 8
+	UnsupportedMethodError
+	InvalidParamsError
 )
 
 func (e ErrorCode) String() string {

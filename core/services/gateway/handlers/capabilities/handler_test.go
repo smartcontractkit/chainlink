@@ -298,10 +298,8 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 
 		userPayload := <-ch
-		var rawMsg json.RawMessage
-		rawMsg, err = json.Marshal(msg)
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}, userPayload)
+		codec := api.JsonRPCCodec{}
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, userPayload)
 		_, open := <-ch
 		require.False(t, open)
 	})

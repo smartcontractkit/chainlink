@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -55,7 +56,7 @@ func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 		return nil, fmt.Errorf("received non-empty error field: %v", response.Error)
 	}
 	if response.Result == nil {
-		return nil, fmt.Errorf("received empty result field")
+		return nil, errors.New("received empty result field")
 	}
 
 	var msg Message
