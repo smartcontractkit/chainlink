@@ -146,30 +146,12 @@ func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest json
 	case MethodSecretsCreate:
 		return s.handleSecretsCreate(timeoutCtx, jsonRequest, callbackCh)
 	default:
-		s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
-		promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
-
-		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "Unsupported method: "+jsonRequest.Method, nil)
-		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
-		}
-		response := gw_handlers.UserCallbackPayload{
-			RawResponse: rawErrMsg,
-			ErrorCode:   api.UnsupportedMethodError,
-		}
-
-		select {
-		case callbackCh <- response:
-			return nil
-		case <-timeoutCtx.Done():
-			return timeoutCtx.Err()
-		}
+		return s.handleUnsupportedMethod(timeoutCtx, jsonRequest, callbackCh)
 	}
 }
 
 func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
-	// TODO: Implement this
-	return nil
+	return errors.New("node message support not implemented")
 }
 
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
@@ -177,7 +159,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
 		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), fmt.Sprintf("Failed to parse request: %v", err), nil)
 		if errInner != nil {
-			rawErrMsg = []byte("fatal error" + errInner.Error())
+			rawErrMsg = fatal(errInner)
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -190,7 +172,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	if req.ID == "" {
 		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret ID cannot be empty", nil)
 		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+			rawErrMsg = fatal(err)
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -213,7 +195,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
 		rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.InvalidParamsError), "Secret with this ID already exists", nil)
 		if err != nil {
-			rawErrMsg = []byte("fatal error" + err.Error())
+			rawErrMsg = fatal(err)
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -245,7 +227,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
 		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
 		if errInner != nil {
-			rawErrMsg = []byte("fatal error" + errInner.Error())
+			rawErrMsg = fatal(errInner)
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -263,7 +245,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
 		rawErrMsg, errInner := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.NodeReponseEncodingError), fmt.Sprintf("Failed to marshal response: %v", err), nil)
 		if errInner != nil {
-			rawErrMsg = []byte("fatal error" + errInner.Error())
+			rawErrMsg = fatal(errInner)
 		}
 		response := gw_handlers.UserCallbackPayload{
 			RawResponse: rawErrMsg,
@@ -280,6 +262,21 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	return s.sendResponse(ctx, responseObj, callbackCh)
 }
 
+func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+	s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
+	promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
+
+	rawErrMsg, err := s.codec.EncodeNewErrorResponse(jsonRequest.ID, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), "Unsupported method: "+jsonRequest.Method, nil)
+	if err != nil {
+		rawErrMsg = fatal(err)
+	}
+
+	return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+		RawResponse: rawErrMsg,
+		ErrorCode:   api.UnsupportedMethodError,
+	}, callbackCh)
+}
+
 func (s *service) sendResponse(ctx context.Context, response gw_handlers.UserCallbackPayload, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	select {
 	case callbackCh <- response:
@@ -287,4 +284,8 @@ func (s *service) sendResponse(ctx context.Context, response gw_handlers.UserCal
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func fatal(err error) []byte {
+	return []byte("fatal error" + err.Error())
 }
