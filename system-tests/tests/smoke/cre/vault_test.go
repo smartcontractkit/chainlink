@@ -29,8 +29,8 @@ type Config struct {
 }
 
 func TestVault_E2E(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
-	require.NoError(t, configErr, "failed to set CTF config")
+	// configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
+	// require.NoError(t, configErr, "failed to set CTF config")
 
 	c, err := framework.Load[Config](t)
 	require.NoError(t, err)
@@ -43,50 +43,50 @@ func TestVault_E2E(t *testing.T) {
 
 	// Create gateway job spec for the first nodeset
 	gatewayJobSpec := `type = "gateway"
-schemaVersion = 1
-name = "vault_gateway"
-forwardingAllowed = false
+		schemaVersion = 1
+		name = "gateway_node"
+		forwardingAllowed = false
 
-[gatewayConfig.ConnectionManagerConfig]
-AuthChallengeLen = 10
-AuthGatewayId = "vault_gateway"
-AuthTimestampToleranceSec = 5
-HeartbeatIntervalSec = 20
+		[gatewayConfig.ConnectionManagerConfig]
+		AuthChallengeLen = 10
+		AuthGatewayId = "vault_gateway"
+		AuthTimestampToleranceSec = 5
+		HeartbeatIntervalSec = 20
 
-[gatewayConfig.HTTPClientConfig]
-MaxResponseBytes = 100_000_000
+		[gatewayConfig.HTTPClientConfig]
+		MaxResponseBytes = 100_000_000
 
-[gatewayConfig.NodeServerConfig]
-HandshakeTimeoutMillis = 1_000
-MaxRequestBytes = 100_000
-Path = "/node"
-Port = 8080
-ReadTimeoutMillis = 1_000
-RequestTimeoutMillis = 10_000
-WriteTimeoutMillis = 1_000
+		[gatewayConfig.NodeServerConfig]
+		HandshakeTimeoutMillis = 1_000
+		MaxRequestBytes = 100_000
+		Path = "/node"
+		Port = 8080
+		ReadTimeoutMillis = 1_000
+		RequestTimeoutMillis = 10_000
+		WriteTimeoutMillis = 1_000
 
-[gatewayConfig.UserServerConfig]
-ContentTypeHeader = "application/jsonrpc"
-MaxRequestBytes = 100_000
-Path = "/"
-Port = 5_002
-ReadTimeoutMillis = 1_000
-RequestTimeoutMillis = 10_000
-WriteTimeoutMillis = 1_000
-CORSEnabled = false
-CORSAllowedOrigins = []
+		[gatewayConfig.UserServerConfig]
+		ContentTypeHeader = "application/jsonrpc"
+		MaxRequestBytes = 100_000
+		Path = "/"
+		Port = 5_002
+		ReadTimeoutMillis = 1_000
+		RequestTimeoutMillis = 10_000
+		WriteTimeoutMillis = 1_000
+		CORSEnabled = false
+		CORSAllowedOrigins = []
 
-[[gatewayConfig.Dons]]
-DonId = "vault"
-HandlerName = "vault"
-F = 0
+		[[gatewayConfig.Dons]]
+		DonId = "vault"
+		HandlerName = "vault"
+		F = 0
 
-  [gatewayConfig.Dons.HandlerConfig]
-  request_timeout_sec = 30
+		[gatewayConfig.Dons.HandlerConfig]
+		request_timeout_sec = 30
 
-  [[gatewayConfig.Dons.Members]]
-  Name = "node_1"
-  Address = "0x0000000000000000000000000000000000000001"` // Address is the Eth key of the node (signing key); you can specify the key that's used
+		[[gatewayConfig.Dons.Members]]
+		Name = "node_1"
+		Address = "0x0000000000000000000000000000000000000001"` // Address is the Eth key of the node (signing key); you can specify the key that's used
 	// Gateway URL hardcode in the delegate (or specify config)
 
 	// Vault nodes get a URL of a gateway in config that they reach out to
@@ -104,10 +104,64 @@ F = 0
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
 		require.NoError(t, err, "Gateway job creation request must not error")
 		require.Empty(t, job.Errors, "Gateway job creation response must not return any errors")
-		require.NotEmpty(t, job.Data.ID, "Gateway job creation response must return a job ID")
+		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v.", job))
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
+	}
+	fmt.Println("✅ Gateway jobs created successfully.")
+
+	vaultNodeSet, err := simple_node_set.NewSharedDBNodeSet(c.NodeSets[1], bc)
+	require.NoError(t, err)
+
+	vaultNodeSetClients, err := clclient.New(vaultNodeSet.CLNodes)
+	require.NoError(t, err)
+
+	// Add the vault job to each node in the second nodeset
+	for _, client := range vaultNodeSetClients {
+		// Get the actual OCR key bundle ID and transmitter address for this node
+		nodeTransmitterAddresses, err := client.EthAddresses()
+		require.NoError(t, err, "Should be able to get ETH addresses from vault node")
+		require.NotEmpty(t, nodeTransmitterAddresses, "Vault node should have at least one ETH address")
+
+		nodeOCRKeys, err := client.MustReadOCR2Keys()
+		require.NoError(t, err, "Should be able to get OCR2 keys from vault node")
+
+		var nodeOCRKeyID string
+		for _, key := range nodeOCRKeys.Data {
+			if key.Attributes.ChainType == "evm" {
+				nodeOCRKeyID = key.ID
+				break
+			}
+		}
+		require.NotEmpty(t, nodeOCRKeyID, "Vault node should have an EVM OCR2 key")
+
+		// Create vault job spec without relayConfig since EVM configuration is provided by node boot config
+		vaultJobSpec := fmt.Sprintf(`type = "offchainreporting2"
+			schemaVersion = 1
+			pluginType = "vault-plugin"
+			name = "vault_node"
+			forwardingAllowed = false
+			maxTaskDuration = "30s"
+			contractID = "0x0000000000000000000000000000000000000000"
+			ocrKeyBundleID = "%s"
+			transmitterID = "%s"
+			relay = "evm"
+			p2pv2Bootstrappers = []
+			allowNoBootstrappers = true
+
+			[relayConfig]
+            chainID = "%s"
+		`, nodeOCRKeyID, nodeTransmitterAddresses[0], c.Blockchain.ChainID)
+
+		job, resp, err := client.CreateJobRaw(vaultJobSpec)
+		fmt.Println(job)
+		require.NoError(t, err, "Vault job creation request must not error")
+		require.Empty(t, job.Errors, "Vault job creation response must not return any errors")
+		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Vault job creation response must return a job ID: %v.", job))
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Vault job creation request must return 200 OK")
 		fmt.Println(job.Data.ID)
 	}
+
+	// Add the vault job to each node in the second nodeset
 
 	t.Run("vault secrets create", func(t *testing.T) {
 		for _, n := range gatewayNodeSet.CLNodes {
