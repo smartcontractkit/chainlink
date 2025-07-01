@@ -17,7 +17,7 @@ type Codec interface {
 
 	DecodeLegacyResponse(msgBytes []byte) (*Message, error)
 
-	EncodeLegacyResponse(msg *Message) ([]byte, error)
+	EncodeLegacyResponse(msg *Message) []byte
 
 	EncodeNewErrorResponse(id string, code int64, message string, data []byte) []byte
 }

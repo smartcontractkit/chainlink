@@ -64,12 +64,8 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 		return errors.New("request cache is full")
 	}
 	codec := api.JsonRPCCodec{}
-	rawResp, err := codec.EncodeLegacyResponse(request)
-	if err != nil {
-		return err
-	}
 	timer := time.AfterFunc(c.timeout, func() {
-		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: rawResp, ErrorCode: api.RequestTimeoutError})
+		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
 	})
 	c.cache[key] = &pendingRequest[T]{callbackCh: callbackCh, responseData: responseData, timeoutTimer: timer}
 	return nil

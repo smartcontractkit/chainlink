@@ -246,9 +246,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		rawMsg, err := codec.EncodeLegacyResponse(msg)
-		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 	})
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})

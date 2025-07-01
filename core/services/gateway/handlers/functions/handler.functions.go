@@ -354,11 +354,8 @@ func newSecretsResponse(request *api.Message, success bool, responses []*api.Mes
 	userResponse.Body.Receiver = request.Body.Sender
 	userResponse.Body.Payload = payloadJson
 	codec := &api.JsonRPCCodec{}
-	responseBytes, err := codec.EncodeLegacyResponse(&userResponse)
-	if err != nil {
-		return nil, err
-	}
-	return &handlers.UserCallbackPayload{RawResponse: responseBytes, ErrorCode: api.NoError}, nil
+
+	return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NoError}, nil
 }
 
 // Conforms to ResponseProcessor[*PendingRequest]
@@ -385,16 +382,10 @@ func (h *functionsHandler) processHeartbeatResponse(response *api.Message, respo
 		codec := &api.JsonRPCCodec{}
 		payloadJson, err := json.Marshal(payload)
 		if err != nil {
-			responseBytes, _ := codec.EncodeLegacyResponse(&userResponse)
-			return &handlers.UserCallbackPayload{RawResponse: responseBytes, ErrorCode: api.NodeReponseEncodingError}, nil, nil
+			return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NodeReponseEncodingError}, nil, nil
 		}
 		userResponse.Body.Payload = payloadJson
-
-		responseBytes, err := codec.EncodeLegacyResponse(&userResponse)
-		if err != nil {
-			return nil, nil, err
-		}
-		return &handlers.UserCallbackPayload{RawResponse: responseBytes, ErrorCode: api.NoError}, nil, nil
+		return &handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&userResponse), ErrorCode: api.NoError}, nil, nil
 	}
 	// not ready to be processed yet
 	return nil, responseData, nil

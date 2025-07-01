@@ -90,8 +90,7 @@ func TestJsonRPCResponse_Encode(t *testing.T) {
 		Method:    "upload",
 	}
 	codec := api.JsonRPCCodec{}
-	bytes, err := codec.EncodeLegacyResponse(&msg)
-	require.NoError(t, err)
+	bytes := codec.EncodeLegacyResponse(&msg)
 
 	decoded, err := codec.DecodeLegacyResponse(bytes)
 	require.NoError(t, err)

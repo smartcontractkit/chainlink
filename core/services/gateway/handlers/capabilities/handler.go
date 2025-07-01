@@ -130,12 +130,8 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 		// Send first response from a node back to the user, ignore any other ones.
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
-		var rawMessage json.RawMessage
-		rawMessage, err := json.Marshal(msg)
-		if err != nil {
-			return err
-		}
-		savedCb.callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMessage, ErrorCode: api.NoError}
+		codec := api.JsonRPCCodec{}
+		savedCb.callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 		close(savedCb.callbackCh)
 	}
 	return nil
@@ -277,12 +273,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 
 	if payload.Timestamp == 0 {
-		h.lggr.Errorw(ErrDecodingPayload)
+		h.lggr.Errorw("error decoding payload")
 		callbackCh <- handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrDecodingPayload,
+				"error decoding payload",
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
