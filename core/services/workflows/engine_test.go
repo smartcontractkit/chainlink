@@ -432,6 +432,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
 			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
 			assert.Equal(t, testWorkflowOwner, report.Metadata.WorkflowOwner)
+			assert.NotEmpty(t, report.Metadata.P2PID)
 
 		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted):
 			var started eventspb.WorkflowExecutionStarted
