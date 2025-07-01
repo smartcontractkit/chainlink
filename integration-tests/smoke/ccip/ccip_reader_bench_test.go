@@ -304,6 +304,8 @@ func populateDatabaseForCommitReportAccepted(
 			},
 		}
 
+		var unblessed []offramp.InternalMerkleRoot
+
 		sourceToken := utils.RandomAddress()
 
 		// Simulate priceUpdates
@@ -317,7 +319,8 @@ func populateDatabaseForCommitReportAccepted(
 		}
 
 		// Combine encoded data
-		encodedData, err := commitReportEvent.Inputs.Pack(merkleRoots, priceUpdates)
+		encodedData, err := commitReportEvent.Inputs.
+			Pack(merkleRoots, unblessed, priceUpdates)
 		require.NoError(b, err)
 
 		// Topics (first one is the event signature)
