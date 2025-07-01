@@ -74,7 +74,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
 			ExtraData:         ta.ExtraData,
 			DestGasAmount:     destGasAmount,
-			Amount:            ccip_offramp.CrossChainAmount{LeBytes: ([32]uint8)(encodeBigIntToFixedLengthLE(ta.Amount.Int, 32))},
+			Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(ta.Amount.Int, 32))},
 		})
 	}
 
