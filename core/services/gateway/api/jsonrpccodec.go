@@ -54,13 +54,17 @@ func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 	if response.Error != nil {
 		return nil, fmt.Errorf("received non-empty error field: %v", response.Error)
 	}
+	if response.Result == nil {
+		return nil, fmt.Errorf("received empty result field")
+	}
+
 	var msg Message
+	err = json.Unmarshal(response.Result, &msg)
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(response.Result, &msg)
 	msg.Body.MessageId = response.ID
-	return &msg, err
+	return &msg, nil
 }
 
 func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) []byte {
