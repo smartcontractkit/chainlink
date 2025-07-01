@@ -279,11 +279,8 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 	email = strings.ToLower(email)
 
 	var foundUser clsessions.User
-	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		return tx.GetContext(ctx, &foundUser, SQLSelectUserbyEmail, email)
-	})
 
-	if err != nil {
+	if err := oi.ds.GetContext(ctx, &foundUser, SQLSelectUserbyEmail, email); err != nil {
 		// If the error is not that no local user was found, log and exit
 		if errors.Is(err, sql.ErrNoRows) {
 			return clsessions.User{}, errors.New("user not found")
@@ -342,10 +339,7 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken st
 // ListUsers in the context of the OIDC driver only supports listing the local (admin) users, we don't have an identity server to query against
 func (oi *oidcAuthenticator) ListUsers(ctx context.Context) ([]clsessions.User, error) {
 	returnUsers := []clsessions.User{}
-	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		sql := "SELECT * FROM users ORDER BY email ASC;"
-		return tx.SelectContext(ctx, &returnUsers, sql)
-	}); err != nil {
+	if err := oi.ds.SelectContext(ctx, &returnUsers, "SELECT * FROM users ORDER BY email ASC;"); err != nil {
 		oi.lggr.Errorf("error listing local users: %v", err)
 	}
 	return returnUsers, nil
