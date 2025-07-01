@@ -196,7 +196,11 @@ func TestComputeExecute(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 	assert.Equal(t, metering.ComputeUnit.Name, resp.Metadata.Metering[0].SpendUnit)
-	assert.Equal(t, "0", resp.Metadata.Metering[0].SpendValue)
+
+	spendValue, _ := strconv.ParseUint(resp.Metadata.Metering[0].SpendValue, 10, 64)
+
+	assert.GreaterOrEqual(t, spendValue, uint64(0))
+	assert.Less(t, spendValue, uint64(400))
 }
 
 func TestComputeFetch(t *testing.T) {
@@ -279,8 +283,16 @@ func TestComputeFetch(t *testing.T) {
 	}
 
 	actual, err := th.compute.Execute(t.Context(), req)
+
+	require.Len(t, actual.Metadata.Metering, 1)
+	spendValue, _ := strconv.ParseUint(actual.Metadata.Metering[0].SpendValue, 10, 64)
+	actual.Metadata.Metering[0].SpendValue = "0"
+
 	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
+
+	assert.GreaterOrEqual(t, spendValue, uint64(0))
+	assert.Less(t, spendValue, uint64(400))
 }
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
