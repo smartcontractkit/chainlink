@@ -199,7 +199,6 @@ func TestComputeExecute(t *testing.T) {
 
 	spendValue, _ := strconv.ParseUint(resp.Metadata.Metering[0].SpendValue, 10, 64)
 
-	assert.GreaterOrEqual(t, spendValue, uint64(0))
 	assert.Less(t, spendValue, uint64(400))
 }
 
@@ -291,7 +290,6 @@ func TestComputeFetch(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
 
-	assert.GreaterOrEqual(t, spendValue, uint64(0))
 	assert.Less(t, spendValue, uint64(400))
 }
 
