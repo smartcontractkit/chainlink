@@ -75,7 +75,7 @@ func NewWithContext(ctx context.Context, baseURI string, creds Credentials) (Cli
 	// extract duration from context
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		deadline = time.Now().Add(10 * time.Second)
+		deadline = time.Now().Add(120 * time.Second)
 	}
 	err := retry.Do(ctx, retry.WithMaxDuration(time.Until(deadline), retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
 		err := c.login()

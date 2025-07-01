@@ -298,6 +298,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("capability does not satisfy CallbackCapability")
 	}
 
+	// Wrap local executable capabilities to set peer2peerID
+	if info.IsLocal {
+		l.Errorw("METERING_LOGS: wrapping local executable capability")
+		cc = transmission.NewLocalExecutableCapability(
+			e.logger,
+			step.ID,
+			*e.localNode.Load(),
+			cc,
+		)
+	}
+
 	stepConfig, err := e.configForStep(ctx, l, step)
 	if err != nil {
 		return newCPErr("failed to get config for step", err)
@@ -490,6 +501,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
+	e.logger.Errorw("ENGINE ATTEMPT NUMBER 5")
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
@@ -838,9 +850,10 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if meteringOK {
+		l.With("METERING_LOGS", "settling metering report", "step_ref", stepState.Ref, "metering_data", response.Metadata.Metering).Error("settling metering report")
 		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
 		if err != nil {
-			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
+			l.With("METERING_LOGS", "failed to settle metering report", "step_ref", stepState.Ref, "error", err, "metering_data", response.Metadata.Metering).Error("failed to settle metering report")
 		}
 	}
 
@@ -1036,6 +1049,8 @@ func (e *Engine) executeStep(
 	}
 	output, capErr := curStep.capability.Execute(stepCtx, tr)
 	status := store.StatusCompleted
+
+	e.logger.Errorw("METERING_LOGS: capability executed", "step_ref", msg.stepRef, "step_id", curStep.ID, "metering_data", output.Metadata.Metering)
 
 	if capErr != nil {
 		status = store.StatusErrored

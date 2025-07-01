@@ -76,7 +76,7 @@ type Report struct {
 	// dependencies
 	balance *balanceStore
 	client  BillingClient
-	lggr    logger.Logger
+	lggr    logger.SugaredLogger
 
 	// internal state
 	mu    sync.RWMutex
@@ -299,56 +299,105 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		}
 	}
 
-	spentCredits := decimal.NewFromInt(0)
-	resourceSpends := make(map[string][]ReportStepDetail)
-
-	// Group by resource dimension
-	for _, nodeDetail := range spendsByNode {
-		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
-			Peer2PeerID: nodeDetail.Peer2PeerID,
-			SpendValue:  nodeDetail.SpendValue,
-		})
-	}
-
-	if !r.meteringMode {
-		// Aggregate node responses to a single number
-		for unit, spendDetails := range resourceSpends {
-			deciVals := []decimal.Decimal{}
-			for _, detail := range spendDetails {
-				value, err := decimal.NewFromString(detail.SpendValue)
-				if err != nil {
-					r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-					// throw out invalid values for local balance settlement. they will still be included in metering report.
-					continue
-				}
-
-				deciVals = append(deciVals, value)
-			}
-
-			aggregateSpend := medianSpend(deciVals)
-			bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
-			if err != nil {
-				r.switchToMeteringMode(err)
-			}
-
-			spentCredits = spentCredits.Add(bal)
-		}
-	}
-
-	step.Spends = resourceSpends
-	r.steps[ref] = step
+	// Track metering data
+	r.trackSpends(ref, step, spendsByNode)
 
 	// if in metering mode, exit early without modifying local balance
 	if r.meteringMode {
 		return nil
 	}
 
-	// Refund the difference between what local balance had been earmarked and the actual spend
-	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
-		// invariant: capability should not let spend exceed reserve
-		r.lggr.Error("invariant: spend exceeded reserve")
+	// Settle local balance
+	return r.settleLocalBalance(ref, step, spendsByNode)
+}
+
+// trackSpends sets the necessary spendsByNode on the Report for metering data tracking
+func (r *Report) trackSpends(ref string, step ReportStep, spendsByNode []capabilities.MeteringNodeDetail) {
+	r.lggr.With("METERING_LOGS", "tracking spends", "ref", ref, "spends_count", len(spendsByNode)).Info("starting spend tracking")
+	
+	resourceSpends := make(map[string][]ReportStepDetail)
+
+	// Group by resource dimension
+	for _, nodeDetail := range spendsByNode {
+		r.lggr.With("METERING_LOGS", "processing node detail", "ref", ref, "peer_id", nodeDetail.Peer2PeerID, "spend_unit", nodeDetail.SpendUnit, "spend_value", nodeDetail.SpendValue).Debug("processing node detail")
+		
+		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
+			Peer2PeerID: nodeDetail.Peer2PeerID,
+			SpendValue:  nodeDetail.SpendValue,
+		})
 	}
 
+	r.lggr.With("METERING_LOGS", "resource spends grouped", "ref", ref, "resource_units", len(resourceSpends)).Debug("grouped spends by resource unit")
+	
+	for unit, details := range resourceSpends {
+		r.lggr.With("METERING_LOGS", "resource unit details", "ref", ref, "unit", unit, "details_count", len(details)).Debug("resource unit spend details")
+	}
+
+	step.Spends = resourceSpends
+	r.steps[ref] = step
+	
+	r.lggr.With("METERING_LOGS", "spends tracked", "ref", ref, "total_spend_units", len(resourceSpends)).Info("completed spend tracking")
+}
+
+// settleLocalBalance handles local balance settlement when not in metering mode
+func (r *Report) settleLocalBalance(ref string, step ReportStep, spendsByNode []capabilities.MeteringNodeDetail) error {
+	r.lggr.With("METERING_LOGS", "settling local balance", "ref", ref, "spends_count", len(spendsByNode), "deduction", step.Deduction).Info("starting local balance settlement")
+	
+	spentCredits := decimal.NewFromInt(0)
+	resourceSpends := make(map[string][]ReportStepDetail)
+
+	// Group by resource dimension
+	for _, nodeDetail := range spendsByNode {
+		r.lggr.With("METERING_LOGS", "processing settlement node detail", "ref", ref, "peer_id", nodeDetail.Peer2PeerID, "spend_unit", nodeDetail.SpendUnit, "spend_value", nodeDetail.SpendValue).Debug("processing settlement node detail")
+		
+		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
+			Peer2PeerID: nodeDetail.Peer2PeerID,
+			SpendValue:  nodeDetail.SpendValue,
+		})
+	}
+
+	// Aggregate node responses to a single number
+	for unit, spendDetails := range resourceSpends {
+		r.lggr.With("METERING_LOGS", "aggregating unit spends", "ref", ref, "unit", unit, "details_count", len(spendDetails)).Info("starting unit spend aggregation")
+		
+		deciVals := []decimal.Decimal{}
+		for _, detail := range spendDetails {
+			value, err := decimal.NewFromString(detail.SpendValue)
+			if err != nil {
+				r.lggr.With("METERING_LOGS", "invalid spend value", "ref", ref, "spend_value", detail.SpendValue, "error", err).Error("failed to parse spend value")
+				// throw out invalid values for local balance settlement. they will still be included in metering report.
+				continue
+			}
+
+			r.lggr.With("METERING_LOGS", "parsed spend value", "ref", ref, "spend_value", detail.SpendValue, "parsed_value", value).Debug("parsed spend value")
+			deciVals = append(deciVals, value)
+		}
+
+		aggregateSpend := medianSpend(deciVals)
+		r.lggr.With("METERING_LOGS", "median spend calculated", "ref", ref, "unit", unit, "aggregate_spend", aggregateSpend, "values_count", len(deciVals)).Info("calculated median spend")
+		
+		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
+		if err != nil {
+			r.lggr.With("METERING_LOGS", "conversion error", "ref", ref, "unit", unit, "aggregate_spend", aggregateSpend, "error", err).Error("failed to convert to balance")
+			r.switchToMeteringMode(err)
+		} else {
+			r.lggr.With("METERING_LOGS", "balance converted", "ref", ref, "unit", unit, "aggregate_spend", aggregateSpend, "converted_balance", bal).Info("converted aggregate spend to balance")
+		}
+
+		spentCredits = spentCredits.Add(bal)
+		r.lggr.With("METERING_LOGS", "credits accumulated", "ref", ref, "unit", unit, "spent_credits", spentCredits).Debug("accumulated spent credits")
+	}
+
+	r.lggr.With("METERING_LOGS", "settlement calculation", "ref", ref, "total_spent_credits", spentCredits, "deduction", step.Deduction, "refund_amount", step.Deduction.Sub(spentCredits)).Info("calculated settlement amounts")
+
+	// Refund the difference between what local balance had been earmarked and the actual spend
+	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
+		r.lggr.With("METERING_LOGS", "balance update failed", "ref", ref, "error", err).Error("invariant: spend exceeded reserve")
+	} else {
+		r.lggr.With("METERING_LOGS", "balance updated", "ref", ref, "refund_amount", step.Deduction.Sub(spentCredits)).Info("successfully updated local balance")
+	}
+
+	r.lggr.With("METERING_LOGS", "local balance settled", "ref", ref).Info("completed local balance settlement")
 	return nil
 }
 
@@ -447,6 +496,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		"workflow_id", req.WorkflowId,
 		"workflow_execution_id", req.WorkflowExecutionId,
 		"metering_steps", req.Metering.Steps,
+		"metering_payload", r.steps,
 	)
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
 	if err != nil {

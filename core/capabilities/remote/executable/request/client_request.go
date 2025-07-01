@@ -267,88 +267,140 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	c.lggr.Errorw("METERING_LOGS: OnMessage called", "respSent", c.respSent, "msgSender", msg.Sender, "msgError", msg.Error, "msgErrorMsg", msg.ErrorMsg)
+
 	if c.respSent {
+		c.lggr.Errorw("METERING_LOGS: response already sent, returning early")
 		return nil
 	}
 
 	if msg.Sender == nil {
+		c.lggr.Errorw("METERING_LOGS: sender missing from message")
 		return errors.New("sender missing from message")
 	}
 
-	c.lggr.Debugw("OnMessage called for client request")
+	c.lggr.Errorw("METERING_LOGS: OnMessage processing started", "sender", msg.Sender)
 
 	sender, err := remote.ToPeerID(msg.Sender)
 	if err != nil {
+		c.lggr.Errorw("METERING_LOGS: failed to convert message sender to PeerID", "sender", msg.Sender, "error", err)
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
 
+	c.lggr.Errorw("METERING_LOGS: converted sender to PeerID", "originalSender", msg.Sender, "peerID", sender.String())
+
 	received, expected := c.responseReceived[sender]
+	c.lggr.Errorw("METERING_LOGS: checking response status", "sender", sender.String(), "expected", expected, "received", received)
+
 	if !expected {
+		c.lggr.Errorw("METERING_LOGS: response from peer not expected", "sender", sender.String(), "responseReceived", c.responseReceived)
 		return fmt.Errorf("response from peer %s not expected", sender)
 	}
 
 	if received {
+		c.lggr.Errorw("METERING_LOGS: response from peer already received", "sender", sender.String())
 		return fmt.Errorf("response from peer %s already received", sender)
 	}
 
 	c.responseReceived[sender] = true
+	c.lggr.Errorw("METERING_LOGS: marked response as received", "sender", sender.String(), "responseReceived", c.responseReceived)
 
 	if msg.Error == types.Error_OK {
+		c.lggr.Errorw("METERING_LOGS: processing successful response", "sender", sender.String())
+
 		// metering reports per node are aggregated into a single array of values. for any single node message, the
 		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
 		// is marshalled without the metering value to get the hash. each node could have a different metering value
 		// which would result in different hashes. removing the metering detail allows for direct comparison of results.
 		responseID, metadata, err := c.getMessageHashAndMetadata(msg)
 		if err != nil {
+			c.lggr.Errorw("METERING_LOGS: failed to get message hash and metadata", "sender", sender.String(), "error", err)
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
+
+		c.lggr.Errorw("METERING_LOGS: got message hash and metadata", "sender", sender.String(), "responseID", hex.EncodeToString(responseID[:]), "metadataMeteringCount", len(metadata.Metering), "requiredIdenticalResponses", c.requiredIdenticalResponses)
 
 		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
 
 		nodeReports, exists := c.meteringResponses[responseID]
+		c.lggr.Errorw("METERING_LOGS: checking existing metering responses", "responseID", hex.EncodeToString(responseID[:]), "exists", exists, "existingNodeReportsCount", len(nodeReports))
+
 		if !exists {
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
+			c.lggr.Errorw("METERING_LOGS: created new nodeReports slice", "responseID", hex.EncodeToString(responseID[:]))
 		}
+
+		c.lggr.Errorw("METERING_LOGS: processing metering metadata", "metadataMeteringCount", len(metadata.Metering), "metadataMetering", metadata.Metering)
 
 		if len(metadata.Metering) == 1 {
 			rpt := metadata.Metering[0]
+			c.lggr.Errorw("METERING_LOGS: processing single metering record", "originalPeer2PeerID", rpt.Peer2PeerID, "sender", sender.String())
+
 			rpt.Peer2PeerID = sender.String()
+			c.lggr.Errorw("METERING_LOGS: updated metering record with sender", "newPeer2PeerID", rpt.Peer2PeerID, "meteringRecord", rpt)
 
 			nodeReports = append(nodeReports, rpt)
+			c.lggr.Errorw("METERING_LOGS: appended metering record to nodeReports", "nodeReportsCount", len(nodeReports), "appendedRecord", rpt)
 		} else {
+			c.lggr.Errorw("METERING_LOGS: node metering detail did not contain exactly 1 record", "records", len(metadata.Metering), "metadataMetering", metadata.Metering)
 			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
 		}
 
 		c.responseIDCount[responseID]++
 		c.meteringResponses[responseID] = nodeReports
 
+		c.lggr.Errorw("METERING_LOGS: updated response tracking", "responseID", hex.EncodeToString(responseID[:]), "responseIDCount", c.responseIDCount[responseID], "meteringResponsesCount", len(c.meteringResponses), "nodeReportsCount", len(nodeReports))
+
 		if len(c.responseIDCount) > 1 {
+			c.lggr.Errorw("METERING_LOGS: received multiple different responses", "differentResponsesCount", len(c.responseIDCount), "responseIDCount", c.responseIDCount)
 			lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
 		}
 
+		c.lggr.Errorw("METERING_LOGS: checking if required responses received", "currentCount", c.responseIDCount[responseID], "requiredCount", c.requiredIdenticalResponses)
+
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
+			c.lggr.Errorw("METERING_LOGS: required responses received, preparing to send response", "responseID", hex.EncodeToString(responseID[:]), "nodeReports", nodeReports)
+
 			payload, err := c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: nodeReports})
 			if err != nil {
+				c.lggr.Errorw("METERING_LOGS: failed to encode payload with metadata", "error", err, "nodeReports", nodeReports)
 				return fmt.Errorf("failed to encode payload with metadata: %w", err)
 			}
 
+			c.lggr.Errorw("METERING_LOGS: successfully encoded payload with metadata", "payloadLength", len(payload), "nodeReportsCount", len(nodeReports))
 			c.sendResponse(clientResponse{Result: payload})
+			c.lggr.Errorw("METERING_LOGS: sent response with payload")
+		} else {
+			c.lggr.Errorw("METERING_LOGS: not enough responses yet", "currentCount", c.responseIDCount[responseID], "requiredCount", c.requiredIdenticalResponses)
 		}
 	} else {
+		c.lggr.Errorw("METERING_LOGS: processing error response", "sender", sender.String(), "error", msg.Error, "errorMsg", msg.ErrorMsg)
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
+
 		c.errorCount[msg.ErrorMsg]++
 		c.totalErrorCount++
 
+		c.lggr.Errorw("METERING_LOGS: updated error tracking", "errorMsg", msg.ErrorMsg, "errorCount", c.errorCount[msg.ErrorMsg], "totalErrorCount", c.totalErrorCount, "errorCountMap", c.errorCount)
+
 		if len(c.errorCount) > 1 {
+			c.lggr.Errorw("METERING_LOGS: received multiple different errors", "differentErrorsCount", len(c.errorCount), "errorCount", c.errorCount)
 			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
 		}
 
+		c.lggr.Errorw("METERING_LOGS: checking error conditions", "currentErrorCount", c.errorCount[msg.ErrorMsg], "requiredIdenticalResponses", c.requiredIdenticalResponses, "totalErrorCount", c.totalErrorCount, "remoteNodeCount", c.remoteNodeCount)
+
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
+			c.lggr.Errorw("METERING_LOGS: sending error response due to identical error count", "errorMsg", msg.ErrorMsg, "errorCount", c.errorCount[msg.ErrorMsg])
 			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
 		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredIdenticalResponses+1 {
+			c.lggr.Errorw("METERING_LOGS: sending error response due to total error count threshold", "totalErrorCount", c.totalErrorCount, "threshold", c.remoteNodeCount-c.requiredIdenticalResponses+1)
 			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
+		} else {
+			c.lggr.Errorw("METERING_LOGS: error conditions not met, continuing to wait", "errorCount", c.errorCount[msg.ErrorMsg], "totalErrorCount", c.totalErrorCount)
 		}
 	}
+
+	c.lggr.Errorw("METERING_LOGS: OnMessage completed successfully", "sender", sender.String(), "respSent", c.respSent)
 	return nil
 }
 
