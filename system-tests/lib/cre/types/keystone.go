@@ -10,6 +10,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -43,11 +44,12 @@ type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
 
 type WorkflowRegistryInput struct {
-	ChainSelector  uint64                  `toml:"-"`
-	CldEnv         *cldf.Environment       `toml:"-"`
-	AllowedDonIDs  []uint32                `toml:"-"`
-	WorkflowOwners []common.Address        `toml:"-"`
-	Out            *WorkflowRegistryOutput `toml:"out"`
+	ContractAddress common.Address          `toml:"_"`
+	ChainSelector   uint64                  `toml:"-"`
+	CldEnv          *cldf.Environment       `toml:"-"`
+	AllowedDonIDs   []uint32                `toml:"-"`
+	WorkflowOwners  []common.Address        `toml:"-"`
+	Out             *WorkflowRegistryOutput `toml:"out"`
 }
 
 func (w *WorkflowRegistryInput) Validate() error {
@@ -205,6 +207,9 @@ type ConfigureKeystoneInput struct {
 	Topology      *Topology
 	CldEnv        *cldf.Environment
 	OCR3Config    keystone_changeset.OracleConfig
+
+	OCR3Address                 *common.Address
+	CapabilitiesRegistryAddress *common.Address
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -219,6 +224,9 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	}
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
+	}
+	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
+		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
 	}
 
 	return nil
@@ -441,6 +449,7 @@ type FullCLDEnvironmentInput struct {
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
+	Datastore         datastore.DataStore
 	Topology          *Topology
 	OperationsBundle  operations.Bundle
 }

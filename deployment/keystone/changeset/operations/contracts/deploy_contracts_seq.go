@@ -23,7 +23,7 @@ type DeployKeystoneContractsSequenceOutput struct {
 	// Not sure if we can serialize the address book without modifications, but whatever is returned needs to be serializable.
 	// This could also be the address datastore instead.
 	AddressBook deployment.AddressBook
-	Addresses   datastore.AddressRefStore // Keeping the address store for backward compatibility, as not everything has been migrated to address book
+	Datastore   datastore.DataStore // Keeping the address store for backward compatibility, as not everything has been migrated to address book
 }
 
 // DeployKeystoneContractsSequence is a sequence that deploys the Keystone contracts (OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder).
@@ -98,7 +98,7 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 
 		return DeployKeystoneContractsSequenceOutput{
 			AddressBook: ab,
-			Addresses:   as.Addresses(),
+			Datastore:   as.Seal(),
 		}, nil
 	},
 )
