@@ -298,7 +298,6 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 
 		userPayload := <-ch
-		codec := api.JsonRPCCodec{}
 		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, userPayload)
 		_, open := <-ch
 		require.False(t, open)
