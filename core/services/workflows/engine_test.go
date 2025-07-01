@@ -366,6 +366,15 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
 				Value: m,
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   "Gas",
+							SpendValue:  "100",
+						},
+					},
+				},
 			}, nil
 		},
 	)
@@ -423,6 +432,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
 			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
 			assert.Equal(t, testWorkflowOwner, report.Metadata.WorkflowOwner)
+			assert.NotEmpty(t, report.Metadata.P2PID)
 
 		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted):
 			var started eventspb.WorkflowExecutionStarted
@@ -1228,10 +1238,10 @@ func TestEngine_WrapsTargets(t *testing.T) {
 		info, err2 := s.capability.Info(ctx)
 		require.NoError(t, err2)
 
-		if info.CapabilityType == capabilities.CapabilityTypeTarget {
-			assert.Equal(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+		if info.IsLocal {
+			assert.Equal(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		} else {
-			assert.NotEqual(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+			assert.NotEqual(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		}
 
 		return nil

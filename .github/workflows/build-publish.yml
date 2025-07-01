@@ -100,7 +100,7 @@ jobs:
       id-token: write
     uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b20336cdc21a6ee08fec353fa16e96786f88096f # 2025-06-17
     with:
-      aws-ecr-name: chainlink
+      aws-ecr-name: ccip
       aws-region-ecr: us-east-1
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile

@@ -298,6 +298,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("capability does not satisfy CallbackCapability")
 	}
 
+	// Wrap local executable capabilities to set peer2peerID
+	if info.IsLocal {
+		l.Debug("wrapping local executable capability")
+		cc = transmission.NewLocalExecutableCapability(
+			e.logger,
+			step.ID,
+			*e.localNode.Load(),
+			cc,
+		)
+	}
+
 	stepConfig, err := e.configForStep(ctx, l, step)
 	if err != nil {
 		return newCPErr("failed to get config for step", err)
@@ -772,12 +783,8 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		l.Errorf("failed to resolve step in workflow; error %v", verr)
 	}
 
-	info, err := curStep.capability.Info(ctx)
-	if err != nil {
-		l.Errorf("failed to get capability info: %s", err)
-	}
-
-	spendLimits := []capabilities.SpendLimit{}
+	spendLimit := decimal.NewNullDecimal(decimal.Zero)
+	spendLimit.Valid = false
 
 	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
 	if meteringOK {
@@ -785,20 +792,12 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		userMaxSpend := decimal.NewNullDecimal(decimal.Zero)
 		userMaxSpend.Valid = false
 
+		var err error
+
 		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
-		spendLimit, err := meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
-
+		spendLimit, err = meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
 		if err != nil {
-			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
-		}
-
-		if spendLimit.Valid {
-			err = meteringReport.Deduct(stepState.Ref, spendLimit.Decimal)
-			if err != nil {
-				l.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", stepState.Ref, err))
-			}
-
-			spendLimits = meteringReport.CreditToSpendingLimits(info, spendLimit.Decimal)
+			l.Error(fmt.Sprintf("could not get available balance for %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
@@ -812,7 +811,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
 	// convert balance to CapabilityInfo resource types for use in Capability call
 	// pass deducted amount as max spend to capability.Execute
-	inputs, response, sErr := e.executeStep(ctx, l, msg, spendLimits)
+	inputs, response, sErr := e.executeStep(ctx, l, msg, spendLimit, meteringReport)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	e.metrics.With(platform.KeyCapabilityID, curStepID).UpdateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
@@ -964,7 +963,8 @@ func (e *Engine) executeStep(
 	ctx context.Context,
 	lggr logger.Logger,
 	msg stepRequest,
-	spendLimits []capabilities.SpendLimit,
+	spendLimit decimal.NullDecimal,
+	meteringReport *metering.Report,
 ) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
@@ -992,6 +992,12 @@ func (e *Engine) executeStep(
 	if err != nil {
 		return nil, capabilities.CapabilityResponse{}, err
 	}
+
+	info, iErr := curStep.capability.Info(ctx)
+	if iErr != nil {
+		e.logger.Errorf("failed to get capability info: %s", err)
+	}
+
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
 		var desiredTimeout int64
@@ -1022,8 +1028,15 @@ func (e *Engine) executeStep(
 			WorkflowDonConfigVersion: ln.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 			DecodedWorkflowName:      e.workflow.name.String(),
-			SpendLimits:              spendLimits,
 		},
+	}
+
+	if spendLimit.Valid {
+		if err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal); err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
+
+		tr.Metadata.SpendLimits = meteringReport.CreditToSpendingLimits(info, config, spendLimit.Decimal)
 	}
 
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)

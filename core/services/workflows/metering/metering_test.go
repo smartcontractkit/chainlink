@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -48,6 +49,18 @@ var (
 		},
 		Credits: 10_000,
 	}
+	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+		{
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+			UnitsPerCredit:  "2",
+		},
+		{
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_GAS,
+			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
+			UnitsPerCredit:  "3",
+		},
+	}, Credits: 10_000}
 	failureReserveResponse = billing.ReserveCreditsResponse{
 		Success: false,
 	}
@@ -56,8 +69,15 @@ var (
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 	}
-	testUnitA = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
-	testUnitB = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
+	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
+	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
+	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_GAS)]
+	validConfig, _ = values.NewMap(map[string]any{
+		RatiosKey: map[string]string{
+			testUnitA: "0.4",
+			testUnitB: "0.6",
+		},
+	})
 )
 
 func Test_Report(t *testing.T) {
@@ -200,26 +220,105 @@ func Test_Report_MeteringMode(t *testing.T) {
 		require.Equal(t, balanceBefore, balanceAfter)
 	})
 
-	t.Run("CreditToSpendingLimits switches to metering mode if rate does not exist", func(t *testing.T) {
+	t.Run("CreditToSpendingLimits switches to metering mode", func(t *testing.T) {
 		t.Parallel()
 
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
-		billingClient := mocks.NewBillingClient(t)
-		report := newTestReport(t, lggr, billingClient)
+		t.Run("if only one spend type and rate does not exist", func(t *testing.T) {
+			t.Parallel()
 
-		// trigger metering mode with a billing reserve error
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
-		require.NoError(t, report.Reserve(t.Context()))
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
 
-		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitB)},
-		}, decimal.NewFromInt(1_000))
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithMultiRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
 
-		assert.Nil(t, limits)
-		assert.True(t, report.meteringMode)
-		assert.Len(t, logs.All(), 1)
-		billingClient.AssertExpectations(t)
+			// ratios and spend types should match
+			config, _ := values.NewMap(map[string]any{
+				RatiosKey: map[string]string{
+					testUnitB: "1",
+				},
+			})
+
+			// trigger metering mode spending type that doesn't match rates in reserve response
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitB)},
+			}, config, decimal.NewFromInt(1_000))
+
+			assert.Empty(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if ratio and spend type lengths do not match", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// 3 spend types and 2 ratios creates the mismatch
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitB), capabilities.CapabilitySpendType(testUnitC)},
+			}, validConfig, decimal.NewFromInt(1_000))
+
+			assert.Empty(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if multiple spend types and ratio does not exist", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithMultiRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// spend types and rates should match
+			// spend types and ratios should not match and return an error
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitC)},
+			}, validConfig, decimal.NewFromInt(1_000))
+
+			assert.Empty(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
+
+		t.Run("if multiple spend types and rate does not exist", func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			billingClient := mocks.NewBillingClient(t)
+			report := newTestReport(t, lggr, billingClient)
+
+			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+				Return(&successReserveResponseWithMultiRates, nil)
+			require.NoError(t, report.Reserve(t.Context()))
+
+			// ratios for spend types should match
+			// rates for spend types should not match
+			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitB)},
+			}, validConfig, decimal.NewFromInt(1_000))
+
+			assert.Empty(t, limits)
+			assert.True(t, report.meteringMode)
+			assert.Len(t, logs.All(), 1)
+			billingClient.AssertExpectations(t)
+		})
 	})
 }
 
@@ -711,34 +810,48 @@ func Test_Report_EmitReceipt(t *testing.T) {
 func Test_Report_CreditToSpendingLimits(t *testing.T) {
 	t.Parallel()
 
-	t.Run("happy path puts entire balance as first spend type", func(t *testing.T) {
+	t.Run("happy path splits spend types per provided ratios", func(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
+			Return(&successReserveResponseWithMultiRates, nil)
 
 		require.NoError(t, report.Reserve(t.Context()))
 
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitA: "0.4",
+				testUnitC: "0.6",
+			},
+		})
+
 		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitB)},
-		}, decimal.NewFromInt(1_000))
+			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitC)},
+		}, config, decimal.NewFromInt(1_000))
 
 		require.NotNil(t, limits)
-		require.Len(t, limits, 1)
+		require.Len(t, limits, 2)
 		assert.Equal(t, testUnitA, string(limits[0].SpendType))
-		assert.Equal(t, "500.000", limits[0].Limit)
+		assert.Equal(t, testUnitC, string(limits[1].SpendType))
+		assert.Equal(t, "200.000", limits[0].Limit) // conversion rate of 2 at 40% ratio
+		assert.Equal(t, "200.000", limits[1].Limit) // conversion rate of 3 at 60% ratio
+		assert.False(t, report.meteringMode)
 	})
 
 	t.Run("empty limits for empty spend types", func(t *testing.T) {
 		t.Parallel()
 
 		report := newTestReport(t, logger.Nop(), nil)
-		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{}, decimal.NewFromInt(1_000))
+		limits := report.CreditToSpendingLimits(
+			capabilities.CapabilityInfo{},
+			validConfig,
+			decimal.NewFromInt(1_000),
+		)
 
-		assert.Nil(t, limits)
+		assert.Empty(t, limits)
 	})
 }
 
@@ -938,12 +1051,125 @@ func Test_MeterReports_End(t *testing.T) {
 	})
 }
 
+func TestRatiosFromConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
+			},
+		}, validConfig)
+
+		require.NoError(t, err)
+		require.Len(t, ratios, 2)
+
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitA))
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitB))
+	})
+
+	t.Run("automatic ratio of 1 for single spend type", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA)},
+		}, nil)
+
+		require.NoError(t, err)
+		require.Len(t, ratios, 1)
+
+		assert.Contains(t, ratios, capabilities.CapabilitySpendType(testUnitA))
+	})
+
+	t.Run("error when spend ratios key does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{}, new(values.Map))
+		require.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Empty(t, ratios)
+	})
+
+	t.Run("error when spend ratios fails to unwrap to map", func(t *testing.T) {
+		t.Parallel()
+
+		config := &values.Map{
+			Underlying: map[string]values.Value{
+				"spendRatios": &values.String{Underlying: "invalid"},
+			},
+		}
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{}, config)
+		require.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Empty(t, ratios)
+	})
+
+	t.Run("error when spend type is not in ratios map", func(t *testing.T) {
+		t.Parallel()
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitC),
+			},
+		}, validConfig)
+
+		require.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Empty(t, ratios)
+	})
+
+	t.Run("error when ratio contains invalid data type", func(t *testing.T) {
+		t.Parallel()
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]any{
+				testUnitA: "0.2",
+				testUnitB: 5,
+			},
+		})
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
+			},
+		}, config)
+
+		require.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Empty(t, ratios)
+	})
+
+	t.Run("error when ratio contains invalid decimal", func(t *testing.T) {
+		t.Parallel()
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]any{
+				testUnitA: "invalid",
+				testUnitB: "0.2",
+			},
+		})
+
+		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
+			},
+		}, config)
+
+		require.ErrorIs(t, err, ErrInvalidRatios)
+		assert.Empty(t, ratios)
+	})
+}
+
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
 
 	if client == nil {
 		meteringReport, err := NewReport(defaultLabels, lggr, nil)
 		require.NoError(t, err)
+
 		return meteringReport
 	}
 
@@ -956,5 +1182,6 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
+
 	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }
