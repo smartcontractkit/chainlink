@@ -290,7 +290,7 @@ func prepareCommitReportsEventsInDb(
 			s,
 			orm,
 			cciptypes.ChainSelector(j+1),
-			cciptypes.ChainSelector(j+2),
+			numberOfChains,
 			firstInserted,
 			0,
 		)
@@ -301,7 +301,7 @@ func prepareCommitReportsEventsInDb(
 			s,
 			orm,
 			cciptypes.ChainSelector(j+1),
-			cciptypes.ChainSelector(j+3),
+			numberOfChains,
 			matchingLogs,
 			firstInserted,
 		)
@@ -316,7 +316,7 @@ func populateDatabaseForCommitReportAccepted(
 	testEnv *benchSetupData,
 	orm *logpoller.DSORM,
 	destChain cciptypes.ChainSelector,
-	sourceChain cciptypes.ChainSelector,
+	numberOfChains int,
 	numOfReports int,
 	offset int,
 ) {
@@ -330,7 +330,7 @@ func populateDatabaseForCommitReportAccepted(
 	// Calculate timestamp based on whether these are the first logs or matching logs
 	var timestamp time.Time
 	if offset == 0 {
-		// For first set of logs, set timestamp to 1 hour ago
+		// For first set of logs, set timestamp to very old
 		timestamp = time.Now().Add(-10 * time.Hour)
 	} else {
 		// For matching logs, use current time
@@ -341,6 +341,11 @@ func populateDatabaseForCommitReportAccepted(
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
+
+		sourceChain := cciptypes.ChainSelector(i%numberOfChains + 1)
+		if sourceChain == destChain {
+			sourceChain += 1
+		}
 
 		// Simulate merkleRoots
 		merkleRoots := []offramp.InternalMerkleRoot{
