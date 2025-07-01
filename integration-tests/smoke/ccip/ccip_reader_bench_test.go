@@ -282,14 +282,16 @@ func prepareCommitReportsEventsInDb(
 	})
 
 	for j := 0; j < numberOfChains; j++ {
+		// #nosec G115
 		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
-
+		// #nosec G115
+		destChainId := cciptypes.ChainSelector(j + 1)
 		populateDatabaseForCommitReportAccepted(
 			ctx,
 			b,
 			s,
 			orm,
-			cciptypes.ChainSelector(j+1),
+			destChainId,
 			numberOfChains,
 			firstInserted,
 			0,
@@ -300,7 +302,7 @@ func prepareCommitReportsEventsInDb(
 			b,
 			s,
 			orm,
-			cciptypes.ChainSelector(j+1),
+			destChainId,
 			numberOfChains,
 			matchingLogs,
 			firstInserted,
@@ -344,7 +346,7 @@ func populateDatabaseForCommitReportAccepted(
 
 		sourceChain := cciptypes.ChainSelector(i%numberOfChains + 1)
 		if sourceChain == destChain {
-			sourceChain += 1
+			sourceChain++
 		}
 
 		// Simulate merkleRoots
