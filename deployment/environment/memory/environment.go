@@ -2,8 +2,6 @@ package memory
 
 import (
 	"context"
-	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
 
@@ -15,10 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -27,20 +22,6 @@ import (
 const (
 	Memory = "memory"
 )
-
-var (
-	// Instead of a relative path, use runtime.Caller or go-bindata
-	ProgramsPath = GetProgramsPath()
-)
-
-func GetProgramsPath() string {
-	// Get the directory of the current file (environment.go)
-	_, currentFile, _, _ := runtime.Caller(0)
-	// Go up to the root of the deployment package
-	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
-	// Construct the absolute path
-	return filepath.Join(rootDir, "ccip/changeset/internal", "solana_contracts")
-}
 
 type MemoryEnvironmentConfig struct {
 	Chains             int
@@ -57,14 +38,8 @@ type MemoryEnvironmentConfig struct {
 
 type NewNodesConfig struct {
 	LogLevel zapcore.Level
-	// EVM chains to be configured. Optional.
-	Chains map[uint64]cldf_evm.Chain
-	// Solana chains to be configured. Optional.
-	SolChains map[uint64]cldf_solana.Chain
-	// Aptos chains to be configured. Optional.
-	AptosChains map[uint64]cldf_aptos.Chain
-	// TON chains to be configured. Optional.
-	TonChains      map[uint64]cldf_ton.Chain
+	// BlockChains to be configured
+	BlockChains    cldf_chain.BlockChains
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -133,10 +108,7 @@ func NewNodes(
 		// run smoothly.
 		c := NewNodeConfig{
 			Port:           ports[i],
-			Chains:         cfg.Chains,
-			Solchains:      cfg.SolChains,
-			Aptoschains:    cfg.AptosChains,
-			Tonchains:      cfg.TonChains,
+			BlockChains:    cfg.BlockChains,
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      true,
 			RegistryConfig: cfg.RegistryConfig,
@@ -146,13 +118,10 @@ func NewNodes(
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
-	for i := 0; i < cfg.NumNodes; i++ {
+	for i := range cfg.NumNodes {
 		c := NewNodeConfig{
 			Port:           ports[cfg.NumBootstraps+i],
-			Chains:         cfg.Chains,
-			Solchains:      cfg.SolChains,
-			Aptoschains:    cfg.AptosChains,
-			Tonchains:      cfg.TonChains,
+			BlockChains:    cfg.BlockChains,
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      false,
 			RegistryConfig: cfg.RegistryConfig,
@@ -169,30 +138,13 @@ func NewNodes(
 func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
-	evmChains map[uint64]cldf_evm.Chain,
-	solChains map[uint64]cldf_solana.Chain,
-	aptosChains map[uint64]cldf_aptos.Chain,
-	tonChains map[uint64]cldf_ton.Chain,
+	blockchains cldf_chain.BlockChains,
 	nodes map[string]Node,
 ) cldf.Environment {
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 
-	}
-
-	blockChains := map[uint64]cldf_chain.BlockChain{}
-	for _, c := range evmChains {
-		blockChains[c.Selector] = c
-	}
-	for _, c := range solChains {
-		blockChains[c.Selector] = c
-	}
-	for _, c := range aptosChains {
-		blockChains[c.Selector] = c
-	}
-	for _, c := range tonChains {
-		blockChains[c.Selector] = c
 	}
 
 	return *cldf.NewEnvironment(
@@ -204,7 +156,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		NewMemoryJobClient(nodes),
 		ctx,
 		cldf.XXXGenerateTestOCRSecrets(),
-		cldf_chain.NewBlockChains(blockChains),
+		blockchains,
 	)
 }
 
@@ -227,10 +179,7 @@ func NewMemoryEnvironment(
 
 	c := NewNodesConfig{
 		LogLevel:       logLevel,
-		Chains:         chains.EVMChains(),
-		SolChains:      chains.SolanaChains(),
-		AptosChains:    chains.AptosChains(),
-		TonChains:      chains.TonChains(),
+		BlockChains:    chains,
 		NumNodes:       config.Nodes,
 		NumBootstraps:  config.Bootstraps,
 		RegistryConfig: config.RegistryConfig,

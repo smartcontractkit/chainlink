@@ -198,7 +198,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, &DisallowedExecutionHelper{lggr: e.lggr, SecretsFetcher: e.cfg.SecretsFetcher, UserLogChan: userLogChan})
+	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, TimeProvider{}, e.cfg.SecretsFetcher))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}

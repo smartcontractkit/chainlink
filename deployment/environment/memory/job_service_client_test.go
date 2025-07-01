@@ -22,13 +22,11 @@ import (
 func TestJobClientProposeJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
+	blockchains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
 	ports := freeport.GetN(t, 1)
 	c := memory.NewNodeConfig{
 		Port:           ports[0],
-		Chains:         chains.EVMChains(),
-		Solchains:      nil,
-		Aptoschains:    nil,
+		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
 		Bootstrap:      false,
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
@@ -125,13 +123,11 @@ func TestJobClientProposeJob(t *testing.T) {
 func TestJobClientJobAPI(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
+	blockchains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
 	ports := freeport.GetN(t, 1)
 	c := memory.NewNodeConfig{
 		Port:           ports[0],
-		Chains:         chains.EVMChains(),
-		Solchains:      nil,
-		Aptoschains:    nil,
+		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
 		Bootstrap:      false,
 		RegistryConfig: deployment.CapabilityRegistryConfig{},

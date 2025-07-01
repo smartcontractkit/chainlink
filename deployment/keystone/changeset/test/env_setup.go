@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -283,7 +282,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		env  cldf.Environment
 	)
 	if c.useInMemoryNodes {
-		dons, env = setupMemoryNodeTest(t, registryChainSel, envWithContracts.BlockChains.EVMChains(), c)
+		dons, env = setupMemoryNodeTest(t, registryChainSel, envWithContracts.BlockChains, c)
 	} else {
 		dons, env = setupViewOnlyNodeTest(t, registryChainSel, envWithContracts.BlockChains.EVMChains(), c)
 	}
@@ -464,7 +463,9 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 	return dons, *env
 }
 
-func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf_evm.Chain, c EnvWrapperConfig) (testDons, cldf.Environment) {
+func setupMemoryNodeTest(
+	t *testing.T, registryChainSel uint64, blockchains cldf_chain.BlockChains, c EnvWrapperConfig,
+) (testDons, cldf.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
 	// TODO: configure the nodes with the correct override functions
 	lggr := logger.Test(t)
@@ -474,12 +475,10 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	}
 
 	wfChains := map[uint64]cldf_evm.Chain{}
-	wfChains[registryChainSel] = chains[registryChainSel]
+	wfChains[registryChainSel] = blockchains.EVMChains()[registryChainSel]
 	wfConf := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
-		Chains:         wfChains,
-		SolChains:      nil,
-		AptosChains:    nil,
+		BlockChains:    blockchains,
 		NumNodes:       c.WFDonConfig.N,
 		NumBootstraps:  0,
 		RegistryConfig: crConfig,
@@ -488,13 +487,9 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	wfNodes := memory.NewNodes(t, wfConf)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
-	writerChains := map[uint64]cldf_evm.Chain{}
-	maps.Copy(writerChains, chains)
 	cwConf := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
-		Chains:         writerChains,
-		SolChains:      nil,
-		AptosChains:    nil,
+		BlockChains:    blockchains,
 		NumNodes:       c.WriterDonConfig.N,
 		NumBootstraps:  0,
 		RegistryConfig: crConfig,
@@ -504,12 +499,10 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]cldf_evm.Chain{}
-	assetChains[registryChainSel] = chains[registryChainSel]
+	assetChains[registryChainSel] = blockchains.EVMChains()[registryChainSel]
 	assetCfg := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
-		Chains:         assetChains,
-		SolChains:      nil,
-		AptosChains:    nil,
+		BlockChains:    blockchains,
 		NumNodes:       c.AssetDonConfig.N,
 		NumBootstraps:  0,
 		RegistryConfig: crConfig,
@@ -523,7 +516,9 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, nil, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(
+		t.Context, lggr, blockchains, dons.AllNodes(),
+	)
 	return dons, env
 }
 

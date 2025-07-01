@@ -59,6 +59,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
@@ -130,6 +131,7 @@ type Config struct {
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
 	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
+	S3ProviderInput   *s3provider.Input       `toml:"s3provider"`
 }
 
 func (c Config) Validate() error {
@@ -229,6 +231,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
+		output.S3ProviderOutput,
 	)
 
 	if settingsErr != nil {
@@ -650,6 +653,7 @@ func StartCLIEnvironment(
 		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
 		},
+		S3ProviderInput: in.S3ProviderInput,
 	}
 
 	if withPluginsDockerImageFlag == "" {

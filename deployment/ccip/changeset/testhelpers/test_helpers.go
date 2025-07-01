@@ -2998,3 +2998,45 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 		require.NoError(t, err)
 	}
 }
+
+func UpdateFeeQuoterForToken(
+	t *testing.T,
+	e cldf.Environment,
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	dstChain uint64,
+	tokenSymbol shared.TokenSymbol,
+) error {
+	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{
+		MinFeeUSDCents:    50,
+		MaxFeeUSDCents:    50_000,
+		DeciBps:           0,
+		DestGasOverhead:   180_000,
+		DestBytesOverhead: 640,
+		IsEnabled:         true,
+	}
+	_, err := commoncs.Apply(t, e,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
+				UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+					chain.Selector: {
+						TokenTransferFeeConfigArgs: []v1_6.TokenTransferFeeConfigArg{
+							{
+								DestChain: dstChain,
+								TokenTransferFeeConfigPerToken: map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									tokenSymbol: config,
+								},
+							},
+						},
+					},
+				},
+			}),
+	)
+
+	if err != nil {
+		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
+		return err
+	}
+	return nil
+}
