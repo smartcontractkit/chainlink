@@ -27,6 +27,20 @@ import (
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
+var (
+	// Instead of a relative path, use runtime.Caller or go-bindata
+	programsPath = getProgramsPath()
+)
+
+func getProgramsPath() string {
+	// Get the directory of the current file (environment.go)
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Go up to the root of the deployment package
+	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+	// Construct the absolute path
+	return filepath.Join(rootDir, "ccip/changeset/internal", "solana_contracts")
+}
+
 func getTestSolanaChainSelectors() []uint64 {
 	result := []uint64{}
 	for _, x := range chainsel.SolanaALL {
@@ -91,7 +105,7 @@ func generateChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	t.Helper()
 
 	once.Do(func() {
-		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
+		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), programsPath, logger.Test(t), "")
 		require.NoError(t, err)
 	})
 
@@ -108,7 +122,7 @@ func generateChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
 			cldf_solana_provider.CTFChainProviderConfig{
 				Once:                         once,
 				DeployerKeyGen:               cldf_solana_provider.PrivateKeyRandom(),
-				ProgramsPath:                 ProgramsPath,
+				ProgramsPath:                 programsPath,
 				ProgramIDs:                   SolanaProgramIDs,
 				WaitDelayAfterContainerStart: 15 * time.Second, // we have slot errors that force retries if the chain is not given enough time to boot
 			},
