@@ -125,6 +125,13 @@ func DeployWorkflow(
 	return nil
 }
 
+func DerefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func EncryptSecrets(creCLICommandPath, secretsFile string, secrets map[string]string, settingsFile *os.File) (string, error) {
 	var outputBuffer bytes.Buffer
 
