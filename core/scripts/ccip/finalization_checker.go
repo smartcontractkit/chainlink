@@ -31,22 +31,10 @@ type BlockResponse struct {
 }
 
 // MODIFY HERE THE ENDPOINTS YOU WANT TO TEST
-// var endpoints = []Endpoint{
-// 	{"LinkPool", "https://rpcs.cldev.sh/base/sepolia/linkpool1"},
-// 	{"Chainstack", "https://rpcs.cldev.sh/base/sepolia/chainstack1"},
-// 	{"SimplyVC", "https://rpcs.cldev.sh/base/sepolia/simplyvc1"},
-// }
-
-// var endpoints = []Endpoint{
-// 	{"Chainstack", "https://rpcs.cldev.sh/base/mainnet/chainstack1"},
-// 	{"LinkPool", "https://rpcs.cldev.sh/base/mainnet/linkpool1"},
-// 	{"SimplyVC", "https://rpcs.cldev.sh/base/mainnet/simplyvc1"},
-// }
-
 var endpoints = []Endpoint{
-	{"SimplyVC", "https://rpcs.cldev.sh/optimism/sepolia/simplyvc1"},
-	{"LinkPool", "https://rpcs.cldev.sh/optimism/sepolia/linkpool1"},
-	{"Chainstack", "https://rpcs.cldev.sh/optimism/sepolia/chainstack1"},
+	{"LinkPool", "https://rpc1"},
+	{"Chainstack", "https://rpc2"},
+	{"SimplyVC", "https://rpc3"},
 }
 
 func getFinalizedBlockNumber(url string) (uint64, error) {
