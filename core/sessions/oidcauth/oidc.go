@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
-
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
@@ -37,9 +35,7 @@ import (
 )
 
 const (
-	RouterRateLimitterPeriod = 1 * time.Minute
-	RouterRateLimitterLimit  = 1000
-	SQLSelectUserbyEmail     = "SELECT * FROM users WHERE lower(email) = lower($1)"
+	SQLSelectUserbyEmail = "SELECT * FROM users WHERE lower(email) = lower($1)"
 )
 
 var ErrUserNoOIDCGroups = errors.New("user claims response from identity server received, but no matching role group names in claim")
@@ -303,7 +299,7 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 // FindUserByAPIToken retrieves a possible stored user and role from the oidc_user_api_tokens table store
 func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (clsessions.User, error) {
 	if !oi.config.UserAPITokenEnabled() {
-		return clsessions.User{}, errors.New("API token is not enabled ")
+		return clsessions.User{}, errors.New("API token is not enabled")
 	}
 
 	var foundUser clsessions.User
@@ -373,7 +369,10 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sess
 			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM oidc_sessions WHERE id = $1",
 			sessionID, oi.config.SessionTimeout().Duration(),
 		); err != nil {
-			return clsessions.ErrUserSessionExpired
+			if errors.Is(err, sql.ErrNoRows) {
+				return clsessions.ErrUserSessionExpired
+			}
+			return err
 		}
 		if !foundSession.Valid {
 			// Sessions expired, purge
@@ -436,7 +435,7 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 	)
 	if err != nil {
 		oi.lggr.Errorf("unable to create new session in oidc_sessions table %v", err)
-		return "", fmt.Errorf("error creating local LDAP session: %w", err)
+		return "", fmt.Errorf("error creating local OIDC session: %w", err)
 	}
 
 	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
@@ -465,9 +464,7 @@ func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email string, newRo
 func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.User, newPassword string) error {
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser clsessions.User
-	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		return tx.GetContext(ctx, &localAdminUser, SQLSelectUserbyEmail, user.Email)
-	}); err != nil {
+	if err := oi.ds.GetContext(ctx, &localAdminUser, SQLSelectUserbyEmail, user.Email); err != nil {
 		oi.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return clsessions.ErrNotSupported
 	}
@@ -475,12 +472,13 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 	// User is local admin, save new password
 	hashedPassword, err := utils.HashPassword(newPassword)
 	if err != nil {
-		return err
+		oi.lggr.Errorf("Error hashing user password: err: %v", err)
+		return errors.New("Unable to hash password")
 	}
-	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
-		return tx.GetContext(ctx, user, sql, hashedPassword, user.Email)
-	}); err != nil {
+	if err := oi.ds.GetContext(ctx, user,
+		"UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *",
+		hashedPassword, user.Email,
+	); err != nil {
 		oi.lggr.Errorf("unable to set password for user: %s, err: %v", user.Email, err)
 		return errors.New("unable to save password")
 	}
@@ -542,6 +540,7 @@ func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.
 		return nil
 	})
 	if err != nil {
+		oi.lggr.Errorf("error creating API token: %v", err)
 		return errors.New("error creating API token")
 	}
 
@@ -655,9 +654,8 @@ func (oi *oidcAuthenticator) ExtractIDClaimValues(claims map[string]interface{},
 	}
 }
 
-const constantTimeEmailLength = 256
-
 func constantTimeEmailCompare(left, right string) bool {
+	const constantTimeEmailLength = 256
 	length := mathutil.Max(constantTimeEmailLength, len(left), len(right))
 	leftBytes := make([]byte, length)
 	rightBytes := make([]byte, length)
