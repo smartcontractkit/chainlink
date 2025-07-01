@@ -180,10 +180,10 @@ func PrepareCRECLISettingsFile(
 			UseSSL:          false,
 			Region:          s3ProviderOutput.Region,
 		}
-	} else {
-		profileSettings.WorkflowStorage.Gist = Gist{
-			GithubToken: `${CRE_GITHUB_API_TOKEN}`,
-		}
+	}
+
+	profileSettings.WorkflowStorage.Gist = Gist{
+		GithubToken: `${CRE_GITHUB_API_TOKEN}`,
 	}
 
 	for chainSelector, rpc := range rpcs {

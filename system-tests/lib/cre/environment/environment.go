@@ -111,16 +111,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
 
-	var s3ProviderOutput *s3provider.Output
-	if input.S3ProviderInput != nil {
-		var s3ProviderErr error
-		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
-		if s3ProviderErr != nil {
-			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed XD")
-		}
-	}
-	fmt.Print(libformat.PurpleText("\nMinio: %#v\n\n", s3ProviderOutput))
-
 	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
 	// We need to have this reference in the outer scope, because subsequent functions will need it
 	var nixShell *libnix.Shell
@@ -151,6 +141,17 @@ func SetupTestEnvironment(
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
 	startTime := time.Now()
+
+	var s3ProviderOutput *s3provider.Output
+	if input.S3ProviderInput != nil {
+		var s3ProviderErr error
+		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
+		if s3ProviderErr != nil {
+			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
+		}
+	}
+	testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
+
 	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Starting %d blockchain(s)\n\n", len(bi.blockchainsInput)))
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
