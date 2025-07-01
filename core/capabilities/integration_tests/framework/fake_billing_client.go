@@ -3,9 +3,10 @@ package framework
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type fakeBillingClient struct {
@@ -17,7 +18,6 @@ func NewFakeBillingClient() metering.BillingClient {
 
 func (f fakeBillingClient) GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error) {
 	return &billing.GetOrganizationCreditsByWorkflowResponse{OrganizationId: "", Credits: &billing.OrganizationCredits{CreditsReserved: "", Credits: ""}}, nil
-
 }
 
 func (f fakeBillingClient) GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error) {
