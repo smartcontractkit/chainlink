@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -19,10 +20,9 @@ import (
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -270,15 +270,81 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		UniqueReports:                     true,
 	}
 
-	cfg := keystone_changeset.InitialContractsCfg{
-		RegistryChainSel: input.ChainSelector,
-		Dons:             donCapabilities,
-		OCR3Config:       &oracleConfig,
+	_, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
+			Env:  input.CldEnv,
+			Dons: donCapabilities,
+		},
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
+			RegistryChainSel: input.ChainSelector,
+			UseMCMS:          false,
+			ContractAddress:  input.CapabilitiesRegistryAddress,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure capabilities registry")
 	}
 
-	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*input.CldEnv, cfg)
+	capReg, err := keystone_changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+		input.CldEnv.DataStore.Addresses(),
+		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+		input.CapabilitiesRegistryAddress.Hex(),
+	)
 	if err != nil {
-		return errors.Wrap(err, "failed to configure initial contracts")
+		return errors.Wrap(err, "failed to get capabilities registry contract")
+	}
+
+	var seqDons []ks_contracts_op.ConfigureForwardersSeqDON
+	for _, donCap := range donCapabilities {
+		don := ks_contracts_op.ConfigureForwardersSeqDON{
+			Name: donCap.Name,
+		}
+		for _, nop := range donCap.Nops {
+			don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
+		}
+		seqDons = append(seqDons, don)
+	}
+	_, err = operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureForwardersSeq,
+		ks_contracts_op.ConfigureForwardersSeqDeps{
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
+		},
+		ks_contracts_op.ConfigureForwardersSeqInput{
+			RegistryChainSel: input.ChainSelector,
+			DONs:             seqDons,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure forwarders")
+	}
+
+	var allNodeIDs []string
+	for _, don := range donCapabilities {
+		for _, nop := range don.Nops {
+			allNodeIDs = append(allNodeIDs, nop.Nodes...)
+		}
+	}
+
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env: input.CldEnv,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress:  input.OCR3Address,
+			RegistryChainSel: input.ChainSelector,
+			NodeIDs:          allNodeIDs,
+			Config:           &oracleConfig,
+			DryRun:           false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure OCR3 contract")
 	}
 
 	return nil
@@ -369,37 +435,29 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	_, err := workflow_registry_changeset.UpdateAllowedDons(*input.CldEnv, &workflow_registry_changeset.UpdateAllowedDonsRequest{
-		RegistryChainSel: input.ChainSelector,
-		DonIDs:           input.AllowedDonIDs,
-		Allowed:          true,
-	})
+	report, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigWorkflowRegistrySeq,
+		ks_contracts_op.ConfigWorkflowRegistrySeqDeps{
+			Env: input.CldEnv,
+		},
+		ks_contracts_op.ConfigWorkflowRegistrySeqInput{
+			ContractAddress:       input.ContractAddress,
+			RegistryChainSelector: input.ChainSelector,
+			AllowedDonIDs:         input.AllowedDonIDs,
+			WorkflowOwners:        input.WorkflowOwners,
+		},
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to update allowed Dons")
+		return nil, errors.Wrap(err, "failed to configure workflow registry")
 	}
 
-	addresses := make([]string, 0, len(input.WorkflowOwners))
-	for _, owner := range input.WorkflowOwners {
-		addresses = append(addresses, owner.Hex())
+	input.Out = &types.WorkflowRegistryOutput{
+		ChainSelector:  report.Output.RegistryChainSelector,
+		AllowedDonIDs:  report.Output.AllowedDonIDs,
+		WorkflowOwners: report.Output.WorkflowOwners,
 	}
-
-	_, err = workflow_registry_changeset.UpdateAuthorizedAddresses(*input.CldEnv, &workflow_registry_changeset.UpdateAuthorizedAddressesRequest{
-		RegistryChainSel: input.ChainSelector,
-		Addresses:        addresses,
-		Allowed:          true,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to update authorized addresses")
-	}
-
-	out := &types.WorkflowRegistryOutput{
-		ChainSelector:  input.ChainSelector,
-		AllowedDonIDs:  input.AllowedDonIDs,
-		WorkflowOwners: input.WorkflowOwners,
-	}
-
-	input.Out = out
-	return out, nil
+	return input.Out, nil
 }
 
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {

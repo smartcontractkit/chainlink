@@ -164,7 +164,7 @@ func NodeOperator(name string, adminAddress string) capabilities_registry.Capabi
 	}
 }
 
-func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
+func NopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
 	out := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
 	for _, don := range dons {
 		for _, nop := range don.Nops {
@@ -199,7 +199,7 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 	return out, nil
 }
 
-func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
+func MapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
 	out := make(map[string][]RegisteredCapability)
 	for _, don := range dons {
 		var caps []RegisteredCapability
@@ -219,9 +219,9 @@ func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[stri
 	return out, nil
 }
 
-// mapDonsToNodes returns a map of don name to simplified representation of their nodes
+// MapDonsToNodes returns a map of don name to simplified representation of their nodes
 // all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
-func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]deployment.Node, error) {
+func MapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]deployment.Node, error) {
 	donToNodes := make(map[string][]deployment.Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
 	// they are equivalent
@@ -252,21 +252,28 @@ type RegisteredDonConfig struct {
 	Name             string
 	NodeIDs          []string // ids in the offchain client
 	RegistryChainSel uint64
+	Registry         *capabilities_registry.CapabilitiesRegistry
 }
 
 func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
-	// load the don info from the capabilities registry
-	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.BlockChains.EVMChains(),
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+	var (
+		err    error
+		capReg = cfg.Registry
+	)
 
-	if capReg == nil {
-		return nil, errors.New("capabilities registry not found in contract sets")
+	if cfg.Registry == nil {
+		// load the don info from the capabilities registry
+		r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+			Chains:      env.BlockChains.EVMChains(),
+			AddressBook: env.ExistingAddresses,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get contract sets: %w", err)
+		}
+		capReg = r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+		if capReg == nil {
+			return nil, errors.New("capabilities registry not found in contract sets")
+		}
 	}
 
 	di, err := capReg.GetDONs(nil)
@@ -328,9 +335,9 @@ func (d RegisteredDon) Signers(chainFamily string) []common.Address {
 	return out
 }
 
-func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonInfo, registryChainSel uint64) ([]RegisteredDon, error) {
+func JoinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonInfo, registryChainSel uint64) ([]RegisteredDon, error) {
 	// all maps should have the same keys
-	nodes, err := mapDonsToNodes(dons, true, registryChainSel)
+	nodes, err := MapDonsToNodes(dons, true, registryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to capabilities: %w", err)
 	}
