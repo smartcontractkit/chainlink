@@ -1,10 +1,8 @@
 package crib
 
 import (
-	"context"
 	"fmt"
-	"github.com/smartcontractkit/crib-sdk/crib"
-	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
+	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,9 +13,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -75,39 +71,6 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 	return nixShell, nil
 }
 
-func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Output, error) {
-	if input == nil {
-		return nil, errors.New("DeployCribBlockchainInput is nil")
-	}
-
-	if valErr := input.Validate(); valErr != nil {
-		return nil, errors.Wrap(valErr, "input validation failed")
-	}
-
-	gethChainEnvVars := map[string]string{
-		"CHAIN_ID": input.BlockchainInput.ChainID,
-	}
-
-	// crib init is required to create necessary Kubernetes resources (like configmaps) and set up proper permissions
-	_, err := input.NixShell.RunCommand("crib init")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to run crib init")
-	}
-
-	_, err = input.NixShell.RunCommandWithEnvVars("devspace run deploy-custom-geth-chain --no-warn", gethChainEnvVars)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to run devspace run deploy-custom-geth-chain --no-warn")
-	}
-
-	// TODO chain family should be dynamic, but currently we don't have in the input (it's set in the output depending on blockchain type)
-	blockchainOut, err := infra.ReadBlockchainURL(filepath.Join(".", input.CribConfigsDir), "evm", input.BlockchainInput.ChainID)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read blockchain URLs")
-	}
-
-	return blockchainOut, nil
-}
-
 func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
@@ -138,45 +101,8 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		var writeOverrides = func(nodeMetadata *types.NodeMetadata, i int, nodeType types.NodeType) error {
-			nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
-			if findErr != nil {
-				return errors.Wrapf(findErr, "failed to find node index for %s node %d in nodeset %s", nodeType, i, donMetadata.Name)
-			}
-
-			nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
-			if convErr != nil {
-				return errors.Wrapf(convErr, "failed to convert node index '%s' to int for %s node %d in nodeset %s", nodeIndexStr, nodeType, i, donMetadata.Name)
-			}
-
-			cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[j].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
-			if tomlErr != nil {
-				return errors.Wrap(tomlErr, "failed to clean TOML")
-			}
-
-			configFileMask := "config-override-bt-%d.toml"
-			secretsFileMask := "secrets-override-bt-%d.toml"
-
-			if nodeType != types.BootstrapNode {
-				configFileMask = "config-override-%d.toml"
-				secretsFileMask = "secrets-override-%d.toml"
-			}
-
-			writeErr := os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(configFileMask, i)), cleanedToml, 0600)
-			if writeErr != nil {
-				return errors.Wrapf(writeErr, "failed to write config override for bootstrap node %d to file", i)
-			}
-
-			writeErr = os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(secretsFileMask, i)), []byte(input.NodeSetInputs[j].NodeSpecs[nodeIndex].Node.TestSecretsOverrides), 0600)
-			if writeErr != nil {
-				return errors.Wrapf(writeErr, "failed to write secrets override for bootstrap node %d to file", i)
-			}
-
-			return nil
-		}
-
 		for i, btNode := range bootstrapNodes {
-			writeErr := writeOverrides(btNode, i, types.BootstrapNode)
+			writeErr := writeOverrides(btNode, i, types.BootstrapNode, j, input, donMetadata, cribConfigsDirAbs)
 			if writeErr != nil {
 				return nil, writeErr
 			}
@@ -188,7 +114,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		}
 
 		for i, workerNode := range workerNodes {
-			writeErr := writeOverrides(workerNode, i, types.WorkerNode)
+			writeErr := writeOverrides(workerNode, i, types.WorkerNode, j, input, donMetadata, cribConfigsDirAbs)
 			if writeErr != nil {
 				return nil, writeErr
 			}
@@ -204,69 +130,6 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 			return nil, errors.Wrap(deployErr, "failed to run devspace run deploy-don")
 		}
 
-		// validate capabilities-related configuration and copy capabilities to pods
-		podNamePattern := input.NodeSetInputs[j].Name + `-\\d+`
-		_, regErr := regexp.Compile(podNamePattern)
-		if regErr != nil {
-			return nil, errors.Wrapf(regErr, "failed to compile regex for pod name pattern %s", podNamePattern)
-		}
-		capabilitiesFound := map[string]int{}
-		capabilitiesDirs := []string{}
-		capabilitiesDirsFound := map[string]int{}
-
-		// make sure all worker nodes in DON have the same set of capabilities
-		// in the future we might want to allow different capabilities for different nodes
-		// but for now we require all worker nodes in the same DON to have the same capabilities
-		for _, nodeSpec := range input.NodeSetInputs[j].NodeSpecs {
-			for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
-				capabilitiesFound[capabilityBinaryPath]++
-			}
-
-			if nodeSpec.Node.CapabilityContainerDir != "" {
-				capabilitiesDirs = append(capabilitiesDirs, nodeSpec.Node.CapabilityContainerDir)
-				capabilitiesDirsFound[nodeSpec.Node.CapabilityContainerDir]++
-			}
-		}
-
-		for capability, count := range capabilitiesFound {
-			// we only care about worker nodes, because bootstrap nodes cannot execute any workflows, so they don't need capabilities
-			if count != len(workerNodes) {
-				return nil, fmt.Errorf("capability %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capabilities", capability, input.NodeSetInputs[j].Name)
-			}
-		}
-
-		destinationDir, err := crecaps.DefaultContainerDirectory(libtypes.CRIB)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
-		}
-
-		// all of them need to use the same capabilities directory inside the container
-		if len(capabilitiesDirs) > 1 {
-			for capabilityDir, count := range capabilitiesDirsFound {
-				if count != len(workerNodes) {
-					return nil, fmt.Errorf("the same capability container dir %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capability container dir", capabilityDir, input.NodeSetInputs[j].Name)
-				}
-			}
-			destinationDir = capabilitiesDirs[0]
-		}
-
-		for capability := range capabilitiesFound {
-			absSource, pathErr := filepath.Abs(capability)
-			if err != nil {
-				return nil, errors.Wrapf(pathErr, "failed to get absolute path to capability %s", capability)
-			}
-			// ensure +x chmod in capability binary before copying to pods
-			err := os.Chmod(capability, 0755)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to chmod capability %s", capability)
-			}
-			destination := filepath.Join(destinationDir, filepath.Base(capability))
-			_, copyErr := input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
-			if copyErr != nil {
-				return nil, errors.Wrap(copyErr, "failed to copy capability to pods")
-			}
-		}
-
 		nsOutput, err := infra.ReadNodeSetURL(filepath.Join(".", input.CribConfigsDir), donMetadata)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read node set URLs from file")
@@ -276,6 +139,134 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 	}
 
 	return input.NodeSetInputs, nil
+}
+
+func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*string, *string, error) {
+	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
+	if findErr != nil {
+		return nil, nil, errors.Wrapf(findErr, "failed to find node index in nodeset %s", donMetadata.Name)
+	}
+
+	nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
+	if convErr != nil {
+		return nil, nil, errors.Wrapf(convErr, "failed to convert node index '%s' to int in nodeset %s", nodeIndexStr, donMetadata.Name)
+	}
+
+	cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
+	if tomlErr != nil {
+		return nil, nil, errors.Wrap(tomlErr, "failed to clean TOML")
+	}
+
+	secretsFileBytes := []byte(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestSecretsOverrides)
+
+	tomlString := string(cleanedToml)
+	secretsString := string(secretsFileBytes)
+	return &tomlString, &secretsString, nil
+}
+
+func writeOverrides(nodeMetadata *types.NodeMetadata, i int, nodeType types.NodeType, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata, cribConfigsDirAbs string) error {
+	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
+	if findErr != nil {
+		return errors.Wrapf(findErr, "failed to find node index for %s node %d in nodeset %s", nodeType, i, donMetadata.Name)
+	}
+
+	nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
+	if convErr != nil {
+		return errors.Wrapf(convErr, "failed to convert node index '%s' to int for %s node %d in nodeset %s", nodeIndexStr, nodeType, i, donMetadata.Name)
+	}
+
+	cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
+	if tomlErr != nil {
+		return errors.Wrap(tomlErr, "failed to clean TOML")
+	}
+
+	configFileMask := "config-override-bt-%d.toml"
+	secretsFileMask := "secrets-override-bt-%d.toml"
+
+	if nodeType != types.BootstrapNode {
+		configFileMask = "config-override-%d.toml"
+		secretsFileMask = "secrets-override-%d.toml"
+	}
+
+	writeErr := os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(configFileMask, i)), cleanedToml, 0600)
+	if writeErr != nil {
+		return errors.Wrapf(writeErr, "failed to write config override for bootstrap node %d to file", i)
+	}
+
+	writeErr = os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(secretsFileMask, i)), []byte(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestSecretsOverrides), 0600)
+	if writeErr != nil {
+		return errors.Wrapf(writeErr, "failed to write secrets override for bootstrap node %d to file", i)
+	}
+
+	return nil
+}
+
+// note: for now we don't need to set capabilities (high complexity, low impact) we'll rely on plugins image which contains all required capabilities
+func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes []*types.NodeMetadata) error {
+	// validate capabilities-related configuration and copy capabilities to pods
+	podNamePattern := input.NodeSetInputs[donIndex].Name + `-\\d+`
+	_, regErr := regexp.Compile(podNamePattern)
+	if regErr != nil {
+		return errors.Wrapf(regErr, "failed to compile regex for pod name pattern %s", podNamePattern)
+	}
+
+	capabilitiesFound := map[string]int{}
+	capabilitiesDirs := []string{}
+	capabilitiesDirsFound := map[string]int{}
+
+	// make sure all worker nodes in DON have the same set of capabilities
+	// in the future we might want to allow different capabilities for different nodes
+	// but for now we require all worker nodes in the same DON to have the same capabilities
+	for _, nodeSpec := range input.NodeSetInputs[donIndex].NodeSpecs {
+		for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
+			capabilitiesFound[capabilityBinaryPath]++
+		}
+
+		if nodeSpec.Node.CapabilityContainerDir != "" {
+			capabilitiesDirs = append(capabilitiesDirs, nodeSpec.Node.CapabilityContainerDir)
+			capabilitiesDirsFound[nodeSpec.Node.CapabilityContainerDir]++
+		}
+	}
+
+	for capability, count := range capabilitiesFound {
+		// we only care about worker nodes, because bootstrap nodes cannot execute any workflows, so they don't need capabilities
+		if count != len(workerNodes) {
+			return fmt.Errorf("capability %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capabilities", capability, input.NodeSetInputs[donIndex].Name)
+		}
+	}
+
+	destinationDir, err := crecaps.DefaultContainerDirectory(libtypes.CRIB)
+	if err != nil {
+		return errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
+	}
+
+	// all of them need to use the same capabilities directory inside the container
+	if len(capabilitiesDirs) > 1 {
+		for capabilityDir, count := range capabilitiesDirsFound {
+			if count != len(workerNodes) {
+				return fmt.Errorf("the same capability container dir %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capability container dir", capabilityDir, input.NodeSetInputs[donIndex].Name)
+			}
+		}
+		destinationDir = capabilitiesDirs[0]
+	}
+
+	for capability := range capabilitiesFound {
+		absSource, pathErr := filepath.Abs(capability)
+		if pathErr != nil {
+			return errors.Wrapf(pathErr, "failed to get absolute path to capability %s", capability)
+		}
+		// ensure +x chmod in capability binary before copying to pods
+		err := os.Chmod(capability, 0755)
+		if err != nil {
+			return errors.Wrapf(err, "failed to chmod capability %s", capability)
+		}
+		destination := filepath.Join(destinationDir, filepath.Base(capability))
+		_, copyErr := input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
+		if copyErr != nil {
+			return errors.Wrap(copyErr, "failed to copy capability to pods")
+		}
+	}
+	return nil
 }
 
 func imageNameAndTag(input *types.DeployCribDonsInput, j int) (string, string, error) {
@@ -311,56 +302,6 @@ func cleanToml(tomlStr string) ([]byte, error) {
 	}
 
 	return newTOMLBytes, nil
-}
-
-// todo: after it's done it will replace DeployDonsCrib
-func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
-	if input == nil {
-		return nil, errors.New("DeployCribDonsInput is nil")
-	}
-
-	if valErr := input.Validate(); valErr != nil {
-		return nil, errors.Wrap(valErr, "input validation failed")
-	}
-
-	// component funcs with all nodes from all nodesets
-	componentFuncs := make([]crib.ComponentFunc, 0)
-
-	for j, donMetadata := range input.Topology.DonsMetadata {
-		nodesCount := len(input.NodeSetInputs[j].NodeSpecs)
-
-		imageName, imageTag, err := imageNameAndTag(input, j)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
-		}
-
-		for i := 0; i < nodesCount; i++ {
-			component := nodev1.Component(&nodev1.Props{
-				Image:       fmt.Sprintf("%s:%s", imageName, imageTag),
-				ReleaseName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
-				// todo: set remaining fields based on the input
-			})
-			componentFuncs = append(componentFuncs, component)
-		}
-	}
-
-	plan := crib.NewPlan(
-		"dons",
-		crib.Namespace(input.Namespace),
-		crib.ComponentSet(
-			componentFuncs...,
-		),
-	)
-
-	planState, err := plan.Apply(context.Background())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to apply plan")
-	}
-
-	// todo: set outputs basd on the plan results
-	planState.ComponentByName("todo")
-
-	return input.NodeSetInputs, nil
 }
 
 func DeployJd(input *types.DeployCribJdInput) (*jd.Output, error) {

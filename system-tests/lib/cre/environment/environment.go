@@ -48,7 +48,6 @@ import (
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	cribv2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib/v2"
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
@@ -124,7 +123,7 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
 		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
-		err := cribv2.Bootstrap(&input.InfraInput)
+		err := crib.Bootstrap(&input.InfraInput)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to create namespace")
 		}
@@ -506,10 +505,10 @@ func SetupTestEnvironment(
 			CribConfigsDir: cribConfigsDir,
 		}
 
-		var devspaceErr error
-		input.CapabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
-		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
+		var cribErr error
+		input.CapabilitiesAwareNodeSets, cribErr = crib.DeployDonsWithCribSDK(deployCribDonsInput)
+		if cribErr != nil {
+			return nil, pkgerrors.Wrap(cribErr, "failed to deploy Dons with devspace")
 		}
 	}
 
@@ -794,12 +793,12 @@ func CreateBlockchains(
 				CribConfigsDir:  cribConfigsDir,
 				Namespace:       input.infra.CRIB.Namespace,
 			}
-			bcOut, bcErr = cribv2.DeployBlockchain(deployCribBlockchainInput)
+			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
 			// todo: replace with internal URL call, once telepresence is set up
-			err := libinfra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+			err := libinfra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].InternalWSUrl, 10*time.Minute)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}

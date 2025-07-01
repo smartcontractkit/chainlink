@@ -32,9 +32,11 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 3. **gh cli**
   - To pull the `cre` cli. Minimum version `v.2.50.0`
 
-
    [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
+## Prerequisites For CRIB ###
+1. kubefwd installed: `brew install kubefwd`
+2. TBD: not sure when kubefwd should be started
 
 # QUICKSTART
 ```
