@@ -285,13 +285,13 @@ func prepareCommitReportsEventsInDb(
 		// #nosec G115
 		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 		// #nosec G115
-		destChainId := cciptypes.ChainSelector(j + 1)
+		destChainID := cciptypes.ChainSelector(j + 1)
 		populateDatabaseForCommitReportAccepted(
 			ctx,
 			b,
 			s,
 			orm,
-			destChainId,
+			destChainID,
 			numberOfChains,
 			firstInserted,
 			0,
@@ -302,7 +302,7 @@ func prepareCommitReportsEventsInDb(
 			b,
 			s,
 			orm,
-			destChainId,
+			destChainID,
 			numberOfChains,
 			matchingLogs,
 			firstInserted,
@@ -344,6 +344,7 @@ func populateDatabaseForCommitReportAccepted(
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
+		// #nosec G115
 		sourceChain := cciptypes.ChainSelector(i%numberOfChains + 1)
 		if sourceChain == destChain {
 			sourceChain++
