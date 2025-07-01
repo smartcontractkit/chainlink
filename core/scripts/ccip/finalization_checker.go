@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
 )
@@ -56,7 +57,7 @@ func getFinalizedBlockNumber(url string) (uint64, error) {
 		"id":      1,
 	}
 	b, _ := json.Marshal(payload)
-	//nolint:nosec G107 - URL is from trusted configuration
+	//nolint:gosec // G107 - URL is from trusted configuration
 	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
 	if err != nil {
 		return 0, err
@@ -96,7 +97,7 @@ func main() {
 
 	for {
 		blockNumbers := make([]uint64, len(endpoints))
-		minBlock, maxBlock := uint64(0), uint64(0)
+		minBlock, maxBlock := uint64(math.MaxUint64), uint64(0)
 		hasValidData := false
 
 		for i, ep := range endpoints {
