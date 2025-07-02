@@ -139,7 +139,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ConfigValidateFn:     evaluate,
 		NodeAddress:          config.FromAddress().String(),
 		ForwarderAddress:     config.ForwarderAddress().String(),
-		TargetStrategy:       NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
+		TargetStrategy:       NewEVMTargetStrategy(cr, cw, relayer.chain.TxManager(), config.ForwarderAddress().String(), gasLimitDefault, lggr),
 		WriteAcceptanceState: *config.TxAcceptanceState(),
 	}
 
