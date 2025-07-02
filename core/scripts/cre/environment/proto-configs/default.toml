@@ -1,0 +1,5 @@
+[[proto_schema_sets]]
+owner = 'smartcontractkit'
+repository = 'chainlink-protos'
+ref = '626c42d55bdcb36dffe0077fff58abba40acc3e5'
+folders = ['workflows']

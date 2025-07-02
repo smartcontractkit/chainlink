@@ -35,7 +35,7 @@ func TestRunner(t *testing.T) {
 		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
 
 		runner := NewRunner(hooks)
-		runner.Run(ctx, binary, []byte{}, []byte{}, RunnerConfig{
+		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{
 			EnableBeholder:             false,
 			EnableBilling:              true,
 			EnableStandardCapabilities: false,

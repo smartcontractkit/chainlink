@@ -32,7 +32,7 @@ description="write trigger mock"
 # Parameters for the Workflow DON load test
 [workflow_load]
 streams = 500              # Number of streams to simulate
-jobs = 2                   # Number of jobs per stream
+jobs = 1                   # Number of jobs per stream
 
 # ----- INFRASTRUCTURE SETUP -----
 # Configures Docker-based test infrastructure

@@ -226,6 +226,13 @@ func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.Recei
 	}, nil
 }
 
+func (r *Relayer) GetForwarderForEOA(ctx context.Context, eoa, ocr2AggregatorID evm.Address, pluginType string) (forwarder evm.Address, err error) {
+	if pluginType == string(commontypes.Median) {
+		return r.chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, eoa, ocr2AggregatorID)
+	}
+	return r.chain.TxManager().GetForwarderForEOA(ctx, eoa)
+}
+
 func queryNameFromFilter(filterQuery []query.Expression) string {
 	var address string
 	var eventSig string

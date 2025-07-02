@@ -326,9 +326,8 @@ func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs ma
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
 func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
-	// Use default retry option if no gas boost config is provided
 	if cfg == nil {
-		return operations.WithRetry[EVMDeployInput[IN], cldf_evm.Chain]()
+		return withoutRetry[EVMDeployInput[IN], cldf_evm.Chain]()
 	}
 	c := *cfg
 
@@ -339,6 +338,11 @@ func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operat
 
 		return in
 	})
+}
+
+// withoutRetry enables us to return an ExecuteOption that does nothing.
+func withoutRetry[IN, DEP any]() operations.ExecuteOption[IN, DEP] {
+	return func(c *operations.ExecuteConfig[IN, DEP]) {}
 }
 
 // RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
