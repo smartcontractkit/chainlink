@@ -22,6 +22,8 @@ type Client interface {
 	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
 	FetchKeys(ctx context.Context, chainType string) ([]string, error)
 	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
+	ListOCR2KeyBundles(ctx context.Context) ([]OCR2KeyBundle, error)
+	CreateOCR2KeyBundle(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
 	GetJobDistributor(ctx context.Context, id string) (generated.FeedsManagerParts, error)
@@ -54,7 +56,7 @@ type Credentials struct {
 	Password string `json:"password"`
 }
 
-// Deprecated: use NewV2 instead
+// Deprecated: use NewWithContext instead
 func New(baseURI string, creds Credentials) (Client, error) {
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -132,6 +134,35 @@ func (c *client) FetchOCR2KeyBundleID(ctx context.Context, chainType string) (st
 		}
 	}
 	return "", fmt.Errorf("no ocr2 keybundle found for chain type %s", chainType)
+}
+
+type OCR2KeyBundle struct {
+	ID                string        `json:"id"`
+	ChainType         OCR2ChainType `json:"chainType"`
+	ConfigPublicKey   string        `json:"configPublicKey"`
+	OnChainPublicKey  string        `json:"onChainPublicKey"`
+	OffChainPublicKey string        `json:"offChainPublicKey"`
+}
+
+func (c *client) ListOCR2KeyBundles(ctx context.Context) ([]OCR2KeyBundle, error) {
+	keyBundles, err := generated.FetchOCR2KeyBundles(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keyBundles == nil || len(keyBundles.GetOcr2KeyBundles().Results) == 0 {
+		return nil, errors.New("no ocr2 keybundle found, check if ocr2 is enabled")
+	}
+	var ids []OCR2KeyBundle
+	for _, keyBundle := range keyBundles.GetOcr2KeyBundles().Results {
+		ids = append(ids, OCR2KeyBundle{
+			ID:                keyBundle.GetId(),
+			ChainType:         string(keyBundle.GetChainType()),
+			ConfigPublicKey:   keyBundle.GetConfigPublicKey(),
+			OnChainPublicKey:  keyBundle.GetOnChainPublicKey(),
+			OffChainPublicKey: keyBundle.GetOffChainPublicKey(),
+		})
+	}
+	return ids, nil
 }
 
 func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*string, error) {
@@ -366,4 +397,24 @@ func (c *client) login() error {
 	}
 
 	return fmt.Errorf("no set-cookie found in header. Check credentials and scheme. Response code was: %d", res.StatusCode)
+}
+
+// CreateOCR2KeyBundle creates a new OCR2 key bundle for the specified chain type
+// and returns the ID of the created bundle
+func (c *client) CreateOCR2KeyBundle(ctx context.Context, chainType string) (string, error) {
+	response, err := generated.CreateOCR2KeyBundle(ctx, c.gqlClient, generated.OCR2ChainType(chainType))
+	if err != nil {
+		return "", err
+	}
+
+	if response == nil {
+		return "", errors.New("null response from server")
+	}
+
+	success, ok := response.CreateOCR2KeyBundle.(*generated.CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess)
+	if !ok {
+		return "", errors.New("unexpected response type")
+	}
+
+	return success.Bundle.Id, nil
 }

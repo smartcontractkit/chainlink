@@ -1633,6 +1633,188 @@ func (v *CreateFeedsManagerResponse) __premarshalJSON() (*__premarshalCreateFeed
 	return &retval, nil
 }
 
+// CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload includes the requested fields of the GraphQL interface CreateOCR2KeyBundlePayload.
+//
+// CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload is implemented by the following types:
+// CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess
+type CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload interface {
+	implementsGraphQLInterfaceCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess) implementsGraphQLInterfaceCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload() {
+}
+
+func __unmarshalCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload(b []byte, v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "CreateOCR2KeyBundleSuccess":
+		*v = new(CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing CreateOCR2KeyBundlePayload.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload(v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess:
+		typename = "CreateOCR2KeyBundleSuccess"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload: "%T"`, v)
+	}
+}
+
+// CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess includes the requested fields of the GraphQL type CreateOCR2KeyBundleSuccess.
+type CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess struct {
+	Typename string                                                                              `json:"__typename"`
+	Bundle   CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle `json:"bundle"`
+}
+
+// GetTypename returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess.Typename, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess) GetTypename() string {
+	return v.Typename
+}
+
+// GetBundle returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess.Bundle, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccess) GetBundle() CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle {
+	return v.Bundle
+}
+
+// CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle includes the requested fields of the GraphQL type OCR2KeyBundle.
+type CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle struct {
+	Id                string        `json:"id"`
+	ChainType         OCR2ChainType `json:"chainType"`
+	ConfigPublicKey   string        `json:"configPublicKey"`
+	OnChainPublicKey  string        `json:"onChainPublicKey"`
+	OffChainPublicKey string        `json:"offChainPublicKey"`
+}
+
+// GetId returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle.Id, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle) GetId() string {
+	return v.Id
+}
+
+// GetChainType returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle.ChainType, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle) GetChainType() OCR2ChainType {
+	return v.ChainType
+}
+
+// GetConfigPublicKey returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle.ConfigPublicKey, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle) GetConfigPublicKey() string {
+	return v.ConfigPublicKey
+}
+
+// GetOnChainPublicKey returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle.OnChainPublicKey, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle) GetOnChainPublicKey() string {
+	return v.OnChainPublicKey
+}
+
+// GetOffChainPublicKey returns CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle.OffChainPublicKey, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundleSuccessBundleOCR2KeyBundle) GetOffChainPublicKey() string {
+	return v.OffChainPublicKey
+}
+
+// CreateOCR2KeyBundleResponse is returned by CreateOCR2KeyBundle on success.
+type CreateOCR2KeyBundleResponse struct {
+	CreateOCR2KeyBundle CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload `json:"-"`
+}
+
+// GetCreateOCR2KeyBundle returns CreateOCR2KeyBundleResponse.CreateOCR2KeyBundle, and is useful for accessing the field via an interface.
+func (v *CreateOCR2KeyBundleResponse) GetCreateOCR2KeyBundle() CreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload {
+	return v.CreateOCR2KeyBundle
+}
+
+func (v *CreateOCR2KeyBundleResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateOCR2KeyBundleResponse
+		CreateOCR2KeyBundle json.RawMessage `json:"createOCR2KeyBundle"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateOCR2KeyBundleResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.CreateOCR2KeyBundle
+		src := firstPass.CreateOCR2KeyBundle
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal CreateOCR2KeyBundleResponse.CreateOCR2KeyBundle: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalCreateOCR2KeyBundleResponse struct {
+	CreateOCR2KeyBundle json.RawMessage `json:"createOCR2KeyBundle"`
+}
+
+func (v *CreateOCR2KeyBundleResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateOCR2KeyBundleResponse) __premarshalJSON() (*__premarshalCreateOCR2KeyBundleResponse, error) {
+	var retval __premarshalCreateOCR2KeyBundleResponse
+
+	{
+
+		dst := &retval.CreateOCR2KeyBundle
+		src := v.CreateOCR2KeyBundle
+		var err error
+		*dst, err = __marshalCreateOCR2KeyBundleCreateOCR2KeyBundleCreateOCR2KeyBundlePayload(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal CreateOCR2KeyBundleResponse.CreateOCR2KeyBundle: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
 // CronSpec includes the GraphQL fields of CronSpec requested by the fragment CronSpec.
 type CronSpec struct {
 	Schedule   string `json:"schedule"`
@@ -6244,6 +6426,7 @@ const (
 	OCR2ChainTypeStarknet OCR2ChainType = "STARKNET"
 	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
 	OCR2ChainTypeTron     OCR2ChainType = "TRON"
+	OCR2ChainTypeTon      OCR2ChainType = "TON"
 )
 
 // OCR2Spec includes the GraphQL fields of OCR2Spec requested by the fragment OCR2Spec.
@@ -7377,6 +7560,14 @@ type __CreateFeedsManagerInput struct {
 // GetInput returns __CreateFeedsManagerInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateFeedsManagerInput) GetInput() CreateFeedsManagerInput { return v.Input }
 
+// __CreateOCR2KeyBundleInput is used internally by genqlient
+type __CreateOCR2KeyBundleInput struct {
+	ChainType OCR2ChainType `json:"chainType"`
+}
+
+// GetChainType returns __CreateOCR2KeyBundleInput.ChainType, and is useful for accessing the field via an interface.
+func (v *__CreateOCR2KeyBundleInput) GetChainType() OCR2ChainType { return v.ChainType }
+
 // __DeleteFeedsManagerChainConfigInput is used internally by genqlient
 type __DeleteFeedsManagerChainConfigInput struct {
 	Id string `json:"id"`
@@ -7738,6 +7929,51 @@ func CreateFeedsManagerChainConfig(
 	var err_ error
 
 	var data_ CreateFeedsManagerChainConfigResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by CreateOCR2KeyBundle.
+const CreateOCR2KeyBundle_Operation = `
+mutation CreateOCR2KeyBundle ($chainType: OCR2ChainType!) {
+	createOCR2KeyBundle(chainType: $chainType) {
+		__typename
+		... on CreateOCR2KeyBundleSuccess {
+			bundle {
+				id
+				chainType
+				configPublicKey
+				onChainPublicKey
+				offChainPublicKey
+			}
+		}
+	}
+}
+`
+
+// Create a new OCR2 key bundle
+func CreateOCR2KeyBundle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chainType OCR2ChainType,
+) (*CreateOCR2KeyBundleResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "CreateOCR2KeyBundle",
+		Query:  CreateOCR2KeyBundle_Operation,
+		Variables: &__CreateOCR2KeyBundleInput{
+			ChainType: chainType,
+		},
+	}
+	var err_ error
+
+	var data_ CreateOCR2KeyBundleResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
