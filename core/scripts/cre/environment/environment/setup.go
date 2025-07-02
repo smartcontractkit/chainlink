@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/docker/docker/client"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
@@ -56,6 +57,7 @@ var (
 		Dockerfile: "chip-ingress/Dockerfile",
 		Dir:        "chip-ingress",
 		LocalImage: "chip-ingress:local-cre",
+		PreRun:     chipVendor,
 	}
 	ChipPullConfig = PullConfig{
 		LocalImage: "chip-ingress:local-cre",
@@ -79,10 +81,94 @@ type BuildConfig struct {
 	Dockerfile string
 	Dir        string
 	LocalImage string
+	PreRun     func(ctx context.Context, c BuildConfig) error // Optional function to run before building
 }
 
 func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
-	return buildImage(ctx, c.RepoURL, c.Branch, c.Dockerfile, c.Dir, c.LocalImage)
+	var (
+		repo = c.RepoURL
+		tag  = c.Branch
+	)
+	logger := framework.L
+	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
+	name = cases.Title(language.English).String(name)
+	logger.Info().Msgf("Building %s image...", name)
+
+	// Check if repo is a local directory
+	isLocalRepo := false
+	if _, err2 := os.Stat(repo); err2 == nil {
+		fileInfo, err3 := os.Stat(repo)
+		if err3 == nil && fileInfo.IsDir() {
+			isLocalRepo = true
+			logger.Info().Msgf("Using local repository at %s", repo)
+		}
+	}
+
+	var workingDir string
+
+	if isLocalRepo {
+		// Use the local repo path directly
+		workingDir = repo
+	} else {
+		// Create a temporary directory for cloning the remote repo
+		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
+		if err2 != nil {
+			return "", fmt.Errorf("failed to create temporary directory: %w", err2)
+		}
+		defer os.RemoveAll(tempDir)
+		workingDir = tempDir
+
+		// Clone the repository
+		logger.Info().Msgf("Cloning repository from %s", repo)
+		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err2 := cmd.Run(); err2 != nil {
+			return "", fmt.Errorf("failed to clone repository: %w", err2)
+		}
+	}
+
+	// Save current directory and change to working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := os.Chdir(workingDir); err != nil {
+		return "", fmt.Errorf("failed to change to working directory: %w", err)
+	}
+	defer func() {
+		_ = os.Chdir(currentDir)
+	}()
+
+	// Only checkout specific version if using a git repo and version is specified
+	if !isLocalRepo && tag != "" {
+		logger.Info().Msgf("Checking out version %s", tag)
+		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
+		}
+	}
+	// If pre-run function is specified, run it
+	if c.PreRun != nil {
+		if err := c.PreRun(ctx, c); err != nil {
+			return "", fmt.Errorf("pre-run step failed: %w", err)
+		}
+	}
+
+	// Build Docker image
+	cmd := exec.CommandContext(ctx, "docker", "build", "-t", c.LocalImage, "-f", c.Dockerfile, c.Dir) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to build Docker image: %w", err)
+	}
+
+	logger.Info().Msgf("  ✓ %s image built successfully", name)
+	return c.LocalImage, nil
 }
 
 type PullConfig struct {
@@ -144,7 +230,7 @@ func init() {
 	}
 
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "", "Path to the TOML configuration file")
-	_ = SetupCmd.MarkFlagRequired("config")
+	// _ = SetupCmd.MarkFlagRequired("config")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
 }
@@ -320,83 +406,6 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	return false, nil
 }
 
-// buildImage builds the Job Distributor image
-func buildImage(ctx context.Context, repo, tag, dockerFile, dir, localImage string) (string, error) {
-	logger := framework.L
-	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
-	name = cases.Title(language.English).String(name)
-	logger.Info().Msgf("Building %s image...", name)
-
-	// Check if repo is a local directory
-	isLocalRepo := false
-	if _, err := os.Stat(repo); err == nil {
-		fileInfo, err := os.Stat(repo)
-		if err == nil && fileInfo.IsDir() {
-			isLocalRepo = true
-			logger.Info().Msgf("Using local repository at %s", repo)
-		}
-	}
-
-	var workingDir string
-
-	if isLocalRepo {
-		// Use the local repo path directly
-		workingDir = repo
-	} else {
-		// Create a temporary directory for cloning the remote repo
-		tempDir, err := os.MkdirTemp("", filepath.Base(repo)+"-*")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-		defer os.RemoveAll(tempDir)
-		workingDir = tempDir
-
-		// Clone the repository
-		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to clone repository: %w", err)
-		}
-	}
-
-	// Save current directory and change to working directory
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	if err := os.Chdir(workingDir); err != nil {
-		return "", fmt.Errorf("failed to change to working directory: %w", err)
-	}
-	defer func() {
-		_ = os.Chdir(currentDir)
-	}()
-
-	// Only checkout specific version if using a git repo and version is specified
-	if !isLocalRepo && tag != "" {
-		logger.Info().Msgf("Checking out version %s", tag)
-		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
-		}
-	}
-
-	// Build Docker image
-	cmd := exec.CommandContext(ctx, "docker", "build", "-t", localImage, "-f", dockerFile, dir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to build Docker image: %w", err)
-	}
-
-	logger.Info().Msgf("  ✓ %s image built successfully", name)
-	return localImage, nil
-}
-
 // pullImage pulls the Job Distributor image from ECR
 func pullImage(ctx context.Context, localImage, ecrImage string) (string, error) {
 	logger := framework.L
@@ -551,4 +560,42 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	logger.Info().Msgf("   You can run: export PATH=\"%s:$PATH\"", currentDir)
 
 	return true, nil
+}
+
+// chipVendor changes to the directory specified in the config
+// and executes go mod vendor command
+func chipVendor(ctx context.Context, config BuildConfig) error {
+	logger := framework.L
+
+	// Save current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Change to the target directory
+	logger.Info().Msgf("Changing directory to %s", config.Dir)
+	if err := os.Chdir(config.Dir); err != nil {
+		return fmt.Errorf("failed to change to directory %s: %w", config.Dir, err)
+	}
+
+	// Restore original directory when function completes
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			logger.Error().Err(err).Msg("Failed to restore original directory")
+		}
+	}()
+
+	// Execute go mod vendor
+	logger.Info().Msg("Running go mod vendor...")
+	cmd := exec.CommandContext(ctx, "go", "mod", "vendor")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go mod vendor failed: %w", err)
+	}
+
+	logger.Info().Msg("Vendor directory successfully created")
+	return nil
 }

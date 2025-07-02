@@ -202,7 +202,7 @@ func SetupTestEnvironment(
 		BlockChains: chain.NewBlockChains(blockChains),
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
@@ -268,7 +268,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -473,7 +473,7 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor")))
 
@@ -507,7 +507,7 @@ func SetupTestEnvironment(
 			return jdErr
 		}
 
-		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Job Distributor started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Job Distributor started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 		return nil
 	})
@@ -580,7 +580,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// Fund nodes in the background, so that we can continue with the next stage
 	backgroundStagesWaitGroup.Add(1)
@@ -668,7 +668,7 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds\033[0m\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds", stageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	for idx, nodeSetOut := range nodeSetOutput {
@@ -690,7 +690,7 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
 	backgroundStagesWaitGroup.Add(1)
@@ -745,7 +745,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()
