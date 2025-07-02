@@ -33,6 +33,7 @@ func TestDeployPrerequisites(t *testing.T) {
 }
 
 func TestDeployPrerequisitesZk(t *testing.T) {
+	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
 	t.Parallel()
