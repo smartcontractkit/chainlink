@@ -547,8 +547,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			for _, warning := range warnings {
 				framework.L.Warn().Msg(warning)
 			}
-			// Optionally fail the test if regressions are severe
-			// require.Empty(t, warnings, "Performance regression detected")
 		} else {
 			framework.L.Info().Msgf("No significant performance regressions detected compared to baseline %s", baselineReport.CommitOrTag)
 		}
@@ -598,7 +596,6 @@ func TestWithReconnect(t *testing.T) {
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
-			FailOnErr:             false,
 		})).
 		Run(true)
 	require.NoError(t, err, "wasp load test did not finish successfully")
