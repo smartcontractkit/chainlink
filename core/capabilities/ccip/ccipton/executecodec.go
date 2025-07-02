@@ -287,7 +287,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 				return executeReport, fmt.Errorf("unload message data: %w", err)
 			}
 
-			// TODO make sure generic
 			extraArgs := bindings.GenericExtraArgsV2{
 				GasLimit:                 msg.GasLimit.Nano(),
 				AllowOutOfOrderExecution: true,
