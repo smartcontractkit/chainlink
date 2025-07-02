@@ -234,7 +234,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@051813389f8480a4ada4606abdb260c7a59412ee # develop SHA from 18th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@aade1fb1abcdf1e401a07ee504cc6a65e7e6f86f # develop SHA from 30th June 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
