@@ -1,9 +1,6 @@
 package securemint
 
 import (
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -13,16 +10,16 @@ import (
 var SecureMintCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.SecureMintCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "secure-mint-trigger", // TODO: use correct trigger name
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
+	// if flags.HasFlag(donFlags, types.SecureMintCapability) {
+	capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "secure-mint-trigger", // TODO: use correct trigger name
+			Version:        "1.0.0",
+			CapabilityType: 0, // TRIGGER
+		},
+		Config: &capabilitiespb.CapabilityConfig{},
+	})
+	// }
 
 	return capabilities
 }
