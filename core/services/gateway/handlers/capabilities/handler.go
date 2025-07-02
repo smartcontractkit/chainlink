@@ -16,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -30,6 +31,10 @@ const (
 	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"
 	MethodWorkflowSyncer = "workflow_syncer"
+
+	// Error messages
+	ErrTransformingMessageToRequest = "error transforming message to request"
+	ErrDecodingPayload              = "error decoding payload"
 )
 
 type handler struct {
@@ -125,7 +130,8 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 		// Send first response from a node back to the user, ignore any other ones.
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
-		savedCb.callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
+		codec := api.JsonRPCCodec{}
+		savedCb.callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 		close(savedCb.callbackCh)
 	}
 	return nil
@@ -195,7 +201,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		respMsg.Signature = msg.Signature
 		req, err := common.ValidatedRequestFromMessage(respMsg)
 		if err != nil {
-			l.Errorw("error transforming message to request", "err", err)
+			l.Errorw(ErrTransformingMessageToRequest, "err", err)
 			return
 		}
 		err = h.don.SendToNode(newCtx, nodeAddr, req)
@@ -238,44 +244,90 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+	return errors.New("capabilities handler does not support JSON-RPC user messages")
+}
+
+func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
 	h.mu.Lock()
 	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := h.don
 	h.mu.Unlock()
 	body := msg.Body
 	var payload webapicap.TriggerRequestPayload
+	codec := api.JsonRPCCodec{}
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
-		h.lggr.Errorw("error decoding payload", "err", err)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload " + err.Error()}
+		h.lggr.Errorw(ErrDecodingPayload, "err", err)
+		callbackCh <- handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				msg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				ErrDecodingPayload+" "+err.Error(),
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}
 		close(callbackCh)
 		return nil
 	}
 
 	if payload.Timestamp == 0 {
-		h.lggr.Errorw("error decoding payload")
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}
+		h.lggr.Errorw(ErrDecodingPayload)
+		callbackCh <- handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				msg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				ErrDecodingPayload,
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}
 		close(callbackCh)
 		return nil
 	}
 
 	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "stale message"}
+		h.lggr.Errorw("stale message")
+		callbackCh <- handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				msg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.HandlerError),
+				"stale message",
+				nil,
+			),
+			ErrorCode: api.HandlerError,
+		}
 		close(callbackCh)
 		return nil
 	}
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "invalid method " + msg.Body.Method}
+		callbackCh <- handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				msg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
+				"invalid method "+msg.Body.Method,
+				nil,
+			),
+			ErrorCode: api.UnsupportedMethodError,
+		}
 		close(callbackCh)
 		return nil
 	}
 	req, err := common.ValidatedRequestFromMessage(msg)
 	if err != nil {
-		h.lggr.Errorw("error transforming message to request")
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error transforming message to request"}
+		h.lggr.Errorw(ErrTransformingMessageToRequest)
+		callbackCh <- handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				msg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				ErrTransformingMessageToRequest,
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}
 		close(callbackCh)
 		return nil
 	}

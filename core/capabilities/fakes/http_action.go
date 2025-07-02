@@ -44,14 +44,14 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 
 	fc.Service, fc.eng = services.Config{
 		Name:  "directHttpAction",
-		Start: fc.start,
-		Close: fc.close,
+		Start: fc.Start,
+		Close: fc.Close,
 	}.NewServiceEngine(lggr)
 	return fc
 }
 
 func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
-	fh.eng.Infow("Http Action SendRequest Started", "input", input)
+	fh.eng.Infow("HTTP Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
 	timeout := time.Duration(30) * time.Second // default timeout
@@ -81,8 +81,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to create HTTP request", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   0,
+			StatusCode: 0,
 		}, err
 	}
 
@@ -96,8 +95,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to execute HTTP request", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   0,
+			StatusCode: 0,
 		}, err
 	}
 	defer resp.Body.Close()
@@ -107,8 +105,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to read response body", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
+			StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
 		}, err
 	}
 
@@ -126,22 +123,17 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		Body:       respBody,
 	}
 
-	// Add error message if status code indicates an error
-	if resp.StatusCode >= 400 {
-		response.ErrorMessage = resp.Status
-	}
-
-	fh.eng.Debugw("HTTP request completed", "status", resp.StatusCode, "url", input.GetUrl())
+	fh.eng.Infow("HTTP Action Finished", "Status", resp.StatusCode, "URL", input.GetUrl())
 	return response, nil
 }
 
-func (fh *DirectHTTPAction) start(ctx context.Context) error {
-	fh.eng.Infow("Http Action Start Started")
+func (fh *DirectHTTPAction) Start(ctx context.Context) error {
+	fh.eng.Debugw("HTTP Action Start Started")
 	return nil
 }
 
-func (fh *DirectHTTPAction) close() error {
-	fh.eng.Infow("Http Action Close Started")
+func (fh *DirectHTTPAction) Close() error {
+	fh.eng.Debugw("HTTP Action Closed")
 	return nil
 }
 

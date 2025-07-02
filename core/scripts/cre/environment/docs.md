@@ -75,6 +75,15 @@ Optional parameters:
 
 If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
 
+### Storage
+
+The environment supports two storage backends for workflow uploads:
+- Gist (remote)
+- S3 MinIO (built-in, local)
+
+Configuration details are generated automatically into the `cre.yaml` file
+(path is printed after starting the environment).
+
 ## Stop Environment
 ```bash
 # while in core/scripts/cre/environment
@@ -162,7 +171,7 @@ When starting the environment in AWS-managed Kubernetes make sure to source `.en
 
 ## DX Tracing
 
-To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.dx/` and uploaded once either `gh cli` is available or valid `~/.dx/config.json` file appears.
+To track environment usage and quality metrics (success/failure rate, startup time) local CRE environment is integrated with DX. If you have `gh cli` configured and authenticated on your local machine it will be used to automatically setup DX integration in the background. If you don't, tracing data will be stored locally in `~/.local/share/dx/` and uploaded once either `gh cli` is available or valid `~/.local/share/dx/config.json` file appears.
 
 > Minimum required version of the `GH CLI` is `v2.50.0`
 

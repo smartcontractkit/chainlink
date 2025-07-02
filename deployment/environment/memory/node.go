@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,12 +21,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
@@ -275,14 +275,8 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
-	// EVM chains to be configured. Optional.
-	Chains map[uint64]cldf_evm.Chain
-	// Solana chains to be configured. Optional.
-	Solchains map[uint64]cldf_solana.Chain
-	// Aptos chains to be configured. Optional.
-	Aptoschains map[uint64]cldf_aptos.Chain
-	// TON chains to be configured. Optional.
-	Tonchains      map[uint64]cldf_ton.Chain
+	// BlockChains to be configured.
+	BlockChains    cldf_chain.BlockChains
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -300,15 +294,7 @@ func NewNode(
 	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
-	for _, chain := range nodecfg.Chains {
-		family, err := chainsel.GetSelectorFamily(chain.Selector)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// we're only mapping evm chains here, currently this list could also contain non-EVMs, e.g. Aptos
-		if family != chainsel.FamilyEVM {
-			continue
-		}
+	for _, chain := range nodecfg.BlockChains.EVMChains() {
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
@@ -316,10 +302,11 @@ func NewNode(
 		evmchain := EVMChain{
 			DeployerKey: chain.DeployerKey,
 		}
-		backend, ok := chain.Client.(*Backend)
+		simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 		if ok {
-			evmchain.Backend = backend.Sim
+			evmchain.Backend = simClient.Backend()
 		}
+
 		evmchains[evmChainID] = evmchain
 	}
 
@@ -358,7 +345,7 @@ func NewNode(
 		c.EVM = evmConfigs
 
 		var solConfigs solcfg.TOMLConfigs
-		for chainID, chain := range nodecfg.Solchains {
+		for chainID, chain := range nodecfg.BlockChains.SolanaChains() {
 			solanaChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -368,7 +355,7 @@ func NewNode(
 		c.Solana = solConfigs
 
 		var aptosConfigs chainlink.RawConfigs
-		for chainID, chain := range nodecfg.Aptoschains {
+		for chainID, chain := range nodecfg.BlockChains.AptosChains() {
 			aptosChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -378,7 +365,7 @@ func NewNode(
 		c.Aptos = aptosConfigs
 
 		var tonConfigs chainlink.RawConfigs
-		for chainID, chain := range nodecfg.Tonchains {
+		for chainID, chain := range nodecfg.BlockChains.TonChains() {
 			tonChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
 				t.Fatal(err)
@@ -447,7 +434,12 @@ func NewNode(
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
-	keys := CreateKeys(t, app, nodecfg.Chains, nodecfg.Solchains, nodecfg.Aptoschains, nodecfg.Tonchains)
+	keys := CreateKeys(t, app,
+		nodecfg.BlockChains.EVMChains(),
+		nodecfg.BlockChains.SolanaChains(),
+		nodecfg.BlockChains.AptosChains(),
+		nodecfg.BlockChains.TonChains(),
+	)
 
 	nodeLabels := make([]*ptypes.Label, 1)
 	if nodecfg.Bootstrap {
@@ -466,15 +458,10 @@ func NewNode(
 
 	setupJD(t, app)
 	return &Node{
-		Name: "node-" + keys.PeerID.String(),
-		ID:   app.ID().String(),
-		App:  app,
-		Chains: slices.Concat(
-			maps.Keys(nodecfg.Chains),
-			maps.Keys(nodecfg.Solchains),
-			maps.Keys(nodecfg.Aptoschains),
-			maps.Keys(nodecfg.Tonchains),
-		),
+		Name:       "node-" + keys.PeerID.String(),
+		ID:         app.ID().String(),
+		App:        app,
+		Chains:     nodecfg.BlockChains.ListChainSelectors(),
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
 		IsBoostrap: nodecfg.Bootstrap,
@@ -568,11 +555,11 @@ func CreateKeys(t *testing.T,
 			}
 			transmitters[chain.Selector] = transmitter.String()
 
-			backend, ok := chain.Client.(*Backend)
+			simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 			if ok {
-				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
 				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend.Sim)
+				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
 			}
 		case chainsel.FamilyAptos:
 			keystore := app.GetKeyStore().Aptos()

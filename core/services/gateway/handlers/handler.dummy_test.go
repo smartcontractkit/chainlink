@@ -9,6 +9,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -66,7 +67,7 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	err = msg.Validate()
 	require.NoError(t, err)
 	callbackCh := make(chan handlers.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleUserMessage(ctx, &msg, callbackCh))
+	require.NoError(t, handler.HandleLegacyUserMessage(ctx, &msg, callbackCh))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
@@ -75,5 +76,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	response := <-callbackCh
-	require.Equal(t, "1234", response.Msg.Body.MessageId)
+	codec := api.JsonRPCCodec{}
+	responseMsg, err := codec.DecodeLegacyResponse(response.RawResponse)
+	require.NoError(t, err)
+	require.Equal(t, "1234", responseMsg.Body.MessageId)
 }

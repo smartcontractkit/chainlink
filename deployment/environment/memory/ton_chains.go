@@ -17,6 +17,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -67,7 +68,7 @@ func fundTonWallets(t *testing.T, client ton.APIClientWrapped, recipients []*add
 	// we don't wait for the transaction to be confirmed here, as it may take some time
 }
 
-func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
+func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	testTonChainSelectors := getTestTonChainSelectors()
 	if numChains > 1 {
 		t.Fatalf("only one ton chain is supported for now, got %d", numChains)
@@ -76,21 +77,23 @@ func GenerateChainsTon(t *testing.T, numChains int) map[uint64]cldf_ton.Chain {
 		t.Fatalf("not enough test ton chain selectors available")
 	}
 
-	chains := make(map[uint64]cldf_ton.Chain)
+	chains := make([]cldf_chain.BlockChain, numChains)
 	for i := 0; i < numChains; i++ {
-		chainID := testTonChainSelectors[i]
-		nodeClient := tonChain(t, chainID)
+		selector := testTonChainSelectors[i]
+		nodeClient := tonChain(t, selector)
 		wallet := createTonWallet(t, nodeClient, wallet.V3R2, wallet.WithWorkchain(0))
 		// airdrop the deployer wallet
 		fundTonWallets(t, nodeClient, []*address.Address{wallet.Address()}, []tlb.Coins{tlb.MustFromTON("1000")})
 		ton := cldf_ton.Chain{
-			ChainMetadata: cldf_ton.ChainMetadata{Selector: chainID},
+			ChainMetadata: cldf_ton.ChainMetadata{Selector: selector},
 			Client:        nodeClient,
 			Wallet:        wallet,
 			WalletAddress: wallet.Address(),
 		}
-		chains[chainID] = ton
+
+		chains = append(chains, ton)
 	}
+
 	return chains
 }
 

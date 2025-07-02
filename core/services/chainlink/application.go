@@ -93,6 +93,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -162,7 +163,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	localAdminUsersORM       sessions.BasicAdminUsersORM
-	authenticationProvider   sessions.AuthenticationProvider
+	authenticationProvider   sessions.AuthenticationProvider // Note: this will be OIDC instance
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
@@ -358,8 +359,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	var billingClient billing.WorkflowClient
-	if cfg.Billing().URL() != "" {
+	var billingClient metering.BillingClient
+
+	if opts.BillingClient != nil {
+		billingClient = opts.BillingClient
+	} else if cfg.Billing().URL() != "" {
 		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
@@ -447,7 +451,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	localAdminUsersORM := localauth.NewORM(opts.DS, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
-	// localDB auth or remote LDAP auth
+	// localDB auth, LDAP auth, or OIDC auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
 	var authenticationProvider sessions.AuthenticationProvider
 	var sessionReaper *utils.SleeperTask
@@ -464,6 +468,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		syncer := ldapauth.NewLDAPServerStateSyncer(opts.DS, cfg.WebServer().LDAP(), globalLogger)
 		srvcs = append(srvcs, syncer)
 		sessionReaper = utils.NewSleeperTaskCtx(syncer)
+	case sessions.OIDCAuth:
+		var err error
+		authenticationProvider, err = oidcauth.NewOIDCAuthenticator(
+			opts.DS, cfg.WebServer().OIDC(), globalLogger, auditLogger,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize OIDC Authentication module")
+		}
+		sessionReaper = oidcauth.NewSessionReaper(opts.DS, cfg.WebServer(), globalLogger)
 	case sessions.LocalAuth:
 		authenticationProvider = localauth.NewORM(opts.DS, cfg.WebServer().SessionTimeout().Duration(), globalLogger, auditLogger)
 		sessionReaper = localauth.NewSessionReaper(opts.DS, cfg.WebServer(), globalLogger)
@@ -791,6 +804,8 @@ type CREOpts struct {
 
 	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
+
+	BillingClient metering.BillingClient
 }
 
 // creServiceConfig contains the configuration required to create the CRE services
@@ -1249,7 +1264,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

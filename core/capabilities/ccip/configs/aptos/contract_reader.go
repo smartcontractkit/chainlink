@@ -156,6 +156,9 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 								NewName: "State",
 							},
 						},
+						EventFilterRenames: map[string]string{
+							"SourceChain": "SourceChainSelector",
+						},
 					},
 					consts.EventNameCommitReportAccepted: {
 						EventHandleStructName: "OffRampState",
