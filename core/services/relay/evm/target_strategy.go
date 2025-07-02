@@ -67,7 +67,10 @@ type Config struct {
 	GasLimit *uint64
 }
 
-func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, txm evmtxmgr.TxManager, forwarder string, gasLimitDefault uint64, lggr logger.Logger) *evmTargetStrategy {
+func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, txm evmtxmgr.TxManager, forwarder string, gasLimitDefault uint64, lggr logger.Logger) (*evmTargetStrategy, error) {
+	if gasLimitDefault < ForwarderContractLogicGasCost {
+		return nil, fmt.Errorf("default gas limit '%d' is lower than forwarder estimate '%d'", gasLimitDefault, ForwarderContractLogicGasCost)
+	}
 	bound := atomic.Bool{}
 	return &evmTargetStrategy{
 		cr:                 cr,
@@ -81,7 +84,7 @@ func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.Contract
 			Name:    "forwarder",
 		},
 		bound: &bound,
-	}
+	}, nil
 }
 
 func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID uint16, request capabilities.CapabilityRequest) (*writetarget.TransmissionState, error) {
