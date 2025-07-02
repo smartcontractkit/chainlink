@@ -477,18 +477,18 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 	t.Run("incorrect ratios config switches to metering mode", func(t *testing.T) {
 		// Setup a metered capability
-		cap := capmocks.NewExecutableCapability(t)
+		capability := capmocks.NewExecutableCapability(t)
 
 		capreg.EXPECT().
 			GetExecutable(matches.AnyContext, "metered-capability-1").
-			Return(cap, nil).Once()
+			Return(capability, nil).Once()
 
 		capreg.EXPECT().
 			ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
 			Return(capabilities.CapabilityConfiguration{}, nil).Once()
 
 		// return some spend types in the Info call
-		cap.EXPECT().
+		capability.EXPECT().
 			Info(matches.AnyContext).
 			Return(capabilities.CapabilityInfo{
 				DON: &capabilities.DON{
@@ -501,7 +501,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			}, nil).Once()
 
 		// verify that spend limits is set and has a length of zero
-		cap.EXPECT().
+		capability.EXPECT().
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
@@ -541,7 +541,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
-		cap.AssertExpectations(t)
+		capability.AssertExpectations(t)
 
 		logged := logs.TakeAll()
 		require.Len(t, logged, 1)
@@ -549,13 +549,12 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	})
 
 	t.Run("correct ratios config produces spending limits", func(t *testing.T) {
-
 		// Setup a metered capability
-		cap := capmocks.NewExecutableCapability(t)
+		capability := capmocks.NewExecutableCapability(t)
 
 		capreg.EXPECT().
 			GetExecutable(matches.AnyContext, "metered-capability-2").
-			Return(cap, nil).Once()
+			Return(capability, nil).Once()
 
 		ratios, _ := values.NewMap(map[string]any{
 			metering.RatiosKey: map[string]string{
@@ -569,7 +568,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Return(capabilities.CapabilityConfiguration{RestrictedConfig: ratios}, nil).Once()
 
 		// return some spend types in the Info call
-		cap.EXPECT().
+		capability.EXPECT().
 			Info(matches.AnyContext).
 			Return(capabilities.CapabilityInfo{
 				DON: &capabilities.DON{
@@ -582,7 +581,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			}, nil).Once()
 
 		// verify that spend limits is set and has a length of zero
-		cap.EXPECT().
+		capability.EXPECT().
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
@@ -622,7 +621,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
-		cap.AssertExpectations(t)
+		capability.AssertExpectations(t)
 
 		logged := logs.TakeAll()
 		require.Empty(t, logged)
@@ -630,18 +629,18 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 	t.Run("single spend type and no ratios config produces spending limit with no error", func(t *testing.T) {
 		// Setup a metered capability
-		cap := capmocks.NewExecutableCapability(t)
+		capability := capmocks.NewExecutableCapability(t)
 
 		capreg.EXPECT().
 			GetExecutable(matches.AnyContext, "metered-capability-3").
-			Return(cap, nil).Once()
+			Return(capability, nil).Once()
 
 		capreg.EXPECT().
 			ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
 			Return(capabilities.CapabilityConfiguration{}, nil).Once()
 
 		// return some spend types in the Info call
-		cap.EXPECT().
+		capability.EXPECT().
 			Info(matches.AnyContext).
 			Return(capabilities.CapabilityInfo{
 				DON: &capabilities.DON{
@@ -653,7 +652,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			}, nil).Once()
 
 		// verify that spend limits is set and has a length of zero
-		cap.EXPECT().
+		capability.EXPECT().
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
@@ -693,7 +692,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
-		cap.AssertExpectations(t)
+		capability.AssertExpectations(t)
 
 		logged := logs.TakeAll()
 		require.Empty(t, logged)

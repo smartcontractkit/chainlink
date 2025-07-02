@@ -376,7 +376,7 @@ targets:
 
 		conf, err := values.WrapMap(vals)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		registry.SetLocalRegistry(&testConfigProvider{
 			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
 				cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
