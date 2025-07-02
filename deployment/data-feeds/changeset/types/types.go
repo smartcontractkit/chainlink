@@ -207,6 +207,7 @@ type ProposeBtJobsConfig struct {
 type DeleteJobsConfig struct {
 	JobIDs       []string `json:"jobIDs"`       // Optional. If provided, all jobs with these IDs will be deleted.
 	WorkflowName string   `json:"workflowName"` // Optional. If provided, all jobs with this workflow name will be deleted.
+	Environment  string   `json:"environment"`  // Optional. If provided, the jobs will be deleted only in this environment.
 }
 
 type SetRegistryWorkflowConfig struct {
