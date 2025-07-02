@@ -7,8 +7,12 @@ import (
 	"math/rand"
 	"testing"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 )
@@ -50,7 +54,7 @@ func randomTONExecuteReport(t *testing.T, sourceChainSelector uint64) cciptypes.
 				Sender:       cciptypes.UnknownAddress(addr.String()),
 				Data:         extraData,
 				Receiver:     addrBytes,
-				ExtraArgs:    []byte{},
+				ExtraArgs:    []byte{0, 0, 0, 0},
 				TokenAmounts: tokenAmounts,
 			}
 		}
@@ -67,10 +71,23 @@ func randomTONExecuteReport(t *testing.T, sourceChainSelector uint64) cciptypes.
 
 func TestExecutePluginCodecV1_TON(t *testing.T) {
 	ctx := context.Background()
-	codec := NewExecutePluginCodecV1()
+	mockExtraDataCodec := new(mocks.SourceChainExtraDataCodec)
+	edc := common.ExtraDataCodec(map[string]common.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM:    mockExtraDataCodec,
+		chainsel.FamilySolana: mockExtraDataCodec,
+		chainsel.FamilyTon:    mockExtraDataCodec,
+	})
+
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
+		"destgasamount": uint32(1000),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything).Return(map[string]any{
+		"gasLimit": big.NewInt(1000),
+	}, nil)
+	codec := NewExecutePluginCodecV1(edc)
 
 	t.Run("encode/decode roundtrip", func(t *testing.T) {
-		report := randomTONExecuteReport(t, 123456)
+		report := randomTONExecuteReport(t, 5009297550715157269) // evm selector for TON
 		encoded, err := codec.Encode(ctx, report)
 		require.NoError(t, err)
 		decoded, err := codec.Decode(ctx, encoded)

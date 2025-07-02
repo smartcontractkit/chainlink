@@ -3,21 +3,33 @@ package ccipton
 import (
 	"context"
 	"encoding/base64"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
+	ag_binary "github.com/gagliardetto/binary"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/binding"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/xssnick/tonutils-go/address"
-	cell "github.com/xssnick/tonutils-go/tvm/cell"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
-type ExecutePluginCodecV1 struct{}
+type ExecutePluginCodecV1 struct {
+	extraDataCodec common.ExtraDataCodec
+}
 
-func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
-	return &ExecutePluginCodecV1{}
+func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
+	return &ExecutePluginCodecV1{
+		extraDataCodec: extraDataCodec,
+	}
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
@@ -29,14 +41,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, nil
 	}
 
-	tonReports := make([]binding.ExecuteReport, 0, len(report.ChainReports))
+	tonReports := make([]bindings.ExecuteReport, 0, len(report.ChainReports))
 	for _, chainReport := range report.ChainReports {
 		var offChainTokenData *cell.Cell
 		var err error
-		rampMessages := make([]binding.Any2TONRampMessage, 0, len(chainReport.Messages))
+		rampMessages := make([]bindings.Any2TONRampMessage, 0, len(chainReport.Messages))
 
 		for _, msg := range chainReport.Messages {
-			tokenAmounts := make([]binding.Any2TONTokenTransfer, 0, len(msg.TokenAmounts))
+			tokenAmounts := make([]bindings.Any2TONTokenTransfer, 0, len(msg.TokenAmounts))
 			for _, tokenAmount := range msg.TokenAmounts {
 				if tokenAmount.Amount.IsEmpty() {
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
@@ -50,12 +62,22 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 				}
 
-				poolAddrCell, err := binding.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
+				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+				}
+
+				destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
+				if err != nil {
+					return nil, fmt.Errorf("extract dest gas amount: %w", err)
+				}
+
+				poolAddrCell, err := bindings.PackByteArrayToCell(tokenAmount.SourcePoolAddress)
 				if err != nil {
 					return nil, fmt.Errorf("pack source pool address: %w", err)
 				}
 
-				extraData, err := binding.PackByteArrayToCell(tokenAmount.ExtraData)
+				extraData, err := bindings.PackByteArrayToCell(tokenAmount.ExtraData)
 				if err != nil {
 					return nil, fmt.Errorf("pack extra data: %w", err)
 				}
@@ -70,20 +92,21 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("error convert dest token address: %w", err)
 				}
 
-				tokenAmounts = append(tokenAmounts, binding.Any2TONTokenTransfer{
+				tokenAmounts = append(tokenAmounts, bindings.Any2TONTokenTransfer{
 					SourcePoolAddress: poolAddrCell,
 					ExtraData:         extraData,
 					DestPoolAddress:   destTokenTonAddr,
 					Amount:            tokenAmount.Amount.Int,
+					DestGasAmount:     destGasAmount,
 				})
 			}
 
-			tokenAmountsDict, err := binding.PackArrayWithRefChaining(tokenAmounts)
+			tokenAmountsDict, err := bindings.PackArrayWithRefChaining(tokenAmounts)
 			if err != nil {
 				return nil, fmt.Errorf("pack token amounts: %w", err)
 			}
 
-			header := binding.RampMessageHeader{
+			header := bindings.RampMessageHeader{
 				MessageID:           msg.Header.MessageID[:],
 				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 				DestChainSelector:   uint64(msg.Header.DestChainSelector),
@@ -91,12 +114,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				Nonce:               msg.Header.Nonce,
 			}
 
-			senderAddr, err := binding.PackByteArrayToCell(msg.Sender)
+			senderAddr, err := bindings.PackByteArrayToCell(msg.Sender)
 			if err != nil {
 				return nil, fmt.Errorf("pack sender address: %w", err)
 			}
 
-			dataCell, err := binding.PackByteArrayToCell(msg.Data)
+			dataCell, err := bindings.PackByteArrayToCell(msg.Data)
 			if err != nil {
 				return nil, fmt.Errorf("pack data: %w", err)
 			}
@@ -107,43 +130,61 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("error convert receiver address: %w", err)
 			}
 
-			rampMsg := binding.Any2TONRampMessage{
+			var gasLimitBigInt *big.Int
+			if msg.ExtraArgs != nil && len(msg.ExtraArgs) > 0 {
+				extraArgsDecodeMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode extra args: %w", err)
+				}
+
+				gasLimitBigInt, err = parseExtraArgsMap(extraArgsDecodeMap)
+				if err != nil {
+					return nil, fmt.Errorf("parse extra args map to get gas limit: %w", err)
+				}
+			}
+
+			gasLimit, err := tlb.FromNano(gasLimitBigInt, 0)
+			if err != nil {
+				return nil, fmt.Errorf("convert gas limit to TON cell: %w", err)
+			}
+			rampMsg := bindings.Any2TONRampMessage{
 				Header:       header,
 				Sender:       senderAddr,
 				Data:         dataCell,
 				Receiver:     tonReceiverAddr,
+				GasLimit:     gasLimit, // TODO double check if this match with on-chain decimal. Note the offramp contract would not use this value base on current design.
 				TokenAmounts: tokenAmountsDict,
 			}
 
 			rampMessages = append(rampMessages, rampMsg)
 		}
 
-		packedRampMsgsCell, err := binding.PackArrayWithRefChaining(rampMessages)
+		packedRampMsgsCell, err := bindings.PackArrayWithRefChaining(rampMessages)
 		if err != nil {
 			return nil, fmt.Errorf("pack ramp messages: %w", err)
 		}
 
 		if len(chainReport.Messages) > 0 && len(chainReport.OffchainTokenData) > 0 {
 			// should only have an offchain token data if there are tokens as part of the message
-			offChainTokenData, err = binding.Pack2DByteArrayToCell(chainReport.OffchainTokenData[0])
+			offChainTokenData, err = bindings.Pack2DByteArrayToCell(chainReport.OffchainTokenData[0])
 			if err != nil {
 				return nil, fmt.Errorf("pack offchain token data: %w", err)
 			}
 		}
 
-		sigs := make([]binding.Signature, 0, len(chainReport.Proofs))
+		sigs := make([]bindings.Signature, 0, len(chainReport.Proofs))
 		for _, proof := range chainReport.Proofs {
-			sigs = append(sigs, binding.Signature{
+			sigs = append(sigs, bindings.Signature{
 				Sig: proof[:],
 			})
 		}
 
-		sigCell, err := binding.PackArrayWithStaticType(sigs)
+		sigCell, err := bindings.PackArrayWithStaticType(sigs)
 		if err != nil {
 			return nil, fmt.Errorf("pack signatures: %w", err)
 		}
 
-		message := binding.ExecuteReport{
+		message := bindings.ExecuteReport{
 			SourceChainSelector: uint64(chainReport.SourceChainSelector),
 			OffChainTokenData:   offChainTokenData,
 			Messages:            packedRampMsgsCell,
@@ -154,7 +195,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		tonReports = append(tonReports, message)
 	}
 
-	chainedReports, err := binding.PackArrayWithRefChaining(tonReports)
+	chainedReports, err := bindings.PackArrayWithRefChaining(tonReports)
 	if err != nil {
 		return nil, fmt.Errorf("pack execute reports: %w", err)
 	}
@@ -168,7 +209,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("decode BOC: %w", err)
 	}
 
-	unpackedReports, err := binding.UnPackArrayWithRefChaining[binding.ExecuteReport](c)
+	unpackedReports, err := bindings.UnPackArrayWithRefChaining[bindings.ExecuteReport](c)
 	if err != nil {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack execute reports: %w", err)
 	}
@@ -178,7 +219,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 	}
 
 	for _, tonReport := range unpackedReports {
-		signatures, err := binding.UnpackArrayWithStaticType[binding.Signature](tonReport.Proofs)
+		signatures, err := bindings.UnpackArrayWithStaticType[bindings.Signature](tonReport.Proofs)
 		if err != nil {
 			return cciptypes.ExecutePluginReport{}, err
 		}
@@ -188,26 +229,26 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 			proofs = append(proofs, cciptypes.Bytes32(proof.Sig))
 		}
 
-		unpackedMsgs, err := binding.UnPackArrayWithRefChaining[binding.Any2TONRampMessage](tonReport.Messages)
+		unpackedMsgs, err := bindings.UnPackArrayWithRefChaining[bindings.Any2TONRampMessage](tonReport.Messages)
 		if err != nil {
 			return executeReport, fmt.Errorf("unpack ramp messages: %w", err)
 		}
 
 		messages := make([]cciptypes.Message, 0, len(unpackedMsgs))
 		for _, msg := range unpackedMsgs {
-			tonTokenAmounts, err := binding.UnPackArrayWithRefChaining[binding.Any2TONTokenTransfer](msg.TokenAmounts)
+			tonTokenAmounts, err := bindings.UnPackArrayWithRefChaining[bindings.Any2TONTokenTransfer](msg.TokenAmounts)
 			if err != nil {
 				return executeReport, fmt.Errorf("unpack token amounts: %w", err)
 			}
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(tonTokenAmounts))
 			for _, tokenAmount := range tonTokenAmounts {
-				sourceTokenPoolAddr, err := binding.UnloadCellToByteArray(tokenAmount.SourcePoolAddress)
+				sourceTokenPoolAddr, err := bindings.UnloadCellToByteArray(tokenAmount.SourcePoolAddress)
 				if err != nil {
 					return executeReport, err
 				}
 
-				extraData, err := binding.UnloadCellToByteArray(tokenAmount.ExtraData)
+				extraData, err := bindings.UnloadCellToByteArray(tokenAmount.ExtraData)
 				if err != nil {
 					return executeReport, err
 				}
@@ -218,15 +259,20 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					return executeReport, err
 				}
 
+				// big endian encoding for dest gas amount
+				destGasAmount := make([]byte, 4)
+				binary.BigEndian.PutUint32(destGasAmount, tokenAmount.DestGasAmount)
+
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 					SourcePoolAddress: sourceTokenPoolAddr,
 					DestTokenAddress:  destTokenAddr,
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
+					DestExecData:      destGasAmount,
 				})
 			}
 
-			senderAddr, err := binding.UnloadCellToByteArray(msg.Sender)
+			senderAddr, err := bindings.UnloadCellToByteArray(msg.Sender)
 			if err != nil {
 				return executeReport, fmt.Errorf("unload sender address: %w", err)
 			}
@@ -236,9 +282,20 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 				return executeReport, fmt.Errorf("convert receiver address: %w", err)
 			}
 
-			msgData, err := binding.UnloadCellToByteArray(msg.Data)
+			msgData, err := bindings.UnloadCellToByteArray(msg.Data)
 			if err != nil {
 				return executeReport, fmt.Errorf("unload message data: %w", err)
+			}
+
+			// TODO make sure generic
+			extraArgs := bindings.GenericExtraArgsV2{
+				GasLimit:                 msg.GasLimit.Nano(),
+				AllowOutOfOrderExecution: true,
+			}
+
+			extraArgsCell, err := tlb.ToCell(extraArgs)
+			if err != nil {
+				return cciptypes.ExecutePluginReport{}, fmt.Errorf("convert extra args to cell: %w", err)
 			}
 
 			messages = append(messages, cciptypes.Message{
@@ -249,17 +306,17 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
 					Nonce:               msg.Header.Nonce,
 				},
-				Sender:   senderAddr,
-				Data:     msgData,
-				Receiver: receiverAddr,
-				//ExtraArgs:    extraArgsCell.ToBOC(),
+				Sender:       senderAddr,
+				Data:         msgData,
+				Receiver:     receiverAddr,
+				ExtraArgs:    extraArgsCell.ToBOC(),
 				TokenAmounts: tokenAmounts,
 			})
 		}
 
 		offchainTokenData := make([][][]byte, 0)
 		if tonReport.OffChainTokenData != nil {
-			offchainData, err := binding.Unpack2DByteArrayFromCell(tonReport.OffChainTokenData)
+			offchainData, err := bindings.Unpack2DByteArrayFromCell(tonReport.OffChainTokenData)
 			if err != nil {
 				return executeReport, fmt.Errorf("unload offchain token data: %w", err)
 			}
@@ -279,6 +336,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 }
 
 // Convert the raw address bytes to a TON address.
+// TODO remove once address codec is merged
 func convertBase64ToAddress(rawAddr []byte) (*address.Address, error) {
 	addrStr := base64.RawURLEncoding.EncodeToString(rawAddr)
 	tonAddr, err := address.ParseAddr(addrStr)
@@ -289,6 +347,7 @@ func convertBase64ToAddress(rawAddr []byte) (*address.Address, error) {
 	return tonAddr, nil
 }
 
+// TODO remove once address codec is merged
 func convertAddressToBase64(addr *address.Address) ([]byte, error) {
 	if addr == nil {
 		return nil, fmt.Errorf("nil address")
@@ -299,4 +358,49 @@ func convertAddressToBase64(addr *address.Address) ([]byte, error) {
 		return nil, fmt.Errorf("empty address string")
 	}
 	return base64.RawURLEncoding.DecodeString(addrStr)
+}
+
+// Duplicate with ccipevm, consider moving to common package
+func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
+	// Iterate through the expected fields in the struct
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "destgasamount":
+			// Expect uint32
+			if val, ok := fieldValue.(uint32); ok {
+				return val, nil
+			} else {
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			}
+		default:
+		}
+	}
+
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+// Duplicate with ccipevm, consider moving to common package
+func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
+	var outputGas *big.Int
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "gaslimit":
+			if val, ok := fieldValue.(*big.Int); ok {
+				outputGas = val
+				return outputGas, nil
+			} else {
+				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
+				if val, ok := fieldValue.(ag_binary.Uint128); ok {
+					outputGas = val.BigInt()
+					return outputGas, nil
+				}
+				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
+			}
+		default:
+			// no error here, as we only need the keys to gasLimit, other keys can be skipped without like AllowOutOfOrderExecution	etc.
+		}
+	}
+	return outputGas, errors.New("gas limit not found in extra data map")
 }
