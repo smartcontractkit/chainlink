@@ -13,7 +13,7 @@ if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_g
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
-  gotestsum --format='testname' \
+  gotestsum --format='standard-verbose' \
     --rerun-fails-abort-on-data-race \
     --rerun-fails='3' \
     --packages='./...' \
