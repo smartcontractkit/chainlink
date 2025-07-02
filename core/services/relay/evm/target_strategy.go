@@ -199,7 +199,7 @@ func (t *evmTargetStrategy) GetTransactionFee(ctx context.Context, transactionID
 		return decimal.Decimal{}, err
 	}
 
-	return decimal.New(fee.TransactionFee.Int64(), 18), nil
+	return decimal.New(fee.TransactionFee.Int64(), -18), nil
 }
 
 var (
