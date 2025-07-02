@@ -10,7 +10,8 @@ docker_cmd_params = ["-b", "5"]
 # ----- JOB DISTRIBUTOR -----
 # Docker image for the job distributor service
 [jd]
-image = "localhost:5000/job-distributor:sha-44349dd-arm64"
+csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+image = "job-distributor:0.12.7"
 
 # ----- MOCK CAPABILITIES -----
 # Trigger capability that simulates streams of data
@@ -30,8 +31,8 @@ description="write trigger mock"
 # ----- TEST CONFIGURATION -----
 # Parameters for the Workflow DON load test
 [workflow_load]
-streams = 1000              # Number of streams to simulate
-jobs = 2                    # Number of jobs per stream
+streams = 500              # Number of streams to simulate
+jobs = 1                    # Number of jobs per stream
 
 # ----- INFRASTRUCTURE SETUP -----
 # Configures Docker-based test infrastructure
@@ -77,6 +78,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # ----- CAPABILITIES NODES CONFIGURATION -----
 # Setup for a 3-node Capabilities cluster with individual configurations
@@ -104,6 +107,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # Capability node 2 configuration
 [[nodesets.node_specs]]
@@ -118,6 +123,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # Capability node 3 configuration
 [[nodesets.node_specs]]
@@ -132,6 +139,8 @@ user_config_overrides = """
         Enabled = true
         DatabaseTimeout = '1s'
       """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
 # ----- CHAOS TESTING CONFIGURATION -----
 #Settings for chaos engineering tests (optional), for simple load test you can ignore it

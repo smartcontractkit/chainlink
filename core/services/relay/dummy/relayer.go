@@ -77,6 +77,9 @@ func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {
 func (r *relayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return types.ChainStatus{}, nil
 }
+func (r *relayer) GetChainInfo(_ context.Context) (types.ChainInfo, error) {
+	return types.ChainInfo{}, nil
+}
 func (r *relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
 	return nil, "", 0, nil
 }

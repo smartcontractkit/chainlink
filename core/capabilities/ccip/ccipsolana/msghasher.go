@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -74,7 +74,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
 			ExtraData:         ta.ExtraData,
 			DestGasAmount:     destGasAmount,
-			Amount:            ccip_offramp.CrossChainAmount{LeBytes: tokens.ToLittleEndianU256(ta.Amount.Int.Uint64())},
+			Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(ta.Amount.Int, 32))},
 		})
 	}
 

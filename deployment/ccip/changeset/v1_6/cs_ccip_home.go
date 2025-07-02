@@ -34,8 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -191,7 +191,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 
 func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
 	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
-		chainState, ok := state.Chains[uint64(sel)]
+		_, ok := state.Chains[uint64(sel)]
 		if !ok {
 			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
 		}
@@ -200,23 +200,9 @@ func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserve
 		if err != nil {
 			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
 		}
-		lbtcToken, err := sourcePool.GetToken(nil)
+		_, err = sourcePool.GetToken(nil)
 		if err != nil {
 			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
-		}
-		tokenRegistry := chainState.TokenAdminRegistry
-		lbtcPool, err := tokenRegistry.GetPool(nil, lbtcToken)
-		if err != nil {
-			return fmt.Errorf("chain %d has an error while requesting LBTC token pool (token=%s) from "+
-				"TokenAdminRegistry (address=%s): %w", sel, lbtcToken, tokenRegistry.Address(), err)
-		}
-		if lbtcPool == (common.Address{}) {
-			return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry (address=%s)", sel,
-				tokenRegistry.Address())
-		}
-		if lbtcPool != sourcePoolAddr {
-			return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry (address=%s). "+
-				"Found: %s, but in LBTC config was: %s", sel, tokenRegistry.Address(), lbtcPool, sourcePoolAddr)
 		}
 	}
 	return nil
@@ -316,6 +302,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 				state.Chains[p.HomeChainSelector].CCIPHome,
 				chainSelector,
 			)
+
 			if err != nil {
 				return nil, fmt.Errorf("fetch don id for chain: %w", err)
 			}
@@ -423,7 +410,15 @@ func PromoteCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "PromoteCandidateChangeset")
+	return opsutil.AddEVMCallSequenceToCSOutput(
+		e,
+		cldf.ChangesetOutput{},
+		report,
+		err,
+		state.EVMMCMSStateByChain(),
+		cfg.MCMS,
+		"PromoteCandidateChangeset",
+	)
 }
 
 type SetCandidatePluginInfo struct {
@@ -676,7 +671,7 @@ func AddDonAndSetCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, fmt.Sprintf("addDON and setCandidates for %s plugin on new chains", cfg.PluginInfo.PluginType.String()))
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, fmt.Sprintf("addDON and setCandidates for %s plugin on new chains", cfg.PluginInfo.PluginType.String()))
 }
 
 type SetCandidateChangesetConfig struct {
@@ -808,7 +803,7 @@ func SetCandidateChangeset(
 			DONs:                 dons,
 		},
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, fmt.Sprintf("setCandidates for plugins: %v", pluginInfos))
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, fmt.Sprintf("setCandidates for plugins: %v", pluginInfos))
 }
 
 type RevokeCandidateChangesetConfig struct {
@@ -878,7 +873,6 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	donID, err := cfg.Validate(e, state)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
@@ -1121,7 +1115,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 		},
 	)
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, cldf.ChangesetOutput{}, report, err, cfg.MCMS, "Update chain configs on CCIPHome")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Update chain configs on CCIPHome")
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {

@@ -58,11 +58,6 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 }
 
 func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingState stateview.CCIPOnChainState) error {
-	existingState, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return err
-	}
 	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
@@ -147,6 +142,7 @@ func deployChainContractsForChains(
 			RMNHomeAddress:             getAddressSafely(existingState.Chains[homeChainSel].RMNHome),
 			DeployChainContractsConfig: c,
 			AddressesPerChain:          addresses,
+			GasBoostConfigPerChain:     c.GasBoostConfigPerChain,
 		},
 	)
 	if err != nil {

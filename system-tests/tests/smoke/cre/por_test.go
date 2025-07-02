@@ -100,7 +100,7 @@ type WorkflowConfig struct {
 
 		If you wish to use "compile" mode set `ShouldCompileNewWorkflow` to `true`, set `GIST_WRITE_TOKEN` env var and provide the path to the workflow folder.
 	*/
-	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow" validate:"no_cre_no_compilation,disabled_in_ci"`
+	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow" validate:"no_cre_no_compilation,disabled_in_ci"` //nolint:revive // unknown option
 	// Tells the test where the workflow to compile is located
 	WorkflowFolderLocation *string         `toml:"workflow_folder_location" validate:"required_if=ShouldCompileNewWorkflow true"`
 	CompiledWorkflowConfig *CompiledConfig `toml:"compiled_config" validate:"required_if=ShouldCompileNewWorkflow false"`
@@ -554,6 +554,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
 				rpcs,
+				nil, // without s3Provider.Output
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
@@ -578,6 +579,8 @@ func setupPoRTestEnvironment(
 		require.NoError(t, syncerErr, "failed to wait for workflow registry syncer")
 		testLogger.Info().Msg("Proceeding to register PoR workflow...")
 
+		wtName := corevm.GenerateWriteTargetName(bo.ChainID)
+
 		workflowInput := managePoRWorkflowInput{
 			WorkflowConfig:     in.WorkflowConfigs[idx],
 			homeChainSelector:  homeChainOutput.ChainSelector,
@@ -590,7 +593,7 @@ func setupPoRTestEnvironment(
 			deployerPrivateKey: bo.DeployerPrivateKey,
 			creCLIAbsPath:      creCLIAbsPath,
 			creCLIsettingsFile: creCLISettingsFile,
-			writeTargetName:    corevm.GenerateWriteTargetName(bo.ChainID),
+			writeTargetName:    wtName,
 			creCLIProfile:      libcrecli.CRECLIProfile,
 		}
 
@@ -620,6 +623,8 @@ func setupPoRTestEnvironment(
 
 // config file to use: environment-one-don-multichain.toml
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-one-don-multichain-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -682,6 +687,8 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 // config file to use: environment-gateway-don.toml
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-gateway-don-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -735,6 +742,8 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 
 // config file to use: environment-capabilities-don.toml
 func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-capabilities-don-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -924,6 +933,16 @@ func waitForWorkflowRegistrySyncer(nodeSetOutput []*types.WrappedNodeOutput, top
 		}
 		if err := eg3.Wait(); err != nil {
 			return errors.Wrap(err, "failed to wait for RegistrySyncer health checks")
+		}
+	}
+
+	return nil
+}
+
+func setCICtfConfigIfMissing(configName string) error {
+	if os.Getenv("CI") == "true" {
+		if os.Getenv("CTF_CONFIGS") == "" {
+			return os.Setenv("CTF_CONFIGS", configName)
 		}
 	}
 

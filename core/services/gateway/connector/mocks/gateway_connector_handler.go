@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-
 	context "context"
 
+	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -68,9 +67,22 @@ func (_c *GatewayConnectorHandler_Close_Call) RunAndReturn(run func() error) *Ga
 	return _c
 }
 
-// HandleGatewayMessage provides a mock function with given fields: ctx, gatewayId, msg
-func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
-	_m.Called(ctx, gatewayId, msg)
+// HandleGatewayMessage provides a mock function with given fields: ctx, gatewayID, req
+func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc2.Request) error {
+	ret := _m.Called(ctx, gatewayID, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HandleGatewayMessage")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Request) error); ok {
+		r0 = rf(ctx, gatewayID, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // GatewayConnectorHandler_HandleGatewayMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleGatewayMessage'
@@ -80,26 +92,82 @@ type GatewayConnectorHandler_HandleGatewayMessage_Call struct {
 
 // HandleGatewayMessage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - gatewayId string
-//   - msg *api.Message
-func (_e *GatewayConnectorHandler_Expecter) HandleGatewayMessage(ctx interface{}, gatewayId interface{}, msg interface{}) *GatewayConnectorHandler_HandleGatewayMessage_Call {
-	return &GatewayConnectorHandler_HandleGatewayMessage_Call{Call: _e.mock.On("HandleGatewayMessage", ctx, gatewayId, msg)}
+//   - gatewayID string
+//   - req *jsonrpc2.Request
+func (_e *GatewayConnectorHandler_Expecter) HandleGatewayMessage(ctx interface{}, gatewayID interface{}, req interface{}) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+	return &GatewayConnectorHandler_HandleGatewayMessage_Call{Call: _e.mock.On("HandleGatewayMessage", ctx, gatewayID, req)}
 }
 
-func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Run(run func(ctx context.Context, gatewayId string, msg *api.Message)) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Run(run func(ctx context.Context, gatewayID string, req *jsonrpc2.Request)) *GatewayConnectorHandler_HandleGatewayMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*api.Message))
+		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Request))
 	})
 	return _c
 }
 
-func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Return() *GatewayConnectorHandler_HandleGatewayMessage_Call {
-	_c.Call.Return()
+func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Return(_a0 error) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) RunAndReturn(run func(context.Context, string, *api.Message)) *GatewayConnectorHandler_HandleGatewayMessage_Call {
-	_c.Run(run)
+func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Request) error) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ID provides a mock function with given fields: ctx
+func (_m *GatewayConnectorHandler) ID(ctx context.Context) (string, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ID")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GatewayConnectorHandler_ID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ID'
+type GatewayConnectorHandler_ID_Call struct {
+	*mock.Call
+}
+
+// ID is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *GatewayConnectorHandler_Expecter) ID(ctx interface{}) *GatewayConnectorHandler_ID_Call {
+	return &GatewayConnectorHandler_ID_Call{Call: _e.mock.On("ID", ctx)}
+}
+
+func (_c *GatewayConnectorHandler_ID_Call) Run(run func(ctx context.Context)) *GatewayConnectorHandler_ID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *GatewayConnectorHandler_ID_Call) Return(_a0 string, _a1 error) *GatewayConnectorHandler_ID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayConnectorHandler_ID_Call) RunAndReturn(run func(context.Context) (string, error)) *GatewayConnectorHandler_ID_Call {
+	_c.Call.Return(run)
 	return _c
 }
 

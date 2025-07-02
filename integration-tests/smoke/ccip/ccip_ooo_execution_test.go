@@ -18,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -73,9 +74,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[sourceChain], destChain)
+	err = testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[sourceChain], destChain, shared.USDCSymbol)
 	require.NoError(t, err)
-	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[destChain], sourceChain)
+	err = testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[destChain], sourceChain, shared.USDCSymbol)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(

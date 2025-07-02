@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
@@ -50,7 +51,7 @@ var (
 func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
-		return cldf.ChangesetOutput{}, errors.Wrapf(cldf.ErrInvalidConfig, "%v", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
 	err = deployPrerequisiteChainContracts(env, ab, cfg)
@@ -67,6 +68,7 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 
 type DeployPrerequisiteContractsOpts struct {
 	USDCEnabled             bool
+	LBTCEnabled             bool
 	Multicall3Enabled       bool
 	TokenPoolFactoryEnabled bool
 	LegacyDeploymentCfg     *V1_5DeploymentConfig
@@ -109,6 +111,12 @@ func WithTokenPoolFactoryEnabled() PrerequisiteOpt {
 func WithUSDCEnabled() PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
 		o.USDCEnabled = true
+	}
+}
+
+func WithLBTCEnabled() PrerequisiteOpt {
+	return func(o *DeployPrerequisiteContractsOpts) {
+		o.LBTCEnabled = true
 	}
 }
 
@@ -663,6 +671,17 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			"messenger", messenger.Address(),
 		)
 	}
+	if deployOpts.LBTCEnabled {
+		token, pool, err1 := deployLBTC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		if err1 != nil {
+			return err1
+		}
+		e.Logger.Infow("Deployed LBTC contracts",
+			"chain", chain.String(),
+			"token", token.Address(),
+			"pool", pool.Address(),
+		)
+	}
 	if chainState.Receiver == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
@@ -936,4 +955,118 @@ func deployUSDC(
 	}
 
 	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
+}
+
+func deployLBTC(
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	addresses cldf.AddressBook,
+	rmnProxy common.Address,
+	router common.Address,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*mock_lbtc_token_pool.MockE2ELBTCTokenPool,
+	error,
+) {
+	token, err := cldf.DeployContract(lggr, chain, addresses,
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			var (
+				tokenAddress  common.Address
+				tx            *types.Transaction
+				tokenContract *burn_mint_erc677.BurnMintERC677
+				err2          error
+			)
+			if chain.IsZkSyncVM {
+				tokenAddress, _, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677Zk(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+					shared.LBTCSymbol,
+					string(shared.LBTCSymbol),
+					shared.LBTCDecimals,
+					big.NewInt(0),
+				)
+			} else {
+				tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
+					chain.DeployerKey,
+					chain.Client,
+					string(shared.LBTCSymbol),
+					string(shared.LBTCSymbol),
+					shared.LBTCDecimals,
+					big.NewInt(0),
+				)
+			}
+			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				Address:  tokenAddress,
+				Contract: tokenContract,
+				Tx:       tx,
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy LBTC token", "chain", chain.String(), "err", err)
+		return nil, nil, err
+	}
+
+	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	if err != nil {
+		lggr.Errorw("Failed to grant mint role", "chain", chain.String(), "token", token.Contract.Address(), "err", err)
+		return nil, nil, err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tokenPool, err := cldf.DeployContract(lggr, chain, addresses,
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*mock_lbtc_token_pool.MockE2ELBTCTokenPool] {
+			var (
+				tokenPoolAddress  common.Address
+				tx                *types.Transaction
+				tokenPoolContract *mock_lbtc_token_pool.MockE2ELBTCTokenPool
+				err2              error
+			)
+			// valid 32 bytes staging Lombard message hash
+			// same as LBTCValidDestPoolData (integration-tests/ccip-tests/actions/ccip_helpers.go:101)
+			destPoolData := hexutil.MustDecode("0xdee9d5a70c34ab6ad3d3be55cc81b8f3dbd7aaf4070d7f1046b239e4995df489")
+			if chain.IsZkSyncVM {
+				tokenPoolAddress, _, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPoolZk(
+					nil,
+					chain.ClientZkSyncVM,
+					chain.DeployerKeyZkSyncVM,
+					chain.Client,
+					chain.DeployerKeyZkSyncVM,
+					token.Address,
+					[]common.Address{},
+					rmnProxy,
+					router,
+					destPoolData,
+				)
+			} else {
+				tokenPoolAddress, tx, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPool(
+					chain.DeployerKey,
+					chain.Client,
+					token.Address,
+					[]common.Address{},
+					rmnProxy,
+					router,
+					destPoolData,
+				)
+			}
+			return cldf.ContractDeploy[*mock_lbtc_token_pool.MockE2ELBTCTokenPool]{
+				Address:  tokenPoolAddress,
+				Contract: tokenPoolContract,
+				Tx:       tx,
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy LBTC token pool", "chain", chain.String(), "err", err)
+		return nil, nil, err
+	}
+
+	return token.Contract, tokenPool.Contract, nil
 }

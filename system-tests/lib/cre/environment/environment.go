@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
@@ -76,6 +78,8 @@ type SetupOutput struct {
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *cretypes.DonTopology
 	NodeOutput                          []*cretypes.WrappedNodeOutput
+	InfraInput                          libtypes.InfraInput
+	S3ProviderOutput                    *s3provider.Output
 }
 
 type SetupInput struct {
@@ -88,6 +92,7 @@ type SetupInput struct {
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
 	OCR3Config                           *keystone_changeset.OracleConfig
+	S3ProviderInput                      *s3provider.Input
 }
 
 type backgroundStageResult struct {
@@ -129,14 +134,29 @@ func SetupTestEnvironment(
 		}
 	}()
 
+	stageGen := NewStageGen(9, "STAGE")
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
+
+	var s3ProviderOutput *s3provider.Output
+	if input.S3ProviderInput != nil {
+		var s3ProviderErr error
+		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
+		if s3ProviderErr != nil {
+			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
+		}
+	}
+	testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
 	bi := BlockchainsInput{
 		infra:    &input.InfraInput,
 		nixShell: nixShell,
 	}
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
-	startTime := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Starting %d blockchain(s)\n\n", len(bi.blockchainsInput)))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting %d blockchain(s)", len(bi.blockchainsInput))))
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(testLogger, bi)
 	if bcOutErr != nil {
@@ -182,9 +202,9 @@ func SetupTestEnvironment(
 		BlockChains: chain.NewBlockChains(blockChains),
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 2/8 Deploying Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	// we could try to parallelise deployment of these contracts, but it's difficult, because there's no way to make chain.DeployerKey dynamic
 	// in order to manually increment the nonce for each contract
@@ -248,7 +268,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 2/8] Contracts deployed in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds\n", stageGen.Elapsed().Seconds())))
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
@@ -265,6 +285,7 @@ func SetupTestEnvironment(
 
 	// configure workflow registry contract in the background, so that we can continue with the next stage
 	var workflowRegistryInput *cretypes.WorkflowRegistryInput
+	var startTime time.Time
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
 		startTime = time.Now()
@@ -287,8 +308,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
 	}()
 
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/8] Preparing DON(s) configuration\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
@@ -448,9 +468,9 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 3/8] DONs configuration prepared in %.2f seconds\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 4/8] Starting Job Distributor\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds\n", stageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor")))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		deployCribJdInput := &cretypes.DeployCribJdInput{
@@ -482,13 +502,12 @@ func SetupTestEnvironment(
 			return jdErr
 		}
 
-		fmt.Print(libformat.PurpleText("\n[Stage 4/8] Job Distributor started in %.2f seconds\n", time.Since(startTime).Seconds()))
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Job Distributor started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
 
 		return nil
 	})
 
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 5/8] Starting %d DON(s)\n\n", len(input.CapabilitiesAwareNodeSets)))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting %d DON(s)\n\n", len(input.CapabilitiesAwareNodeSets))))
 
 	if input.InfraInput.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
@@ -556,7 +575,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 5/8] DONs started in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
 
 	// Fund nodes in the background, so that we can continue with the next stage
 	backgroundStagesWaitGroup.Add(1)
@@ -613,8 +632,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 2/3] Chainlink nodes funded in %.2f seconds\033[0m\n", time.Since(startTime).Seconds())}
 	}()
 
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 6/8] Creating jobs with Job Distributor\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Creating jobs with Job Distributor")))
 
 	donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
@@ -645,9 +663,8 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	fmt.Print(libformat.PurpleText("\n[Stage 6/8] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 7/8] Waiting for Log Poller to start tracking OCR3 contract\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds\033[0m\n", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	for idx, nodeSetOut := range nodeSetOutput {
 		if !flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
@@ -668,7 +685,7 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 7/8] Log Poller started in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds\n", stageGen.Elapsed().Seconds())))
 
 	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
 	backgroundStagesWaitGroup.Add(1)
@@ -699,8 +716,7 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 8/8] Configuring OCR3 and Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
@@ -724,7 +740,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 8/8] OCR3 and Keystone contracts configured in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds\n", stageGen.Elapsed().Seconds())))
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()
@@ -743,6 +759,7 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
+		S3ProviderOutput:                    s3ProviderOutput,
 	}, nil
 }
 

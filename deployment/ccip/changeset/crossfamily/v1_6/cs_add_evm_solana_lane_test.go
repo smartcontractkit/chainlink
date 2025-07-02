@@ -147,7 +147,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			// if MCMS is enabled, we need to run the proposal
 			if tc.mcmsEnabled {
 				for _, prop := range out.MCMSTimelockProposals {
-					mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+					mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop, false)
 					// return the error so devs can ensure expected reversions
 					err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
 					require.NoError(t, err)

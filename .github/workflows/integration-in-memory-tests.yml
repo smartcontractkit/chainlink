@@ -82,12 +82,13 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # June 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
       test_path: .github/integration-in-memory-tests.yml
       test_trigger: PR Integration CCIP Tests
+      skip_image_build: true # in-memory tests do not require an image
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -100,6 +101,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   run-ccip-integration-in-memory-tests-for-merge-queue:
     name: Run CCIP Integration In Memory Tests For Merge Queue
@@ -111,7 +114,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c734fdbb7feec263c481af58ac562d6c0544abae # June 6, 2025
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -121,6 +124,7 @@ jobs:
       slack_notification_after_tests_channel_id: "#ccip-testing"
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
+      skip_image_build: true # in-memory tests do not require an image
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -133,6 +137,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
   check-integration-test-results:
     if: always()
@@ -150,7 +156,9 @@ jobs:
 
   cleanup:
     name: Clean up integration environment deployments
-    if: always()
+    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
+    # By always running this, it delays the start of the next workflow run due to concurrency rules.
+    if: always() && !cancelled()
     needs: [run-ccip-integration-in-memory--tests-for-pr, run-ccip-integration-in-memory-tests-for-merge-queue]
     runs-on: ubuntu-latest
     steps:
