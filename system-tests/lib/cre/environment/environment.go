@@ -429,6 +429,11 @@ func SetupTestEnvironment(
 			}
 		}
 
+		executableErr := libcaps.MakeBinariesExecutable(input.CustomBinariesPaths)
+		if executableErr != nil {
+			return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
+		}
+
 		var appendErr error
 		input.CapabilitiesAwareNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(input.CapabilitiesAwareNodeSets[i], donMetadata, input.CustomBinariesPaths)
 		if appendErr != nil {
