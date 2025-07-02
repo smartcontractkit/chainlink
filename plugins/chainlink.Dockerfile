@@ -13,6 +13,8 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
+RUN mkdir -p modules
+COPY modules/ ./modules/
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 COPY . .
