@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -37,20 +38,50 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile, input.CRESettingsFile)
-		if compileErr != nil {
-			return errors.Wrap(compileErr, "failed to compile workflow")
-		}
+		wasmFileName := "mytestworkflow.wasm.br"
 
-		workflowURL = compilationResult.WorkflowURL
-		workflowConfigURL = &compilationResult.ConfigURL
-
-		if input.NewWorkflow.SecretsFilePath != nil && *input.NewWorkflow.SecretsFilePath != "" {
-			secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.NewWorkflow.Secrets, creCLIWorkflowSettingsFile)
-			if secretsErr != nil {
-				return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
+		// TODO: swap to some flag or env variable to control this
+		useS3Storage := true
+		if useS3Storage {
+			creCLI := libcrecli.NewCreCli(input.CRECLIAbsPath)
+			err := creCLI.Compile(
+				filepath.Join(input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName),
+				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
+				creCLIWorkflowSettingsFile.Name(),
+				wasmFileName,
+			)
+			if err != nil {
+				return err
 			}
-			workflowSecretsURL = &secretsURL
+
+			uploadOutput, err := creCLI.Upload(
+				libcrecli.S3,
+				wasmFileName,
+				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
+			)
+			if err != nil {
+				return err
+			}
+
+			workflowURL = uploadOutput.BinaryURL
+			workflowConfigURL = &uploadOutput.ConfigURL
+			// TODO: handle secrets file upload
+		} else {
+			compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile, input.CRESettingsFile)
+			if compileErr != nil {
+				return errors.Wrap(compileErr, "failed to compile workflow")
+			}
+
+			workflowURL = compilationResult.WorkflowURL
+			workflowConfigURL = &compilationResult.ConfigURL
+
+			if input.NewWorkflow.SecretsFilePath != nil && *input.NewWorkflow.SecretsFilePath != "" {
+				secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.NewWorkflow.Secrets, creCLIWorkflowSettingsFile)
+				if secretsErr != nil {
+					return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
+				}
+				workflowSecretsURL = &secretsURL
+			}
 		}
 	} else {
 		workflowURL = input.ExistingWorkflow.BinaryURL

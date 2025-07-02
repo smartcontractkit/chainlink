@@ -554,7 +554,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
 				rpcs,
-				nil, // without s3Provider.Output
+				universalSetupOutput.S3ProviderOutput, // without s3Provider.Output
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
@@ -623,7 +623,11 @@ func setupPoRTestEnvironment(
 
 // config file to use: environment-one-don-multichain.toml
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-one-don-multichain-ci.toml")
+	configErr := setCTFConfigIfMissing(
+		"environment-one-don-multichain.toml",
+		"environment-one-don-multichain-ci.toml",
+	)
+
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
@@ -687,7 +691,10 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 // config file to use: environment-gateway-don.toml
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-gateway-don-ci.toml")
+	configErr := setCTFConfigIfMissing(
+		"environment-gateway-don.toml",
+		"environment-gateway-don-ci.toml",
+	)
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
@@ -742,7 +749,10 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 
 // config file to use: environment-capabilities-don.toml
 func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-capabilities-don-ci.toml")
+	configErr := setCTFConfigIfMissing(
+		"environment-capabilities-don.toml",
+		"environment-capabilities-don-ci.toml",
+	)
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
@@ -939,10 +949,45 @@ func waitForWorkflowRegistrySyncer(nodeSetOutput []*types.WrappedNodeOutput, top
 	return nil
 }
 
-func setCICtfConfigIfMissing(configName string) error {
+func setCTFConfigIfMissing(localConfigName string, ciConfigName string) error {
 	if os.Getenv("CI") == "true" {
 		if os.Getenv("CTF_CONFIGS") == "" {
-			return os.Setenv("CTF_CONFIGS", configName)
+			err := os.Setenv("CTF_CONFIGS", ciConfigName)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if os.Getenv("CTF_CONFIGS") == "" {
+			err := os.Setenv("CTF_CONFIGS", localConfigName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if os.Getenv("PRIVATE_KEY") == "" {
+		anvilDefaultPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+		err := os.Setenv("PRIVATE_KEY", anvilDefaultPrivateKey)
+		if err != nil {
+			return err
+		}
+	}
+
+	if os.Getenv("GIST_WRITE_TOKEN") == "" {
+		// This token is used to write test results to the gist, it should be set in the environment
+		// or it will be set to a default value that is not valid for writing
+		// This token is used only for CI, so it should not be set locally
+		// If you want to run tests locally, you can set this token in your environment
+		// or you can remove this line and run tests without writing to the gist
+		// but then you won't be able to see the test results in the gist
+		err := os.Setenv(
+			"GIST_WRITE_TOKEN",
+			"FAKE_VALUE_FOR_LOCAL_TESTING_ONLY", //nolint:staticcheck
+		)
+		if err != nil {
+			return err
 		}
 	}
 
