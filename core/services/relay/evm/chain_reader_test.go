@@ -19,13 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
-	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
@@ -74,7 +72,7 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 
 func TestChainReader_Bind(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
-	ht := headstest.NewTracker[*clevmtypes.Head](t)
+	ht := headstest.NewTracker[*evmtypes.Head](t)
 	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: map[string]types.ChainContractReader{
 		"test-contract": {
 			ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"someDW\",\"type\":\"string\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
@@ -113,34 +111,37 @@ func TestChainReader_Bind(t *testing.T) {
 	}).Twice()
 
 	// first register filter
-	cr.Bind(t.Context(), []clcommontypes.BoundContract{
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
 		{
 			Name:    "test-contract",
 			Address: common.BytesToAddress([]byte{1, 2, 3}).Hex(),
 		},
 	})
+	require.NoError(t, err)
 	_, ok := store[expName1]
 	assert.True(t, ok)
 	// second register filter call
-	cr.Bind(t.Context(), []clcommontypes.BoundContract{
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
 		{
 			Name:    "test-contract",
 			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
 		},
 	})
+	require.NoError(t, err)
 	_, ok = store[expName2]
 	assert.True(t, ok)
 	// this one shouldn't call
-	cr.Bind(t.Context(), []clcommontypes.BoundContract{
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
 		{
 			Name:    "test-contract",
 			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
 		},
 	})
+	require.NoError(t, err)
 
 	_, ok = store[expName2]
 	assert.True(t, ok)
-	assert.Equal(t, 1, len(store))
+	assert.Len(t, store, 1)
 
 	lp.AssertExpectations(t)
 }
