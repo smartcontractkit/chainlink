@@ -17,8 +17,8 @@ import (
 )
 
 type NodesFilter struct {
-	DONID        uint64   `json:"donId"` // Required
-	EnvLabel     string   `json:"envLabel,omitempty" yaml:"envLabel,omitempty"`
+	DONID        uint64   `json:"donId"`                    // Required
+	EnvLabel     string   `json:"envLabel" yaml:"envLabel"` // Required
 	ProductLabel string   `json:"productLabel,omitempty" yaml:"productLabel,omitempty"`
 	Size         int      `json:"size,omitempty" yaml:"size,omitempty"`
 	IsBootstrap  bool     `json:"isBootstrap,omitempty" yaml:"isBootstrap,omitempty"`
@@ -117,6 +117,10 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 			Key:   "don_id",
 			Value: pointer.To(strconv.FormatUint(nodeFilters.DONID, 10)),
 		},
+		&ptypes.Label{
+			Key:   "environment",
+			Value: &nodeFilters.EnvLabel,
+		},
 	}
 	if workflowName != nil {
 		jobLabels = append(jobLabels, &ptypes.Label{
@@ -146,7 +150,7 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 	return out, nil
 }
 
-func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string) {
+func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string, environment string) {
 	if len(jobIDs) == 0 {
 		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
 		jobSelectors := []*jdtypesv1.Selector{
@@ -155,6 +159,13 @@ func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, work
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &workflowName,
 			},
+		}
+		if environment != "" {
+			jobSelectors = append(jobSelectors, &jdtypesv1.Selector{
+				Key:   "environment",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: &environment,
+			})
 		}
 
 		listJobResponse, err := env.Offchain.ListJobs(ctx, &jobv1.ListJobsRequest{
