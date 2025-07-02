@@ -2,7 +2,6 @@ package standardcapabilities
 
 import (
 	"context"
-	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -120,19 +119,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
 
-	var accountIDs []string
-	var signers []crypto.Signer
+	var keystore core.Keystore
 	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
 		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
 			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
 		}
-		accountIDs = append(accountIDs, "P2P_SIGNER")
-		signers = append(signers, key)
-	}
-	keystore, err := core.NewMultiAccountSigner(accountIDs, signers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create multi-account signer: %w", err)
+		keystore, err = core.NewSingleAccountSigner(&core.P2PAccountKey, key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
+		}
+	} else {
+		var err error
+		keystore, err = core.NewSingleAccountSigner(nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
+		}
 	}
 
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
