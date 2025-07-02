@@ -72,6 +72,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	securemint "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -1114,6 +1115,25 @@ func newCREServices(
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
+
+	globalLogger.Infow("HACK: initializing Secure Mint transmitter for sending mock secure mint trigger events")
+	transmitterConfig := securemint.TransmitterConfig{
+		Logger:                       globalLogger,
+		CapabilitiesRegistry:         opts.CapabilitiesRegistry,
+		DonID:                        1,
+		TriggerCapabilityName:        "securemint-trigger",
+		TriggerCapabilityVersion:     "1.0.0",
+		TriggerTickerMinResolutionMs: 1000,
+		TriggerSendChannelBufferSize: 1000,
+	}
+	transmitter, err := transmitterConfig.NewTransmitter("securemint-transmitter")
+	if err != nil {
+		globalLogger.Errorw("could not create Secure Mint transmitter, skipping", "error", err)
+	} else {
+		srvcs = append(srvcs, transmitter)
+		globalLogger.Infow("HACK: successfully created Secure Mint transmitter")
+	}
+
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
