@@ -59,6 +59,14 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
+// log/events emitted on-chain, how they are processed by LogPoller and then exposing them through CCIPReader methods.
+// We are using a simulated backend to deploy contracts (can be fake contracts) and emit events,
+// then we use CCIPReader methods to read the data back.
+// This is the right place to ensure that all underlying layers are fully capable of reading and
+// processing the data correctly
+// (e.g. including different types of edge cases, serializing/deserializing logs properly etc).
+
 const (
 	chainS1   = cciptypes.ChainSelector(1)
 	chainS2   = cciptypes.ChainSelector(2)
