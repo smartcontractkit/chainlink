@@ -13,7 +13,11 @@ if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_g
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
-  gotestsum --rerun-fails='3' --packages='./...'
+  gotestsum --format='testname' \
+    --rerun-fails-abort-on-data-race \
+    --rerun-fails='3' \
+    --packages='./...' \
+    --jsonfile "$OUTPUT_FILE"
 
   EXITCODE=${PIPESTATUS[0]}
 else

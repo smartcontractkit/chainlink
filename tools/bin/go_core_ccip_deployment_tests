@@ -14,8 +14,12 @@ if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_g
   export PATH
 
   cd deployment || exit 1
+  gotestsum --format='testname' \
+    --rerun-fails-abort-on-data-race \
+    --rerun-fails='3' \
+    --packages='./...' \
+    --jsonfile "$OUTPUT_FILE"
 
-  gotestsum --rerun-fails='3' --packages='./...'
   EXITCODE=${PIPESTATUS[0]}
 else
   cd ./deployment || exit
