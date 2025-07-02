@@ -75,5 +75,5 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Install testing tools"
-          go install gotest.tools/gotestsum@v1.12.2
+          go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"

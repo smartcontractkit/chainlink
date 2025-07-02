@@ -9,7 +9,7 @@ EXTRA_FLAGS=""
 echo "Running go_core_ccip_deployment_tests for event: $GITHUB_EVENT_NAME"
 
 if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_group" || "$GITHUB_EVENT_NAME" == "push" ]]; then
-  go install gotest.tools/gotestsum@v1.12.2
+  go install gotest.tools/gotestsum@v1.12.3
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
