@@ -244,7 +244,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		homeChainOut.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+		output.CldEnvironment.ExistingAddresses,
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
