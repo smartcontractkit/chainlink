@@ -47,6 +47,7 @@ func (i ConfigureForwardersSeqInput) UseMCMS() bool {
 }
 
 type ConfigureForwardersSeqOutput struct {
+	DonsConfigured        []internal.RegisteredDon
 	MCMSTimelockProposals []mcms.TimelockProposal
 }
 
@@ -65,6 +66,7 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 				NodeIDs:          don.NodeIDs,
 				Name:             don.Name,
 				RegistryChainSel: input.RegistryChainSel,
+				Registry:         deps.Registry,
 			}
 			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
 			if err != nil {
@@ -154,6 +156,8 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 				out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
 			}
 		}
+
+		out.DonsConfigured = dons
 
 		return out, nil
 	},
