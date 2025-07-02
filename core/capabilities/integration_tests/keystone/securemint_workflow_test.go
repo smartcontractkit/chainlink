@@ -21,7 +21,12 @@ import (
 )
 
 // Test_runSecureMintWorkflow can be run with:
+<<<<<<< HEAD
 // `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'; tail all.log`
+||||||| parent of b38bd132e7 (Add option to disable hack in tests (to not pollute the test results))
+=======
+// `SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone`
+>>>>>>> b38bd132e7 (Add option to disable hack in tests (to not pollute the test results))
 func Test_runSecureMintWorkflow(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
