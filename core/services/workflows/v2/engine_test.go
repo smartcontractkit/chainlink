@@ -307,6 +307,11 @@ func TestEngine_Execution(t *testing.T) {
 			Return(nil, nil).
 			Once()
 
+		// trigger event with an error should not start an execution
+		eventCh <- capabilities.TriggerResponse{
+			Err: errors.New("trigger event error"),
+		}
+
 		eventCh <- capabilities.TriggerResponse{
 			Event: mockTriggerEvent,
 		}
