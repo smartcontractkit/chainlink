@@ -7,10 +7,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -18,6 +20,7 @@ const (
 	FunctionsHandlerType   HandlerType = "functions"
 	DummyHandlerType       HandlerType = "dummy"
 	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
+	VaultHandlerType       HandlerType = "vault"
 )
 
 type handlerFactory struct {
@@ -46,6 +49,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+	case VaultHandlerType:
+		return vault.NewService(donConfig.HandlerConfig, donConfig, don, hf.lggr), nil
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

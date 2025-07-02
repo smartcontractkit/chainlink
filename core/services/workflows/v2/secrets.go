@@ -86,9 +86,11 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 	for _, r := range request.Requests {
 		logKeys = append(logKeys, keyFor(s.workflowOwner, r.Namespace, r.Id))
 		vp.Requests = append(vp.Requests, &vault.SecretRequest{
-			Id:        r.Id,
-			Namespace: r.Namespace,
-			Owner:     s.workflowOwner,
+			Id: &vault.SecretIdentifier{
+				Key:       r.Id,
+				Namespace: r.Namespace,
+				Owner:     s.workflowOwner,
+			},
 
 			// TODO: replace with actual encryption public key
 			EncryptionKeys: []string{"TODO_ENCRYPTION_PUBLIC_KEY"},
@@ -128,7 +130,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 
 	m := map[string]*vault.SecretResponse{}
 	for _, s := range respPayload.Responses {
-		key := keyFor(s.Owner, s.Namespace, s.Id)
+		key := keyFor(s.Id.Owner, s.Id.Namespace, s.Id.Key)
 		m[key] = s
 	}
 
@@ -151,23 +153,23 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 			continue
 		}
 
-		if resp.Error != "" {
-			lggr.Debugw("secret request returned an error", "key", key, "err", resp.Error)
+		if resp.GetError() != "" {
+			lggr.Debugw("secret request returned an error", "key", key, "err", resp.GetError())
 			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
 				Response: &sdkpb.SecretResponse_Error{
 					Error: &sdkpb.SecretError{
 						Id:        r.Id,
 						Namespace: r.Namespace,
 						Owner:     s.workflowOwner,
-						Error:     resp.Error,
+						Error:     resp.GetError(),
 					},
 				},
 			})
 			continue
 		}
 
-		if len(resp.EncryptedDecryptionKeyShares) != 1 {
-			lggr.Errorw("unexpected number of decryption shares received", "key", key, "len", len(resp.EncryptedDecryptionKeyShares))
+		if len(resp.GetData().GetEncryptedDecryptionKeyShares()) != 1 {
+			lggr.Errorw("unexpected number of decryption shares received", "key", key, "len", len(resp.GetData().GetEncryptedDecryptionKeyShares()))
 			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
 				Response: &sdkpb.SecretResponse_Error{
 					Error: &sdkpb.SecretError{
@@ -181,7 +183,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 			continue
 		}
 
-		shares := resp.EncryptedDecryptionKeyShares[0].Shares
+		shares := resp.GetData().EncryptedDecryptionKeyShares[0].Shares
 		secret, err := s.decrypter(shares)
 		if err != nil {
 			lggr.Errorw("failed to combine decryption shares", "key", key, "err", err)
@@ -201,9 +203,9 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 		sdkResp = append(sdkResp, &sdkpb.SecretResponse{
 			Response: &sdkpb.SecretResponse_Secret{
 				Secret: &sdkpb.Secret{
-					Id:        resp.Id,
-					Namespace: resp.Namespace,
-					Owner:     resp.Owner,
+					Id:        resp.GetId().GetKey(),
+					Namespace: resp.GetId().GetNamespace(),
+					Owner:     resp.GetId().GetOwner(),
 					Value:     secret,
 				},
 			},

@@ -359,8 +359,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	var billingClient billing.WorkflowClient
-	if cfg.Billing().URL() != "" {
+	var billingClient metering.BillingClient
+
+	if opts.BillingClient != nil {
+		billingClient = opts.BillingClient
+	} else if cfg.Billing().URL() != "" {
 		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
@@ -801,6 +804,8 @@ type CREOpts struct {
 
 	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
+
+	BillingClient metering.BillingClient
 }
 
 // creServiceConfig contains the configuration required to create the CRE services
@@ -1259,7 +1264,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

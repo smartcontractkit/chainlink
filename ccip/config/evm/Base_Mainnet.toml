@@ -6,7 +6,7 @@ LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
 NoNewFinalizedHeadsThreshold = '15m'
-BackupPollerBlockDelay = 10
+BackupLogPollerBlockDelay = 10
 
 [GasEstimator]
 EIP1559DynamicFees = true

@@ -191,7 +191,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 
 func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
 	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
-		chainState, ok := state.Chains[uint64(sel)]
+		_, ok := state.Chains[uint64(sel)]
 		if !ok {
 			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
 		}
@@ -200,23 +200,9 @@ func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserve
 		if err != nil {
 			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
 		}
-		lbtcToken, err := sourcePool.GetToken(nil)
+		_, err = sourcePool.GetToken(nil)
 		if err != nil {
 			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
-		}
-		tokenRegistry := chainState.TokenAdminRegistry
-		lbtcPool, err := tokenRegistry.GetPool(nil, lbtcToken)
-		if err != nil {
-			return fmt.Errorf("chain %d has an error while requesting LBTC token pool (token=%s) from "+
-				"TokenAdminRegistry (address=%s): %w", sel, lbtcToken, tokenRegistry.Address(), err)
-		}
-		if lbtcPool == (common.Address{}) {
-			return fmt.Errorf("chain %d missing LBTC pool in TokenAdminRegistry (address=%s)", sel,
-				tokenRegistry.Address())
-		}
-		if lbtcPool != sourcePoolAddr {
-			return fmt.Errorf("chain %d has invalid LBTC pool registered in TokenAdminRegistry (address=%s). "+
-				"Found: %s, but in LBTC config was: %s", sel, tokenRegistry.Address(), lbtcPool, sourcePoolAddr)
 		}
 	}
 	return nil

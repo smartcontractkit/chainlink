@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -385,10 +386,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	executionDuration := endTime.Sub(startTime)
 
 	if isMetering {
-		mrErr := meteringReport.Settle(metering.ComputeResourceDimension,
+		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
+		mrErr := meteringReport.Settle(computeUnit,
 			[]capabilities.MeteringNodeDetail{{
 				Peer2PeerID: e.localNode.PeerID.String(),
-				SpendUnit:   metering.ComputeResourceDimension,
+				SpendUnit:   computeUnit,
 				SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
 			}})
 		if mrErr != nil {
@@ -479,13 +481,14 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
 	compMs := decimal.NewFromInt(int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs) + ctxCancelPadding)
-	computeAmount, mrErr := meteringReport.ConvertToBalance(metering.ComputeResourceDimension, compMs)
+	computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
+	computeAmount, mrErr := meteringReport.ConvertToBalance(computeUnit, compMs)
 	if mrErr != nil {
 		e.lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
 	}
 
 	if mrErr = meteringReport.Deduct(
-		metering.ComputeResourceDimension,
+		computeUnit,
 		computeAmount,
 	); mrErr != nil {
 		e.lggr.Errorw("could not meter compute", "err", mrErr)
