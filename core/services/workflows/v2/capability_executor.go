@@ -42,6 +42,25 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("trigger capability not found: %w", err)
 	}
 
+	info, err := capability.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("capability info not found: %w", err)
+	}
+
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	var donID uint32
+	if !info.IsLocal {
+		donID = info.DON.ID
+	} else {
+		donID = c.localNode.WorkflowDON.ID
+	}
+
+	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
+	if err != nil {
+		return nil, fmt.Errorf("capability config not found: %w", err)
+	}
+
 	capReq := capabilities.CapabilityRequest{
 		Payload:      request.Payload,
 		Method:       request.Method,
@@ -73,17 +92,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 
-		info, iErr := capability.Info(ctx)
-		if iErr != nil {
-			c.cfg.Lggr.Error("failed to get info for capability")
-		}
-
-		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, spendLimit.Decimal)
+		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, config.RestrictedConfig, spendLimit.Decimal)
 	}
-
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
-	// convert balance to CapabilityInfo resource types for use in Capability call
-	// pass deducted amount as max spend to capability.Execute
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)

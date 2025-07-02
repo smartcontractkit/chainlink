@@ -81,8 +81,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to create HTTP request", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   0,
+			StatusCode: 0,
 		}, err
 	}
 
@@ -96,8 +95,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to execute HTTP request", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   0,
+			StatusCode: 0,
 		}, err
 	}
 	defer resp.Body.Close()
@@ -107,8 +105,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	if err != nil {
 		fh.eng.Errorw("Failed to read response body", "error", err)
 		return &customhttp.Response{
-			ErrorMessage: err.Error(),
-			StatusCode:   uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
+			StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
 		}, err
 	}
 
@@ -124,11 +121,6 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
 		Headers:    headers,
 		Body:       respBody,
-	}
-
-	// Add error message if status code indicates an error
-	if resp.StatusCode >= 400 {
-		response.ErrorMessage = resp.Status
 	}
 
 	fh.eng.Infow("HTTP Action Finished", "Status", resp.StatusCode, "URL", input.GetUrl())

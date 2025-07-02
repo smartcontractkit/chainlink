@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -84,8 +85,8 @@ URL = "%s"
 `
 
 const (
-	messageId1 = "123"
-	messageId2 = "456"
+	messageID1 = "123"
+	messageID2 = "456"
 
 	nodeResponsePayload = `{"response":"correct response"}`
 )
@@ -183,13 +184,13 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
-	userUrl := fmt.Sprintf("http://localhost:%d/user", userPort)
-	nodeUrl := fmt.Sprintf("ws://localhost:%d/node", nodePort)
+	userURL := fmt.Sprintf("http://localhost:%d/user", userPort)
+	nodeURL := fmt.Sprintf("ws://localhost:%d/node", nodePort)
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
 	// client acts as a signer here
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, clockwork.NewRealClock(), lggr)
+	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeURL), client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector
@@ -197,14 +198,14 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		req := newHttpRequestObject(t, messageId1, userUrl, userKeys.PrivateKey)
+		req := newLegacyHTTPRequestObject(t, messageID1, userURL, userKeys.PrivateKey)
 		httpClient := &http.Client{}
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.Equal(true))
 
 	// Send another request and validate that response has correct content and sender
-	req := newHttpRequestObject(t, messageId2, userUrl, userKeys.PrivateKey)
+	req := newLegacyHTTPRequestObject(t, messageID2, userURL, userKeys.PrivateKey)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	require.NoError(t, err)
@@ -213,21 +214,21 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	rawResp, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	codec := api.JsonRPCCodec{}
-	respMsg, err := codec.DecodeResponse(rawResp)
+	respMsg, err := codec.DecodeLegacyResponse(rawResp)
 	require.NoError(t, err)
 	require.NoError(t, respMsg.Validate())
 	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)
-	require.Equal(t, messageId2, respMsg.Body.MessageId)
+	require.Equal(t, messageID2, respMsg.Body.MessageId)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newHttpRequestObject(t *testing.T, messageId string, userUrl string, signerKey *ecdsa.PrivateKey) *http.Request {
-	msg := &api.Message{Body: api.MessageBody{MessageId: messageId, Method: "test", DonId: "test_don"}}
+func newLegacyHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
+	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test", DonId: "test_don"}}
 	require.NoError(t, msg.Sign(signerKey))
 	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeRequest(msg)
+	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	require.NoError(t, err)
-	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userUrl, bytes.NewBuffer(rawMsg))
+	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userURL, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)
 	return req
 }

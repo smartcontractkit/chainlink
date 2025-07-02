@@ -75,6 +75,15 @@ Optional parameters:
 
 If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
 
+### Storage
+
+The environment supports two storage backends for workflow uploads:
+- Gist (remote)
+- S3 MinIO (built-in, local)
+
+Configuration details are generated automatically into the `cre.yaml` file
+(path is printed after starting the environment).
+
 ## Stop Environment
 ```bash
 # while in core/scripts/cre/environment

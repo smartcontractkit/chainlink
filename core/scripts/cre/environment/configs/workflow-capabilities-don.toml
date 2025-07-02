@@ -16,6 +16,10 @@
   # change to your version
   image = "job-distributor:0.12.7"
 
+[s3provider]
+  # use all defaults
+  port = 9000
+  console_port = 9001
 
 [infra]
   # either "docker" or "crib"

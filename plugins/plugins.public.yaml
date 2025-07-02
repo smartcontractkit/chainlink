@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "9daa693a725301564d4c8e7473ff7fac274e8c85"
+      gitRef: "ceaa9a771745d7f577e5e0e858239e6489ee8b83"
       installPath: "github.com/smartcontractkit/chainlink-aptos/cmd/chainlink-aptos"
 
   cosmos:
@@ -30,7 +30,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20250625213849-112165c2aed3"
+      gitRef: "v1.1.2-0.20250701085747-933df81025f3"
       installPath: "github.com/smartcontractkit/chainlink-solana/pkg/solana/cmd/chainlink-solana"
 
   starknet:

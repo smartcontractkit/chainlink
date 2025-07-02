@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -42,7 +43,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -366,6 +366,15 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
 				Value: m,
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   "Gas",
+							SpendValue:  "100",
+						},
+					},
+				},
 			}, nil
 		},
 	)
@@ -384,12 +393,12 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		Return(&emptypb.Empty{}, nil)
 
 	servicetest.Run(t, eng)
 
@@ -423,6 +432,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
 			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
 			assert.Equal(t, testWorkflowOwner, report.Metadata.WorkflowOwner)
+			assert.NotEmpty(t, report.Metadata.P2PID)
 
 		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted):
 			var started eventspb.WorkflowExecutionStarted
@@ -1228,10 +1238,10 @@ func TestEngine_WrapsTargets(t *testing.T) {
 		info, err2 := s.capability.Info(ctx)
 		require.NoError(t, err2)
 
-		if info.CapabilityType == capabilities.CapabilityTypeTarget {
-			assert.Equal(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+		if info.IsLocal {
+			assert.Equal(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		} else {
-			assert.NotEqual(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+			assert.NotEqual(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		}
 
 		return nil

@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool"
@@ -43,7 +44,6 @@ import (
 	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/lock_release_token_pool"
 	token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/token_pool"
 	usdc_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
@@ -537,7 +537,7 @@ func (e *CCIPContractsDeployer) NewMockLBTCTokenPoolContract(addr common.Address
 	e.logger.Info().Str("Version", version.String()).Msg("New Mock LBTC Token Pool")
 	switch version {
 	case Latest:
-		pool, err := mock_lbtc_token_pool.NewMockLBTCTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+		pool, err := mock_lbtc_token_pool.NewMockE2ELBTCTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 
 		if err != nil {
 			return nil, err
@@ -584,7 +584,7 @@ func (e *CCIPContractsDeployer) DeployMockLBTCTokenPoolContract(tokenAddr string
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
-			return mock_lbtc_token_pool.DeployMockLBTCTokenPool(
+			return mock_lbtc_token_pool.DeployMockE2ELBTCTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 				token,

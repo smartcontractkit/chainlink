@@ -39,6 +39,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -363,6 +364,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var billingClient metering.BillingClient
+	for _, dep := range flagsAndDeps {
+		billingClient, _ = dep.(metering.BillingClient)
+		if billingClient != nil {
+			break
+		}
+	}
+
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().DriverName(), cfg.Database())
 	require.NoError(t, err)
@@ -433,6 +442,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			CapabilitiesPeerWrapper: peerWrapper,
 			FetcherFunc:             syncerFetcherFunc,
 			FetcherFactoryFn:        computeFetcherFactory,
+			BillingClient:           billingClient,
 		},
 		Config:   cfg,
 		DS:       ds,
