@@ -10,6 +10,18 @@ import (
 type SecureMintConfig struct {
 	Token    string `json:"token"`
 	Reserves string `json:"reserves"`
+
+	// Trigger capability configuration
+	TriggerCapabilityName        string `json:"triggerCapabilityName"`
+	TriggerCapabilityVersion     string `json:"triggerCapabilityVersion"`
+	TriggerTickerMinResolutionMs int    `json:"triggerTickerMinResolutionMs"`
+	TriggerSendChannelBufferSize int    `json:"triggerSendChannelBufferSize"`
+}
+
+// SecureMintTriggerConfig holds configuration for secure mint trigger subscribers
+type SecureMintTriggerConfig struct {
+	// The interval in milliseconds after which a new trigger event is generated.
+	MaxFrequencyMs uint64 `json:"maxFrequencyMs" yaml:"maxFrequencyMs" mapstructure:"maxFrequencyMs"`
 }
 
 // Parse parses the secure mint configuration from JSON bytes

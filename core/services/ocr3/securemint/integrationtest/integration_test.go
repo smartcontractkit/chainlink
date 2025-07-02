@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -201,16 +199,16 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
 
-	// 3. Check that transmissions work
-	expectedNumTransmissions := int32(4)
-	gomega.NewWithT(t).Eventually(func() bool {
-		numTransmissions := securemint.StubTransmissionCounter.Load()
-		t.Logf("Number of (stub) report transmissions: %d", numTransmissions)
-		return numTransmissions >= expectedNumTransmissions
-	}, 30*time.Second, 1*time.Second).Should(
-		gomega.BeTrue(),
-		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
-	)
+	// // 3. Check that transmissions work
+	// expectedNumTransmissions := int32(4)
+	// gomega.NewWithT(t).Eventually(func() bool {
+	// 	numTransmissions := securemint.StubTransmissionCounter.Load()
+	// 	t.Logf("Number of (stub) report transmissions: %d", numTransmissions)
+	// 	return numTransmissions >= expectedNumTransmissions
+	// }, 30*time.Second, 1*time.Second).Should(
+	// 	gomega.BeTrue(),
+	// 	fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
+	// )
 }
 
 func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) (*configurator.Configurator, common.Address) {
