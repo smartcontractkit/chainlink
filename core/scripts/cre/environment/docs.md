@@ -86,12 +86,16 @@ When environment is started with `--with-beholder` or with `-b` flag after the D
 
 Once up and running you will be able to access [CRE topic view](http://localhost:8080/topics/cre) to see workflow-emitted events. These include both standard events emitted by the Workflow Engine and custom events emitted from your workflow.
 
+#### Filtering out heartbeats
+Heartbeat messages spam the topic, so it's highly recommended that you add a JavaScript filter that will exclude them using the following code: `return value.msg !== 'heartbeat';`.
+
 If environment is aready running you can start just the Beholder stack (and register protos) with:
 ```bash
 go run . env start-beholder
 ```
 
 > This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
+
 ### Storage
 
 The environment supports two storage backends for workflow uploads:

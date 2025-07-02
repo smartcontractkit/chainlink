@@ -893,6 +893,9 @@ func getCtfDockerNetworks() ([]string, error) {
 
 		// Extract network names from container's network settings
 		for networkName := range containerDetails.NetworkSettings.Networks {
+			if networkName == "bridge" {
+				continue
+			}
 			if !networkMap[networkName] {
 				networkMap[networkName] = true
 				networkNames = append(networkNames, networkName)

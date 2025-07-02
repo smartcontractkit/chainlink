@@ -15,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
 var (
@@ -114,6 +116,9 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 		}
 	}()
 
+	stageGen := creenv.NewStageGen(3, "STAGE")
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
+
 	setErr := os.Setenv("CTF_CONFIGS", "configs/chip-ingress.toml")
 	if setErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
@@ -135,6 +140,16 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 		return errors.Wrap(startErr, "failed to create Chip Ingress set")
 	}
 
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Started Chip Ingress stack in %.2f seconds", stageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Registering protos")))
+
+	registerProtosErr := parseConfigsAndRegisterProtos(cmdContext, protoConfigsFlag, out.RedPanda.SchemaRegistryExternalURL)
+	if registerProtosErr != nil {
+		return errors.Wrap(registerProtosErr, "failed to register protos")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Registered protos in %.2f seconds", stageGen.Elapsed().Seconds())))
+
 	fmt.Println()
 	framework.L.Info().Msgf("Red Panda Console URL: %s", out.RedPanda.ConsoleExternalURL)
 
@@ -143,12 +158,17 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 		return errors.Wrap(topicsErr, "failed to create topics")
 	}
 
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Created topics in %.2f seconds", stageGen.Elapsed().Seconds())))
+
 	for _, topic := range in.Kafka.Topics {
 		framework.L.Info().Msgf("Topic URL: %s", fmt.Sprintf("%s/topics/%s", out.RedPanda.ConsoleExternalURL, topic))
 	}
 	fmt.Println()
+	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
+	fmt.Println()
+	fmt.Print("To terminate Beholder stack execute: `go run . env stop-beholder`\n\n")
 
-	return parseConfigsAndRegisterProtos(cmdContext, protoConfigsFlag, out.RedPanda.SchemaRegistryExternalURL)
+	return nil
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []string, schemaRegistryExternalURL string) error {
