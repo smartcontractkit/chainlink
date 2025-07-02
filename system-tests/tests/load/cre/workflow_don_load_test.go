@@ -529,7 +529,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		// 	// Compare metrics
 		var warnings []string
 		for metric, threshold := range thresholds {
-
 			if baselineReportMetrics[metric] > 0 {
 				percentIncrease := ((currentReportMetrics[metric] - baselineReportMetrics[metric]) / baselineReportMetrics[metric]) * 100
 				if percentIncrease > threshold {
