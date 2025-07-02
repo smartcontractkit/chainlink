@@ -12,7 +12,7 @@ with uniques as (
 			CASE WHEN retention = 0 then 0 else 1 end,
 				retention desc
 		) as rn
-		from solana.log_poller_filters
+		from solana.log_poller_filters lp
 	) where rn = 1
 )
 UPDATE solana.log_poller_filters set is_deleted = true where id not in (select id from uniques);
