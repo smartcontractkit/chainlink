@@ -95,10 +95,13 @@ func TestChainReader_Bind(t *testing.T) {
 	require.NoError(t, err)
 
 	store := make(map[string]struct{})
+	expName1 := "test-contract.0430115be8436dbea07d64550add9f4d37e9d6805bef7edc1f4dbb3cdbca9acb"
+	expName2 := "test-contract.86b706b7fa72798c579b09b6a814fe2bd7d59c3bb3159b339e03dd166139df01"
 	lp.EXPECT().HasFilter(mock.Anything).RunAndReturn(func(name string) bool {
 		_, ok := store[name]
 		return ok
 	})
+
 	lp.EXPECT().UnregisterFilter(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, name string) error {
 		delete(store, name)
 		return nil
@@ -116,7 +119,8 @@ func TestChainReader_Bind(t *testing.T) {
 			Address: common.BytesToAddress([]byte{1, 2, 3}).Hex(),
 		},
 	})
-
+	_, ok := store[expName1]
+	assert.True(t, ok)
 	// second register filter call
 	cr.Bind(t.Context(), []clcommontypes.BoundContract{
 		{
@@ -124,7 +128,8 @@ func TestChainReader_Bind(t *testing.T) {
 			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
 		},
 	})
-
+	_, ok = store[expName2]
+	assert.True(t, ok)
 	// this one shouldn't call
 	cr.Bind(t.Context(), []clcommontypes.BoundContract{
 		{
@@ -132,6 +137,7 @@ func TestChainReader_Bind(t *testing.T) {
 			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
 		},
 	})
+	assert.Equal(t, 1, len(store))
 
 	lp.AssertExpectations(t)
 }
