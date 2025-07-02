@@ -58,7 +58,9 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
 	if err != nil {
-		return nil, fmt.Errorf("capability config not found: %w", err)
+		// not explicitly an error case and more relevant (helpful) logging occurs in the metering package
+		// debug level should be sufficient here
+		c.lggr.Debugf("capability config not found: %s", err)
 	}
 
 	capReq := capabilities.CapabilityRequest{
@@ -92,6 +94,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 
+		// the nil case for config.RestrictedConfig is and should be handled by CreditToSpendingLimits
 		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, config.RestrictedConfig, spendLimit.Decimal)
 	}
 
