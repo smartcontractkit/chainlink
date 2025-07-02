@@ -2,6 +2,9 @@ package read
 
 import (
 	"context"
+	"crypto/sha3"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 type Registrar interface {
@@ -71,6 +75,30 @@ func (r *syncedFilter) register(ctx context.Context, registrar Registrar) error 
 	}
 
 	return nil
+}
+
+func (r *syncedFilter) deriveName() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s := struct {
+		Addresses evmtypes.AddressArray
+		EventSigs evmtypes.HashArray // list of possible values for eventsig (aka topic1)
+		Topic2    evmtypes.HashArray // list of possible values for topic2
+		Topic3    evmtypes.HashArray // list of possible values for topic3
+		Topic4    evmtypes.HashArray // list of possible values for topic4
+	}{
+		r.filter.Addresses,
+		r.filter.EventSigs,
+		r.filter.Topic2,
+		r.filter.Topic3,
+		r.filter.Topic4,
+	}
+
+	data, _ := json.Marshal(s) // the structure is json-safe, fine to ignore
+
+	hash := sha3.Sum256(data)
+
+	return hex.EncodeToString(hash[:])
 }
 
 func (r *syncedFilter) Unregister(ctx context.Context, registrar Registrar) error {

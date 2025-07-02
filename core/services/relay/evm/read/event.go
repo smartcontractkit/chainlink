@@ -2,7 +2,9 @@ package read
 
 import (
 	"context"
+	"crypto/sha3"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
@@ -200,8 +201,7 @@ func (b *EventBinding) Update(ctx context.Context) error {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString()))
-
+	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, b.registrar.deriveName()))
 	if b.registrar == nil {
 		return nil
 	}
@@ -400,6 +400,29 @@ func (b *EventBinding) getLatestLog(ctx context.Context, address common.Address,
 	}
 
 	return &logs[0], err
+}
+
+func (b *EventBinding) deriveName() string {
+	filter := b.registrar.filter
+	s := struct {
+		Addresses evmtypes.AddressArray
+		EventSigs evmtypes.HashArray // list of possible values for eventsig (aka topic1)
+		Topic2    evmtypes.HashArray // list of possible values for topic2
+		Topic3    evmtypes.HashArray // list of possible values for topic3
+		Topic4    evmtypes.HashArray // list of possible values for topic4
+	}{
+		filter.Addresses,
+		filter.EventSigs,
+		filter.Topic2,
+		filter.Topic3,
+		filter.Topic4,
+	}
+
+	data, _ := json.Marshal(s) // the structure is json-safe, fine to ignore
+
+	hash := sha3.Sum256(data)
+
+	return fmt.Sprintf("%s.%s.%x", b.contractName, b.eventName, hash[:])
 }
 
 func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpoller.Log, into any) ([]commontypes.Sequence, error) {
