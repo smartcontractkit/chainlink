@@ -64,13 +64,13 @@ func (r *syncedFilter) Register(ctx context.Context, registrar Registrar) error 
 }
 
 func (r *syncedFilter) register(ctx context.Context, registrar Registrar) error {
-	if !registrar.HasFilter(r.filter.Name) {
-		if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
-			return FilterError{
-				Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
-				Action: "register",
-				Filter: r.filter,
-			}
+	// don't need check filter existence
+	// lp.Register is noop in case if filter is unchanged
+	if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
+		return FilterError{
+			Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
+			Action: "register",
+			Filter: r.filter,
 		}
 	}
 

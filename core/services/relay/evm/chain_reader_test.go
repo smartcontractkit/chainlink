@@ -137,6 +137,9 @@ func TestChainReader_Bind(t *testing.T) {
 			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
 		},
 	})
+
+	_, ok = store[expName2]
+	assert.True(t, ok)
 	assert.Equal(t, 1, len(store))
 
 	lp.AssertExpectations(t)
