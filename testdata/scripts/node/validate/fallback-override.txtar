@@ -37,6 +37,7 @@ MaxQueued = 250
 ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
+ConfirmationTimeout = '5m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -245,6 +246,19 @@ UserApiTokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
 UpstreamSyncInterval = '0s'
 UpstreamSyncRateLimit = '2m0s'
+
+[WebServer.OIDC]
+ClientID = ''
+ProviderURL = ''
+RedirectURL = ''
+ClaimName = 'groups'
+AdminClaim = 'NodeAdmins'
+EditClaim = 'NodeEditors'
+RunClaim = 'NodeRunners'
+ReadClaim = 'NodeReadOnly'
+SessionTimeout = '15m0s'
+UserAPITokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
 
 [WebServer.MFA]
 RPID = ''
@@ -510,6 +524,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '5m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false

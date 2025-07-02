@@ -19,8 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_lbtc_token_pool"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
@@ -29,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool"
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
@@ -49,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -408,7 +408,7 @@ type LatestPool struct {
 	PoolInterface   *token_pool.TokenPool
 	LockReleasePool *lock_release_token_pool.LockReleaseTokenPool
 	USDCPool        *usdc_token_pool.USDCTokenPool
-	MockLBTCPool    *mock_lbtc_token_pool.MockLBTCTokenPool
+	MockLBTCPool    *mock_lbtc_token_pool.MockE2ELBTCTokenPool
 }
 
 type V1_4_0Pool struct {

@@ -128,7 +128,8 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        if: ${{ needs.runner-config.outputs.lint-is-self-hosted == 'true' }}
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Checkout
@@ -179,33 +180,26 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             setup-solana: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
             os: ${{ needs.runner-config.outputs.core-race-tests-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.core-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.deployment-tests-is-self-hosted }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
-            use-flakeguard: ${{ github.event_name != 'pull_request' }}
 
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -219,7 +213,8 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        if: ${{ matrix.type.is-self-hosted == 'true' }}
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Checkout the repo
@@ -227,12 +222,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-
-      - name: Change Modtime of Files (cache optimization)
-        if: ${{ matrix.type.should-run == 'true' }}
-        shell: bash
-        run: |
-          find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
 
       - name: Setup Go
         if: ${{ matrix.type.should-run == 'true' }}
@@ -296,74 +285,9 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
-          USE_FLAKEGUARD: ${{ matrix.type.use-flakeguard == 'true' && 'true' || '' }}
         run: |
           # See: https://github.com/golang/go/issues/69179
-          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
-
-      - name: Generate Flakeguard Test Reports
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
-        env:
-          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_WORKFLOW: ${{ github.workflow }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/scripts/flakeguard-generate-reports.sh
-
-      - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
-          path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
-          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
-          path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && matrix.type.use-flakeguard == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
-          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Send Flakeguard Reports to Splunk
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && matrix.type.use-flakeguard == 'true' }}
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-          FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-        run: ./.github/scripts/flakeguard-send-report-to-splunk.sh
+          ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Print Races
         id: print-races
@@ -454,7 +378,7 @@ jobs:
     name: SonarQube Scan
     needs: [golangci, core, core-scripts-tests]
     # If core is cancelled, skip this to not delay the cancellation of the workflow.
-    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.core.result != 'cancelled' }}
+    if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -620,7 +544,7 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/extras=s3-cache+tmpfs
       SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
       SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
       SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
@@ -631,16 +555,13 @@ jobs:
       GH_LINT_RUNNER: ubuntu-24.04-8cores-32GB-ARM
     outputs:
       # go_core_tests / go_core_race_tests / go_core_tests_integration
-      core-tests-is-self-hosted: ${{ steps.core-tests.outputs.core-tests-is-self-hosted }}
       core-tests-runner: ${{ steps.core-tests.outputs.core-tests-runner }}
       core-tests-integration-runner: ${{ steps.core-tests.outputs.core-tests-integration-runner }}
       core-fuzz-tests-runner: ${{ steps.core-tests.outputs.core-fuzz-tests-runner }}
       core-race-tests-runner: ${{ steps.core-tests.outputs.core-race-tests-runner }}
       # go_core_ccip_deployment_tests
-      deployment-tests-is-self-hosted: ${{ steps.deployment-tests.outputs.deployment-tests-is-self-hosted }}
       deployment-tests-runner: ${{ steps.deployment-tests.outputs.deployment-tests-runner }}
       # linting
-      lint-is-self-hosted: ${{ steps.linting.outputs.lint-is-self-hosted }}
       lint-runner: ${{ steps.linting.outputs.lint-runner }}
     steps:
       - name: Get PR Labels
@@ -658,20 +579,17 @@ jobs:
         run: |
           if [[ "${SHOULD_RUN_DEPLOYMENT_TESTS}" == "false" ]]; then
             echo "Deployment tests will be skipped, using base Github-hosted runner."
-            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
             echo "deployment-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for deployment tests."
-            echo "deployment-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
             echo "deployment-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
           echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
-          echo "deployment-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
           echo "deployment-tests-runner=${SH_DEPLOYMENT_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
 
       - name: Select runners for core tests
@@ -683,7 +601,6 @@ jobs:
         run: |
           if [[ "${SHOULD_RUN_CORE_TESTS}" == "false" ]]; then
             echo "Core tests will be skipped, using base Github-hosted runner."
-            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
 
             echo "core-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-tests-integration-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
@@ -694,7 +611,6 @@ jobs:
 
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for core tests."
-            echo "core-tests-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
 
             echo "core-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
             echo "core-tests-integration-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
@@ -704,7 +620,6 @@ jobs:
           fi
 
           echo "Opt-out is false for current run. Using self-hosted runner for core tests."
-          echo "core-tests-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
 
           echo "core-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
           echo "core-tests-integration-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
@@ -720,13 +635,11 @@ jobs:
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for linting."
             echo "lint-runner=${GH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "lint-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
           echo "Opt-out is false for current run. Using self-hosted runner for linting."
           echo "lint-runner=${SH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
-          echo "lint-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
 
   misc:
     # Catchall job for miscellaneous steps.

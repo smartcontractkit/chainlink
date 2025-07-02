@@ -32,7 +32,7 @@
 
 [dependencies]
   cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
+  cre_cli_binary_path = "./cre_v0.2.1_darwin_arm64"
 
 [[nodesets]]
   nodes = 5
@@ -48,7 +48,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
@@ -73,7 +73,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
@@ -98,7 +98,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
@@ -123,7 +123,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
@@ -148,7 +148,7 @@
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']

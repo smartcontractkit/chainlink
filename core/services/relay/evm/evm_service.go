@@ -2,11 +2,14 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -17,8 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // Direct RPC
@@ -83,12 +89,12 @@ func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, ev
 
 // TODO introduce parameters validation PLEX-1437
 func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
-	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
+	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel,
+) ([]*evmtypes.Log, error) {
 	conformations := confidenceToConformations(confidenceLevel)
 	filterQuery = append(filterQuery, logpoller.NewConfirmationsFilter(conformations))
 	queryName := queryNameFromFilter(filterQuery)
 	logs, err := r.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, queryName)
-
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +131,106 @@ func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID common
 		return commontypes.Unknown, err
 	}
 
-	return commontypes.TransactionStatus(status), nil
+	return status, nil
+}
+
+func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.SubmitTransactionRequest) (*evmtypes.TransactionResult, error) {
+	config := r.chain.Config()
+
+	fromAddress := config.EVM().Workflow().FromAddress().Address()
+	var gasLimit uint64
+	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
+		gasLimit = *txRequest.GasConfig.GasLimit
+	}
+
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	txID := uuid.String()
+
+	// PLEX-1524 - review which transmitter checker we should use
+	var checker evmtxmgr.TransmitCheckerSpec
+	checker.CheckerType = evmtxmgr.TransmitCheckerTypeSimulate
+	value := big.NewInt(0)
+
+	// PLEX-1524 - Define how we should properly get the workflow execution ID into the meta without making the API CRE specific.
+	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
+	txmReq := evmtxmgr.TxRequest{
+		FromAddress:    fromAddress,
+		ToAddress:      txRequest.To,
+		EncodedPayload: txRequest.Data,
+		FeeLimit:       gasLimit,
+		Meta:           txMeta,
+		IdempotencyKey: &txID,
+		// PLEX-1524 - Review strategy to be used.
+		Strategy: txmgr.NewSendEveryStrategy(),
+		Checker:  checker,
+		Value:    *value,
+	}
+
+	_, err = r.chain.TxManager().CreateTransaction(ctx, txmReq)
+	if err != nil {
+		return nil, fmt.Errorf("%w; failed to create tx", err)
+	}
+
+	maximumWaitTimeForConfirmation := config.EVM().ConfirmationTimeout()
+	start := time.Now()
+StatusCheckingLoop:
+	for {
+		txStatus, txStatusErr := r.chain.TxManager().GetTransactionStatus(ctx, txID)
+		if txStatusErr != nil {
+			return nil, txStatusErr
+		}
+		switch txStatus {
+		case commontypes.Fatal, commontypes.Failed:
+			return &evmtypes.TransactionResult{
+				TxStatus: evm.TxFatal,
+				TxHash:   evmtypes.Hash{},
+			}, nil
+
+		case commontypes.Unconfirmed, commontypes.Finalized:
+			break StatusCheckingLoop
+		case commontypes.Pending, commontypes.Unknown:
+		default:
+			return nil, fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
+		}
+		if time.Since(start) > maximumWaitTimeForConfirmation {
+			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)
+		}
+		// PLEX-1524 - Use ticker instead of time.Sleep and make the time configurable
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	receipt, err := r.chain.TxManager().GetTransactionReceipt(ctx, txID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TX receipt for tx with ID %s: %w", txID, err)
+	}
+	if receipt == nil {
+		return nil, fmt.Errorf("receipt was nil for TX with ID %s: %w", txID, err)
+	}
+
+	return &evmtypes.TransactionResult{
+		TxStatus: evm.TxSuccess,
+		TxHash:   (*receipt).GetTxHash(),
+	}, nil
+}
+
+func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {
+	txFee := r.chain.TxManager().CalculateFee(txmgr.FeeParts{
+		GasUsed:           receipt.GasUsed,
+		EffectiveGasPrice: receipt.EffectiveGasPrice,
+	})
+	return &evmtypes.TransactionFee{
+		TransactionFee: txFee,
+	}, nil
+}
+
+func (r *Relayer) GetForwarderForEOA(ctx context.Context, eoa, ocr2AggregatorID evm.Address, pluginType string) (forwarder evm.Address, err error) {
+	if pluginType == string(commontypes.Median) {
+		return r.chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, eoa, ocr2AggregatorID)
+	}
+	return r.chain.TxManager().GetForwarderForEOA(ctx, eoa)
 }
 
 func queryNameFromFilter(filterQuery []query.Expression) string {

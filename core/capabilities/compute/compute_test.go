@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -195,7 +196,10 @@ func TestComputeExecute(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 	assert.Equal(t, metering.ComputeUnit.Name, resp.Metadata.Metering[0].SpendUnit)
-	assert.Equal(t, "0", resp.Metadata.Metering[0].SpendValue)
+
+	spendValue, _ := strconv.ParseUint(resp.Metadata.Metering[0].SpendValue, 10, 64)
+
+	assert.Less(t, spendValue, uint64(400))
 }
 
 func TestComputeFetch(t *testing.T) {
@@ -278,22 +282,32 @@ func TestComputeFetch(t *testing.T) {
 	}
 
 	actual, err := th.compute.Execute(t.Context(), req)
+
+	require.Len(t, actual.Metadata.Metering, 1)
+	spendValue, _ := strconv.ParseUint(actual.Metadata.Metering[0].SpendValue, 10, 64)
+	actual.Metadata.Metering[0].SpendValue = "0"
+
 	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
+
+	assert.Less(t, spendValue, uint64(400))
 }
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
 
+	// because we are using ms precision and test overhead can result in variance, we use a range of 400ms
+	// to apply assertions.
 	tests := []struct {
 		time               time.Duration
-		expectedSpendValue string
+		expectedLowerLimit uint64
+		expectedUpperLimit uint64
 	}{
-		{time.Duration(0), "0"},
-		{time.Second, "1"},
-		{2 * time.Second, "2"},
-		{2500 * time.Millisecond, "3"},
-		{3 * time.Second, "3"},
+		{time.Duration(0), 0, 400},
+		{time.Second, 1000, 1400},
+		{2 * time.Second, 2000, 2400},
+		{2_500 * time.Millisecond, 2500, 2900},
+		{3 * time.Second, 3000, 3400},
 	}
 
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
@@ -353,7 +367,12 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Len(t, response.Metadata.Metering, 1)
-			assert.Equal(t, test.expectedSpendValue, response.Metadata.Metering[0].SpendValue)
+
+			value, err := strconv.ParseUint(response.Metadata.Metering[0].SpendValue, 10, 64)
+			require.NoError(t, err)
+
+			assert.GreaterOrEqual(t, value, test.expectedLowerLimit)
+			assert.Less(t, value, test.expectedUpperLimit)
 		})
 	}
 }
