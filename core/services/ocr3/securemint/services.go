@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -16,9 +17,9 @@ import (
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evm_types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocr2plus_types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
@@ -63,6 +64,7 @@ func NewSecureMintServices(ctx context.Context,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
 	cfg JobConfig,
+	capabilitiesRegistry coretypes.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {
 	// Parse and validate the secure mint plugin configuration
 	secureMintPluginConfig, err := sm_plugin_config.Parse(jb.OCR2OracleSpec.PluginConfig.Bytes())
@@ -75,6 +77,19 @@ func NewSecureMintServices(ctx context.Context,
 	}
 
 	spec := jb.OCR2OracleSpec
+
+	// Get relay config to extract don ID
+	relayConfig, err := evm_types.NewRelayOpts(types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		ContractID:    spec.ContractID,
+		New:           isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(spec.PluginType),
+	}).RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
 
 	// Create result run saver for pipeline execution
 	runSaver := ocrcommon.NewResultRunSaver(
@@ -101,8 +116,23 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.ContractConfigTracker = configProvider.ContractConfigTracker()
 	argsNoPlugin.OffchainConfigDigester = configProvider.OffchainConfigDigester()
 
-	// Using a stub contract transmitter for testing purposes until DF-21404 is done
-	argsNoPlugin.ContractTransmitter = newStubContractTransmitter(lggr, ocr2plus_types.Account(spec.TransmitterID.String))
+	// Create the new secure mint transmitter with trigger capabilities
+	transmitterConfig := TransmitterConfig{
+		Logger:                       lggr,
+		CapabilitiesRegistry:         capabilitiesRegistry,
+		DonID:                        relayConfig.LLODONID,
+		TriggerCapabilityName:        secureMintPluginConfig.TriggerCapabilityName,
+		TriggerCapabilityVersion:     secureMintPluginConfig.TriggerCapabilityVersion,
+		TriggerTickerMinResolutionMs: secureMintPluginConfig.TriggerTickerMinResolutionMs,
+		TriggerSendChannelBufferSize: secureMintPluginConfig.TriggerSendChannelBufferSize,
+	}
+
+	transmitter, err := transmitterConfig.NewTransmitter(spec.TransmitterID.String)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secure mint transmitter: %w", err)
+	}
+	argsNoPlugin.ContractTransmitter = transmitter
+	srvs = append(srvs, transmitter)
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {

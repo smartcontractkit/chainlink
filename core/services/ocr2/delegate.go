@@ -1249,7 +1249,7 @@ func (d *Delegate) newServicesSecureMint(
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "securemint", Relay: spec.Relay}
 	}
 
-	secureMintServices, err := securemint.NewSecureMintServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, lggr, oracleArgsNoPlugin, smConfig)
+	secureMintServices, err := securemint.NewSecureMintServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, lggr, oracleArgsNoPlugin, smConfig, d.capabilitiesRegistry)
 	secureMintServices = append(secureMintServices, ocrLogger)
 
 	return secureMintServices, err

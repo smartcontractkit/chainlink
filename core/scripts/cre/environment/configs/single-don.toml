@@ -2,7 +2,7 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "2"]
 
 # uncomment to start a second blockchain
 #[[blockchains]]
@@ -62,7 +62,7 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = true
+      Enabled = false
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
@@ -84,7 +84,7 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = true
+      Enabled = false
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
@@ -106,7 +106,7 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = true
+      Enabled = false
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
@@ -128,7 +128,7 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = true
+      Enabled = false
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
@@ -150,7 +150,7 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = true
+      Enabled = false
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
