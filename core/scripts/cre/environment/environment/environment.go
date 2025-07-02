@@ -1,3 +1,4 @@
+//nolint:staticcheck //due to false-positives that haven't been fixed since 3y: https://github.com/golangci/golangci-lint/issues/3228
 package environment
 
 import (
@@ -244,7 +245,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		homeChainOut.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		output.CldEnvironment.ExistingAddresses,
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
