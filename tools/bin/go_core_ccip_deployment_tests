@@ -14,7 +14,7 @@ if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_g
   export PATH
 
   cd deployment || exit 1
-  gotestsum --format='github-actions' \
+  gotestsum \
     --rerun-fails-abort-on-data-race \
     --rerun-fails='3' \
     --packages='./...' \
