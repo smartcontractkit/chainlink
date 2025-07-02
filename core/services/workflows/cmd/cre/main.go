@@ -76,7 +76,7 @@ func main() {
 	lggr, _ := logCfg.New()
 
 	runner := utils.NewRunner(nil)
-	runner.Run(ctx, binary, config, secrets, utils.RunnerConfig{
+	runner.Run(ctx, "", binary, config, secrets, utils.RunnerConfig{
 		EnableBilling:              enableBilling,
 		EnableBeholder:             enableBeholder,
 		EnableStandardCapabilities: enableStandardCapabilities,
