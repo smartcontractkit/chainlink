@@ -633,7 +633,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	store := requests.NewStore[*vault.Request, *vault.Response]()
+	store := requests.NewStore[*vault.Request]()
 	service := vault.NewService(
 		lggr,
 		store,

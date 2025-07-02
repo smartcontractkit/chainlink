@@ -7,14 +7,14 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 )
 
-func NewReportingPluginFactory(store *requests.Store[*Request, *Response]) *ReportingPluginFactory {
+func NewReportingPluginFactory(store *requests.Store[*Request]) *ReportingPluginFactory {
 	return &ReportingPluginFactory{
 		store: store,
 	}
 }
 
 type ReportingPluginFactory struct {
-	store *requests.Store[*Request, *Response]
+	store *requests.Store[*Request]
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {

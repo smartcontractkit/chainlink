@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -77,11 +78,27 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	if phaseOrExecution == "" {
 		phaseOrExecution = "subscription"
 	}
-	id := fmt.Sprintf("%s-%s-%s", md.WorkflowID, md.WorkflowExecutionID, md.ReferenceID)
+	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
 
+	resp, err := handleRequest[*vault.GetSecretsResponse](ctx, s, id, r)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
+	anyproto, err := anypb.New(resp)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not marshal response to anypb: %w", err)
+	}
+
+	return capabilities.CapabilityResponse{
+		Payload: anyproto,
+	}, nil
+}
+
+func handleRequest[T proto.Message](ctx context.Context, s *Service, id string, request proto.Message) (T, error) {
 	respCh := make(chan *Response, 1)
 	s.handler.SendRequest(ctx, &Request{
-		Payload:      r,
+		Payload:      request,
 		ResponseChan: respCh,
 
 		expiryTime: s.clock.Now().Add(s.expiresAfter),
@@ -90,29 +107,30 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 
 	select {
 	case <-ctx.Done():
-		return capabilities.CapabilityResponse{}, ctx.Err()
+		var zero T
+		return zero, ctx.Err()
 	case resp := <-respCh:
+		var zero T
 		if resp.Error != "" {
-			return capabilities.CapabilityResponse{}, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
+			return zero, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
 		}
 
-		anyproto, err := anypb.New(resp.Payload)
-		if err != nil {
-			return capabilities.CapabilityResponse{}, fmt.Errorf("could not marshal response to anypb: %w", err)
+		_, ok := resp.Payload.(T)
+		if !ok {
+			return zero, fmt.Errorf("unexpected response type: got %T", resp.Payload)
 		}
 
-		return capabilities.CapabilityResponse{
-			Payload: anyproto,
-		}, nil
+		return resp.Payload.(T), nil
 	}
 }
 
-func (s *Service) CreateSecret(ctx context.Context, request vault.CreateSecretRequest) (vault.CreateSecretResponse, error) {
+func (s *Service) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault.CreateSecretsResponse, error) {
+	return handleRequest[*vault.CreateSecretsResponse](ctx, s, request.RequestId, request)
 }
 
 func NewService(
 	lggr logger.Logger,
-	store *requests.Store[*Request, *Response],
+	store *requests.Store[*Request],
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
 ) *Service {
