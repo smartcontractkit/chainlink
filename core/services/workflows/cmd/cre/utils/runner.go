@@ -147,7 +147,7 @@ func (r *Runner) Run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks)
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, "")
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

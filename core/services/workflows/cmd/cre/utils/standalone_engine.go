@@ -42,6 +42,7 @@ func NewStandaloneEngine(
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
+	workflowName string,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
@@ -56,7 +57,11 @@ func NewStandaloneEngine(
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
-	name, err := types.NewWorkflowName(defaultName)
+	if workflowName == "" {
+		workflowName = defaultName
+	}
+
+	name, err := types.NewWorkflowName(workflowName)
 	if err != nil {
 		return nil, nil, err
 	}
