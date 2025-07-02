@@ -55,7 +55,7 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 			}
 
 			uploadOutput, err := creCLI.Upload(
-				libcrecli.S3,
+				libcrecli.MINIO,
 				wasmFileName,
 				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
 			)
