@@ -72,10 +72,12 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSt
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
-	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	tokenAdminRegistryPDAErr := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-	if tokenAdminRegistryPDAErr != nil && cfg.Override == false {
-		return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), routerProgramAddress.String())
+	if !cfg.Override {
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		tokenAdminRegistryPDAErr := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+		if tokenAdminRegistryPDAErr != nil {
+			return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), routerProgramAddress.String())
+		}
 	}
 	return nil
 }
