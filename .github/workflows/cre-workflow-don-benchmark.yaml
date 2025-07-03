@@ -182,6 +182,13 @@ jobs:
           echo "text=Performance regressions detected" >> $GITHUB_OUTPUT
           echo "header=${{ steps.parse-regressions.outputs.regression_count }} Performance Regressions Detected" >> $GITHUB_OUTPUT
           echo "alert_type=performance regression" >> $GITHUB_OUTPUT
+          
+          # Read regression details and escape for GitHub output
+          cd system-tests/tests/load/cre
+          REGRESSION_DETAILS=$(cat logs/regression_details.txt || echo "No details available")
+          echo "details<<EOF" >> $GITHUB_OUTPUT
+          echo "$REGRESSION_DETAILS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Send failure slack notification
         if: failure()
@@ -206,7 +213,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> test failure for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                    "text": "Test failure for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
                   }
                 }
               ]
@@ -237,8 +244,15 @@ jobs:
                     "type": "mrkdwn",
                     "text": "Performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
                   }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Regression Details:*\n```\n${{ steps.prepare-regression-message.outputs.details }}\n```"
+                  }
                 }
-              ]
+            ]
             }
 
 
