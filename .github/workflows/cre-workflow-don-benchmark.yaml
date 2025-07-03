@@ -134,7 +134,7 @@ jobs:
           cd system-tests/tests/load/cre
       
           # Extract detailed PERFORMANCE REGRESSION lines
-          grep "PERFORMANCE REGRESSION:" test_output.log > logs/regression_details.txt || true
+          grep -o "PERFORMANCE REGRESSION.\+" test_output.log > logs/regression_details.txt || true
       
           # Count the number of regressions
           regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
