@@ -16,6 +16,7 @@ import (
 
 const (
 	svmDestExecDataKey = "destGasAmount"
+	evmGasLimitKey     = "GasLimit"
 )
 
 var (
@@ -67,6 +68,11 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
 		fieldValue := val.Field(i).Interface()
+		if field.Name == evmGasLimitKey {
+			// convert SVM Borsh specific type uint128 to *big.Int for EVM gas limit
+			gl := fieldValue.(agbinary.Uint128)
+			fieldValue = gl.BigInt()
+		}
 		outputMap[field.Name] = fieldValue
 	}
 
