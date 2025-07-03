@@ -174,7 +174,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
-	var forwardersSelectors []uint64
+	forwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range blockchainOutputs {
 		forwardersSelectors = append(forwardersSelectors, bcOut.ChainSelector)
 	}

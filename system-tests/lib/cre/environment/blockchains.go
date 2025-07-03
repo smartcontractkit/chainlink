@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -131,7 +132,7 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create blockchains")
 	}
 
-	var chainsConfigs []devenv.ChainConfig
+	chainsConfigs := make([]devenv.ChainConfig, 0)
 
 	for _, bcOut := range blockchainsOutput {
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{

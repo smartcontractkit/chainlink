@@ -64,7 +64,6 @@ func SetupJobs(
 	infraType libtypes.InfraType,
 	capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet,
 ) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
-
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 

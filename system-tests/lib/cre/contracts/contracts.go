@@ -296,7 +296,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		return errors.Wrap(err, "failed to get capabilities registry contract")
 	}
 
-	var seqDons []ks_contracts_op.ConfigureForwardersSeqDON
+	seqDons := make([]ks_contracts_op.ConfigureForwardersSeqDON, 0)
 	for _, donCap := range donCapabilities {
 		don := ks_contracts_op.ConfigureForwardersSeqDON{
 			Name: donCap.Name,
