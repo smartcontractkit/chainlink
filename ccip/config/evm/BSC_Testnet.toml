@@ -4,3 +4,6 @@
 ChainID = '97'
 # Keeping this >> 11 because it's not expensive and gives us a safety margin
 FinalityDepth = 50
+
+[HeadTracker]
+PersistenceEnabled = false
