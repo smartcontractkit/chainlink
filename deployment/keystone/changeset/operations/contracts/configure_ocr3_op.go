@@ -12,6 +12,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -20,12 +21,13 @@ import (
 type ConfigureOCR3OpDeps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
+	Registry             *capabilities_registry.CapabilitiesRegistry
 }
 
 type ConfigureOCR3OpInput struct {
 	ContractAddress  *common.Address
 	RegistryChainSel uint64
-	NodeIDs          []string
+	DONs             []ConfigureKeystoneDON
 	Config           *internal.OracleConfig
 	DryRun           bool
 
@@ -49,9 +51,30 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 			return ConfigureOCR3OpOutput{}, errors.New("ContractAddress is required")
 		}
 
+		var nodeIDs []string
+		for _, don := range input.DONs {
+			donConfig := internal.RegisteredDonConfig{
+				NodeIDs:          don.NodeIDs,
+				Name:             don.Name,
+				RegistryChainSel: input.RegistryChainSel,
+				Registry:         deps.Registry,
+			}
+			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
+			if err != nil {
+				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to create registered DON %s: %w", don.Name, err)
+			}
+
+			// We double-check that the DON accepts workflows...
+			if d.Info.AcceptsWorkflows {
+				for _, node := range d.Nodes {
+					nodeIDs = append(nodeIDs, node.NodeID)
+				}
+			}
+		}
+
 		resp, err := changeset.ConfigureOCR3Contract(*deps.Env, changeset.ConfigureOCR3Config{
 			ChainSel:             input.RegistryChainSel,
-			NodeIDs:              input.NodeIDs,
+			NodeIDs:              nodeIDs,
 			Address:              input.ContractAddress,
 			OCR3Config:           input.Config,
 			DryRun:               input.DryRun,

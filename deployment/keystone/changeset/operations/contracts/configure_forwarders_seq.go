@@ -30,17 +30,12 @@ type ConfigureForwardersSeqDeps struct {
 type ConfigureForwardersSeqInput struct {
 	RegistryChainSel uint64
 
-	DONs []ConfigureForwardersSeqDON
+	DONs []ConfigureKeystoneDON
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *changeset.MCMSConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
-}
-
-type ConfigureForwardersSeqDON struct {
-	Name    string
-	NodeIDs []string
 }
 
 func (i ConfigureForwardersSeqInput) UseMCMS() bool {

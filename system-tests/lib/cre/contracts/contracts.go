@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -247,27 +248,30 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		return errors.New("no OCR3-capable DON found in the topology")
 	}
 
-	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
-	oracleConfig := keystone_changeset.OracleConfig{
-		DeltaProgressMillis:               5000,
-		DeltaResendMillis:                 5000,
-		DeltaInitialMillis:                5000,
-		DeltaRoundMillis:                  2000,
-		DeltaGraceMillis:                  500,
-		DeltaCertifiedCommitRequestMillis: 1000,
-		DeltaStageMillis:                  30000,
-		MaxRoundsPerEpoch:                 10,
-		TransmissionSchedule:              transmissionSchedule,
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
-		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
-		UniqueReports:                     true,
+	oracleConfig := input.OCR3Config
+	if reflect.DeepEqual(oracleConfig, keystone_changeset.OracleConfig{}) {
+		// values supplied by Alexandr Yepishev as the expected values for OCR3 config
+		oracleConfig = keystone_changeset.OracleConfig{
+			DeltaProgressMillis:               5000,
+			DeltaResendMillis:                 5000,
+			DeltaInitialMillis:                5000,
+			DeltaRoundMillis:                  2000,
+			DeltaGraceMillis:                  500,
+			DeltaCertifiedCommitRequestMillis: 1000,
+			DeltaStageMillis:                  30000,
+			MaxRoundsPerEpoch:                 10,
+			TransmissionSchedule:              transmissionSchedule,
+			MaxDurationQueryMillis:            1000,
+			MaxDurationObservationMillis:      1000,
+			MaxDurationShouldAcceptMillis:     1000,
+			MaxDurationShouldTransmitMillis:   1000,
+			MaxFaultyOracles:                  1,
+			MaxQueryLengthBytes:               1000000,
+			MaxObservationLengthBytes:         1000000,
+			MaxReportLengthBytes:              1000000,
+			MaxBatchSize:                      1000,
+			UniqueReports:                     true,
+		}
 	}
 
 	_, err := operations.ExecuteSequence(
@@ -296,15 +300,15 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		return errors.Wrap(err, "failed to get capabilities registry contract")
 	}
 
-	seqDons := make([]ks_contracts_op.ConfigureForwardersSeqDON, 0)
+	configDONs := make([]ks_contracts_op.ConfigureKeystoneDON, 0)
 	for _, donCap := range donCapabilities {
-		don := ks_contracts_op.ConfigureForwardersSeqDON{
+		don := ks_contracts_op.ConfigureKeystoneDON{
 			Name: donCap.Name,
 		}
 		for _, nop := range donCap.Nops {
 			don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
 		}
-		seqDons = append(seqDons, don)
+		configDONs = append(configDONs, don)
 	}
 	_, err = operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
@@ -315,30 +319,24 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		},
 		ks_contracts_op.ConfigureForwardersSeqInput{
 			RegistryChainSel: input.ChainSelector,
-			DONs:             seqDons,
+			DONs:             configDONs,
 		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to configure forwarders")
 	}
 
-	var allNodeIDs []string
-	for _, don := range donCapabilities {
-		for _, nop := range don.Nops {
-			allNodeIDs = append(allNodeIDs, nop.Nodes...)
-		}
-	}
-
 	_, err = operations.ExecuteOperation(
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env: input.CldEnv,
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress:  input.OCR3Address,
 			RegistryChainSel: input.ChainSelector,
-			NodeIDs:          allNodeIDs,
+			DONs:             configDONs,
 			Config:           &oracleConfig,
 			DryRun:           false,
 		},
@@ -375,6 +373,7 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 		return nil, errors.New("no OCR3-capable DON found in the topology")
 	}
 
+	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
 		DeltaProgressMillis:               5000,
 		DeltaResendMillis:                 5000,
