@@ -21,6 +21,7 @@ ResendAfterThreshold = '30s'
 
 [HeadTracker]
 HistoryDepth = 300
+PersistenceEnabled = false
 
 [NodePool]
 SyncThreshold = 10
