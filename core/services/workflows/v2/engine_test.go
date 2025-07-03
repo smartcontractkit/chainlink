@@ -580,14 +580,29 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 			}, nil).Once()
 
-		// verify that spend limits is set and has a length of zero
+		// verify that spend limits is set and has a length of two
 		capability.EXPECT().
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
 				assert.Len(t, req.Metadata.SpendLimits, 2)
 			}).
-			Return(capabilities.CapabilityResponse{}, nil).Once()
+			Return(capabilities.CapabilityResponse{
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+							SpendValue:  "100",
+						},
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendValue:  "1000",
+						},
+					},
+				},
+			}, nil).Once()
 
 		// Mock workflow execution that calls the metered capability
 		module.EXPECT().
@@ -651,14 +666,24 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 			}, nil).Once()
 
-		// verify that spend limits is set and has a length of zero
+		// verify that spend limits is set and has a length of one
 		capability.EXPECT().
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
 				assert.Len(t, req.Metadata.SpendLimits, 1)
 			}).
-			Return(capabilities.CapabilityResponse{}, nil).Once()
+			Return(capabilities.CapabilityResponse{
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+							SpendValue:  "100",
+						},
+					},
+				},
+			}, nil).Once()
 
 		// Mock workflow execution that calls the metered capability
 		module.EXPECT().
@@ -696,6 +721,101 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		logged := logs.TakeAll()
 		require.Empty(t, logged)
+	})
+
+	t.Run("billing type and capability settle spend type mismatch", func(t *testing.T) {
+		// Setup a metered capability
+		capability := capmocks.NewExecutableCapability(t)
+
+		capreg.EXPECT().
+			GetExecutable(matches.AnyContext, "metered-capability-2").
+			Return(capability, nil).Once()
+
+		ratios, _ := values.NewMap(map[string]any{
+			metering.RatiosKey: map[string]string{
+				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
+				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+			},
+		})
+
+		capreg.EXPECT().
+			ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+			Return(capabilities.CapabilityConfiguration{RestrictedConfig: ratios}, nil).Once()
+
+		// return some spend types in the Info call
+		capability.EXPECT().
+			Info(matches.AnyContext).
+			Return(capabilities.CapabilityInfo{
+				DON: &capabilities.DON{
+					ID: 42,
+				},
+				SpendTypes: []capabilities.CapabilitySpendType{
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+				},
+			}, nil).Once()
+
+		// verify that spend limits is set and has a length of two
+		capability.EXPECT().
+			Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				assert.NotNil(t, req.Metadata.SpendLimits)
+				assert.Len(t, req.Metadata.SpendLimits, 2)
+			}).
+			Return(capabilities.CapabilityResponse{
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							// SpendUnit does not match units from billing or ratios
+							SpendUnit:  "COMPUTE",
+							SpendValue: "100",
+						},
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendValue:  "1000",
+						},
+					},
+				},
+			}, nil).Once()
+
+		// Mock workflow execution that calls the metered capability
+		module.EXPECT().
+			Execute(matches.AnyContext, mock.Anything, mock.Anything).
+			Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+				// Simulate calling the slow capability from within the workflow
+				_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
+					Id:         "metered-capability-2",
+					Method:     "execute",
+					CallbackId: 1,
+					Payload:    nil,
+				})
+
+				require.NoError(t, errCap)
+			}).Return(nil, nil).Once()
+
+		// Trigger the execution
+		mockTriggerEvent := capabilities.TriggerEvent{
+			TriggerType: "basic-trigger@1.0.0",
+			ID:          "metering_capability_test_2",
+			Payload:     nil,
+		}
+
+		eventCh <- capabilities.TriggerResponse{
+			Event: mockTriggerEvent,
+		}
+
+		// Wait for execution to finish with error status
+		executionID := <-executionFinishedCh
+		wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+
+		require.NoError(t, err)
+		require.Equal(t, wantExecID, executionID)
+		capability.AssertExpectations(t)
+
+		logged := logs.TakeAll()
+		require.Len(t, logged, 1)
 	})
 
 	require.NoError(t, engine.Close())
