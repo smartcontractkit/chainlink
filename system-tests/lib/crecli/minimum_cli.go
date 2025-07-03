@@ -31,9 +31,25 @@ func (t UploadType) String() string {
 }
 
 type MinimumCLI interface {
-	Compile(workflowFilePath string, workflowConfigFilePath string, workflowSettingsFilePath string, outputFileName string) error
-	Upload(uploadType UploadType, wasmFilePath string, workflowConfigPath string) (*UploadOutput, error)
-	Deploy(wasmURL string, configURL string) error
+	Compile(
+		workflowFilePath string,
+		workflowConfigFilePath string,
+		workflowSettingsFilePath string,
+		outputFileName string,
+	) error
+	Upload(
+		uploadType UploadType,
+		wasmFilePath string,
+		workflowConfigFilePath string,
+		workflowSettingsFilePath string,
+	) (*UploadOutput, error)
+	Deploy(
+		wasmURL string,
+		configURL string,
+	) error
+	Pause (
+		workflowID string,
+	) error
 }
 
 type CLI struct {
@@ -47,24 +63,27 @@ func NewCreCli(creCLIPath string) *CLI {
 }
 
 func (c CLI) Compile(
-	workflowFileName string,
+	workflowFilePath string,
 	workflowConfigFilePath string,
 	workflowSettingsFilePath string,
 	outputFileName string,
 ) error {
-	workflowFolder := filepath.Dir(workflowFileName)
+	workflowFolder := filepath.Dir(workflowFilePath)
 
-	_, err := os.Create(filepath.Join(workflowFolder, CRECLISettingsFileName))
-	if err != nil {
-		return err
-	}
+	//err := createWorkflowSettingsFile(
+	//	workflowFolder,
+	//	workflowSettingsFilePath,
+	//)
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to create workflow settings file")
+	//}
 
 	compileArgs := []string{
 		"workflow",
 		"compile",
 		"-g=false",
 		"-o",
-		outputFileName,
+		filepath.Base(outputFileName),
 	}
 	if workflowConfigFilePath != "" {
 		compileArgs = append(compileArgs, "-c", workflowConfigFilePath)
@@ -72,7 +91,7 @@ func (c CLI) Compile(
 	if workflowSettingsFilePath != "" {
 		compileArgs = append(compileArgs, "-S", workflowSettingsFilePath)
 	}
-	compileArgs = append(compileArgs, filepath.Base(workflowFileName))
+	compileArgs = append(compileArgs, filepath.Base(workflowFilePath))
 
 	fmt.Printf("%s %#v\n", c.CreCLICommandPath, compileArgs)
 
@@ -83,7 +102,7 @@ func (c CLI) Compile(
 	compileCmd.Stderr = &outputBuffer
 	compileCmd.Dir = workflowFolder
 
-	err = compileCmd.Start()
+	err := compileCmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "failed to start compile command")
 	}
@@ -104,12 +123,64 @@ type UploadOutput struct {
 	ConfigURL string
 }
 
-func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath string) (*UploadOutput, error) {
-	workflowFolder := filepath.Dir(wasmfilePath)
+func createWorkflowSettingsFile(workflowFolder string, workflowSettingsFilePath string) error {
+	cliFilePath := filepath.Join(workflowFolder, CRECLISettingsFileName)
+	cliFile, err := os.Create(cliFilePath)
+	if err != nil {
+		return err
+	}
+	defer func(cliFile *os.File) {
+		err := cliFile.Close()
+		if err != nil {
+			fmt.Printf("error closing CLI (%s) file: %v\n", CRECLISettingsFileName, err)
+		}
+	}(cliFile)
+
+	settingsFile, err := os.OpenFile(workflowSettingsFilePath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return errors.Wrap(err, "failed to open workflow settings file")
+	}
+	defer func(settingsFile *os.File) {
+		err := settingsFile.Close()
+		if err != nil {
+			fmt.Printf("error closing settings file: %v\n", err)
+		}
+	}(settingsFile)
+
+	settingsFileBytes, err := os.ReadFile(settingsFile.Name())
+	if err != nil {
+		return errors.Wrap(err, "failed to read workflow settings file")
+	}
+
+	_, err = cliFile.Write(settingsFileBytes)
+	if err != nil {
+		return errors.Wrap(err, "failed to write workflow settings to CLI file")
+	}
+
+	fmt.Printf("created CLI settings file: %s\n", cliFilePath)
+
+	return nil
+}
+
+func (c CLI) Upload(
+	uploadType UploadType,
+	wasmFilePath string,
+	configPath string,
+	workflowSettingsFilePath string,
+) (*UploadOutput, error) {
+	workflowFolder := filepath.Dir(wasmFilePath)
+
+	err := createWorkflowSettingsFile(
+		workflowFolder,
+		workflowSettingsFilePath,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create workflow settings file")
+	}
 
 	switch uploadType {
 	case MINIO:
-		args := []string{
+		uploadArgs := []string{
 			"upload",
 			"minio",
 			"batch",
@@ -117,14 +188,22 @@ func (c CLI) Upload(uploadType UploadType, wasmfilePath string, configPath strin
 			"-b",
 			s3provider.DefaultBucket,
 			"-f",
-			wasmfilePath,
+			filepath.Base(wasmFilePath),
 			"-f",
 			configPath,
 		}
 
-		fmt.Printf("%s %#v\n", c.CreCLICommandPath, args)
+		//if workflowConfigFilePath != "" {
+		//	uploadArgs = append(uploadArgs, "-c", workflowConfigFilePath)
+		//}
 
-		uploadCmd := exec.Command(c.CreCLICommandPath, args...) // #nosec G204
+		if workflowSettingsFilePath != "" {
+			uploadArgs = append(uploadArgs, "-S", workflowSettingsFilePath)
+		}
+
+		fmt.Printf("%s %#v\n", c.CreCLICommandPath, uploadArgs)
+
+		uploadCmd := exec.Command(c.CreCLICommandPath, uploadArgs...) // #nosec G204
 
 		var outputBuffer bytes.Buffer
 		uploadCmd.Stdout = &outputBuffer

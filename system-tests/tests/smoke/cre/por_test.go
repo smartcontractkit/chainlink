@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -231,7 +232,8 @@ type managePoRWorkflowInput struct {
 	creCLIAbsPath      string
 	creCLIsettingsFile *os.File
 	authKey            string
-	creCLIProfile      string
+	creCLIProfile    string
+	s3ProviderOutput *s3provider.Output
 }
 
 type configureDataFeedsCacheInput struct {
@@ -345,10 +347,10 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 	}
 
 	// This env var is required by the CRE CLI
-	err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
-	}
+	//err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+	//}
 
 	// create workflow-specific config file
 	var secretNameToUse *string
@@ -397,6 +399,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 		WorkflowName:             input.WorkflowName,
 		ShouldCompileNewWorkflow: input.ShouldCompileNewWorkflow,
 		CRECLIProfile:            input.creCLIProfile,
+		S3ProviderOutput:         input.s3ProviderOutput,
 	}
 
 	if input.ShouldCompileNewWorkflow {
@@ -476,6 +479,9 @@ func setupPoRTestEnvironment(
 	require.NoError(t, err, "failed to convert chain ID to int")
 	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
 
+	// TODO: This could be uniformed with the way how configuration is loaded
+	//       from TOML files (framework.Load[TestConfig](t)) in the smoke tests (cc: @Tofel).
+	//       Probably best to form configs programmatically in the test and pass them on.
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -491,6 +497,9 @@ func setupPoRTestEnvironment(
 		},
 		ConfigFactoryFunctions: []types.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
+		},
+		S3ProviderInput: &s3provider.Input{
+			Region: "us-east-2",
 		},
 	}
 
@@ -547,6 +556,9 @@ func setupPoRTestEnvironment(
 
 			// create CRE CLI settings file
 			var settingsErr error
+			// TODO: BUG A -- set properly the settings file
+			fmt.Printf("S3ProviderInput: %#v", universalSetupInput.S3ProviderInput)
+
 			creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(
 				libcrecli.CRECLIProfile,
 				bo.SethClient.MustGetRootKeyAddress(),
@@ -554,7 +566,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
 				rpcs,
-				universalSetupOutput.S3ProviderOutput, // without s3Provider.Output
+				universalSetupOutput.S3ProviderOutput,
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
@@ -595,15 +607,18 @@ func setupPoRTestEnvironment(
 			creCLIsettingsFile: creCLISettingsFile,
 			writeTargetName:    wtName,
 			creCLIProfile:      libcrecli.CRECLIProfile,
+			s3ProviderOutput:   universalSetupOutput.S3ProviderOutput,
 		}
 
 		workflowRegisterErr := registerPoRWorkflow(t.Context(), workflowInput)
 		require.NoError(t, workflowRegisterErr, "failed to register PoR workflow")
 
-		workflowPauseErr := pausePoRWorkflow(workflowInput)
+		// workflowPauseErr := pausePoRWorkflow(workflowInput)
+		workflowPauseErr := libcrecli.PauseWorkflow(workflowInput.creCLIAbsPath, workflowInput.creCLIsettingsFile)
 		require.NoError(t, workflowPauseErr, "failed to pause PoR workflow")
 
-		workflowActivateErr := activatePoRWorkflow(workflowInput)
+		// workflowActivateErr := activatePoRWorkflow(workflowInput)
+		workflowActivateErr := libcrecli.ActivateWorkflow(workflowInput.creCLIAbsPath, workflowInput.creCLIsettingsFile)
 		require.NoError(t, workflowActivateErr, "failed to activate PoR workflow")
 	}
 	// Workflow-specific configuration -- END
@@ -949,44 +964,41 @@ func waitForWorkflowRegistrySyncer(nodeSetOutput []*types.WrappedNodeOutput, top
 	return nil
 }
 
+func setEnvVarIfNotSet(name string, value string) error {
+	if os.Getenv(name) == "" {
+		err := os.Setenv(name, value) //nolint:staticcheck
+		if err != nil {
+			return errors.Wrapf(err, "failed to set environment variable %s", name)
+		}
+	}
+	return nil
+}
+
 func setCTFConfigIfMissing(localConfigName string, ciConfigName string) error {
+	anvilDefaultPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	defaultCREProfile := "test"
+	fakeGHToken := "FAKE_GITHUB_TOKEN_FOR_LOCAL_TESTING_ONLY"
+
+	var configName string
 	if os.Getenv("CI") == "true" {
-		if os.Getenv("CTF_CONFIGS") == "" {
-			err := os.Setenv("CTF_CONFIGS", ciConfigName)
-			if err != nil {
-				return err
-			}
-		}
+		configName = ciConfigName
 	} else {
-		if os.Getenv("CTF_CONFIGS") == "" {
-			err := os.Setenv("CTF_CONFIGS", localConfigName)
-			if err != nil {
-				return err
-			}
-		}
+		configName = localConfigName
 	}
 
-	if os.Getenv("PRIVATE_KEY") == "" {
-		anvilDefaultPrivateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
-		err := os.Setenv("PRIVATE_KEY", anvilDefaultPrivateKey)
-		if err != nil {
-			return err
-		}
+	// TODO: some of these might not be needed due to constant changes in CRE CLI,
+	//       it's hard to keep track, so let's keep them for now.
+	envVars := map[string]string{
+		"CTF_CONFIGS":          configName,
+		"PRIVATE_KEY":          anvilDefaultPrivateKey,
+		"CRE_ETH_PRIVATE_KEY":  anvilDefaultPrivateKey,
+		"CRE_PROFILE":          defaultCREProfile,
+		"GIST_WRITE_TOKEN":     fakeGHToken,
+		"CRE_GITHUB_API_TOKEN": fakeGHToken,
 	}
 
-	if os.Getenv("GIST_WRITE_TOKEN") == "" {
-		// This token is used to write test results to the gist, it should be set in the environment
-		// or it will be set to a default value that is not valid for writing
-		// This token is used only for CI, so it should not be set locally
-		// If you want to run tests locally, you can set this token in your environment
-		// or you can remove this line and run tests without writing to the gist
-		// but then you won't be able to see the test results in the gist
-		err := os.Setenv(
-			"GIST_WRITE_TOKEN",
-			"FAKE_VALUE_FOR_LOCAL_TESTING_ONLY", //nolint:staticcheck
-		)
-		if err != nil {
+	for name, value := range envVars {
+		if err := setEnvVarIfNotSet(name, value); err != nil {
 			return err
 		}
 	}

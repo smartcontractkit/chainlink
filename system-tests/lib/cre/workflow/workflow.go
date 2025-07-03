@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,10 +28,12 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
 	}
 
-	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
-	if err != nil {
-		return err
-	}
+	creCLIWorkflowSettingsFile := input.CRESettingsFile
+	// TODO: make sure it's ok to remove the code below
+	//creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
+	//if err != nil {
+	//	return err
+	//}
 
 	var workflowURL string
 	var workflowConfigURL *string
@@ -38,34 +41,50 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.ShouldCompileNewWorkflow {
-		wasmFileName := "mytestworkflow.wasm.br"
+		wasmFilePath := filepath.Join(input.NewWorkflow.FolderLocation, "mytestworkflow.wasm.br")
 
-		// TODO: swap to some flag or env variable to control this
-		useS3Storage := true
-		if useS3Storage {
+		if input.S3ProviderOutput != nil {
 			creCLI := libcrecli.NewCreCli(input.CRECLIAbsPath)
+
 			err := creCLI.Compile(
 				filepath.Join(input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName),
 				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
 				creCLIWorkflowSettingsFile.Name(),
-				wasmFileName,
+				wasmFilePath,
 			)
 			if err != nil {
 				return err
+			}
+
+			// TODO: once CRE CLI is fixed remove the rename hack
+			//       hack to address CRE CLI bugs:
+			//       - BUG #1:
+			//         current: flag `-o fileName.wasm.br` produces `fileName.wasm.br.b64`
+			//         expected: flag `-o fileName.wasm.br` should produce `fileName.wasm.br`
+			//       - BUG #2:
+			//         when using `upload` command for `fileName.wasm.br.b64` it returns:
+			//         `Error: failed to create or update object: ... supported extensions: .wasm.br, .json, .yaml, .yml
+			err = os.Rename(wasmFilePath+".b64", wasmFilePath)
+			if err != nil {
+				fmt.Printf("failed to rename workflow binary file (.b64 to .br): %v\n", err)
 			}
 
 			uploadOutput, err := creCLI.Upload(
 				libcrecli.MINIO,
-				wasmFileName,
+				wasmFilePath,
 				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
+				creCLIWorkflowSettingsFile.Name(),
 			)
 			if err != nil {
 				return err
 			}
 
-			workflowURL = uploadOutput.BinaryURL
-			workflowConfigURL = &uploadOutput.ConfigURL
-			// TODO: handle secrets file upload
+			// Register to a Node with S3 storage, so need to replace the endpoint
+			// with the base endpoint subjective to the target host.
+			workflowURL = strings.Replace(uploadOutput.BinaryURL, input.S3ProviderOutput.Endpoint, input.S3ProviderOutput.BaseEndpoint, -1)
+			tmpConfigURL := strings.Replace(uploadOutput.ConfigURL, input.S3ProviderOutput.Endpoint, input.S3ProviderOutput.BaseEndpoint, -1)
+			workflowConfigURL = &tmpConfigURL
+			// TODO: handle secrets file upload: probably could be done via Upload() adding argument -f <secrets file>
 		} else {
 			compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile, input.CRESettingsFile)
 			if compileErr != nil {
@@ -89,6 +108,14 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 		workflowSecretsURL = input.ExistingWorkflow.SecretsURL
 	}
 
+	// TODO: another fix required to CRE CLI:
+	//       - BUG #3: Downloads remote files even if they are already present in the local filesystem.
+	//                 The files are required to compute Workflow ID which is used to register the workflow.
+	//                 This is not a problem for the local minio, because Nodes are running in docker
+	// 			       and the URLs need to be relative to them, i.e. `minio:9000`
+	//			       (which is different than the host machine `127.0.0.1:9000`).
+	//                 CRE CLI executes in the local host context, so it can't reach docker internal hostname.
+	//                 Downloading files from remote is excessive in this case and could be avoided.
 	registerErr := libcrecli.DeployWorkflow(
 		input.CRECLIAbsPath,
 		workflowURL,

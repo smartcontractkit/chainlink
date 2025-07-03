@@ -1,6 +1,7 @@
 package crecli
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/google/uuid"
@@ -150,8 +151,11 @@ func PrepareCRECLISettingsFile(
 		},
 		UserWorkflow: UserWorkflow{
 			WorkflowOwnerAddress: workflowOwner.Hex(),
+			WorkflowName:         "porfeedone",
 		},
-		Logging: Logging{},
+		Logging: Logging{
+			SethConfigPath: "",
+		},
 		McmsConfig: McmsConfig{
 			ProposalsDirectory: "./",
 		},
@@ -234,6 +238,8 @@ func PrepareCRECLISettingsFile(
 	if writeErr != nil {
 		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLISettingsFileName)
 	}
+
+	fmt.Printf("CRE CLI settings (%s): %s\n", settingsFile.Name(), settingsMarshalled)
 
 	return settingsFile, nil
 }

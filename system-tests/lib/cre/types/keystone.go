@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -582,6 +583,7 @@ type ManageWorkflowWithCRECLIInput struct {
 	NewWorkflow              *NewWorkflow
 	ExistingWorkflow         *ExistingWorkflow
 	CRECLIProfile            string
+	S3ProviderOutput         *s3provider.Output
 }
 
 type NewWorkflow struct {

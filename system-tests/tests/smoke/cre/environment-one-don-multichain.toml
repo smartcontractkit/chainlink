@@ -42,8 +42,8 @@
   workflow_name = "porfeedtwo"
 
 [dependencies]
-  cre_cli_binary_path = "./cre_v0.2.1_darwin_arm64"
-  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "/Users/mw/bin/cre_v0.2.1_darwin_arm64"
+  cron_capability_binary_path = "/Users/mw/bin/cron"
 
 [[nodesets]]
   http_port_range_start = 10100

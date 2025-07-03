@@ -105,6 +105,8 @@ func DeployWorkflow(
 		commandArgs = append(commandArgs, "-s", *secretsURL)
 	}
 
+	fmt.Printf("%s %#v\n", creCLICommandPath, commandArgs)
+
 	deployCmd := exec.Command(creCLICommandPath, commandArgs...) // #nosec G204
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr

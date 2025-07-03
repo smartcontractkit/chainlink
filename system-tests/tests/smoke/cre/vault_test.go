@@ -29,7 +29,10 @@ type Config struct {
 }
 
 func TestVault_E2E(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
+	configErr := setCTFConfigIfMissing(
+		"environment-gateway-vault-don.toml",
+		"environment-gateway-vault-don.toml",
+	)
 	require.NoError(t, configErr, "failed to set CTF config")
 
 	c, err := framework.Load[Config](t)
