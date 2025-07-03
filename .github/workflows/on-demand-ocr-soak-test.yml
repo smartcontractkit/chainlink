@@ -26,6 +26,7 @@ on:
       chainlink_version:
         description: Version to test (e.g. "v2.25.0-beta.0", "develop", etc.)
         required: true
+        default: develop
         type: string
       test_config_override_path:
         description: Path to the override test config TOML (defaults to OCR2 on Eth Sepolia, 12h soak)
@@ -35,7 +36,6 @@ on:
       test_secrets_override_key:
         description: Test secrets (default EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
         required: false
-        default: 'aws:testsecrets/DEFAULT_TEST_SECRETS'
         type: string
       team:
         description: Team (e.g. BIX, CCIP, CRE, etc.)
@@ -47,109 +47,119 @@ on:
         default: U01A2B2C3D4
 
 jobs:
+  # Based on the `inputs.chainlink_version` define whether to:
+  # - use a private or public ECR registry
+  # - skip image build if public ECR registry is used
+  version-to-docker-registry:
+    name: Define Image Location Based on Version
+    runs-on: ubuntu-latest
+    outputs:
+      skip_image_build: ${{ steps.set-registry-type.outputs.skip_image_build }}
+    env:
+      GIT_REF: ${{ github.ref }}
+      GIT_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Select private or public ECR registry based on version provided
+        id: set-registry-type
+        shell: bash
+        run: |
+          # If running on a version or tag starting with `v` use public ECR registry
+          # Validate (regexp) if the value matches format `v<number>.<everything else>`
+          if [[ "${{ inputs.chainlink_version }}" =~ ^v[0-9]+\..*$ ]]; then
+            echo "skip_image_build=true" >> $GITHUB_OUTPUT
+            echo "Detected version: '${{ inputs.chainlink_version }}'. Public ECR registry will be used. No image will be built."
+          elif [[ -z "${{ inputs.chainlink_version }}" && "$GIT_REF" =~ /tags/ ]]; then
+            # Validate if the tag is a 'core' version
+            if [[ "$GIT_TAG" =~ ^v[0-9]+\..*$ ]]; then
+              echo "skip_image_build=true" >> $GITHUB_OUTPUT
+              echo "Running on a tag: '$GIT_TAG'. Public ECR registry will be used. No image will be built."
+              exit 0
+            fi
+          elif [[ -z "${{ inputs.chainlink_version }}" && ! "$GIT_REF" =~ /tags/ ]]; then
+            echo "Error: 'chainlink_version' input or GH tag is required."
+            exit 1
+          else
+            echo "skip_image_build=false" >> $GITHUB_OUTPUT
+            echo "Detected version: '${{ inputs.chainlink_version }}'. Private ECR registry will be used. Image will be built."
+          fi
+
   # Prefix `v` should be stripped for Docker images
   resolve-docker-version:
     name: Resolve Chainlink Docker Version
     runs-on: ubuntu-latest
+    needs: version-to-docker-registry
     outputs:
       chainlink_image_version: ${{ steps.resolve.outputs.chainlink_image_version }}
-      skip_image_build: ${{ steps.resolve.outputs.skip_image_build }}
     env:
-      GIT_TAG: ${{ github.ref_name }}
+      VERSION: ${{ inputs.chainlink_version || github.ref_name }}
     steps:
-      - name: Validate if the tag is a 'core' version
-        if: startsWith(github.ref, 'refs/tags/')
-        id: is-core-tag
+      - name: Validate if version provided is a 'core' version
+        if: ${{ needs.version-to-docker-registry.outputs.skip_image_build == 'true' }}
+        id: is-core
         run: |
-          # Examples: `2.23.1-beta.0`, `v2.23.1-rc.1`
-          if [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta.*$ || "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc.*$ ]]; then
-            echo "is-core-tag=true" >> $GITHUB_OUTPUT
-            echo "Used tag '$GIT_TAG' is a 'core' version"
+          # Examples: `v2.23.1-beta.0`, `v2.23.1-rc.1`
+          if [[ "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-beta.*$ || "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-rc.*$ ]]; then
+            echo "is-core=true" >> $GITHUB_OUTPUT
+            echo "Used version '$VERSION' is a 'core' version."
           else
-            echo "is-core-tag=false" >> $GITHUB_OUTPUT
-            echo "Used tag '$GIT_TAG' is not a 'core' version. Skipping version resolution for docker image."
-          fi    
-
-      - name: Resolve version from a tag and skip image build
-        if: ${{ steps.is-core-tag.outputs.is-core-tag == 'true' }}
-        id: resolve
-        run: |
-          chainlink_version="$GIT_TAG"
-          echo "chainlink_image_version=${chainlink_version#v}" >> $GITHUB_OUTPUT
-          echo "skip_image_build=true" >> $GITHUB_OUTPUT
-          echo "Resolved image version from a tag is '$chainlink_image_version'. Skipping image build."
-
-  # Check if ECR registry is public or private
-  # Skip building image if public registry is used
-  check-registry-type:
-    name: Check used ECR registry type
-    needs: resolve-docker-version
-    runs-on: ubuntu-latest
-    environment: integration
-    permissions:
-      id-token: write
-    outputs:
-      skip-image-build: ${{ steps.skip-image-build.outputs.skip-image-build }}
-    steps:
-      - name: Validate if AWS Secrets
-        if: ${{ needs.resolve-docker-version.outputs.skip_image_build != 'true' }}
-        id: validate-secrets-type
-        run: |
-          if [[ "${{ inputs.test_secrets_override_key }}" =~ ^aws:* ]]; then
-            echo "Detected AWS secret"
-            echo "is-aws-secret=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Detected non-AWS secret"
-            echo "is-aws-secret=false" >> "$GITHUB_OUTPUT"
-            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
+            echo "is-core=false" >> $GITHUB_OUTPUT
+            echo "Used version '$VERSION' is NOT a 'core' version."
           fi
 
-      - name: Get AWS test secret ID (strip 'aws:' prefix)
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: get-secret-id
-        run: echo "secret_id=${{ inputs.test_secrets_override_key }}" | sed 's/aws://' >> $GITHUB_OUTPUT
-
-      - name: Get test secrets from AWS Secret Manager
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: aws-test-secrets
-        uses: smartcontractkit/.github/actions/ctf-fetch-aws-secret@921f4b0ca850dd473dcef9082e3169ccbb83cc52 # ctf-fetch-aws-secret@0.0.0
-        with:
-          secret_id: ${{ steps.get-secret-id.outputs.secret_id }}
-          aws_region: ${{ secrets.QA_AWS_REGION }}
-          aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
-      - name: Parse and mask test secrets
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: parsed-aws-test-secrets
-        uses: smartcontractkit/.github/actions/parse-and-mask-test-secrets@parse-and-mask-test-secrets/0.1.0 # parse-and-mask-test-secrets@0.1.0
-        with:
-          encoded_test_secrets: ${{ steps.aws-test-secrets.outputs.secret_value }}
-
-      - name: Check registry type
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: skip-image-build
+      - name: Resolve version for Core Docker image
+        id: resolve
         shell: bash
         run: |
-          if [[ "$E2E_TEST_CHAINLINK_IMAGE" =~ ^public\.ecr ]]; then
-            echo "Using public registry. No image will be built."
-            echo "skip-image-build=true" >> "$GITHUB_OUTPUT"
+          if [[ ${{ steps.is-core.outputs.is-core == 'true' }} ]]; then
+            # strip the `v` prefix from the version
+            version="${VERSION#v}"
+            echo "Resolved 'core' image version: '$version'."
+            echo "chainlink_image_version=$version" >> $GITHUB_OUTPUT
           else
-            echo "Using private registry for Chainlink image."
-            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
+            version="$VERSION"
+            echo "Using initially provided image version: '$version'."
+            echo "chainlink_image_version=$version" >> $GITHUB_OUTPUT
+          fi
+
+  # Set provided or default test secrets
+  set-test-secrets:
+    name: Set Test Secrets
+    runs-on: ubuntu-latest
+    needs: [version-to-docker-registry]
+    outputs:
+      test_secrets_override_key: ${{ steps.test-secrets.outputs.test_secrets_override_key }}
+    steps:
+      - name: Set test secrets
+        id: test-secrets
+        run: |
+          # If test_secrets_override_key is not provided, use the default secrets
+          # default secrets selection depends on image location (public or private ECR)
+          if [[ -z "${{ inputs.test_secrets_override_key }}" ]]; then
+            echo "No test_secrets_override_key provided. Using default secrets based on image location."
+            if [[ "${{ needs.version-to-docker-registry.outputs.skip_image_build }}" == 'true' ]]; then
+              echo "test_secrets_override_key=aws:testsecrets/DEFAULT_TEST_SECRETS" >> $GITHUB_OUTPUT
+              echo "Using default secrets for PUBLIC ECR registry."
+            else
+              echo "test_secrets_override_key=aws:testsecrets/PRIVATE_DEFAULT_TEST_SECRETS" >> $GITHUB_OUTPUT
+              echo "Using default secrets for PRIVATE ECR registry."
+            fi
+          else
+            echo "test_secrets_override_key=${{ inputs.test_secrets_override_key }}" >> $GITHUB_OUTPUT
+            echo "Using provided test secrets."
           fi
 
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    needs: [check-registry-type, resolve-docker-version]
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9271f82b74a6dcc92bb66e1363460146897c8637
+    needs: [version-to-docker-registry, resolve-docker-version, set-test-secrets ]
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@1e6b821dc36a55e338d6bdbda1320a0db93b729d
     with:
-      chainlink_version: ${{ inputs.chainlink_version || needs.resolve-docker-version.outputs.chainlink_image_version || github.ref_name || 'develop' }}
+      chainlink_version: ${{ needs.resolve-docker-version.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml
       test_ids: ${{ inputs.testToRun }}
-      test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
+      test_secrets_override_key: ${{ inputs.test_secrets_override_key || needs.set-test-secrets.outputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
       # Fallback is used to properly convert a string to boolean 
-      skip_image_build: ${{ needs.resolve-docker-version.outputs.skip_image_build == 'true' && true || needs.check-registry-type.outputs.skip-image-build == 'true' && true || false }}
+      skip_image_build: ${{ needs.version-to-docker-registry.outputs.skip_image_build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}
     secrets:
