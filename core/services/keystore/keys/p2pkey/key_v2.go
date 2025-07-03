@@ -44,9 +44,13 @@ func marshalPrivateKey(key ed25519.PrivateKey) ([]byte, error) {
 
 type KeyV2 struct {
 	raw    internal.Raw
-	signer crypto.Signer
+	signer ed25519.PrivateKey
 
 	peerID PeerID
+}
+
+func (k KeyV2) PrivKey() ed25519.PrivateKey {
+	return k.signer
 }
 
 func fromPrivkey(privKey ed25519.PrivateKey) (KeyV2, error) {

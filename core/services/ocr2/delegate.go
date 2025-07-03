@@ -696,12 +696,13 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		ContractTransmitter:          nil, // TODO
 		Database:                     ocrDB,
+		KeyValueDatabaseFactory:      nil, // TODO
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,

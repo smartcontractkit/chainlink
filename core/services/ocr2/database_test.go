@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -511,5 +512,34 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 		val, err = db.ReadProtocolState(ctx, cd1, "key1")
 		assert.NoError(t, err)
 		assert.Nil(t, val)
+	})
+}
+
+func Test_DB_ReadWriteBlock(t *testing.T) {
+	sqlDB := setupDB(t)
+
+	lggr := logger.TestLogger(t)
+	db := ocr2.NewDB(sqlDB, 0, defaultPluginID, lggr)
+	cd1 := testhelpers.MakeConfigDigest(t)
+	cd2 := testhelpers.MakeConfigDigest(t)
+	ctx := testutils.Context(t)
+
+	assertCount := func(expected int64) {
+		testutils.AssertCount(t, sqlDB, "ocr2_blocks", expected)
+	}
+
+	t.Run("stores and retrieves blocks", func(t *testing.T) {
+		assertCount(0)
+
+		block := []byte("hello world")
+		err := db.WriteBlock(ctx, cd1, 0, block)
+		assert.NoError(t, err)
+
+		assertCount(1)
+
+		gotBlock, err := db.ReadBlock(ctx, cd1, 0)
+		require.NoError(t, err)
+
+		assert.Equal(t, block, gotBlock)
 	})
 }

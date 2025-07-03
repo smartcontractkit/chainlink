@@ -42,6 +42,11 @@ type (
 		ocr2types.BootstrapperFactory
 	}
 
+	peerAdapterOCR3_1 struct {
+		ocr2types.BinaryNetworkEndpoint2Factory
+		ocr2types.BootstrapperFactory
+	}
+
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		services.StateMachine
@@ -60,6 +65,9 @@ type (
 
 		// OCR2 peer adapter
 		Peer2 *peerAdapterOCR2
+
+		// OCR3_1 peer adapter
+		Peer3_1 *peerAdapterOCR3_1
 
 		// PeerGroupFactory can be used to create PeerGroup instances
 		PeerGroupFactory ocrnetworking.PeerGroupFactory
@@ -110,6 +118,10 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
+		p.Peer3_1 = &peerAdapterOCR3_1{
+			peer.OCR3_1BinaryNetworkEndpointFactory(),
+			peer.OCR2BootstrapperFactory(),
+		}
 
 		p.PeerGroupFactory = peer.PeerGroupFactory()
 
@@ -131,14 +143,10 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 
 	discovererDB := NewOCRDiscovererDatabase(p.ds, p.PeerID.Raw())
 
-	peerKeyring, err := NewSignerPeerKeyring(key)
-	if err != nil {
-		return ocrnetworking.PeerConfig{}, err
-	}
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
-		PeerKeyring: peerKeyring,
-		Logger:      commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
+		PrivKey: key.PrivKey(),
+		Logger:  commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
 		V2ListenAddresses:    config.V2().ListenAddresses(),
