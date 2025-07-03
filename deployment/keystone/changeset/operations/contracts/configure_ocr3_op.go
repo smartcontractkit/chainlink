@@ -61,7 +61,7 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 			}
 			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
 			if err != nil {
-				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to create registered DON %s: %w", don.Name, err)
+				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
 			}
 
 			// We double-check that the DON accepts workflows...
