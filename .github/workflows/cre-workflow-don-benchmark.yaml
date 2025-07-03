@@ -252,9 +252,8 @@ jobs:
                     "text": "*Regression Details:*\n```\n${{ steps.prepare-regression-message.outputs.details }}\n```"
                   }
                 }
-            ]
+              ]
             }
-
 
       - name: Teardown
         if: always()
