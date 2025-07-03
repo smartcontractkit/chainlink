@@ -177,7 +177,7 @@ jobs:
           cd system-tests/tests/load/cre
           mkdir -p logs
           
-          echo "PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>%" > logs/regression_details.txt
+          echo "PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\nPERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\nPERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\n" > logs/regression_details.txt
           
           # Read regression details and properly escape for JSON
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
