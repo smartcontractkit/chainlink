@@ -79,7 +79,9 @@ func Test_ReportCodec(t *testing.T) {
 		}
 
 		multiplier1, err := decimal.NewFromString("1")
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("1000000000000000000") // 10^18
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -145,7 +147,9 @@ func Test_ReportCodec(t *testing.T) {
 		}
 
 		multiplier1, err := decimal.NewFromString("1")
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("1000000000000000000") // 10^18
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -180,7 +184,9 @@ func Test_ReportCodec(t *testing.T) {
 		}
 
 		multiplier1, err := decimal.NewFromString("123.4567")
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("89.01234")
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -198,7 +204,7 @@ func Test_ReportCodec(t *testing.T) {
 			},
 			Opts: opts,
 		})
-		require.EqualError(t, err, "Multiplier for StreamID 1 must be an integer")
+		require.EqualError(t, err, "multiplier for StreamID 1 must be an integer")
 	})
 	t.Run("Encode: Multiplier is zero FAIL", func(t *testing.T) {
 		donID := uint32(1)
@@ -215,7 +221,9 @@ func Test_ReportCodec(t *testing.T) {
 		}
 
 		multiplier1, err := decimal.NewFromString("0")
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("0")
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -233,7 +241,7 @@ func Test_ReportCodec(t *testing.T) {
 			},
 			Opts: opts,
 		})
-		require.EqualError(t, err, "Multiplier for StreamID 1 can't be zero")
+		require.EqualError(t, err, "multiplier for StreamID 1 can't be zero")
 	})
 	t.Run("Encode: Multiplier is negative FAIL", func(t *testing.T) {
 		donID := uint32(1)
@@ -250,7 +258,9 @@ func Test_ReportCodec(t *testing.T) {
 		}
 
 		multiplier1, err := decimal.NewFromString("-1000000000000000000") // -10^18
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("-1")
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -268,7 +278,7 @@ func Test_ReportCodec(t *testing.T) {
 			},
 			Opts: opts,
 		})
-		require.EqualError(t, err, "Multiplier for StreamID 1 can't be negative")
+		require.EqualError(t, err, "multiplier for StreamID 1 can't be negative")
 	})
 	t.Run("Verify: Multipliers length, StreamValues length mismatch FAIL", func(t *testing.T) {
 		donID := uint32(1)
@@ -278,7 +288,9 @@ func Test_ReportCodec(t *testing.T) {
 		require.NoError(t, err)
 
 		multiplier1, err := decimal.NewFromString("1000000000000000000") // 10^18
+		require.NoError(t, err)
 		multiplier2, err := decimal.NewFromString("1")
+		require.NoError(t, err)
 
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
@@ -298,6 +310,6 @@ func Test_ReportCodec(t *testing.T) {
 				Opts: opts,
 			},
 		)
-		require.EqualError(t, err, "Multipliers length 3 != StreamValues length 2")
+		require.EqualError(t, err, "multipliers length 3 != StreamValues length 2")
 	})
 }

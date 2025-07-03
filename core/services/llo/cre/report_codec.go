@@ -81,27 +81,27 @@ func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd ll
 	payload := make([]*commonds.LLOStreamDecimal, len(report.Values))
 	for i, stream := range report.Values {
 		var d []byte
-		switch stream.(type) {
+		switch v := stream.(type) {
 		case nil:
 			// Missing observations are nil
 		case *datastreamsllo.Decimal:
-			multipliedStreamValue := (stream.(*datastreamsllo.Decimal)).Decimal()
+			multipliedStreamValue := v.Decimal()
 
 			if len(opts.Multipliers) != 0 {
 				if opts.Multipliers[i].StreamID != cd.Streams[i].StreamID {
 					return nil, fmt.Errorf("LLO StreamID %d mismatched with Multiplier StreamID %d", cd.Streams[i].StreamID, opts.Multipliers[i].StreamID)
 				}
 
-				// Mutilpier is optional, if not specified, we use the original value
+				// Multiplier is optional, if not specified, we use the original value
 				if opts.Multipliers[i].Multiplier != nil {
 					if !(opts.Multipliers[i].Multiplier.IsInteger()) {
-						return nil, fmt.Errorf("Multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
+						return nil, fmt.Errorf("multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
 					}
 					if opts.Multipliers[i].Multiplier.IsZero() {
-						return nil, fmt.Errorf("Multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
+						return nil, fmt.Errorf("multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
 					}
 					if opts.Multipliers[i].Multiplier.IsNegative() {
-						return nil, fmt.Errorf("Multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
+						return nil, fmt.Errorf("multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
 					}
 
 					multipliedStreamValue = multipliedStreamValue.Mul(*opts.Multipliers[i].Multiplier)
@@ -149,7 +149,7 @@ func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) erro
 		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
 	}
 	if len(opts.Multipliers) != len(cd.Streams) {
-		return fmt.Errorf("Multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
+		return fmt.Errorf("multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
 	}
 	return nil
 }
