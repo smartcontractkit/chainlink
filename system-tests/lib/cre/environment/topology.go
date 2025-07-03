@@ -28,17 +28,17 @@ func BuildTopology(
 	configFactoryFunctions []cretypes.ConfigFactoryFn,
 	customBinariesPaths map[cretypes.CapabilityFlag]string,
 ) (*cretypes.Topology, []*cretypes.CapabilitiesAwareNodeSet, error) {
-	localNodeSets := copyCapabilityAwareNodeSets(nodeSets)
-
-	topologyErr := libdon.ValidateTopology(localNodeSets, infraInput)
+	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
 		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
 	}
 
-	topology, err := libdon.BuildTopology(localNodeSets, infraInput, registryChainSelector)
+	topology, err := libdon.BuildTopology(nodeSets, infraInput, registryChainSelector)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to build topology")
 	}
+
+	localNodeSets := copyCapabilityAwareNodeSets(nodeSets)
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
