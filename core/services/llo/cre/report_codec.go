@@ -45,7 +45,7 @@ type ReportCodecCapabilityTriggerOpts struct {
 
 func (r *ReportCodecCapabilityTriggerOpts) Decode(opts []byte) error {
 	if len(opts) == 0 {
-		return fmt.Errorf("opts cannot be empty for ReportCodecCapabilityTriggerOpts")
+		return errors.New("opts cannot be empty for ReportCodecCapabilityTriggerOpts")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(opts))
 	decoder.DisallowUnknownFields() // Error on unrecognized fields
