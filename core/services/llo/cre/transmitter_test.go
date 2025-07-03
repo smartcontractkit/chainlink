@@ -89,12 +89,26 @@ func encodeReport(t *testing.T, timestamp uint64) ocr3types.ReportWithInfo[lloty
 		Values:                          []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36))},
 		Specimen:                        false,
 	}
+
+	multiplier1, err := decimal.NewFromString("1")
+	require.NoError(t, err)
+	multiplier2, err := decimal.NewFromString("1")
+	require.NoError(t, err)
+
+	opts, err := (&ReportCodecCapabilityTriggerOpts{
+		Multipliers: []ReportCodecCapabilityTriggerMultiplier{
+			{Multiplier: multiplier1, StreamID: 1},
+			{Multiplier: multiplier2, StreamID: 2},
+		},
+	}).Encode()
+	require.NoError(t, err)
 	cd := llotypes.ChannelDefinition{
 		ReportFormat: llotypes.ReportFormatCapabilityTrigger,
 		Streams: []llotypes.Stream{
 			{StreamID: 1},
 			{StreamID: 2},
 		},
+		Opts: opts,
 	}
 	rawReport, err := codec.Encode(rep, cd)
 	require.NoError(t, err)

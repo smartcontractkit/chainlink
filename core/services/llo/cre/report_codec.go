@@ -28,7 +28,7 @@ func NewReportCodecCapabilityTrigger(lggr logger.Logger, donID uint32) ReportCod
 }
 
 type ReportCodecCapabilityTriggerMultiplier struct {
-	Multiplier *decimal.Decimal  `json:"multiplier"`
+	Multiplier decimal.Decimal   `json:"multiplier"`
 	StreamID   llotypes.StreamID `json:"streamID"`
 }
 
@@ -45,8 +45,7 @@ type ReportCodecCapabilityTriggerOpts struct {
 
 func (r *ReportCodecCapabilityTriggerOpts) Decode(opts []byte) error {
 	if len(opts) == 0 {
-		// special case if opts are unspecified, just use the zero options rather than erroring
-		return nil
+		return fmt.Errorf("opts cannot be empty for ReportCodecCapabilityTriggerOpts")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(opts))
 	decoder.DisallowUnknownFields() // Error on unrecognized fields
@@ -84,28 +83,7 @@ func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd ll
 		case nil:
 			// Missing observations are nil
 		case *datastreamsllo.Decimal:
-			multipliedStreamValue := v.Decimal()
-
-			if len(opts.Multipliers) != 0 {
-				if opts.Multipliers[i].StreamID != cd.Streams[i].StreamID {
-					return nil, fmt.Errorf("LLO StreamID %d mismatched with Multiplier StreamID %d", cd.Streams[i].StreamID, opts.Multipliers[i].StreamID)
-				}
-
-				// Multiplier is optional, if not specified, we use the original value
-				if opts.Multipliers[i].Multiplier != nil {
-					if !(opts.Multipliers[i].Multiplier.IsInteger()) {
-						return nil, fmt.Errorf("multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
-					}
-					if opts.Multipliers[i].Multiplier.IsZero() {
-						return nil, fmt.Errorf("multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
-					}
-					if opts.Multipliers[i].Multiplier.IsNegative() {
-						return nil, fmt.Errorf("multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
-					}
-
-					multipliedStreamValue = multipliedStreamValue.Mul(*opts.Multipliers[i].Multiplier)
-				}
-			}
+			multipliedStreamValue := v.Decimal().Mul(opts.Multipliers[i].Multiplier)
 
 			var err error
 			d, err = multipliedStreamValue.MarshalBinary()
@@ -149,6 +127,21 @@ func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) erro
 	}
 	if len(opts.Multipliers) != len(cd.Streams) {
 		return fmt.Errorf("multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
+	}
+
+	for i, stream := range cd.Streams {
+		if opts.Multipliers[i].StreamID != stream.StreamID {
+			return fmt.Errorf("LLO StreamID %d mismatched with Multiplier StreamID %d", stream.StreamID, opts.Multipliers[i].StreamID)
+		}
+		if !(opts.Multipliers[i].Multiplier.IsInteger()) {
+			return fmt.Errorf("multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
+		}
+		if opts.Multipliers[i].Multiplier.IsZero() {
+			return fmt.Errorf("multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
+		}
+		if opts.Multipliers[i].Multiplier.IsNegative() {
+			return fmt.Errorf("multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
+		}
 	}
 	return nil
 }
