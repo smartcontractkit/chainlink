@@ -2,14 +2,12 @@ package ccipton
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
-	ag_binary "github.com/gagliardetto/binary"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -23,11 +21,13 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
+	addressCodec   AddressCodec
 	extraDataCodec common.ExtraDataCodec
 }
 
 func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
+		addressCodec:   AddressCodec{},
 		extraDataCodec: extraDataCodec,
 	}
 }
@@ -86,16 +86,20 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("invalid dest token address length: %d", len(tokenAmount.DestTokenAddress))
 				}
 
-				// TODO consider using address codec ?
-				destTokenTonAddr, err := convertBase64ToAddress(tokenAmount.DestTokenAddress)
+				destTokenAddrStr, err := e.addressCodec.AddressBytesToString(tokenAmount.DestTokenAddress)
 				if err != nil {
-					return nil, fmt.Errorf("error convert dest token address: %w", err)
+					return nil, err
+				}
+
+				DestPoolTonAddr, err := address.ParseAddr(destTokenAddrStr)
+				if err != nil {
+					return nil, fmt.Errorf("invalid dest token address %s: %w", destTokenAddrStr, err)
 				}
 
 				tokenAmounts = append(tokenAmounts, bindings.Any2TONTokenTransfer{
 					SourcePoolAddress: poolAddrCell,
 					ExtraData:         extraData,
-					DestPoolAddress:   destTokenTonAddr,
+					DestPoolAddress:   DestPoolTonAddr,
 					Amount:            tokenAmount.Amount.Int,
 					DestGasAmount:     destGasAmount,
 				})
@@ -124,10 +128,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("pack data: %w", err)
 			}
 
-			// TODO consider using address codec once it's merged
-			tonReceiverAddr, err := convertBase64ToAddress(msg.Receiver)
+			tonReceiverAddrStr, err := e.addressCodec.AddressBytesToString(msg.Receiver)
 			if err != nil {
 				return nil, fmt.Errorf("error convert receiver address: %w", err)
+			}
+
+			tonReceiverAddr, err := address.ParseAddr(tonReceiverAddrStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid receiver address %s: %w", tonReceiverAddrStr, err)
 			}
 
 			var gasLimitBigInt *big.Int
@@ -253,8 +261,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					return executeReport, err
 				}
 
-				// TODO consider using address codec once it's merged
-				destTokenAddr, err := convertAddressToBase64(tokenAmount.DestPoolAddress)
+				destTokenAddr, err := e.addressCodec.AddressStringToBytes(tokenAmount.DestPoolAddress.String())
 				if err != nil {
 					return executeReport, err
 				}
@@ -267,7 +274,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					SourcePoolAddress: sourceTokenPoolAddr,
 					DestTokenAddress:  destTokenAddr,
 					ExtraData:         extraData,
-					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
+					Amount:            cciptypes.NewBigInt(tokenAmount.Amount), // TODO double check if we need to add range check for BigInt, since TON use 256 bits
 					DestExecData:      destGasAmount,
 				})
 			}
@@ -277,9 +284,9 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 				return executeReport, fmt.Errorf("unload sender address: %w", err)
 			}
 
-			receiverAddr, err := convertAddressToBase64(msg.Receiver)
+			receiverAddr, err := e.addressCodec.AddressStringToBytes(msg.Receiver.String())
 			if err != nil {
-				return executeReport, fmt.Errorf("convert receiver address: %w", err)
+				return executeReport, err
 			}
 
 			msgData, err := bindings.UnloadCellToByteArray(msg.Data)
@@ -334,31 +341,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 	return executeReport, nil
 }
 
-// Convert the raw address bytes to a TON address.
-// TODO remove once address codec is merged
-func convertBase64ToAddress(rawAddr []byte) (*address.Address, error) {
-	addrStr := base64.RawURLEncoding.EncodeToString(rawAddr)
-	tonAddr, err := address.ParseAddr(addrStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid TON address %s: %w", addrStr, err)
-	}
-
-	return tonAddr, nil
-}
-
-// TODO remove once address codec is merged
-func convertAddressToBase64(addr *address.Address) ([]byte, error) {
-	if addr == nil {
-		return nil, fmt.Errorf("nil address")
-	}
-
-	addrStr := addr.String()
-	if len(addrStr) == 0 {
-		return nil, fmt.Errorf("empty address string")
-	}
-	return base64.RawURLEncoding.DecodeString(addrStr)
-}
-
 // Duplicate with ccipevm, consider moving to common package
 func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	// Iterate through the expected fields in the struct
@@ -390,11 +372,6 @@ func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
 				outputGas = val
 				return outputGas, nil
 			} else {
-				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
-				if val, ok := fieldValue.(ag_binary.Uint128); ok {
-					outputGas = val.BigInt()
-					return outputGas, nil
-				}
 				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
 			}
 		default:
