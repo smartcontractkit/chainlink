@@ -215,7 +215,8 @@ jobs:
           cat ${{ github.workspace }}/slack_payload.json
 
       - name: Send regression slack notification
-        if: success() && steps.parse-regressions.outputs.regression_count > 0
+#        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        if: success()
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           errors: "true"
