@@ -153,7 +153,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 			if sourceChainUpgradeCfg.NewFeeQuoterParamsPerDest == nil {
 				return fmt.Errorf("new fee quoter params are not defined for source chain %d", sourceChainSel)
 			}
-			if _, ok := sourceChainUpgradeCfg.NewFeeQuoterParamsPerDest[destChainSel]; !ok {
+			if _, ok = sourceChainUpgradeCfg.NewFeeQuoterParamsPerDest[destChainSel]; !ok {
 				return fmt.Errorf("new fee quoter params for destination chain %d are not defined for source chain %d", destChainSel, sourceChainSel)
 			}
 			// Commit OCR params are valid.
