@@ -133,8 +133,7 @@ jobs:
 #        run: |
 #          cd system-tests/tests/load/cre
 #
-#          # Extract detailed PERFORMANCE REGRESSION lines
-#          grep -o "PERFORMANCE REGRESSION.\+" test_output.log | awk '{printf "%s\<br>", $0}' > logs/regression_details.txt || true
+#
 #
 #          # Count the number of regressions
 #          regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
@@ -143,6 +142,8 @@ jobs:
 #          if [ $regression_count -gt 0 ]; then
 #            echo "::warning::$regression_count performance regressions detected"
 #            echo "See the regression_reports artifact for details"
+             # Extract detailed PERFORMANCE REGRESSION lines
+#            grep -o "PERFORMANCE REGRESSION.\+" test_output.log | awk '{printf "%s\\\\n", $0}' > logs/regression_details.txt || true
 #          else
 #            echo "No performance regressions detected"
 #          fi
@@ -176,7 +177,7 @@ jobs:
           cd system-tests/tests/load/cre
           mkdir -p logs
           
-          echo "PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>" > logs/regression_details.txt
+          echo "PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)<br>%" > logs/regression_details.txt
           
           # Read regression details and properly escape for JSON
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
