@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/shopspring/decimal"
+
 	commonds "github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
