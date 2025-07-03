@@ -1933,7 +1933,6 @@ func DeployTransferableTokenSolana(
 						TokenPubKey:             solTokenAddress,
 						TokenAdminRegistryAdmin: solDeployerKey.String(),
 						RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
-						Override:                true,
 					},
 				},
 				AcceptAdminRoleTokenAdminRegistry: []ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
