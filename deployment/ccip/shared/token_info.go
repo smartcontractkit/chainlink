@@ -101,6 +101,10 @@ const (
 	LinkDecimals                           = 18
 	WethDecimals                           = 18
 	UsdcDecimals                           = 6
+	LBTCDecimals                           = 8
+
+	// Aptos APT Fungible Asset address
+	AptosAPTAddress = "0xa"
 
 	// Price Feed Descriptions
 	AvaxUSD  = "AVAX / USD"
@@ -113,6 +117,7 @@ const (
 	BTCUSD   = "BTC / USD"
 	LTCUSD   = "LTC / USD"
 	ARBUSD   = "ARB / USD"
+	APTUSD   = "APT / USD"
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76

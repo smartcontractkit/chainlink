@@ -58,7 +58,14 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 		workflowSecretsURL = input.ExistingWorkflow.SecretsURL
 	}
 
-	registerErr := libcrecli.DeployWorkflow(input.CRECLIAbsPath, workflowURL, workflowConfigURL, workflowSecretsURL, creCLIWorkflowSettingsFile)
+	registerErr := libcrecli.DeployWorkflow(
+		input.CRECLIAbsPath,
+		workflowURL,
+		workflowConfigURL,
+		workflowSecretsURL,
+		creCLIWorkflowSettingsFile,
+		nil, // without workflow path
+	)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow")
 	}

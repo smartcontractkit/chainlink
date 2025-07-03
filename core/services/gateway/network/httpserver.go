@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -26,7 +26,7 @@ type HttpServer interface {
 }
 
 type HTTPRequestHandler interface {
-	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
+	ProcessRequest(ctx context.Context, rawMessage []byte, auth string) (rawResponse []byte, httpStatusCode int)
 }
 
 type HTTPServerConfig struct {
@@ -67,7 +67,7 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		config:            config,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              lggr.Named("WebSocketServer"),
+		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
@@ -179,7 +179,15 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		requestCtx, cancel = context.WithTimeout(requestCtx, time.Duration(s.config.RequestTimeoutMillis)*time.Millisecond)
 		defer cancel()
 	}
-	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage)
+
+	// Optionally extract jwt token from authorization header
+	authHeader := r.Header.Get("Authorization")
+	jwtToken := ""
+	if authHeader != "" {
+		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, jwtToken)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)

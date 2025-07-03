@@ -15,14 +15,16 @@ type MigrateOnRampToFQDeps struct {
 	Chain cldf_evm.Chain
 }
 
-type OnRampGetTokenCfgInput struct {
-	OnRamp  common.Address
-	Address common.Address
+type OnRampGetTokenCfgIn struct {
+	OnRamp        common.Address
+	Address       common.Address
+	ChainSelector uint64
 }
 
-type GetPoolBySourceTokenInput struct {
+type GetPoolBySourceTokenIn struct {
 	OnRamp            common.Address
 	FeeTokenAddress   common.Address
+	ChainSelector     uint64
 	DestChainSelector uint64
 }
 
@@ -47,7 +49,7 @@ var (
 		"EVM2EVMOnrampGetFeeTokenConfigOp",
 		semver.MustParse("1.0.0"),
 		"Gets the FeeTokenConfigs for a given fee token",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgIn) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
 			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
 				return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding at address %s: %w", input.OnRamp.Hex(), err)
@@ -64,7 +66,7 @@ var (
 		"EVM2EVMOnrampGetPoolBySourceTokenOp",
 		semver.MustParse("1.0.0"),
 		"Gets all TokenPools for a given destination chain And source token",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input GetPoolBySourceTokenInput) (common.Address, error) {
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input GetPoolBySourceTokenIn) (common.Address, error) {
 			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
 				return common.Address{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
@@ -81,7 +83,7 @@ var (
 		"EVM2EVMOnrampGetTokenTransferFeeConfigOp",
 		semver.MustParse("1.0.0"),
 		"Gets all TokenPools for a given destination chain And source token",
-		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgInput) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input OnRampGetTokenCfgIn) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
 			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
 			if err != nil {
 				return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)

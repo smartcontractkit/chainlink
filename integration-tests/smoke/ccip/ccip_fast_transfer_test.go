@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -21,6 +22,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -88,7 +90,7 @@ type fastTransferE2ETestCase struct {
 var (
 	initialFillerTokenAmountOnDest = big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000))
 	initialUserTokenAmountOnSource = big.NewInt(200000)
-	defaultEthAmount               = big.NewInt(0).Mul(big.NewInt(params.Ether), big.NewInt(1000))
+	defaultEthAmount               = big.NewInt(0).Mul(big.NewInt(params.Ether), big.NewInt(10000))
 	transferAmount                 = big.NewInt(100000)
 	expectedFastTransferFee        = big.NewInt(100)
 	tokenDecimals                  = uint8(18)
@@ -239,7 +241,7 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("pool fee without filler", withPoolFeeBps(50), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
-	ftfTc("Settlement Gas Overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -418,7 +420,9 @@ type approvableToken interface {
 	Approve(opts *bind.TransactOpts, spender common.Address, amount *big.Int) (*types.Transaction, error)
 }
 
-func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address) {
+func approveToken(t *testing.T, chain evmChain.Chain, transactor *bind.TransactOpts, token approvableToken, spender common.Address, lock *sync.Mutex) {
+	lock.Lock()
+	defer lock.Unlock()
 	tx, err := token.Approve(transactor, spender, big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1e9))) // Approve a large amount
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
@@ -832,6 +836,17 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 	return
 }
 
+func getFillerImage() (string, error) {
+	envVersion := os.Getenv(devenv.E2eFastFillerVersion)
+	envImage := os.Getenv(devenv.E2eFastFillerImage)
+
+	if envVersion == "" || envImage == "" {
+		return devenv.DefaultFastFillerImage, nil
+	}
+
+	return envImage + ":" + envVersion, nil
+}
+
 func runAssertions(t *testing.T, sourceToken balanceToken, destinationToken balanceToken, address common.Address, assertions []balanceAssertion, description string) {
 	for _, assertion := range assertions {
 		assertion(t, sourceToken, destinationToken, address, description)
@@ -889,9 +904,11 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 			},
 		},
 	}
+	image, err := getFillerImage()
+	require.NoError(t, err, "Failed to get filler image")
 	l := logging.GetTestLogger(t)
-	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID})
-	err := relayer.Start(t.Context(), t)
+	relayer := devenv.NewCCIPFastFiller(fastFillerConfig, l, []string{dockerEnv.GetCLClusterTestEnv().DockerNetwork.ID}, image)
+	err = relayer.Start(t.Context(), t)
 	require.NoError(t, err, "Failed to start the relayer")
 
 	return func() error { return relayer.Stop(context.Background()) }
@@ -1214,18 +1231,18 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		// Setup source chain funding and approvals
 		fundAccount(t, ctx.SourceChain(), userAddress, defaultEthAmount, ctx.sourceLock)
 		fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
-		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress)
+		approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, sourceTokenPoolAddress, ctx.sourceLock)
 
 		if tc.feeTokenType == feeTokenLink {
 			sourceLinkToken := getLinkTokenAndGrantMintRole(t, ctx.SourceChain(), ctx.sourceChainState, ctx.sourceLock)
 			fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceLinkToken, fees.CcipSettlementFee, ctx.sourceLock)
-			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress)
+			approveToken(t, ctx.SourceChain(), userTransactor(), sourceLinkToken, sourceTokenPoolAddress, ctx.sourceLock)
 		}
 
 		// Setup destination chain funding and approvals
 		fundAccount(t, ctx.DestinationChain(), fillerAddress, defaultEthAmount, ctx.destinationLock)
 		fundAccountWithToken(t, ctx.DestinationChain(), fillerAddress, destinationMinter, initialFillerTokenAmountOnDest, ctx.destinationLock)
-		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress)
+		approveToken(t, ctx.DestinationChain(), fillerTransactor(), destinationToken, destinationTokenPoolAddress, ctx.destinationLock)
 
 		if tc.enableFiller {
 			stop := startRelayer(t, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceTokenPoolAddress, destinationTokenPoolAddress, ctx.deployedEnv, fillerPrivateKey)
@@ -1292,6 +1309,49 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			// When no filler was used, pool fees should be 0
 			poolFeeAssertion := assertPoolFeeWithdrawal(big.NewInt(0), ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
 			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test (No Filler)")
+    }
+		if !tc.expectNoExecutionError {
+			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
+			// We want to ensure regular transfer works as expected
+			message := router.ClientEVM2AnyMessage{
+				Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),
+				Data:     []byte{},
+				TokenAmounts: []router.ClientEVMTokenAmount{
+					{
+						Token:  sourceToken.Address(),
+						Amount: initialUserTokenAmountOnSource,
+					},
+				},
+				FeeToken:  common.HexToAddress("0x0"),
+				ExtraArgs: nil,
+			}
+			userBalance, err := destinationToken.BalanceOf(nil, userAddress)
+			require.NoError(t, err)
+			// Top-up user account on source chain
+			fundAccountWithToken(t, ctx.SourceChain(), userAddress, sourceMinter, initialUserTokenAmountOnSource, ctx.sourceLock)
+			approveToken(t, ctx.SourceChain(), userTransactor(), sourceToken, ctx.sourceChainState.Router.Address(), ctx.sourceLock)
+			func() {
+				ctx.sendLock.Lock()
+				defer ctx.sendLock.Unlock()
+				seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
+				require.NoError(t, err)
+				router := onChainState.Chains[ctx.SourceChainSelector()].Router
+				fee, err := router.GetFee(&bind.CallOpts{Context: context.Background()}, ctx.DestinationChainSelector(), message)
+				require.NoError(t, err)
+				userTransac := userTransactor()
+				userTransac.Value = fee
+				tx, err := router.CcipSend(userTransac, ctx.DestinationChainSelector(), message)
+				require.NoError(t, err)
+				ctx.env.Logger.Infof("Sending regular transfer transaction: %s", tx.Hash().Hex())
+				_, err = ctx.SourceChain().Confirm(tx)
+				require.NoError(t, err)
+			}()
+
+			ctx.waitForExecution(t, seqNum)
+			finalBalance, err := destinationToken.BalanceOf(nil, userAddress)
+			require.NoError(t, err)
+			expectedBalance := new(big.Int).Add(userBalance, initialUserTokenAmountOnSource)
+			require.Equal(t, expectedBalance.String(), finalBalance.String(), "Final balance after regular transfer does not match expected value")
 		}
 	})
 }

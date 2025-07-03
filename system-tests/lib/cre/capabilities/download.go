@@ -12,7 +12,7 @@ import (
 
 func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (string, error) {
 	ghClient := client.NewGithubClient(ghToken)
-	content, err := ghClient.DownloadAssetFromRelease("smartcontractkit", "capabilities", version, assetFileName)
+	content, _, err := ghClient.DownloadAssetFromRelease("smartcontractkit", "capabilities", version, assetFileName)
 	if err != nil {
 		return "", err
 	}

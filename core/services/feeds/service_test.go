@@ -1421,6 +1421,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			name: "Delete proposal error",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(errors.New("orm error"))
 			},
 			args:    args,
@@ -1435,13 +1436,9 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
 
-				// mocks for CancelSpec()
-				svc.orm.On("GetSpec", mock.Anything, jobProposalSpec.ID).Return(jobProposalSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, approved.ID).Return(&approved, nil)
 				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
 
 				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
 
 				svc.fmsClient.On("CancelledJob",
@@ -1454,6 +1451,178 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Delete workflow-spec transaction rollback on FMS client error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// These should be called but then rolled back due to FMS error
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
+
+				// FMS client call fails - this should cause transaction rollback
+				svc.fmsClient.On("CancelledJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.CancelledJobRequest{
+						Uuid:    approved.RemoteUUID.String(),
+						Version: int64(jobProposalSpec.Version),
+					},
+				).Return(nil, errors.New("FMS client timeout"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "Delete workflow-spec transaction rollback on job deletion error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// These should be called but then rolled back due to job deletion error
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
+
+				// Job deletion fails - this should cause transaction rollback
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(errors.New("job deletion failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "GetClient error for workflow cancellation",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(nil, errors.New("connection manager error"))
+			},
+			args:    args,
+			wantErr: "failed to get FMS client for workflow spec cancellation",
+		},
+		{
+			name: "GetApprovedSpec error for workflow job - fallback to simple deletion",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(nil, errors.New("no approved spec"))
+
+				// Should fallback to simple proposal deletion
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with ExternalJobID but job not found - simple deletion",
+			before: func(svc *TestService) {
+				proposalWithJobID := approved
+				proposalWithJobID.ExternalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalWithJobID, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, proposalWithJobID.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with ExternalJobID but job is not workflow type - simple deletion",
+			before: func(svc *TestService) {
+				proposalWithJobID := approved
+				proposalWithJobID.ExternalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+
+				nonWorkflowJob := job.Job{
+					ID:             2,
+					WorkflowSpecID: nil, // Not a workflow job
+				}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalWithJobID, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, proposalWithJobID.ExternalJobID.UUID).Return(nonWorkflowJob, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "DeleteProposal error in workflow cancellation path",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// DeleteProposal fails in workflow cancellation path
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(errors.New("delete proposal failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "CancelSpec error in workflow cancellation path",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				// CancelSpec fails
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(errors.New("cancel spec failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "observeJobProposalCounts error - success with warning log",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				// observeJobProposalCounts fails but shouldn't cause DeleteJob to fail
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(nil, errors.New("metrics error"))
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with null ExternalJobID - simple deletion success",
+			before: func(svc *TestService) {
+				proposalNullJobID := approved
+				proposalNullJobID.ExternalJobID = uuid.NullUUID{Valid: false}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalNullJobID, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: approved.ID,

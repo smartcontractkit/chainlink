@@ -9,9 +9,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -32,7 +32,7 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	// server
 	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper(lggr)}
 	servicetest.Run(t, ssl.connWrapper)

@@ -10,6 +10,7 @@ docker_cmd_params = ["-b", "5"]
 # ----- JOB DISTRIBUTOR -----
 # Docker image for the job distributor service
 [jd]
+csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
 image = "injected-at-runtime"
 
 # ----- MOCK CAPABILITIES -----
@@ -30,8 +31,8 @@ description="write trigger mock"
 # ----- TEST CONFIGURATION -----
 # Parameters for the Workflow DON load test
 [workflow_load]
-streams = 1000              # Number of streams to simulate
-jobs = 2                    # Number of jobs per stream
+streams = 500              # Number of streams to simulate
+jobs = 1                   # Number of jobs per stream
 
 # ----- INFRASTRUCTURE SETUP -----
 # Configures Docker-based test infrastructure

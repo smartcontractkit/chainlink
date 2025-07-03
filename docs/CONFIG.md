@@ -561,6 +561,89 @@ ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTP server to
 
+## WebServer.OIDC
+```toml
+[WebServer.OIDC]
+ClientID = 'abcd1234' # Example
+ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
+RedirectURL = 'http://localhost:8080/signin' # Example
+ClaimName = 'groups' # Default
+AdminClaim = 'NodeAdmins' # Default
+EditClaim = 'NodeEditors' # Default
+RunClaim = 'NodeRunners' # Default
+ReadClaim = 'NodeReadOnly' # Default
+SessionTimeout = '15m0s' # Default
+UserAPITokenEnabled = false # Default
+UserAPITokenDuration = '240h0m0s' # Default
+```
+Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
+
+### ClientID
+```toml
+ClientID = 'abcd1234' # Example
+```
+ClientID is the ID of the OIDC application registered with the identity provider
+
+### ProviderURL
+```toml
+ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
+```
+ProviderURL is the base URL for your OIDC Identity provider.
+
+### RedirectURL
+```toml
+RedirectURL = 'http://localhost:8080/signin' # Example
+```
+RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
+
+### ClaimName
+```toml
+ClaimName = 'groups' # Default
+```
+ClaimName is the name of the field in the id_token where to find the user's ID claims.
+
+### AdminClaim
+```toml
+AdminClaim = 'NodeAdmins' # Default
+```
+AdminClaim is string label of the id claim that maps the core node's 'Admin' role
+
+### EditClaim
+```toml
+EditClaim = 'NodeEditors' # Default
+```
+EditClaim is string label of the id claim that maps the core node's 'Edit' role
+
+### RunClaim
+```toml
+RunClaim = 'NodeRunners' # Default
+```
+RunClaim is string label of the id claim that maps the core node's 'Run' role
+
+### ReadClaim
+```toml
+ReadClaim = 'NodeReadOnly' # Default
+```
+ReadClaim is string label of the id claim that maps the core node's 'Read' role
+
+### SessionTimeout
+```toml
+SessionTimeout = '15m0s' # Default
+```
+SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+
+### UserAPITokenEnabled
+```toml
+UserAPITokenEnabled = false # Default
+```
+UserAPITokenEnabled enables the users to issue API tokens with the same access of their role
+
+### UserAPITokenDuration
+```toml
+UserAPITokenDuration = '240h0m0s' # Default
+```
+UserAPITokenDuration is the duration of time an API token is active for before expiring
+
 ## WebServer.LDAP
 ```toml
 [WebServer.LDAP]
@@ -2220,6 +2303,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '5m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2263,7 +2347,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2293,6 +2377,9 @@ GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2330,6 +2417,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2373,7 +2461,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2403,6 +2491,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2440,6 +2531,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2483,7 +2575,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2513,6 +2605,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2550,6 +2645,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2593,7 +2689,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2623,6 +2719,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2661,6 +2760,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2708,7 +2808,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2738,6 +2838,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2776,6 +2879,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2819,7 +2923,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2849,6 +2953,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2886,6 +2993,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -2929,7 +3037,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -2959,6 +3067,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -2995,6 +3106,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3038,7 +3150,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3068,6 +3180,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3104,6 +3219,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3147,7 +3263,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3177,6 +3293,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3214,6 +3333,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3257,7 +3377,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3287,6 +3407,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3324,6 +3447,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3397,6 +3521,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3435,6 +3562,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3478,7 +3606,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3508,6 +3636,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3545,6 +3676,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3588,7 +3720,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3618,6 +3750,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3655,6 +3790,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3698,7 +3834,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3728,6 +3864,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3766,6 +3905,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3813,7 +3953,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3843,6 +3983,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3880,6 +4023,7 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3923,7 +4067,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -3953,6 +4097,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -3990,6 +4137,7 @@ MaxQueued = 500
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4033,7 +4181,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4063,6 +4211,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4100,6 +4251,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4143,7 +4295,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4173,6 +4325,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4211,6 +4366,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4258,7 +4414,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4288,6 +4444,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4326,6 +4485,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -4370,7 +4530,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4400,6 +4560,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4438,6 +4601,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -4482,7 +4646,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4512,6 +4676,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4550,6 +4717,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4597,7 +4765,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4627,6 +4795,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4664,6 +4835,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4710,7 +4882,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4740,6 +4912,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4778,6 +4953,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4824,7 +5000,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4854,6 +5030,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -4891,6 +5070,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4934,7 +5114,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -4964,6 +5144,9 @@ GasLimit = 3800000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5000,6 +5183,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5043,7 +5227,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5073,6 +5257,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5111,6 +5298,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5158,7 +5346,7 @@ HistoryDepth = 400
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5188,6 +5376,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5226,6 +5417,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5272,7 +5464,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5302,6 +5494,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5340,6 +5535,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5383,7 +5579,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5413,6 +5609,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5451,6 +5650,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5494,7 +5694,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5524,6 +5724,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5562,6 +5765,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5608,7 +5812,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5638,6 +5842,9 @@ GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5676,6 +5883,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5722,7 +5930,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5752,6 +5960,9 @@ GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5790,6 +6001,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5837,7 +6049,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5867,6 +6079,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -5905,6 +6120,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5952,7 +6168,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -5982,6 +6198,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6019,6 +6238,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6062,7 +6282,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6092,6 +6312,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6130,6 +6353,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6173,7 +6397,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6203,6 +6427,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6241,6 +6468,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6288,7 +6516,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6318,6 +6546,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6354,6 +6585,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6397,7 +6629,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6427,6 +6659,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6465,6 +6700,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6512,7 +6748,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6542,6 +6778,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6580,6 +6819,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -6624,7 +6864,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6654,6 +6894,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6692,117 +6935,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '100 gwei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
-PersistenceEnabled = true
-
-[NodePool]
-PollFailureThreshold = 5
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-```
-
-</p></details>
-
-<details><summary>WeMix Testnet (1112)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'wemix'
-FinalityDepth = 10
-SafeDepth = 0
-FinalityTagEnabled = true
-LinkContractAddress = '0x3580c7A817cCD41f7e02143BFa411D4EeAE78093'
-LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '30s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 2
-NoNewFinalizedHeadsThreshold = '40s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6876,6 +7009,124 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>WeMix Testnet (1112)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'wemix'
+FinalityDepth = 10
+SafeDepth = 0
+FinalityTagEnabled = true
+LinkContractAddress = '0x3580c7A817cCD41f7e02143BFa411D4EeAE78093'
+LogBackfillBatchSize = 1000
+LogPollInterval = '3s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '30s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 2
+NoNewFinalizedHeadsThreshold = '40s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '100 gwei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -6913,6 +7164,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6956,7 +7208,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -6986,6 +7238,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7022,6 +7277,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7065,7 +7321,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7095,6 +7351,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7133,6 +7392,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7180,7 +7440,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7210,6 +7470,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7248,6 +7511,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7295,7 +7559,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7325,6 +7589,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7361,6 +7628,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7404,7 +7672,7 @@ HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7434,6 +7702,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7472,6 +7743,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7519,7 +7791,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7549,6 +7821,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7587,6 +7862,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7634,7 +7910,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7664,6 +7940,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7701,6 +7980,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7744,7 +8024,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7774,6 +8054,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7811,6 +8094,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7854,7 +8138,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7884,6 +8168,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -7922,6 +8209,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7969,7 +8257,7 @@ HistoryDepth = 400
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -7999,6 +8287,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8037,6 +8328,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -8081,7 +8373,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8111,6 +8403,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8147,6 +8442,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8190,7 +8486,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8220,6 +8516,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8257,6 +8556,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8330,6 +8630,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8367,6 +8670,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8440,6 +8744,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8477,6 +8784,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8520,7 +8828,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8550,6 +8858,9 @@ GasLimit = 3800000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8587,6 +8898,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -8631,7 +8943,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8661,6 +8973,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8699,6 +9014,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8746,7 +9062,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8776,6 +9092,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8814,6 +9133,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8862,7 +9182,7 @@ HistoryDepth = 1250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -8892,6 +9212,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -8930,6 +9253,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8978,7 +9302,7 @@ HistoryDepth = 1250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9008,6 +9332,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9044,6 +9371,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9087,7 +9415,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9117,6 +9445,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9155,6 +9486,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9202,7 +9534,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9232,6 +9564,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9268,6 +9603,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9311,7 +9647,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9341,6 +9677,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9379,6 +9718,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9422,7 +9762,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9452,6 +9792,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9490,6 +9833,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9536,7 +9880,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9566,6 +9910,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9604,6 +9951,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9650,7 +9998,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9680,6 +10028,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9717,6 +10068,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9760,7 +10112,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9790,6 +10142,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9828,6 +10183,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9875,7 +10231,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -9905,6 +10261,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -9943,6 +10302,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9989,7 +10349,7 @@ HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10022,6 +10382,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10060,6 +10423,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10106,7 +10470,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10136,6 +10500,9 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10174,6 +10541,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10217,7 +10585,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10247,6 +10615,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10284,6 +10655,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10361,6 +10733,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10398,6 +10773,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10471,6 +10847,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10508,6 +10887,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10551,7 +10931,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10581,6 +10961,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10619,6 +11002,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10662,7 +11046,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10692,6 +11076,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10730,6 +11117,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -10779,7 +11167,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10809,6 +11197,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10847,6 +11238,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -10896,7 +11288,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -10926,6 +11318,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -10963,6 +11358,7 @@ MaxQueued = 500
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11006,7 +11402,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11036,6 +11432,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11074,6 +11473,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11121,7 +11521,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11151,6 +11551,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11187,6 +11590,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11230,7 +11634,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11260,6 +11664,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11297,6 +11704,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -11342,7 +11750,7 @@ HistoryDepth = 1000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11372,6 +11780,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11409,6 +11820,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -11454,7 +11866,7 @@ HistoryDepth = 350
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11484,6 +11896,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11522,6 +11937,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11569,7 +11985,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11599,6 +12015,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11637,6 +12056,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11684,7 +12104,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11714,6 +12134,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11751,6 +12174,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11797,7 +12221,7 @@ HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11827,6 +12251,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11864,6 +12291,7 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11907,7 +12335,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -11937,6 +12365,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -11974,6 +12405,7 @@ MaxQueued = 5000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12017,7 +12449,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12047,6 +12479,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12084,6 +12519,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12127,7 +12563,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12157,6 +12593,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12194,6 +12633,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12237,7 +12677,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12267,6 +12707,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12305,6 +12748,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12352,7 +12796,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12382,6 +12826,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12419,6 +12866,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12466,7 +12914,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12496,6 +12944,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12534,6 +12985,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12581,7 +13033,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12611,6 +13063,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12647,6 +13102,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12690,7 +13146,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12720,6 +13176,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12756,6 +13215,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12799,7 +13259,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12829,6 +13289,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12866,6 +13329,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12913,7 +13377,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -12943,6 +13407,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -12979,6 +13446,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13022,7 +13490,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13052,6 +13520,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13088,6 +13559,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13131,7 +13603,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13161,6 +13633,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13199,6 +13674,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13245,7 +13721,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13275,6 +13751,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13312,6 +13791,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13355,7 +13835,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13385,6 +13865,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13422,6 +13905,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13465,7 +13949,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13495,6 +13979,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13533,6 +14020,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13579,7 +14067,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13609,6 +14097,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13647,6 +14138,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13693,7 +14185,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13723,6 +14215,9 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13761,6 +14256,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13807,7 +14303,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13837,6 +14333,9 @@ GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13875,6 +14374,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -13923,7 +14423,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -13953,6 +14453,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -13991,6 +14494,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14039,7 +14543,7 @@ HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14069,6 +14573,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14106,6 +14613,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14150,7 +14658,7 @@ HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14180,6 +14688,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14217,6 +14728,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14294,6 +14806,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14331,6 +14846,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14378,7 +14894,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14408,6 +14924,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14446,6 +14965,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14493,7 +15013,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14523,6 +15043,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14561,6 +15084,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14608,7 +15132,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14638,6 +15162,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14675,6 +15202,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14721,7 +15249,7 @@ HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14751,6 +15279,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14788,6 +15319,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14861,6 +15393,9 @@ GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -14899,6 +15434,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14946,7 +15482,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -14976,6 +15512,9 @@ GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15014,6 +15553,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15060,7 +15600,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -15090,6 +15630,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15128,6 +15671,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15174,7 +15718,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -15204,6 +15748,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15242,6 +15789,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15289,7 +15837,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -15319,6 +15867,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15356,6 +15907,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15399,7 +15951,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -15429,6 +15981,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15466,6 +16021,7 @@ MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15509,7 +16065,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [NodePool]
@@ -15539,6 +16095,9 @@ GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
 ```
 
 </p></details>
@@ -15771,6 +16330,7 @@ Set to zero to disable.
 ## EVM.Transactions
 ```toml
 [EVM.Transactions]
+ConfirmationTimeout = '60s' # Default
 Enabled = true # Default
 ForwardersEnabled = false # Default
 MaxInFlight = 16 # Default
@@ -15780,6 +16340,12 @@ ReaperThreshold = '168h' # Default
 ResendAfterThreshold = '1m' # Default
 ```
 
+
+### ConfirmationTimeout
+```toml
+ConfirmationTimeout = '60s' # Default
+```
+ConfirmationTimeout time to wait for a TX to get into a block in the blockchain. This is used for the EVMService.SubmitTransaction operation.
 
 ### Enabled
 ```toml
@@ -16302,7 +16868,7 @@ the prices and end up in stale values.
 HistoryDepth = 100 # Default
 MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
-FinalityTagBypass = true # Default
+FinalityTagBypass = false # Default
 MaxAllowedFinalityDepth = 10000 # Default
 PersistenceEnabled = true # Default
 ```
@@ -16337,7 +16903,7 @@ SamplingInterval means that head tracker callbacks will at maximum be made once 
 
 ### FinalityTagBypass
 ```toml
-FinalityTagBypass = true # Default
+FinalityTagBypass = false # Default
 ```
 FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
 It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
@@ -16739,6 +17305,9 @@ GasLimit controls the gas limit for transmit transactions from ocr2automation jo
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 GasLimitDefault = 400_000 # Default
+TxAcceptanceState = 2 # Default
+PollPeriod = '2s' # Default
+AcceptanceTimeout = '30s' # Default
 ```
 
 
@@ -16759,6 +17328,24 @@ ForwarderAddress is the keystone forwarder contract address on chain.
 GasLimitDefault = 400_000 # Default
 ```
 GasLimitDefault is the default gas limit for workflow transactions.
+
+### TxAcceptanceState
+```toml
+TxAcceptanceState = 2 # Default
+```
+TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+
+### PollPeriod
+```toml
+PollPeriod = '2s' # Default
+```
+PollPeriod is the default poll period for checking transmission state
+
+### AcceptanceTimeout
+```toml
+AcceptanceTimeout = '30s' # Default
+```
+AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
 
 ## Cosmos
 ```toml

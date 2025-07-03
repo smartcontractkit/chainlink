@@ -49,7 +49,7 @@ type fakeConsensus struct {
 	config      FakeConsensusConfig
 	plugin      ocr3types.ReportingPlugin[[]byte]
 	transmitter *ocr3.ContractTransmitter
-	store       *requests.Store[*ocr3.ReportRequest, ocr3.ReportResponse]
+	store       *requests.Store[*ocr3.ReportRequest]
 	cap         capIface
 	stats       SimpleStats
 
@@ -57,7 +57,7 @@ type fakeConsensus struct {
 }
 
 type capIface interface {
-	commonCap.ConsensusCapability
+	commonCap.ExecutableCapability
 	services.Service
 }
 
@@ -204,7 +204,7 @@ func (fc *fakeConsensus) RegisterToWorkflow(ctx context.Context, request commonC
 }
 
 func (fc *fakeConsensus) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
-	fc.eng.Infow("Unegistering from Fake Consensus", "workflowID", request.Metadata.WorkflowID)
+	fc.eng.Infow("Unregistering from Fake Consensus", "workflowID", request.Metadata.WorkflowID)
 	return fc.cap.UnregisterFromWorkflow(ctx, request)
 }
 
