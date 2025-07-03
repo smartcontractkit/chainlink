@@ -175,19 +175,56 @@ jobs:
           echo "header=CRE Workflow DON Test Failed" >> $GITHUB_OUTPUT
           echo "alert_type=test failure" >> $GITHUB_OUTPUT
 
-      - name: Prepare regression message
+      - name: Create regression slack payload
         if: success() && steps.parse-regressions.outputs.regression_count > 0
-        id: prepare-regression-message
+        id: create-regression-payload
         run: |
-          echo "text=Performance regressions detected" >> $GITHUB_OUTPUT
-          echo "header=${{ steps.parse-regressions.outputs.regression_count }} Performance Regressions Detected" >> $GITHUB_OUTPUT
-          
-          # Read regression details and properly escape JSON special characters
           cd system-tests/tests/load/cre
-          REGRESSION_DETAILS=$(cat logs/regression_details.txt || echo "No details available")
-          # Escape JSON special characters
-          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/\n/\\n/g' | sed 's/\r/\\r/g' | sed 's/\t/\\t/g')
-          echo "details=$REGRESSION_DETAILS" >> $GITHUB_OUTPUT
+          REGRESSION_DETAILS=$(cat logs/regression_details.txt)
+          # Remove any characters that might cause JSON parsing issues
+          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | tr -d '\r')
+          
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "channel": "C094W1V9A5N",
+            "text": "Performance Regressions Detected",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*:rotating_light: Performance Regressions Detected :rotating_light:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "Performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>."
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Regression Details:*\n\`\`\`\n$REGRESSION_DETAILS\n\`\`\`"
+                }
+              }
+            ]
+          }
+          EOF
+          )
+          
+          echo "$JSON_PAYLOAD" > $GITHUB_WORKSPACE/slack_payload.json
+
+      - name: Send regression slack notification
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload-file-path: ${{ github.workspace }}/slack_payload.json
 
       - name: Send failure slack notification
         if: failure()
@@ -199,13 +236,13 @@ jobs:
           payload: |
             {
               "channel": "C094W1V9A5N",
-              "text": "${{ steps.prepare-message.outputs.text }}",
+              "text": "Test failure",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: ${{ steps.prepare-message.outputs.header }} :rotating_light:*"
+                    "text": "*:rotating_light: Test failure :rotating_light:*"
                   }
                 },
                 {
@@ -213,44 +250,6 @@ jobs:
                   "text": {
                     "type": "mrkdwn",
                     "text": "Test failure for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
-                  }
-                }
-              ]
-            }
-
-      - name: Send regression slack notification
-        if: success() && steps.parse-regressions.outputs.regression_count > 0
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
-        env:
-          SLACK_DETAILS: "${{ steps.prepare-regression-message.outputs.details }}"
-        with:
-          errors: "true"
-          method: chat.postMessage
-          token: ${{ secrets.QA_SLACK_API_KEY }}
-          payload: |
-            {
-              "channel": "C094W1V9A5N",
-              "text": "${{ steps.prepare-regression-message.outputs.text }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*:rotating_light: ${{ steps.prepare-regression-message.outputs.header }} :rotating_light:*"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Regression Details:*\n```\n${{ env.SLACK_DETAILS }}\n```"
                   }
                 }
               ]
