@@ -189,7 +189,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*:rotating_light: ${steps.parse-regressions.outputs.regression_count} Performance Regressions Detected :rotating_light:*"
+                  "text": "*:rotating_light: ${{steps.parse-regressions.outputs.regression_count}} Performance Regressions Detected :rotating_light:*"
                 }
               },
               {
@@ -203,7 +203,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*Regression Details:*\\n\`\`\`\\n${REGRESSION_DETAILS}\\n\`\`\`"
+                  "text": "*Regression Details:*\\n\`\`\`\\n$REGRESSION_DETAILS\\n\`\`\`"
                 }
               }
             ]
