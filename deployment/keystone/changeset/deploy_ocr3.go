@@ -7,9 +7,8 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
@@ -55,6 +54,10 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 	chain, ok := env.BlockChains.EVMChains()[cfg.ChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
+	}
+
+	if cfg.Address == nil {
+		return cldf.ChangesetOutput{}, errors.New("address of OCR3 contract to configure is required")
 	}
 
 	contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
