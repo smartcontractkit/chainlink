@@ -246,7 +246,7 @@ jobs:
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets: inherit
 
@@ -307,7 +307,7 @@ jobs:
     if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-     chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
      chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
       inherit
@@ -324,7 +324,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-     chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
      chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
       inherit
