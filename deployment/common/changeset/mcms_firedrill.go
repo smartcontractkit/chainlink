@@ -28,7 +28,7 @@ func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, e
 	if !ok {
 		return mcmstypes.Transaction{}, nil
 	}
-	//nolint:staticcheck  // need to migrate CCIP changesets so we can do it alongside this too
+
 	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 	if err != nil {
 		return mcmstypes.Transaction{}, err
@@ -95,7 +95,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 		}
 		switch family {
 		case chainsel.FamilyEVM:
-			//nolint:staticcheck  // need to migrate CCIP changesets so we can do it alongside this too
+
 			addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -119,7 +119,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 				Transactions:  []mcmstypes.Transaction{tx},
 			})
 		case chainsel.FamilySolana:
-			//nolint:staticcheck // need to migrate CCIP changesets so we can do it alongside this too
+
 			addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err

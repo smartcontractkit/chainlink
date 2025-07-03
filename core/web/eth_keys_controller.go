@@ -345,11 +345,16 @@ func (ekc *ETHKeysController) setEthBalance(bal *big.Int) presenters.NewETHKeyOp
 // queries the EthClient for the ETH balance at the address associated with state
 func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.State) *big.Int {
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
+		return nil
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		ekc.lggr.Errorw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
 		return nil
 	}
 
@@ -369,20 +374,25 @@ func (ekc *ETHKeysController) setLinkBalance(bal *commonassets.Link) presenters.
 
 // queries the EthClient for the LINK balance at the address associated with state
 func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *commonassets.Link {
-	var bal *commonassets.Link
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
-	} else {
-		ethClient := chain.Client()
-		addr := common.HexToAddress(chain.Config().EVM().LinkContractAddress())
-		bal, err = ethClient.LINKBalance(ctx, state.Address.Address(), addr)
-		if err != nil {
-			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
-		}
+		return nil
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		ekc.lggr.Errorw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
+		return nil
+	}
+	ethClient := chain.Client()
+	addr := common.HexToAddress(chain.Config().EVM().LinkContractAddress())
+	bal, err := ethClient.LINKBalance(ctx, state.Address.Address(), addr)
+	if err != nil {
+		ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
+		return nil
 	}
 	return bal
 }
@@ -395,17 +405,20 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(price *assets.Wei) presenters
 }
 
 func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) *assets.Wei {
-	var price *assets.Wei
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
-	} else {
-		price = chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
+		return nil
 	}
-	return price
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		ekc.lggr.Errorw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
+		return nil
+	}
+	return chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
 }
 
 // getChain is a convenience wrapper to retrieve a chain for a given request

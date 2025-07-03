@@ -163,19 +163,19 @@ type NodeConfig struct {
 }
 
 type WorkflowSpecConfig struct {
-	TargetContractEncoderType        string // Required. "data-feeds_decimal", "aptos" or "ccip"
-	ConsensusAggregationMethod       string // Required. "llo_streams" or "data_feeds"
-	WorkflowName                     string // Required
-	ConsensusReportID                string // Required
-	WriteTargetTrigger               string // Required
-	ConsensusRef                     string // Default "data-feeds"
-	ConsensusConfigKeyID             string // Default "evm"
-	ConsensusAllowedPartialStaleness string
-	DeltaStageSec                    *int   // Default 45
-	TargetsSchedule                  string // Default "oneAtATime"
-	TargetProcessor                  string
-	TriggersMaxFrequencyMs           *int // Default 5000
-	CREStepTimeout                   int64
+	TargetContractEncoderType        string `json:"targetContractEncoderType" yaml:"targetContractEncoderType"`   // Required. "data-feeds_decimal", "aptos" or "ccip"
+	ConsensusAggregationMethod       string `json:"consensusAggregationMethod" yaml:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
+	WorkflowName                     string `json:"workflowName" yaml:"workflowName"`                             // Required
+	ConsensusReportID                string `json:"consensusReportID" yaml:"consensusReportID"`                   // Required
+	WriteTargetTrigger               string `json:"writeTargetTrigger" yaml:"writeTargetTrigger"`                 // Required
+	ConsensusRef                     string `json:"consensusRef" yaml:"consensusRef"`                             // Default "data-feeds"
+	ConsensusConfigKeyID             string `json:"consensusConfigKeyID" yaml:"consensusConfigKeyID"`             // Default "evm"
+	ConsensusAllowedPartialStaleness string `json:"consensusAllowedPartialStaleness,omitempty" yaml:"consensusAllowedPartialStaleness,omitempty"`
+	DeltaStageSec                    *int   `json:"deltaStageSec,omitempty" yaml:"deltaStageSec,omitempty"`     // Default 45
+	TargetsSchedule                  string `json:"targetsSchedule,omitempty" yaml:"targetsSchedule,omitempty"` // Default "oneAtATime"
+	TargetProcessor                  string `json:"targetProcessor,omitempty" yaml:"targetProcessor,omitempty"`
+	TriggersMaxFrequencyMs           *int   `json:"triggersMaxFrequencyMs,omitempty" yaml:"triggersMaxFrequencyMs,omitempty"` // Default 5000
+	CREStepTimeout                   int64  `json:"creStepTimeout,omitempty" yaml:"creStepTimeout,omitempty"`
 }
 
 type ProposeWFJobsConfig struct {
@@ -188,6 +188,15 @@ type ProposeWFJobsConfig struct {
 	NodeFilter         *offchain.NodesFilter // Required. Node filter to select the nodes to send the jobs to.
 }
 
+type ProposeWFJobsV2Config struct {
+	ChainSelector      uint64                `json:"chainSelector" yaml:"chainSelector"`
+	CacheLabel         string                `json:"cacheLabel" yaml:"cacheLabel"`           // Label for the DataFeedsCache contract in AB, or qualifier in DataStore
+	Domain             string                `json:"domain" yaml:"domain"`                   // default to data-feeds
+	WorkflowJobName    string                `json:"workflowJobName" yaml:"workflowJobName"` // Required
+	WorkflowSpecConfig WorkflowSpecConfig    `json:"workflowSpecConfig" yaml:"workflowSpecConfig"`
+	NodeFilter         *offchain.NodesFilter `json:"nodeFilter" yaml:"nodeFilter"` // Required. Node filter to select the nodes to send the jobs to.
+}
+
 type ProposeBtJobsConfig struct {
 	ChainSelector    uint64
 	BootstrapJobName string
@@ -198,6 +207,7 @@ type ProposeBtJobsConfig struct {
 type DeleteJobsConfig struct {
 	JobIDs       []string `json:"jobIDs"`       // Optional. If provided, all jobs with these IDs will be deleted.
 	WorkflowName string   `json:"workflowName"` // Optional. If provided, all jobs with this workflow name will be deleted.
+	Environment  string   `json:"environment"`  // Optional. If provided, the jobs will be deleted only in this environment.
 }
 
 type SetRegistryWorkflowConfig struct {

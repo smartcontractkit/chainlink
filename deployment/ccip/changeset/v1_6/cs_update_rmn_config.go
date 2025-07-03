@@ -22,9 +22,9 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/opsutil"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -101,7 +101,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNPr
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, state, output, report, err, cfg.MCMSConfig, "Call SetARM on RMNProxies")
+	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call SetARM on RMNProxies")
 }
 
 type RMNNopConfig struct {
@@ -601,14 +601,40 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deps := opsutil.ConfigureDependencies{
-		Env:          e,
-		CurrentState: state,
-	}
-	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, ccipseq.SetRMNRemoteConfigSequence, deps, config)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute SetRMNRemoteConfig sequence: %w", err)
+	if err := config.Validate(e, state); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid SetRMNRemoteConfig: %w", err)
 	}
 
-	return seqReport.Output.ToChangesetOutput(nil), nil
+	homeChainSelector, err := state.HomeChainSelector()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get home chain selector: %w", err)
+	}
+
+	rmnHome := state.Chains[homeChainSelector].RMNHome
+	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{Context: e.GetContext()})
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get active digest from RMNHome contract with address %s: %w", rmnHome.Address(), err)
+	}
+
+	input := make(map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig])
+	for chainSel, cfg := range config.RMNRemoteConfigs {
+		input[chainSel] = opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+			ChainSelector: chainSel,
+			NoSend:        config.MCMSConfig != nil,
+			Address:       state.Chains[chainSel].RMNRemote.Address(),
+			CallInput: rmn_remote.RMNRemoteConfig{
+				RmnHomeContractConfigDigest: activeDigest,
+				Signers:                     cfg.Signers,
+				FSign:                       cfg.F,
+			},
+		}
+	}
+
+	seqReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseq.SetRMNRemoteConfigSequence,
+		e.BlockChains.EVMChains(),
+		input,
+	)
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, seqReport, err, state.EVMMCMSStateByChain(), config.MCMSConfig, "Set RMNRemote configs")
 }

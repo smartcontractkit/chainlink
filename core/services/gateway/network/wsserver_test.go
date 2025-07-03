@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -42,7 +42,7 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 	}
 
 	acceptor = mocks.NewConnectionAcceptor(t)
-	server = network.NewWebSocketServer(config, acceptor, logger.TestLogger(t))
+	server = network.NewWebSocketServer(config, acceptor, logger.Test(t))
 	err := server.Start(testutils.Context(t))
 	require.NoError(t, err)
 
@@ -112,7 +112,7 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	initiator.On("NewAuthHeader", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return([]byte{}, nil)
 	initiator.On("ChallengeResponse", mock.AnythingOfType("*context.cancelCtx"), mock.Anything, mock.Anything).Return([]byte{}, nil)
 
-	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.TestLogger(t))
+	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.Test(t))
 
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)
@@ -141,7 +141,7 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	resp := make([]byte, 20000)
 	initiator.On("ChallengeResponse", mock.AnythingOfType("*context.cancelCtx"), mock.Anything, mock.Anything).Return(resp, nil)
 
-	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.TestLogger(t))
+	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.Test(t))
 
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)

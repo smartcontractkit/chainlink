@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -49,10 +50,12 @@ func Test_OpEVMDeployLinkToken(t *testing.T) {
 			t.Parallel()
 
 			var (
-				chains, bindings = memory.NewMemoryChainsWithChainIDs(t, []uint64{chainID}, 1)
-				chain            = chains[chainSelector]
-				auth             = bindings[chainSelector][0]
-				deps             = OpEVMDeployLinkTokenDeps{
+				chains = cldf_chain.NewBlockChainsFromSlice(
+					memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chainID}, 1),
+				).EVMChains()
+				chain = chains[chainSelector]
+				auth  = chain.DeployerKey
+				deps  = OpEVMDeployLinkTokenDeps{
 					Auth:        auth,
 					Backend:     chain.Client,
 					ConfirmFunc: chain.Confirm,

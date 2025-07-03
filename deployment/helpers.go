@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,11 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
@@ -57,7 +55,7 @@ func parseError(txError error) (string, error) {
 	}
 
 	if callErr.Data == "" && strings.Contains(callErr.Message, "missing trie node") {
-		return "", errors.Errorf("please use an archive node")
+		return "", errors.New("please use an archive node")
 	}
 
 	return callErr.Data, nil
@@ -92,7 +90,7 @@ func AddressListContainsEmptyAddress(addresses []common.Address) bool {
 	return false
 }
 
-func MigrateAddressBook(addrBook deployment.AddressBook) (datastore.MutableDataStore, error) {
+func MigrateAddressBook(addrBook cldf.AddressBook) (datastore.MutableDataStore, error) {
 	addrs, err := addrBook.Addresses()
 	if err != nil {
 		return nil, err

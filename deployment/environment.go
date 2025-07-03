@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -34,6 +33,14 @@ func UBigInt(i uint64) *big.Int {
 
 func E18Mult(amount uint64) *big.Int {
 	return new(big.Int).Mul(UBigInt(amount), UBigInt(1e18))
+}
+
+// EDecMult scales amount by the number of decimals
+func EDecMult(amount uint64, decimals int64) *big.Int {
+	return new(big.Int).Mul(
+		UBigInt(amount),
+		new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil),
+	)
 }
 
 type OCRConfig struct {
@@ -114,16 +121,17 @@ func (n Nodes) BootstrapLocators() []string {
 
 // P2PIDsPresentInJD - For a given p2pIDs, check if the nodes are present in JD.
 func (n Nodes) P2PIDsPresentInJD(p2pIDs [][32]byte) error {
-	var allErrs error
+	var err error
 	for _, p2pID := range p2pIDs {
 		p2pIDString := "p2p_" + libocrtypes.PeerID(p2pID).String()
 		if !slices.ContainsFunc(n, func(n Node) bool {
 			return p2pIDString == n.PeerID.String()
 		}) {
-			allErrs = multierror.Append(allErrs, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
+			err = errors.Join(err, fmt.Errorf("node with p2pID %s not found in JD", p2pIDString))
 		}
 	}
-	return allErrs
+
+	return err
 }
 
 func isValidMultiAddr(s string) bool {
@@ -396,9 +404,12 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 		family = chain_selectors.FamilySolana
 	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
 		family = chain_selectors.FamilyStarknet
+	case nodev1.ChainType_CHAIN_TYPE_TON:
+		family = chain_selectors.FamilyTon
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
+
 	if family == chain_selectors.FamilySolana {
 		// Temporary workaround to handle cases when solana chainId was not using the standard genesis hash,
 		// but using old strings mainnet/testnet/devnet.

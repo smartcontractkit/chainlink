@@ -7,6 +7,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
@@ -79,6 +80,20 @@ func validateChainSelectorsFamily(csels []uint64, fam string) error {
 
 		if cselFam != fam {
 			return fmt.Errorf("chain selector %d is not in the %s family", csel, fam)
+		}
+	}
+
+	return nil
+}
+
+// validateSelectorsInEnvironment checks that all chain selectors are valid and
+// available in the environment's blockchains.
+func validateSelectorsInEnvironment(
+	blockchains cldf_chain.BlockChains, selectors []uint64,
+) error {
+	for _, sel := range selectors {
+		if !blockchains.Exists(sel) {
+			return fmt.Errorf("chain %d not found in environment", sel)
 		}
 	}
 

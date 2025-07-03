@@ -50,6 +50,7 @@ packages:
       dir: common/txmgr/mocks
     interfaces:
       EvmTxStore:
+      ChainReceipt:
   github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm:
     config:
       dir: common/chains/mocks
@@ -406,9 +407,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
-    interfaces:
-      ContractValueGetter:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:

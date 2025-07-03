@@ -4,12 +4,14 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -23,10 +25,9 @@ import (
 
 const (
 	solFundingLamports = 100000
-	evmFundingEth      = 100
 )
 
-func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment) error {
+func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment, evmFundingEth uint64) error {
 	evmFundingAmount := new(big.Int).Mul(deployment.UBigInt(evmFundingEth), deployment.UBigInt(1e18))
 
 	g := new(errgroup.Group)
@@ -108,7 +109,24 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 		return err
 	}
 	for _, address := range accounts {
-		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(100000000), nil)
+		gasPrice, err := chain.Client.SuggestGasPrice(ctx)
+		if err != nil {
+			lggr.Warnw("could not suggest gas price, using default", "err", err)
+			gasPrice = big.NewInt(100000000) // 1 Gwei as default
+		}
+
+		gasLimit, err := chain.Client.EstimateGas(ctx, ethereum.CallMsg{
+			From:     chain.DeployerKey.From,
+			To:       &address,
+			Value:    fundingAmount,
+			GasPrice: gasPrice,
+		})
+		if err != nil {
+			lggr.Warnw("could not estimate gas, using default", "err", err)
+			gasLimit = uint64(1000000)
+		}
+
+		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, gasLimit, gasPrice, nil)
 
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
 		if err != nil {

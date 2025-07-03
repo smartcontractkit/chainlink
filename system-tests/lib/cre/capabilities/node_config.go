@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -10,6 +11,26 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
+
+func MakeBinariesExecutable(customBinariesPaths map[types.CapabilityFlag]string) error {
+	for capabilityFlag, binaryPath := range customBinariesPaths {
+		if binaryPath == "" {
+			return fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+			return fmt.Errorf("binary path %s for capability %s does not exist", binaryPath, capabilityFlag)
+		}
+
+		// Make the binary executable
+		if err := os.Chmod(binaryPath, 0755); err != nil {
+			return fmt.Errorf("failed to make binary %s executable for capability %s: %w", binaryPath, capabilityFlag, err)
+		}
+	}
+
+	return nil
+}
 
 func AppendBinariesPathsNodeSpec(nodeSetInput *types.CapabilitiesAwareNodeSet, donMetadata *types.DonMetadata, customBinariesPaths map[types.CapabilityFlag]string) (*types.CapabilitiesAwareNodeSet, error) {
 	if len(customBinariesPaths) == 0 {

@@ -19,7 +19,6 @@ import (
 const (
 	mockMCMSAddress = "0x3f20aa841a0eb5c038775bdb868924770df1ce377cc0013b3ba4ac9fd69a4f90"
 	mockAddress     = "0x13a9f1a109368730f2e355d831ba8fbf5942fb82321863d55de54cb4ebe5d18f"
-	MockLinkAddress = "0xa"
 
 	sepChainSelector     = 11155111
 	sepMockOnRampAddress = "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59"
@@ -36,7 +35,7 @@ func getTestAddressBook(t *testing.T, addrByChain map[uint64]map[string]cldf.Typ
 	return ab
 }
 
-func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
+func MustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 	t.Helper()
 	var address aptos.AccountAddress
 	err := address.ParseStringRelaxed(addr)
@@ -45,12 +44,12 @@ func mustParseAddress(t *testing.T, addr string) aptos.AccountAddress {
 }
 
 func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.ChainContractParams {
-	mockParsedAddress := mustParseAddress(t, mockAddress)
-	mockParsedLinkAddress := mustParseAddress(t, MockLinkAddress)
+	mockParsedAddress := MustParseAddress(t, mockAddress)
+	mockParsedLinkAddress := MustParseAddress(t, shared.AptosAPTAddress)
 
 	return config.ChainContractParams{
 		FeeQuoterParams: config.FeeQuoterParams{
-			MaxFeeJuelsPerMsg:            1000000,
+			MaxFeeJuelsPerMsg:            big.NewInt(1000000),
 			TokenPriceStalenessThreshold: 1000000,
 			FeeTokens:                    []aptos.AccountAddress{mockParsedLinkAddress},
 			// Using default EVM values for PremiumMultiplierWeiPerEthByFeeToken
@@ -80,6 +79,6 @@ func getMockMCMSConfig(t *testing.T) types.MCMSWithTimelockConfigV2 {
 		Canceller:        proposalutils.SingleGroupMCMSV2(t),
 		Proposer:         proposalutils.SingleGroupMCMSV2(t),
 		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-		TimelockMinDelay: big.NewInt(0),
+		TimelockMinDelay: big.NewInt(1),
 	}
 }

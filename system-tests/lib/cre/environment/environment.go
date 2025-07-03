@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
@@ -65,6 +67,8 @@ type SetupOutput struct {
 	BlockchainOutput                    []*BlockchainOutput
 	DonTopology                         *cretypes.DonTopology
 	NodeOutput                          []*cretypes.WrappedNodeOutput
+	InfraInput                          libtypes.InfraInput
+	S3ProviderOutput                    *s3provider.Output
 }
 
 type SetupInput struct {
@@ -77,6 +81,7 @@ type SetupInput struct {
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
 	OCR3Config                           *keystone_changeset.OracleConfig
+	S3ProviderInput                      *s3provider.Input
 }
 
 type backgroundStageResult struct {
@@ -118,14 +123,29 @@ func SetupTestEnvironment(
 		}
 	}()
 
+	stageGen := NewStageGen(9, "STAGE")
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
+
+	var s3ProviderOutput *s3provider.Output
+	if input.S3ProviderInput != nil {
+		var s3ProviderErr error
+		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
+		if s3ProviderErr != nil {
+			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
+		}
+	}
+	testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
 	bi := BlockchainsInput{
 		infra:    &input.InfraInput,
 		nixShell: nixShell,
 	}
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
 
-	startTime := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Starting %d blockchain(s)\n\n", len(bi.blockchainsInput)))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting %d blockchain(s)", len(bi.blockchainsInput))))
 
 	startBlockchainsOutput, bcOutErr := StartBlockchains(BlockchainLoggers{
 		lggr:       testLogger,
@@ -151,9 +171,9 @@ func SetupTestEnvironment(
 	}
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
-	fmt.Print(libformat.PurpleText("\n[Stage 1/8] Blockchains started in %.2f seconds\n", time.Since(startTime).Seconds()))
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 2/8 Deploying Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	var forwardersSelectors []uint64
 	for _, bcOut := range blockchainOutputs {
@@ -194,10 +214,10 @@ func SetupTestEnvironment(
 	for _, forwarderSelector := range forwardersSelectors {
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, forwarderSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
 	}
-	fmt.Print(libformat.PurpleText("\n[Stage 2/8] Contracts deployed in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/8] Preparing DON(s) configuration\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	// and also for creating the CLD environment
@@ -225,7 +245,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 3/8] DONs configuration prepared in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", stageGen.Elapsed().Seconds())))
 	startTime = time.Now()
 
 	// start 3 tasks in the background
@@ -236,6 +256,7 @@ func SetupTestEnvironment(
 
 	// configure workflow registry contract in the background, so that we can continue with the next stage
 	var workflowRegistryInput *cretypes.WorkflowRegistryInput
+	var startTime time.Time
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
 		startTime = time.Now()
@@ -364,7 +385,7 @@ func SetupTestEnvironment(
 		}
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 5/6] Log Poller started in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
 	backgroundStagesWaitGroup.Add(1)
@@ -395,8 +416,7 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 6/6] Configuring OCR3 and Keystone contracts\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
@@ -422,7 +442,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 6/6] OCR3 and Keystone contracts configured in %.2f seconds\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()
@@ -441,6 +461,7 @@ func SetupTestEnvironment(
 		DonTopology:                         fullCldOutput.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      fullCldOutput.Environment,
+		S3ProviderOutput:                    s3ProviderOutput,
 	}, nil
 }
 

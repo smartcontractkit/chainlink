@@ -17,8 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
@@ -27,6 +28,9 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/zksync-sdk/zksync2-go/accounts"
+	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -43,16 +47,20 @@ type CribRPCs struct {
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
 type ChainConfig struct {
-	ChainID            string                   // chain id as per EIP-155
-	ChainName          string                   // name of the chain populated from chainselector repo
-	ChainType          string                   // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	PreferredURLScheme cldf.URLSchemePreference // preferred url scheme for the chain
-	WSRPCs             []CribRPCs               // websocket rpcs to connect to the chain
-	HTTPRPCs           []CribRPCs               // http rpcs to connect to the chain
-	DeployerKey        *bind.TransactOpts       // key to deploy and configure contracts on the chain
-	SolDeployerKey     solana.PrivateKey
-	Users              []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
-	MultiClientOpts    []func(c *cldf.MultiClient) // options to configure the multi client
+	ChainID             string                   // chain id as per EIP-155
+	ChainName           string                   // name of the chain populated from chainselector repo
+	ChainType           string                   // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
+	PreferredURLScheme  cldf.URLSchemePreference // preferred url scheme for the chain
+	WSRPCs              []CribRPCs               // websocket rpcs to connect to the chain
+	HTTPRPCs            []CribRPCs               // http rpcs to connect to the chain
+	DeployerKey         *bind.TransactOpts       // key to deploy and configure contracts on the chain
+	IsZkSyncVM          bool
+	ClientZkSyncVM      *clients.Client
+	DeployerKeyZkSyncVM *accounts.Wallet
+	SolDeployerKey      solana.PrivateKey
+	SolArtifactDir      string                      // directory of pre-built solana artifacts, if any
+	Users               []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
+	MultiClientOpts     []func(c *cldf.MultiClient) // options to configure the multi client
 }
 
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
@@ -193,31 +201,31 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 					return blockNumber, nil
 				}
 
-				evmSyncMap.Store(chainDetails.ChainSelector, cldf_evm.Chain{
+				chain := cldf_evm.Chain{
 					Selector:    chainDetails.ChainSelector,
 					Client:      ec,
 					DeployerKey: chainCfg.DeployerKey,
 					Confirm:     confirmFn,
-				})
+				}
+
+				if chainCfg.IsZkSyncVM {
+					chain.IsZkSyncVM = true
+					chain.ClientZkSyncVM = chainCfg.ClientZkSyncVM
+					chain.DeployerKeyZkSyncVM = chainCfg.DeployerKeyZkSyncVM
+				}
+
+				evmSyncMap.Store(chainDetails.ChainSelector, chain)
 				return nil
 
 			case SolChainType:
-				logger.Info("Creating solana programs tmp dir")
-				programsPath, err := os.MkdirTemp("", "solana-programs")
-				logger.Infof("Solana programs tmp dir at %s", programsPath)
-				if err != nil {
-					return err
-				}
-
-				keyPairDir, err := os.MkdirTemp("", "solana-keypair")
-				logger.Infof("Solana keypair dir at %s", keyPairDir)
-				if err != nil {
-					return err
-				}
-
-				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
-				if err != nil {
-					return err
+				solArtifactPath := chainCfg.SolArtifactDir
+				if solArtifactPath == "" {
+					logger.Info("Creating tmp directory for generated solana programs and keypairs")
+					solArtifactPath, err = os.MkdirTemp("", "solana-artifacts")
+					logger.Infof("Solana programs tmp dir at %s", solArtifactPath)
+					if err != nil {
+						return err
+					}
 				}
 
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
@@ -225,7 +233,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
-					KeypairPath: keyPairPath,
+					KeypairPath: solArtifactPath,
 					URL:         chainCfg.HTTPRPCs[0].External,
 					WSURL:       chainCfg.WSRPCs[0].External,
 					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
@@ -234,7 +242,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 						)
 						return err
 					},
-					ProgramsPath: programsPath,
+					ProgramsPath: solArtifactPath,
 				})
 				return nil
 

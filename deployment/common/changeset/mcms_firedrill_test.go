@@ -47,7 +47,7 @@ func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
 		),
 	)
 	require.NoError(t, err)
-	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 	require.NoError(t, err)
 	chainSelectorSolana = env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]

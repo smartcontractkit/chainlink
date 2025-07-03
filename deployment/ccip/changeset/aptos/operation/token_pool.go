@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -58,10 +57,10 @@ func deployTokenPoolPackage(b operations.Bundle, deps AptosDeps, poolSeed string
 }
 
 type DeployTokenPoolModuleInput struct {
-	PoolType             cldf.ContractType
-	TokenObjAddress      aptos.AccountAddress // TODO change this to metadata address, and determine object if needed
-	TokenPoolObjAddress  aptos.AccountAddress
-	InitialAdministrator aptos.AccountAddress
+	PoolType            cldf.ContractType
+	TokenCodeObjAddress aptos.AccountAddress
+	TokenAddress        aptos.AccountAddress
+	TokenPoolObjAddress aptos.AccountAddress
 }
 
 // DeployTokenPoolModuleOp deploys token pool module to Token Object Address
@@ -89,8 +88,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
-			in.TokenObjAddress,
-			in.InitialAdministrator,
+			in.TokenCodeObjAddress,
 			true,
 		)
 	case shared.BurnMintTokenPool:
@@ -99,8 +97,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
-			in.TokenObjAddress, // TODO this should be the metadata address
-			in.InitialAdministrator,
+			in.TokenAddress,
 			true,
 		)
 	case shared.LockReleaseTokenPool:
@@ -109,8 +106,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.CCIPAddress,
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
-			in.TokenObjAddress, // TODO this should be the metadata address
-			in.InitialAdministrator,
+			in.TokenAddress,
 			true,
 		)
 	default:
@@ -125,49 +121,6 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 	}
 
 	return ops, nil
-}
-
-// GrantMinterPermissionsOp operation to grant minter permissions
-var GrantMinterPermissionsOp = operations.NewOperation(
-	"grant-minter-permissions-op",
-	Version1_0_0,
-	"Grant Minter permissions to the token pool state address",
-	grantMinterPermissions,
-)
-
-type GrantRolePermissionsInput struct {
-	TokenObjAddress       aptos.AccountAddress
-	TokenPoolStateAddress aptos.AccountAddress
-}
-
-func grantMinterPermissions(b operations.Bundle, deps AptosDeps, in GrantRolePermissionsInput) (types.Transaction, error) {
-	tokenContract := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
-
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{in.TokenPoolStateAddress})
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedMinterUpdates: %w", err)
-	}
-
-	return utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
-}
-
-// GrantBurnerPermissionsOp operation to grant burner permissions
-var GrantBurnerPermissionsOp = operations.NewOperation(
-	"grant-burner-permissions-op",
-	Version1_0_0,
-	"Grant Burner permissions to the token pool state address",
-	grantBurnerPermissions,
-)
-
-func grantBurnerPermissions(b operations.Bundle, deps AptosDeps, in GrantRolePermissionsInput) (types.Transaction, error) {
-	tokenContract := managed_token.Bind(in.TokenObjAddress, deps.AptosChain.Client)
-
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedBurnerUpdates([]aptos.AccountAddress{}, []aptos.AccountAddress{in.TokenPoolStateAddress})
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedBurnerUpdates: %w", err)
-	}
-
-	return utils.GenerateMCMSTx(in.TokenObjAddress, moduleInfo, function, args)
 }
 
 type ApplyChainUpdatesInput struct {
