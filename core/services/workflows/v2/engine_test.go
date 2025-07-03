@@ -11,16 +11,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction/basic_actionmock"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger"
@@ -37,7 +41,6 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -304,6 +307,11 @@ func TestEngine_Execution(t *testing.T) {
 			Return(nil, nil).
 			Once()
 
+		// trigger event with an error should not start an execution
+		eventCh <- capabilities.TriggerResponse{
+			Err: errors.New("trigger event error"),
+		}
+
 		eventCh <- capabilities.TriggerResponse{
 			Event: mockTriggerEvent,
 		}
@@ -412,6 +420,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TODO [https://smartcontract-it.atlassian.net/browse/CRE-532]: this test produces a error from the metering package because the spending types and ratios are not set.
 func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -460,8 +469,18 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Setup a slow capability that will timeout
 	slowCapability := capmocks.NewExecutableCapability(t)
 	capreg.EXPECT().GetExecutable(matches.AnyContext, "slow-capability").Return(slowCapability, nil).Once()
+	capreg.EXPECT().
+		ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
 
-	slowCapability.EXPECT().Info(matches.AnyContext).Return(capabilities.CapabilityInfo{}, nil)
+	slowCapability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{
+			DON: &capabilities.DON{
+				ID: 42,
+			},
+		}, nil)
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
@@ -580,6 +599,19 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
 			Return(wrappedActionMock, nil).
 			Twice()
+
+		testConf, _ := values.NewMap(map[string]any{
+			"spendRatios": map[string]string{
+				"spendTypeA": "0.4",
+				"spendTypeB": "0.6",
+			},
+		})
+
+		capreg.EXPECT().
+			ConfigForCapability(matches.AnyContext, mock.Anything, mock.Anything).
+			Return(capabilities.CapabilityConfiguration{
+				RestrictedConfig: testConf,
+			}, nil)
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
@@ -713,6 +745,137 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	})
 }
 
+func TestSecretsFetcher_Integration(t *testing.T) {
+	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
+	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+
+	// Define a custom config to validate against
+	giveName := "Foo"
+	giveNum := int32(42)
+	config := fmt.Appendf(nil, "name: %s\nnumber: %d\n", giveName, giveNum)
+	wasmLogger := logger.NewMockLogger(t)
+	module, err := host.NewModule(&host.ModuleConfig{
+		Logger:         wasmLogger,
+		IsUncompressed: true,
+	}, binaryB)
+	require.NoError(t, err)
+
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	expectedSecret := "encryptedShare1"
+	mc := vaultMock.Vault{
+		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			return &vault.GetSecretsResponse{
+				Responses: []*vault.SecretResponse{
+					{
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Default",
+							Owner:     testWorkflowOwnerA,
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{expectedSecret},
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	capreg.EXPECT().GetExecutable(matches.AnyContext, vault.CapabilityID).Return(mc, nil)
+
+	billingClient := setupMockBillingClient(t)
+
+	cfg := defaultTestConfig(t)
+	cfg.WorkflowConfig = config
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+
+	initDoneCh := make(chan error, 1)
+	subscribedToTriggersCh := make(chan []string, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+	executionFinishedCh := make(chan string, 1)
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
+			resultReceivedCh <- er
+		},
+	}
+
+	triggerMock := &basictriggermock.BasicCapability{}
+	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
+		// Validate that config is as expected during subscription phase
+		require.Equal(t, giveName, input.Name)
+		require.Equal(t, giveNum, input.Number)
+		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
+	}
+	wrappedTriggerMock := &registry.CapabilityWrapper{
+		Capability: triggerMock,
+	}
+
+	cfg.SecretsFetcher = v2.NewSecretsFetcher(
+		v2.MetricsLabelerTest(t),
+		cfg.CapRegistry,
+		cfg.Lggr,
+		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
+		cfg.WorkflowOwner,
+		cfg.WorkflowName.String(),
+		func(shares []string) (string, error) {
+			return shares[0], nil
+		},
+	)
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	capreg.EXPECT().
+		GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
+		Return(wrappedTriggerMock, nil).
+		Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
+
+	// Read the result from the hook and assert that the wanted response was
+	// received.
+	res := <-resultReceivedCh
+	switch output := res.Result.(type) {
+	case *sdkpb.ExecutionResult_Value:
+		var value values.Value
+		var execErr error
+		var unwrapped any
+
+		valuePb := output.Value
+		value, execErr = values.FromProto(valuePb)
+		require.NoError(t, execErr)
+		unwrapped, execErr = value.Unwrap()
+		require.NoError(t, execErr)
+		require.Equal(t, expectedSecret, unwrapped)
+	default:
+		t.Fatalf("unexpected response type %T: %v", output, output)
+	}
+
+	execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+	require.NoError(t, err)
+
+	require.Equal(t, execID, <-executionFinishedCh)
+	require.NoError(t, engine.Close())
+}
+
 // setupMockBillingClient creates a mock billing client with default expectations.
 func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
@@ -720,12 +883,12 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil).Maybe()
+		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil).Maybe()
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil).Maybe()
+		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
 }
 

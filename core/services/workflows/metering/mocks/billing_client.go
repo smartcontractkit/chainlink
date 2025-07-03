@@ -7,6 +7,8 @@ import (
 
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -23,9 +25,127 @@ func (_m *BillingClient) EXPECT() *BillingClient_Expecter {
 	return &BillingClient_Expecter{mock: &_m.Mock}
 }
 
-// ReserveCredits provides a mock function with given fields: _a0, _a1
-func (_m *BillingClient) ReserveCredits(_a0 context.Context, _a1 *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error) {
-	ret := _m.Called(_a0, _a1)
+// GetOrganizationCreditsByWorkflow provides a mock function with given fields: ctx, req
+func (_m *BillingClient) GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetOrganizationCreditsByWorkflow")
+	}
+
+	var r0 *billing.GetOrganizationCreditsByWorkflowResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) *billing.GetOrganizationCreditsByWorkflowResponse); ok {
+		r0 = rf(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*billing.GetOrganizationCreditsByWorkflowResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BillingClient_GetOrganizationCreditsByWorkflow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOrganizationCreditsByWorkflow'
+type BillingClient_GetOrganizationCreditsByWorkflow_Call struct {
+	*mock.Call
+}
+
+// GetOrganizationCreditsByWorkflow is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *billing.GetOrganizationCreditsByWorkflowRequest
+func (_e *BillingClient_Expecter) GetOrganizationCreditsByWorkflow(ctx interface{}, req interface{}) *BillingClient_GetOrganizationCreditsByWorkflow_Call {
+	return &BillingClient_GetOrganizationCreditsByWorkflow_Call{Call: _e.mock.On("GetOrganizationCreditsByWorkflow", ctx, req)}
+}
+
+func (_c *BillingClient_GetOrganizationCreditsByWorkflow_Call) Run(run func(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest)) *BillingClient_GetOrganizationCreditsByWorkflow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*billing.GetOrganizationCreditsByWorkflowRequest))
+	})
+	return _c
+}
+
+func (_c *BillingClient_GetOrganizationCreditsByWorkflow_Call) Return(_a0 *billing.GetOrganizationCreditsByWorkflowResponse, _a1 error) *BillingClient_GetOrganizationCreditsByWorkflow_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BillingClient_GetOrganizationCreditsByWorkflow_Call) RunAndReturn(run func(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)) *BillingClient_GetOrganizationCreditsByWorkflow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRateCard provides a mock function with given fields: ctx, req
+func (_m *BillingClient) GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRateCard")
+	}
+
+	var r0 *billing.GetRateCardResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetRateCardRequest) *billing.GetRateCardResponse); ok {
+		r0 = rf(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*billing.GetRateCardResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *billing.GetRateCardRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BillingClient_GetRateCard_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRateCard'
+type BillingClient_GetRateCard_Call struct {
+	*mock.Call
+}
+
+// GetRateCard is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *billing.GetRateCardRequest
+func (_e *BillingClient_Expecter) GetRateCard(ctx interface{}, req interface{}) *BillingClient_GetRateCard_Call {
+	return &BillingClient_GetRateCard_Call{Call: _e.mock.On("GetRateCard", ctx, req)}
+}
+
+func (_c *BillingClient_GetRateCard_Call) Run(run func(ctx context.Context, req *billing.GetRateCardRequest)) *BillingClient_GetRateCard_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*billing.GetRateCardRequest))
+	})
+	return _c
+}
+
+func (_c *BillingClient_GetRateCard_Call) Return(_a0 *billing.GetRateCardResponse, _a1 error) *BillingClient_GetRateCard_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BillingClient_GetRateCard_Call) RunAndReturn(run func(context.Context, *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)) *BillingClient_GetRateCard_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReserveCredits provides a mock function with given fields: ctx, req
+func (_m *BillingClient) ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error) {
+	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReserveCredits")
@@ -34,10 +154,10 @@ func (_m *BillingClient) ReserveCredits(_a0 context.Context, _a1 *billing.Reserv
 	var r0 *billing.ReserveCreditsResponse
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)); ok {
-		return rf(_a0, _a1)
+		return rf(ctx, req)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, *billing.ReserveCreditsRequest) *billing.ReserveCreditsResponse); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*billing.ReserveCreditsResponse)
@@ -45,7 +165,7 @@ func (_m *BillingClient) ReserveCredits(_a0 context.Context, _a1 *billing.Reserv
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *billing.ReserveCreditsRequest) error); ok {
-		r1 = rf(_a0, _a1)
+		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -59,13 +179,13 @@ type BillingClient_ReserveCredits_Call struct {
 }
 
 // ReserveCredits is a helper method to define mock.On call
-//   - _a0 context.Context
-//   - _a1 *billing.ReserveCreditsRequest
-func (_e *BillingClient_Expecter) ReserveCredits(_a0 interface{}, _a1 interface{}) *BillingClient_ReserveCredits_Call {
-	return &BillingClient_ReserveCredits_Call{Call: _e.mock.On("ReserveCredits", _a0, _a1)}
+//   - ctx context.Context
+//   - req *billing.ReserveCreditsRequest
+func (_e *BillingClient_Expecter) ReserveCredits(ctx interface{}, req interface{}) *BillingClient_ReserveCredits_Call {
+	return &BillingClient_ReserveCredits_Call{Call: _e.mock.On("ReserveCredits", ctx, req)}
 }
 
-func (_c *BillingClient_ReserveCredits_Call) Run(run func(_a0 context.Context, _a1 *billing.ReserveCreditsRequest)) *BillingClient_ReserveCredits_Call {
+func (_c *BillingClient_ReserveCredits_Call) Run(run func(ctx context.Context, req *billing.ReserveCreditsRequest)) *BillingClient_ReserveCredits_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(*billing.ReserveCreditsRequest))
 	})
@@ -82,29 +202,29 @@ func (_c *BillingClient_ReserveCredits_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// SubmitWorkflowReceipt provides a mock function with given fields: _a0, _a1
-func (_m *BillingClient) SubmitWorkflowReceipt(_a0 context.Context, _a1 *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error) {
-	ret := _m.Called(_a0, _a1)
+// SubmitWorkflowReceipt provides a mock function with given fields: ctx, req
+func (_m *BillingClient) SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error) {
+	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SubmitWorkflowReceipt")
 	}
 
-	var r0 *billing.SubmitWorkflowReceiptResponse
+	var r0 *emptypb.Empty
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)); ok {
-		return rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)); ok {
+		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) *billing.SubmitWorkflowReceiptResponse); ok {
-		r0 = rf(_a0, _a1)
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) *emptypb.Empty); ok {
+		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*billing.SubmitWorkflowReceiptResponse)
+			r0 = ret.Get(0).(*emptypb.Empty)
 		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) error); ok {
-		r1 = rf(_a0, _a1)
+		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -118,25 +238,25 @@ type BillingClient_SubmitWorkflowReceipt_Call struct {
 }
 
 // SubmitWorkflowReceipt is a helper method to define mock.On call
-//   - _a0 context.Context
-//   - _a1 *billing.SubmitWorkflowReceiptRequest
-func (_e *BillingClient_Expecter) SubmitWorkflowReceipt(_a0 interface{}, _a1 interface{}) *BillingClient_SubmitWorkflowReceipt_Call {
-	return &BillingClient_SubmitWorkflowReceipt_Call{Call: _e.mock.On("SubmitWorkflowReceipt", _a0, _a1)}
+//   - ctx context.Context
+//   - req *billing.SubmitWorkflowReceiptRequest
+func (_e *BillingClient_Expecter) SubmitWorkflowReceipt(ctx interface{}, req interface{}) *BillingClient_SubmitWorkflowReceipt_Call {
+	return &BillingClient_SubmitWorkflowReceipt_Call{Call: _e.mock.On("SubmitWorkflowReceipt", ctx, req)}
 }
 
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) Run(run func(_a0 context.Context, _a1 *billing.SubmitWorkflowReceiptRequest)) *BillingClient_SubmitWorkflowReceipt_Call {
+func (_c *BillingClient_SubmitWorkflowReceipt_Call) Run(run func(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest)) *BillingClient_SubmitWorkflowReceipt_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(*billing.SubmitWorkflowReceiptRequest))
 	})
 	return _c
 }
 
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) Return(_a0 *billing.SubmitWorkflowReceiptResponse, _a1 error) *BillingClient_SubmitWorkflowReceipt_Call {
+func (_c *BillingClient_SubmitWorkflowReceipt_Call) Return(_a0 *emptypb.Empty, _a1 error) *BillingClient_SubmitWorkflowReceipt_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) RunAndReturn(run func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)) *BillingClient_SubmitWorkflowReceipt_Call {
+func (_c *BillingClient_SubmitWorkflowReceipt_Call) RunAndReturn(run func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)) *BillingClient_SubmitWorkflowReceipt_Call {
 	_c.Call.Return(run)
 	return _c
 }

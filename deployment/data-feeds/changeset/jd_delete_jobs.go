@@ -22,7 +22,7 @@ func deleteJobsJDLogic(env cldf.Environment, c types.DeleteJobsConfig) (cldf.Cha
 	ctx, cancel := context.WithTimeout(env.GetContext(), deleteJobTimeout)
 	defer cancel()
 
-	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName)
+	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName, c.Environment)
 	return cldf.ChangesetOutput{}, nil
 }
 

@@ -171,6 +171,16 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, globalCurse: true, cursed: true},
 		},
 	},
+	{
+		name: "two chain globally",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{
+				v1_6.CurseChain(mapIDToSelector(Evm1)),
+				v1_6.CurseChain(mapIDToSelector(Sol1)),
+			}
+		},
+		curseAssertions: []curseAssertion{},
+	},
 }
 
 func TestRMNCurse(t *testing.T) {
@@ -749,7 +759,7 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 			cursedSubject = globals.GlobalCurseSubject()
 		}
 
-		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsSubjectCursed(cursedSubject)
+		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsCursed(cursedSubject)
 		require.NoError(t, err)
 		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainID, assertion.subject)
 	}
@@ -764,7 +774,7 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			require.NoError(t, err)
 
-			isCursed, err := chain.IsSubjectCursed(globals.FamilyAwareSelectorToSubject(selector, family))
+			isCursed, err := chain.IsCursed(globals.FamilyAwareSelectorToSubject(selector, family))
 			require.NoError(t, err)
 			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}

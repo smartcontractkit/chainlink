@@ -1150,7 +1150,7 @@ func AddLane(
 	gasPrices map[uint64]*big.Int,
 	tokenPrices map[string]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
-) {
+) error {
 	var err error
 	fromFamily, err := chainsel.GetSelectorFamily(from)
 	require.NoError(t, err)
@@ -1182,10 +1182,14 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesets(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
+	case chainsel.FamilyTon:
+		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
 	}
-
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func AddLaneSolanaChangesets(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
@@ -1513,7 +1517,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 	require.NoError(t, err)
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) error {
 	gasPrices := map[uint64]*big.Int{
 		to: DefaultGasPrice,
 	}
@@ -1534,7 +1538,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
-	AddLane(
+	err = AddLane(
 		t,
 		e,
 		from, to,
@@ -1543,6 +1547,10 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices,
 		fqCfg,
 	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainState, from, to uint64, isTestRouter bool) {
@@ -1584,8 +1592,10 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	chains := []uint64{}
 	allEvmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
+	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	chains = slices.AppendSeq(chains, allEvmChainSelectors)
 	chains = slices.AppendSeq(chains, allSolChainSelectors)
+	chains = slices.AppendSeq(chains, allTonChainSelectors)
 
 	for _, source := range chains {
 		for _, dest := range chains {
@@ -2987,4 +2997,46 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 		err = e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
 		require.NoError(t, err)
 	}
+}
+
+func UpdateFeeQuoterForToken(
+	t *testing.T,
+	e cldf.Environment,
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	dstChain uint64,
+	tokenSymbol shared.TokenSymbol,
+) error {
+	config := fee_quoter.FeeQuoterTokenTransferFeeConfig{
+		MinFeeUSDCents:    50,
+		MaxFeeUSDCents:    50_000,
+		DeciBps:           0,
+		DestGasOverhead:   180_000,
+		DestBytesOverhead: 640,
+		IsEnabled:         true,
+	}
+	_, err := commoncs.Apply(t, e,
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
+				UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+					chain.Selector: {
+						TokenTransferFeeConfigArgs: []v1_6.TokenTransferFeeConfigArg{
+							{
+								DestChain: dstChain,
+								TokenTransferFeeConfigPerToken: map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									tokenSymbol: config,
+								},
+							},
+						},
+					},
+				},
+			}),
+	)
+
+	if err != nil {
+		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
+		return err
+	}
+	return nil
 }

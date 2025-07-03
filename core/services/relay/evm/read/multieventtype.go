@@ -170,6 +170,7 @@ func decodeMultiEventTypeLogsIntoSequences(ctx context.Context, logs []logpoller
 		seqWithKey := sequenceWithKey{
 			Key: eq.Filter.Key,
 			Sequence: commontypes.Sequence{
+				TxHash: logEntry.TxHash.Bytes(),
 				Cursor: logpoller.FormatContractReaderCursor(logEntry),
 				Head: commontypes.Head{
 					Height:    strconv.FormatInt(logEntry.BlockNumber, 10),
