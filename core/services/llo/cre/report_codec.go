@@ -45,7 +45,7 @@ type ReportCodecCapabilityTriggerOpts struct {
 
 func (r *ReportCodecCapabilityTriggerOpts) Decode(opts []byte) error {
 	if len(opts) == 0 {
-		return errors.New("opts cannot be empty for ReportCodecCapabilityTriggerOpts")
+		return nil
 	}
 	decoder := json.NewDecoder(bytes.NewReader(opts))
 	decoder.DisallowUnknownFields() // Error on unrecognized fields
@@ -83,7 +83,11 @@ func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd ll
 		case nil:
 			// Missing observations are nil
 		case *datastreamsllo.Decimal:
-			multipliedStreamValue := v.Decimal().Mul(opts.Multipliers[i].Multiplier)
+			multipliedStreamValue := v.Decimal()
+
+			if len(opts.Multipliers) != 0 {
+				multipliedStreamValue = multipliedStreamValue.Mul(opts.Multipliers[i].Multiplier)
+			}
 
 			var err error
 			d, err = multipliedStreamValue.MarshalBinary()
