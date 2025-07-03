@@ -169,7 +169,8 @@ jobs:
 
 
       - name: Create regression slack payload
-        if: success() && steps.parse-regressions.outputs.regression_count > 0
+#        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        if: success()
         id: create-regression-payload
         run: |
           cd system-tests/tests/load/cre
