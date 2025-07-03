@@ -1,9 +1,9 @@
 package contracts
 
 import (
-	"github.com/Masterminds/semver/v3"
-	"github.com/pkg/errors"
+	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -35,7 +35,7 @@ var DeployWorkflowRegistryOp = operations.NewOperation[DeployWorkflowRegistryInp
 			ChainSel: input.ChainSelector,
 		})
 		if err != nil {
-			return DeployWorkflowRegistryOutput{}, errors.Wrap(err, "DeployWorkflowRegistryOp error: failed to deploy Workflow Registry contract")
+			return DeployWorkflowRegistryOutput{}, fmt.Errorf("DeployWorkflowRegistryOp error: failed to deploy Workflow Registry contract: %w", err)
 		}
 		return DeployWorkflowRegistryOutput{
 			Addresses:   workfloRegistryOutput.DataStore.Addresses(),

@@ -1,9 +1,9 @@
 package contracts
 
 import (
-	"github.com/Masterminds/semver/v3"
-	"github.com/pkg/errors"
+	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -34,7 +34,7 @@ var DeployOCR3Op = operations.NewOperation[DeployOCR3OpInput, DeployOCR3OpOutput
 			ChainSel: input.ChainSelector,
 		})
 		if err != nil {
-			return DeployOCR3OpOutput{}, errors.Wrap(err, "DeployOCR3Op error: failed to deploy OCR3 contract")
+			return DeployOCR3OpOutput{}, fmt.Errorf("DeployOCR3Op error: failed to deploy OCR3 contract: %w", err)
 		}
 
 		return DeployOCR3OpOutput{
