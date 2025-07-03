@@ -3,10 +3,13 @@ package testhelpers
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -51,6 +54,13 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),
 				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 				TimelockMinDelay: big.NewInt(1),
+			},
+		},
+		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+			chainSelector: {
+				MinDelay:     time.Duration(1) * time.Second,
+				MCMSAction:   mcmstypes.TimelockActionSchedule,
+				OverrideRoot: false,
 			},
 		},
 	}

@@ -399,14 +399,10 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain
 }
 
 func testChain(t *testing.T) cldf_evm.Chain {
-	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf_evm.Chain
-	for _, c := range chains {
-		chain = c
-		break
-	}
-	require.NotEmpty(t, chain)
-	return chain
+	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 5))
+	require.NotEmpty(t, chains)
+
+	return chains.EVMChains()[chains.ListChainSelectors()[0]]
 }
 
 func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) ([][32]byte, error) {

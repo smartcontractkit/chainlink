@@ -6,12 +6,12 @@ import (
 	"crypto/ecdsa"
 	"encoding/asn1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"

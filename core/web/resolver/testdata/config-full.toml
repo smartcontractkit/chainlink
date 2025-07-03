@@ -100,6 +100,19 @@ UserAPITokenDuration = '240h0m0s'
 UpstreamSyncInterval = '0s'
 UpstreamSyncRateLimit = '2m0s'
 
+[WebServer.OIDC]
+ClientID = ''
+ProviderURL = ''
+RedirectURL = ''
+ClaimName = 'groups'
+AdminClaim = 'NodeAdmins'
+EditClaim = 'NodeEditors'
+RunClaim = 'NodeRunners'
+ReadClaim = 'NodeReadOnly'
+SessionTimeout = '15m0s'
+UserAPITokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+
 [WebServer.MFA]
 RPID = 'test-rpid'
 RPOrigin = 'test-rp-origin'
@@ -375,6 +388,7 @@ MaxQueued = 99
 ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
+ConfirmationTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -427,7 +441,7 @@ HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = true
+FinalityTagBypass = false
 PersistenceEnabled = true
 
 [[EVM.KeySpecific]]

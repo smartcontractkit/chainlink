@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clienttest "github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
@@ -60,7 +60,7 @@ func TestUpdateAndCheck(t *testing.T) {
 		orm.On("PurgeAllowedSenders", mock.Anything).Times(1).Return(nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.Start(testutils.Context(t))
@@ -101,7 +101,7 @@ func TestUpdateAndCheck(t *testing.T) {
 		orm.On("DeleteAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.Start(testutils.Context(t))
@@ -129,7 +129,7 @@ func TestUnsupportedVersion(t *testing.T) {
 	}
 
 	orm := amocks.NewORM(t)
-	_, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+	_, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 	require.Error(t, err)
 }
 
@@ -166,7 +166,7 @@ func TestUpdatePeriodically(t *testing.T) {
 		orm.On("GetAllowedSenders", mock.Anything, uint(0), uint(1000)).Return([]common.Address{}, nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.Start(ctx)
@@ -210,7 +210,7 @@ func TestUpdatePeriodically(t *testing.T) {
 		orm.On("GetAllowedSenders", mock.Anything, uint(0), uint(1000)).Return([]common.Address{}, nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.Start(ctx)
@@ -260,7 +260,7 @@ func TestUpdateFromContract(t *testing.T) {
 		orm.On("PurgeAllowedSenders", mock.Anything).Times(1).Return(nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.UpdateFromContract(ctx)
@@ -303,7 +303,7 @@ func TestUpdateFromContract(t *testing.T) {
 		orm.On("DeleteAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(2).Return(nil)
 		orm.On("CreateAllowedSenders", mock.Anything, []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(2).Return(nil)
 
-		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
 		err = allowlist.UpdateFromContract(ctx)

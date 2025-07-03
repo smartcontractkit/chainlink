@@ -15,10 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -36,12 +39,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -365,6 +366,15 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
 			return capabilities.CapabilityResponse{
 				Value: m,
+				Metadata: capabilities.ResponseMetadata{
+					Metering: []capabilities.MeteringNodeDetail{
+						{
+							Peer2PeerID: "local",
+							SpendUnit:   "Gas",
+							SpendValue:  "100",
+						},
+					},
+				},
 			}, nil
 		},
 	)
@@ -383,12 +393,12 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		Return(&emptypb.Empty{}, nil)
 
 	servicetest.Run(t, eng)
 
@@ -422,6 +432,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			assert.Equal(t, testWorkflowID, report.Metadata.WorkflowID)
 			assert.NotEmpty(t, report.Metadata.WorkflowExecutionID)
 			assert.Equal(t, testWorkflowOwner, report.Metadata.WorkflowOwner)
+			assert.NotEmpty(t, report.Metadata.P2PID)
 
 		case fmt.Sprintf("%s.%s", events.ProtoPkg, events.WorkflowExecutionStarted):
 			var started eventspb.WorkflowExecutionStarted
@@ -1227,10 +1238,10 @@ func TestEngine_WrapsTargets(t *testing.T) {
 		info, err2 := s.capability.Info(ctx)
 		require.NoError(t, err2)
 
-		if info.CapabilityType == capabilities.CapabilityTypeTarget {
-			assert.Equal(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+		if info.IsLocal {
+			assert.Equal(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		} else {
-			assert.NotEqual(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+			assert.NotEqual(t, "*transmission.LocalExecutableCapability", fmt.Sprintf("%T", s.capability))
 		}
 
 		return nil
@@ -1842,13 +1853,13 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
-			OutgoingRateLimiter: common.RateLimiterConfig{
+			OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
 				PerSenderBurst: 100,
 			},
-			RateLimiter: common.RateLimiterConfig{
+			RateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
@@ -1861,7 +1872,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
+		ghcapabilities.MethodComputeAction, log, gateway.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
@@ -1917,13 +1928,13 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
-			OutgoingRateLimiter: common.RateLimiterConfig{
+			OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
 				PerSenderBurst: 100,
 			},
-			RateLimiter: common.RateLimiterConfig{
+			RateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
@@ -1935,7 +1946,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
+		ghcapabilities.MethodComputeAction, log, gateway.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }

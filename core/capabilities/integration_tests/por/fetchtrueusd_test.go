@@ -19,6 +19,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 )
@@ -39,7 +39,7 @@ const commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 
 var defaultConfig = compute.Config{
 	ServiceConfig: webapi.ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
+		RateLimiter: ratelimit.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
 			PerSenderRPS:   100.0,

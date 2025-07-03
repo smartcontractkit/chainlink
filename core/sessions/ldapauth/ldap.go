@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-ldap/ldap/v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -815,4 +816,8 @@ func constantTimeEmailCompare(left, right string) bool {
 	copy(leftBytes, left)
 	copy(rightBytes, right)
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
+}
+
+func (l *ldapAuthenticator) ExtendRouter(r *gin.RouterGroup) error {
+	return nil
 }
