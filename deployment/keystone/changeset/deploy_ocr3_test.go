@@ -70,7 +70,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel) //nolint:staticcheck
+		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
 
 		// Find existing OCR3 contract
