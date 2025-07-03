@@ -621,6 +621,10 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
 	}
 
+	if wrapper == nil {
+		return nil, errors.New("failed to instantiate vault plugin: gateway service wrapper is not configured")
+	}
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")

@@ -44,6 +44,11 @@ var (
 
 var _ gw_handlers.Handler = (*service)(nil)
 
+type pendingRequest struct {
+	callbackCh chan<- gw_handlers.UserCallbackPayload
+	responses  map[string]*jsonrpc.Response
+}
+
 type service struct {
 	services.StateMachine
 	gw_handlers.Handler
@@ -52,15 +57,13 @@ type service struct {
 	don          gw_handlers.DON
 	lggr         logger.Logger
 	codec        api.JsonRPCCodec
+	mu           sync.RWMutex
 
 	userRateLimiter   *ratelimit.RateLimiter
 	nodeRateLimiter   *ratelimit.RateLimiter
 	requestTimeoutSec int
 
-	// In-memory secret storage for demo purposes
-	// In production, this would be a proper storage backend
-	secretsStore map[string]map[string]SecretEntry
-	storeMu      sync.RWMutex
+	pendingRequests map[string]*pendingRequest
 }
 
 func (s *service) HealthReport() map[string]error {
@@ -93,7 +96,6 @@ func NewService(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 			lggr:              logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
 			codec:             api.JsonRPCCodec{},
 			requestTimeoutSec: 30,
-			secretsStore:      make(map[string]map[string]SecretEntry),
 		}
 	}
 
@@ -112,7 +114,8 @@ func NewService(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		requestTimeoutSec: cfg.RequestTimeoutSec,
 		userRateLimiter:   userRateLimiter,
 		nodeRateLimiter:   nodeRateLimiter,
-		secretsStore:      make(map[string]map[string]SecretEntry),
+		pendingRequests:   make(map[string]*pendingRequest),
+		mu:                sync.RWMutex{},
 	}
 }
 
@@ -151,10 +154,44 @@ func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest json
 }
 
 func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
-	return errors.New("node message support not implemented")
+	s.lggr.Infof("Received message from node %s: %v", nodeAddr, resp)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pendingRequest, ok := s.pendingRequests[resp.ID]
+	if !ok {
+		s.lggr.Errorf("No pending request found for ID: %s", resp.ID)
+		return nil
+	}
+
+	// SENDING DUMMY RESPONSE FOR NOW
+	rawResponse, err := jsonrpc.EncodeResponse(resp)
+	if err != nil {
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				resp.ID,
+				api.ToJSONRPCErrorCode(api.NodeReponseEncodingError),
+				fmt.Sprintf("Failed to marshal response: %v", err),
+				nil,
+			),
+			ErrorCode: api.NodeReponseEncodingError,
+		}, pendingRequest.callbackCh)
+	}
+	responseObj := gw_handlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   api.NoError,
+	}
+	// END OF DUMMY RESPONSE
+
+	// TODO: Remove the pending request from the map
+
+	s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
+
+	return s.sendResponse(ctx, responseObj, pendingRequest.callbackCh)
 }
 
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+
 	var req SecretsCreateRequest
 	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
@@ -169,97 +206,37 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	}
 
 	// Validate request
-	if req.ID == "" {
+	if req.ID == "" || req.Value == "" {
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				jsonRequest.ID,
 				api.ToJSONRPCErrorCode(api.InvalidParamsError),
-				"Secret ID cannot be empty",
+				"Secret ID and value cannot be empty",
 				nil,
 			),
 			ErrorCode: api.InvalidParamsError,
 		}, callbackCh)
 	}
 
-	// Store secret
-	s.storeMu.Lock()
-	defer s.storeMu.Unlock()
-
-	// Extract sender from request metadata (this would come from JWT or other auth)
-	senderAddr := "default" // In a real implementation, extract from authenticated context
-	if s.secretsStore[senderAddr] == nil {
-		s.secretsStore[senderAddr] = make(map[string]SecretEntry)
+	s.mu.Lock()
+	s.pendingRequests[jsonRequest.ID] = &pendingRequest{
+		callbackCh: callbackCh,
+		responses:  make(map[string]*jsonrpc.Response),
 	}
+	s.mu.Unlock()
 
-	// Check if secret already exists
-	if _, exists := s.secretsStore[senderAddr][req.ID]; exists {
-		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
-			RawResponse: s.codec.EncodeNewErrorResponse(
-				jsonRequest.ID,
-				api.ToJSONRPCErrorCode(api.InvalidParamsError),
-				"Secret with this ID already exists",
-				nil,
-			),
-			ErrorCode: api.InvalidParamsError,
-		}, callbackCh)
+	// At this point, we know that the request is valid and we can send it to the nodes
+	for _, node := range s.donConfig.Members {
+		err := s.don.SendToNode(ctx, node.Address, &jsonRequest)
+		if err != nil {
+			s.lggr.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
 	}
 
-	// Create new secret
-	secret := SecretEntry{
-		ID:        req.ID,
-		Value:     req.Value,
-		CreatedAt: time.Now().Unix(),
-	}
+	s.lggr.Infof("Processed request: %v", jsonRequest)
 
-	s.secretsStore[senderAddr][req.ID] = secret
-
-	// Create success response
-	responseData := SecretsCreateResponse{
-		ResponseBase: ResponseBase{
-			Success: true,
-		},
-		ID: req.ID,
-	}
-
-	var resultBytes json.RawMessage
-	resultBytes, err := json.Marshal(responseData)
-	if err != nil {
-		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
-			RawResponse: s.codec.EncodeNewErrorResponse(
-				jsonRequest.ID,
-				api.ToJSONRPCErrorCode(api.NodeReponseEncodingError),
-				fmt.Sprintf("Failed to marshal response: %v", err),
-				nil,
-			),
-			ErrorCode: api.NodeReponseEncodingError,
-		}, callbackCh)
-	}
-	jsonResponse := jsonrpc.Response{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      jsonRequest.ID,
-		Result:  resultBytes,
-	}
-	rawResponse, err := json.Marshal(jsonResponse)
-	if err != nil {
-		promSecretsCreateFailure.WithLabelValues(s.donConfig.DonId).Inc()
-		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
-			RawResponse: s.codec.EncodeNewErrorResponse(
-				jsonRequest.ID,
-				api.ToJSONRPCErrorCode(api.NodeReponseEncodingError),
-				fmt.Sprintf("Failed to marshal response: %v", err),
-				nil,
-			),
-			ErrorCode: api.NodeReponseEncodingError,
-		}, callbackCh)
-	}
-	responseObj := gw_handlers.UserCallbackPayload{
-		RawResponse: rawResponse,
-		ErrorCode:   api.NoError,
-	}
-
-	promSecretsCreateSuccess.WithLabelValues(s.donConfig.DonId).Inc()
-	return s.sendResponse(ctx, responseObj, callbackCh)
+	// Block until the channel receives a response
+	return nil
 }
 
 func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {

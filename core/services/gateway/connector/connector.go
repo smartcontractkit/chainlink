@@ -174,6 +174,7 @@ func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string
 }
 
 func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response) error {
+	c.lggr.Infof("Sending response to gateway '%s': %v", gatewayID, resp)
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
@@ -220,7 +221,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			handler, exists := c.handlers[req.Method]
+			handler, exists := c.handlers[req.ServiceName()]
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
 				break

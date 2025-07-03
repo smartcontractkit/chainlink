@@ -2,10 +2,13 @@ package vault
 
 import (
 	"context"
+	"encoding/json"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	vault_api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 var _ connector.GatewayConnectorHandler = (*Handler)(nil)
@@ -45,11 +48,52 @@ func (h *Handler) ID(ctx context.Context) (string, error) {
 }
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
-	// TODO: do something with the request
-	err := h.gatewaySender.SendToGateway(ctx, gatewayID, nil)
+	// TODO: authorize the request
+	// TODO: check method and handle accordingly
+	h.lggr.Infof("Received message from gateway %s: %v", gatewayID, req)
+	// TODO: do something with the request and send a proper response
+	// SENDING DUMMY RESPONSE FOR NOW
+	var requestData vault_api.SecretsCreateRequest
+	err := json.Unmarshal(req.Params, &requestData)
 	if err != nil {
+		h.lggr.Errorf("Failed to unmarshal request: %v", err)
+		return err
+	}
+
+	responseData := vault_api.SecretsCreateResponse{
+		ResponseBase: vault_api.ResponseBase{
+			Success: true,
+		},
+		SecretID: requestData.ID,
+	}
+
+	var resultBytes json.RawMessage
+	resultBytes, err = json.Marshal(responseData)
+
+	if err != nil {
+		// TODO: make jsonrpc encode error response not return an error.
+		h.lggr.Errorf("Failed to marshal response: %v", err)
+		return err
+	}
+	jsonResponse := jsonrpc.Response{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Result:  resultBytes,
+	}
+	// END OF DUMMY RESPONSE
+
+	if err = h.gatewaySender.SendToGateway(ctx, gatewayID, &jsonResponse); err != nil {
 		h.lggr.Errorf("Failed to send message to gateway %s: %v", gatewayID, err)
 		return err
 	}
 	return nil
+}
+
+func sendResponse(ctx context.Context, response gw_handlers.UserCallbackPayload, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+	select {
+	case callbackCh <- response:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
