@@ -227,6 +227,13 @@ func copyCapabilityAwareNodeSets(
 			copy(newNs.SupportedChains, originalNs.SupportedChains)
 		}
 
+		if originalNs.EnvVars != nil {
+			newNs.EnvVars = make(map[string]string, len(originalNs.EnvVars))
+			for k, v := range originalNs.EnvVars {
+				newNs.EnvVars[k] = v
+			}
+		}
+
 		copiedNodeSets[i] = newNs
 	}
 
