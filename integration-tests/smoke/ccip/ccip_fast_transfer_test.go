@@ -85,6 +85,8 @@ type fastTransferE2ETestCase struct {
 	externalMinter                      bool
 	settlementGasOverhead               uint32 // Used for fast transfer lane config
 	expectNoExecutionError              bool
+	customMaxFastTransferFee            *big.Int // Optional custom max fast transfer fee for negative testing
+	expectRevert                        bool     // Whether the ccipSendToken call should revert
 }
 
 var (
@@ -230,6 +232,20 @@ func withExternalMinter() fastTransferE2ETestCaseOption {
 	}
 }
 
+func withCustomMaxFastTransferFee(fee *big.Int) fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.customMaxFastTransferFee = fee
+		return tc
+	}
+}
+
+func withExpectRevert() fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.expectRevert = true
+		return tc
+	}
+}
+
 var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("fee token", withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
 	ftfTc("fee token and no filler", withFeeTokenType(feeTokenLink), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
@@ -242,6 +258,7 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
 	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	ftfTc("max fast transfer fee too low", withCustomMaxFastTransferFee(big.NewInt(50)), withExpectRevert()),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -1213,7 +1230,22 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
 			require.NoError(t, err)
 			ctx.env.Logger.Infof("Sending transaction from user address: %s", userTransac.From.Hex())
-			tx, err := pool.CcipSendToken(userTransac, ctx.DestinationChainSelector(), transferAmount, fees.FastTransferFee, userEncodedAddress, feeTokenAddress, []byte{})
+
+			// Determine max fast transfer fee - use custom fee if set, otherwise use calculated fee
+			maxFastTransferFee := fees.FastTransferFee
+			if tc.customMaxFastTransferFee != nil {
+				maxFastTransferFee = tc.customMaxFastTransferFee
+			}
+
+			tx, err := pool.CcipSendToken(userTransac, ctx.DestinationChainSelector(), transferAmount, maxFastTransferFee, userEncodedAddress, feeTokenAddress, []byte{})
+
+			if tc.expectRevert {
+				// Expect the transaction to fail
+				require.Error(t, err, "Expected ccipSendToken to revert when maxFastTransferFee is too low")
+				ctx.env.Logger.Infof("Transaction correctly reverted as expected: %v", err)
+				return
+			}
+
 			ctx.env.Logger.Infof("Sending transaction: %s", tx.Hash().Hex())
 			require.NoError(t, err)
 			_, err = ctx.SourceChain().Confirm(tx)
@@ -1227,21 +1259,24 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			}
 		}()
 
-		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postFastTransferFillerAssertions, "Post Fast Transfer Filler Assertions")
-		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postFastTransferUserAssertions, "Post Fast Transfer User Assertions")
-		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postFastTransferPoolAssertions, "Post Fast Transfer Pool Assertions")
+		// Skip post-transaction logic if we expect the transaction to revert
+		if !tc.expectRevert {
+			runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postFastTransferFillerAssertions, "Post Fast Transfer Filler Assertions")
+			runAssertions(t, sourceToken, destinationToken, userAddress, tc.postFastTransferUserAssertions, "Post Fast Transfer User Assertions")
+			runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postFastTransferPoolAssertions, "Post Fast Transfer Pool Assertions")
 
-		if tc.expectNoExecutionError {
-			ctx.waitForExecutionError(t, seqNum)
-		} else {
-			ctx.waitForExecution(t, seqNum)
+			if tc.expectNoExecutionError {
+				ctx.waitForExecutionError(t, seqNum)
+			} else {
+				ctx.waitForExecution(t, seqNum)
+			}
+
+			runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
+			runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
+			runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
 		}
 
-		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
-		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
-		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
-
-		if !tc.expectNoExecutionError {
+		if !tc.expectNoExecutionError && !tc.expectRevert {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
 			// We want to ensure regular transfer works as expected
 			message := router.ClientEVM2AnyMessage{
