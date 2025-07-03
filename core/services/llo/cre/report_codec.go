@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/shopspring/decimal"
 	commonds "github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -15,6 +13,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"google.golang.org/protobuf/proto"
 )
 
 var _ datastreamsllo.ReportCodec = ReportCodecCapabilityTrigger{}
