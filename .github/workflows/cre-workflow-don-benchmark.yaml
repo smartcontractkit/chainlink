@@ -128,28 +128,26 @@ jobs:
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m 2>&1 | tee test_output.log
 
       - name: Parse logs for performance regressions
+        if: always()
+        id: parse-regressions
         run: |
-          # Create directory for regression reports
-          mkdir -p regression_reports
-          
-          # Parse the direct test output for regression warnings
           cd system-tests/tests/load/cre
-          
+      
           # Extract detailed PERFORMANCE REGRESSION lines
           grep "PERFORMANCE REGRESSION:" test_output.log > logs/regression_details.txt || true
-          
+      
           # Count the number of regressions
           regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
-          
+          echo "regression_count=$regression_count" >> $GITHUB_OUTPUT
+      
           if [ $regression_count -gt 0 ]; then
-          echo "::warning::$regression_count performance regressions detected"
-          echo "See the regression_reports artifact for details"
+            echo "::warning::$regression_count performance regressions detected"
+            echo "See the regression_reports artifact for details"
           else
             echo "No performance regressions detected"
           fi
 
       - name: Upload node logs
-        id: parse-regressions
         uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
@@ -169,6 +167,20 @@ jobs:
             system-tests/tests/load/cre/performance_reports
           retention-days: 30
 
+      - name: Prepare notification message
+        if: always()
+        id: prepare-message
+        run: |
+          if ${{ failure() }}; then
+            echo "text=Test failed" >> $GITHUB_OUTPUT
+            echo "header=CRE Workflow DON Test Failed" >> $GITHUB_OUTPUT
+            echo "alert_type=test failure" >> $GITHUB_OUTPUT
+          else
+            echo "text=Performance regressions detected" >> $GITHUB_OUTPUT
+            echo "header=${{ steps.parse-regressions.outputs.regression_count }} Performance Regressions Detected" >> $GITHUB_OUTPUT
+            echo "alert_type=performance regression" >> $GITHUB_OUTPUT
+          fi
+
       - name: Send slack notification
         if: always() && (failure() || steps.parse-regressions.outputs.regression_count > 0)
         id: send-slack-notification
@@ -180,25 +192,24 @@ jobs:
           payload: |
             {
               "channel": "C094W1V9A5N",
-              "text": "${{ failure() && 'Test failed' || 'Performance regressions detected' }}",
+              "text": "${{ steps.prepare-message.outputs.text }}",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: ${{ failure() && 'CRE Workflow DON Test Failed' || format('{0} Performance Regressions Detected', steps.parse-regressions.outputs.regression_count) }} :rotating_light:*"
+                    "text": "*:rotating_light: ${{ steps.prepare-message.outputs.header }} :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ failure() && 'test failure' || 'performance regression' }} for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                    "text": "Alerting <@U060CGGPY8H> ${{ steps.prepare-message.outputs.alert_type }} for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
                   }
                 }
               ]
             }
-
 
       - name: Teardown
         if: always()
