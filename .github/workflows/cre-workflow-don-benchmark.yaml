@@ -209,7 +209,7 @@ jobs:
             ]
           }
           EOF
-          echo ${{ github.workspace }}/slack_payload.json
+          cat ${{ github.workspace }}/slack_payload.json
 
       - name: Send regression slack notification
         if: success() && steps.parse-regressions.outputs.regression_count > 0
