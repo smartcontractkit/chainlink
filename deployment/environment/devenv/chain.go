@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,8 +25,10 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -37,8 +40,9 @@ import (
 )
 
 const (
-	EVMChainType = "EVM"
-	SolChainType = "SOLANA"
+	EVMChainType   = "EVM"
+	SolChainType   = "SOLANA"
+	AptosChainType = "APTOS"
 )
 
 type CribRPCs struct {
@@ -59,7 +63,8 @@ type ChainConfig struct {
 	ClientZkSyncVM      *clients.Client
 	DeployerKeyZkSyncVM *accounts.Wallet
 	SolDeployerKey      solana.PrivateKey
-	SolArtifactDir      string                      // directory of pre-built solana artifacts, if any
+	SolArtifactDir      string // directory of pre-built solana artifacts, if any
+	AptosDeployerKey    aptos.Account
 	Users               []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
 	MultiClientOpts     []func(c *cldf.MultiClient) // options to configure the multi client
 }
@@ -148,6 +153,7 @@ func (c *ChainConfig) ToRPCs() []cldf.RPC {
 func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockChains, error) {
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
+	var aptosSyncMap sync.Map
 
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
@@ -245,6 +251,43 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 				})
 				return nil
 
+			case AptosChainType:
+				cId, err := strconv.ParseUint(chainCfg.ChainID, 10, 8)
+				if err != nil {
+					return err
+				}
+
+				ac, err := aptos.NewClient(aptos.NetworkConfig{
+					Name:      chainCfg.ChainName,
+					NodeUrl:   chainCfg.HTTPRPCs[0].External,
+					FaucetUrl: chainCfg.HTTPRPCs[1].External,
+					ChainId:   uint8(cId),
+				})
+
+				if err != nil {
+					return err
+				}
+
+				aptosSyncMap.Store(chainDetails.ChainSelector, cldf_aptos.Chain{
+					Selector:       chainDetails.ChainSelector,
+					Client:         ac,
+					DeployerSigner: &chainCfg.AptosDeployerKey,
+					URL:            chainCfg.HTTPRPCs[0].External,
+					Confirm: func(txHash string, opts ...any) error {
+						tx, err := ac.WaitForTransaction(txHash, opts...)
+						if err != nil {
+							return err
+						}
+
+						if !tx.Success {
+							return fmt.Errorf("transaction failed: %s", tx.VmStatus)
+						}
+
+						return nil
+					},
+				})
+				return nil
+
 			default:
 				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 			}
@@ -264,6 +307,11 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 	solSyncMap.Range(func(sel, value interface{}) bool {
 		blockChains = append(blockChains, value.(cldf_solana.Chain))
+		return true
+	})
+
+	aptosSyncMap.Range(func(sel, value interface{}) bool {
+		blockChains = append(blockChains, value.(cldf_aptos.Chain))
 		return true
 	})
 

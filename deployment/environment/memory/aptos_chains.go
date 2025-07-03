@@ -101,7 +101,7 @@ func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client apt
 	return err
 }
 
-func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {
+func FundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {
 	toBytes, err := bcs.Serialize(&to)
 	require.NoError(t, err)
 	amountBytes, err := bcs.SerializeU64(amount)
