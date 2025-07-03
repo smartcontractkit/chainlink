@@ -47,36 +47,3 @@ jobs:
         with:
           channel-id: "#team-test-tooling-internal"
           slack-message: ":x: :mild-panic-intensifies: Publish Integration Test Image failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\nRepository: Chainlink\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE)}}"
-  build-chainlink-image:
-    environment: integration
-    # Only run this build for workflow_dispatch
-    if: github.event_name == 'workflow_dispatch'
-    permissions:
-      id-token: write
-      contents: read
-    strategy:
-      matrix:
-        image:
-          - name: ""
-            dockerfile: core/chainlink.Dockerfile
-            tag-suffix: ""
-          # uncomment in the future if we end up needing to soak test the plugins image
-          # - name: (plugins)
-          #   dockerfile: plugins/chainlink.Dockerfile
-          #   tag-suffix: -plugins
-    name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu22.04-8cores-32GB
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-      - name: Build Chainlink Image
-        uses: ./.github/actions/build-chainlink-image
-        with:
-          tag_suffix: ${{ matrix.image.tag-suffix }}
-          dockerfile: ${{ matrix.image.dockerfile }}
-          git_commit_sha: ${{ github.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
