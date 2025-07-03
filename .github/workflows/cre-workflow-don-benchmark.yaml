@@ -183,9 +183,8 @@ jobs:
           echo "header=${{ steps.parse-regressions.outputs.regression_count }} Performance Regressions Detected" >> $GITHUB_OUTPUT
           echo "alert_type=performance regression" >> $GITHUB_OUTPUT
 
-      - name: Send slack notification
-        if: always() && (failure() || steps.parse-regressions.outputs.regression_count > 0)
-        id: send-slack-notification
+      - name: Send failure slack notification
+        if: failure()
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           errors: "true"
@@ -194,24 +193,54 @@ jobs:
           payload: |
             {
               "channel": "C094W1V9A5N",
-              "text": "${{ (failure() && steps.prepare-message.outputs.text) || steps.prepare-regression-message.outputs.text }}",
+              "text": "${{ steps.prepare-message.outputs.text }}",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: ${{ (failure() && steps.prepare-message.outputs.header) || steps.prepare-regression-message.outputs.header }} :rotating_light:*"
+                    "text": "*:rotating_light: ${{ steps.prepare-message.outputs.header }} :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> ${{ (failure() && steps.prepare-message.outputs.alert_type) || steps.prepare-regression-message.outputs.alert_type }} for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                    "text": "Alerting <@U060CGGPY8H> test failure for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
                   }
                 }
               ]
             }
+
+      - name: Send regression slack notification
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            {
+              "channel": "C094W1V9A5N",
+              "text": "${{ steps.prepare-regression-message.outputs.text }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: ${{ steps.prepare-regression-message.outputs.header }} :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Alerting <@U060CGGPY8H> performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                  }
+                }
+              ]
+            }
+
 
       - name: Teardown
         if: always()
