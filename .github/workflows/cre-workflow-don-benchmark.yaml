@@ -235,7 +235,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                    "text": "Performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
                   }
                 }
               ]
