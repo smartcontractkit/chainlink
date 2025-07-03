@@ -42,7 +42,7 @@ type ReportCodecCapabilityTriggerOpts struct {
 	//
 	// The total number of streams must be n, where n is the number of
 	// top-level elements in this ReportCodecCapabilityTriggerMultipliers array
-	Multipliers []ReportCodecCapabilityTriggerMultiplier `json:"multipliers,omitempty"`
+	Multipliers []ReportCodecCapabilityTriggerMultiplier `json:"multipliers"`
 }
 
 func (r *ReportCodecCapabilityTriggerOpts) Decode(opts []byte) error {
