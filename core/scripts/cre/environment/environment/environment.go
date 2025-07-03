@@ -272,7 +272,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 		return err
 	}
 
-	fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
+	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
 
 	return nil
 }
