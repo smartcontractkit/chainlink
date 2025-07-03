@@ -141,7 +141,7 @@ jobs:
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
             # Extract detailed PERFORMANCE REGRESSION lines
-            grep -o "PERFORMANCE REGRESSION.*\)" test_output.log | awk '{printf "%s\\\\n", $0}' > logs/regression_details.txt
+            grep -o "PERFORMANCE REGRESSION.*)" test_output.log | awk '{printf "%s\\\\n", $0}' > logs/regression_details.txt
           else
             echo "No performance regressions detected"
           fi
@@ -206,7 +206,6 @@ jobs:
             ]
           }
           EOF
-          cat ${{ github.workspace }}/slack_payload.json
 
       - name: Send regression slack notification
         if: success() && steps.parse-regressions.outputs.regression_count > 0
