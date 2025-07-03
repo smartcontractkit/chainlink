@@ -167,24 +167,20 @@ jobs:
             system-tests/tests/load/cre/performance_reports
           retention-days: 30
 
-      - name: Prepare failure message
-        if: failure()
-        id: prepare-message
-        run: |
-          echo "text=Test failed" >> $GITHUB_OUTPUT
-          echo "header=CRE Workflow DON Test Failed" >> $GITHUB_OUTPUT
-          echo "alert_type=test failure" >> $GITHUB_OUTPUT
-
       - name: Create regression slack payload
         if: success() && steps.parse-regressions.outputs.regression_count > 0
         id: create-regression-payload
         run: |
           cd system-tests/tests/load/cre
-          REGRESSION_DETAILS=$(cat logs/regression_details.txt)
-          # Remove any characters that might cause JSON parsing issues
-          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | tr -d '\r')
           
-          JSON_PAYLOAD=$(cat <<EOF
+          # Read regression details and properly escape for JSON
+          REGRESSION_DETAILS=$(cat logs/regression_details.txt)
+          
+          # Escape backslashes, double quotes and convert newlines to literal \n for JSON
+          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          
+          # Create JSON payload with properly escaped details
+          cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
           {
             "channel": "C094W1V9A5N",
             "text": "Performance Regressions Detected",
@@ -193,7 +189,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*:rotating_light: Performance Regressions Detected :rotating_light:*"
+                  "text": "*:rotating_light: ${steps.parse-regressions.outputs.regression_count} Performance Regressions Detected :rotating_light:*"
                 }
               },
               {
@@ -207,15 +203,12 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*Regression Details:*\n\`\`\`\n$REGRESSION_DETAILS\n\`\`\`"
+                  "text": "*Regression Details:*\\n\`\`\`\\n${REGRESSION_DETAILS}\\n\`\`\`"
                 }
               }
             ]
           }
           EOF
-          )
-          
-          echo "$JSON_PAYLOAD" > $GITHUB_WORKSPACE/slack_payload.json
 
       - name: Send regression slack notification
         if: success() && steps.parse-regressions.outputs.regression_count > 0
