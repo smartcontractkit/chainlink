@@ -3,7 +3,7 @@ package root
 import "github.com/spf13/cobra"
 
 var RootCmd = &cobra.Command{
-	Use:   "cli",
-	Short: "CLI tool for system tests",
-	Long:  `A CLI tool for system tests that helps download dependencies and start environments`,
+	Use:   "go run .",
+	Short: "CLI tool for the local CRE",
+	Long:  `A CLI tool for the local CRE to create and manage environments`,
 }
