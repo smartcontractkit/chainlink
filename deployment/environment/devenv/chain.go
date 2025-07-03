@@ -253,7 +253,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 				return nil
 
 			case AptosChainType:
-				cId, err := strconv.ParseUint(chainCfg.ChainID, 10, 8)
+				cID, err := strconv.ParseUint(chainCfg.ChainID, 10, 8)
 				if err != nil {
 					return err
 				}
@@ -262,7 +262,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					Name:      chainCfg.ChainName,
 					NodeUrl:   chainCfg.HTTPRPCs[0].External,
 					FaucetUrl: chainCfg.HTTPRPCs[1].External,
-					ChainId:   uint8(cId),
+					ChainId:   uint8(cID),
 				})
 
 				if err != nil {
