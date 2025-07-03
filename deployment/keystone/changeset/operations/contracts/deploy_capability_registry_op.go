@@ -1,8 +1,9 @@
 package contracts
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -34,7 +35,7 @@ var DeployCapabilityRegistryOp = operations.NewOperation[DeployCapabilityRegistr
 			ChainSel: input.ChainSelector,
 		})
 		if err != nil {
-			return DeployCapabilityRegistryOutput{}, errors.Wrap(err, "DeployCapabilityRegistry error: failed to deploy capability registry")
+			return DeployCapabilityRegistryOutput{}, fmt.Errorf("DeployCapabilityRegistry error: failed to deploy capability registry: %w", err)
 		}
 		return DeployCapabilityRegistryOutput{
 			Addresses:   capabilityRegistryOutput.DataStore.Addresses(),

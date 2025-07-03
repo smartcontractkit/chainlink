@@ -1,8 +1,9 @@
 package contracts
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
-	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -41,15 +42,15 @@ var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForw
 				}
 				err = ab.Merge(r.Output.AddressBook)
 				if err != nil {
-					return pkgerrors.Wrapf(err, "failed to save Keystone Forwarder address on address book for target %d", target)
+					return fmt.Errorf("failed to save Keystone Forwarder address on address book for target %d: %w", target, err)
 				}
 				addrs, err := r.Output.Addresses.Fetch()
 				if err != nil {
-					return pkgerrors.Wrapf(err, "failed to fetch Keystone Forwarder addresses for target %d", target)
+					return fmt.Errorf("failed to fetch Keystone Forwarder addresses for target %d: %w", target, err)
 				}
 				for _, addr := range addrs {
 					if addrRefErr := as.AddressRefStore.Add(addr); addrRefErr != nil {
-						return pkgerrors.Wrapf(addrRefErr, "failed to save Keystone Forwarder address on datastore for target %d", target)
+						return fmt.Errorf("failed to save Keystone Forwarder address on datastore for target %d: %w", target, addrRefErr)
 					}
 				}
 
@@ -57,7 +58,7 @@ var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForw
 			})
 		}
 		if err := contractErrGroup.Wait(); err != nil {
-			return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses()}, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
+			return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to deploy Keystone contracts: %w", err)
 		}
 		return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses()}, nil
 	},

@@ -1,9 +1,11 @@
 package contracts
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -49,7 +51,7 @@ var ConfigWorkflowRegistrySeq = operations.NewSequence[ConfigWorkflowRegistrySeq
 			MCMSConfig:       input.MCMSConfig,
 		})
 		if err != nil {
-			return ConfigWorkflowRegistrySeqOutput{}, errors.Wrap(err, "failed to update allowed Dons")
+			return ConfigWorkflowRegistrySeqOutput{}, fmt.Errorf("failed to update allowed Dons: %w", err)
 		}
 
 		addresses := make([]string, 0, len(input.WorkflowOwners))
@@ -65,7 +67,7 @@ var ConfigWorkflowRegistrySeq = operations.NewSequence[ConfigWorkflowRegistrySeq
 			MCMSConfig:       input.MCMSConfig,
 		})
 		if err != nil {
-			return ConfigWorkflowRegistrySeqOutput{}, errors.Wrap(err, "failed to update authorized addresses")
+			return ConfigWorkflowRegistrySeqOutput{}, fmt.Errorf("failed to update authorized addresses: %w", err)
 		}
 
 		return ConfigWorkflowRegistrySeqOutput{
