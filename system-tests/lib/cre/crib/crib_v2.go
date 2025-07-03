@@ -98,8 +98,11 @@ func DeployJdWithCRIBSDK(input *types.DeployCribJdInput) (*jd.Output, error) {
 	}
 
 	jdv1.Component(&jdv1.Props{
-		JD: jdv1.JDProps{},
-		DB: jdv1.DBProps{},
+		JD: jdv1.JDProps{
+			Image:            input.JDInput.Image,
+			CSAEncryptionKey: input.JDInput.CSAEncryptionKey,
+		},
+		WaitForRollout: true,
 	})
 
 	jdEnvVars := map[string]string{
