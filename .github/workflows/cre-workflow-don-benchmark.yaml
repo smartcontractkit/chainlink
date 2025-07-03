@@ -181,14 +181,13 @@ jobs:
         run: |
           echo "text=Performance regressions detected" >> $GITHUB_OUTPUT
           echo "header=${{ steps.parse-regressions.outputs.regression_count }} Performance Regressions Detected" >> $GITHUB_OUTPUT
-          echo "alert_type=performance regression" >> $GITHUB_OUTPUT
           
-          # Read regression details and escape for GitHub output
+          # Read regression details and properly escape JSON special characters
           cd system-tests/tests/load/cre
           REGRESSION_DETAILS=$(cat logs/regression_details.txt || echo "No details available")
-          echo "details<<EOF" >> $GITHUB_OUTPUT
-          echo "$REGRESSION_DETAILS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Escape JSON special characters
+          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/\n/\\n/g' | sed 's/\r/\\r/g' | sed 's/\t/\\t/g')
+          echo "details=$REGRESSION_DETAILS" >> $GITHUB_OUTPUT
 
       - name: Send failure slack notification
         if: failure()
@@ -222,6 +221,8 @@ jobs:
       - name: Send regression slack notification
         if: success() && steps.parse-regressions.outputs.regression_count > 0
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        env:
+          SLACK_DETAILS: "${{ steps.prepare-regression-message.outputs.details }}"
         with:
           errors: "true"
           method: chat.postMessage
@@ -249,7 +250,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Regression Details:*\n```\n${{ steps.prepare-regression-message.outputs.details }}\n```"
+                    "text": "*Regression Details:*\n```\n${{ env.SLACK_DETAILS }}\n```"
                   }
                 }
               ]
