@@ -68,121 +68,114 @@ jobs:
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-#      - name: Set up cAdvisor
-#        shell: bash
-#        run: |
-#          sudo docker run \
-#            --volume=/:/rootfs:ro \
-#            --volume=/var/run:/var/run:ro \
-#            --volume=/sys:/sys:ro \
-#            --volume=/var/lib/docker/:/var/lib/docker:ro \
-#            --volume=/dev/disk/:/dev/disk:ro \
-#            --network host \
-#            --detach=true \
-#            --name=cadvisor \
-#            --privileged \
-#            --device=/dev/kmsg \
-#            gcr.io/cadvisor/cadvisor:latest
-#
-#      - name: Create Prometheus config
-#        shell: bash
-#        run: |
-#          cat > prometheus.yml<<EOF
-#          global:
-#            scrape_interval: 5s
-#
-#          scrape_configs:
-#            - job_name: 'cadvisor'
-#              static_configs:
-#                - targets: ['localhost:8080']
-#          EOF
-#
-#      - name: Start Prometheus
-#        shell: bash
-#        run: |
-#          docker run -d \
-#            --name prometheus \
-#            --network host \
-#            -p 9090:9090 \
-#            -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
-#            prom/prometheus:latest \
-#            --config.file=/etc/prometheus/prometheus.yml
-#
-#      - name: Start the test
-#        shell: bash
-#        env:
-#          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-#          E2E_JD_VERSION: "0.9.0"
-#          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-#          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins-testing', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
-#          # Anvil developer key, not a secret
-#          PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-#          CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
-#          LOAD_TEST: "true"
-#          CI: "true"
-#          GH_SHA: ${{ github.sha }}
-#          # Use local prometheus
-#          PROMETHEUS_URL: "http://localhost:9090"
-#        run: |
-#          cd system-tests/tests/load/cre
-#          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m 2>&1 | tee test_output.log
-#
-#      - name: Parse logs for performance regressions
-#        if: always()
-#        id: parse-regressions
-#        run: |
-#          cd system-tests/tests/load/cre
-#
-#
-#
-#          # Count the number of regressions
-#          regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
-#          echo "regression_count=$regression_count" >> $GITHUB_OUTPUT
-#
-#          if [ $regression_count -gt 0 ]; then
-#            echo "::warning::$regression_count performance regressions detected"
-#            echo "See the regression_reports artifact for details"
-             # Extract detailed PERFORMANCE REGRESSION lines
-#            grep -o "PERFORMANCE REGRESSION.\+" test_output.log | awk '{printf "%s\\\\n", $0}' > logs/regression_details.txt || true
-#          else
-#            echo "No performance regressions detected"
-#          fi
-#
-#      - name: Upload node logs
-#        uses: actions/upload-artifact@v4
-#        timeout-minutes: 2
-#        continue-on-error: true
-#        with:
-#          name: node logs
-#          path: |
-#            system-tests/tests/load/cre/logs
-#          retention-days: 5
-#
-#      - name: Upload performance reports
-#        uses: actions/upload-artifact@v4
-#        timeout-minutes: 2
-#        continue-on-error: true
-#        with:
-#          name: performance reports
-#          path: |
-#            system-tests/tests/load/cre/performance_reports
-#          retention-days: 30
+      - name: Set up cAdvisor
+        shell: bash
+        run: |
+          sudo docker run \
+            --volume=/:/rootfs:ro \
+            --volume=/var/run:/var/run:ro \
+            --volume=/sys:/sys:ro \
+            --volume=/var/lib/docker/:/var/lib/docker:ro \
+            --volume=/dev/disk/:/dev/disk:ro \
+            --network host \
+            --detach=true \
+            --name=cadvisor \
+            --privileged \
+            --device=/dev/kmsg \
+            gcr.io/cadvisor/cadvisor:latest
+
+      - name: Create Prometheus config
+        shell: bash
+        run: |
+          cat > prometheus.yml<<EOF
+          global:
+            scrape_interval: 5s
+
+          scrape_configs:
+            - job_name: 'cadvisor'
+              static_configs:
+                - targets: ['localhost:8080']
+          EOF
+
+      - name: Start Prometheus
+        shell: bash
+        run: |
+          docker run -d \
+            --name prometheus \
+            --network host \
+            -p 9090:9090 \
+            -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+            prom/prometheus:latest \
+            --config.file=/etc/prometheus/prometheus.yml
+
+      - name: Start the test
+        shell: bash
+        env:
+          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
+          E2E_JD_VERSION: "0.9.0"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins-testing', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          # Anvil developer key, not a secret
+          PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+          CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
+          LOAD_TEST: "true"
+          CI: "true"
+          GH_SHA: ${{ github.sha }}
+          # Use local prometheus
+          PROMETHEUS_URL: "http://localhost:9090"
+        run: |
+          cd system-tests/tests/load/cre
+          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m 2>&1 | tee test_output.log
+
+      - name: Parse logs for performance regressions
+        if: always()
+        id: parse-regressions
+        run: |
+          cd system-tests/tests/load/cre
+
+          # Count the number of regressions
+          regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
+          echo "regression_count=$regression_count" >> $GITHUB_OUTPUT
+
+          if [ $regression_count -gt 0 ]; then
+            echo "::warning::$regression_count performance regressions detected"
+            echo "See the regression_reports artifact for details"
+            # Extract detailed PERFORMANCE REGRESSION lines
+            grep -o "PERFORMANCE REGRESSION.\+" test_output.log | awk '{printf "%s\\\\n", $0}' > logs/regression_details.txt
+          else
+            echo "No performance regressions detected"
+          fi
+
+      - name: Upload node logs
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: node logs
+          path: |
+            system-tests/tests/load/cre/logs
+          retention-days: 5
+
+      - name: Upload performance reports
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: performance reports
+          path: |
+            system-tests/tests/load/cre/performance_reports
+          retention-days: 30
 
 
       - name: Create regression slack payload
-#        if: success() && steps.parse-regressions.outputs.regression_count > 0
-        if: success()
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
         id: create-regression-payload
         run: |
           cd system-tests/tests/load/cre
-          mkdir -p logs
           
-          echo "PERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\nPERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\nPERFORMANCE REGRESSION: error_rate increased by 59.09% (baseline: 0.14, current: 0.23, threshold: 10.00%)\\n" > logs/regression_details.txt
-          
-          # Read regression details and properly escape for JSON
+          # Read regression details
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
 
-          
           # Create JSON payload with properly escaped details
           cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
           {
@@ -216,8 +209,7 @@ jobs:
           cat ${{ github.workspace }}/slack_payload.json
 
       - name: Send regression slack notification
-#        if: success() && steps.parse-regressions.outputs.regression_count > 0
-        if: success()
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
         with:
           errors: "true"
