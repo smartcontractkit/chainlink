@@ -1309,7 +1309,7 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			// When no filler was used, pool fees should be 0
 			poolFeeAssertion := assertPoolFeeWithdrawal(big.NewInt(0), ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
 			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test (No Filler)")
-    }
+		}
 		if !tc.expectNoExecutionError {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
 			// We want to ensure regular transfer works as expected
