@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -47,7 +48,7 @@ func (i ConfigureForwardersSeqInput) UseMCMS() bool {
 }
 
 type ConfigureForwardersSeqOutput struct {
-	DonsConfigured        []internal.RegisteredDon
+	//DonsConfigured        []internal.RegisteredDon
 	MCMSTimelockProposals []mcms.TimelockProposal
 }
 
@@ -157,7 +158,7 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 			}
 		}
 
-		out.DonsConfigured = dons
+		//out.DonsConfigured = dons
 
 		return out, nil
 	},

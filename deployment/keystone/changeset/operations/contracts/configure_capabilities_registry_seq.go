@@ -63,12 +63,12 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", input.RegistryChainSel)
 		}
 
-		capabilityRegistry, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		capabilitiesRegistry, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
 		if err != nil {
 			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("failed to get capabilities registry contract: %w", err)
 		}
-		if input.UseMCMS && capabilityRegistry.McmsContracts == nil {
-			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("capabilities registry contract %s is not owned by MCMS", capabilityRegistry.Contract.Address())
+		if input.UseMCMS && capabilitiesRegistry.McmsContracts == nil {
+			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("capabilities registry contract %s is not owned by MCMS", capabilitiesRegistry.Contract.Address())
 		}
 
 		donInfos, err := internal.DonInfos(deps.Dons, deps.Env.Offchain)
@@ -85,7 +85,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 
 		// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonInfos/DonCapabilities
 		// they are unnecessary indirection
-		donToCapabilities, err := internal.MapDonsToCaps(capabilityRegistry.Contract, donInfos)
+		donToCapabilities, err := internal.MapDonsToCaps(capabilitiesRegistry.Contract, donInfos)
 		if err != nil {
 			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("failed to map dons to capabilities: %w", err)
 		}
@@ -96,7 +96,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 
 		_, err = operations.ExecuteOperation(b, AddCapabilitiesOp, AddCapabilitiesOpDeps{
 			Chain:             chain,
-			Contract:          capabilityRegistry.Contract,
+			Contract:          capabilitiesRegistry.Contract,
 			DonToCapabilities: donToCapabilities,
 		}, AddCapabilitiesOpInput{
 			UseMCMS: input.UseMCMS,
@@ -110,7 +110,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 			Env:           deps.Env,
 			RegistryChain: &chain,
 			NopsToNodes:   nopsToNodeIDs,
-			Contract:      capabilityRegistry.Contract,
+			Contract:      capabilitiesRegistry.Contract,
 		}, RegisterNopsOpInput{
 			UseMCMS:          input.UseMCMS,
 			RegistryChainSel: input.RegistryChainSel,
@@ -124,7 +124,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 		nodesReport, err := operations.ExecuteOperation(b, RegisterNodesOp, RegisterNodesOpDeps{
 			Env:               deps.Env,
 			RegistryChain:     &chain,
-			Contract:          capabilityRegistry.Contract,
+			Contract:          capabilitiesRegistry.Contract,
 			NopsToNodeIDs:     nopsToNodeIDs,
 			DonToNodes:        donToNodes,
 			DonToCapabilities: donToCapabilities,
@@ -141,7 +141,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 		donsReport, err := operations.ExecuteOperation(b, RegisterDonsOp, RegisterDonsOpDeps{
 			Env:               deps.Env,
 			RegistryChain:     &chain,
-			Contract:          capabilityRegistry.Contract,
+			Contract:          capabilitiesRegistry.Contract,
 			Dons:              deps.Dons,
 			DonToNodes:        donToNodes,
 			DonToCapabilities: donToCapabilities,

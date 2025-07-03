@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
@@ -35,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -123,7 +122,7 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	stageGen := NewStageGen(9, "STAGE")
+	stageGen := NewStageGen(7, "STAGE")
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 
@@ -290,7 +289,7 @@ func SetupTestEnvironment(
 		updatedNodeSets,
 	)
 	if jobsSeqErr != nil {
-		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to execute setup jobs sequence")
+		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to setup jobs")
 	}
 
 	// Prepare the CLD environment that's required by the keystone changeset
