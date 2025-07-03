@@ -205,11 +205,14 @@ func copyCapabilityAwareNodeSets(
 			continue
 		}
 
-		originalInput := *originalNs.Input
 		newNs := &cretypes.CapabilitiesAwareNodeSet{
-			Input:              &originalInput,
 			BootstrapNodeIndex: originalNs.BootstrapNodeIndex,
 			GatewayNodeIndex:   originalNs.GatewayNodeIndex,
+		}
+
+		if originalNs.Input != nil {
+			inputCopy := *originalNs.Input
+			newNs.Input = &inputCopy
 		}
 
 		if originalNs.Capabilities != nil {
