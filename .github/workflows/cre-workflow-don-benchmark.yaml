@@ -179,7 +179,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C094W1V9A5N", 
+              "channel": "C094W1V9A5N",
               "text": "${{ failure() && 'Test failed' || 'Performance regressions detected' }}",
               "blocks": [
                 {
@@ -197,7 +197,8 @@ jobs:
                   }
                 }
               ]
-          }
+            }
+
 
       - name: Teardown
         if: always()
