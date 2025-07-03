@@ -134,7 +134,7 @@ jobs:
           cd system-tests/tests/load/cre
       
           # Extract detailed PERFORMANCE REGRESSION lines
-          grep -o "PERFORMANCE REGRESSION.\+" test_output.log > logs/regression_details.txt || true
+          grep -o "PERFORMANCE REGRESSION.\+" test_output.log | awk '{printf "%s\<br>", $0}' > logs/regression_details.txt || true
       
           # Count the number of regressions
           regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
@@ -175,9 +175,7 @@ jobs:
           
           # Read regression details and properly escape for JSON
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
-          
-          # Escape backslashes, double quotes and convert newlines to literal \n for JSON
-          REGRESSION_DETAILS=$(echo "$REGRESSION_DETAILS" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
           
           # Create JSON payload with properly escaped details
           cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
@@ -203,7 +201,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*Regression Details:*\\n\`\`\`\\n$REGRESSION_DETAILS\\n\`\`\`"
+                  "text": "*Regression Details:*\\n $REGRESSION_DETAILS"
                 }
               }
             ]
