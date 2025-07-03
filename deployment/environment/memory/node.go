@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"os"
 
 	"crypto/rand"
 	"encoding/hex"
@@ -406,7 +405,6 @@ func NewNode(
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, chaintype.EVM, chaintype.Solana, chaintype.Aptos))
 
-	require.NoError(t, os.Setenv("CL_SOLANA_CMD", "chainlink-solana")) // enable solana plugin
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),

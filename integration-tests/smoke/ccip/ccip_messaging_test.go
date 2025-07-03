@@ -343,6 +343,9 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
+	// enable solana loop mode.
+	t.Setenv("CL_SOLANA_CMD", "chainlink-solana")
+
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
