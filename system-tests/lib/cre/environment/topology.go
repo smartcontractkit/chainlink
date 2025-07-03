@@ -148,10 +148,33 @@ func BuildTopology(
 			}
 		}
 
+		executableErr := libcaps.MakeBinariesExecutable(customBinariesPaths)
+		if executableErr != nil {
+			return nil, nil, errors.Wrap(executableErr, "failed to make binaries executable")
+		}
+
 		var appendErr error
 		localNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
 		if appendErr != nil {
 			return nil, nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
+		}
+	}
+
+	// Add env vars, which were provided programmatically, to the node specs
+	// or fail, if node specs already had some env vars set in the TOML config
+	for donIdx, donMetadata := range topology.DonsMetadata {
+		hasEnvVarsInTomlConfig := false
+		for nodeIdx, nodeSpec := range localNodeSets[donIdx].NodeSpecs {
+			if len(nodeSpec.Node.EnvVars) > 0 {
+				hasEnvVarsInTomlConfig = true
+				break
+			}
+
+			localNodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = localNodeSets[donIdx].EnvVars
+		}
+
+		if hasEnvVarsInTomlConfig && len(localNodeSets[donIdx].EnvVars) > 0 {
+			return nil, nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
 		}
 	}
 

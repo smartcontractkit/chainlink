@@ -216,7 +216,6 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
 
-	startTime = time.Now()
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
@@ -246,7 +245,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", stageGen.Elapsed().Seconds())))
-	startTime = time.Now()
 
 	// start 3 tasks in the background
 	backgroundStagesCount := 3
@@ -280,7 +278,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
 	}()
 
-	fmt.Print(libformat.PurpleText("[Stage 4/6] Starting Job Distributor, DONs and creating Jobs with Job Distributor\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor, DONs and creating Jobs with Job Distributor")))
 
 	jdOutput, nodeSetOutput, jobsSeqErr := SetupJobs(
 		testLogger,
@@ -340,7 +338,7 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	fmt.Print(libformat.PurpleText("\n[Stage 4/6] Jobs created in %.2f seconds\033[0m\n", time.Since(startTime).Seconds()))
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// Fund nodes in the background, so that we can continue with the next stage
 	backgroundStagesWaitGroup.Add(1)
@@ -364,7 +362,7 @@ func SetupTestEnvironment(
 	}()
 
 	startTime = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 5/6] Waiting for Log Poller to start tracking OCR3 contract\n\n"))
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	for idx, nodeSetOut := range nodeSetOutput {
 		if !flags.HasFlag(updatedNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
