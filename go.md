@@ -227,6 +227,8 @@ flowchart LR
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/framework/components/dockercompose --> chainlink-testing-framework/framework
+	click chainlink-testing-framework/framework/components/dockercompose href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib --> chainlink-testing-framework/parrot
@@ -245,6 +247,7 @@ flowchart LR
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
+	chainlink/core/scripts --> chainlink-testing-framework/framework/components/dockercompose
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
@@ -336,6 +339,7 @@ flowchart LR
 
 	subgraph chainlink-testing-framework-repo[chainlink-testing-framework]
 		 chainlink-testing-framework/framework
+		 chainlink-testing-framework/framework/components/dockercompose
 		 chainlink-testing-framework/havoc
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana

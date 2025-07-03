@@ -9,6 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -42,6 +44,7 @@ func NewStandaloneEngine(
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
+	workflowName string,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
@@ -56,7 +59,11 @@ func NewStandaloneEngine(
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
-	name, err := types.NewWorkflowName(defaultName)
+	if workflowName == "" {
+		workflowName = defaultName
+	}
+
+	name, err := types.NewWorkflowName(workflowName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -247,6 +254,18 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
+
+	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
+	if err := registry.Add(ctx, streamsTrigger); err != nil {
+		return nil, err
+	}
+	caps = append(caps, streamsTrigger)
+
+	httpAction := fakes.NewDirectHTTPAction(lggr)
+	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, httpAction)
 
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {

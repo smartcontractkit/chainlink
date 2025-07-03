@@ -276,6 +276,11 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					if !isOpen {
 						return
 					}
+					if event.Err != nil {
+						e.lggr.Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
+						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(srvcCtx)
+						continue
+					}
 					select {
 					case e.allTriggerEventsQueueCh <- enqueuedTriggerEvent{
 						triggerCapID: subs.Subscriptions[idx].Id,
@@ -285,6 +290,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}:
 					default: // queue full, drop the event
 						e.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx)
+						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(srvcCtx)
 					}
 				}
 			}

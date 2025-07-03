@@ -8,6 +8,9 @@ Slack: #topic-local-dev-environments
 1. [Using the CLI](#using-the-cli)
    - [Prerequisites](#prerequisites-for-docker)
    - [Start Environment](#start-environment)
+    - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
+    - [Beholder](#beholder)
+    - [Storage](#storage)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
    - [DX Tracing](#dx-tracing)
@@ -19,8 +22,6 @@ Slack: #topic-local-dev-environments
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
 
-
-
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
     - with usage of default Docker socket **enabled**
@@ -28,36 +29,39 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
 2. **AWS SSO access to SDLC**
-  - REQUIRED: `sdlc` profile
+  - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
 3. **gh cli**
   - To pull the `cre` cli. Minimum version `v.2.50.0`
-
 
    [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
 
 # QUICKSTART
 ```
-go run main.go env setup --config single-don.toml
-go run main.go env start
+AWS_ECR=<PROD_AWS_ACCOUNT_ID> go run . env start --auto-setup
 ```
 
 The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
 If you are missing requirements, you may need to fix the errors and re-run.
-Use `#topic-local-dev-environments` for help
+
+Use `#topic-local-dev-environments` for help.
+
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
-go run main.go env start
+go run . env start
 
 # to start environment with an example workflow web API-based workflow
-go run main.go env start --with-example
+go run . env start --with-example
 
  # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
-go run main.go env start --with-example --example-workflow-trigger cron
+go run . env start --with-example --example-workflow-trigger cron
 
 # to start environment using image with all supported capabilities
-go run main.go env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
+go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
+
+# to start environment with local Beholder
+go run . env start --with-beholder
 ```
 
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
@@ -69,11 +73,28 @@ Optional parameters:
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
-- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in.
+- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
 
 ### Using existing Docker Plugins image
 
 If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
+
+### Beholder
+
+When environment is started with `--with-beholder` or with `-b` flag after the DON is ready  we will boot up `Chip Ingress` and `Red Panda`, create a `cre` topic and download and install workflow-related protobufs from the [chainlink-protos](https://github.com/smartcontractkit/chainlink-protos/tree/main/workflows) repository.
+
+Once up and running you will be able to access [CRE topic view](http://localhost:8080/topics/cre) to see workflow-emitted events. These include both standard events emitted by the Workflow Engine and custom events emitted from your workflow.
+
+#### Filtering out heartbeats
+Heartbeat messages spam the topic, so it's highly recommended that you add a JavaScript filter that will exclude them using the following code: `return value.msg !== 'heartbeat';`.
+
+If environment is aready running you can start just the Beholder stack (and register protos) with:
+```bash
+go run . env start-beholder
+```
+
+> This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
 
 ### Storage
 
@@ -100,7 +121,6 @@ If you are using Blockscout and you restart the environment **you need to restar
 ```bash
 ctf bs r
 ```
-
 ---
 
 ## Further use
@@ -114,7 +134,6 @@ To manage workflows you will need the CRE CLI. You can either:
 Remember that the CRE CLI version needs to match your CPU architecture and operating system.
 
 ---
-
 
 ### Advanced Usage:
 1. **Choose the Right Topology**
@@ -166,8 +185,6 @@ Optional environment variables used by the CLI:
 When starting the environment in AWS-managed Kubernetes make sure to source `.env` environment from the `crib/deployments/cre` folder specific for AWS. Remember, that it must include ingress domain settings.
 
 ---
-
-
 
 ## DX Tracing
 
