@@ -399,7 +399,7 @@ require (
 )
 
 // TODO(gg): temporary, base it on https://github.com/smartcontractkit/chainlink-common/pull/1224
-// replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
 // replace github.com/smartcontractkit/chainlink-common/pkg/values => ../chainlink-common/pkg/values
 
