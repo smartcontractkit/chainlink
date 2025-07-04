@@ -81,8 +81,12 @@ jobs:
         if: ${{ contains(matrix.runner, 'arm') }}
         run: |
           # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
-          rm -f "$(go list -f '{{.Dir}}' github.com/confluentinc/confluent-kafka-go/kafka)/librdkafka_vendor/librdkafka_glibc_linux.a"
-          test ! -f "$(go list -f '{{.Dir}}' github.com/confluentinc/confluent-kafka-go/kafka)/librdkafka_vendor/librdkafka_glibc_linux.a" && echo "✅ File removed"
+          find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a -delete
+          if find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a | grep .; then
+            echo "❌ vendored .a still exists"; exit 1
+          else
+            echo "✅ vendored .a is gone"
+          fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
