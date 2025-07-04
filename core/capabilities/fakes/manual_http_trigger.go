@@ -25,7 +25,7 @@ var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 type ManualHTTPTriggerService struct {
 	capabilities.CapabilityInfo
 	lggr       logger.Logger
-	callbackCh chan capabilities.TriggerAndId[*httpserver.Payload]
+	callbackCh map[string]chan capabilities.TriggerAndId[*httpserver.Payload]
 }
 
 func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerService {
@@ -34,13 +34,14 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerSer
 	return &ManualHTTPTriggerService{
 		CapabilityInfo: manualHTTPTriggerInfo,
 		lggr:           lggr,
-		callbackCh:     make(chan capabilities.TriggerAndId[*httpserver.Payload]),
+		callbackCh:     make(map[string]chan capabilities.TriggerAndId[*httpserver.Payload]),
 	}
 }
 
 // HTTPCapability interface methods
 func (f *ManualHTTPTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httpserver.Config) (<-chan capabilities.TriggerAndId[*httpserver.Payload], error) {
-	return f.callbackCh, nil
+	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*httpserver.Payload])
+	return f.callbackCh[triggerID], nil
 }
 
 func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httpserver.Config) error {
@@ -60,11 +61,11 @@ func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string
 }
 
 // ManualTriggerCapability interface method
-func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *httpserver.Payload) error {
+func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, triggerID string, payload *httpserver.Payload) error {
 	// Run in a goroutine to avoid blocking
 	go func() {
 		select {
-		case f.callbackCh <- f.createManualTriggerEvent(payload):
+		case f.callbackCh[triggerID] <- f.createManualTriggerEvent(payload):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine
