@@ -93,6 +93,11 @@ jobs:
             (steps.changes.outputs.github_ci_changes == 'true' ||
             steps.changes.outputs.core_changes == 'true') &&
             contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          ) ||
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            github.event_name == 'merge_group'
           )
         }}
       # Run CRE tests on PR always, when there are changes to CRE code
@@ -102,7 +107,12 @@ jobs:
           steps.changes.outputs.cre_changes == 'true' ||
           github.event_name == 'workflow_dispatch' ||
           github.ref_type == 'tag' ||
-          (steps.changes.outputs.github_ci_changes == 'true' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests'))
+          (steps.changes.outputs.github_ci_changes == 'true' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')) ||
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.cre_changes == 'true') &&
+            github.event_name == 'merge_group'
+          )
         }}
       # Don't run CCIP E2E tests on PR, unless it's tagged with "run-e2e-tests"
       should-run-ccip-tests: >-
@@ -113,6 +123,11 @@ jobs:
             (steps.changes.outputs.github_ci_changes == 'true' ||
             steps.changes.outputs.ccip_changes == 'true') &&
             contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          ) ||
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.ccip_changes == 'true') &&
+            github.event_name == 'merge_group'
           )
         }}
       # Don't run Solana E2E tests on PR, unless it's tagged with "run-e2e-tests"
@@ -124,6 +139,11 @@ jobs:
             (steps.changes.outputs.github_ci_changes == 'true' ||
             steps.changes.outputs.core_changes == 'true') &&
             contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
+          ) ||
+          (
+            (steps.changes.outputs.github_ci_changes == 'true' ||
+            steps.changes.outputs.core_changes == 'true') &&
+            github.event_name == 'merge_group'
           )
         }}
       builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
