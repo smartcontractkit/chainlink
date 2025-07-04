@@ -134,6 +134,7 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.ReportingPluginFactory = promwrapper.NewReportingPluginFactory(
 		smPluginFactory,
 		lggr,
+		"evm",
 		rid.ChainID,
 		"secure-mint",
 	)
