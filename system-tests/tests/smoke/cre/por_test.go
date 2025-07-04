@@ -3,12 +3,14 @@ package cre
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	"github.com/ethereum/go-ethereum/common"
 	ut "github.com/go-playground/universal-translator"
@@ -62,6 +64,7 @@ import (
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
@@ -188,6 +191,10 @@ type CompiledConfig struct {
 	BinaryURL  string `toml:"binary_url" validate:"required"`
 	ConfigURL  string `toml:"config_url" validate:"required"`
 	SecretsURL string `toml:"secrets_url"`
+
+	BinaryFilePath  string `toml:"secrets_url"`
+	ConfigFilePath  string `toml:"secrets_url"`
+	SecretsFilePath string `toml:"secrets_url"`
 }
 
 func validateEnvVars(t *testing.T, in *TestConfig) {
@@ -232,8 +239,8 @@ type managePoRWorkflowInput struct {
 	creCLIAbsPath      string
 	creCLIsettingsFile *os.File
 	authKey            string
-	creCLIProfile    string
-	s3ProviderOutput *s3provider.Output
+	creCLIProfile      string
+	s3ProviderOutput   *s3provider.Output
 }
 
 type configureDataFeedsCacheInput struct {
@@ -319,38 +326,155 @@ func activatePoRWorkflow(input managePoRWorkflowInput) error {
 	return nil
 }
 
+func deploy(
+	ctx context.Context,
+	input managePoRWorkflowInput,
+	compilationArtifact *creworkflow.CompilationArtifact,
+) error {
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(input.addressBook, input.chainSelector, keystone_changeset.WorkflowRegistry.String())
+	if workflowRegistryErr != nil {
+		return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.chainSelector)
+	}
+
+	return creworkflow.RegisterWithContract(
+		ctx,
+		input.sethClient,
+		workflowRegistryAddress,
+		input.workflowDonID,
+		input.WorkflowName,
+		input.CompiledWorkflowConfig.BinaryURL,
+		&input.CompiledWorkflowConfig.ConfigURL,
+		&input.CompiledWorkflowConfig.SecretsURL,
+		compilationArtifact,
+	)
+}
+
+func compileAndRegister(
+	ctx context.Context,
+	manageInput managePoRWorkflowInput,
+	input cretypes.ManageWorkflowWithCRECLIInput,
+) error {
+	if registerValErr := creworkflow.ValidateRegisterWorkflowInput(input); registerValErr != nil {
+		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
+	}
+
+	creCLIWorkflowSettingsFile := input.CRESettingsFile
+
+	var workflowURL string
+	var workflowConfigURL string
+	var workflowSecretsURL string
+
+	var wasmFilePath string
+	configFilePath := libcrecli.Deref(input.NewWorkflow.ConfigFilePath)
+
+	// compile and upload the workflow, if we are not using an existing one
+	if input.ShouldCompileNewWorkflow {
+		wasmFilePath = filepath.Join(input.NewWorkflow.FolderLocation, "mytestworkflow.wasm.br")
+
+		if input.S3ProviderOutput != nil {
+			creCLI := libcrecli.NewCreCli(input.CRECLIAbsPath)
+
+			err := creCLI.Compile(
+				filepath.Join(input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName),
+				configFilePath,
+				creCLIWorkflowSettingsFile.Name(),
+				wasmFilePath,
+			)
+			if err != nil {
+				return err
+			}
+
+			// TODO: once CRE CLI is fixed remove the rename hack
+			//       hack to address CRE CLI bugs:
+			//       - BUG #1:
+			//         current: flag `-o fileName.wasm.br` produces `fileName.wasm.br.b64`
+			//         expected: flag `-o fileName.wasm.br` should produce `fileName.wasm.br`
+			//       - BUG #2:
+			//         when using `upload` command for `fileName.wasm.br.b64` it returns:
+			//         `Error: failed to create or update object: ... supported extensions: .wasm.br, .json, .yaml, .yml
+			err = os.Rename(wasmFilePath+".b64", wasmFilePath)
+			if err != nil {
+				fmt.Printf("failed to rename workflow binary file (.b64 to .br): %v\n", err)
+			}
+
+			uploadOutput, err := creCLI.Upload(
+				libcrecli.MINIO,
+				wasmFilePath,
+				libcrecli.Deref(input.NewWorkflow.ConfigFilePath),
+				creCLIWorkflowSettingsFile.Name(),
+			)
+			if err != nil {
+				return err
+			}
+
+			// Register to a Node with S3 storage, so need to replace the endpoint
+			// with the base endpoint subjective to the target host.
+			workflowURL = strings.Replace(uploadOutput.BinaryURL, input.S3ProviderOutput.Endpoint, input.S3ProviderOutput.BaseEndpoint, -1)
+			workflowConfigURL = strings.Replace(uploadOutput.ConfigURL, input.S3ProviderOutput.Endpoint, input.S3ProviderOutput.BaseEndpoint, -1)
+			// TODO: handle secrets file upload: probably could be done via Upload() adding argument -f <secrets file>
+		} else {
+			compilationResult, compileErr := libcrecli.CompileWorkflow(input.CRECLIAbsPath, input.NewWorkflow.FolderLocation, input.NewWorkflow.WorkflowFileName, input.NewWorkflow.ConfigFilePath, creCLIWorkflowSettingsFile, input.CRESettingsFile)
+			if compileErr != nil {
+				return errors.Wrap(compileErr, "failed to compile workflow")
+			}
+
+			workflowURL = compilationResult.WorkflowURL
+			workflowConfigURL = compilationResult.ConfigURL
+
+			if input.NewWorkflow.SecretsFilePath != nil && *input.NewWorkflow.SecretsFilePath != "" {
+				secretsURL, secretsErr := libcrecli.EncryptSecrets(input.CRECLIAbsPath, *input.NewWorkflow.SecretsFilePath, input.NewWorkflow.Secrets, creCLIWorkflowSettingsFile)
+				if secretsErr != nil {
+					return errors.Wrap(secretsErr, "failed to encrypt workflow secrets")
+				}
+				workflowSecretsURL = secretsURL
+			}
+		}
+	} else {
+		workflowURL = input.ExistingWorkflow.BinaryURL
+		workflowConfigURL = libcrecli.Deref(input.ExistingWorkflow.ConfigURL)
+		workflowSecretsURL = libcrecli.Deref(input.ExistingWorkflow.SecretsURL)
+	}
+
+	manageInput.CompiledWorkflowConfig = &CompiledConfig{
+		BinaryURL:  workflowURL,
+		ConfigURL:  workflowConfigURL,
+		SecretsURL: workflowSecretsURL,
+	}
+
+	compilationArtifact := &creworkflow.CompilationArtifact{
+		BinaryURL:  workflowURL,
+		ConfigURL:  workflowConfigURL,
+		SecretsURL: workflowSecretsURL,
+
+		BinaryFilePath:  wasmFilePath,
+		ConfigFilePath:  configFilePath,
+		SecretsFilePath: "",
+	}
+
+	deployErr := deploy(
+		ctx,
+		manageInput,
+		compilationArtifact,
+	)
+
+	if deployErr != nil {
+		return errors.Wrap(deployErr, "failed to deploy workflow")
+	}
+
+	return nil
+}
+
 func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) error {
 	// Register workflow directly using the provided binary URL and optionally config and secrets URLs
 	// This is a legacy solution, probably we can remove it soon, but there's still quite a lot of people
 	// who have no access to dev-platform repo, so they cannot use the CRE CLI
 	if !input.ShouldCompileNewWorkflow && !input.UseCRECLI {
-		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(input.addressBook, input.chainSelector, keystone_changeset.WorkflowRegistry.String())
-		if workflowRegistryErr != nil {
-			return errors.Wrapf(workflowRegistryErr, "failed to find workflow registry address for chain %d", input.chainSelector)
-		}
-
-		err := creworkflow.RegisterWithContract(
+		return deploy(
 			ctx,
-			input.sethClient,
-			workflowRegistryAddress,
-			input.workflowDonID,
-			input.WorkflowName,
-			input.CompiledWorkflowConfig.BinaryURL,
-			&input.CompiledWorkflowConfig.ConfigURL,
-			&input.CompiledWorkflowConfig.SecretsURL,
+			input,
+			creworkflow.NoCompilationArtifact,
 		)
-		if err != nil {
-			return errors.Wrap(err, "failed to register workflow")
-		}
-
-		return nil
 	}
-
-	// This env var is required by the CRE CLI
-	//err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
-	//if err != nil {
-	//	return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
-	//}
 
 	// create workflow-specific config file
 	var secretNameToUse *string
@@ -363,6 +487,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 		return errors.Wrapf(dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", input.chainSelector)
 	}
 
+	// TODO: reconsider this, could be excessive to write this config again
 	// pass nil if no secrets are used, otherwise workflow will fail if it cannot find the secret
 	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(dataFeedsCacheAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName, secretNameToUse)
 	if configErr != nil {
@@ -389,6 +514,11 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 		secretsFilePath = ptr.Ptr(secretsFile.Name())
 	}
 
+	// TODO: This type creation could be removed!
+	//       It could be tempting to use buildManageWorkflowInput(), but
+	//       compileAndRegister() probably
+	//       should be only needing `managePoRWorkflowInput`.
+	//       To be refactored ..
 	registerWorkflowInput := types.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
@@ -420,7 +550,11 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 		}
 	}
 
-	registerErr := creworkflow.RegisterWithCRECLI(registerWorkflowInput)
+	registerErr := compileAndRegister(
+		ctx,
+		input,
+		registerWorkflowInput,
+	)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow with CRE CLI")
 	}
