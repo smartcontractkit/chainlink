@@ -3,10 +3,11 @@ package utils
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"gopkg.in/yaml.v3"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
