@@ -30,7 +30,7 @@ type FakeEVMChain struct {
 	lggr logger.Logger
 
 	// log trigger callback channel
-	callbackCh chan commonCap.TriggerAndId[*evmcappb.Log]
+	callbackCh map[string]chan commonCap.TriggerAndId[*evmcappb.Log]
 }
 
 var evmExecInfo = commonCap.MustNewCapabilityInfo(
@@ -49,7 +49,7 @@ func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKe
 		lggr:           lggr,
 		gethClient:     gethClient,
 		privateKey:     privateKey,
-		callbackCh:     make(chan commonCap.TriggerAndId[*evmcappb.Log]),
+		callbackCh:     make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -120,7 +120,8 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 }
 
 func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmcappb.Log], error) {
-	return fc.callbackCh, nil
+	fc.callbackCh[triggerID] = make(chan commonCap.TriggerAndId[*evmcappb.Log])
+	return fc.callbackCh[triggerID], nil
 }
 
 func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) error {
@@ -132,7 +133,7 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmcappb.Log) er
 
 	go func() {
 		select {
-		case fc.callbackCh <- fc.createManualTriggerEvent(log):
+		case fc.callbackCh[triggerID] <- fc.createManualTriggerEvent(log):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine
