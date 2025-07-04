@@ -30,7 +30,11 @@ jobs:
   test-cli:
     strategy:
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [
+          ubuntu-latest,
+          # can't work due to arch mismatch of kafka librdkafka .a file bundled with the package
+          # ubuntu-24.04-arm,
+          ]
     runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
@@ -77,6 +81,7 @@ jobs:
             echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
           fi
 
+      # this doesn't work, we cannot delete the file, because it's read-only
       - name: Delete vendored static librdkafka (.a) to avoid arch mismatch
         if: ${{ contains(matrix.runner, 'arm') }}
         run: |
