@@ -199,7 +199,7 @@ func NewFunctionsHandler(
 	}
 }
 
-func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
 	return errors.New("functions handler does not support JSON-RPC user messages")
 }
 
@@ -269,7 +269,7 @@ func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, 
 	return nil
 }
 
-func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := hc.ValidatedMessageFromResp(resp)
 	if err != nil {
 		h.lggr.Debugw("HandleNodeMessage: failed to validate message", "error", err, "nodeAddr", nodeAddr)
