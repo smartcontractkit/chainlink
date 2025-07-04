@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -307,6 +308,64 @@ func TestServiceLifecycle(t *testing.T) {
 		err = handler.Close()
 		require.NoError(t, err)
 	})
+}
+
+type mockResponseCache struct {
+	deleteExpiredCh chan struct{}
+}
+
+func newMockResponseCache() *mockResponseCache {
+	return &mockResponseCache{
+		deleteExpiredCh: make(chan struct{}),
+	}
+}
+
+func (m *mockResponseCache) Set(gateway.OutboundHTTPRequest, gateway.OutboundHTTPResponse, time.Duration) {
+}
+
+func (m *mockResponseCache) Get(gateway.OutboundHTTPRequest) *gateway.OutboundHTTPResponse {
+	return nil
+}
+
+func (m *mockResponseCache) DeleteExpired() int {
+	select {
+	case m.deleteExpiredCh <- struct{}{}:
+	default:
+	}
+	return 0
+}
+
+func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
+	cfg := serviceCfg()
+	cfg.CleanUpPeriodMs = 100 // fast cleanup for test
+
+	configBytes, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	donConfig := &config.DONConfig{DonId: "test-don"}
+	mockDon := handlermocks.NewDON(t)
+	mockHTTPClient := httpmocks.NewHTTPClient(t)
+	lggr := logger.Test(t)
+
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+	mockCache := newMockResponseCache()
+	handler.responseCache = mockCache
+
+	ctx := t.Context()
+	err = handler.Start(ctx)
+	require.NoError(t, err)
+
+	// Wait for DeleteExpired to be called at least once
+	select {
+	case <-mockCache.deleteExpiredCh:
+		// Success
+	case <-ctx.Done():
+		t.Fatal("DeleteExpired was not called within context deadline")
+	}
+	err = handler.Close()
+	require.NoError(t, err)
 }
 
 func serviceCfg() ServiceConfig {
