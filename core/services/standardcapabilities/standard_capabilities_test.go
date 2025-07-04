@@ -38,7 +38,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 				Network:            "evm",
 			}}
 
-		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{}, &gatewayConnectorMock{})
+		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{}, &gatewayConnectorMock{}, &keystoreMock{})
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
@@ -59,6 +59,15 @@ func (k *kvstoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
 }
 func (k *kvstoreMock) Get(ctx context.Context, key string) ([]byte, error) {
+	return nil, nil
+}
+
+type keystoreMock struct{}
+
+func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
+	return nil, nil
+}
+func (k *keystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
 
