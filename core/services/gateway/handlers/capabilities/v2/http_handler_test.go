@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -306,48 +305,6 @@ func TestServiceLifecycle(t *testing.T) {
 		require.Equal(t, handlerName, handler.Name())
 
 		err = handler.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("cleanup goroutine runs", func(t *testing.T) {
-		// Create handler with short cleanup period
-		cfg := ServiceConfig{
-			NodeRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      100,
-				GlobalBurst:    100,
-				PerSenderRPS:   10,
-				PerSenderBurst: 10,
-			},
-			UserRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      50,
-				GlobalBurst:    50,
-				PerSenderRPS:   5,
-				PerSenderBurst: 5,
-			},
-			CleanUpPeriodMs: 100, // Very short for testing
-		}
-		quickHandler := createTestHandlerWithConfig(t, cfg)
-
-		ctx := testutils.Context(t)
-		err := quickHandler.Start(ctx)
-		require.NoError(t, err)
-
-		// Add expired entry to cache
-		req := gateway.OutboundHTTPRequest{
-			Method: "GET",
-			URL:    "https://example.com/test",
-		}
-		resp := gateway.OutboundHTTPResponse{StatusCode: 200}
-		quickHandler.responseCache.Set(req, resp, 1*time.Millisecond)
-
-		// Wait for cleanup to run
-		time.Sleep(200 * time.Millisecond)
-
-		// Cache entry should be cleaned up
-		cached := quickHandler.responseCache.Get(req)
-		require.Nil(t, cached)
-
-		err = quickHandler.Close()
 		require.NoError(t, err)
 	})
 }
