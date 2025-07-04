@@ -220,7 +220,7 @@ jobs:
         if: needs.changes.outputs.should-run-core-tests == 'true' || needs.changes.outputs.should-run-cre-tests == 'true' || needs.changes.outputs.should-run-ccip-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
+          image-tag: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: "chainlink"
@@ -246,8 +246,8 @@ jobs:
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets: inherit
 
   #TODO migrate to using cre-system-tests.yaml once it has soaked in
@@ -264,7 +264,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue CRE E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -307,8 +307,8 @@ jobs:
     if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-     chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+     chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+     chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
       inherit
 
@@ -324,8 +324,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
     with:
-     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-     chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+     chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+     chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
       inherit
 
@@ -342,7 +342,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -386,7 +386,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -432,7 +432,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Push
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Push E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -478,7 +478,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Workflow Dispatch E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -523,7 +523,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
@@ -570,7 +570,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
@@ -619,7 +619,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Push
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
@@ -668,7 +668,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       test_trigger: Workflow Dispatch E2E CCIP Tests
