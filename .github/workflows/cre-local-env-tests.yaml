@@ -27,15 +27,6 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  log-workflow-trigger:
-    name: Log Workflow Trigger
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log Workflow Trigger
-        run: |
-          echo "Workflow Trigger: ${{ github.event_name }}"
-
   test-cli:
     strategy:
       matrix:
@@ -59,6 +50,13 @@ jobs:
         with:
           go-version-file: core/scripts/go.mod
           cache: true
+
+      - name: Install librdkafka
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # install librdkafka-dev for arm runners to avoid using static librdkafka_glibc_linux.a, which is compiled for x86_64
+          sudo apt-get update
+          sudo apt-get install -y librdkafka-dev
 
       - name: Download Go dependencies
         id: go-deps
@@ -200,7 +198,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C0364FG2CN9",
+              "channel": "C0948PT3X38",
               "text": "Local CRE environment failed to start",
               "blocks": [
                 {
