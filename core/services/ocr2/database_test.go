@@ -521,7 +521,6 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := ocr2.NewDB(sqlDB, 0, defaultPluginID, lggr)
 	cd1 := testhelpers.MakeConfigDigest(t)
-	cd2 := testhelpers.MakeConfigDigest(t)
 	ctx := testutils.Context(t)
 
 	assertCount := func(expected int64) {
@@ -536,6 +535,12 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 		assert.NoError(t, err)
 
 		assertCount(1)
+
+		block = []byte("hello world 2")
+		err = db.WriteBlock(ctx, cd1, math.Uint64Max, block)
+		assert.NoError(t, err)
+
+		assertCount(2)
 
 		gotBlock, err := db.ReadBlock(ctx, cd1, 0)
 		require.NoError(t, err)
