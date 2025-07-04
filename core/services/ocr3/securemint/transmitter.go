@@ -171,9 +171,13 @@ func (t *transmitter) Transmit(
 			Signature: sig.Signature,
 		}
 	}
+
+	// TODO(gg): should we use commoncap.OCRTriggerEvent instead?
 	outputs, err := values.NewMap(map[string]any{
-		"report": report.Report,
-		"sigs":   capSigs,
+		"report":       report,
+		"sigs":         capSigs,
+		"seqNr":        seqNr,
+		"configDigest": cd,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create outputs map: %w", err)
@@ -191,11 +195,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.T
 	defer t.mu.Unlock()
 
 	capResponse := capabilities.TriggerResponse{
-		Event: capabilities.TriggerEvent{
-			TriggerType: t.CapabilityInfo.ID,
-			ID:          event.ID,
-			Outputs:     event.Outputs,
-		},
+		Event: *event,
 	}
 
 	t.eng.Debugw("ProcessReport pushing event", "eventID", event.ID)
