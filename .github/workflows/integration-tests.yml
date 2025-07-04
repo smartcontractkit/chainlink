@@ -284,7 +284,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue CRE E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -362,7 +362,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For PR
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -406,7 +406,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -452,7 +452,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Push
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Push E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -498,7 +498,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run Core E2E Tests For Workflow Dispatch
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Workflow Dispatch E2E Core Tests
       # Run tests with flakeguard and rerun failed tests once
@@ -543,7 +543,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For PR
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
@@ -590,7 +590,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
@@ -639,7 +639,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Push
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
@@ -688,7 +688,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@08494221eaae4aff37a01669818cff24a4f80b4c # 2025-06-20
     with:
       workflow_name: Run CCIP E2E Tests For Workflow Dispatch
-      chainlink_version: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
       test_trigger: Workflow Dispatch E2E CCIP Tests
