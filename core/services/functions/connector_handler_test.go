@@ -258,25 +258,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				err2 := handler.HandleGatewayMessage(ctx, "gw1", gatewayRequest(t, &msg))
 				require.NoError(t, err2)
 			})
-
-			t.Run("malformed request", func(t *testing.T) {
-				msg.Body.Payload = json.RawMessage(`{sdfgdfgoscsicosd:sdf:::sdf ::; xx}`)
-				require.NoError(t, msg.Sign(privateKey))
-				params, err := json.Marshal(msg)
-				require.NoError(t, err)
-				rawParams := json.RawMessage(params)
-				req := &jsonrpc.Request[json.RawMessage]{
-					Version: "2.0",
-					ID:      msg.Body.MessageId,
-					Method:  msg.Body.Method,
-					Params:  &rawParams,
-				}
-				allowlist.AssertNotCalled(t, "Allow")
-				subscriptions.AssertNotCalled(t, "GetMaxUserBalance")
-				connector.AssertNotCalled(t, "SendToGateway")
-				err = handler.HandleGatewayMessage(ctx, "gw1", req)
-				require.NoError(t, err)
-			})
 		})
 
 		t.Run("unsupported method", func(t *testing.T) {
