@@ -128,7 +128,7 @@ func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID stri
 	return nil
 }
 
-func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmcappb.Log) error {
+func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log *evmcappb.Log) error {
 	fc.eng.Debugf("ManualTrigger: %s", log.String())
 
 	go func() {
