@@ -520,7 +520,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 	//       should be only needing `managePoRWorkflowInput`.
 	//       To be refactored ..
 	registerWorkflowInput := types.ManageWorkflowWithCRECLIInput{
-		ChainSelector:            input.chainSelector,
+		ChainSelector:            input.homeChainSelector,
 		WorkflowDonID:            input.workflowDonID,
 		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
 		CRECLIPrivateKey:         input.deployerPrivateKey,
