@@ -624,6 +624,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
+		creServices.externalPeerWrapper,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
@@ -832,6 +833,11 @@ type CREServices struct {
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+
+	// externalPeerWrapper is the wrapper for external peering
+	// it is exposed because there are contingent services in the application
+	externalPeerWrapper p2ptypes.PeerWrapper
+
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
 }
@@ -1024,6 +1030,7 @@ func newCREServices(
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
 		srvs:                    srvcs,
 	}, nil
 }

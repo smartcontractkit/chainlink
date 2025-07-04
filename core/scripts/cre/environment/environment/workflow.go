@@ -12,8 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
@@ -23,6 +26,20 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
+var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
+	Use:   "deploy-verify-example",
+	Short: "Deploys and verifies example (optionally)",
+	Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
+		if timeoutErr != nil {
+			return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
+		}
+
+		return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, chainIDFlag, timeout, exampleWorkflowTriggerFlag)
+	},
+}
+
 type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error
 
 func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error {
@@ -31,6 +48,8 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		select {
 		case <-time.After(waitTime):
 			fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
+
+			return fmt.Errorf("example workflow failed to execute successfully within %s", waitTime)
 		case <-time.Tick(ticker):
 			triggerErr := trigger.WebAPITriggerValue(gatewayURL, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x9A99f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE", privateKey, 5*time.Minute)
 			if triggerErr == nil {
@@ -45,6 +64,8 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 				}
 
 				fmt.Printf("\nTrying to verify workflow again in %.2f seconds...\n\n", ticker.Seconds())
+			} else {
+				framework.L.Debug().Msgf("failed to trigger web API trigger: %s", triggerErr)
 			}
 		}
 	}

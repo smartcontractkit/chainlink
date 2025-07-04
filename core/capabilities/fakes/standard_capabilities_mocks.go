@@ -23,6 +23,15 @@ func (k *KVStoreMock) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, nil
 }
 
+type KeystoreMock struct{}
+
+func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
+	return nil, nil
+}
+func (k *KeystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	return nil, nil
+}
+
 type ErrorLogMock struct{}
 
 func (e *ErrorLogMock) SaveError(ctx context.Context, msg string) error {

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/stretchr/testify/require"
 )
@@ -88,9 +89,14 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 
 	r.backend.Commit()
 
+	peerIDs := make([][32]byte, 0, len(donInfo.p2pKeys))
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
-	for _, peerID := range donInfo.peerIDs {
-		n, innerErr := peerToNode(r.nodeOperatorID, peerID)
+	for i, p2pkey := range donInfo.p2pKeys {
+		signer, innerErr := getSignerStringFromOCRKeyBundle(donInfo.KeyBundles[i])
+		require.NoError(r.t, innerErr)
+		peer := peerIDAndOCRSigner{PeerID: p2ptypes.PeerID(p2pkey.PeerID()), Signer: signer}
+		peerIDs = append(peerIDs, p2pkey.PeerID())
+		n, innerErr := peerToNode(r.nodeOperatorID, peer)
 		require.NoError(r.t, innerErr)
 
 		n.HashedCapabilityIds = hashedCapabilityIDs
@@ -100,9 +106,6 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	_, err = r.contract.AddNodes(r.backend.transactionOpts, nodes)
 	require.NoError(r.t, err)
 	r.backend.Commit()
-
-	ps, err := peers(donInfo.peerIDs)
-	require.NoError(r.t, err)
 
 	var capabilityConfigurations []kcr.CapabilitiesRegistryCapabilityConfiguration
 	for i, c := range capabilities {
@@ -115,7 +118,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 		})
 	}
 
-	_, err = r.contract.AddDON(r.backend.transactionOpts, ps, capabilityConfigurations, true, donInfo.AcceptsWorkflows, donInfo.F)
+	_, err = r.contract.AddDON(r.backend.transactionOpts, peerIDs, capabilityConfigurations, true, donInfo.AcceptsWorkflows, donInfo.F)
 	require.NoError(r.t, err)
 	r.backend.Commit()
 
