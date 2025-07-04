@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"context"
+	"encoding/json"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -69,7 +70,7 @@ func (g *GatewayConnectorMock) AddHandler(context.Context, []string, core.Gatewa
 	return nil
 }
 
-func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response[any]) error {
+func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response[json.RawMessage]) error {
 	return nil
 }
 

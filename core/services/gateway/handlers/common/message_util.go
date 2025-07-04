@@ -34,7 +34,7 @@ func ValidatedMessageFromResp(resp *jsonrpc.Response[json.RawMessage]) (*api.Mes
 
 // ValidatedMessageFromReq validated and extracts a legacy Gateway Message
 // from params field of JSON-RPC request
-func ValidatedMessageFromReq(req *jsonrpc.Request[any]) (*api.Message, error) {
+func ValidatedMessageFromReq(req *jsonrpc.Request[json.RawMessage]) (*api.Message, error) {
 	if req.Version != "2.0" {
 		return nil, errors.New("incorrect jsonrpc version")
 	}
@@ -45,11 +45,7 @@ func ValidatedMessageFromReq(req *jsonrpc.Request[any]) (*api.Message, error) {
 		return nil, errors.New("missing params attribute")
 	}
 	var m api.Message
-	bytes, ok := (*req.Params).([]byte)
-	if !ok {
-		return nil, errors.New("params is not a []byte")
-	}
-	err := json.Unmarshal(bytes, &m)
+	err := json.Unmarshal(*req.Params, &m)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal request params: %w", err)
 	}
@@ -63,7 +59,7 @@ func ValidatedMessageFromReq(req *jsonrpc.Request[any]) (*api.Message, error) {
 }
 
 // ValidatedResponseFromMessage converts a legacy Gateway Message to a JSON-RPC response
-func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[any], error) {
+func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[json.RawMessage], error) {
 	if msg == nil {
 		return nil, errors.New("nil message")
 	}
@@ -74,11 +70,11 @@ func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[any], err
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message: %w", err)
 	}
-	resBytes := any(res)
-	resp := &jsonrpc.Response[any]{
+	rawResult := json.RawMessage(res)
+	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
-		Result:  &resBytes,
+		Result:  &rawResult,
 	}
 	return resp, nil
 }
