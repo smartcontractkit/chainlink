@@ -58,9 +58,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y librdkafka-dev
 
-          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
-          rm -f $(go list -f '{{.Dir}}' -m github.com/confluentinc/confluent-kafka-go)/kafka/librdkafka_vendor/librdkafka_glibc_linux.a
-
       - name: Download Go dependencies
         id: go-deps
         working-directory: core/scripts/cre/environment
@@ -79,6 +76,12 @@ jobs:
             total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
             echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
           fi
+
+      - name: Delete incompatible static archive
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
+          rm -f $(go list -f '{{.Dir}}' -m github.com/confluentinc/confluent-kafka-go)/kafka/librdkafka_vendor/librdkafka_glibc_linux.a
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
