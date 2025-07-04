@@ -109,9 +109,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -130,7 +130,17 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		})).Return(nil).Once()
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -148,9 +158,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -170,7 +180,17 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -184,9 +204,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -204,7 +224,17 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -294,7 +324,17 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodes[0].Address)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodes[0].Address)
 		require.NoError(t, err)
 
 		userPayload := <-ch
@@ -413,9 +453,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -435,7 +475,17 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -453,9 +503,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -475,7 +525,17 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -489,9 +549,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -509,7 +569,17 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		rawResult := json.RawMessage(bytes)
+		jsonResponse := &jsonrpc.Response[json.RawMessage]{
+			Version: resp.Version,
+			ID:      resp.ID,
+			Result:  &rawResult,
+		}
+		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -521,7 +591,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	})
 }
 
-func nodeRequest(msg *api.Message) *jsonrpc.Request {
+func nodeRequest(msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	req, err := hc.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create node request: %v", err))

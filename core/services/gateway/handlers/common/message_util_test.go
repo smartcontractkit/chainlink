@@ -34,13 +34,14 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	require.NoError(t, err)
 	params, err := json.Marshal(validMsg)
 	require.NoError(t, err)
+	anyParams := any(params)
 
 	t.Run("valid request", func(t *testing.T) {
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[any]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
-			Params:  params,
+			Params:  &anyParams,
 		}
 		msg, err := ValidatedMessageFromReq(req)
 		require.NoError(t, err)
@@ -51,13 +52,13 @@ func TestValidatedMessageFromReq(t *testing.T) {
 
 	t.Run("invalid message", func(t *testing.T) {
 		invalidMsg := unsignedMessage()
-		invalidParams, err := json.Marshal(invalidMsg)
+		invalidParams := any(invalidMsg)
 		require.NoError(t, err)
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[any]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
-			Params:  invalidParams,
+			Params:  &invalidParams,
 		}
 		_, err = ValidatedMessageFromReq(req)
 		require.Error(t, err)
@@ -65,11 +66,11 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("incorrect jsonrpc version", func(t *testing.T) {
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[any]{
 			Version: "1.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
-			Params:  params,
+			Params:  &anyParams,
 		}
 		msg, err := ValidatedMessageFromReq(req)
 		require.Nil(t, msg)
@@ -77,11 +78,11 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("empty method field", func(t *testing.T) {
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[any]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "",
-			Params:  params,
+			Params:  &anyParams,
 		}
 		msg, err := ValidatedMessageFromReq(req)
 		require.Nil(t, msg)
@@ -89,7 +90,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("missing params attribute", func(t *testing.T) {
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[any]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
@@ -101,11 +102,12 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("invalid params json", func(t *testing.T) {
-		req := &jsonrpc.Request{
+		anyParams := any([]byte(`{invalid json}`))
+		req := &jsonrpc.Request[any]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
-			Params:  []byte(`{invalid json}`),
+			Params:  &anyParams,
 		}
 		msg, err := ValidatedMessageFromReq(req)
 		require.Nil(t, msg)
@@ -122,12 +124,13 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	require.NoError(t, err)
 	result, err := json.Marshal(validMsg)
 	require.NoError(t, err)
+	rawResult := json.RawMessage(result)
 
 	t.Run("valid response", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
-			Result:  result,
+			Result:  &rawResult,
 		}
 		msg, err := ValidatedMessageFromResp(resp)
 		require.NoError(t, err)
@@ -137,7 +140,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("response with error", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Error:   &jsonrpc.WireError{Code: 1, Message: "some error"},
@@ -148,7 +151,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("nil result", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Result:  nil,
@@ -159,10 +162,11 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("invalid result json", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		rawResult := json.RawMessage([]byte(`{invalid json}`))
+		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
-			Result:  []byte(`{invalid json}`),
+			Result:  &rawResult,
 		}
 		msg, err := ValidatedMessageFromResp(resp)
 		require.Nil(t, msg)
@@ -173,10 +177,11 @@ func TestValidatedMessageFromResp(t *testing.T) {
 		invalidMsg := unsignedMessage()
 		result, err := json.Marshal(invalidMsg)
 		require.NoError(t, err)
-		resp := &jsonrpc.Response{
+		rawResult := json.RawMessage(result)
+		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
-			Result:  result,
+			Result:  &rawResult,
 		}
 		msg, err := ValidatedMessageFromResp(resp)
 		require.Nil(t, msg)
@@ -195,7 +200,11 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 		require.Equal(t, "msg-123", resp.ID)
 		require.NotNil(t, resp.Result)
 		var msg api.Message
-		err = json.Unmarshal(resp.Result, &msg)
+		bytes, ok := (*resp.Result).([]byte)
+		if !ok {
+			require.Fail(t, "result is not a []byte")
+		}
+		err = json.Unmarshal(bytes, &msg)
 		require.NoError(t, err)
 		require.Equal(t, validMsg.Body.Method, msg.Body.Method)
 		require.Equal(t, validMsg.Body.MessageId, msg.Body.MessageId)
@@ -229,7 +238,7 @@ func TestValidatedRequestFromMessage(t *testing.T) {
 		require.Equal(t, validMsg.Body.Method, req.Method)
 		require.NotNil(t, req.Params)
 		var msg api.Message
-		err = json.Unmarshal(req.Params, &msg)
+		err = json.Unmarshal(*req.Params, &msg)
 		require.NoError(t, err)
 		require.Equal(t, validMsg.Body.Method, msg.Body.Method)
 		require.Equal(t, validMsg.Body.MessageId, msg.Body.MessageId)
