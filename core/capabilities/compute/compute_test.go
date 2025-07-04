@@ -463,8 +463,6 @@ func gatewayResponse(t *testing.T, msgID string, body []byte, privateKey string)
 	err = m.Sign(key)
 	require.NoError(t, err)
 	req, err := hc.ValidatedRequestFromMessage(m)
-	rawResult := json.RawMessage(responsePayload)
-	req.Params = &rawResult
 	require.NoError(t, err)
 	return req
 }
