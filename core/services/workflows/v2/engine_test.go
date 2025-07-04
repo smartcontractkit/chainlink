@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,15 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction"
-	basicactionmock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction/basic_actionmock"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger"
-	basictriggermock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger/basic_triggermock"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
+	sdkpbmod "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -46,6 +42,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
+	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+	basictriggermock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger/mock"
+	sdkpb "github.com/smartcontractkit/cre-sdk-go/sdk/pb"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 )
 
 func TestEngine_Init(t *testing.T) {
@@ -225,17 +227,17 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
-func newTriggerSubs(n int) *sdkpb.ExecutionResult {
-	subs := make([]*sdkpb.TriggerSubscription, 0, n)
+func newTriggerSubs(n int) *sdkpbmod.ExecutionResult {
+	subs := make([]*sdkpbmod.TriggerSubscription, 0, n)
 	for i := range n {
-		subs = append(subs, &sdkpb.TriggerSubscription{
+		subs = append(subs, &sdkpbmod.TriggerSubscription{
 			Id:     fmt.Sprintf("id_%d", i),
 			Method: "method",
 		})
 	}
-	return &sdkpb.ExecutionResult{
-		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
-			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
+	return &sdkpbmod.ExecutionResult{
+		Result: &sdkpbmod.ExecutionResult_TriggerSubscriptions{
+			TriggerSubscriptions: &sdkpbmod.TriggerSubscriptionRequest{
 				Subscriptions: subs,
 			},
 		},
@@ -295,13 +297,13 @@ func TestEngine_Execution(t *testing.T) {
 
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
-				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+				func(_ context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
 					wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
 					capExec, ok := executor.(*v2.ExecutionHelper)
 					require.True(t, ok)
 					require.Equal(t, wantExecID, capExec.WorkflowExecutionID)
-					require.Equal(t, uint64(0), request.Request.(*sdkpb.ExecuteRequest_Trigger).Trigger.Id)
+					require.Equal(t, uint64(0), request.Request.(*sdkpbmod.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).
 			Return(nil, nil).
@@ -381,7 +383,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Mock a long-running execution that will exceed the timeout
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate work that takes longer than the 100ms timeout
 			select {
 			case <-time.After(200 * time.Millisecond):
@@ -503,9 +505,9 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Mock workflow execution that calls the slow capability
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate calling the slow capability from within the workflow
-			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
+			_, errCap := executor.CallCapability(ctx, &sdkpbmod.CapabilityRequest{
 				Id:         "slow-capability",
 				Method:     "execute",
 				CallbackId: 1,
@@ -560,7 +562,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -572,16 +574,16 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpb.ExecutionResult) {
+		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
 
 	triggerMock, basicActionMock := setupExpectedCalls(t)
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
-	wrappedActionMock := &registry.CapabilityWrapper{
+	wrappedActionMock := &CapabilityWrapper{
 		Capability: basicActionMock,
 	}
 
@@ -621,7 +623,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *sdkpb.ExecutionResult_Value:
+		case *sdkpbmod.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any
@@ -672,7 +674,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -684,7 +686,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpb.ExecutionResult) {
+		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -696,7 +698,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		require.Equal(t, giveNum, input.Number)
 		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
 	}
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
 	beholderObserver := beholdertest.NewObserver(t)
@@ -718,7 +720,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *sdkpb.ExecutionResult_Value:
+		case *sdkpbmod.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any
@@ -799,7 +801,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -811,7 +813,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpb.ExecutionResult) {
+		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -823,7 +825,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		require.Equal(t, giveNum, input.Number)
 		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
 	}
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
 
@@ -831,7 +833,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
 		cfg.Lggr,
-		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
+		v2.NewSemaphore[[]*sdkpbmod.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		func(shares []string) (string, error) {
@@ -854,7 +856,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	switch output := res.Result.(type) {
-	case *sdkpb.ExecutionResult_Value:
+	case *sdkpbmod.ExecutionResult_Value:
 		var value values.Value
 		var execErr error
 		var unwrapped any
@@ -985,4 +987,73 @@ func newNode(t *testing.T) capabilities.Node {
 	return capabilities.Node{
 		PeerID: &peerID,
 	}
+}
+
+type CapabilityWrapper struct {
+	registry.Capability
+}
+
+var _ capabilities.ExecutableAndTriggerCapability = (*CapabilityWrapper)(nil)
+
+func (c *CapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	ch := make(chan capabilities.TriggerResponse, 1)
+	trigger, err := c.InvokeTrigger(ctx, &sdkpb.TriggerSubscription{
+		Id:      request.TriggerID,
+		Payload: request.Payload,
+		Method:  request.Method,
+	})
+
+	response := capabilities.TriggerResponse{}
+	if err != nil {
+		response.Err = err
+	} else if trigger == nil {
+		return nil, nil
+	} else {
+		response.Event = capabilities.TriggerEvent{
+			TriggerType: request.TriggerID,
+			Payload:     trigger.Payload,
+		}
+	}
+
+	ch <- response
+	close(ch)
+	return ch, nil
+}
+
+func (c *CapabilityWrapper) UnregisterTrigger(_ context.Context, _ capabilities.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) RegisterToWorkflow(_ context.Context, _ capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) UnregisterFromWorkflow(_ context.Context, _ capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	v1Request := capabilitiespb.CapabilityRequestToProto(request)
+	v2Request := &sdkpb.CapabilityRequest{
+		Id:      v1Request.Metadata.ReferenceId,
+		Payload: v1Request.Payload,
+		Method:  v1Request.Method,
+	}
+
+	v2Response := c.Invoke(ctx, v2Request)
+	switch r := v2Response.Response.(type) {
+	case *sdkpb.CapabilityResponse_Error:
+		return capabilities.CapabilityResponse{}, errors.New(r.Error)
+	case *sdkpb.CapabilityResponse_Payload:
+		return capabilities.CapabilityResponse{
+			Payload: r.Payload,
+		}, nil
+	default:
+		return capabilities.CapabilityResponse{}, fmt.Errorf("unknown capability response type: %T", r)
+	}
+}
+
+func (c *CapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
+	return capabilities.NewCapabilityInfo(
+		c.ID(), capabilities.CapabilityTypeCombined, fmt.Sprintf("Mock of capability %s", c.ID()))
 }

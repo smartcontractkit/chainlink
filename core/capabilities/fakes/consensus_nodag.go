@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/cre-sdk-go/sdk"
 )
 
 type fakeConsensusNoDAG struct {
@@ -103,6 +103,7 @@ func (fc *fakeConsensusNoDAG) Initialise(
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	return nil
 }
