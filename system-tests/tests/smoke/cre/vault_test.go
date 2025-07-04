@@ -166,16 +166,8 @@ func TestVault_E2E(t *testing.T) {
 		VAULT_HANDLER_NAME,
 		VAULT_NODE_1_NAME,
 		ethAddresses[0],
-	) // Address is the Eth key of the node (signing key); you can specify the key that's used
+	)
 
-	// Gateway URL hardcode in the delegate (or specify config)
-
-	// Vault nodes get a URL of a gateway in config that they reach out to
-	// The gateway job allowlists the nodes that can reach out to it
-
-	// TODO: Fix nil pointer exception
-
-	// Validate and create the gateway job
 	_, err = gateway.ValidatedGatewaySpec(gatewayJobSpec)
 	require.NoError(t, err)
 
