@@ -463,12 +463,13 @@ func SetupTestEnvironment(
 			JDInput:        &input.JdInput,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
+			Namespace:      input.InfraInput.CRIB.Namespace,
 		}
 
 		var jdErr error
-		input.JdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
+		input.JdInput.Out, jdErr = crib.DeployJdWithCRIBSDK(deployCribJdInput)
 		if jdErr != nil {
-			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
+			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with crib-sdk")
 		}
 	}
 

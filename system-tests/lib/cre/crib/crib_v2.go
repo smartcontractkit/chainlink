@@ -7,14 +7,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/crib-sdk/crib"
-	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/anvil/v1"
+	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
 	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
 	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
-	"path/filepath"
 )
 
 func Bootstrap(infraInput *libtypes.InfraInput) error {
@@ -83,6 +81,10 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 	return nil, errors.New("failed to find a valid component")
 }
 
+func ApplyPlanWithSingleComponent() {
+	// todo
+}
+
 func DeployJdWithCRIBSDK(input *types.DeployCribJdInput) (*jd.Output, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribJdInput is nil")
@@ -92,12 +94,8 @@ func DeployJdWithCRIBSDK(input *types.DeployCribJdInput) (*jd.Output, error) {
 		return nil, errors.Wrap(valErr, "input validation failed")
 	}
 
-	imgTagIndex, err := dockerImageTag(input.JDInput.Image)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get image tag")
-	}
-
-	jdv1.Component(&jdv1.Props{
+	jdComponent := jdv1.Component(&jdv1.Props{
+		Namespace: input.Namespace,
 		JD: jdv1.JDProps{
 			Image:            input.JDInput.Image,
 			CSAEncryptionKey: input.JDInput.CSAEncryptionKey,
@@ -105,20 +103,32 @@ func DeployJdWithCRIBSDK(input *types.DeployCribJdInput) (*jd.Output, error) {
 		WaitForRollout: true,
 	})
 
-	jdEnvVars := map[string]string{
-		"JOB_DISTRIBUTOR_IMAGE_TAG": imgTagIndex,
-	}
-	_, err = input.NixShell.RunCommandWithEnvVars("devspace run deploy-jd --no-warn", jdEnvVars)
+	plan := crib.NewPlan(
+		"jd",
+		crib.Namespace(input.Namespace),
+		crib.ComponentSet(
+			jdComponent,
+		),
+	)
+
+	planState, err := plan.Apply(context.Background())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to run devspace run deploy-jd")
+		return nil, errors.Wrap(err, "failed to apply a plan")
 	}
 
-	jdOut, err := infra.ReadJdURL(filepath.Join(".", input.CribConfigsDir))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read JD URL from file")
+	for component := range planState.ComponentByName(jdv1.ComponentName) {
+		jdResult := crib.ComponentState[jdv1.Result](component)
+
+		out := &jd.Output{}
+		out.UseCache = true
+		out.ExternalGRPCUrl = jdResult.GRPCHostURL()
+		out.InternalGRPCUrl = jdResult.GRPCHostURL()
+		out.InternalWSRPCUrl = jdResult.WSRPCHostURL()
+
+		return out, nil
 	}
 
-	return jdOut, nil
+	return nil, errors.New("failed to find a valid jd component in results")
 }
 
 // todo: after it's done it will replace DeployDonsCrib

@@ -508,6 +508,7 @@ type DeployCribJdInput struct {
 	JDInput        *jd.Input
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribJdInput) Validate() error {
