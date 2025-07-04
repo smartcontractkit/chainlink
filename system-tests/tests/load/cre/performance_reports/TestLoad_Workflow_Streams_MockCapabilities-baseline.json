@@ -10,10 +10,10 @@
    "schedule": [
     {
      "from": 4,
-     "duration": 300000000000,
+     "duration": 600000000000,
      "type": "plain",
-     "time_start": "2025-07-01T12:09:03.593671028Z",
-     "time_end": "2025-07-01T12:14:03.598752911Z"
+     "time_start": "2025-07-04T10:22:44.88602807Z",
+     "time_end": "2025-07-04T10:32:44.886760127Z"
     }
    ],
    "rate_limit_unit_duration": 60000000000,
@@ -30,10 +30,10 @@
     "schedule": [
      {
       "from": 4,
-      "duration": 300000000000,
+      "duration": 600000000000,
       "type": "plain",
-      "time_start": "2025-07-01T12:09:03.593671028Z",
-      "time_end": "2025-07-01T12:14:03.598752911Z"
+      "time_start": "2025-07-04T10:22:44.88602807Z",
+      "time_end": "2025-07-04T10:32:44.886760127Z"
      }
     ],
     "rate_limit_unit_duration": 60000000000,
@@ -57,10 +57,10 @@
   {
    "kind": "prometheus",
    "queries": {
-    "cpu_percent": "avg (rate(container_cpu_usage_seconds_total{name=~\"workflow-node[1-9][0-9]*\"}[5m]) * 100)",
+    "cpu_percent": "avg (rate(container_cpu_usage_seconds_total{name=~\"workflow-node[1-9][0-9]*\"}[10m]) * 100)",
     "disk_io_time_seconds": "avg (container_fs_io_time_seconds_total{name=~\"workflow-node[1-9][0-9]*\"})",
-    "mem_avg": "avg (avg_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[5m]))",
-    "mem_peak": "avg (max_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[5m]))",
+    "mem_avg": "avg (avg_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[10m]))",
+    "mem_peak": "avg (max_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[10m]))",
     "network_rx": "avg (container_network_receive_bytes_total{name=~\"workflow-node[1-9][0-9]*\"})",
     "network_tx": "avg (container_network_transmit_bytes_total{name=~\"workflow-node[1-9][0-9]*\"})"
    },
