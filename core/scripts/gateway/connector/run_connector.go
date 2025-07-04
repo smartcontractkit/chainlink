@@ -30,7 +30,7 @@ type client struct {
 	lggr       logger.Logger
 }
 
-func (h *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[any]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		return err
