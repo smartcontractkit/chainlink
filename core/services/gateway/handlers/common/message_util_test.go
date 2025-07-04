@@ -54,12 +54,12 @@ func TestValidatedMessageFromReq(t *testing.T) {
 		invalidMsg := unsignedMessage()
 		invalidParams, err := json.Marshal(invalidMsg)
 		require.NoError(t, err)
-		rawParams := json.RawMessage(invalidParams)
+		rawInvalidParams := json.RawMessage(invalidParams)
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
 			Method:  "testMethod",
-			Params:  &rawParams,
+			Params:  &rawInvalidParams,
 		}
 		_, err = ValidatedMessageFromReq(req)
 		require.Error(t, err)

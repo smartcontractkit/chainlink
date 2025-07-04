@@ -235,11 +235,10 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 			ErrorCode: api.NodeReponseEncodingError,
 		}, callbackCh)
 	}
-	rawResult := json.RawMessage(resultBytes)
 	jsonResponse := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      jsonRequest.ID,
-		Result:  &rawResult,
+		Result:  &resultBytes,
 	}
 	rawResponse, err := json.Marshal(jsonResponse)
 	if err != nil {
