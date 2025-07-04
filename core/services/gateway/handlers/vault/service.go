@@ -134,7 +134,7 @@ func (s *service) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	return errors.New("vault service does not support legacy messages")
 }
 
-func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("handling vault request", "method", jsonRequest.Method, "id", jsonRequest.ID)
 
 	// Create timeout context
@@ -150,13 +150,13 @@ func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest json
 	}
 }
 
-func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	return errors.New("node message support not implemented")
 }
 
-func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	var req SecretsCreateRequest
-	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
+	if err := json.Unmarshal(*jsonRequest.Params, &req); err != nil {
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				jsonRequest.ID,
@@ -235,10 +235,10 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 			ErrorCode: api.NodeReponseEncodingError,
 		}, callbackCh)
 	}
-	jsonResponse := jsonrpc.Response{
+	jsonResponse := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      jsonRequest.ID,
-		Result:  resultBytes,
+		Result:  &resultBytes,
 	}
 	rawResponse, err := json.Marshal(jsonResponse)
 	if err != nil {
@@ -262,7 +262,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	return s.sendResponse(ctx, responseObj, callbackCh)
 }
 
-func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 	promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 
