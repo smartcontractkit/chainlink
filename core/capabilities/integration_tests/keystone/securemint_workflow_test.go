@@ -43,6 +43,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 
 	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
+	t.Logf("Consumer contract address: %s", consumer.Address().String())
 
 	// generate a wf job
 	job := createSecureMintWorkflowJob(t, workflowOwnerID, int64(chainID), consumer.Address())

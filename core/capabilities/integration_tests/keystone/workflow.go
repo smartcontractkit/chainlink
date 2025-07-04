@@ -188,7 +188,7 @@ triggers:
 
 consensus:
   - id: "offchain_reporting@1.0.0"
-    ref: "secure-mint-reattest"
+    ref: "secure-mint-consensus"
     inputs:
       observations:
         - "$(trigger.outputs)"
@@ -201,16 +201,18 @@ consensus:
           %d # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
       encoder: "EVM"
       encoder_config:
-        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports # Existing feed abi
+        abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
 
 targets:
   - id: "write_geth-testnet@1.0.0"
     inputs:
-      signed_report: $(secure-mint-reattest.outputs)
+      signed_report: $(secure-mint-consensus.outputs)
     config:
       address: "%s"
-      deltaStage: "45s"
-      schedule: "oneAtATime"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+      deltaStage: 1s
+      schedule: oneAtATime
 `
 
 // TODO(gg): needed in targets config?:
