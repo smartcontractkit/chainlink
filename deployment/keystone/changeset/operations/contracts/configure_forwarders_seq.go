@@ -95,7 +95,8 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 					Contract: contract.Contract,
 					Dons:     dons,
 				}, ConfigureForwarderOpInput{
-					UseMCMS: input.UseMCMS(),
+					UseMCMS:       input.UseMCMS(),
+					ChainSelector: chain.Selector, // here to skip the check for the previous report, since unless inputs are different they are treated as the same and skipped
 				})
 				if err != nil {
 					return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chain.Selector, err)
@@ -164,7 +165,8 @@ type ConfigureForwarderOpDeps struct {
 }
 
 type ConfigureForwarderOpInput struct {
-	UseMCMS bool
+	UseMCMS       bool
+	ChainSelector uint64
 }
 
 type ConfigureForwarderOpOutput struct {
