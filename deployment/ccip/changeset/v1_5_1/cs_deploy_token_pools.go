@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 )
 
 var _ cldf.ChangeSet[DeployTokenPoolContractsConfig] = DeployTokenPoolContractsChangeset
@@ -98,6 +99,10 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain
 	if i.Type == shared.BurnMintWithExternalMinterFastTransferTokenPool && i.ExternalMinter == utils.ZeroAddress {
 		// TODO: Validate that the external minter token match the token in input
 		return errors.New("external minter must be defined for burn mint with external minter fast transfer pools")
+	}
+	if i.Type == shared.HybridWithExternalMinterFastTransferTokenPool && i.ExternalMinter == utils.ZeroAddress {
+		// TODO: Validate that the external minter token match the token in input
+		return errors.New("external minter must be defined for hybrid with external minter fast transfer pools")
 	}
 
 	// We should check if a token pool with this type, version, and symbol already exists
@@ -250,6 +255,12 @@ func deployTokenPool(
 			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = burn_mint_with_external_minter_fast_transfer_token_pool.DeployBurnMintWithExternalMinterFastTransferTokenPool(
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+				)
+			case shared.HybridWithExternalMinterFastTransferTokenPool:
+				tokenPoolVersion = deployment.Version1_6_0
+				tpAddr, tx, _, err = hybrid_with_external_minter_fast_transfer_token_pool.DeployHybridWithExternalMinterFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)

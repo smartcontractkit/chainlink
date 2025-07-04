@@ -41,7 +41,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 	}, nil
 }
 
-func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- UserCallbackPayload) error {
+func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- UserCallbackPayload) error {
 	return errors.New("dummy handler does not support JSON-RPC user messages")
 }
 
@@ -54,11 +54,12 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 	if err != nil {
 		return err
 	}
-	req := &jsonrpc.Request{
+	rawParams := json.RawMessage(params)
+	req := &jsonrpc.Request[json.RawMessage]{
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
 		Method:  msg.Body.Method,
-		Params:  params,
+		Params:  &rawParams,
 	}
 	for _, member := range d.donConfig.Members {
 		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
@@ -66,9 +67,9 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 	return err
 }
 
-func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	var msg api.Message
-	err := json.Unmarshal(resp.Result, &msg)
+	err := json.Unmarshal(*resp.Result, &msg)
 	if err != nil {
 		return err
 	}

@@ -14,16 +14,16 @@ type JsonRPCCodec struct {
 var _ Codec = (*JsonRPCCodec)(nil)
 
 func (j *JsonRPCCodec) DecodeRawRequest(msgBytes []byte, jwtToken string) (*Message, error) {
-	jsonRequest, err := jsonrpc2.DecodeRequest(msgBytes, jwtToken)
+	jsonRequest, err := jsonrpc2.DecodeRequest[json.RawMessage](msgBytes, jwtToken)
 	if err != nil {
 		return nil, err
 	}
 	return j.DecodeJSONRequest(jsonRequest)
 }
 
-func (*JsonRPCCodec) DecodeJSONRequest(request jsonrpc2.Request) (*Message, error) {
+func (*JsonRPCCodec) DecodeJSONRequest(request jsonrpc2.Request[json.RawMessage]) (*Message, error) {
 	var msg Message
-	err := json.Unmarshal(request.Params, &msg)
+	err := json.Unmarshal(*request.Params, &msg)
 	if err != nil {
 		return nil, err
 	}
@@ -33,21 +33,17 @@ func (*JsonRPCCodec) DecodeJSONRequest(request jsonrpc2.Request) (*Message, erro
 }
 
 func (*JsonRPCCodec) EncodeLegacyRequest(msg *Message) ([]byte, error) {
-	params, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	request := jsonrpc2.Request{
+	request := jsonrpc2.Request[Message]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      msg.Body.MessageId,
 		Method:  msg.Body.Method,
-		Params:  params,
+		Params:  msg,
 	}
 	return json.Marshal(request)
 }
 
 func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
-	var response jsonrpc2.Response
+	var response jsonrpc2.Response[Message]
 	err := json.Unmarshal(msgBytes, &response)
 	if err != nil {
 		return nil, err
@@ -59,24 +55,15 @@ func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 		return nil, errors.New("received empty result field")
 	}
 
-	var msg Message
-	err = json.Unmarshal(response.Result, &msg)
-	if err != nil {
-		return nil, err
-	}
-	msg.Body.MessageId = response.ID
-	return &msg, nil
+	response.Result.Body.MessageId = response.ID
+	return response.Result, nil
 }
 
 func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) []byte {
-	msgBytes, err := json.Marshal(msg)
-	if err != nil {
-		return fatalError(err)
-	}
-	response := jsonrpc2.Response{
+	response := jsonrpc2.Response[Message]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      msg.Body.MessageId,
-		Result:  msgBytes,
+		Result:  msg,
 	}
 	rawMsg, err := json.Marshal(response)
 	if err != nil {
@@ -86,7 +73,7 @@ func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) []byte {
 }
 
 func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int64, message string, data []byte) []byte {
-	response := jsonrpc2.Response{
+	response := jsonrpc2.Response[any]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{

@@ -133,10 +133,10 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 		return nil, err
 	}
 
-	return prependMetadataFields(meta, userPayload)
+	return PrependMetadataFields(meta, userPayload)
 }
 
-func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
+func PrependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
 	var err error
 	var result []byte
 
