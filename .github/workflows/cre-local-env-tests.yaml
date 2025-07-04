@@ -100,23 +100,7 @@ jobs:
           cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
             csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-            image = "injected-at-runtime"
-
-          [[nodesets]]
-            nodes = 5
-            override_mode = "all"
-            http_port_range_start = 10100
-            name = "workflow"
-
-            [nodesets.db]
-              image = "postgres:12.0"
-              port = 13000
-
-            [[nodesets.node_specs]]
-              [nodesets.node_specs.node]
-                image = "injected-at-runtime"
-                [nodesets.node_specs.node.env_vars]
-                CL_EVM_CMD=""
+            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.12.7"
           EOF
 
       - name: Start the CLI
