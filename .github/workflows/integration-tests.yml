@@ -139,13 +139,14 @@ jobs:
             (steps.changes.outputs.github_ci_changes == 'true' ||
             steps.changes.outputs.core_changes == 'true') &&
             contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')
-          ) ||
-          (
-            (steps.changes.outputs.github_ci_changes == 'true' ||
-            steps.changes.outputs.core_changes == 'true') &&
-            github.event_name == 'merge_group'
           )
         }}
+      # disable for now in MQ as they take too long to run
+      # (
+      #   (steps.changes.outputs.github_ci_changes == 'true' ||
+      #   steps.changes.outputs.core_changes == 'true') &&
+      #   github.event_name == 'merge_group'
+      # )
       builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
