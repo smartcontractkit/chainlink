@@ -33,7 +33,7 @@
     # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
     # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
     # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
-    config_url = "https://gist.githubusercontent.com/Tofel/b1f82fc8ef66e5fc7fa5e1d688294738/raw/aa8998f929af32472fb6388f7dabb3cf3d575b41/three-dons-config_04_07_2025.json"
+    config_url = "https://gist.githubusercontent.com/Tofel/03d25021292bd4895e45b42ca2c5afb3/raw/ba7dc07f76c7d332d9463b67864ea597b2354984/three-dons-config.json_16_05_2025"
 
 [[workflow_configs]]
   workflow_name = "chain2337por"

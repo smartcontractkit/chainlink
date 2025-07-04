@@ -35,7 +35,7 @@
   # Every time that consumer address changes (e.g. due code sequence changes) we need to update the config used in CI. That config is identical to the one used, when executing local machine
   # unless test uses fake data provider. In that case the IP of the fake data provider will be different in the CI, because it uses linux not macOS operating system and that changes the IP
   # of 'host.docker.internal'. TL;DR is that when updating this config you can use config created during local execution, but you need to use data provider URL copied from the previous CI config.
-  config_url = "https://gist.githubusercontent.com/Tofel/6b14e80955b0a65650a3017d873eaad9/raw/0ddc661721bc750f15f1b04f378ed828c3cdd75e/one_don_config_04_07_2025.json"
+  config_url = "https://gist.githubusercontent.com/Tofel/d005f088a313a177cc42397586100a27/raw/e8353e29c9fdc1cdd3c718bc19121a3912925480/one_don_config.json_03_04_2025"
 
 [[workflow_configs]]
   workflow_name = "porfeedtwo"
