@@ -133,9 +133,14 @@ jobs:
         run: |
           cd system-tests/tests/load/cre
 
-          # Count the number of regressions
-          regression_count=$(grep -c "PERFORMANCE REGRESSION:" test_output.log || echo 0)
-          echo "regression_count=$regression_count" >> $GITHUB_OUTPUT
+          # Count the number of regressions - handle exit code properly
+          if grep -c "PERFORMANCE REGRESSION:" test_output.log > /tmp/count.txt; then
+            regression_count=$(cat /tmp/count.txt)
+          else
+            regression_count=0
+          fi
+
+          echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
 
           if [ $regression_count -gt 0 ]; then
             echo "::warning::$regression_count performance regressions detected"
@@ -144,6 +149,8 @@ jobs:
             grep -o "PERFORMANCE REGRESSION.*)" test_output.log | awk '{printf "%s\  ", $0}' > logs/regression_details.txt
           else
             echo "No performance regressions detected"
+            mkdir -p logs
+            touch logs/regression_details.txt
           fi
 
       - name: Upload node logs
