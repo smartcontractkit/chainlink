@@ -657,82 +657,25 @@ func (d *Delegate) newDonTimePlugin(
 	// TODO: Create and deploy DonTime Job Spec https://smartcontract-it.atlassian.net/browse/CAPPL-944
 	spec := jb.OCR2OracleSpec
 
-	// TODO: Is spec.PluginConfig our offChain config?
 	cfg := &dontimeCfg.Config{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
 	}
 
-	// TODO: Or is spec.PluginConfig the generic OCR2 config?
-	pCfg := validate.OCR2GenericPluginConfig{}
-	err = json.Unmarshal(spec.PluginConfig.Bytes(), &pCfg)
+	factory, err := dontime.NewFactory(d.dontimeStore, lggr) // returns ReportingPluginFactory
 	if err != nil {
 		return nil, err
 	}
 
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: pCfg.PluginName, Err: err}
+	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore)
+
+	provider := &dontime.Provider{
+		Factory:     factory,
+		Transmitter: transmitter,
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
-	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
-	}
-
-	// TODO: Do we need a custom plugin provider to create the plugin and transmitter?
-	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
-		ExternalJobID: jb.ExternalJobID,
-		JobID:         jb.ID,
-		OracleSpecID:  spec.ID,
-		ContractID:    spec.ContractID,
-		New:           d.isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-		ProviderType:  pCfg.ProviderType,
-	}, types.PluginArgs{
-		TransmitterID: spec.TransmitterID.String,
-		PluginConfig:  spec.PluginConfig.Bytes(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	// TODO: This provider does not have our plugin's NewTransmitter and NewPlugin
-	srvs = append(srvs, provider)
-
-	// TODO: Calling start on our factory service doesn't seem useful?
-	// TODO: How do we initialize the actual plugin to run
-	service, err := dontime.NewFactory(d.dontimeStore, lggr)
-
-	offChainCfg, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: How do we get the full config?
-	pluginCfg := ocr3types.ReportingPluginConfig{
-		ConfigDigest:                            ocrtypes.ConfigDigest{},
-		OracleID:                                0,
-		N:                                       0, // TODO:??
-		F:                                       0,
-		OnchainConfig:                           nil,
-		OffchainConfig:                          offChainCfg,
-		EstimatedRoundInterval:                  0,
-		MaxDurationQuery:                        0,
-		MaxDurationObservation:                  0,
-		MaxDurationShouldAcceptAttestedReport:   0,
-		MaxDurationShouldTransmitAcceptedReport: 0,
-	}
-
-	// TODO: Where does NewPlugin and NewTransmitter need to be called?
-	plugin, _, err := service.NewReportingPlugin(ctx, pluginCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: What's needed for OCR to actually include this plugin in the rounds?
-	_ = dontime.NewTransmitter(lggr, d.dontimeStore)
-	return []job.ServiceCtx{service}, nil
+	return []job.ServiceCtx{provider}, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(
