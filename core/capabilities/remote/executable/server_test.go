@@ -2,15 +2,20 @@ package executable_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -29,7 +34,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 	workflowIDToPause[workflowID1] = 1 * time.Minute
 	workflowIDToPause[workflowID2] = 1 * time.Second
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestSlowExecutionCapability{workflowIDToPause: workflowIDToPause}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestSlowExecutionCapability{workflowIDToPause: workflowIDToPause}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -79,7 +84,7 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 	numCapabilityPeers := 4
 
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{},
-		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for idx, caller := range callers {
 		rawInputs := map[string]any{
@@ -115,7 +120,7 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 	numCapabilityPeers := 4
 
 	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{"signed_report.Signatures"}},
-		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for idx, caller := range callers {
 		rawInputs := map[string]any{
@@ -150,7 +155,7 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -177,7 +182,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond, nil)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -204,7 +209,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond, nil)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -226,11 +231,82 @@ func Test_Server_CapabilityError(t *testing.T) {
 	closeServices(t, srvcs)
 }
 
+func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	numCapabilityPeers := 4
+
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{"signed_report.Signatures"}},
+		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, &v2WriteChainMessageHasher{})
+
+	report := []byte("report01234")
+	for idx, caller := range callers {
+		payload := &evm.WriteReportRequest{
+			Receiver: []byte("abcdef"),
+			Report: &evm.SignedReport{
+				RawReport: report,
+				Signatures: [][]byte{ // non-deterministic set of sigs that we want to ignore when hashing
+					[]byte("sig" + strconv.Itoa(idx)),
+				},
+			},
+		}
+		anyPayload, err := anypb.New(payload)
+		require.NoError(t, err)
+
+		_, err = caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
+				},
+				Payload: anyPayload,
+			})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for range numCapabilityPeers {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		}
+	}
+	closeServices(t, srvcs)
+}
+
+type v2WriteChainMessageHasher struct{}
+
+func (r *v2WriteChainMessageHasher) Hash(msg *remotetypes.MessageBody) ([32]byte, error) {
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+	if req.Payload == nil {
+		return [32]byte{}, errors.New("request payload is nil")
+	}
+	var writeReportRequest evm.WriteReportRequest
+	if err = req.Payload.UnmarshalTo(&writeReportRequest); err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal payload to WriteReportRequest: %w", err)
+	}
+	writeReportRequest.Report.Signatures = nil // exclude signatures from the hash
+
+	req.Payload, err = anypb.New(&writeReportRequest)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest to anypb: %w", err)
+	}
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	hash := sha256.Sum256(reqBytes)
+	return hash, nil
+}
+
 func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	config *commoncap.RemoteExecutableConfig,
 	underlying commoncap.ExecutableCapability,
 	numWorkflowPeers int, workflowDonF uint8,
-	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration) ([]*serverTestClient, []services.Service) {
+	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
+	messageHasher remotetypes.MessageHasher) ([]*serverTestClient, []services.Service) {
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -279,7 +355,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(config, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, 10, lggr)
+			capabilityNodeResponseTimeout, 10, messageHasher, lggr)
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode

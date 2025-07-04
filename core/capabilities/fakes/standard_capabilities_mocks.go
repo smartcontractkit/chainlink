@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"context"
+	"encoding/json"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -20,6 +21,15 @@ func (k *KVStoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
 }
 func (k *KVStoreMock) Get(ctx context.Context, key string) ([]byte, error) {
+	return nil, nil
+}
+
+type KeystoreMock struct{}
+
+func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
+	return nil, nil
+}
+func (k *KeystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
 
@@ -69,7 +79,7 @@ func (g *GatewayConnectorMock) AddHandler(context.Context, []string, core.Gatewa
 	return nil
 }
 
-func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response) error {
+func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response[json.RawMessage]) error {
 	return nil
 }
 

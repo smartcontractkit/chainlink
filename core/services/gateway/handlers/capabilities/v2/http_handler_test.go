@@ -125,10 +125,10 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
-
-		resp := &jsonrpc.Response{
+		rawRequest := json.RawMessage(reqBytes)
+		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "test-request-id",
-			Result: reqBytes,
+			Result: &rawRequest,
 		}
 
 		httpResp := &network.HTTPResponse{
@@ -140,7 +140,7 @@ func TestHandleNodeMessage(t *testing.T) {
 			return req.Method == "GET" && req.URL == "https://example.com/api"
 		})).Return(httpResp, nil)
 
-		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			return req.ID == "test-request-id"
 		})).Return(nil)
 
@@ -162,10 +162,10 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
-
-		resp := &jsonrpc.Response{
+		rawRequest := json.RawMessage(reqBytes)
+		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "test-request-id",
-			Result: reqBytes,
+			Result: &rawRequest,
 		}
 
 		mockDon := handler.don.(*handlermocks.DON)
@@ -184,9 +184,9 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 
 		// Second call: should return cached response (no HTTP client call)
-		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var cached gateway.OutboundHTTPResponse
-			err2 := json.Unmarshal(req.Params, &cached)
+			err2 := json.Unmarshal(*req.Params, &cached)
 			return err2 == nil && string(cached.Body) == string(httpResp.Body)
 		})).Return(nil)
 
@@ -208,10 +208,10 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
-
-		resp := &jsonrpc.Response{
+		rawRequest := json.RawMessage(reqBytes)
+		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "test-request-id-500",
-			Result: reqBytes,
+			Result: &rawRequest,
 		}
 
 		mockDon := handler.don.(*handlermocks.DON)
@@ -239,9 +239,10 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("empty request ID", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		rawRes := json.RawMessage([]byte(`{}`))
+		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "",
-			Result: []byte(`{}`),
+			Result: &rawRes,
 		}
 
 		err := handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
@@ -251,9 +252,10 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("invalid JSON in response result", func(t *testing.T) {
-		resp := &jsonrpc.Response{
+		rawRes := json.RawMessage([]byte(`{invalid json}`))
+		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "test-request-id2",
-			Result: []byte(`{invalid json}`),
+			Result: &rawRes,
 		}
 
 		err := handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
