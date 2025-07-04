@@ -136,6 +136,12 @@ jobs:
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
           DISABLE_DX_TRACKING: "true"
         run: |
+          if [[ "${{ contains(matrix.runner, 'arm') }}" == "true" ]]; then
+            echo "Setting CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka for arm runners"
+            export CGO_ENABLED=1
+            export CGO_LDFLAGS="-lrdkafka"
+          fi
+
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
