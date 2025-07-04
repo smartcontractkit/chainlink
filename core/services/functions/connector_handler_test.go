@@ -133,7 +133,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-				resp, ok := args[2].(*jsonrpc.Response)
+				resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 				require.True(t, ok)
 				decodedMsg := fromResponse(t, resp)
 				require.JSONEq(t, `{"success":true,"rows":[{"slot_id":1,"version":1,"expiration":1},{"slot_id":2,"version":2,"expiration":2}]}`, string(decodedMsg.Body.Payload))
@@ -146,7 +146,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				storage.On("List", ctx, addr).Return(nil, errors.New("boom")).Once()
 				allowlist.On("Allow", addr).Return(true).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-					resp, ok := args[2].(*jsonrpc.Response)
+					resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 					require.True(t, ok)
 					decodedMsg := fromResponse(t, resp)
 					require.JSONEq(t, `{"success":false,"error_message":"Failed to list secrets: boom"}`, string(decodedMsg.Body.Payload))
@@ -193,7 +193,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			allowlist.On("Allow", addr).Return(true).Once()
 			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-				resp, ok := args[2].(*jsonrpc.Response)
+				resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 				require.True(t, ok)
 				decodedMsg := fromResponse(t, resp)
 				require.Equal(t, `{"success":true}`, string(decodedMsg.Body.Payload))
@@ -207,7 +207,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				allowlist.On("Allow", addr).Return(true).Once()
 				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-					resp, ok := args[2].(*jsonrpc.Response)
+					resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 					require.True(t, ok)
 					decodedMsg := fromResponse(t, resp)
 					require.JSONEq(t, `{"success":false,"error_message":"Failed to set secret: boom"}`, string(decodedMsg.Body.Payload))
@@ -221,7 +221,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				allowlist.On("Allow", addr).Return(true).Once()
 				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(0), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-					resp, ok := args[2].(*jsonrpc.Response)
+					resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 					require.True(t, ok)
 					decodedMsg := fromResponse(t, resp)
 					require.JSONEq(t, `{"success":false,"error_message":"user subscription has insufficient balance"}`, string(decodedMsg.Body.Payload))
@@ -249,7 +249,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				allowlist.On("Allow", addr).Return(true).Once()
 				subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-					resp, ok := args[2].(*jsonrpc.Response)
+					resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 					require.True(t, ok)
 					decodedMsg := fromResponse(t, resp)
 					require.JSONEq(t, `{"success":false,"error_message":"Failed to set secret: wrong signature"}`, string(decodedMsg.Body.Payload))
@@ -262,11 +262,14 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			t.Run("malformed request", func(t *testing.T) {
 				msg.Body.Payload = json.RawMessage(`{sdfgdfgoscsicosd:sdf:::sdf ::; xx}`)
 				require.NoError(t, msg.Sign(privateKey))
-				req := &jsonrpc.Request{
+				params, err := json.Marshal(msg)
+				require.NoError(t, err)
+				rawParams := json.RawMessage(params)
+				req := &jsonrpc.Request[json.RawMessage]{
 					Version: "2.0",
 					ID:      msg.Body.MessageId,
 					Method:  msg.Body.Method,
-					Params:  msg.Body.Payload,
+					Params:  &rawParams,
 				}
 				allowlist.AssertNotCalled(t, "Allow")
 				subscriptions.AssertNotCalled(t, "GetMaxUserBalance")
@@ -306,7 +309,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			handlerCalled <- struct{}{}
 		}).Return(nil).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-			resp, ok := args[2].(*jsonrpc.Response)
+			resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 			require.True(t, ok)
 			decodedMsg := fromResponse(t, resp)
 			require.NoError(t, json.Unmarshal(decodedMsg.Body.Payload, &response))
@@ -326,7 +329,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		// second call to collect the response
 		allowlist.On("Allow", addr).Return(true).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-			resp, ok := args[2].(*jsonrpc.Response)
+			resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 			require.True(t, ok)
 			decodedMsg := fromResponse(t, resp)
 			require.NoError(t, json.Unmarshal(decodedMsg.Body.Payload, &response))
@@ -358,7 +361,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			returnedState := 0
 			allowlist.On("Allow", addr).Return(true).Once()
 			connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-				resp, ok := args[2].(*jsonrpc.Response)
+				resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 				require.True(t, ok)
 				decodedMsg := fromResponse(t, resp)
 				require.NoError(t, json.Unmarshal(decodedMsg.Body.Payload, &response))
@@ -378,7 +381,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-			resp, ok := args[2].(*jsonrpc.Response)
+			resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 			require.True(t, ok)
 			decodedMsg := fromResponse(t, resp)
 			require.NoError(t, json.Unmarshal(decodedMsg.Body.Payload, &response))
@@ -396,7 +399,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
-			resp, ok := args[2].(*jsonrpc.Response)
+			resp, ok := args[2].(*jsonrpc.Response[json.RawMessage])
 			require.True(t, ok)
 			decodedMsg := fromResponse(t, resp)
 			require.NoError(t, json.Unmarshal(decodedMsg.Body.Payload, &response))
@@ -407,13 +410,13 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	})
 }
 
-func fromResponse(t *testing.T, resp *jsonrpc.Response) *api.Message {
+func fromResponse(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) *api.Message {
 	msg, err := hc.ValidatedMessageFromResp(resp)
 	require.NoError(t, err)
 	return msg
 }
 
-func gatewayRequest(t *testing.T, msg *api.Message) *jsonrpc.Request {
+func gatewayRequest(t *testing.T, msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	req, err := hc.ValidatedRequestFromMessage(msg)
 	require.NoError(t, err)
 	return req

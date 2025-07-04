@@ -130,17 +130,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		})).Return(nil).Once()
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -180,17 +170,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -224,17 +204,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -324,17 +294,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodes[0].Address)
+		err = handler.HandleNodeMessage(ctx, resp, nodes[0].Address)
 		require.NoError(t, err)
 
 		userPayload := <-ch
@@ -475,17 +435,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -525,17 +475,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
@@ -569,17 +509,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
-		bytes, ok := (*resp.Result).([]byte)
-		if !ok {
-			require.Fail(t, "result is not a []byte")
-		}
-		rawResult := json.RawMessage(bytes)
-		jsonResponse := &jsonrpc.Response[json.RawMessage]{
-			Version: resp.Version,
-			ID:      resp.ID,
-			Result:  &rawResult,
-		}
-		err = handler.HandleNodeMessage(ctx, jsonResponse, nodeAddr)
+		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
