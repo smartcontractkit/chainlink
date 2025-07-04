@@ -197,8 +197,8 @@ consensus:
       key_id: "evm"	
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
-        chain_id:
-          "%s" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+        targetChainSelector:
+          %d # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
       encoder: "EVM"
       encoder_config:
         abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports # Existing feed abi
@@ -219,9 +219,9 @@ targets:
 
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowOwner string,
-	chainID string,
+	chainSelector int64,
 	consumerAddr common.Address) job.Job {
-	spec := fmt.Sprintf(secureMintWorkflow, workflowOwner, chainID, consumerAddr.String())
+	spec := fmt.Sprintf(secureMintWorkflow, workflowOwner, chainSelector, consumerAddr.String())
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
 	return workflowJobSpec.Job()
 }

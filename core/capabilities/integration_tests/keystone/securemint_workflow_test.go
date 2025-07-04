@@ -1,7 +1,9 @@
 package keystone
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -13,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
@@ -21,7 +27,8 @@ import (
 func Test_runSecureMintWorkflow(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
-	chainID := "1"
+	chainID := chainSelector(1337)
+	seqNr := uint64(1)
 
 	// setup the trigger sink that will receive the trigger event in the securemint-specific format
 	triggerSink := framework.NewTriggerSink(t, "securemint-trigger", "1.0.0")
@@ -38,17 +45,17 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 		targetDonConfiguration, triggerSink)
 
 	// generate a wf job
-	job := createSecureMintWorkflowJob(t, workflowOwnerID, chainID, consumer.Address())
+	job := createSecureMintWorkflowJob(t, workflowOwnerID, int64(chainID), consumer.Address())
 	err = workflowDon.AddJob(ctx, &job)
 	require.NoError(t, err)
 
 	// create the test trigger event in the format expected by the secure mint transmitter
-	triggerEvent := createSecureMintTriggerEvent(t)
-	triggerOutput, err := triggerEvent.ToMap()
-	require.NoError(t, err)
+	triggerEvent := createSecureMintTriggerEvent(t, chainID, seqNr)
+
+	t.Logf("Sending triggerEvent: %+v", triggerEvent)
 
 	// send the trigger event to the trigger sink and wait for the consumer to receive the feeds
-	triggerSink.SendOutput(triggerOutput, "securemint-trigger")
+	triggerSink.SendOutput(triggerEvent, "securemint-trigger")
 	h := newSecureMintHandler([]secureMintUpdate{}, uint32(time.Now().Unix()))
 	waitForConsumerReports(t, consumer, h)
 }
@@ -58,7 +65,41 @@ type secureMintUpdate struct {
 	price  decimal.Decimal
 }
 
-func createSecureMintTriggerEvent(t *testing.T) *commoncap.OCRTriggerEvent {
+// chainSelector is mimicked after the por plugin, which mimics it from the chain-selectors repo
+type chainSelector int64
+
+// secureMintReport is mimicked after the report type of the por plugin, see its repo for more details
+type secureMintReport struct {
+	ConfigDigest ocr2types.ConfigDigest
+	SeqNr        uint64
+	Block        uint64
+	Mintable     *big.Int
+}
+
+// createSecureMintTriggerEvent creates a secure mint trigger event in the format sent by the secure mint transmitter
+// Excerpt from securemint/transmitter.go:
+// ```
+//
+//	var report ocr3types.ReportWithInfo[por.ChainSelector]
+//	outputs, err := values.NewMap(map[string]any{
+//		"report":       report,
+//		"sigs":         capSigs,
+//		"seqNr":        seqNr,
+//		"configDigest": cd,
+//	})
+//
+//	event := capabilities.TriggerEvent{
+//		TriggerType: t.CapabilityInfo.ID,
+//		ID:          "securemint-trigger",
+//		Outputs:     outputs,
+//	}
+//
+//	triggerResponse := capabilities.TriggerResponse{
+//		Event: event,
+//	} // this is sent to trigger subscribers
+//
+// ```
+func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64) *values.Map {
 	// Create mock signatures (in a real scenario, these would be actual OCR signatures)
 	sigs := []commoncap.OCRAttributedOnchainSignature{
 		{
@@ -70,14 +111,35 @@ func createSecureMintTriggerEvent(t *testing.T) *commoncap.OCRTriggerEvent {
 			Signature: []byte("mock-signature-2"),
 		},
 	}
+	configDigest := []byte{0: 1, 31: 2}
 
-	// Create the OCR trigger event
-	return &commoncap.OCRTriggerEvent{
-		ConfigDigest: []byte{0: 1, 31: 2},
-		SeqNr:        0,
-		Report:       []byte("mock-report-data"), // In a real scenario, this would be a marshaled OCRTriggerReport
-		Sigs:         sigs,
+	secureMintReport := &secureMintReport{
+		ConfigDigest: ocr2types.ConfigDigest(configDigest),
+		SeqNr:        seqNr,
+		Block:        10,
+		Mintable:     big.NewInt(99),
 	}
+
+	reportBytes, err := json.Marshal(secureMintReport)
+	require.NoError(t, err)
+
+	ocr3Report := &ocr3types.ReportWithInfo[chainSelector]{
+		Report: ocr2types.Report(reportBytes),
+		Info:   chainID,
+	}
+
+	jsonReport, err := json.Marshal(ocr3Report)
+	require.NoError(t, err)
+
+	outputs, err := values.NewMap(map[string]any{
+		"report":       jsonReport,
+		"sigs":         sigs,
+		"seqNr":        seqNr,
+		"configDigest": configDigest,
+	})
+	require.NoError(t, err)
+
+	return outputs
 }
 
 // secureMintHandler is a handler for the received feeds
