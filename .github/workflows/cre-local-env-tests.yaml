@@ -27,19 +27,14 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  log-workflow-trigger:
-    name: Log Workflow Trigger
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log Workflow Trigger
-        run: |
-          echo "Workflow Trigger: ${{ github.event_name }}"
-
   test-cli:
     strategy:
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [
+          ubuntu-latest,
+          # can't work due to arch mismatch of kafka librdkafka .a file bundled with the package
+          # ubuntu-24.04-arm,
+          ]
     runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
@@ -60,6 +55,13 @@ jobs:
           go-version-file: core/scripts/go.mod
           cache: true
 
+      - name: Install librdkafka
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # install librdkafka-dev for arm runners to avoid using static librdkafka_glibc_linux.a, which is compiled for x86_64
+          sudo apt-get update
+          sudo apt-get install -y librdkafka-dev
+
       - name: Download Go dependencies
         id: go-deps
         working-directory: core/scripts/cre/environment
@@ -77,6 +79,18 @@ jobs:
             seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
             total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
             echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+          fi
+
+      # this doesn't work, we cannot delete the file, because it's read-only
+      - name: Delete vendored static librdkafka (.a) to avoid arch mismatch
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
+          find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a -delete
+          if find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a | grep .; then
+            echo "❌ vendored .a still exists"; exit 1
+          else
+            echo "✅ vendored .a is gone"
           fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
@@ -138,6 +152,12 @@ jobs:
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
           DISABLE_DX_TRACKING: "true"
         run: |
+          if [[ "${{ contains(matrix.runner, 'arm') }}" == "true" ]]; then
+            echo "Setting CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka for arm runners"
+            export CGO_ENABLED=1
+            export CGO_LDFLAGS="-lrdkafka"
+          fi
+
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
@@ -200,7 +220,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C0364FG2CN9",
+              "channel": "C0948PT3X38",
               "text": "Local CRE environment failed to start",
               "blocks": [
                 {
@@ -219,7 +239,3 @@ jobs:
                 }
               ]
             }
-
-
-
-

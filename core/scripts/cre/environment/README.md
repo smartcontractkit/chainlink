@@ -30,16 +30,16 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
     - with use of containerd for pulling and storing images **disabled**
 2. **AWS SSO access to SDLC**
   - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
+>  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 3. **gh cli**
   - To pull the `cre` cli. Minimum version `v.2.50.0`
-
-   [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
 
 # QUICKSTART
 ```
 AWS_ECR=<PROD_AWS_ACCOUNT_ID> go run . env start --auto-setup
 ```
+> [Read more about finding PROD_AWS_ACCOUNT_ID and configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
 The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
 If you are missing requirements, you may need to fix the errors and re-run.
@@ -49,7 +49,7 @@ Use `#topic-local-dev-environments` for help.
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
-go run . env start
+go run . env start [--auto-setup]
 
 # to start environment with an example workflow web API-based workflow
 go run . env start --with-example
@@ -67,6 +67,7 @@ go run . env start --with-beholder
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
 
 Optional parameters:
+- `-a`: Check if all dependencies are present and if not install them (defaults to `false`)
 - `-t`: Topology (`simplified` or `full`)
 - `-w`: Wait on error before removing up Docker containers (e.g. to inspect Docker logs, e.g. `-w 5m`)
 - `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
