@@ -1,8 +1,14 @@
 package crib
 
 import (
+	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	"github.com/smartcontractkit/crib-sdk/crib"
+	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
+	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
+	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -69,6 +75,72 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 	}
 
 	return nixShell, nil
+}
+
+func Bootstrap(infraInput *libtypes.InfraInput) error {
+	plan := crib.NewPlan(
+		"namespace",
+		crib.Namespace(infraInput.CRIB.Namespace),
+		crib.ComponentSet(
+			namespacev1.Component(infraInput.CRIB.Namespace),
+			// todo: add telepresence install here for now
+		),
+	)
+	_, err := plan.Apply(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "failed to apply plan")
+	}
+
+	return nil
+}
+
+func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Output, error) {
+	err := input.Validate()
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid input for deploying blockchain")
+	}
+
+	ctx := context.Background()
+
+	anvil := anvilv1.Component(&anvilv1.Props{
+		Namespace: input.Namespace,
+		ChainID:   input.BlockchainInput.ChainID,
+	})
+
+	plan := crib.NewPlan(
+		"anvilv1",
+		crib.Namespace(input.Namespace),
+		crib.ComponentSet(
+			anvil,
+		),
+	)
+
+	result, err := plan.Apply(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to apply a plan")
+	}
+
+	anvilComponents := result.ComponentByName(anvilv1.ComponentName)
+
+	for component := range anvilComponents {
+		res := crib.ComponentState[anvilv1.Result](component)
+
+		return &blockchain.Output{
+			Type:    input.BlockchainInput.Type,
+			Family:  "evm",
+			ChainID: input.BlockchainInput.ChainID,
+			Nodes: []*blockchain.Node{
+				{
+					InternalWSUrl:   res.RPCWebsocketURL(),
+					ExternalWSUrl:   res.RPCWebsocketURL(),
+					InternalHTTPUrl: res.RPCHTTPURL(),
+					ExternalHTTPUrl: res.RPCHTTPURL(),
+				},
+			},
+		}, nil
+	}
+
+	return nil, errors.New("failed to find a valid component")
 }
 
 func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
@@ -313,25 +385,41 @@ func DeployJd(input *types.DeployCribJdInput) (*jd.Output, error) {
 		return nil, errors.Wrap(valErr, "input validation failed")
 	}
 
-	imgTagIndex, err := dockerImageTag(input.JDInput.Image)
+	jdComponent := jdv1.Component(&jdv1.Props{
+		Namespace: input.Namespace,
+		JD: jdv1.JDProps{
+			Image:            input.JDInput.Image,
+			CSAEncryptionKey: input.JDInput.CSAEncryptionKey,
+		},
+		WaitForRollout: true,
+	})
+
+	plan := crib.NewPlan(
+		"jd",
+		crib.Namespace(input.Namespace),
+		crib.ComponentSet(
+			jdComponent,
+		),
+	)
+
+	planState, err := plan.Apply(context.Background())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get image tag")
+		return nil, errors.Wrap(err, "failed to apply a plan")
 	}
 
-	jdEnvVars := map[string]string{
-		"JOB_DISTRIBUTOR_IMAGE_TAG": imgTagIndex,
-	}
-	_, err = input.NixShell.RunCommandWithEnvVars("devspace run deploy-jd --no-warn", jdEnvVars)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to run devspace run deploy-jd")
+	for component := range planState.ComponentByName(jdv1.ComponentName) {
+		jdResult := crib.ComponentState[jdv1.Result](component)
+
+		out := &jd.Output{}
+		out.UseCache = true
+		out.ExternalGRPCUrl = jdResult.GRPCHostURL()
+		out.InternalGRPCUrl = jdResult.GRPCHostURL()
+		out.InternalWSRPCUrl = jdResult.WSRPCHostURL()
+
+		return out, nil
 	}
 
-	jdOut, err := infra.ReadJdURL(filepath.Join(".", input.CribConfigsDir))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read JD URL from file")
-	}
-
-	return jdOut, nil
+	return nil, errors.New("failed to find a valid jd component in results")
 }
 
 func nodesetDockerImage(nodeSet *types.CapabilitiesAwareNodeSet) (string, error) {

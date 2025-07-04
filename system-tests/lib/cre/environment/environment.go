@@ -467,7 +467,7 @@ func SetupTestEnvironment(
 		}
 
 		var jdErr error
-		input.JdInput.Out, jdErr = crib.DeployJdWithCRIBSDK(deployCribJdInput)
+		input.JdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
 		if jdErr != nil {
 			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with crib-sdk")
 		}
