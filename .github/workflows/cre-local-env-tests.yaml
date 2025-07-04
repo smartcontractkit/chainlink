@@ -58,6 +58,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y librdkafka-dev
 
+          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
+          rm -f $(go list -f '{{.Dir}}' -m github.com/confluentinc/confluent-kafka-go)/kafka/librdkafka_vendor/librdkafka_glibc_linux.a
+
       - name: Download Go dependencies
         id: go-deps
         working-directory: core/scripts/cre/environment
