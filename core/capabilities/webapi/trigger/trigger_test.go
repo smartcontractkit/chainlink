@@ -85,7 +85,7 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName string) *jsonrpc.Request {
+func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName string) *jsonrpc.Request[api.Message] {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = ghcapabilities.MethodWebAPITrigger
@@ -124,7 +124,7 @@ func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName
 }
 
 func getResponseFromArg(arg interface{}) (ghcapabilities.TriggerResponsePayload, error) {
-	resp := arg.(*jsonrpc.Response)
+	resp := arg.(*jsonrpc.Response[json.RawMessage])
 	var msg api.Message
 	err := json.Unmarshal(resp.Result, &msg)
 	if err != nil {
@@ -304,7 +304,7 @@ func TestTriggerExecute(t *testing.T) {
 
 	t.Run("invalid message validation", func(t *testing.T) {
 		// request with missing params
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[api.Message]{
 			Version: "2.0",
 			ID:      "id",
 			Method:  ghcapabilities.MethodWebAPITrigger,

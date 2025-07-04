@@ -537,7 +537,7 @@ func (_c *GatewayConnector_Ready_Call) RunAndReturn(run func() error) *GatewayCo
 }
 
 // SendToGateway provides a mock function with given fields: ctx, gatewayID, resp
-func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc2.Response) error {
+func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc2.Response[interface{}]) error {
 	ret := _m.Called(ctx, gatewayID, resp)
 
 	if len(ret) == 0 {
@@ -545,7 +545,7 @@ func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string,
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Response) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Response[interface{}]) error); ok {
 		r0 = rf(ctx, gatewayID, resp)
 	} else {
 		r0 = ret.Error(0)
@@ -562,14 +562,14 @@ type GatewayConnector_SendToGateway_Call struct {
 // SendToGateway is a helper method to define mock.On call
 //   - ctx context.Context
 //   - gatewayID string
-//   - resp *jsonrpc2.Response
+//   - resp *jsonrpc2.Response[interface{}]
 func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayID interface{}, resp interface{}) *GatewayConnector_SendToGateway_Call {
 	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayID, resp)}
 }
 
-func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, resp *jsonrpc2.Response)) *GatewayConnector_SendToGateway_Call {
+func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, resp *jsonrpc2.Response[interface{}])) *GatewayConnector_SendToGateway_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Response))
+		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Response[interface{}]))
 	})
 	return _c
 }
@@ -579,7 +579,7 @@ func (_c *GatewayConnector_SendToGateway_Call) Return(_a0 error) *GatewayConnect
 	return _c
 }
 
-func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Response) error) *GatewayConnector_SendToGateway_Call {
+func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Response[interface{}]) error) *GatewayConnector_SendToGateway_Call {
 	_c.Call.Return(run)
 	return _c
 }

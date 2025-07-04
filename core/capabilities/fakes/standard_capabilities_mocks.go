@@ -69,7 +69,7 @@ func (g *GatewayConnectorMock) AddHandler(context.Context, []string, core.Gatewa
 	return nil
 }
 
-func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response) error {
+func (g *GatewayConnectorMock) SendToGateway(context.Context, string, *jsonrpc.Response[any]) error {
 	return nil
 }
 

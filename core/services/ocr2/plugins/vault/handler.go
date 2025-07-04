@@ -13,7 +13,7 @@ var _ connector.GatewayConnectorHandler = (*Handler)(nil)
 const HandlerName = "VaultHandler"
 
 type gatewaySender interface {
-	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response) error
+	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[any]) error
 }
 
 type Handler struct {
@@ -44,7 +44,7 @@ func (h *Handler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
 }
 
-func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[any]) error {
 	// TODO: do something with the request
 	err := h.gatewaySender.SendToGateway(ctx, gatewayID, nil)
 	if err != nil {

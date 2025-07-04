@@ -381,7 +381,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 	return connector, connectorHandler
 }
 
-func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request {
+func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request[api.Message] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -439,13 +439,11 @@ func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing
 			Method: "some-method",
 		},
 	}
-	params, err := json.Marshal(invalidMsg)
-	require.NoError(t, err)
-	req := &jsonrpc.Request{
+	req := &jsonrpc.Request[api.Message]{
 		Version: "2.0",
 		Method:  invalidMsg.Body.Method,
-		Params:  params,
+		Params:  &invalidMsg,
 	}
-	err = handler.HandleGatewayMessage(context.Background(), "gateway1", req)
-	require.NoError(t, err)
+	err := handler.HandleGatewayMessage(context.Background(), "gateway1", req)
+	require.Error(t, err)
 }

@@ -441,7 +441,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2092, 1*1024))
 }
 
-func gatewayResponse(t *testing.T, msgID string, body []byte, privateKey string) *jsonrpc.Request {
+func gatewayResponse(t *testing.T, msgID string, body []byte, privateKey string) *jsonrpc.Request[api.Message] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		StatusCode:     200,
