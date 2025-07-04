@@ -61,7 +61,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = '192.168.65.254:50051'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -91,7 +91,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = '192.168.65.254:50051'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -122,7 +122,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = '192.168.65.254:50051'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """

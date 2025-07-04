@@ -58,6 +58,7 @@ type ChainConfig struct {
 	ClientZkSyncVM      *clients.Client
 	DeployerKeyZkSyncVM *accounts.Wallet
 	SolDeployerKey      solana.PrivateKey
+	SolArtifactDir      string                      // directory of pre-built solana artifacts, if any
 	Users               []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
 	MultiClientOpts     []func(c *cldf.MultiClient) // options to configure the multi client
 }
@@ -217,22 +218,14 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 				return nil
 
 			case SolChainType:
-				logger.Info("Creating solana programs tmp dir")
-				programsPath, err := os.MkdirTemp("", "solana-programs")
-				logger.Infof("Solana programs tmp dir at %s", programsPath)
-				if err != nil {
-					return err
-				}
-
-				keyPairDir, err := os.MkdirTemp("", "solana-keypair")
-				logger.Infof("Solana keypair dir at %s", keyPairDir)
-				if err != nil {
-					return err
-				}
-
-				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
-				if err != nil {
-					return err
+				solArtifactPath := chainCfg.SolArtifactDir
+				if solArtifactPath == "" {
+					logger.Info("Creating tmp directory for generated solana programs and keypairs")
+					solArtifactPath, err = os.MkdirTemp("", "solana-artifacts")
+					logger.Infof("Solana programs tmp dir at %s", solArtifactPath)
+					if err != nil {
+						return err
+					}
 				}
 
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
@@ -240,7 +233,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
-					KeypairPath: keyPairPath,
+					KeypairPath: solArtifactPath,
 					URL:         chainCfg.HTTPRPCs[0].External,
 					WSURL:       chainCfg.WSRPCs[0].External,
 					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
@@ -249,7 +242,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 						)
 						return err
 					},
-					ProgramsPath: programsPath,
+					ProgramsPath: solArtifactPath,
 				})
 				return nil
 

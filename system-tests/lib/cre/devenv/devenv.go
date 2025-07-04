@@ -214,11 +214,13 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
 			ExistingAddresses: input.ExistingAddresses,
+			DataStore:         input.Datastore,
 			Offchain:          jd,
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
 			BlockChains:       cldf_chain.NewBlockChainsFromSlice(cldfChains),
+			OperationsBundle:  input.OperationsBundle,
 		},
 	}
 

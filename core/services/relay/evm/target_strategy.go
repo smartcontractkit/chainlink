@@ -11,12 +11,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 )
 
@@ -26,9 +28,9 @@ var (
 )
 
 type evmTargetStrategy struct {
-	cr commontypes.ContractReader
-	cw commontypes.ContractWriter
-
+	cr        commontypes.ContractReader
+	cw        commontypes.ContractWriter
+	txm       evmtxmgr.TxManager
 	lggr      logger.Logger
 	forwarder string
 
@@ -65,11 +67,15 @@ type Config struct {
 	GasLimit *uint64
 }
 
-func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, forwarder string, gasLimitDefault uint64, lggr logger.Logger) *evmTargetStrategy {
+func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, txm evmtxmgr.TxManager, forwarder string, gasLimitDefault uint64, lggr logger.Logger) (*evmTargetStrategy, error) {
+	if gasLimitDefault < ForwarderContractLogicGasCost {
+		return nil, fmt.Errorf("default gas limit '%d' is lower than forwarder estimate '%d'", gasLimitDefault, ForwarderContractLogicGasCost)
+	}
 	bound := atomic.Bool{}
 	return &evmTargetStrategy{
 		cr:                 cr,
 		cw:                 cw,
+		txm:                txm,
 		lggr:               lggr,
 		forwarder:          forwarder,
 		receiverGasMinimum: gasLimitDefault - ForwarderContractLogicGasCost,
@@ -78,7 +84,7 @@ func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.Contract
 			Name:    "forwarder",
 		},
 		bound: &bound,
-	}
+	}, nil
 }
 
 func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID uint16, request capabilities.CapabilityRequest) (*writetarget.TransmissionState, error) {
@@ -171,6 +177,38 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 }
 
+func (t *evmTargetStrategy) GetEstimateFee(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte,
+	request capabilities.CapabilityRequest) (commontypes.EstimateFee, error) {
+	r, err := getEVMRequest(request)
+	if err != nil {
+		return commontypes.EstimateFee{}, err
+	}
+
+	req := getRawReport(r)
+	t.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
+
+	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
+	if r.Config.GasLimit != nil {
+		meta.GasLimit = new(big.Int).SetUint64(*r.Config.GasLimit)
+	}
+
+	value := big.NewInt(0)
+	return t.cw.GetEstimateFee(ctx, contractName, method, req, t.forwarder, &meta, value)
+}
+
+func (t *evmTargetStrategy) GetTransactionFee(ctx context.Context, transactionID string) (decimal.Decimal, error) {
+	fee, err := t.txm.GetTransactionFee(ctx, transactionID)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	return decimal.New(fee.TransactionFee.Int64(), -18), nil
+}
+
+var (
+	contractName = "forwarder"
+	method       = "report"
+)
+
 // TransmitReport constructs the tx to transmit the report, and defines
 // any specific handling for sending the report via ChainWriter.
 func (t *evmTargetStrategy) TransmitReport(ctx context.Context, _ []byte, _ []byte, _ [][]byte, request capabilities.CapabilityRequest) (string, error) {
@@ -183,16 +221,39 @@ func (t *evmTargetStrategy) TransmitReport(ctx context.Context, _ []byte, _ []by
 	if err != nil {
 		return txID.String(), fmt.Errorf("failed to getEVMRequest: %w", err)
 	}
+	req := getRawReport(r)
+	t.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
 
+	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
+	if r.Config.GasLimit != nil {
+		meta.GasLimit = new(big.Int).SetUint64(*r.Config.GasLimit)
+	}
+
+	value := big.NewInt(0)
+	if err := t.cw.SubmitTransaction(ctx, contractName, method, req, txID.String(), t.forwarder, &meta, value); err != nil {
+		if !commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
+			return txID.String(), fmt.Errorf("failed to submit transaction: %w", err)
+		}
+		meta.GasLimit = nil
+		if err := t.cw.SubmitTransaction(ctx, contractName, method, req, txID.String(), t.forwarder, &meta, value); err != nil {
+			return txID.String(), fmt.Errorf("failed to submit transaction: %w", err)
+		}
+	}
+	return txID.String(), nil
+}
+
+type rawReport struct {
+	Receiver      string
+	RawReport     []byte
+	ReportContext []byte
+	Signatures    [][]byte
+}
+
+func getRawReport(r TargetRequest) rawReport {
 	// Note: The codec that ChainWriter uses to encode the parameters for the contract ABI cannot handle
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
-	req := struct {
-		Receiver      string
-		RawReport     []byte
-		ReportContext []byte
-		Signatures    [][]byte
-	}{r.Config.Address, r.Inputs.SignedReport.Report, r.Inputs.SignedReport.Context, r.Inputs.SignedReport.Signatures}
+	req := rawReport{r.Config.Address, r.Inputs.SignedReport.Report, r.Inputs.SignedReport.Context, r.Inputs.SignedReport.Signatures}
 
 	if req.RawReport == nil {
 		req.RawReport = make([]byte, 0)
@@ -205,24 +266,8 @@ func (t *evmTargetStrategy) TransmitReport(ctx context.Context, _ []byte, _ []by
 	if req.Signatures == nil {
 		req.Signatures = make([][]byte, 0)
 	}
-	t.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
 
-	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
-	if r.Config.GasLimit != nil {
-		meta.GasLimit = new(big.Int).SetUint64(*r.Config.GasLimit)
-	}
-
-	value := big.NewInt(0)
-	if err := t.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), t.forwarder, &meta, value); err != nil {
-		if !commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
-			return txID.String(), fmt.Errorf("failed to submit transaction: %w", err)
-		}
-		meta.GasLimit = nil
-		if err := t.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), t.forwarder, &meta, value); err != nil {
-			return txID.String(), fmt.Errorf("failed to submit transaction: %w", err)
-		}
-	}
-	return txID.String(), nil
+	return req
 }
 
 func (t *evmTargetStrategy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
