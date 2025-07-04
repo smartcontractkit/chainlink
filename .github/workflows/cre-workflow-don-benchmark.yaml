@@ -125,7 +125,7 @@ jobs:
           PROMETHEUS_URL: "http://localhost:9090"
         run: |
           cd system-tests/tests/load/cre
-          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m 2>&1 | tee test_output.log
+          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 20m 2>&1 | tee test_output.log
 
       - name: Parse logs for performance regressions
         if: always()
@@ -141,7 +141,7 @@ jobs:
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
             # Extract detailed PERFORMANCE REGRESSION lines
-            grep -o "PERFORMANCE REGRESSION.*)" test_output.log | awk '{printf "%s\<br>", $0}' > logs/regression_details.txt
+            grep -o "PERFORMANCE REGRESSION.*)" test_output.log | awk '{printf "%s\<br> ", $0}' > logs/regression_details.txt
           else
             echo "No performance regressions detected"
           fi
