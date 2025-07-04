@@ -1,8 +1,8 @@
 {
  "test_name": "TestLoad_Workflow_Streams_MockCapabilities",
- "commit_or_tag": "8c62a491212eac8e14f952a39a8e03b230b5cff720250701121603",
- "test_start_timestamp": "2025-07-01T12:09:03.593671028Z",
- "test_end_timestamp": "2025-07-01T12:14:03.598752911Z",
+ "commit_or_tag": "5c6a158e51591ca766ef23de064b803976ac70ee20250704112430",
+ "test_start_timestamp": "2025-07-04T11:13:15.851644029Z",
+ "test_end_timestamp": "2025-07-04T11:23:15.853332894Z",
  "generator_configs": {
   "Generator": {
    "generator_name": "Generator",
@@ -12,8 +12,8 @@
      "from": 4,
      "duration": 600000000000,
      "type": "plain",
-     "time_start": "2025-07-04T10:22:44.88602807Z",
-     "time_end": "2025-07-04T10:32:44.886760127Z"
+     "time_start": "2025-07-04T11:13:15.851644029Z",
+     "time_end": "2025-07-04T11:23:15.853332894Z"
     }
    ],
    "rate_limit_unit_duration": 60000000000,
@@ -32,26 +32,26 @@
       "from": 4,
       "duration": 600000000000,
       "type": "plain",
-      "time_start": "2025-07-04T10:22:44.88602807Z",
-      "time_end": "2025-07-04T10:32:44.886760127Z"
+      "time_start": "2025-07-04T11:13:15.851644029Z",
+      "time_end": "2025-07-04T11:23:15.853332894Z"
      }
     ],
     "rate_limit_unit_duration": 60000000000,
     "call_timeout": 120000000000
    },
    "queries": [
-    "median_latency",
-    "95th_percentile_latency",
     "99th_percentile_latency",
     "max_latency",
-    "error_rate"
+    "error_rate",
+    "median_latency",
+    "95th_percentile_latency"
    ],
    "query_results": {
-    "95th_percentile_latency": 120002.21832799999,
-    "99th_percentile_latency": 120004.6620375,
-    "error_rate": 0.22727272727272727,
-    "max_latency": 120005.9856,
-    "median_latency": 50648.92238
+    "95th_percentile_latency": 120001.33779650001,
+    "99th_percentile_latency": 120004.7764225,
+    "error_rate": 0.14285714285714285,
+    "max_latency": 120006.568738,
+    "median_latency": 52751.922409499995
    }
   },
   {
@@ -70,8 +70,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "56.713669727644145"
+        1751628195.853,
+        "63.20965969714942"
        ]
       }
      ],
@@ -82,8 +82,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "0.0000409796"
+        1751628195.853,
+        "0.0000633908"
        ]
       }
      ],
@@ -94,8 +94,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "271782024.53333336"
+        1751628195.853,
+        "293915978.3316805"
        ]
       }
      ],
@@ -106,8 +106,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "351528550.4"
+        1751628195.853,
+        "380260352"
        ]
       }
      ],
@@ -118,8 +118,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "17276926.8"
+        1751628195.853,
+        "42018130.6"
        ]
       }
      ],
@@ -130,8 +130,8 @@
       {
        "metric": {},
        "value": [
-        1751372043.599,
-        "18250159.8"
+        1751628195.853,
+        "44861770.8"
        ]
       }
      ],
