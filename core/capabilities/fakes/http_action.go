@@ -135,7 +135,8 @@ func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ cor
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	// TODO: do validation of config here
 
 	err := fh.Start(ctx)
