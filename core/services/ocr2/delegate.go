@@ -650,7 +650,7 @@ func (d *Delegate) newServicesVaultPlugin(
 }
 
 func (d *Delegate) newDonTimePlugin(
-	ctx context.Context,
+	_ context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 ) (srvs []job.ServiceCtx, err error) {
@@ -663,7 +663,7 @@ func (d *Delegate) newDonTimePlugin(
 		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
 	}
 
-	factory, err := dontime.NewFactory(d.dontimeStore, lggr) // returns ReportingPluginFactory
+	factory, err := dontime.NewFactory(d.dontimeStore, lggr)
 	if err != nil {
 		return nil, err
 	}
