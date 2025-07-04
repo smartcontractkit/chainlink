@@ -702,7 +702,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		ContractTransmitter:          nil, // TODO
 		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      nil, // TODO
+		KeyValueDatabaseFactory:      ocrcommon.NewKeyValueDatabaseFactory(),
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,

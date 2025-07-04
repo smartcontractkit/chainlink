@@ -2,6 +2,7 @@ package ocr2_test
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 	"time"
 
@@ -537,14 +538,33 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 		assertCount(1)
 
 		block = []byte("hello world 2")
-		err = db.WriteBlock(ctx, cd1, math.Uint64Max, block)
+		err = db.WriteBlock(ctx, cd1, math.MaxUint64, block)
 		assert.NoError(t, err)
 
 		assertCount(2)
 
-		gotBlock, err := db.ReadBlock(ctx, cd1, 0)
+		gotBlock, err := db.ReadBlock(ctx, cd1, math.MaxUint64)
 		require.NoError(t, err)
 
 		assert.Equal(t, block, gotBlock)
+
+		// Writing nil should delete the block
+		err = db.WriteBlock(ctx, cd1, math.MaxUint64, nil)
+		assert.NoError(t, err)
+
+		assertCount(1)
+
+		gotBlock, err = db.ReadBlock(ctx, cd1, math.MaxUint64)
+		require.NoError(t, err)
+		assert.Equal(t, []byte(nil), gotBlock)
+
+		// Overwrite
+		block2 := []byte("new block")
+		err = db.WriteBlock(ctx, cd1, 0, block2)
+		assert.NoError(t, err)
+
+		gotBlock, err = db.ReadBlock(ctx, cd1, 0)
+		require.NoError(t, err)
+		assert.Equal(t, block2, gotBlock)
 	})
 }
