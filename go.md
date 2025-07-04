@@ -34,7 +34,7 @@ flowchart LR
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
-	chainlink-common --> chainlink-common/pkg/values
+	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
@@ -44,6 +44,8 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/values
 	click chainlink-common/pkg/values href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/pkg/workflows/sdk/v2/pb --> chainlink-common/pkg/values
+	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chain-selectors
@@ -111,6 +113,7 @@ flowchart LR
 		 chainlink-common
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
+		 chainlink-common/pkg/workflows/sdk/v2/pb
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
@@ -177,7 +180,7 @@ flowchart LR
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
-	chainlink-common --> chainlink-common/pkg/values
+	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
@@ -187,6 +190,8 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/values
 	click chainlink-common/pkg/values href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/pkg/workflows/sdk/v2/pb --> chainlink-common/pkg/values
+	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-deployments-framework --> chainlink-protos/job-distributor
@@ -316,6 +321,7 @@ flowchart LR
 		 chainlink-common
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
+		 chainlink-common/pkg/workflows/sdk/v2/pb
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
