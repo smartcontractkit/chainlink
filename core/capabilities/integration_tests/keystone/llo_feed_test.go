@@ -99,7 +99,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	streams := make([]llotypes.Stream, len(reports.Payload))
 	// Create multipliers based on the actual StreamIDs from the payload
 	multipliers := make([]cre.ReportCodecCapabilityTriggerMultiplier, len(reports.Payload))
-	multiplier, err := decimal.NewFromString("1")
+	multiplier, err := decimal.NewFromString("1000000000000000000") // 10^18
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to parse multiplier string: %w", err)
 	}
@@ -112,8 +112,6 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 			Multiplier: multiplier,
 			StreamID:   payload.StreamID,
 		}
-		// Shift the multiplier for each stream to simulate different multipliers
-		multiplier = multiplier.Shift(1)
 	}
 
 	opts, err := (&cre.ReportCodecCapabilityTriggerOpts{
