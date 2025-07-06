@@ -177,7 +177,7 @@ targets:
 */
 
 const secureMintWorkflow = `
-name: "sm_wf"
+name: "sm_workflo"
 owner: "0x%s"
 triggers:
   - id: "securemint-trigger@1.0.0"
