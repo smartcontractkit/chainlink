@@ -177,7 +177,7 @@ targets:
 */
 
 const secureMintWorkflow = `
-name: "sm_workflo"
+name: "%s"
 owner: "0x%s"
 triggers:
   - id: "securemint-trigger@1.0.0"
@@ -220,10 +220,11 @@ targets:
 //       abi: "receive(report bytes)"
 
 func createSecureMintWorkflowJob(t *testing.T,
+	workflowName string,
 	workflowOwner string,
 	chainSelector int64,
 	consumerAddr common.Address) job.Job {
-	spec := fmt.Sprintf(secureMintWorkflow, workflowOwner, chainSelector, consumerAddr.String())
+	spec := fmt.Sprintf(secureMintWorkflow, workflowName, workflowOwner, chainSelector, consumerAddr.String())
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
 	return workflowJobSpec.Job()
 }

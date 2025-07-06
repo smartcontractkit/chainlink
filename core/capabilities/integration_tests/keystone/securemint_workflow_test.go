@@ -19,6 +19,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
@@ -41,12 +42,34 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	targetDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Target", NumNodes: 4, F: 1})
 	require.NoError(t, err)
 
-	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
+	workflowDon, consumer, forwarder := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
 	t.Logf("Consumer contract address: %s", consumer.Address().String())
+	t.Logf("Forwarder contract address: %s", forwarder.Address().String())
+
+	// TODO(gg): change this into a proper wait so that we can find out in case the report is not forwarded to the consumer
+	go func() {
+		ch := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
+		sub, err := forwarder.WatchReportProcessed(nil, ch, nil, nil, nil)
+		require.NoError(t, err)
+		for {
+			select {
+			case <-sub.Err():
+				t.Logf("Error watching report processed: %v", err)
+				return
+			case x := <-ch:
+				t.Logf("Forwarder received report: %+v", x)
+				if !x.Result {
+					transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumer.Address(), x.WorkflowExecutionId, x.ReportId)
+					require.NoError(t, err)
+					t.Logf("Report not forwarded to consumer, info: %+v", transmissionInfo)
+				}
+			}
+		}
+	}()
 
 	// generate a wf job
-	job := createSecureMintWorkflowJob(t, workflowOwnerID, int64(chainID), consumer.Address())
+	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, int64(chainID), consumer.Address())
 	err = workflowDon.AddJob(ctx, &job)
 	require.NoError(t, err)
 
@@ -57,7 +80,18 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 
 	// send the trigger event to the trigger sink and wait for the consumer to receive the feeds
 	triggerSink.SendOutput(triggerEvent, "securemint-trigger")
-	h := newSecureMintHandler([]secureMintUpdate{}, uint32(time.Now().Unix()))
+
+	// The workflow is configured to use feed ID "1020001001" and should generate a feed
+	// with a price derived from the Mintable value (99) in the trigger event
+	// The feed ID is generated from the chain selector (1337) as bytes
+	// The price is packed from Mintable (99) and block number (10)
+	expectedUpdates := []secureMintUpdate{
+		{
+			feedID: "0x0000000000000000000000000000000000000000000000000000000000000539", // Chain selector 1337 as bytes (right-aligned)
+			price:  decimal.NewFromInt(99).Shift(192).Add(decimal.NewFromInt(10)),        // Price is packed: (Mintable << 192) | Block
+		},
+	}
+	h := newSecureMintHandler(expectedUpdates, uint32(time.Now().Unix()))
 	waitForConsumerReports(t, consumer, h)
 }
 
