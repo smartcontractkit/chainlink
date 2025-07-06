@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,8 +72,8 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the test trigger event in the format expected by the secure mint transmitter
-	mintableAmount := int64(99)
-	blockNumber := int64(10)
+	mintableAmount := big.NewInt(99)
+	blockNumber := uint64(10)
 	triggerEvent := createSecureMintTriggerEvent(t, chainID, seqNr, mintableAmount, blockNumber)
 
 	t.Logf("Sending triggerEvent: %+v", triggerEvent)
@@ -93,14 +92,14 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 			blockNumber:    blockNumber,
 		},
 	}
-	h := newSecureMintHandler(expectedUpdates, uint32(time.Now().Unix()))
+	h := newSecureMintHandler(expectedUpdates, uint32(blockNumber)) // TODO(gg): the sm aggregator uses the block number as timestamp, not sure if we want that
 	waitForConsumerReports(t, consumer, h)
 }
 
 type secureMintUpdate struct {
 	feedID         string
-	mintableAmount int64
-	blockNumber    int64
+	mintableAmount *big.Int
+	blockNumber    uint64
 }
 
 // chainSelector is mimicked after the por plugin, which mimics it from the chain-selectors repo
@@ -137,7 +136,7 @@ type secureMintReport struct {
 //	} // this is sent to trigger subscribers
 //
 // ```
-func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64, mintable int64, blockNumber int64) *values.Map {
+func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64, mintable *big.Int, blockNumber uint64) *values.Map {
 	// Create mock signatures (in a real scenario, these would be actual OCR signatures)
 	sigs := []commoncap.OCRAttributedOnchainSignature{
 		{
@@ -154,8 +153,8 @@ func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uin
 	secureMintReport := &secureMintReport{
 		ConfigDigest: ocr2types.ConfigDigest(configDigest),
 		SeqNr:        seqNr,
-		Block:        uint64(blockNumber),
-		Mintable:     big.NewInt(mintable),
+		Block:        blockNumber,
+		Mintable:     mintable,
 	}
 
 	reportBytes, err := json.Marshal(secureMintReport)
@@ -221,17 +220,30 @@ func (h *secureMintHandler) handleFeedReceived(t *testing.T, event *feeds_consum
 
 	require.NotNil(t, expectedUpdate, "feedID %s not found in expected updates", feedIDStr)
 
+	mintableMask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
+	extractedMintable := new(big.Int).And(event.Price, mintableMask)
+	t.Logf("extractedMintable: %d", extractedMintable)
+	assert.Equalf(t, expectedUpdate.mintableAmount, extractedMintable, "mintable amount mismatch: expected %d, got %d", expectedUpdate.mintableAmount, extractedMintable)
+
+	// Extract block number from bits 128-191
+	blockNumberMask := new(big.Int).Lsh(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 64), big.NewInt(1)), 128)
+	extractedBlockNumber := new(big.Int).And(event.Price, blockNumberMask)
+	extractedBlockNumber = new(big.Int).Rsh(extractedBlockNumber, 128)
+	t.Logf("extractedBlockNumber: %d", extractedBlockNumber)
+
+	assert.Equalf(t, expectedUpdate.blockNumber, extractedBlockNumber.Uint64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, extractedBlockNumber.Uint64())
+
 	// Verify the decimal value
 	// the block number and mintables are packed into a single uint224 for evm as follows:
 	// (top 32 - not used / middle 64 - block number / lower 128 - mintable amount)
 	// unpack first and then assert
-	price := big.NewInt(0).SetBytes(event.Price.Bytes())
-	price.Rsh(price, 192)
-	assert.Equalf(t, expectedUpdate.mintableAmount, price.Int64(), "mintable amount mismatch: expected %d, got %d", expectedUpdate.mintableAmount, price.Int64())
+	// price := big.NewInt(0).SetBytes(event.Price.Bytes())
+	// price.Rsh(price, 192)
+	// assert.Equalf(t, expectedUpdate.mintableAmount, price.Int64(), "mintable amount mismatch: expected %d, got %d", expectedUpdate.mintableAmount, price.Int64())
 
-	blockNumber := big.NewInt(0).SetBytes(event.Price.Bytes())
-	blockNumber.Rsh(blockNumber, 128)
-	assert.Equalf(t, expectedUpdate.blockNumber, blockNumber.Int64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, blockNumber.Int64())
+	// blockNumber := big.NewInt(0).SetBytes(event.Price.Bytes())
+	// blockNumber.Rsh(blockNumber, 128)
+	// assert.Equalf(t, expectedUpdate.blockNumber, blockNumber.Int64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, blockNumber.Int64())
 
 	assert.Equalf(t, h.ts, event.Timestamp, "timestamp mismatch: expected %d, got %d", h.ts, event.Timestamp)
 
