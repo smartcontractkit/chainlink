@@ -149,9 +149,10 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 	if bypasser == nil {
 		seqInput := seqs.SeqDeployMCMWithConfigInput{
-			ContractType:  commontypes.BypasserManyChainMultisig,
-			MCMConfig:     config.Bypasser,
-			ChainSelector: chain.Selector,
+			ContractType:   commontypes.BypasserManyChainMultisig,
+			MCMConfig:      config.Bypasser,
+			ChainSelector:  chain.Selector,
+			GasBoostConfig: config.GasBoostConfig,
 		}
 
 		report, err := operations.ExecuteSequence(
@@ -187,9 +188,10 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if canceller == nil {
 		seqInput := seqs.SeqDeployMCMWithConfigInput{
-			ContractType:  commontypes.CancellerManyChainMultisig,
-			MCMConfig:     config.Canceller,
-			ChainSelector: chain.Selector,
+			ContractType:   commontypes.CancellerManyChainMultisig,
+			MCMConfig:      config.Canceller,
+			ChainSelector:  chain.Selector,
+			GasBoostConfig: config.GasBoostConfig,
 		}
 
 		report, err := operations.ExecuteSequence(
@@ -225,9 +227,10 @@ func DeployMCMSWithTimelockContractsEVM(
 
 	if proposer == nil {
 		seqInput := seqs.SeqDeployMCMWithConfigInput{
-			ContractType:  commontypes.ProposerManyChainMultisig,
-			MCMConfig:     config.Proposer,
-			ChainSelector: chain.Selector,
+			ContractType:   commontypes.ProposerManyChainMultisig,
+			MCMConfig:      config.Proposer,
+			ChainSelector:  chain.Selector,
+			GasBoostConfig: config.GasBoostConfig,
 		}
 
 		report, err := operations.ExecuteSequence(

@@ -11,16 +11,19 @@ import (
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultSendChannelBufferSize = 1000
@@ -38,7 +41,7 @@ type webapiTrigger struct {
 	allowedTopics  map[string]bool
 	ch             chan<- capabilities.TriggerResponse
 	config         webapicap.TriggerConfig
-	rateLimiter    *common.RateLimiter
+	rateLimiter    *ratelimit.RateLimiter
 }
 
 type triggerConnectorHandler struct {
@@ -46,7 +49,7 @@ type triggerConnectorHandler struct {
 
 	capabilities.CapabilityInfo
 	capabilities.Validator[webapicap.TriggerConfig, struct{}, webapicap.TriggerRequestPayload]
-	connector           connector.GatewayConnector
+	connector           core.GatewayConnector
 	lggr                logger.Logger
 	mu                  sync.Mutex
 	registeredWorkflows map[string]webapiTrigger
@@ -56,7 +59,7 @@ type triggerConnectorHandler struct {
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
 var _ services.Service = &triggerConnectorHandler{}
 
-func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
+func NewTrigger(config string, registry core.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	if connector == nil {
 		return nil, errors.New("missing connector")
 	}
@@ -132,19 +135,23 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	return err
 }
 
-func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
-	// TODO: Validate Signature
+func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
+	msg, err := hc.ValidatedMessageFromReq(req)
+	if err != nil {
+		h.lggr.Errorw("error validating message from request", "err", err, "request", req)
+		return nil
+	}
 	body := &msg.Body
 	sender := ethCommon.HexToAddress(body.Sender)
 	var payload webapicap.TriggerRequestPayload
-	err := json.Unmarshal(body.Payload, &payload)
+	err = json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
 		err = h.sendResponse(ctx, gatewayID, body, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
 		if err != nil {
 			h.lggr.Errorw("error sending response", "err", err)
 		}
-		return
+		return nil
 	}
 
 	switch body.Method {
@@ -161,7 +168,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 		if err != nil {
 			h.lggr.Errorw("Error sending response", "body", body, "response", response, "err", err)
 		}
-		return
+		return nil
 
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
@@ -170,6 +177,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 			h.lggr.Errorw("error sending response", "err", err)
 		}
 	}
+	return nil
 }
 
 func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
@@ -195,14 +203,14 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	}
 
 	rateLimiterConfig := reqConfig.RateLimiter
-	commonRateLimiter := common.RateLimiterConfig{
+	commonRateLimiter := ratelimit.RateLimiterConfig{
 		GlobalRPS:      rateLimiterConfig.GlobalRPS,
 		GlobalBurst:    int(rateLimiterConfig.GlobalBurst),
 		PerSenderRPS:   rateLimiterConfig.PerSenderRPS,
 		PerSenderBurst: int(rateLimiterConfig.PerSenderBurst),
 	}
 
-	rateLimiter, err := common.NewRateLimiter(commonRateLimiter)
+	rateLimiter, err := ratelimit.NewRateLimiter(commonRateLimiter)
 	if err != nil {
 		return nil, err
 	}
@@ -247,19 +255,23 @@ func (h *triggerConnectorHandler) Info(ctx context.Context) (capabilities.Capabi
 	return h.CapabilityInfo, nil
 }
 
+func (h *triggerConnectorHandler) ID(ctx context.Context) (string, error) {
+	return h.CapabilityInfo.ID, nil
+}
+
 func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 	if err := h.registry.Add(ctx, h); err != nil {
 		return err
 	}
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
-		return h.connector.AddHandler([]string{"web_api_trigger"}, h)
+		return h.connector.AddHandler(ctx, []string{"web_api_trigger"}, h)
 	})
 }
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		err := h.registry.Remove(ctx, h.ID)
+		err := h.registry.Remove(ctx, h.CapabilityInfo.ID)
 		if err != nil {
 			return err
 		}
@@ -290,5 +302,20 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 		Payload:   payloadJSON,
 	}
 
-	return h.connector.SignAndSendToGateway(ctx, gatewayID, body)
+	signature, err := h.connector.SignMessage(ctx, gw_common.Flatten(api.GetRawMessageBody(body)...))
+	if err != nil {
+		return err
+	}
+
+	msg := &api.Message{
+		Body:      *body,
+		Signature: utils.StringToHex(string(signature)),
+	}
+
+	resp, err := hc.ValidatedResponseFromMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	return h.connector.SendToGateway(ctx, gatewayID, resp)
 }

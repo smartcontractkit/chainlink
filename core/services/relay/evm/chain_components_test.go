@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
@@ -28,7 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -227,6 +231,56 @@ func TestChainReader_HealthReport(t *testing.T) {
 	healthReport := cr.HealthReport()
 	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
 	require.True(t, services.ContainsError(healthReport, htError), "expected chain reader to propagate headtracker's error")
+}
+
+func TestSequencesHaveTxHash(t *testing.T) {
+	t.Parallel()
+
+	helper := &helper{}
+	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper, DeployLock: &sync.Mutex{}}
+	helper.Init(t)
+	it.Setup(t)
+
+	ctx := it.Helper.Context(t)
+	cr := it.GetContractReader(t)
+	bindings := it.GetBindings(t)
+	require.NoError(t, cr.Bind(ctx, bindings))
+
+	testerContract, err := chain_reader_tester.NewChainReaderTester(common.HexToAddress(bindings[0].Address), it.Helper.Backend())
+	require.NoError(t, err)
+	oracleID := uint8(188)
+	event, err := testerContract.TriggerEvent(it.Helper.Accounts(t)[0], 123, oracleID, chain_reader_tester.MidLevelDynamicTestStruct{}, chain_reader_tester.MidLevelStaticTestStruct{}, [32]uint8{}, chain_reader_tester.AccountStruct{}, []common.Address{}, "", big.NewInt(0))
+	require.NoError(t, err)
+
+	q := query.KeyFilter{
+		Key: interfacetests.EventName, Expressions: []query.Expression{
+			query.Comparator("OracleID",
+				primitives.ValueComparator{
+					Value:    oracleID,
+					Operator: primitives.Eq,
+				}),
+			query.Confidence(primitives.Unconfirmed),
+		},
+	}
+	assert.Eventually(t, func() bool {
+		sequences, err := cr.QueryKey(ctx, bindings[0], q, query.LimitAndSort{}, &interfacetests.TestStruct{})
+		return err == nil && len(sequences) == 1 && event.Hash().Hex() == hexutil.Encode(sequences[0].TxHash)
+	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+
+	assert.Eventually(t, func() bool {
+		sequences, err := cr.QueryKeys(ctx, []clcommontypes.ContractKeyFilter{
+			{
+				KeyFilter:        q,
+				Contract:         bindings[0],
+				SequenceDataType: &interfacetests.TestStruct{},
+			},
+		}, query.LimitAndSort{})
+
+		for _, seq := range sequences {
+			return err == nil && event.Hash().Hex() == hexutil.Encode(seq.TxHash)
+		}
+		return false
+	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 }
 
 func TestChainComponents(t *testing.T) {

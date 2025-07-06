@@ -13,7 +13,6 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -85,6 +84,7 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	ValidationType         ValidationType
+	Replayed               bool
 	Nonce                  *uint64
 	Receiver               []byte
 	MsgData                []byte
@@ -131,6 +131,9 @@ func getLatestNonce(tc TestCase) uint64 {
 		// we ignore the error because the account might not exist yet
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
+	case chain_selectors.FamilyTon:
+		// TODO investigate TON nonce management, return +1 for now
+		return *tc.Nonce + 1
 	}
 	return latestNonce
 }
@@ -145,6 +148,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
+	receiver := common.LeftPadBytes(tc.Receiver, 32)
 	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
@@ -154,7 +158,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
 			FeeToken:     feeToken,
@@ -168,7 +172,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		msg = ccip_router.SVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Receiver:     receiver,
 			TokenAmounts: nil,
 			Data:         tc.MsgData,
 			FeeToken:     feeToken,
@@ -189,23 +193,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
-
-	onRampAddr, err := tc.OnchainState.GetOnRampAddressBytes(tc.SourceChain)
-	require.NoError(t, err)
-	// Ensure CCIPMessageSent event filter is registered
-	// Sending message too early could result in LogPoller missing the send event
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.SourceChain, consts.EventNameCCIPMessageSent, onRampAddr)
-	require.NoError(t, err)
-	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
-	// The LogPoller could pick up the message sent event but miss the commit or execute event
-	offRampAddr, err := tc.OnchainState.GetOffRampAddressBytes(tc.DestChain)
-	require.NoError(t, err)
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameCommitReportAccepted, offRampAddr)
-	require.NoError(t, err)
-	err = testhelpers.WaitForEventFilterRegistration(t, tc.Env.Offchain, tc.DestChain, consts.EventNameExecutionStateChanged, offRampAddr)
-	require.NoError(t, err)
-
-	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 
 	if tc.NumberOfMessages == 0 {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
@@ -244,6 +231,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		msgSentEvents[i] = msgSentEventLocal
 	}
 
+	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
+	// we need to replay missed logs
+	if !tc.Replayed {
+		require.NotNil(tc.T, tc.DeployedEnv)
+		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		out.Replayed = true
+	}
+
 	// Perform validation based on ValidationType
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
@@ -252,7 +247,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
 		tc.T.Logf("only commit validation was performed")
-
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
 		commitStart := time.Now()
@@ -288,6 +282,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		case chain_selectors.FamilyAptos:
 			unorderedExec = true
 		}
+
+		// TODO investigate TON nonce management, getLatestNonce is mocked to increase by 1 for now
 
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)

@@ -13,6 +13,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -87,4 +88,74 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
+}
+
+type StrategyV2 interface {
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error)
+}
+
+type SimpleTransactionV2 struct {
+	Chain cldf_evm.Chain
+}
+
+func (s *SimpleTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
+	tx, err := callFn(s.Chain.DeployerKey)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.Chain.Confirm(tx)
+	return []mcmslib.TimelockProposal{}, err
+}
+
+type MCMSTransactionV2 struct {
+	Config        *changeset.MCMSConfig
+	Description   string
+	Address       common.Address
+	ChainSel      uint64
+	MCMSContracts *commonchangeset.MCMSWithTimelockState
+	Env           cldf.Environment
+}
+
+func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
+	opts := cldf.SimTransactOpts()
+
+	tx, err := callFn(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	timelocksPerChain := map[uint64]string{
+		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
+	}
+	proposerMCMSes := map[uint64]string{
+		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
+	}
+	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	if err != nil {
+		return nil, err
+	}
+	inspectorPerChain := map[uint64]sdk.Inspector{
+		m.ChainSel: inspector,
+	}
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		m.Env,
+		timelocksPerChain,
+		proposerMCMSes,
+		inspectorPerChain,
+		[]mcmstypes.BatchOperation{op},
+		m.Description,
+		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return []mcmslib.TimelockProposal{*proposal}, nil
 }

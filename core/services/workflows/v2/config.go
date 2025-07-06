@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2/pb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -40,6 +40,9 @@ type EngineConfig struct {
 
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
+
+	// includes additional logging of events internal to user workflows
+	DebugMode bool
 }
 
 const (
@@ -52,6 +55,7 @@ const (
 
 	defaultMaxConcurrentWorkflowExecutions         = 100
 	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
+	defaultMaxConcurrentSecretsCallsPerWorkflow    = 3
 	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
 	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
 	defaultMaxUserLogEventsPerExecution            = 1000
@@ -71,6 +75,7 @@ type EngineLimits struct {
 
 	MaxConcurrentWorkflowExecutions         uint16
 	MaxConcurrentCapabilityCallsPerWorkflow uint16
+	MaxConcurrentSecretsCallsPerWorkflow    uint16
 	WorkflowExecutionTimeoutMs              uint32
 	CapabilityCallTimeoutMs                 uint32
 	MaxUserLogEventsPerExecution            uint32
@@ -84,7 +89,7 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
-	OnResultReceived       func(*wasmpb.ExecutionResult)
+	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 }
 
@@ -103,10 +108,6 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
-	}
-	if c.SecretsFetcher == nil {
-		// TODO: implement
-		c.SecretsFetcher = &unimplementedSecretsFetcher{}
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
@@ -162,6 +163,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
 		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
 	}
+	if l.MaxConcurrentSecretsCallsPerWorkflow == 0 {
+		l.MaxConcurrentSecretsCallsPerWorkflow = defaultMaxConcurrentSecretsCallsPerWorkflow
+	}
 	if l.WorkflowExecutionTimeoutMs == 0 {
 		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs
 	}
@@ -191,7 +195,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
 	}
 	if h.OnResultReceived == nil {
-		h.OnResultReceived = func(res *wasmpb.ExecutionResult) {}
+		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}

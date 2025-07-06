@@ -2,10 +2,13 @@ package standardcapabilities
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -36,7 +39,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 				Network:            "evm",
 			}}
 
-		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{})
+		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{}, &gatewayConnectorMock{}, &keystoreMock{})
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
@@ -57,6 +60,15 @@ func (k *kvstoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
 }
 func (k *kvstoreMock) Get(ctx context.Context, key string) ([]byte, error) {
+	return nil, nil
+}
+
+type keystoreMock struct{}
+
+func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
+	return nil, nil
+}
+func (k *keystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
 
@@ -93,5 +105,39 @@ func (o *oracleMock) Start(ctx context.Context) error {
 	return nil
 }
 func (o *oracleMock) Close(ctx context.Context) error {
+	return nil
+}
+
+type gatewayConnectorMock struct{}
+
+func (g *gatewayConnectorMock) Start(context.Context) error {
+	return nil
+}
+
+func (g *gatewayConnectorMock) Close() error {
+	return nil
+}
+
+func (g *gatewayConnectorMock) AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error {
+	return nil
+}
+
+func (g *gatewayConnectorMock) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error {
+	return nil
+}
+
+func (g *gatewayConnectorMock) SignMessage(ctx context.Context, msg []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (g *gatewayConnectorMock) GatewayIDs(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (g *gatewayConnectorMock) DonID(ctx context.Context) (string, error) {
+	return "", nil
+}
+
+func (g *gatewayConnectorMock) AwaitConnection(ctx context.Context, gatewayID string) error {
 	return nil
 }

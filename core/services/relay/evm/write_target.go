@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -22,7 +21,6 @@ import (
 	processor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -30,6 +28,7 @@ import (
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -87,8 +86,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	var chainInfo monitor.ChainInfo
-	chainInfo, err = getChainInfo(chain.ID().Uint64())
+	chainInfo, err := relayer.GetChainInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
 	}
@@ -122,7 +120,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}
-
+	ts, err := NewEVMTargetStrategy(cr, cw, relayer.chain.TxManager(), config.ForwarderAddress().String(), gasLimitDefault, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create target strategy: %w", err)
+	}
 	opts := writetarget.WriteTargetOpts{
 		ID:     id,
 		Logger: lggr,
@@ -130,13 +131,18 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			PollPeriod:        config.PollPeriod(),
 			AcceptanceTimeout: config.AcceptanceTimeout(),
 		},
-		ChainInfo:            chainInfo,
+		ChainInfo: monitor.ChainInfo{
+			FamilyName:      chainInfo.FamilyName,
+			ChainID:         chainInfo.ChainID,
+			NetworkName:     chainInfo.NetworkName,
+			NetworkNameFull: chainInfo.NetworkNameFull,
+		},
 		Beholder:             beholder,
 		ChainService:         chain,
 		ConfigValidateFn:     evaluate,
 		NodeAddress:          config.FromAddress().String(),
 		ForwarderAddress:     config.ForwarderAddress().String(),
-		TargetStrategy:       NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
+		TargetStrategy:       ts,
 		WriteAcceptanceState: *config.TxAcceptanceState(),
 	}
 
@@ -229,40 +235,6 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (receiver string, err e
 	}
 
 	return r.Config.Address, nil
-}
-
-func getChainInfo(chainID uint64) (monitor.ChainInfo, error) {
-	chainSelector := chainselectors.EvmChainIdToChainSelector()[chainID]
-	chainFamily, err := chainselectors.GetSelectorFamily(chainSelector)
-	if err != nil {
-		return monitor.ChainInfo{}, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
-	}
-	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(chainID)), chainFamily)
-	if err != nil {
-		return monitor.ChainInfo{}, fmt.Errorf("failed to get chain details for chain %d and family %s: %w", chainID, chainFamily, err)
-	}
-
-	neworkName, err := ExtractNetwork(chainDetails.ChainName)
-	if err != nil {
-		return monitor.ChainInfo{}, fmt.Errorf("failed to get network name for chain %d: %w", chainID, err)
-	}
-
-	return monitor.ChainInfo{
-		FamilyName:      chainFamily,
-		ChainID:         strconv.Itoa(int(chainID)),
-		NetworkName:     neworkName,
-		NetworkNameFull: chainDetails.ChainName,
-	}, nil
-}
-
-func ExtractNetwork(selector string) (string, error) {
-	// Create a regexp pattern that matches any of the three.
-	re := regexp.MustCompile(`(mainnet|testnet|devnet)`)
-	name := re.FindString(selector)
-	if name == "" {
-		return "", fmt.Errorf("failed to extract network name from selector: %s", selector)
-	}
-	return name, nil
 }
 
 func GenerateWriteTargetName(chainID uint64) string {

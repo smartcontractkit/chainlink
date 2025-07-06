@@ -554,6 +554,7 @@ func setupPoRTestEnvironment(
 				universalSetupOutput.DonTopology.WorkflowDonID,
 				homeChainOutput.ChainSelector,
 				rpcs,
+				nil, // without s3Provider.Output
 			)
 			require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 		}
@@ -622,6 +623,8 @@ func setupPoRTestEnvironment(
 
 // config file to use: environment-one-don-multichain.toml
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-one-don-multichain-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -684,6 +687,8 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 
 // config file to use: environment-gateway-don.toml
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-gateway-don-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -737,6 +742,8 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 
 // config file to use: environment-capabilities-don.toml
 func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
+	configErr := setCICtfConfigIfMissing("environment-capabilities-don-ci.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -797,7 +804,6 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, timeout time.Duration) {
 	for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
 		testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
-		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
 		dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
@@ -926,6 +932,16 @@ func waitForWorkflowRegistrySyncer(nodeSetOutput []*types.WrappedNodeOutput, top
 		}
 		if err := eg3.Wait(); err != nil {
 			return errors.Wrap(err, "failed to wait for RegistrySyncer health checks")
+		}
+	}
+
+	return nil
+}
+
+func setCICtfConfigIfMissing(configName string) error {
+	if os.Getenv("CI") == "true" {
+		if os.Getenv("CTF_CONFIGS") == "" {
+			return os.Setenv("CTF_CONFIGS", configName)
 		}
 	}
 

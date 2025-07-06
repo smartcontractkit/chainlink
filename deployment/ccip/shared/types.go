@@ -52,6 +52,7 @@ var (
 	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
 	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
@@ -77,4 +78,8 @@ var (
 	AptosReceiverType         deployment.ContractType = "AptosReceiver"
 	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
 	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
+
+	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
+	TonCCIP     deployment.ContractType = "TonCCIP"
+	TonReceiver deployment.ContractType = "TonReceiver"
 )

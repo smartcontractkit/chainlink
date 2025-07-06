@@ -4,10 +4,12 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -123,4 +125,21 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Sanity-check that these parameters are not accidentally changed without breaking CI
+func Test_defaultLocalConfigProperties(t *testing.T) {
+	lc := defaultLocalConfig()
+
+	assert.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)
+	assert.Equal(t, 10*time.Second, lc.BlockchainTimeout)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigLoadTimeout)
+	assert.Equal(t, uint16(1), lc.ContractConfigConfirmations)
+	assert.True(t, lc.SkipContractConfigConfirmations)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigTrackerPollInterval)
+	assert.Equal(t, 10*time.Second, lc.ContractTransmitterTransmitTimeout)
+	assert.Equal(t, 10*time.Second, lc.DatabaseTimeout)
+	assert.Equal(t, 1*time.Second, lc.MinOCR2MaxDurationQuery)
+	assert.Equal(t, "false", lc.DevelopmentMode)
+	assert.True(t, lc.EnableTransmissionTelemetry)
 }

@@ -7,19 +7,25 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 const (
@@ -27,16 +33,17 @@ const (
 	workflowID2          = "44f129ea13948d1c4eaa2bbc0e72319266364cba12b789174732b2f72b57088d"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	owner1               = "0x00000000000000000000000000000000000000aa"
+	privateKey           = "6c358b4f16344f03cfce12ebf7b768301bbe6a8977c98a2a2d76699f8bc56161"
 )
 
 var defaultConfig = webapi.ServiceConfig{
-	OutgoingRateLimiter: common.RateLimiterConfig{
+	OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
 	},
-	RateLimiter: common.RateLimiterConfig{
+	RateLimiter: ratelimit.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   100.0,
@@ -58,7 +65,7 @@ func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
 
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr, webapi.WithFixedStart())
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr, gateway.WithFixedStart())
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)
@@ -116,7 +123,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 	}
 }
 
-func gatewayResponse(t *testing.T, msgID string) *api.Message {
+func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request[json.RawMessage] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -126,13 +133,21 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 		ExecutionError: false,
 	})
 	require.NoError(t, err)
-	return &api.Message{
+	m := &api.Message{
 		Body: api.MessageBody{
+			DonId:     "donID",
 			MessageId: msgID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}
+	key, err := crypto.HexToECDSA(privateKey)
+	require.NoError(t, err)
+	err = m.Sign(key)
+	require.NoError(t, err)
+	req, err := hc.ValidatedRequestFromMessage(m)
+	require.NoError(t, err)
+	return req
 }
 
 func TestRegisterUnregister(t *testing.T) {
@@ -183,8 +198,8 @@ func TestRegisterUnregister(t *testing.T) {
 func TestCapability_Execute(t *testing.T) {
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
-	th.connector.EXPECT().DonID().Return("donID")
-	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+	th.connector.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
+	th.connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
 	t.Run("happy case", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{
@@ -200,9 +215,10 @@ func TestCapability_Execute(t *testing.T) {
 		msgID, err := getMessageID(req)
 		require.NoError(t, err)
 
-		gatewayResp := gatewayResponse(t, msgID)
+		gatewayResp := gatewayResponse(t, msgID, privateKey)
 		th.connector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(nil)
-		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
+		th.connector.On("SendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Once()
 
@@ -226,7 +242,8 @@ func TestCapability_Execute(t *testing.T) {
 		require.NoError(t, err)
 
 		newCtx, cancel := context.WithCancel(ctx)
-		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
+		th.connector.On("SendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			cancel()
 		}).Once()
 
@@ -336,7 +353,8 @@ func TestCapability_Execute(t *testing.T) {
 		req := capabilityRequest(t)
 		require.NoError(t, err)
 
-		th.connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Return(errors.New("gateway error")).Once()
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
+		th.connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Return(errors.New("gateway error")).Once()
 		_, err = th.capability.Execute(ctx, req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "gateway error")
@@ -364,8 +382,9 @@ func TestCapability_Execute(t *testing.T) {
 
 		msgID, err := getMessageID(req)
 		require.NoError(t, err)
-		gatewayResp := gatewayResponse(t, msgID)
-		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		gatewayResp := gatewayResponse(t, msgID, privateKey)
+		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
+		th.connector.On("SendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Once()
 

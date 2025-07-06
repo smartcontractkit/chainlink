@@ -10,10 +10,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -89,7 +89,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	)
 
-	err = updateFeeQuoters(t, lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
+	updateFeeQtrGrp := errgroup.Group{}
+	for _, chainSel1 := range allChainSelectors {
+		updateFeeQtrGrp.Go(func() error {
+			for _, chainSel2 := range allChainSelectors {
+				if chainSel1 == chainSel2 {
+					continue
+				}
+				if err := testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.USDCSymbol); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	err = updateFeeQtrGrp.Wait()
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -230,30 +244,4 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
-}
-
-func updateFeeQuoters(
-	t *testing.T,
-	lggr logger.Logger,
-	e cldf.Environment,
-	state stateview.CCIPOnChainState,
-	chainA, chainB, chainC uint64,
-	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
-) error {
-	evmChains := e.BlockChains.EVMChains()
-	updateFeeQtrGrp := errgroup.Group{}
-	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainA], chainC)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainB], chainC)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		err1 := testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainC], chainA)
-		if err1 != nil {
-			return err1
-		}
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, evmChains[chainC], chainB)
-	})
-	return updateFeeQtrGrp.Wait()
 }

@@ -169,6 +169,14 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return errors.New("missing node filter")
 	}
 
+	if c.NodeFilter.DONID == 0 {
+		return errors.New("missing DON ID in node filter")
+	}
+
+	if c.NodeFilter.EnvLabel == "" {
+		return errors.New("missing environment label in node filter")
+	}
+
 	return nil
 }
 
