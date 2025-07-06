@@ -97,7 +97,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	binary.BigEndian.PutUint16(b, reportID)
 
 	if !t.bound.Load() {
-		t.lggr.Debugw("Binding to forwarder address")
+		t.lggr.Debugw("Binding to forwarder address", "forwarder", t.forwarder)
 		err = t.cr.Bind(ctx, []commontypes.BoundContract{t.binding})
 		if err != nil {
 			return nil, err
