@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -74,7 +73,9 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the test trigger event in the format expected by the secure mint transmitter
-	triggerEvent := createSecureMintTriggerEvent(t, chainID, seqNr)
+	mintableAmount := int64(99)
+	blockNumber := int64(10)
+	triggerEvent := createSecureMintTriggerEvent(t, chainID, seqNr, mintableAmount, blockNumber)
 
 	t.Logf("Sending triggerEvent: %+v", triggerEvent)
 
@@ -87,8 +88,9 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	// The price is packed from Mintable (99) and block number (10)
 	expectedUpdates := []secureMintUpdate{
 		{
-			feedID: "0x0000000000000000000000000000000000000000000000000000000000000539", // Chain selector 1337 as bytes (right-aligned)
-			price:  decimal.NewFromInt(99).Shift(192).Add(decimal.NewFromInt(10)),        // Price is packed: (Mintable << 192) | Block
+			feedID:         "0x0000000000000000000000000000000000000000000000000000000000000539", // Chain selector 1337 as bytes (right-aligned)
+			mintableAmount: mintableAmount,
+			blockNumber:    blockNumber,
 		},
 	}
 	h := newSecureMintHandler(expectedUpdates, uint32(time.Now().Unix()))
@@ -96,8 +98,9 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 }
 
 type secureMintUpdate struct {
-	feedID string
-	price  decimal.Decimal
+	feedID         string
+	mintableAmount int64
+	blockNumber    int64
 }
 
 // chainSelector is mimicked after the por plugin, which mimics it from the chain-selectors repo
@@ -134,7 +137,7 @@ type secureMintReport struct {
 //	} // this is sent to trigger subscribers
 //
 // ```
-func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64) *values.Map {
+func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64, mintable int64, blockNumber int64) *values.Map {
 	// Create mock signatures (in a real scenario, these would be actual OCR signatures)
 	sigs := []commoncap.OCRAttributedOnchainSignature{
 		{
@@ -151,8 +154,8 @@ func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uin
 	secureMintReport := &secureMintReport{
 		ConfigDigest: ocr2types.ConfigDigest(configDigest),
 		SeqNr:        seqNr,
-		Block:        10,
-		Mintable:     big.NewInt(99),
+		Block:        uint64(blockNumber),
+		Mintable:     big.NewInt(mintable),
 	}
 
 	reportBytes, err := json.Marshal(secureMintReport)
@@ -199,11 +202,11 @@ func newSecureMintHandler(expected []secureMintUpdate, ts uint32) *secureMintHan
 
 // Implement the feedReceivedHandler interface
 // to handle the received feeds
-func (h *secureMintHandler) handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool) {
-	t.Logf("handling event feedID %x", feed.FeedId[:])
+func (h *secureMintHandler) handleFeedReceived(t *testing.T, event *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool) {
+	t.Logf("handling event for feedID %x: %+v", event.FeedId[:], event)
 
 	// Convert feed ID to string for comparison
-	feedIDStr := fmt.Sprintf("0x%x", feed.FeedId[:])
+	feedIDStr := fmt.Sprintf("0x%x", event.FeedId[:])
 
 	// Find the expected update for this feed ID
 	var expectedUpdate *secureMintUpdate
@@ -218,9 +221,19 @@ func (h *secureMintHandler) handleFeedReceived(t *testing.T, feed *feeds_consume
 
 	require.NotNil(t, expectedUpdate, "feedID %s not found in expected updates", feedIDStr)
 
-	// Verify the price (assuming 18 decimal places like in the original test)
-	assert.Equal(t, expectedUpdate.price.Shift(18).BigInt(), feed.Price)
-	assert.Equal(t, h.ts, feed.Timestamp)
+	// Verify the decimal value
+	// the block number and mintables are packed into a single uint224 for evm as follows:
+	// (top 32 - not used / middle 64 - block number / lower 128 - mintable amount)
+	// unpack first and then assert
+	price := big.NewInt(0).SetBytes(event.Price.Bytes())
+	price.Rsh(price, 192)
+	assert.Equalf(t, expectedUpdate.mintableAmount, price.Int64(), "mintable amount mismatch: expected %d, got %d", expectedUpdate.mintableAmount, price.Int64())
+
+	blockNumber := big.NewInt(0).SetBytes(event.Price.Bytes())
+	blockNumber.Rsh(blockNumber, 128)
+	assert.Equalf(t, expectedUpdate.blockNumber, blockNumber.Int64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, blockNumber.Int64())
+
+	assert.Equalf(t, h.ts, event.Timestamp, "timestamp mismatch: expected %d, got %d", h.ts, event.Timestamp)
 
 	// Mark this feed as found
 	delete(h.found, expectedUpdate.feedID)
