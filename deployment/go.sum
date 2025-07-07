@@ -724,8 +724,6 @@ github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026 h1:BpJ2o0OR5FV7vrkDYf
 github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026/go.mod h1:5Scbynm8dF1XAPwIwkGPqzkM/shndPm79Jd1003hTjE=
 github.com/hashicorp/consul/api v1.1.0/go.mod h1:VmuI/Lkw1nC05EYQWNKwWGbkg+FbDBtguAZLlVdkD9Q=
 github.com/hashicorp/consul/sdk v0.1.1/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
-github.com/hashicorp/consul/sdk v0.16.2 h1:cGX/djeEe9r087ARiKVWwVWCF64J+yW0G6ftZMZYbj0=
-github.com/hashicorp/consul/sdk v0.16.2/go.mod h1:onxcZjYVsPx5XMveAC/OtoIsdr32fykB7INFltDoRE8=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-bexpr v0.1.10 h1:9kuI5PFotCboP3dkDYFr/wi0gg0QVbSNz5oFRpxn4uE=
 github.com/hashicorp/go-bexpr v0.1.10/go.mod h1:oxlubA2vC/gFVfX1A6JGp7ls7uCDlfJn732ehYYg+g0=
@@ -1273,8 +1271,8 @@ github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250702175503-91
 github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250702175503-91331140edc3/go.mod h1:QUEPHdSkH19Or+E1iMGG+rDQ6jpCTIbm//9Osa6MXDE=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae h1:BmqiIDbA9FB/uOCOHi/shgL7P0XmjFxhfRtJHdKPLE4=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae/go.mod h1:2MggrMtbhqr0u4U2pcYa21lvAtvaeSawjxdIy1ytHWE=
-github.com/smartcontractkit/chainlink-deployments-framework v0.16.0 h1:0k+aKF7L0YDFN8e5g93l9Z1Qj8z1IJnZEncS+6qzhV8=
-github.com/smartcontractkit/chainlink-deployments-framework v0.16.0/go.mod h1:U4vWLp0dTmYgiN3Y7BXasDfM8NF3ZTIhDo5NjM+7RhQ=
+github.com/smartcontractkit/chainlink-deployments-framework v0.17.0 h1:o/Lu+ynF11wxGf5lVks31bmkmO1+m2KVXWbwn6g80HM=
+github.com/smartcontractkit/chainlink-deployments-framework v0.17.0/go.mod h1:U4vWLp0dTmYgiN3Y7BXasDfM8NF3ZTIhDo5NjM+7RhQ=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250630192401-d6330473ec6e h1:MdK6z+IshxpwXPjQRrcw8P1UsZ6LojTdBsRUJVOjtTk=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250630192401-d6330473ec6e/go.mod h1:ZBbbFAkAxn4VQwW5YiQkBP5ng3uk8Dib7zI4a5rjqcs=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
