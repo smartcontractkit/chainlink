@@ -1,10 +1,10 @@
 package aptos
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
@@ -173,6 +173,17 @@ func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddres
 	return offrampBind.Offramp().GetDynamicConfig(&bind.CallOpts{})
 }
 
+func FindAptosAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) aptos.AccountAddress {
+	for address, tvStr := range addresses {
+		if tv.String() == tvStr.String() {
+			addr := aptos.AccountAddress{}
+			_ = addr.ParseStringRelaxed(address)
+			return addr
+		}
+	}
+	return aptos.AccountAddress{}
+}
+
 func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chainName string) (view.AptosChainView, error) {
 	lggr := e.Logger
 	chain := e.BlockChains.AptosChains()[selector]
@@ -187,7 +198,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		for symbol, address := range s.ManagedTokens {
 			tokenView, err := aptosview.GenerateTokenView(chain, address)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token view for managed token (%s) %s", symbol, address)
+				return fmt.Errorf("failed to generate token view for managed token (%s) %s: %w", symbol, address.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
 			if symbol == shared.LinkSymbol {
@@ -205,7 +216,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	errGroup.Go(func() error {
 		mcmsView, err := aptosview.GenerateMCMSWithTimelockView(chain, s.MCMSAddress)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", s.MCMSAddress.StringLong())
+			return fmt.Errorf("failed to generate MCMS with timelock view for MCMS with timelock %s: %w", s.MCMSAddress.StringLong(), err)
 		}
 		chainView.UpdateMu.Lock()
 		chainView.MCMSWithTimelock = mcmsView
@@ -218,7 +229,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	errGroup.Go(func() error {
 		ccipView, err := aptosview.GenerateCCIPView(chain, s.CCIPAddress, s.CCIPAddress)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate CCIP view for CCIP contract %s", s.CCIPAddress.StringLong())
+			return fmt.Errorf("failed to generate CCIP view for CCIP contract %s: %w", s.CCIPAddress.StringLong(), err)
 		}
 		chainView.UpdateMu.Lock()
 		chainView.CCIP = ccipView
@@ -228,9 +239,9 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	})
 
 	errGroup.Go(func() error {
-		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress)
+		routerView, err := aptosview.GenerateRouterView(chain, s.CCIPAddress, []aptos.AccountAddress{s.CCIPAddress}, false)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate router view for router %s", s.CCIPAddress.StringLong())
+			return fmt.Errorf("failed to generate router view for router %s: %w", s.CCIPAddress.StringLong(), err)
 		}
 		chainView.UpdateMu.Lock()
 		chainView.Router[s.CCIPAddress.StringLong()] = routerView
@@ -242,7 +253,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	errGroup.Go(func() error {
 		onRampView, err := aptosview.GenerateOnRampView(chain, s.CCIPAddress, s.CCIPAddress, s.CCIPAddress)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate OnRamp view for OnRamp contract %s", s.CCIPAddress.StringLong())
+			return fmt.Errorf("failed to generate OnRamp view for OnRamp contract %s: %w", s.CCIPAddress.StringLong(), err)
 		}
 		chainView.UpdateMu.Lock()
 		chainView.OnRamp[s.CCIPAddress.StringLong()] = onRampView
@@ -254,7 +265,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 	errGroup.Go(func() error {
 		offRampView, err := aptosview.GenerateOffRampView(chain, s.CCIPAddress, s.CCIPAddress)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate OffRamp view for OffRamp contract %s", s.CCIPAddress.StringLong())
+			return fmt.Errorf("failed to generate OffRamp view for OffRamp contract %s: %w", s.CCIPAddress.StringLong(), err)
 		}
 		chainView.UpdateMu.Lock()
 		chainView.OffRamp[s.CCIPAddress.StringLong()] = offRampView
@@ -268,12 +279,12 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		for tokenAddress, tokenPoolAddress := range s.AptosManagedTokenPools {
 			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+				return fmt.Errorf("failed to get fungible asset metadata for token %s: %w", tokenAddress, err)
 			}
 			contract := managed_token_pool.Bind(tokenPoolAddress, chain.Client)
 			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.ManagedTokenPool())
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token pool view for ManagedTokenPool %s", tokenPoolAddress.StringLong())
+				return fmt.Errorf("failed to generate token pool view for ManagedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
 			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
@@ -285,12 +296,12 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		for tokenAddress, tokenPoolAddress := range s.BurnMintTokenPools {
 			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+				return fmt.Errorf("failed to get fungible asset metadata for token %s: %w", tokenAddress, err)
 			}
 			contract := burn_mint_token_pool.Bind(tokenPoolAddress, chain.Client)
 			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.BurnMintTokenPool())
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token pool view for BurnMintTokenPool %s", tokenPoolAddress.StringLong())
+				return fmt.Errorf("failed to generate token pool view for BurnMintTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
 			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
@@ -302,12 +313,12 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		for tokenAddress, tokenPoolAddress := range s.LockReleaseTokenPools {
 			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get fungible asset metadata for token %s", tokenAddress)
+				return fmt.Errorf("failed to get fungible asset metadata for token %s: %w", tokenAddress, err)
 			}
 			contract := lock_release_token_pool.Bind(tokenPoolAddress, chain.Client)
 			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.LockReleaseTokenPool())
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token pool view for LockReleaseTokenPool %s", tokenPoolAddress.StringLong())
+				return fmt.Errorf("failed to generate token pool view for LockReleaseTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
 			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)

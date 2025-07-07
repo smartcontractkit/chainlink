@@ -12,6 +12,8 @@ const (
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event
 	CapabilityExecutionFinished string = "CapabilityExecutionFinished"
+	// UserLogs represents user log events
+	UserLogs string = "UserLogs"
 
 	// SchemaWorkflowStatusChanged represents the schema for workflow status changed events
 	SchemaWorkflowStatusChanged string = "/cre-events-workflow-status-changed/v1"
@@ -23,6 +25,8 @@ const (
 	SchemaCapabilityStarted string = "/cre-events-capability-started/v1"
 	// SchemaCapabilityFinished represents the schema for capability finished events
 	SchemaCapabilityFinished string = "/cre-events-capability-finished/v1"
+	// SchemaUserLogs represents the schema for user log events
+	SchemaUserLogs string = "/cre-events-user-logs/v1"
 
 	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"

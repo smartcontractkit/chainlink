@@ -50,7 +50,7 @@ func TestDisableLane(t *testing.T) {
 		wethPrice              = deployment.E18Mult(4000)
 		noOfRequests           = 3
 		sendmessage            = func(src, dest uint64, deployer *bind.TransactOpts) (*onramp.OnRampCCIPMessageSent, error) {
-			return testhelpers.SendRequest(
+			out, err := testhelpers.SendRequest(
 				e,
 				state,
 				testhelpers.WithSender(deployer),
@@ -64,6 +64,10 @@ func TestDisableLane(t *testing.T) {
 					FeeToken:     common.HexToAddress("0x0"),
 					ExtraArgs:    nil,
 				}))
+			if err != nil {
+				return nil, err
+			}
+			return out.RawEvent.(*onramp.OnRampCCIPMessageSent), nil
 		}
 
 		assertSendRequestReverted = func(src, dest uint64, deployer *bind.TransactOpts) {
@@ -132,9 +136,9 @@ func TestDisableLane(t *testing.T) {
 			map[uint64]*big.Int{
 				pair.DestChainSelector: testhelpers.DefaultGasPrice,
 			},
-			map[common.Address]*big.Int{
-				state.MustGetEVMChainState(pair.SourceChainSelector).LinkToken.Address(): linkPrice,
-				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address():     wethPrice,
+			map[string]*big.Int{
+				state.MustGetEVMChainState(pair.SourceChainSelector).LinkToken.Address().String(): linkPrice,
+				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address().String():     wethPrice,
 			},
 			v1_6.DefaultFeeQuoterDestChainConfig(true))
 	}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
@@ -155,13 +154,13 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	// TODO: add an api that returns chain family.
 	// NOTE: this doesn't really matter for the bootstrap node, it doesn't do anything on-chain.
 	// Its for the monitoring endpoint generation below.
-	chainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
+	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
 	destChainFamily := chaintype.EVM
-	destRelayID := types.NewRelayID(string(destChainFamily), strconv.FormatUint(chainID, 10))
+	destRelayID := types.NewRelayID(string(destChainFamily), chainID)
 
 	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
 	for _, n := range config.Config.Nodes {
@@ -182,10 +181,15 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		config.ConfigDigest,
 	)
 
+	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config tracker: %w", err)
+	}
+
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
 		V2Bootstrappers:       i.bootstrapperLocators,
-		ContractConfigTracker: ocrimpls.NewConfigTracker(config, i.addressCodec),
+		ContractConfigTracker: configTracker,
 		Database:              i.db,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(

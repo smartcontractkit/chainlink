@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -295,6 +296,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	cc, ok := cp.(capabilities.ExecutableCapability)
 	if !ok {
 		return newCPErr("capability does not satisfy CallbackCapability")
+	}
+
+	// Wrap local executable capabilities to set peer2peerID
+	if info.IsLocal {
+		l.Debug("wrapping local executable capability")
+		cc = transmission.NewLocalExecutableCapability(
+			e.logger,
+			step.ID,
+			*e.localNode.Load(),
+			cc,
+		)
 	}
 
 	stepConfig, err := e.configForStep(ctx, l, step)
@@ -644,19 +656,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
 
-	report, exists := e.meterReports.Get(executionID)
-	if exists {
-		// send metering report to beholder
-		if err = events.EmitMeteringReport(ctx, cma.Labels(), report.FormatReport()); err != nil {
-			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-			l.Warn(fmt.Sprintf("metering report send to beholder error %s", err))
-		}
-
-		// send metering report to billing if billing client is not nil
-		if err = e.meterReports.End(ctx, executionID); err != nil {
-			e.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-			l.Warn(fmt.Sprintf("metering report send to billing error %s", err))
-		}
+	err = e.meterReports.End(ctx, executionID)
+	if err != nil {
+		l.Errorf("failed to end metering report %s", err)
 	}
 
 	// clean all per execution state trackers
@@ -711,7 +713,7 @@ func (e *Engine) worker(ctx context.Context) {
 
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
-				logCustMsg(ctx, e.cma, fmt.Sprintf("failed to resolve trigger: %s", resp.Err), e.logger)
+				logCustMsg(ctx, e.cma, fmt.Sprintf("failed to resolve trigger in worker: %s", resp.Err), e.logger)
 				continue
 			}
 
@@ -773,19 +775,29 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
+	curStepID := "UNSET"
+	curStep, verr := e.workflow.Vertex(msg.stepRef)
+	if verr == nil {
+		curStepID = curStep.ID
+	} else {
+		l.Errorf("failed to resolve step in workflow; error %v", verr)
+	}
+
+	spendLimit := decimal.NewNullDecimal(decimal.Zero)
+	spendLimit.Valid = false
+
 	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
 	if meteringOK {
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-477 Get capability info by getting the workflow vertex and talking to the capaiblity
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step. Compare to availability and limits.
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
+		userMaxSpend := decimal.NewNullDecimal(decimal.Zero)
+		userMaxSpend.Valid = false
+
+		var err error
+
 		// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
-		availableForCall, err := meteringReport.GetAvailableForInvocation(e.maxWorkerLimit)
+		spendLimit, err = meteringReport.GetMaxSpendForInvocation(userMaxSpend, e.maxWorkerLimit)
 		if err != nil {
-			l.Error(fmt.Sprintf("could get available balance for %s: %s", stepState.Ref, err))
-		}
-		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461 if availability is math.MaxInt64 there is no limit. Possibly flag this in a different way.
-		err = meteringReport.Deduct(stepState.Ref, availableForCall)
-		if err != nil {
-			l.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", stepState.Ref, err))
+			l.Error(fmt.Sprintf("could not get available balance for %s: %s", stepState.Ref, err))
 		}
 	} else {
 		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
@@ -799,16 +811,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-461
 	// convert balance to CapabilityInfo resource types for use in Capability call
 	// pass deducted amount as max spend to capability.Execute
-	inputs, response, sErr := e.executeStep(ctx, l, msg)
+	inputs, response, sErr := e.executeStep(ctx, l, msg, spendLimit, meteringReport)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
-	curStepID := "UNSET"
-	curStep, verr := e.workflow.Vertex(msg.stepRef)
-	if verr == nil {
-		curStepID = curStep.ID
-	} else {
-		l.Errorf("failed to resolve step in workflow; error %v", verr)
-	}
 	e.metrics.With(platform.KeyCapabilityID, curStepID).UpdateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
 	var stepStatus string
@@ -954,7 +959,13 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, capabilities.CapabilityResponse, error) {
+func (e *Engine) executeStep(
+	ctx context.Context,
+	lggr logger.Logger,
+	msg stepRequest,
+	spendLimit decimal.NullDecimal,
+	meteringReport *metering.Report,
+) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
 		return nil, capabilities.CapabilityResponse{}, err
@@ -981,6 +992,12 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	if err != nil {
 		return nil, capabilities.CapabilityResponse{}, err
 	}
+
+	info, iErr := curStep.capability.Info(ctx)
+	if iErr != nil {
+		e.logger.Errorf("failed to get capability info: %s", err)
+	}
+
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
 		var desiredTimeout int64
@@ -1012,6 +1029,14 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			ReferenceID:              msg.stepRef,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
+	}
+
+	if spendLimit.Valid {
+		if err = meteringReport.Deduct(curStep.Ref, spendLimit.Decimal); err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
+
+		tr.Metadata.SpendLimits = meteringReport.CreditToSpendingLimits(info, config, spendLimit.Decimal)
 	}
 
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
@@ -1433,10 +1458,12 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	lggr := cfg.Lggr.With("workflowID", cfg.WorkflowID)
 
+	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
+
 	engine = &Engine{
 		cma:            cma,
 		logger:         lggr.Named("WorkflowEngine"),
-		metrics:        monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()),
+		metrics:        metrics,
 		registry:       cfg.Registry,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,
@@ -1462,7 +1489,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics),
 	}
 
 	return engine, nil

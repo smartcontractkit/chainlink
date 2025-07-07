@@ -27,19 +27,14 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  log-workflow-trigger:
-    name: Log Workflow Trigger
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log Workflow Trigger
-        run: |
-          echo "Workflow Trigger: ${{ github.event_name }}"
-
   test-cli:
     strategy:
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [
+          ubuntu-latest,
+          # can't work due to arch mismatch of kafka librdkafka .a file bundled with the package
+          # ubuntu-24.04-arm,
+          ]
     runs-on: ${{ matrix.runner }}
     environment: "integration"
     timeout-minutes: 30
@@ -60,6 +55,13 @@ jobs:
           go-version-file: core/scripts/go.mod
           cache: true
 
+      - name: Install librdkafka
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # install librdkafka-dev for arm runners to avoid using static librdkafka_glibc_linux.a, which is compiled for x86_64
+          sudo apt-get update
+          sudo apt-get install -y librdkafka-dev
+
       - name: Download Go dependencies
         id: go-deps
         working-directory: core/scripts/cre/environment
@@ -77,6 +79,18 @@ jobs:
             seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
             total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
             echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+          fi
+
+      # this doesn't work, we cannot delete the file, because it's read-only
+      - name: Delete vendored static librdkafka (.a) to avoid arch mismatch
+        if: ${{ contains(matrix.runner, 'arm') }}
+        run: |
+          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
+          find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a -delete
+          if find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a | grep .; then
+            echo "❌ vendored .a still exists"; exit 1
+          else
+            echo "✅ vendored .a is gone"
           fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
@@ -106,6 +120,7 @@ jobs:
         run: |
           cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
+            csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
             image = "injected-at-runtime"
 
           [[nodesets]]
@@ -135,7 +150,14 @@ jobs:
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          DISABLE_DX_TRACKING: "true"
         run: |
+          if [[ "${{ contains(matrix.runner, 'arm') }}" == "true" ]]; then
+            echo "Setting CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka for arm runners"
+            export CGO_ENABLED=1
+            export CGO_LDFLAGS="-lrdkafka"
+          fi
+
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
@@ -153,13 +175,14 @@ jobs:
           START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
           RUNNER: ${{ matrix.runner }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
             success=false
             if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
 
             echo "::debug::success: $success"
 
-            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
@@ -172,12 +195,13 @@ jobs:
           EXECUTION_TIME: ${{ steps.start-cli.outputs.execution_time }}
           CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
           DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
             echo "::debug::execution_time: ${EXECUTION_TIME}"
             echo "::debug::cache_hit: ${CACHE_HIT}"
             echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$GITHUB_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
 
@@ -196,7 +220,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C0364FG2CN9",
+              "channel": "C0948PT3X38",
               "text": "Local CRE environment failed to start",
               "blocks": [
                 {
@@ -215,7 +239,3 @@ jobs:
                 }
               ]
             }
-
-
-
-

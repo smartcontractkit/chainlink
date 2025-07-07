@@ -6,25 +6,21 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"../output.txt"}
 EXTRA_FLAGS=""
 
-if [[ -n "$USE_FLAKEGUARD" ]]; then
-  # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
-  # Install gotestsum to parse JSON test outputs from flakeguard to console outputs
-  go install gotest.tools/gotestsum@v1.12.2
+echo "Running go_core_ccip_deployment_tests for event: $GITHUB_EVENT_NAME"
 
-  # Make sure bins are in PATH
+if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_group" || "$GITHUB_EVENT_NAME" == "push" ]]; then
+  go install gotest.tools/gotestsum@v1.12.3
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
-  # Run go tests with flakeguard auto test rerun
-  flakeguard run \
-    --test-packages "./..." \
-    --project-path="deployment" \
-    --run-count=1 \
-    --rerun-failed-count=3 \
-    --min-pass-ratio=1 \
-    --main-results-path="go_core_ccip_deployment_tests_flakeguard_results/main/test_results.json" \
-    --rerun-results-path="go_core_ccip_deployment_tests_flakeguard_results/rerun/test_results.json"
+  cd deployment || exit 1
+  gotestsum \
+    --format='standard-quiet' \
+    --rerun-fails-abort-on-data-race \
+    --rerun-fails='3' \
+    --packages='./...' \
+    --jsonfile "$OUTPUT_FILE"
+
   EXITCODE=${PIPESTATUS[0]}
 else
   cd ./deployment || exit

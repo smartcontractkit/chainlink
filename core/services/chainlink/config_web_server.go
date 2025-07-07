@@ -118,6 +118,10 @@ func (w *webServerConfig) LDAP() config.LDAP {
 	return &ldapConfig{c: w.c.LDAP, s: w.s.LDAP}
 }
 
+func (w *webServerConfig) OIDC() config.OIDC {
+	return &oidcConfig{c: w.c.OIDC, s: w.s.OIDC}
+}
+
 func (w *webServerConfig) AuthenticationMethod() string {
 	return *w.c.AuthenticationMethod
 }
@@ -312,4 +316,93 @@ func (l *ldapConfig) UpstreamSyncRateLimit() commonconfig.Duration {
 		return commonconfig.Duration{}
 	}
 	return *l.c.UpstreamSyncRateLimit
+}
+
+type oidcConfig struct {
+	c toml.WebServerOIDC
+	s toml.WebServerOIDCSecrets
+}
+
+func (l *oidcConfig) ClientID() string {
+	if l.c.ClientID == nil {
+		return ""
+	}
+	return *l.c.ClientID
+}
+
+func (l *oidcConfig) ClientSecret() string {
+	if l.s.ClientSecret == nil {
+		return ""
+	}
+	return string(*l.s.ClientSecret)
+}
+
+func (l *oidcConfig) ProviderURL() string {
+	if l.c.ProviderURL == nil {
+		return ""
+	}
+	return *l.c.ProviderURL
+}
+
+func (l *oidcConfig) RedirectURL() string {
+	if l.c.RedirectURL == nil {
+		return ""
+	}
+	return *l.c.RedirectURL
+}
+
+func (l *oidcConfig) ClaimName() string {
+	if l.c.ClaimName == nil {
+		return ""
+	}
+	return *l.c.ClaimName
+}
+
+func (l *oidcConfig) AdminClaim() string {
+	if l.c.AdminClaim == nil {
+		return ""
+	}
+	return *l.c.AdminClaim
+}
+
+func (l *oidcConfig) EditClaim() string {
+	if l.c.EditClaim == nil {
+		return ""
+	}
+	return *l.c.EditClaim
+}
+
+func (l *oidcConfig) RunClaim() string {
+	if l.c.RunClaim == nil {
+		return ""
+	}
+	return *l.c.RunClaim
+}
+
+func (l *oidcConfig) ReadClaim() string {
+	if l.c.ReadClaim == nil {
+		return ""
+	}
+	return *l.c.ReadClaim
+}
+
+func (l *oidcConfig) SessionTimeout() commonconfig.Duration {
+	if l.c.SessionTimeout == nil {
+		return commonconfig.Duration{}
+	}
+	return *l.c.SessionTimeout
+}
+
+func (l *oidcConfig) UserAPITokenEnabled() bool {
+	if l.c.UserAPITokenEnabled == nil {
+		return false
+	}
+	return *l.c.UserAPITokenEnabled
+}
+
+func (l *oidcConfig) UserAPITokenDuration() commonconfig.Duration {
+	if l.c.UserAPITokenDuration == nil {
+		return commonconfig.Duration{}
+	}
+	return *l.c.UserAPITokenDuration
 }

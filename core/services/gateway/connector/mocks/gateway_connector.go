@@ -3,10 +3,12 @@
 package mocks
 
 import (
-	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	connector "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-
 	context "context"
+	json "encoding/json"
+
+	core "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -26,17 +28,17 @@ func (_m *GatewayConnector) EXPECT() *GatewayConnector_Expecter {
 	return &GatewayConnector_Expecter{mock: &_m.Mock}
 }
 
-// AddHandler provides a mock function with given fields: methods, handler
-func (_m *GatewayConnector) AddHandler(methods []string, handler connector.GatewayConnectorHandler) error {
-	ret := _m.Called(methods, handler)
+// AddHandler provides a mock function with given fields: ctx, methods, handler
+func (_m *GatewayConnector) AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error {
+	ret := _m.Called(ctx, methods, handler)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddHandler")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]string, connector.GatewayConnectorHandler) error); ok {
-		r0 = rf(methods, handler)
+	if rf, ok := ret.Get(0).(func(context.Context, []string, core.GatewayConnectorHandler) error); ok {
+		r0 = rf(ctx, methods, handler)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -50,15 +52,16 @@ type GatewayConnector_AddHandler_Call struct {
 }
 
 // AddHandler is a helper method to define mock.On call
+//   - ctx context.Context
 //   - methods []string
-//   - handler connector.GatewayConnectorHandler
-func (_e *GatewayConnector_Expecter) AddHandler(methods interface{}, handler interface{}) *GatewayConnector_AddHandler_Call {
-	return &GatewayConnector_AddHandler_Call{Call: _e.mock.On("AddHandler", methods, handler)}
+//   - handler core.GatewayConnectorHandler
+func (_e *GatewayConnector_Expecter) AddHandler(ctx interface{}, methods interface{}, handler interface{}) *GatewayConnector_AddHandler_Call {
+	return &GatewayConnector_AddHandler_Call{Call: _e.mock.On("AddHandler", ctx, methods, handler)}
 }
 
-func (_c *GatewayConnector_AddHandler_Call) Run(run func(methods []string, handler connector.GatewayConnectorHandler)) *GatewayConnector_AddHandler_Call {
+func (_c *GatewayConnector_AddHandler_Call) Run(run func(ctx context.Context, methods []string, handler core.GatewayConnectorHandler)) *GatewayConnector_AddHandler_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]string), args[1].(connector.GatewayConnectorHandler))
+		run(args[0].(context.Context), args[1].([]string), args[2].(core.GatewayConnectorHandler))
 	})
 	return _c
 }
@@ -68,7 +71,7 @@ func (_c *GatewayConnector_AddHandler_Call) Return(_a0 error) *GatewayConnector_
 	return _c
 }
 
-func (_c *GatewayConnector_AddHandler_Call) RunAndReturn(run func([]string, connector.GatewayConnectorHandler) error) *GatewayConnector_AddHandler_Call {
+func (_c *GatewayConnector_AddHandler_Call) RunAndReturn(run func(context.Context, []string, core.GatewayConnectorHandler) error) *GatewayConnector_AddHandler_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -225,22 +228,32 @@ func (_c *GatewayConnector_Close_Call) RunAndReturn(run func() error) *GatewayCo
 	return _c
 }
 
-// DonID provides a mock function with no fields
-func (_m *GatewayConnector) DonID() string {
-	ret := _m.Called()
+// DonID provides a mock function with given fields: ctx
+func (_m *GatewayConnector) DonID(ctx context.Context) (string, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DonID")
 	}
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GatewayConnector_DonID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DonID'
@@ -249,45 +262,56 @@ type GatewayConnector_DonID_Call struct {
 }
 
 // DonID is a helper method to define mock.On call
-func (_e *GatewayConnector_Expecter) DonID() *GatewayConnector_DonID_Call {
-	return &GatewayConnector_DonID_Call{Call: _e.mock.On("DonID")}
+//   - ctx context.Context
+func (_e *GatewayConnector_Expecter) DonID(ctx interface{}) *GatewayConnector_DonID_Call {
+	return &GatewayConnector_DonID_Call{Call: _e.mock.On("DonID", ctx)}
 }
 
-func (_c *GatewayConnector_DonID_Call) Run(run func()) *GatewayConnector_DonID_Call {
+func (_c *GatewayConnector_DonID_Call) Run(run func(ctx context.Context)) *GatewayConnector_DonID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *GatewayConnector_DonID_Call) Return(_a0 string) *GatewayConnector_DonID_Call {
-	_c.Call.Return(_a0)
+func (_c *GatewayConnector_DonID_Call) Return(_a0 string, _a1 error) *GatewayConnector_DonID_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *GatewayConnector_DonID_Call) RunAndReturn(run func() string) *GatewayConnector_DonID_Call {
+func (_c *GatewayConnector_DonID_Call) RunAndReturn(run func(context.Context) (string, error)) *GatewayConnector_DonID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GatewayIDs provides a mock function with no fields
-func (_m *GatewayConnector) GatewayIDs() []string {
-	ret := _m.Called()
+// GatewayIDs provides a mock function with given fields: ctx
+func (_m *GatewayConnector) GatewayIDs(ctx context.Context) ([]string, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GatewayIDs")
 	}
 
 	var r0 []string
-	if rf, ok := ret.Get(0).(func() []string); ok {
-		r0 = rf()
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]string, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []string); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GatewayConnector_GatewayIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GatewayIDs'
@@ -296,23 +320,24 @@ type GatewayConnector_GatewayIDs_Call struct {
 }
 
 // GatewayIDs is a helper method to define mock.On call
-func (_e *GatewayConnector_Expecter) GatewayIDs() *GatewayConnector_GatewayIDs_Call {
-	return &GatewayConnector_GatewayIDs_Call{Call: _e.mock.On("GatewayIDs")}
+//   - ctx context.Context
+func (_e *GatewayConnector_Expecter) GatewayIDs(ctx interface{}) *GatewayConnector_GatewayIDs_Call {
+	return &GatewayConnector_GatewayIDs_Call{Call: _e.mock.On("GatewayIDs", ctx)}
 }
 
-func (_c *GatewayConnector_GatewayIDs_Call) Run(run func()) *GatewayConnector_GatewayIDs_Call {
+func (_c *GatewayConnector_GatewayIDs_Call) Run(run func(ctx context.Context)) *GatewayConnector_GatewayIDs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *GatewayConnector_GatewayIDs_Call) Return(_a0 []string) *GatewayConnector_GatewayIDs_Call {
-	_c.Call.Return(_a0)
+func (_c *GatewayConnector_GatewayIDs_Call) Return(_a0 []string, _a1 error) *GatewayConnector_GatewayIDs_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *GatewayConnector_GatewayIDs_Call) RunAndReturn(run func() []string) *GatewayConnector_GatewayIDs_Call {
+func (_c *GatewayConnector_GatewayIDs_Call) RunAndReturn(run func(context.Context) ([]string, error)) *GatewayConnector_GatewayIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -513,17 +538,17 @@ func (_c *GatewayConnector_Ready_Call) RunAndReturn(run func() error) *GatewayCo
 	return _c
 }
 
-// SendToGateway provides a mock function with given fields: ctx, gatewayID, msg
-func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, msg *api.Message) error {
-	ret := _m.Called(ctx, gatewayID, msg)
+// SendToGateway provides a mock function with given fields: ctx, gatewayID, resp
+func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc2.Response[json.RawMessage]) error {
+	ret := _m.Called(ctx, gatewayID, resp)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendToGateway")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *api.Message) error); ok {
-		r0 = rf(ctx, gatewayID, msg)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Response[json.RawMessage]) error); ok {
+		r0 = rf(ctx, gatewayID, resp)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -539,14 +564,14 @@ type GatewayConnector_SendToGateway_Call struct {
 // SendToGateway is a helper method to define mock.On call
 //   - ctx context.Context
 //   - gatewayID string
-//   - msg *api.Message
-func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayID interface{}, msg interface{}) *GatewayConnector_SendToGateway_Call {
-	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayID, msg)}
+//   - resp *jsonrpc2.Response[json.RawMessage]
+func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayID interface{}, resp interface{}) *GatewayConnector_SendToGateway_Call {
+	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayID, resp)}
 }
 
-func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, msg *api.Message)) *GatewayConnector_SendToGateway_Call {
+func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, resp *jsonrpc2.Response[json.RawMessage])) *GatewayConnector_SendToGateway_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*api.Message))
+		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Response[json.RawMessage]))
 	})
 	return _c
 }
@@ -556,55 +581,66 @@ func (_c *GatewayConnector_SendToGateway_Call) Return(_a0 error) *GatewayConnect
 	return _c
 }
 
-func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Context, string, *api.Message) error) *GatewayConnector_SendToGateway_Call {
+func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Response[json.RawMessage]) error) *GatewayConnector_SendToGateway_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SignAndSendToGateway provides a mock function with given fields: ctx, gatewayID, msg
-func (_m *GatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID string, msg *api.MessageBody) error {
-	ret := _m.Called(ctx, gatewayID, msg)
+// SignMessage provides a mock function with given fields: ctx, msg
+func (_m *GatewayConnector) SignMessage(ctx context.Context, msg []byte) ([]byte, error) {
+	ret := _m.Called(ctx, msg)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SignAndSendToGateway")
+		panic("no return value specified for SignMessage")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *api.MessageBody) error); ok {
-		r0 = rf(ctx, gatewayID, msg)
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) ([]byte, error)); ok {
+		return rf(ctx, msg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) []byte); ok {
+		r0 = rf(ctx, msg)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
+		r1 = rf(ctx, msg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
-// GatewayConnector_SignAndSendToGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignAndSendToGateway'
-type GatewayConnector_SignAndSendToGateway_Call struct {
+// GatewayConnector_SignMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignMessage'
+type GatewayConnector_SignMessage_Call struct {
 	*mock.Call
 }
 
-// SignAndSendToGateway is a helper method to define mock.On call
+// SignMessage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - gatewayID string
-//   - msg *api.MessageBody
-func (_e *GatewayConnector_Expecter) SignAndSendToGateway(ctx interface{}, gatewayID interface{}, msg interface{}) *GatewayConnector_SignAndSendToGateway_Call {
-	return &GatewayConnector_SignAndSendToGateway_Call{Call: _e.mock.On("SignAndSendToGateway", ctx, gatewayID, msg)}
+//   - msg []byte
+func (_e *GatewayConnector_Expecter) SignMessage(ctx interface{}, msg interface{}) *GatewayConnector_SignMessage_Call {
+	return &GatewayConnector_SignMessage_Call{Call: _e.mock.On("SignMessage", ctx, msg)}
 }
 
-func (_c *GatewayConnector_SignAndSendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, msg *api.MessageBody)) *GatewayConnector_SignAndSendToGateway_Call {
+func (_c *GatewayConnector_SignMessage_Call) Run(run func(ctx context.Context, msg []byte)) *GatewayConnector_SignMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*api.MessageBody))
+		run(args[0].(context.Context), args[1].([]byte))
 	})
 	return _c
 }
 
-func (_c *GatewayConnector_SignAndSendToGateway_Call) Return(_a0 error) *GatewayConnector_SignAndSendToGateway_Call {
-	_c.Call.Return(_a0)
+func (_c *GatewayConnector_SignMessage_Call) Return(_a0 []byte, _a1 error) *GatewayConnector_SignMessage_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *GatewayConnector_SignAndSendToGateway_Call) RunAndReturn(run func(context.Context, string, *api.MessageBody) error) *GatewayConnector_SignAndSendToGateway_Call {
+func (_c *GatewayConnector_SignMessage_Call) RunAndReturn(run func(context.Context, []byte) ([]byte, error)) *GatewayConnector_SignMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

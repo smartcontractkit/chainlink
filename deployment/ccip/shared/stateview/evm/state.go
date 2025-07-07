@@ -2,15 +2,14 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
@@ -45,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
@@ -57,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	shared2 "github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -70,7 +71,7 @@ import (
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
-// on a chain. If a binding is nil, it means here is no such contract on the chain.
+// on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
 	state.MCMSWithTimelockState
 	state.LinkTokenState
@@ -89,17 +90,21 @@ type CCIPChainState struct {
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
+
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens                                      map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token                        *factory_burn_mint_erc20.FactoryBurnMintERC20
-	ERC677Tokens                                     map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677                                map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokens677Helper                          map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
+	ERC20Tokens               map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token *factory_burn_mint_erc20.FactoryBurnMintERC20
+	ERC677Tokens              map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
+
+	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
+	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
 	BurnWithFromMintTokenPools                       map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools                           map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
 	USDCTokenPools                                   map[semver.Version]*usdc_token_pool.USDCTokenPool
@@ -134,7 +139,7 @@ type CCIPChainState struct {
 	FeeAggregator common.Address
 }
 
-// ValidateHomeChain validates the home chain contracts and their configurations after complete set up
+// ValidateHomeChain validates the home chain contracts and their configurations after complete setup.
 // It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
 // This should be called after the complete deployment is done
 func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
@@ -191,7 +196,7 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 	return nil
 }
 
-// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
+// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on the corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
 func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {
@@ -199,6 +204,9 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 	}
 	chainSel := homeCfg.Config.ChainSelector
 	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
+		return nil
+	}
+	if _, exists := e.BlockChains.TonChains()[chainSel]; exists {
 		return nil
 	}
 	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
@@ -649,7 +657,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			routerView, err := v1_2.GenerateRouterView(c.Router, false)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
+				return fmt.Errorf("failed to generate router view for router %s: %w", c.Router.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -663,7 +671,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
+				return fmt.Errorf("failed to generate test router view for test router %s: %w", c.TestRouter.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -678,7 +686,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				"tokenAdminRegistry", c.TokenAdminRegistry.Address().Hex(), "chain", chain)
 			taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
+				return fmt.Errorf("failed to generate token admin registry view for token admin registry %s: %w", c.TokenAdminRegistry.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -691,7 +699,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			tpfView, err := v1_5_1.GenerateTokenPoolFactoryView(c.TokenPoolFactory)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate token pool factory view for token pool factory %s", c.TokenPoolFactory.Address().String())
+				return fmt.Errorf("failed to generate token pool factory view for token pool factory %s: %w", c.TokenPoolFactory.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -705,7 +713,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			grp.Go(func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -720,7 +728,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			grp.Go(func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -735,7 +743,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			grp.Go(func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
@@ -750,7 +758,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			grp.Go(func() error {
 				tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
-					return errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
@@ -762,7 +770,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			tokenPoolView, err := v1_5_1.GenerateUSDCTokenPoolView(pool)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
+				return fmt.Errorf("failed to generate USDC token pool view for %s: %w", pool.Address().String(), err)
 			}
 			chainView.UpdateTokenPool(string(shared.USDCSymbol), pool.Address().Hex(), tokenPoolView)
 			lggr.Infow("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)
@@ -773,7 +781,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
+				return fmt.Errorf("failed to generate nonce manager view for nonce manager %s: %w", c.NonceManager.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -786,7 +794,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
+				return fmt.Errorf("failed to generate rmn remote view for rmn remote %s: %w", c.RMNRemote.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -800,7 +808,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
+				return fmt.Errorf("failed to generate rmn home view for rmn home %s: %w", c.RMNHome.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -823,7 +831,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			}
 			fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TestRouter, tokens)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
+				return fmt.Errorf("failed to generate fee quoter view for fee quoter %s: %w", c.FeeQuoter.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -842,7 +850,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				c.TokenAdminRegistry,
 			)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate on ramp view for on ramp %s", c.OnRamp.Address().String())
+				return fmt.Errorf("failed to generate on ramp view for on ramp %s: %w", c.OnRamp.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -860,7 +868,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				c.TestRouter,
 			)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate off ramp view for off ramp %s", c.OffRamp.Address().String())
+				return fmt.Errorf("failed to generate off ramp view for off ramp %s: %w", c.OffRamp.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -874,7 +882,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
+				return fmt.Errorf("failed to generate rmn proxy view for rmn proxy %s: %w", c.RMNProxy.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -887,7 +895,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
+				return fmt.Errorf("failed to generate CCIP home view for CCIP home %s: %w", c.CCIPHome.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -900,7 +908,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			capRegView, err := v1_1.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate capability registry view for capability registry %s", c.CapabilityRegistry.Address().String())
+				return fmt.Errorf("failed to generate capability registry view for capability registry %s: %w", c.CapabilityRegistry.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -913,7 +921,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate MCMS with timelock view for MCMS with timelock %s", c.MCMSWithTimelockState.Timelock.Address().String())
+				return fmt.Errorf("failed to generate MCMS with timelock view for MCMS with timelock %s: %w", c.MCMSWithTimelockState.Timelock.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -926,7 +934,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			linkTokenView, err := c.GenerateLinkView()
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate link token view for link token %s", c.LinkToken.Address().String())
+				return fmt.Errorf("failed to generate link token view for link token %s: %w", c.LinkToken.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -957,7 +965,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			registryModuleView, err := shared2.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+				return fmt.Errorf("failed to generate registry module view for registry module %s: %w", registryModule.Address().Hex(), err)
 			}
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
@@ -969,7 +977,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			registryModuleView, err := shared2.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate registry module view for registry module %s", registryModule.Address().Hex())
+				return fmt.Errorf("failed to generate registry module view for registry module %s: %w", registryModule.Address().Hex(), err)
 			}
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
@@ -981,7 +989,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate price registry view for price registry %s", c.PriceRegistry.Address().String())
+				return fmt.Errorf("failed to generate price registry view for price registry %s: %w", c.PriceRegistry.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
@@ -995,7 +1003,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		grp.Go(func() error {
 			rmnView, err := v1_5.GenerateRMNView(c.RMN)
 			if err != nil {
-				return errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
+				return fmt.Errorf("failed to generate rmn view for rmn %s: %w", c.RMN.Address().String(), err)
 			}
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()

@@ -44,7 +44,7 @@ func setupORM(t *testing.T) *TestORM {
 
 	var (
 		db  = pgtest.NewSqlxDB(t)
-		orm = feeds.NewORM(db)
+		orm = feeds.NewORM(db, logger.TestLogger(t))
 	)
 
 	return &TestORM{ORM: orm, db: db}

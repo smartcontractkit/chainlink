@@ -24,8 +24,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-// TODO @ccip-tooling: these utilities need to be thoroughly tested.
-
 // EVMCallInput is the input structure for an EVM call operation.
 // Why not pull the chain selector from the chain dependency? Because addresses might be the same across chains and we need to differentiate them.
 // This ensures no false report matches between operation runs that have the same call input and address but a different target chain.
@@ -77,7 +75,7 @@ func NewEVMCallOperation[IN any, C any](
 			if input.ChainSelector != chain.Selector {
 				return EVMCallOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
-			opts := cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice)
+			opts := CloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice)
 			if input.NoSend {
 				opts = cldf.SimTransactOpts()
 			}
@@ -265,7 +263,7 @@ func NewEVMDeployOperation[IN any](
 				)
 			} else {
 				addr, tx, err = deployers.DeployEVM(
-					cloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
+					CloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
 					chain.Client,
 					input.DeployInput,
 				)
@@ -291,7 +289,7 @@ func NewEVMDeployOperation[IN any](
 }
 
 // cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
-func cloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice uint64) *bind.TransactOpts {
+func CloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice uint64) *bind.TransactOpts {
 	if opts == nil {
 		return nil
 	}
@@ -328,19 +326,23 @@ func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs ma
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
 func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
-	// Use default retry option if no gas boost config is provided
 	if cfg == nil {
-		return operations.WithRetry[EVMDeployInput[IN], cldf_evm.Chain]()
+		return withoutRetry[EVMDeployInput[IN], cldf_evm.Chain]()
 	}
 	c := *cfg
 
 	return operations.WithRetryInput(func(attempt uint, err error, in EVMDeployInput[IN], deps cldf_evm.Chain) EVMDeployInput[IN] {
-		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		gasLimit, gasPrice := GetBoostedGasForAttempt(c, attempt)
 		in.GasLimit = gasLimit
 		in.GasPrice = gasPrice
 
 		return in
 	})
+}
+
+// withoutRetry enables us to return an ExecuteOption that does nothing.
+func withoutRetry[IN, DEP any]() operations.ExecuteOption[IN, DEP] {
+	return func(c *operations.ExecuteConfig[IN, DEP]) {}
 }
 
 // RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
@@ -358,7 +360,7 @@ func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.E
 			return in // No gas boost for calls that do not send transactions
 		}
 
-		gasLimit, gasPrice := getBoostedGasForAttempt(c, attempt)
+		gasLimit, gasPrice := GetBoostedGasForAttempt(c, attempt)
 		in.GasLimit = gasLimit
 		in.GasPrice = gasPrice
 
@@ -366,7 +368,7 @@ func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.E
 	})
 }
 
-func getBoostedGasForAttempt(cfg commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+func GetBoostedGasForAttempt(cfg commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
 	initialGasLimit := uint64(200_000)          // 200k
 	gasLimitIncrement := uint64(50_000)         // 50k
 	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei

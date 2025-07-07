@@ -8,6 +8,8 @@ on:
 env:
   ECR_HOSTNAME: public.ecr.aws
 
+permissions: {}
+
 jobs:
   checks:
     name: "Checks"
@@ -59,69 +61,61 @@ jobs:
           tag: ${{ github.ref_name }}
           assert: true
 
-  build-sign-publish-chainlink:
-    needs: [checks]
-    runs-on: ubuntu-24.04
-    environment: build-publish
-    permissions:
-      id-token: write
-      contents: write
-      attestations: write
-    outputs:
-      docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
-      docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Build, sign and publish chainlink image
-        id: build-sign-publish
-        uses: ./.github/actions/build-sign-publish-chainlink
-        with:
-          publish: true
-          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
-          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          ecr-hostname: ${{ env.ECR_HOSTNAME }}
-          ecr-image-name: ${{ needs.checks.outputs.ecr-image-name }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          sign-images: true
-          verify-signature: true
-          git-tag-type: ${{ needs.checks.outputs.git-tag-type }}
-
-      - name: Attest Docker image
-        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
-        with:
-          subject-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ needs.checks.outputs.ecr-image-name }}
-          push-to-registry: true
-
-  # XXX: This is using a new way to build images. Other jobs should be updated to use this in the future.
-  build-sign-publish-chainlink-plugins:
+  docker-core:
     needs: [checks]
     if: needs.checks.outputs.git-tag-type == 'core'
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b20336cdc21a6ee08fec353fa16e96786f88096f # 2025-06-17
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
       aws-region-gati: us-west-2
-      dockerfile: plugins/chainlink.Dockerfile
+      dockerfile: core/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+      docker-cache-behaviour: "disable"
+      docker-manifest-sign: true
+      docker-registry-url-override: public.ecr.aws/chainlink
+      docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-ref-type: ${{ github.ref_type}}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_BUILD_PUBLISH_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  docker-ccip:
+    needs: [checks]
+    if: needs.checks.outputs.git-tag-type == 'ccip'
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b20336cdc21a6ee08fec353fa16e96786f88096f # 2025-06-17
+    with:
+      aws-ecr-name: ccip
+      aws-region-ecr: us-east-1
+      aws-region-gati: us-west-2
+      dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_APTOS_CMD=chainlink-aptos
+        CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
-      docker-tag-custom-suffix: "-plugins"
+      docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      docker-tag-custom-suffix: "-ccip"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -135,17 +129,42 @@ jobs:
 
   # Notify Slack channel for new git tags.
   slack-notify:
-    if: github.ref_type == 'tag'
-    needs: [checks, build-sign-publish-chainlink]
+    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success')
+    needs: [checks, docker-core, docker-ccip]
     runs-on: ubuntu-24.04
     environment: build-publish
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Determine docker outputs
+        id: docker-outputs
+        shell: bash
+        env:
+          DOCKER_CCIP_MANIFEST_DIGEST: ${{ needs.docker-ccip.outputs.docker-manifest-digest }}
+          DOCKER_CCIP_MANIFEST_TAG: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          DOCKER_CCIP_RESULT: ${{ needs.docker-ccip.result }}
+          DOCKER_CORE_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          DOCKER_CORE_MANIFEST_DIGEST: ${{ needs.docker-core.outputs.docker-manifest-digest }}
+          DOCKER_CORE_RESULT: ${{ needs.docker-core.result }}
+        run: |
+          if [[ "${DOCKER_CORE_RESULT}" == "success" ]]; then
+            echo "tag=${DOCKER_CORE_MANIFEST_TAG}" | tee -a "$GITHUB_OUTPUT"
+            echo "digest=${DOCKER_CORE_MANIFEST_DIGEST}" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${DOCKER_CCIP_RESULT}" == "success" ]]; then
+            echo "tag=${DOCKER_CCIP_MANIFEST_TAG}" | tee -a "$GITHUB_OUTPUT"
+            echo "digest=${DOCKER_CCIP_MANIFEST_DIGEST}" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "::error::Neither docker-core nor docker-ccip job succeeded" >&2
+            exit 1
+          fi
+
       - name: Notify Slack
-        uses: smartcontractkit/.github/actions/slack-notify-git-ref@31e00facdd8f57a2bc7868b5e4c8591bf2aa3727 # slack-notify-git-ref@0.1.2
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/1.0.0
         with:
           slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }} # Releng Bot
@@ -153,25 +172,19 @@ jobs:
           git-ref-type: ${{ github.ref_type }}
           changelog-url: >-
             ${{
-              github.ref_type == 'tag' &&
               format(
                 'https://github.com/{0}/blob/{1}/CHANGELOG.md',
                 github.repository,
                 github.ref_name
-              ) || ''
+              )
             }}
           docker-image-name: >-
             ${{
-              github.ref_type == 'tag' &&
               format(
                 '{0}/{1}:{2}',
                 env.ECR_HOSTNAME,
                 needs.checks.outputs.ecr-image-name,
-                needs.build-sign-publish-chainlink.outputs.docker-image-tag
-              ) || ''
+                steps.docker-outputs.outputs.tag
+              )
             }}
-          docker-image-digest: >-
-            ${{
-              github.ref_type == 'tag' &&
-              needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
-            }}
+          docker-image-digest: ${{ steps.docker-outputs.outputs.digest }}

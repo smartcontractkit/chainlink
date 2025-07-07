@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -23,6 +24,7 @@ import (
 )
 
 func TestGrantRoleTimelockSolana(t *testing.T) {
+	t.Skip("fails with Program is not deployed (DoajfR5tK24xVw51fWcawUZWhAXD8yrBJVacc13neVQA) in CI")
 	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
@@ -72,8 +74,11 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 			&solanachangesets.GrantRoleTimelockSolana{},
 			solanachangesets.GrantRoleTimelockSolanaConfig{
 				Role:     timelockbindings.Executor_Role,
-				MCMS:     &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				Accounts: map[uint64][]solana.PublicKey{solanaSelector: executors2},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:   1 * time.Second,
+					MCMSAction: mcmstypes.TimelockActionSchedule,
+				},
 			},
 		)
 

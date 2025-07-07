@@ -146,6 +146,9 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return fmt.Errorf("failed to read feed state file %s: %w", feedStatePath, err)
 	}
 
+	feeds := *getFeedsByWorkflow(&feedState.Feeds, c.WorkflowSpecConfig.WorkflowName)
+	feedState.Feeds = feeds
+
 	err = feedState.Validate()
 	if err != nil {
 		return fmt.Errorf("failed to validate feeds: %w", err)
@@ -164,6 +167,14 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 
 	if c.NodeFilter == nil {
 		return errors.New("missing node filter")
+	}
+
+	if c.NodeFilter.DONID == 0 {
+		return errors.New("missing DON ID in node filter")
+	}
+
+	if c.NodeFilter.EnvLabel == "" {
+		return errors.New("missing environment label in node filter")
 	}
 
 	return nil

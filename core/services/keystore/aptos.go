@@ -107,7 +107,7 @@ func (ks *aptos) Import(ctx context.Context, keyJSON []byte, password string) (a
 	if _, found := ks.keyRing.Aptos[key.ID()]; found {
 		return aptoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *aptos) Export(id string, password string) ([]byte, error) {

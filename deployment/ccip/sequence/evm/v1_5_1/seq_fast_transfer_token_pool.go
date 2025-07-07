@@ -53,6 +53,8 @@ var (
 					operation = ccipops.BurnMintFastTransferTokenPoolUpdateDestChainConfigOp
 				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 					operation = ccipops.BurnMintWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp
+				case shared.HybridWithExternalMinterFastTransferTokenPool:
+					operation = ccipops.HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp
 				default:
 					return nil, fmt.Errorf("unsupported contract type for fast transfer token pool: %s", input.ContractType)
 				}
@@ -88,6 +90,8 @@ var (
 					operation = ccipops.BurnMintFastTransferTokenPoolUpdateFillerAllowlistOp
 				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 					operation = ccipops.BurnMintWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp
+				case shared.HybridWithExternalMinterFastTransferTokenPool:
+					operation = ccipops.HybridWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp
 				default:
 					return nil, fmt.Errorf("unsupported contract type for fast transfer token pool: %s", input.ContractType)
 				}
