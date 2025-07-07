@@ -53,6 +53,11 @@ func (r *syncedFilter) Update(ctx context.Context, registrar Registrar, updatedN
 	// filter updated successfully, it's not dirty anymore
 	r.dirty = false
 
+	// if name hasn't changed, then we didn't update filter params.
+	if oldName == updatedName {
+		return nil
+	}
+
 	return r.unregister(ctx, registrar, oldName)
 }
 
@@ -137,6 +142,10 @@ func (r *syncedFilter) SetName(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.filter.Name == name {
+		return
+	}
+
 	r.dirty = true
 
 	r.filter.Name = name
@@ -145,6 +154,11 @@ func (r *syncedFilter) SetName(name string) {
 func (r *syncedFilter) AddAddress(address common.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for _, addr := range r.filter.Addresses {
+		if addr.Cmp(address) == 0 {
+			return
+		}
+	}
 
 	r.dirty = true
 
@@ -155,14 +169,19 @@ func (r *syncedFilter) RemoveAddress(address common.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.dirty = true
-
 	var addrIdx int
+	var found bool
 	for idx, addr := range r.filter.Addresses {
 		if addr.Hex() == address.Hex() {
 			addrIdx = idx
+			found = true
 		}
 	}
+	if !found {
+		return
+	}
+
+	r.dirty = true
 
 	r.filter.Addresses[addrIdx] = r.filter.Addresses[len(r.filter.Addresses)-1]
 	r.filter.Addresses = r.filter.Addresses[:len(r.filter.Addresses)-1]
