@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/crib-sdk/crib"
 	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
+	nodesetv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/nodeset/v1"
 )
 
 // todo: after it's done it will replace DeployDonsCrib
@@ -19,8 +20,7 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 		return nil, errors.Wrap(valErr, "input validation failed")
 	}
 
-	// component funcs with all nodes from all nodesets
-	componentFuncs := make([]crib.ComponentFunc, 0)
+	propsSlice := make([]*nodev1.Props, 0)
 
 	for j, donMetadata := range input.Topology.DonsMetadata {
 
@@ -34,24 +34,30 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 			if confSecretsErr != nil {
 				return nil, confSecretsErr
 			}
-			component := nodev1.Component(&nodev1.Props{
-				Image:       fmt.Sprintf("%s:%s", imageName, imageTag),
-				ReleaseName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
+			props := &nodev1.Props{
+				Image:           fmt.Sprintf("%s:%s", imageName, imageTag),
+				AppInstanceName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
 				// passing as config not as override
 				Config: *configToml,
 				SecretsOverrides: map[string]string{
 					"overrides": *secrets,
 				},
-			})
-			componentFuncs = append(componentFuncs, component)
+			}
+			propsSlice = append(propsSlice, props)
 		}
 	}
 
+	component := nodesetv1.Component(&nodesetv1.Props{
+		Namespace: input.Namespace,
+		NodeProps: propsSlice,
+		Size:      len(propsSlice),
+	})
+
 	plan := crib.NewPlan(
-		"dons",
+		"nodesets",
 		crib.Namespace(input.Namespace),
 		crib.ComponentSet(
-			componentFuncs...,
+			component,
 		),
 	)
 

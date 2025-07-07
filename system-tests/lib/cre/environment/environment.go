@@ -504,12 +504,13 @@ func SetupTestEnvironment(
 			NodeSetInputs:  input.CapabilitiesAwareNodeSets,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
+			Namespace:      input.InfraInput.CRIB.Namespace,
 		}
 
 		var cribErr error
 		input.CapabilitiesAwareNodeSets, cribErr = crib.DeployDonsWithCribSDK(deployCribDonsInput)
 		if cribErr != nil {
-			return nil, pkgerrors.Wrap(cribErr, "failed to deploy Dons with devspace")
+			return nil, pkgerrors.Wrap(cribErr, "failed to deploy Dons with crib-sdk")
 		}
 	}
 

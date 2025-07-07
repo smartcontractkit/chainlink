@@ -478,8 +478,9 @@ type FullCLDEnvironmentOutput struct {
 }
 
 type DeployCribDonsInput struct {
-	Topology       *Topology
-	NodeSetInputs  []*CapabilitiesAwareNodeSet
+	Topology      *Topology
+	NodeSetInputs []*CapabilitiesAwareNodeSet
+	// todo cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
 	Namespace      string
@@ -505,7 +506,8 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput        *jd.Input
+	JDInput *jd.Input
+	// todo:  cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
 	Namespace      string
@@ -526,9 +528,10 @@ func (d *DeployCribJdInput) Validate() error {
 
 type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
-	NixShell        *nix.Shell
-	CribConfigsDir  string
-	Namespace       string
+	// todo:  cleanup this
+	NixShell       *nix.Shell
+	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
