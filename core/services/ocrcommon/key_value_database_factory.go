@@ -1,6 +1,8 @@
 package ocrcommon
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -29,8 +31,12 @@ type KeyValueDatabase struct {
 }
 
 func (k *KeyValueDatabase) NewReadWriteTransaction() (ocr3_1types.KeyValueReadWriteTransaction, error) {
-	tx := &KeyValueReadWriteTransaction{}
-	return tx.Start()
+	tx := &KeyValueReadWriteTransaction{
+		KeyValueReadTransaction: KeyValueReadTransaction{
+			ds: k.ds,
+		},
+	}
+	return tx, tx.Start()
 }
 
 func (k *KeyValueDatabase) NewReadTransaction() (ocr3_1types.KeyValueReadTransaction, error) {
@@ -42,6 +48,7 @@ func (k *KeyValueDatabase) Close() error {
 }
 
 type KeyValueReadTransaction struct {
+	sqlutil.Transaction
 }
 
 func (k *KeyValueReadTransaction) Read(key []byte) ([]byte, error) {
@@ -52,14 +59,24 @@ func (k *KeyValueReadTransaction) Range(loKey []byte, hiKeyExcl []byte) ocr3_1ty
 	return nil
 }
 
-func (k *KeyValueReadTransaction) Discard() {}
+func (k *KeyValueReadTransaction) Start() error {
+	tx, err := sqlutil.StartTransaction(context.TODO(), k.ds, &sqlutil.TxOptions{})
+	if err != nil {
+		return err
+	}
+	k.ds = tx
+	return nil
+}
+
+func (k *KeyValueReadTransaction) Discard() {
+	err := k.Rollback()
+	if err != nil {
+		// Do something important
+	}
+}
 
 type KeyValueReadWriteTransaction struct {
 	KeyValueReadTransaction
-}
-
-func (k *KeyValueReadWriteTransaction) Start() error) {
-
 }
 
 func (k *KeyValueReadWriteTransaction) Write(key []byte, value []byte) error {
@@ -71,5 +88,6 @@ func (k *KeyValueReadWriteTransaction) Delete(key []byte) error {
 }
 
 func (k *KeyValueReadWriteTransaction) Commit() error {
+	k.Transaction.Commit()
 	return nil
 }
