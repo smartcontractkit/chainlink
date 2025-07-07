@@ -162,7 +162,13 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create ManyChainMultiSig for existing proposer %s on chain %d: %w",
 					cfg.ExistingProposerByChain[k].Hex(), k, err)
 			}
-			mcmsStateForProposal[k] = *v
+			mcmsStateForProposal[k] = state.MCMSWithTimelockState{
+				CancellerMcm: v.CancellerMcm,
+				BypasserMcm:  v.BypasserMcm,
+				ProposerMcm:  existingProposerMcm,
+				Timelock:     v.Timelock,
+				CallProxy:    v.CallProxy,
+			}
 		}
 	}
 
