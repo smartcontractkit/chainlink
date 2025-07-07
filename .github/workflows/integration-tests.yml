@@ -642,8 +642,7 @@ jobs:
     needs:
       [
         run-core-e2e-tests,
-        run-ccip-e2e-tests-for-pr,
-        run-ccip-e2e-tests-for-merge-queue,
+        run-ccip-e2e-tests,
       ]
     runs-on: ubuntu-latest
     steps:
