@@ -109,9 +109,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -148,9 +148,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -184,9 +184,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -413,9 +413,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -453,9 +453,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -489,9 +489,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -521,7 +521,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	})
 }
 
-func nodeRequest(msg *api.Message) *jsonrpc.Request {
+func nodeRequest(msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	req, err := hc.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create node request: %v", err))

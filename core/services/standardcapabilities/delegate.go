@@ -26,8 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -49,7 +51,8 @@ type Delegate struct {
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
-	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	externalPeerWrapper     p2ptypes.PeerWrapper
+	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*gateway.RoundRobinSelector)
@@ -76,7 +79,8 @@ func NewDelegate(
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
-	peerWrapper *ocrcommon.SingletonPeerWrapper,
+	externalPeerWrapper p2ptypes.PeerWrapper,
+	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
 	opts ...func(*gateway.RoundRobinSelector),
@@ -93,7 +97,8 @@ func NewDelegate(
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
-		peerWrapper:             peerWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
+		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
 		selectorOpts:            opts,
@@ -113,6 +118,25 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
+
+	var keystore core.Keystore
+	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
+		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+		if err != nil {
+			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
+		}
+		keystore, err = core.NewSingleAccountSigner(&core.P2PAccountKey, key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
+		}
+	} else {
+		var err error
+		keystore, err = core.NewSingleAccountSigner(nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
+		}
+	}
+
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}
 	pr := generic.NewPipelineRunnerAdapter(log, spec, d.pipelineRunner)
@@ -168,7 +192,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobName:       spec.Name.ValueOrZero(),
 			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
+			PeerWrapper:   d.ocrPeerWrapper,
 			RelayerSet:    relayerSet,
 			TransmitterID: ethKeyBundle.Address.String(),
 		})
@@ -178,7 +202,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	} else {
 		log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
+		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.ocrPeerWrapper == nil {
 			return nil, errors.New("P2P stack required for Oracle Factory")
 		}
 
@@ -189,7 +213,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobName:       spec.Name.ValueOrZero(),
 			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
+			PeerWrapper:   d.ocrPeerWrapper,
 			RelayerSet:    relayerSet,
 			TransmitterID: ethKeyBundle.Address.String(),
 		})
@@ -287,7 +311,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory, connector)
+		pr, relayerSet, oracleFactory, connector, keystore)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
