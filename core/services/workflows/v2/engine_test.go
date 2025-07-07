@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -997,26 +997,27 @@ var _ capabilities.ExecutableAndTriggerCapability = (*CapabilityWrapper)(nil)
 
 func (c *CapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	ch := make(chan capabilities.TriggerResponse, 1)
+	defer close(ch)
 	trigger, err := c.InvokeTrigger(ctx, &sdkpb.TriggerSubscription{
 		Id:      request.TriggerID,
 		Payload: request.Payload,
 		Method:  request.Method,
 	})
-
-	response := capabilities.TriggerResponse{}
 	if err != nil {
-		response.Err = err
-	} else if trigger == nil {
+		ch <- capabilities.TriggerResponse{Err: err}
+	}
+
+	if trigger == nil {
 		return nil, nil
 	} else {
-		response.Event = capabilities.TriggerEvent{
-			TriggerType: request.TriggerID,
-			Payload:     trigger.Payload,
+		ch <- capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{
+				TriggerType: request.TriggerID,
+				Payload:     trigger.Payload,
+			},
 		}
 	}
 
-	ch <- response
-	close(ch)
 	return ch, nil
 }
 
@@ -1055,5 +1056,5 @@ func (c *CapabilityWrapper) Execute(ctx context.Context, request capabilities.Ca
 
 func (c *CapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		c.ID(), capabilities.CapabilityTypeCombined, fmt.Sprintf("Mock of capability %s", c.ID()))
+		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID())
 }
