@@ -20,6 +20,7 @@ import (
 var CurrentTokenPoolVersion = deployment.Version1_5_1
 var FastTransferTokenPoolVersion = deployment.Version1_6_1Dev
 var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
+var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
 var TokenTypes = map[cldf.ContractType]struct{}{
 	BurnMintToken:     {},
@@ -37,6 +38,7 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 	USDCTokenPool:                                   {},
 	HybridLockReleaseUSDCTokenPool:                  {},
 	BurnMintWithExternalMinterFastTransferTokenPool: {},
+	HybridWithExternalMinterFastTransferTokenPool:   {},
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{

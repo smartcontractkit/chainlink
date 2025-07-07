@@ -114,7 +114,7 @@ type capabilityNode struct {
 	registry  *capabilities.Registry
 	key       ethkey.KeyV2
 	KeyBundle ocr2key.KeyBundle
-	peerID    peer
+	peer      peerIDAndOCRSigner
 	start     func()
 }
 
@@ -164,11 +164,13 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 			CapabilityDONs: dependentDONs,
 		}
 
+		signer, err := getSignerStringFromOCRKeyBundle(donConfig.KeyBundles[i])
+		require.NoError(t, err)
 		cn := &capabilityNode{
 			registry:  capabilityRegistry,
 			key:       donConfig.keys[i],
 			KeyBundle: donConfig.KeyBundles[i],
-			peerID:    donConfig.peerIDs[i],
+			peer:      peerIDAndOCRSigner{PeerID: member, Signer: signer},
 		}
 		don.nodes = append(don.nodes, cn)
 
@@ -187,7 +189,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 						modifier(c, cn)
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
-
+			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
@@ -231,12 +233,8 @@ func (d *DON) GetExternalCapabilities() (map[CapabilityRegistration]bool, error)
 		}
 
 		for _, node := range d.nodes {
-			peerIDBytes, err := peerIDToBytes(node.peerID.PeerID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert peer ID to bytes: %w", err)
-			}
 			result[CapabilityRegistration{
-				nodePeerID:      hex.EncodeToString(peerIDBytes[:]),
+				nodePeerID:      hex.EncodeToString(node.peer.PeerID[:]),
 				capabilityID:    publishedCapability.registryConfig.LabelledName + "@" + publishedCapability.registryConfig.Version,
 				capabilityDonID: d.GetID(),
 			}] = true
@@ -254,8 +252,12 @@ func (d *DON) GetF() uint8 {
 	return d.config.F
 }
 
-func (d *DON) GetPeerIDs() []peer {
-	return d.config.peerIDs
+func (d *DON) GetPeerIDsAndOCRSigners() []peerIDAndOCRSigner {
+	peers := make([]peerIDAndOCRSigner, 0, len(d.nodes))
+	for _, node := range d.nodes {
+		peers = append(peers, node.peer)
+	}
+	return peers
 }
 
 func (d *DON) Start(ctx context.Context) error {

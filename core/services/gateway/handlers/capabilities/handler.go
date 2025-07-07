@@ -214,7 +214,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	return nil
 }
 
-func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := common.ValidatedMessageFromResp(resp)
 	if err != nil {
 		return err
@@ -244,7 +244,7 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
