@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/crib-sdk/crib"
 	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	nodesetv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/nodeset/v1"
 )
 
-// todo: after it's done it will replace DeployDonsCrib
+// todo: after it's done it will replace crib.DeployDons
 func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
@@ -66,12 +68,37 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 		return nil, errors.Wrap(err, "failed to apply plan")
 	}
 
-	// todo: set outputs basd on the plan results
+	// Setting outputs based on the Plan Results
 	nodeComponents := planState.ComponentByName(nodev1.ComponentName)
+
+	var nodeResults []nodev1.Result
 
 	for component := range nodeComponents {
 		res := crib.ComponentState[nodev1.Result](component)
 		fmt.Printf("result: %v\n", res)
+		nodeResults = append(nodeResults, res)
+	}
+
+	// setting outputs in a similar way as in func ReadNodeSetURL
+	for j, _ := range input.Topology.DonsMetadata {
+		out := &ns.Output{}
+		out.CLNodes = []*clnode.Output{}
+		// todo: for now this is hardcoded for a single don, we need to group results for each don
+		for _, res := range nodeResults {
+			out.CLNodes = append(out.CLNodes, &clnode.Output{
+				UseCache: true,
+				Node: &clnode.NodeOut{
+					APIAuthUser:     res.APICredentials.UserName,
+					APIAuthPassword: res.APICredentials.Password,
+					ExternalURL:     res.APIUrl(),
+					InternalURL:     res.APIUrl(),
+					// todo: this should be simplified in the CTF types, we should just pass P2P port
+					InternalP2PUrl: fmt.Sprintf("http://%s:%d", res.HostName(), res.P2PPort),
+					InternalIP:     res.HostName(),
+				},
+			})
+		}
+		input.NodeSetInputs[j].Out = out
 	}
 
 	return input.NodeSetInputs, nil
