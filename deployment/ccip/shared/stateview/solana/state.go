@@ -70,6 +70,8 @@ type CCIPChainState struct {
 }
 
 func (s CCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
+	fmt.Println("tokenAddress: ", tokenAddress.String())
+	fmt.Println("s.LinkToken: ", s.LinkToken.String())
 	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) {
 		return solana.TokenProgramID, nil
 	}

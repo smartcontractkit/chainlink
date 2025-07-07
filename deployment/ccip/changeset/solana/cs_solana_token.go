@@ -271,7 +271,7 @@ type SetTokenAuthorityConfig struct {
 
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	for _, tokenAuthorityConfig := range cfg.TokenAuthorityConfigs {
