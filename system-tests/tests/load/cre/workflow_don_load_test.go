@@ -460,7 +460,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	if baselineReport != nil {
 		compareBenchmarkReports(t, benchmarkReport, baselineReport)
 	}
-
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
