@@ -154,7 +154,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		if v != nil {
 			// Replace the proposer MCM in state with the existing proposer.
 			// This is to ensure that we are using an MCM contract that already has the proposer role.
-			v.ProposerMcm, err = gethwrappers.NewManyChainMultiSig(
+			existingProposerMcm, err := gethwrappers.NewManyChainMultiSig(
 				cfg.ExistingProposerByChain[k],
 				e.BlockChains.EVMChains()[k].Client,
 			)
