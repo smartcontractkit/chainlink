@@ -77,7 +77,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		t.Fatalf("not enough test ton chain selectors available")
 	}
 
-	chains := make([]cldf_chain.BlockChain, numChains)
+	chains := make([]cldf_chain.BlockChain, 0, numChains)
 	for i := 0; i < numChains; i++ {
 		selector := testTonChainSelectors[i]
 		nodeClient := tonChain(t, selector)
