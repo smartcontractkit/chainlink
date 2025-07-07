@@ -104,11 +104,11 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vault capability: %w", err)
+		return nil, errors.New("failed to get vault capability: " + err.Error())
 	}
 
 	if s.encryptionKeys == nil || len(s.encryptionKeys) == 0 {
-		return nil, fmt.Errorf("secrets fetcher is not initialized with encryption keys, cannot fetch secrets")
+		return nil, errors.New("secrets fetcher is not initialized with encryption keys, cannot fetch secrets")
 	}
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
