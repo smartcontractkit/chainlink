@@ -30,12 +30,14 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	registrymocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -404,8 +406,8 @@ func Test_SecretsWorker(t *testing.T) {
 			capRegistry := corecaps.NewRegistry(lggr)
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
-
-			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, engineRegistry,
+			registrySyncer := registrymocks.NewRegistrySyncer(t)
+			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, registrySyncer, engineRegistry,
 				emitter, rl, wl, store)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
@@ -586,9 +588,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	registrySyncer := registrymocks.NewRegistrySyncer(t)
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, registrySyncer, er, emitter, rl, wl, store)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -691,9 +694,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	registrySyncer := registrymocks.NewRegistrySyncer(t)
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, registrySyncer, er,
 		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
