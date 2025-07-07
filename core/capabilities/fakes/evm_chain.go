@@ -111,9 +111,9 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	fc.eng.Infow("EVM Chain WriteReport Finished")
 
 	return &evmcappb.WriteReportReply{
-		TxStatus:                        evmcappb.TxStatus_TX_SUCCESS,
+		TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
 		TxHash:                          []byte{},
-		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
+		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS.Enum(),
 		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)), // TODO: add transaction fee
 		ErrorMessage:                    nil,
 	}, nil
