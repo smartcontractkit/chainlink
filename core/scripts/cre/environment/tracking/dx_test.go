@@ -71,7 +71,7 @@ func TestOnlyOneOveryLongMetadataTruncationNonExistingPriority(t *testing.T) {
 
 func TestTogetherOveryLongMetadataTruncationNoPriority(t *testing.T) {
 	metadata := map[string]any{
-		"to_truncate":     "abcde" + strings.Repeat("1234567890", 60), // together both fields are overly long
+		"to_truncate":     "abcde" + strings.Repeat("1234567890", 60), // together both fields are overly long and one of them has to be truncated
 		"do_not_truncate": "abcde" + strings.Repeat("1234567890", 60),
 		"note":            "keep this short",
 		"debug":           "0123456789... etc",
@@ -86,8 +86,16 @@ func TestTogetherOveryLongMetadataTruncationNoPriority(t *testing.T) {
 	require.LessOrEqual(t, len(b), 1024, "metadata should be truncated to less than 1024 bytes")
 	require.Equal(t, metadata["debug"], truncated["debug"], "debug should not be truncated")
 	require.Equal(t, metadata["note"], truncated["note"], "note should not be truncated")
-	require.NotEqual(t, metadata["to_truncate"], truncated["to_truncate"], "to_truncate should be truncated")
-	require.Equal(t, metadata["do_not_truncate"], truncated["do_not_truncate"], "do_not_truncate should not be truncated")
+
+	truncatedFields := []string{}
+	if metadata["to_truncate"] != truncated["to_truncate"] {
+		truncatedFields = append(truncatedFields, "to_truncate")
+	}
+	if metadata["do_not_truncate"] != truncated["do_not_truncate"] {
+		truncatedFields = append(truncatedFields, "do_not_truncate")
+	}
+
+	require.Len(t, truncatedFields, 1, "only one field should be truncated")
 }
 
 func TestNoTruncation(t *testing.T) {
