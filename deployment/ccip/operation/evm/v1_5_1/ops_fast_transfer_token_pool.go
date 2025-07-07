@@ -155,4 +155,19 @@ var (
 			return wrapper.UpdateFillerAllowList(opts, input.AddFillers, input.RemoveFillers)
 		},
 	)
+
+	HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsutil.NewEVMCallOperation(
+		"HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp",
+		semver.MustParse("1.0.0"),
+		"Withdraw pool fees from HybridWithExternalMinter fast transfer token pool contract",
+		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
+		shared.HybridWithExternalMinterFastTransferTokenPool,
+		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.HybridWithExternalMinterFastTransferTokenPool)
+		},
+		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
+			return wrapper.WithdrawPoolFees(opts, input.Recipient)
+		},
+	)
 )

@@ -135,6 +135,8 @@ var (
 					operation = ccipops.BurnMintFastTransferTokenPoolWithdrawPoolFeesOp
 				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 					operation = ccipops.BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp
+				case shared.HybridWithExternalMinterFastTransferTokenPool:
+					operation = ccipops.HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp
 				default:
 					return nil, fmt.Errorf("unsupported contract type for fast transfer token pool: %s", input.ContractType)
 				}
