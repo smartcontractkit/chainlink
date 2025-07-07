@@ -183,8 +183,8 @@ triggers:
   - id: "securemint-trigger@1.0.0"
     config:
       maxFrequencyMs: 5000
-      feedIds:
-        - "1020001001"
+      feedIds:  //TODO(gg): needed?
+        - "1020001001"  //TODO(gg): needed?
 
 consensus:
   - id: "offchain_reporting@1.0.0"
@@ -193,7 +193,7 @@ consensus:
       observations:
         - "$(trigger.outputs)"
     config:
-      report_id: "0003"
+      report_id: "0003"  //TODO(gg): needed?
       key_id: "evm"	
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
