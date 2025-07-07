@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -19,10 +21,9 @@ import (
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -247,38 +248,101 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		return errors.New("no OCR3-capable DON found in the topology")
 	}
 
-	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
-	oracleConfig := keystone_changeset.OracleConfig{
-		DeltaProgressMillis:               5000,
-		DeltaResendMillis:                 5000,
-		DeltaInitialMillis:                5000,
-		DeltaRoundMillis:                  2000,
-		DeltaGraceMillis:                  500,
-		DeltaCertifiedCommitRequestMillis: 1000,
-		DeltaStageMillis:                  30000,
-		MaxRoundsPerEpoch:                 10,
-		TransmissionSchedule:              transmissionSchedule,
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
-		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
-		UniqueReports:                     true,
+	oracleConfig := input.OCR3Config
+	if reflect.DeepEqual(oracleConfig, keystone_changeset.OracleConfig{}) {
+		// values supplied by Alexandr Yepishev as the expected values for OCR3 config
+		oracleConfig = keystone_changeset.OracleConfig{
+			DeltaProgressMillis:               5000,
+			DeltaResendMillis:                 5000,
+			DeltaInitialMillis:                5000,
+			DeltaRoundMillis:                  2000,
+			DeltaGraceMillis:                  500,
+			DeltaCertifiedCommitRequestMillis: 1000,
+			DeltaStageMillis:                  30000,
+			MaxRoundsPerEpoch:                 10,
+			TransmissionSchedule:              transmissionSchedule,
+			MaxDurationQueryMillis:            1000,
+			MaxDurationObservationMillis:      1000,
+			MaxDurationShouldAcceptMillis:     1000,
+			MaxDurationShouldTransmitMillis:   1000,
+			MaxFaultyOracles:                  1,
+			MaxQueryLengthBytes:               1000000,
+			MaxObservationLengthBytes:         1000000,
+			MaxReportLengthBytes:              1000000,
+			MaxBatchSize:                      1000,
+			UniqueReports:                     true,
+		}
 	}
 
-	cfg := keystone_changeset.InitialContractsCfg{
-		RegistryChainSel: input.ChainSelector,
-		Dons:             donCapabilities,
-		OCR3Config:       &oracleConfig,
-	}
-
-	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*input.CldEnv, cfg)
+	_, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
+			Env:  input.CldEnv,
+			Dons: donCapabilities,
+		},
+		ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
+			RegistryChainSel: input.ChainSelector,
+			UseMCMS:          false,
+			ContractAddress:  input.CapabilitiesRegistryAddress,
+		},
+	)
 	if err != nil {
-		return errors.Wrap(err, "failed to configure initial contracts")
+		return errors.Wrap(err, "failed to configure capabilities registry")
+	}
+
+	capReg, err := keystone_changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+		input.CldEnv.DataStore.Addresses(),
+		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+		input.CapabilitiesRegistryAddress.Hex(),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to get capabilities registry contract")
+	}
+
+	configDONs := make([]ks_contracts_op.ConfigureKeystoneDON, 0)
+	for _, donCap := range donCapabilities {
+		don := ks_contracts_op.ConfigureKeystoneDON{
+			Name: donCap.Name,
+		}
+		for _, nop := range donCap.Nops {
+			don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
+		}
+		configDONs = append(configDONs, don)
+	}
+	_, err = operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureForwardersSeq,
+		ks_contracts_op.ConfigureForwardersSeqDeps{
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
+		},
+		ks_contracts_op.ConfigureForwardersSeqInput{
+			RegistryChainSel: input.ChainSelector,
+			DONs:             configDONs,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure forwarders")
+	}
+
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress:  input.OCR3Address,
+			RegistryChainSel: input.ChainSelector,
+			DONs:             configDONs,
+			Config:           &oracleConfig,
+			DryRun:           false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure OCR3 contract")
 	}
 
 	return nil
@@ -309,6 +373,7 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 		return nil, errors.New("no OCR3-capable DON found in the topology")
 	}
 
+	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
 		DeltaProgressMillis:               5000,
 		DeltaResendMillis:                 5000,
@@ -369,37 +434,29 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	_, err := workflow_registry_changeset.UpdateAllowedDons(*input.CldEnv, &workflow_registry_changeset.UpdateAllowedDonsRequest{
-		RegistryChainSel: input.ChainSelector,
-		DonIDs:           input.AllowedDonIDs,
-		Allowed:          true,
-	})
+	report, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigWorkflowRegistrySeq,
+		ks_contracts_op.ConfigWorkflowRegistrySeqDeps{
+			Env: input.CldEnv,
+		},
+		ks_contracts_op.ConfigWorkflowRegistrySeqInput{
+			ContractAddress:       input.ContractAddress,
+			RegistryChainSelector: input.ChainSelector,
+			AllowedDonIDs:         input.AllowedDonIDs,
+			WorkflowOwners:        input.WorkflowOwners,
+		},
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to update allowed Dons")
+		return nil, errors.Wrap(err, "failed to configure workflow registry")
 	}
 
-	addresses := make([]string, 0, len(input.WorkflowOwners))
-	for _, owner := range input.WorkflowOwners {
-		addresses = append(addresses, owner.Hex())
+	input.Out = &types.WorkflowRegistryOutput{
+		ChainSelector:  report.Output.RegistryChainSelector,
+		AllowedDonIDs:  report.Output.AllowedDonIDs,
+		WorkflowOwners: report.Output.WorkflowOwners,
 	}
-
-	_, err = workflow_registry_changeset.UpdateAuthorizedAddresses(*input.CldEnv, &workflow_registry_changeset.UpdateAuthorizedAddressesRequest{
-		RegistryChainSel: input.ChainSelector,
-		Addresses:        addresses,
-		Allowed:          true,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to update authorized addresses")
-	}
-
-	out := &types.WorkflowRegistryOutput{
-		ChainSelector:  input.ChainSelector,
-		AllowedDonIDs:  input.AllowedDonIDs,
-		WorkflowOwners: input.WorkflowOwners,
-	}
-
-	input.Out = out
-	return out, nil
+	return input.Out, nil
 }
 
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {
