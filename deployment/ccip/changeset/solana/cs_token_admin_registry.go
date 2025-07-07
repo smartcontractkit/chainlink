@@ -93,7 +93,10 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
 	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -266,7 +269,10 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
 	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -401,7 +407,10 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
 	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -529,7 +538,10 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chainState := state.SolChains[cfg.ChainSelector]
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
 	if err := cfg.Validate(e, chainState); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

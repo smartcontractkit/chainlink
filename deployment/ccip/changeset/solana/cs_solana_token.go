@@ -270,9 +270,18 @@ type SetTokenAuthorityConfig struct {
 }
 
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
+	if cfg.ChainSelector == 0 {
+		return cldf.ChangesetOutput{}, errors.New("chain selector is required")
+	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainStateSolana(e)
-	chainState := state.SolChains[cfg.ChainSelector]
+	state, err := stateview.LoadOnchainStateSolana(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
 
 	for _, tokenAuthorityConfig := range cfg.TokenAuthorityConfigs {
 		tokenprogramID, err := chainState.TokenToTokenProgram(tokenAuthorityConfig.TokenPubkey)
