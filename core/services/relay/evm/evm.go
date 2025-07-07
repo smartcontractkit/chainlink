@@ -139,6 +139,7 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 }
 
 type Relayer struct {
+	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
