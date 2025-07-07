@@ -5,6 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,8 +15,11 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -90,6 +96,8 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 			return "", errors.New("unexpected shares")
 		},
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -129,6 +137,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		func(shares []string) (string, error) { return "", nil },
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	_, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -164,6 +174,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 			return "", nil
 		},
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -201,6 +213,8 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 			return "", nil
 		},
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -263,6 +277,8 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 			return "", nil
 		},
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -322,6 +338,8 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 			return "", errors.New("could not combine shares")
 		},
 	)
+	peer := coreCap.RandomUTF8BytesWord()
+	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -337,4 +355,63 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	assert.NotNil(t, resp[0].GetError())
 	errVal := resp[0].GetError()
 	assert.Equal(t, "unexpected error when getting secret for owner::Bar::Foo", errVal.Error)
+}
+
+func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.LocalRegistry {
+	workflowDonNodes := []p2ptypes.PeerID{
+		pid,
+		coreCap.RandomUTF8BytesWord(),
+		coreCap.RandomUTF8BytesWord(),
+		coreCap.RandomUTF8BytesWord(),
+	}
+
+	dID := uint32(1)
+	localRegistry := registrysyncer.NewLocalRegistry(
+		logger.TestLogger(t),
+		func() (p2ptypes.PeerID, error) { return pid, nil },
+		map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
+				DON: capabilities.DON{
+					ID:               dID,
+					ConfigVersion:    uint32(2),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: true,
+					Members:          workflowDonNodes,
+				},
+			},
+		},
+		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			workflowDonNodes[0]: {
+				NodeOperatorId:      1,
+				WorkflowDONId:		 dID,
+				Signer:              coreCap.RandomUTF8BytesWord(),
+				P2pId:               workflowDonNodes[0],
+				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+			},
+			workflowDonNodes[1]: {
+				NodeOperatorId:      1,
+				WorkflowDONId:		 dID,
+				Signer:              coreCap.RandomUTF8BytesWord(),
+				P2pId:               workflowDonNodes[1],
+				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+			},
+			workflowDonNodes[2]: {
+				NodeOperatorId:      1,
+				WorkflowDONId:		 dID,
+				Signer:              coreCap.RandomUTF8BytesWord(),
+				P2pId:               workflowDonNodes[2],
+				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+			},
+			workflowDonNodes[3]: {
+				NodeOperatorId:      1,
+				WorkflowDONId:		 dID,
+				Signer:              coreCap.RandomUTF8BytesWord(),
+				P2pId:               workflowDonNodes[3],
+				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+			},
+		},
+		map[string]registrysyncer.Capability{},
+	)
+	return &localRegistry
 }
