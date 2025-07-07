@@ -41,7 +41,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 			},
 		}
 
-		c, err := extraArgs.ToCell()
+		c, err := tlb.ToCell(extraArgs)
 		require.NoError(t, err)
 
 		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(svmExtraArgsV1Tag, c.ToBOC()...))
