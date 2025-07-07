@@ -33,7 +33,6 @@ import (
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	sdkpbmod "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -225,17 +224,17 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
-func newTriggerSubs(n int) *sdkpbmod.ExecutionResult {
-	subs := make([]*sdkpbmod.TriggerSubscription, 0, n)
+func newTriggerSubs(n int) *sdkpb.ExecutionResult {
+	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
-		subs = append(subs, &sdkpbmod.TriggerSubscription{
+		subs = append(subs, &sdkpb.TriggerSubscription{
 			Id:     fmt.Sprintf("id_%d", i),
 			Method: "method",
 		})
 	}
-	return &sdkpbmod.ExecutionResult{
-		Result: &sdkpbmod.ExecutionResult_TriggerSubscriptions{
-			TriggerSubscriptions: &sdkpbmod.TriggerSubscriptionRequest{
+	return &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
+			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
 				Subscriptions: subs,
 			},
 		},
@@ -295,13 +294,13 @@ func TestEngine_Execution(t *testing.T) {
 
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
-				func(_ context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
+				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 					wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
 					capExec, ok := executor.(*v2.ExecutionHelper)
 					require.True(t, ok)
 					require.Equal(t, wantExecID, capExec.WorkflowExecutionID)
-					require.Equal(t, uint64(0), request.Request.(*sdkpbmod.ExecuteRequest_Trigger).Trigger.Id)
+					require.Equal(t, uint64(0), request.Request.(*sdkpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).
 			Return(nil, nil).
@@ -381,7 +380,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Mock a long-running execution that will exceed the timeout
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate work that takes longer than the 100ms timeout
 			select {
 			case <-time.After(200 * time.Millisecond):
@@ -503,9 +502,9 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Mock workflow execution that calls the slow capability
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Run(func(ctx context.Context, request *sdkpbmod.ExecuteRequest, executor host.ExecutionHelper) {
+		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 			// Simulate calling the slow capability from within the workflow
-			_, errCap := executor.CallCapability(ctx, &sdkpbmod.CapabilityRequest{
+			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
 				Id:         "slow-capability",
 				Method:     "execute",
 				CallbackId: 1,
@@ -560,7 +559,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -572,7 +571,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -621,7 +620,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *sdkpbmod.ExecutionResult_Value:
+		case *sdkpb.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any
@@ -672,7 +671,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -684,7 +683,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -718,7 +717,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		// received.
 		res := <-resultReceivedCh
 		switch output := res.Result.(type) {
-		case *sdkpbmod.ExecutionResult_Value:
+		case *sdkpb.ExecutionResult_Value:
 			var value values.Value
 			var execErr error
 			var unwrapped any
@@ -799,7 +798,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
-	resultReceivedCh := make(chan *sdkpbmod.ExecutionResult, 1)
+	resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
 	executionFinishedCh := make(chan string, 1)
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -811,7 +810,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
 		},
-		OnResultReceived: func(er *sdkpbmod.ExecutionResult) {
+		OnResultReceived: func(er *sdkpb.ExecutionResult) {
 			resultReceivedCh <- er
 		},
 	}
@@ -831,7 +830,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
 		cfg.Lggr,
-		v2.NewSemaphore[[]*sdkpbmod.SecretResponse](5),
+		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		func(shares []string) (string, error) {
@@ -854,7 +853,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	switch output := res.Result.(type) {
-	case *sdkpbmod.ExecutionResult_Value:
+	case *sdkpb.ExecutionResult_Value:
 		var value values.Value
 		var execErr error
 		var unwrapped any
