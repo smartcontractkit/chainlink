@@ -38,10 +38,6 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			UsdPerToken: tpu.Price.Int,
 		}
 	}
-	tpu, err := bindings.PackArray(tpuSlice)
-	if err != nil {
-		return nil, fmt.Errorf("cannot encode token price updates: %w", err)
-	}
 
 	gpuSlice := make([]bindings.GasPriceUpdate, len(report.PriceUpdates.GasPriceUpdates))
 	for i, gpu := range report.PriceUpdates.GasPriceUpdates {
@@ -52,10 +48,6 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			DestChainSelector: uint64(gpu.ChainSel),
 			UsdPerUnitGas:     gpu.GasPrice.Int,
 		}
-	}
-	gpu, err := bindings.PackArray(gpuSlice)
-	if err != nil {
-		return nil, fmt.Errorf("cannot encode gas price updates: %w", err)
 	}
 
 	mkSlice := make([]bindings.MerkleRoot, len(report.BlessedMerkleRoots))
@@ -68,10 +60,6 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			MerkleRoot:          bytes.Clone(mr.MerkleRoot[:]),
 		}
 	}
-	merkleRoots, err := bindings.PackArray(mkSlice)
-	if err != nil {
-		return nil, fmt.Errorf("cannot encode blessed merkle roots: %w", err)
-	}
 
 	unblessedMkSlice := make([]bindings.MerkleRoot, len(report.UnblessedMerkleRoots))
 	for i, mr := range report.UnblessedMerkleRoots {
@@ -83,10 +71,6 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			MerkleRoot:          bytes.Clone(mr.MerkleRoot[:]),
 		}
 	}
-	unblessedRoots, err := bindings.PackArray(unblessedMkSlice)
-	if err != nil {
-		return nil, fmt.Errorf("cannot encode unblessed merkle roots: %w", err)
-	}
 
 	sigSlice := make([]bindings.Signature, len(report.RMNSignatures))
 	for i, sig := range report.RMNSignatures {
@@ -97,21 +81,17 @@ func (cr *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Comm
 			Sig: bytes.Clone(rmnSig64Array[:]),
 		}
 	}
-	signatures, err := bindings.PackArray(sigSlice)
-	if err != nil {
-		return nil, fmt.Errorf("cannot encode RMN signatures: %w", err)
-	}
 
 	cellReport := bindings.CommitReport{
 		PriceUpdates: bindings.PriceUpdates{
-			TokenPriceUpdates: tpu,
-			GasPriceUpdates:   gpu,
+			TokenPriceUpdates: tpuSlice,
+			GasPriceUpdates:   gpuSlice,
 		},
 		MerkleRoot: bindings.MerkleRoots{
-			BlessedMerkleRoots:   merkleRoots,
-			UnblessedMerkleRoots: unblessedRoots,
+			BlessedMerkleRoots:   mkSlice,
+			UnblessedMerkleRoots: unblessedMkSlice,
 		},
-		RMNSignatures: signatures,
+		RMNSignatures: sigSlice,
 	}
 
 	c, err := tlb.ToCell(cellReport)
@@ -135,15 +115,10 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	}
 
 	priceUpdate := report.PriceUpdates
-	tpu, err := bindings.UnpackArray[bindings.TokenPriceUpdate](priceUpdate.TokenPriceUpdates)
-	if err != nil {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode token price updates: %w", err)
-	}
-
 	var tpuSlice []cciptypes.TokenPrice
-	if len(tpu) > 0 {
-		tpuSlice = make([]cciptypes.TokenPrice, len(tpu))
-		for i, update := range tpu {
+	if len(priceUpdate.TokenPriceUpdates) > 0 {
+		tpuSlice = make([]cciptypes.TokenPrice, len(priceUpdate.TokenPriceUpdates))
+		for i, update := range priceUpdate.TokenPriceUpdates {
 			var tokenPrice *big.Int
 			if update.UsdPerToken != nil && update.UsdPerToken.Sign() != 0 {
 				tokenPrice = update.UsdPerToken
@@ -156,15 +131,11 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 			}
 		}
 	}
-	gpu, err := bindings.UnpackArray[bindings.GasPriceUpdate](priceUpdate.GasPriceUpdates)
-	if err != nil {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode gas price updates: %w", err)
-	}
 
 	var gpuSlice []cciptypes.GasPriceChain
-	if len(gpu) > 0 {
-		gpuSlice = make([]cciptypes.GasPriceChain, len(gpu))
-		for i, update := range gpu {
+	if len(priceUpdate.GasPriceUpdates) > 0 {
+		gpuSlice = make([]cciptypes.GasPriceChain, len(priceUpdate.GasPriceUpdates))
+		for i, update := range priceUpdate.GasPriceUpdates {
 			var gasPrice *big.Int
 			if update.UsdPerUnitGas != nil && update.UsdPerUnitGas.Sign() != 0 {
 				gasPrice = update.UsdPerUnitGas
@@ -177,14 +148,11 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 			}
 		}
 	}
-	sigs, err := bindings.UnpackArray[bindings.Signature](report.RMNSignatures)
-	if err != nil {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode RMN signatures: %w", err)
-	}
+
 	var sigSlice []cciptypes.RMNECDSASignature
-	if len(sigs) > 0 {
-		sigSlice = make([]cciptypes.RMNECDSASignature, len(sigs))
-		for i, sig := range sigs {
+	if len(report.RMNSignatures) > 0 {
+		sigSlice = make([]cciptypes.RMNECDSASignature, len(report.RMNSignatures))
+		for i, sig := range report.RMNSignatures {
 			if len(sig.Sig) != 64 {
 				return cciptypes.CommitPluginReport{}, fmt.Errorf("invalid RMN signature length: %d", len(sig.Sig))
 			}
@@ -200,14 +168,10 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 	}
 
 	mr := report.MerkleRoot
-	bmr, err := bindings.UnpackArray[bindings.MerkleRoot](mr.BlessedMerkleRoots)
-	if err != nil {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode blessed merkle roots: %w", err)
-	}
 	var bmrSlice []cciptypes.MerkleRootChain
-	if len(bmr) > 0 {
-		bmrSlice = make([]cciptypes.MerkleRootChain, len(bmr))
-		for i, mr := range bmr {
+	if len(mr.BlessedMerkleRoots) > 0 {
+		bmrSlice = make([]cciptypes.MerkleRootChain, len(mr.BlessedMerkleRoots))
+		for i, mr := range mr.BlessedMerkleRoots {
 			bmrSlice[i] = cciptypes.MerkleRootChain{
 				ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
 				OnRampAddress: mr.OnRampAddress,
@@ -217,14 +181,10 @@ func (cr *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipty
 		}
 	}
 
-	unblessedMr, err := bindings.UnpackArray[bindings.MerkleRoot](mr.UnblessedMerkleRoots)
-	if err != nil {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("cannot decode unblessed merkle roots: %w", err)
-	}
 	var unblessedMrSlice []cciptypes.MerkleRootChain
-	if len(unblessedMr) > 0 {
-		unblessedMrSlice = make([]cciptypes.MerkleRootChain, len(unblessedMr))
-		for i, mr := range unblessedMr {
+	if len(mr.UnblessedMerkleRoots) > 0 {
+		unblessedMrSlice = make([]cciptypes.MerkleRootChain, len(mr.UnblessedMerkleRoots))
+		for i, mr := range mr.UnblessedMerkleRoots {
 			unblessedMrSlice[i] = cciptypes.MerkleRootChain{
 				ChainSel:      cciptypes.ChainSelector(mr.SourceChainSelector),
 				OnRampAddress: mr.OnRampAddress,
