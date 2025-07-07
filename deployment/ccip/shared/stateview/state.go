@@ -15,6 +15,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
@@ -67,7 +68,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
@@ -1173,20 +1173,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.DonIDClaimer = donIDClaimer
 			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC677TokenHelper, deployment.Version1_0_0).String():
-			ERC677HelperToken, err := burn_mint_erc677_helper.NewBurnMintERC677Helper(common.HexToAddress(address), chain.Client)
+			ERC677HelperToken, err := burn_mint_erc20_with_drip.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 
-			if state.BurnMintTokens677Helper == nil {
-				state.BurnMintTokens677Helper = make(map[ccipshared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper)
+			if state.BurnMintERC20WithDrip == nil {
+				state.BurnMintERC20WithDrip = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20)
 			}
 			symbol, err := ERC677HelperToken.Symbol(nil)
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
-			state.BurnMintTokens677Helper[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
-			state.ABIByAddress[address] = burn_mint_erc677_helper.BurnMintERC677HelperABI
+			state.BurnMintERC20WithDrip[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
+			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20ABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
