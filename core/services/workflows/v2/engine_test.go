@@ -20,6 +20,18 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
+	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+	basictriggermock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger/mock"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -35,17 +47,6 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
-	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
-	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	basictriggermock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger/mock"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestEngine_Init(t *testing.T) {
