@@ -29,9 +29,8 @@ import (
 var EnableBigBlockChangeset = cldf.CreateChangeSet(EnableBigBlocksLogic, EnableBigBlocksPreCondition)
 
 type EnableBigBlocksConfig struct {
-	PrivateKeyHex string //AWS KMS signing method
-	APIURL        string
-	ChainSel      uint64
+	APIURL   string
+	ChainSel uint64
 }
 
 // Payload to be sent in the HTTP POST request
