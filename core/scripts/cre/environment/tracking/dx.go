@@ -395,6 +395,11 @@ func (t *DxTracker) saveEvent(name string, timestamp int64, metadata map[string]
 		return errors.Wrap(pathErr, "failed to get storage path")
 	}
 
+	mkdirErr := os.MkdirAll(filepath.Dir(storagePath), 0755)
+	if mkdirErr != nil {
+		return errors.Wrap(mkdirErr, "failed to create storage directory")
+	}
+
 	var events []event
 
 	if _, statErr := os.Stat(storagePath); statErr == nil {
@@ -514,7 +519,7 @@ func storagePath() (string, error) {
 		return "", errors.Wrap(err, "failed to get user home directory")
 	}
 
-	return filepath.Join(homeDir, ".dx", "events.json"), nil
+	return filepath.Join(homeDir, ".local", "share", "dx", "events.json"), nil
 }
 
 // configPath returns the path to the configuration file in the user's home directory.
@@ -524,5 +529,5 @@ func configPath() (string, error) {
 		return "", errors.Wrap(err, "failed to get user home directory")
 	}
 
-	return filepath.Join(homeDir, ".dx", "config.json"), nil
+	return filepath.Join(homeDir, ".local", "share", "dx", "config.json"), nil
 }

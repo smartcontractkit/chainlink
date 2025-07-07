@@ -2,6 +2,7 @@ package gateway_test
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -223,7 +224,7 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	err = donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
 	require.Error(t, err)
 
-	message := &jsonrpc.Request{}
+	message := &jsonrpc.Request[json.RawMessage]{}
 	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
 	require.Error(t, err)
 }

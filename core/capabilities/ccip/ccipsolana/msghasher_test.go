@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -190,4 +192,35 @@ func abiEncodedAddress(t *testing.T) []byte {
 
 func abiEncodeUint32(data uint32) ([]byte, error) {
 	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
+func TestToLittleEndian(t *testing.T) {
+	mustSetString := func(s string) *big.Int {
+		b, ok := big.NewInt(0).SetString(s, 10)
+		if !ok {
+			t.Fatalf("failed to set string %s", s)
+		}
+		return b
+	}
+
+	var tests = []struct {
+		input    *big.Int
+		expected []byte
+	}{
+		{
+			input:    mustSetString("93632917990780833250"),
+			expected: []uint8{0xe2, 0xd, 0xc6, 0xfb, 0xd2, 0xf2, 0x6a, 0x13, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		},
+		{
+			input:    mustSetString("9363291799078083325000000910750912570125"),
+			expected: []uint8{0xd, 0x63, 0xbf, 0xfc, 0xcb, 0xfc, 0x27, 0x0, 0x4c, 0x7e, 0xe5, 0x81, 0xc7, 0x67, 0x28, 0x84, 0x1b, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input.String(), func(t *testing.T) {
+			result := encodeBigIntToFixedLengthLE(test.input, 32)
+			assert.Equal(t, test.expected, result, "expected %x, got %x", test.expected, result)
+		})
+	}
 }

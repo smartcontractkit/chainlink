@@ -16,6 +16,10 @@
   # change to your version
   image = "job-distributor:0.12.7"
 
+[s3provider]
+  # use all defaults
+  port = 9000
+  console_port = 9001
 
 [infra]
   # either "docker" or "crib"
@@ -57,6 +61,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -86,6 +91,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -116,6 +122,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """

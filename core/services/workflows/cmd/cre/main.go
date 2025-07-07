@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 )
 
 func main() {
@@ -74,11 +75,11 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
-	runner := NewRunner(nil)
-	runner.run(ctx, binary, config, secrets, RunnerConfig{
-		enableBilling:              enableBilling,
-		enableBeholder:             enableBeholder,
-		enableStandardCapabilities: enableStandardCapabilities,
-		lggr:                       lggr,
+	runner := utils.NewRunner(nil)
+	runner.Run(ctx, "", binary, config, secrets, utils.RunnerConfig{
+		EnableBilling:              enableBilling,
+		EnableBeholder:             enableBeholder,
+		EnableStandardCapabilities: enableStandardCapabilities,
+		Lggr:                       lggr,
 	})
 }

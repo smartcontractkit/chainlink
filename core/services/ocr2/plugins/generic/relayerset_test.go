@@ -170,6 +170,10 @@ func (t *TestRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, er
 	panic("implement me")
 }
 
+func (t *TestRelayer) GetChainInfo(_ context.Context) (types.ChainInfo, error) {
+	panic("implement me")
+}
+
 func (t *TestRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
 	panic("implement me")
 }
