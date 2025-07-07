@@ -391,7 +391,7 @@ func main() {
 		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
 		batchSize := cmd.Int64("batch-size", 162, "batch size") // the largest safe value that doesn't exceed the 131072 bytes limit, so far.
 		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
-		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "bhs-address", "end-block", "batch-size")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "bhs-address", "end-block")
 
 		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), e.Ec)
 		helpers.PanicErr(err)
