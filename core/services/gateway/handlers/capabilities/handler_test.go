@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -108,9 +109,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -147,9 +148,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -183,9 +184,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -272,6 +273,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
+	codec := api.JsonRPCCodec{}
 
 	t.Run("happy case", func(t *testing.T) {
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
@@ -286,7 +288,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 			require.Equal(t, nodeReq, args.Get(2))
 		}).Return(nil).Once()
 
-		err := handler.HandleUserMessage(ctx, msg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, msg, ch)
 		require.NoError(t, err)
 		requireNoChanMsg(t, ch)
 
@@ -296,7 +298,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 
 		userPayload := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, userPayload)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, userPayload)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -304,10 +306,19 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid method", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
+
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
+				"invalid method foo",
+				nil,
+			),
+			ErrorCode: api.UnsupportedMethodError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -315,10 +326,18 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case stale message", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.HandlerError),
+				"stale message",
+				nil,
+			),
+			ErrorCode: api.HandlerError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -326,10 +345,18 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case empty payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "{}")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				"error decoding payload field params in TriggerRequestPayload: required",
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -337,10 +364,18 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	t.Run("sad case invalid payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{
+			RawResponse: codec.EncodeNewErrorResponse(
+				invalidMsg.Body.MessageId,
+				api.ToJSONRPCErrorCode(api.UserMessageParseError),
+				"error decoding payload field params in TriggerRequestPayload: required",
+				nil,
+			),
+			ErrorCode: api.UserMessageParseError,
+		}, resp)
 		_, open := <-ch
 		require.False(t, open)
 	})
@@ -378,9 +413,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -418,9 +453,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -454,9 +489,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
-			err2 := json.Unmarshal(req.Params, &m)
+			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
 				return false
 			}
@@ -486,7 +521,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	})
 }
 
-func nodeRequest(msg *api.Message) *jsonrpc.Request {
+func nodeRequest(msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	req, err := hc.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create node request: %v", err))

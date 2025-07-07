@@ -65,7 +65,8 @@ func (fc *FakeEVMChain) Initialise(ctx context.Context, config string, _ core.Te
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	// TODO: do validation of config here
 
 	err := fc.Start(ctx)

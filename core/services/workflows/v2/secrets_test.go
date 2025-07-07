@@ -33,22 +33,34 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 			resp := &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Bar",
-						Owner:     "owner",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{"encryptedShare1"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     "owner",
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{"encryptedShare1"},
+									},
+								},
 							},
 						},
 					},
 					{
-						Id:        "Baz",
-						Namespace: "Bar",
-						Owner:     "owner",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{"encryptedShare2"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Baz",
+							Namespace: "Bar",
+							Owner:     "owner",
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{"encryptedShare2"},
+									},
+								},
 							},
 						},
 					},
@@ -215,15 +227,21 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Bar",
-						Owner:     "owner",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{"encryptedShare1"},
-							},
-							{
-								Shares: []string{"encryptedShare2"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     "owner",
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{"encryptedShare1"},
+									},
+									{
+										Shares: []string{"encryptedShare2"},
+									},
+								},
 							},
 						},
 					},
@@ -271,12 +289,18 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Bar",
-						Owner:     "owner",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{"encryptedShare1"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     "owner",
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{"encryptedShare1"},
+									},
+								},
 							},
 						},
 					},

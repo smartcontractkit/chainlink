@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,6 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -307,6 +307,11 @@ func TestEngine_Execution(t *testing.T) {
 			Return(nil, nil).
 			Once()
 
+		// trigger event with an error should not start an execution
+		eventCh <- capabilities.TriggerResponse{
+			Err: errors.New("trigger event error"),
+		}
+
 		eventCh <- capabilities.TriggerResponse{
 			Event: mockTriggerEvent,
 		}
@@ -415,6 +420,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TODO [https://smartcontract-it.atlassian.net/browse/CRE-532]: this test produces a error from the metering package because the spending types and ratios are not set.
 func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
 
@@ -463,8 +469,18 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Setup a slow capability that will timeout
 	slowCapability := capmocks.NewExecutableCapability(t)
 	capreg.EXPECT().GetExecutable(matches.AnyContext, "slow-capability").Return(slowCapability, nil).Once()
+	capreg.EXPECT().
+		ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
 
-	slowCapability.EXPECT().Info(matches.AnyContext).Return(capabilities.CapabilityInfo{}, nil)
+	slowCapability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{
+			DON: &capabilities.DON{
+				ID: 42,
+			},
+		}, nil)
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
@@ -583,6 +599,19 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
 			Return(wrappedActionMock, nil).
 			Twice()
+
+		testConf, _ := values.NewMap(map[string]any{
+			"spendRatios": map[string]string{
+				"spendTypeA": "0.4",
+				"spendTypeB": "0.6",
+			},
+		})
+
+		capreg.EXPECT().
+			ConfigForCapability(matches.AnyContext, mock.Anything, mock.Anything).
+			Return(capabilities.CapabilityConfiguration{
+				RestrictedConfig: testConf,
+			}, nil)
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
@@ -739,12 +768,18 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Default",
-						Owner:     testWorkflowOwnerA,
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{expectedSecret, "encryptedShare2"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Default",
+							Owner:     testWorkflowOwnerA,
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{expectedSecret},
+									},
+								},
 							},
 						},
 					},
@@ -848,12 +883,12 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil).Maybe()
+		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil).Maybe()
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil).Maybe()
+		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
 }
 

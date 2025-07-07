@@ -16,7 +16,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -58,8 +57,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
+
+// This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
+// log/events emitted on-chain, how they are processed by LogPoller and then exposing them through CCIPReader methods.
+// We are using a simulated backend to deploy contracts (can be fake contracts) and emit events,
+// then we use CCIPReader methods to read the data back.
+// This is the right place to ensure that all underlying layers are fully capable of reading and
+// processing the data correctly
+// (e.g. including different types of edge cases, serializing/deserializing logs properly etc).
 
 const (
 	chainS1   = cciptypes.ChainSelector(1)
@@ -68,132 +74,6 @@ const (
 	chainD    = cciptypes.ChainSelector(4)
 	chainSEVM = cciptypes.ChainSelector(5009297550715157269)
 )
-
-func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityDepth int64, useHeavyDB bool) (*testSetupData, int64, common.Address) {
-	sb, auth := setupSimulatedBackendAndAuth(t)
-	onRampAddress := utils.RandomAddress()
-	s := testSetup(ctx, t, testSetupParams{
-		ReaderChain:    chainD,
-		DestChain:      chainD,
-		OnChainSeqNums: nil,
-		Cfg:            evmconfig.DestReaderConfig,
-		ToMockBindings: map[cciptypes.ChainSelector][]types.BoundContract{
-			chainS1: {
-				{
-					Address: onRampAddress.Hex(),
-					Name:    consts.ContractNameOnRamp,
-				},
-			},
-			chainS2: {
-				{
-					Address: onRampAddress.Hex(),
-					Name:    consts.ContractNameOnRamp,
-				},
-			},
-		},
-		BindTester:         true,
-		ContractNameToBind: consts.ContractNameOffRamp,
-		SimulatedBackend:   sb,
-		Auth:               auth,
-		FinalityDepth:      finalityDepth,
-		UseHeavyDB:         useHeavyDB,
-	})
-
-	return s, finalityDepth, onRampAddress
-}
-
-func setupExecutedMessagesTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
-	sb, auth := setupSimulatedBackendAndAuth(t)
-	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:    chainD,
-		DestChain:      chainD,
-		OnChainSeqNums: nil,
-		Cfg:            evmconfig.DestReaderConfig,
-		// Cfg:              cfg,
-		ToBindContracts:    nil,
-		ToMockBindings:     nil,
-		BindTester:         true,
-		ContractNameToBind: consts.ContractNameOffRamp,
-		SimulatedBackend:   sb,
-		Auth:               auth,
-		UseHeavyDB:         useHeavyDB,
-	})
-}
-
-func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool, sourceChainSel cciptypes.ChainSelector) *testSetupData {
-	sb, auth := setupSimulatedBackendAndAuth(t)
-	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:        sourceChainSel,
-		DestChain:          chainD,
-		OnChainSeqNums:     nil,
-		Cfg:                evmconfig.SourceReaderConfig,
-		ToBindContracts:    nil,
-		ToMockBindings:     nil,
-		BindTester:         true,
-		ContractNameToBind: consts.ContractNameOnRamp,
-		SimulatedBackend:   sb,
-		Auth:               auth,
-		UseHeavyDB:         useHeavyDB,
-	})
-}
-
-func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
-	var firstReportTs uint64
-	for i := uint8(0); int(i) < numReports; i++ {
-		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
-			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
-				TokenPriceUpdates: []ccip_reader_tester.InternalTokenPriceUpdate{
-					{
-						SourceToken: tokenA,
-						UsdPerToken: big.NewInt(1000),
-					},
-				},
-				GasPriceUpdates: []ccip_reader_tester.InternalGasPriceUpdate{
-					{
-						DestChainSelector: uint64(chainD),
-						UsdPerUnitGas:     big.NewInt(90),
-					},
-				},
-			},
-			BlessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
-				{
-					SourceChainSelector: uint64(chainS1),
-					MinSeqNr:            10,
-					MaxSeqNr:            20,
-					MerkleRoot:          [32]byte{i + 1},
-					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
-				},
-			},
-			UnblessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
-				{
-					SourceChainSelector: uint64(chainS2),
-					MinSeqNr:            20,
-					MaxSeqNr:            30,
-					MerkleRoot:          [32]byte{i + 2},
-					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
-				},
-			},
-			RmnSignatures: []ccip_reader_tester.IRMNRemoteSignature{
-				{
-					R: [32]byte{1},
-					S: [32]byte{2},
-				},
-				{
-					R: [32]byte{3},
-					S: [32]byte{4},
-				},
-			},
-		})
-		require.NoError(t, err)
-		bh := s.sb.Commit()
-		b, err := s.sb.Client().BlockByHash(ctx, bh)
-		require.NoError(t, err)
-		if firstReportTs == 0 {
-			firstReportTs = b.Time()
-		}
-	}
-	return firstReportTs
-}
 
 func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 	t.Parallel()
@@ -488,93 +368,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	}
 }
 
-func requireEqualPriceUpdates(
-	t *testing.T,
-	onchainPriceUpdates ccip_reader_tester.InternalPriceUpdates,
-	ccipReaderPriceUpdates cciptypes.PriceUpdates,
-) {
-	// token price update equality
-	require.Len(t, ccipReaderPriceUpdates.TokenPriceUpdates, len(onchainPriceUpdates.TokenPriceUpdates))
-	for i := range onchainPriceUpdates.TokenPriceUpdates {
-		require.Equal(t,
-			onchainPriceUpdates.TokenPriceUpdates[i].SourceToken.Bytes(),
-			hexutil.MustDecode(string(ccipReaderPriceUpdates.TokenPriceUpdates[i].TokenID)))
-		require.Equal(t,
-			onchainPriceUpdates.TokenPriceUpdates[i].UsdPerToken,
-			ccipReaderPriceUpdates.TokenPriceUpdates[i].Price.Int)
-	}
-
-	// gas price update equality
-	require.Len(t, ccipReaderPriceUpdates.GasPriceUpdates, len(onchainPriceUpdates.GasPriceUpdates))
-	for i := range onchainPriceUpdates.GasPriceUpdates {
-		require.Equal(t,
-			onchainPriceUpdates.GasPriceUpdates[i].DestChainSelector,
-			uint64(ccipReaderPriceUpdates.GasPriceUpdates[i].ChainSel))
-		require.Equal(t,
-			onchainPriceUpdates.GasPriceUpdates[i].UsdPerUnitGas,
-			ccipReaderPriceUpdates.GasPriceUpdates[i].GasPrice.Int)
-	}
-}
-
-func requireEqualRoots(
-	t *testing.T,
-	onchainRoots []ccip_reader_tester.InternalMerkleRoot,
-	ccipReaderRoots []cciptypes.MerkleRootChain,
-) {
-	require.Len(t, ccipReaderRoots, len(onchainRoots))
-	for i := 0; i < len(onchainRoots); i++ {
-		require.Equal(t,
-			onchainRoots[i].SourceChainSelector,
-			uint64(ccipReaderRoots[i].ChainSel),
-		)
-
-		// onchain emits the padded address but ccip reader currently sets the unpadded address
-		// TODO: fix this!
-		require.Equal(t,
-			onchainRoots[i].OnRampAddress,
-			common.LeftPadBytes([]byte(ccipReaderRoots[i].OnRampAddress), 32),
-		)
-		require.Equal(t,
-			onchainRoots[i].MinSeqNr,
-			uint64(ccipReaderRoots[i].SeqNumsRange.Start()),
-		)
-		require.Equal(t,
-			onchainRoots[i].MaxSeqNr,
-			uint64(ccipReaderRoots[i].SeqNumsRange.End()),
-		)
-		require.Equal(t,
-			onchainRoots[i].MerkleRoot,
-			[32]byte(ccipReaderRoots[i].MerkleRoot),
-		)
-	}
-}
-func commitSqNrs(
-	s *testSetupData,
-	chainSel cciptypes.ChainSelector,
-	seqNums []uint64,
-	state uint8,
-) error {
-	for _, sqnr := range seqNums {
-		_, err := s.contract.EmitExecutionStateChanged(
-			s.auth,
-			uint64(chainSel),
-			sqnr,
-			cciptypes.Bytes32{1, 0, 0, 1},
-			cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
-			state,
-			[]byte{1, 2, 3, 4},
-			big.NewInt(250_000),
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s := setupExecutedMessagesTest(ctx, t, false)
+	s := setupExecutedMessagesTest(ctx, t)
 	// State 0 should never be emitted by the contract, but
 	// checking if they are ignored properly by the reader
 	err := commitSqNrs(s, chainS1, []uint64{13}, 0)
@@ -618,7 +415,7 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s := setupExecutedMessagesTest(ctx, t, false)
+	s := setupExecutedMessagesTest(ctx, t)
 	err := commitSqNrs(s, chainS1, []uint64{15}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
@@ -659,7 +456,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s := setupExecutedMessagesTest(ctx, t, false)
+	s := setupExecutedMessagesTest(ctx, t)
 	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 2)
 	require.NoError(t, err)
 	s.sb.Commit()
@@ -701,7 +498,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
-	s := setupMsgsBetweenSeqNumsTest(ctx, t, false, chainSEVM)
+	s := setupMsgsBetweenSeqNumsTest(ctx, t, chainSEVM)
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
@@ -1300,6 +1097,90 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	require.Equal(t, testhelpers.DefaultWethPrice, prices[cciptypes.ChainSelector(chain2)].Int)
 }
 
+func requireEqualPriceUpdates(
+	t *testing.T,
+	onchainPriceUpdates ccip_reader_tester.InternalPriceUpdates,
+	ccipReaderPriceUpdates cciptypes.PriceUpdates,
+) {
+	// token price update equality
+	require.Len(t, ccipReaderPriceUpdates.TokenPriceUpdates, len(onchainPriceUpdates.TokenPriceUpdates))
+	for i := range onchainPriceUpdates.TokenPriceUpdates {
+		require.Equal(t,
+			onchainPriceUpdates.TokenPriceUpdates[i].SourceToken.Bytes(),
+			hexutil.MustDecode(string(ccipReaderPriceUpdates.TokenPriceUpdates[i].TokenID)))
+		require.Equal(t,
+			onchainPriceUpdates.TokenPriceUpdates[i].UsdPerToken,
+			ccipReaderPriceUpdates.TokenPriceUpdates[i].Price.Int)
+	}
+
+	// gas price update equality
+	require.Len(t, ccipReaderPriceUpdates.GasPriceUpdates, len(onchainPriceUpdates.GasPriceUpdates))
+	for i := range onchainPriceUpdates.GasPriceUpdates {
+		require.Equal(t,
+			onchainPriceUpdates.GasPriceUpdates[i].DestChainSelector,
+			uint64(ccipReaderPriceUpdates.GasPriceUpdates[i].ChainSel))
+		require.Equal(t,
+			onchainPriceUpdates.GasPriceUpdates[i].UsdPerUnitGas,
+			ccipReaderPriceUpdates.GasPriceUpdates[i].GasPrice.Int)
+	}
+}
+
+func requireEqualRoots(
+	t *testing.T,
+	onchainRoots []ccip_reader_tester.InternalMerkleRoot,
+	ccipReaderRoots []cciptypes.MerkleRootChain,
+) {
+	require.Len(t, ccipReaderRoots, len(onchainRoots))
+	for i := 0; i < len(onchainRoots); i++ {
+		require.Equal(t,
+			onchainRoots[i].SourceChainSelector,
+			uint64(ccipReaderRoots[i].ChainSel),
+		)
+
+		// onchain emits the padded address but ccip reader currently sets the unpadded address
+		// TODO: fix this!
+		require.Equal(t,
+			onchainRoots[i].OnRampAddress,
+			common.LeftPadBytes([]byte(ccipReaderRoots[i].OnRampAddress), 32),
+		)
+		require.Equal(t,
+			onchainRoots[i].MinSeqNr,
+			uint64(ccipReaderRoots[i].SeqNumsRange.Start()),
+		)
+		require.Equal(t,
+			onchainRoots[i].MaxSeqNr,
+			uint64(ccipReaderRoots[i].SeqNumsRange.End()),
+		)
+		require.Equal(t,
+			onchainRoots[i].MerkleRoot,
+			[32]byte(ccipReaderRoots[i].MerkleRoot),
+		)
+	}
+}
+func commitSqNrs(
+	s *testSetupData,
+	chainSel cciptypes.ChainSelector,
+	seqNums []uint64,
+	state uint8,
+) error {
+	for _, sqnr := range seqNums {
+		_, err := s.contract.EmitExecutionStateChanged(
+			s.auth,
+			uint64(chainSel),
+			sqnr,
+			cciptypes.Bytes32{1, 0, 0, 1},
+			cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
+			state,
+			[]byte{1, 2, 3, 4},
+			big.NewInt(250_000),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.TransactOpts) {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1413,18 +1294,7 @@ func testSetup(
 	// Change that to DebugLevel to enable SQL logs
 	lggr.SetLogLevel(zapcore.DebugLevel)
 
-	var dbs sqlutil.DataSource
-	{
-		var db *sqlx.DB //
-		if params.UseHeavyDB {
-			_, db = heavyweight.FullTestDBV2(t, nil) // Heavyweight database for benchmarks
-		} else {
-			db = pgtest.NewSqlxDB(t) // Simple in-memory DB for tests
-		}
-		dbs = sqlutil.WrapDataSource(db, lggr, sqlutil.MonitorHook(func() bool {
-			return true
-		}))
-	}
+	db := pgtest.NewSqlxDB(t)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
@@ -1435,7 +1305,7 @@ func testSetup(
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), dbs, lggr)
+	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
 		cl,
@@ -1477,7 +1347,7 @@ func testSetup(
 	for chain, bindings := range params.ToBindContracts {
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), dbs, lggr),
+		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
 			cl2,
 			lggr,
 			headTracker2,
@@ -1533,38 +1403,132 @@ func testSetup(
 		cl:           cl,
 		reader:       reader,
 		extendedCR:   extendedCr,
-		dbs:          dbs,
+		dbs:          db,
 	}
 }
 
-type testSetupParams struct {
-	ReaderChain        cciptypes.ChainSelector
-	DestChain          cciptypes.ChainSelector
-	OnChainSeqNums     map[cciptypes.ChainSelector]cciptypes.SeqNum
-	Cfg                evmtypes.ChainReaderConfig
-	ToBindContracts    map[cciptypes.ChainSelector][]types.BoundContract
-	ToMockBindings     map[cciptypes.ChainSelector][]types.BoundContract
-	BindTester         bool
-	ContractNameToBind string
-	SimulatedBackend   *simulated.Backend
-	Auth               *bind.TransactOpts
-	FinalityDepth      int64
-	UseHeavyDB         bool
+func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityDepth int64, useHeavyDB bool) (*testSetupData, int64, common.Address) {
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	onRampAddress := utils.RandomAddress()
+	s := testSetup(ctx, t, testSetupParams{
+		ReaderChain:    chainD,
+		DestChain:      chainD,
+		OnChainSeqNums: nil,
+		Cfg:            evmconfig.DestReaderConfig,
+		ToMockBindings: map[cciptypes.ChainSelector][]types.BoundContract{
+			chainS1: {
+				{
+					Address: onRampAddress.Hex(),
+					Name:    consts.ContractNameOnRamp,
+				},
+			},
+			chainS2: {
+				{
+					Address: onRampAddress.Hex(),
+					Name:    consts.ContractNameOnRamp,
+				},
+			},
+		},
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+		FinalityDepth:      finalityDepth,
+	})
+
+	return s, finalityDepth, onRampAddress
 }
 
-type testSetupData struct {
-	contractAddr common.Address
-	contract     *ccip_reader_tester.CCIPReaderTester
-	sb           *simulated.Backend
-	auth         *bind.TransactOpts
-	orm          logpoller.ORM
-	lp           logpoller.LogPoller
-	cl           client.Client
-	reader       ccipreaderpkg.CCIPReader
-	extendedCR   contractreader.Extended
-	dbs          sqlutil.DataSource
+func setupExecutedMessagesTest(ctx context.Context, t testing.TB) *testSetupData {
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	return testSetup(ctx, t, testSetupParams{
+		ReaderChain:    chainD,
+		DestChain:      chainD,
+		OnChainSeqNums: nil,
+		Cfg:            evmconfig.DestReaderConfig,
+		// Cfg:              cfg,
+		ToBindContracts:    nil,
+		ToMockBindings:     nil,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+	})
 }
 
+func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, sourceChainSel cciptypes.ChainSelector) *testSetupData {
+	sb, auth := setupSimulatedBackendAndAuth(t)
+	return testSetup(ctx, t, testSetupParams{
+		ReaderChain:        sourceChainSel,
+		DestChain:          chainD,
+		OnChainSeqNums:     nil,
+		Cfg:                evmconfig.SourceReaderConfig,
+		ToBindContracts:    nil,
+		ToMockBindings:     nil,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOnRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+	})
+}
+
+func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numReports int, tokenA common.Address, onRampAddress common.Address) uint64 {
+	var firstReportTs uint64
+	for i := uint8(0); int(i) < numReports; i++ {
+		_, err := s.contract.EmitCommitReportAccepted(s.auth, ccip_reader_tester.OffRampCommitReport{
+			PriceUpdates: ccip_reader_tester.InternalPriceUpdates{
+				TokenPriceUpdates: []ccip_reader_tester.InternalTokenPriceUpdate{
+					{
+						SourceToken: tokenA,
+						UsdPerToken: big.NewInt(1000),
+					},
+				},
+				GasPriceUpdates: []ccip_reader_tester.InternalGasPriceUpdate{
+					{
+						DestChainSelector: uint64(chainD),
+						UsdPerUnitGas:     big.NewInt(90),
+					},
+				},
+			},
+			BlessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+				{
+					SourceChainSelector: uint64(chainS1),
+					MinSeqNr:            10,
+					MaxSeqNr:            20,
+					MerkleRoot:          [32]byte{i + 1},
+					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
+				},
+			},
+			UnblessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+				{
+					SourceChainSelector: uint64(chainS2),
+					MinSeqNr:            20,
+					MaxSeqNr:            30,
+					MerkleRoot:          [32]byte{i + 2},
+					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
+				},
+			},
+			RmnSignatures: []ccip_reader_tester.IRMNRemoteSignature{
+				{
+					R: [32]byte{1},
+					S: [32]byte{2},
+				},
+				{
+					R: [32]byte{3},
+					S: [32]byte{4},
+				},
+			},
+		})
+		require.NoError(t, err)
+		bh := s.sb.Commit()
+		b, err := s.sb.Client().BlockByHash(ctx, bh)
+		require.NoError(t, err)
+		if firstReportTs == 0 {
+			firstReportTs = b.Time()
+		}
+	}
+	return firstReportTs
+}
 func cs(i uint64) cciptypes.ChainSelector {
 	return cciptypes.ChainSelector(i)
 }
@@ -1584,4 +1548,31 @@ func newMockAddressCodec(t testing.TB) *typepkgmock.MockAddressCodec {
 			return addrBytes, nil
 		}).Maybe()
 	return mockAddrCodec
+}
+
+type testSetupParams struct {
+	ReaderChain        cciptypes.ChainSelector
+	DestChain          cciptypes.ChainSelector
+	OnChainSeqNums     map[cciptypes.ChainSelector]cciptypes.SeqNum
+	Cfg                evmtypes.ChainReaderConfig
+	ToBindContracts    map[cciptypes.ChainSelector][]types.BoundContract
+	ToMockBindings     map[cciptypes.ChainSelector][]types.BoundContract
+	BindTester         bool
+	ContractNameToBind string
+	SimulatedBackend   *simulated.Backend
+	Auth               *bind.TransactOpts
+	FinalityDepth      int64
+}
+
+type testSetupData struct {
+	contractAddr common.Address
+	contract     *ccip_reader_tester.CCIPReaderTester
+	sb           *simulated.Backend
+	auth         *bind.TransactOpts
+	orm          logpoller.ORM
+	lp           logpoller.LogPoller
+	cl           client.Client
+	reader       ccipreaderpkg.CCIPReader
+	extendedCR   contractreader.Extended
+	dbs          sqlutil.DataSource
 }
