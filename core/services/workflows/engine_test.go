@@ -581,16 +581,16 @@ targets:
 			t.Helper()
 			require.NotNil(t, req.Metadata.SpendLimits)
 			require.Len(t, req.Metadata.SpendLimits, 1)
-			assert.Equal(t, req.Metadata.SpendLimits[0], capabilities.SpendLimit{
+			assert.Equal(t, capabilities.SpendLimit{
 				SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
 				Limit:     "1000000.000",
-			})
+			}, req.Metadata.SpendLimits[0])
 		})
 		target := withTarget(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
 			t.Helper()
 			require.NotNil(t, req.Metadata.SpendLimits)
 			require.Len(t, req.Metadata.SpendLimits, 2)
-			assert.Equal(t, req.Metadata.SpendLimits, []capabilities.SpendLimit{
+			assert.Equal(t, []capabilities.SpendLimit{
 				{
 					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
 					Limit:     "399999.600",
@@ -599,7 +599,7 @@ targets:
 					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
 					Limit:     "5999.994",
 				},
-			})
+			}, req.Metadata.SpendLimits)
 		})
 
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
