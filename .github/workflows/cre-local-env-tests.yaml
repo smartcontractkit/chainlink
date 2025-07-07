@@ -39,7 +39,7 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           github.event_name == 'workflow_call' ||
           github.event_name == 'schedule' ||
-          steps.changes.outputs.core_or_cre_changes == 'true'
+          steps.changes.outputs.core_or_cre_changes == 'true' ||
           github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-local-cre-env-tests')
         }}
     timeout-minutes: 5
