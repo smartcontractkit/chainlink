@@ -1,17 +1,18 @@
 package types
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -287,7 +288,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {
-		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
 	return nil
 }
