@@ -48,7 +48,7 @@ func TestService_CapabilityCall(t *testing.T) {
 		},
 	}
 
-	any, err := anypb.New(gsr)
+	anyproto, err := anypb.New(gsr)
 	require.NoError(t, err)
 
 	expectedResponse := &vault.GetSecretsResponse{
@@ -91,7 +91,7 @@ func TestService_CapabilityCall(t *testing.T) {
 	}()
 
 	resp, err := service.Execute(t.Context(), capabilities.CapabilityRequest{
-		Payload: any,
+		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       owner,
@@ -136,7 +136,7 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 		},
 	}
 
-	any, err := anypb.New(gsr)
+	anyproto, err := anypb.New(gsr)
 	require.NoError(t, err)
 
 	expectedResponse := &vault.GetSecretsResponse{
@@ -179,7 +179,7 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	}()
 
 	resp, err := service.Execute(t.Context(), capabilities.CapabilityRequest{
-		Payload: any,
+		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       owner,
@@ -225,7 +225,7 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 		},
 	}
 
-	any, err := anypb.New(gsr)
+	anyproto, err := anypb.New(gsr)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -252,7 +252,7 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	}()
 
 	_, err = service.Execute(t.Context(), capabilities.CapabilityRequest{
-		Payload: any,
+		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       owner,
@@ -295,7 +295,7 @@ func TestService_CapabilityCall_TimeOut(t *testing.T) {
 		},
 	}
 
-	any, err := anypb.New(gsr)
+	anyproto, err := anypb.New(gsr)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -317,7 +317,7 @@ func TestService_CapabilityCall_TimeOut(t *testing.T) {
 	}()
 
 	_, err = service.Execute(t.Context(), capabilities.CapabilityRequest{
-		Payload: any,
+		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       owner,

@@ -662,7 +662,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, ErrJobSpecNoRelayer{PluginName: string(types.VaultPlugin), Err: err}
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
 	}
