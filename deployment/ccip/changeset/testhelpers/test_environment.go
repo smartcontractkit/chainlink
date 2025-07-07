@@ -736,7 +736,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// load the state again to get the latest addresses
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	fmt.Println("state.LinkToken: ", state.SolChains[solChains[0]].LinkToken.String())
 	err = state.ValidatePostDeploymentState(e.Env)
 	require.NoError(t, err)
 	return e
