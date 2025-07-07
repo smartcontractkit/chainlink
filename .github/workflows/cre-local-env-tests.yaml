@@ -27,26 +27,59 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-  test-cli:
-    strategy:
-      matrix:
-        runner: [
-          ubuntu-latest,
-          # can't work due to arch mismatch of kafka librdkafka .a file bundled with the package
-          # ubuntu-24.04-arm,
-          ]
-    runs-on: ${{ matrix.runner }}
+
+  changes:
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-local-cre-env-tests'))
+    outputs:
+      should-run-tests: >-
+        ${{
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'workflow_call' ||
+          github.event_name == 'schedule' ||
+          steps.changes.outputs.core_or_cre_changes == 'true' ||
+          github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-local-cre-env-tests')
+        }}
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            core_or_cre_changes:
+              - '.github/workflows/cre-local-env-tests.yaml'
+              - '**/*Dockerfile'
+              - 'core/**'
+              - 'deployment/keystone/**'
+              - 'system-tests/**'
+              - 'core/scripts/cre/environment/**'
+
+  test-cli:
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    environment: "integration"
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    needs: changes
+    if: needs.changes.outputs.should-run-tests == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Set up Go
         id: setup-go
@@ -54,13 +87,6 @@ jobs:
         with:
           go-version-file: core/scripts/go.mod
           cache: true
-
-      - name: Install librdkafka
-        if: ${{ contains(matrix.runner, 'arm') }}
-        run: |
-          # install librdkafka-dev for arm runners to avoid using static librdkafka_glibc_linux.a, which is compiled for x86_64
-          sudo apt-get update
-          sudo apt-get install -y librdkafka-dev
 
       - name: Download Go dependencies
         id: go-deps
@@ -79,18 +105,6 @@ jobs:
             seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
             total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
             echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
-          fi
-
-      # this doesn't work, we cannot delete the file, because it's read-only
-      - name: Delete vendored static librdkafka (.a) to avoid arch mismatch
-        if: ${{ contains(matrix.runner, 'arm') }}
-        run: |
-          # delete incompatible static archive, otherwise Go will still try to use it, even with correct CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka flags
-          find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a -delete
-          if find "$(go env GOMODCACHE)/github.com/confluentinc/confluent-kafka-go@v1.9.2" -name librdkafka_glibc_linux.a | grep .; then
-            echo "❌ vendored .a still exists"; exit 1
-          else
-            echo "✅ vendored .a is gone"
           fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
@@ -121,23 +135,7 @@ jobs:
           cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
             csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-            image = "injected-at-runtime"
-
-          [[nodesets]]
-            nodes = 5
-            override_mode = "all"
-            http_port_range_start = 10100
-            name = "workflow"
-
-            [nodesets.db]
-              image = "postgres:12.0"
-              port = 13000
-
-            [[nodesets.node_specs]]
-              [nodesets.node_specs.node]
-                image = "injected-at-runtime"
-                [nodesets.node_specs.node.env_vars]
-                CL_EVM_CMD=""
+            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.12.7"
           EOF
 
       - name: Start the CLI
@@ -151,13 +149,8 @@ jobs:
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
           DISABLE_DX_TRACKING: "true"
+          CI: "false" # TODO: remove this after checking execution time
         run: |
-          if [[ "${{ contains(matrix.runner, 'arm') }}" == "true" ]]; then
-            echo "Setting CGO_ENABLED=1 and CGO_LDFLAGS=-lrdkafka for arm runners"
-            export CGO_ENABLED=1
-            export CGO_LDFLAGS="-lrdkafka"
-          fi
-
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
@@ -174,7 +167,6 @@ jobs:
         env:
           START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
-          RUNNER: ${{ matrix.runner }}
           DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
             success=false
@@ -182,7 +174,7 @@ jobs:
 
             echo "::debug::success: $success"
 
-            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "%s", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success" "${RUNNER}"
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "self-hosted-ubuntu-24", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
@@ -191,7 +183,6 @@ jobs:
         shell: bash
         env:
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
-          RUNNER: ${{ matrix.runner }}
           EXECUTION_TIME: ${{ steps.start-cli.outputs.execution_time }}
           CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
           DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
@@ -201,7 +192,7 @@ jobs:
             echo "::debug::cache_hit: ${CACHE_HIT}"
             echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "%s", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${RUNNER}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
 

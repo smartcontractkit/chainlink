@@ -450,7 +450,6 @@ func newBurnMintIteratorWrapper(iter *fast_transfer_token_pool.BurnMintFastTrans
 				SettlementID:             iter.Event.SettlementId,
 				SourceAmountNetFee:       iter.Event.SourceAmountNetFee,
 				SourceDecimals:           iter.Event.SourceDecimals,
-				FastTransferFee:          iter.Event.FastTransferFee,
 				Receiver:                 iter.Event.Receiver,
 				Raw:                      iter.Event.Raw,
 			}
@@ -473,7 +472,6 @@ func newBurnMintExternalIteratorWrapper(iter *burn_mint_external.BurnMintWithExt
 				SettlementID:             iter.Event.SettlementId,
 				SourceAmountNetFee:       iter.Event.SourceAmountNetFee,
 				SourceDecimals:           iter.Event.SourceDecimals,
-				FastTransferFee:          iter.Event.FastTransferFee,
 				Receiver:                 iter.Event.Receiver,
 				Raw:                      iter.Event.Raw,
 			}
@@ -496,7 +494,6 @@ func newHybridExternalIteratorWrapper(iter *hybrid_external.HybridWithExternalMi
 				SettlementID:             iter.Event.SettlementId,
 				SourceAmountNetFee:       iter.Event.SourceAmountNetFee,
 				SourceDecimals:           iter.Event.SourceDecimals,
-				FastTransferFee:          iter.Event.FastTransferFee,
 				Receiver:                 iter.Event.Receiver,
 				Raw:                      iter.Event.Raw,
 			}
@@ -536,7 +533,6 @@ type FastTransferRequestedEvent struct {
 	SettlementID             [32]byte
 	SourceAmountNetFee       *big.Int
 	SourceDecimals           uint8
-	FastTransferFee          *big.Int
 	Receiver                 []byte
 	Raw                      types.Log
 }

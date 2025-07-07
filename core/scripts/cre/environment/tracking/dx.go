@@ -462,10 +462,13 @@ func (t *DxTracker) sendSavedEvents() error {
 
 	t.logger.Debug().Msgf("Sending %d saved events", len(events))
 
+	failedEvents := []event{}
+
 	for _, event := range events {
 		sendErr := t.sendEvent(event.Name, event.Timestamp, event.Metadata)
 		if sendErr != nil {
-			return errors.Wrap(sendErr, "failed to send event")
+			failedEvents = append(failedEvents, event)
+			t.logger.Debug().Msgf("Failed to send event: %s", sendErr.Error())
 		}
 	}
 
@@ -474,7 +477,18 @@ func (t *DxTracker) sendSavedEvents() error {
 		return errors.Wrap(clearErr, "failed to clear saved events")
 	}
 
-	t.logger.Debug().Msg("Saved events sent and cleared")
+	// if there are failed events, save them to the storage file to try again later
+	if len(failedEvents) > 0 {
+		t.logger.Warn().Msgf("Failed to send %d events", len(failedEvents))
+		for _, event := range failedEvents {
+			saveErr := t.saveEvent(event.Name, event.Timestamp, event.Metadata)
+			if saveErr != nil {
+				t.logger.Warn().Msgf("Failed to save failed event: %s", saveErr.Error())
+			}
+		}
+	} else {
+		t.logger.Debug().Msg("All saved events sent successfully")
+	}
 
 	return nil
 }
