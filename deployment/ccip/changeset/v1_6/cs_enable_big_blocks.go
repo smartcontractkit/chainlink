@@ -2,7 +2,6 @@ package v1_6
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -69,7 +70,6 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		return out, fmt.Errorf("invalid chain id: %w", err)
 	}
 
-	privateKey, err := parsePrivateKey(cfg.PrivateKeyHex)
 	if err != nil {
 		return out, fmt.Errorf("invalid private key: %w", err)
 	}
@@ -83,6 +83,12 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	action := map[string]interface{}{
 		"type":           "evmUserModify",
 		"usingBigBlocks": true,
+	}
+
+	chain, err := FindChainBySelector(env, cfg.ChainSel)
+
+	if err != nil {
+		return out, fmt.Errorf("Error finding chain by selector: %w", cfg.ChainSel)
 	}
 
 	// Verifying contract address for EIP-712 signing
@@ -99,7 +105,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		RequestTimeout:    defaultRequestTimeout,
 	}
 
-	sig, err := SignL1Action(privateKey, action, nonce, true, config)
+	sig, err := SignL1Action(action, nonce, true, config, chain)
 	if err != nil {
 		return out, fmt.Errorf("signing failed: %w", err)
 	}
@@ -121,7 +127,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	return out, nil
 }
 
-func SignL1Action(privateKey *ecdsa.PrivateKey, action map[string]interface{}, nonce int64, isMainnet bool, config Config) (ECDSASignature, error) {
+func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config Config, chain chain.BlockChain) (ECDSASignature, error) {
 	// Compute the action hash
 	actionHash, err := ActionHash(action, nil, nonce)
 	if err != nil {
@@ -175,7 +181,14 @@ func SignL1Action(privateKey *ecdsa.PrivateKey, action map[string]interface{}, n
 	}
 
 	// Sign the hash using the private key
-	signature, err := crypto.Sign(hash, privateKey)
+	// signature, err := crypto.Sign(hash, privateKey)
+	evmChain, ok := chain.(evm.Chain)
+	if !ok {
+		return ECDSASignature{}, fmt.Errorf("not an EVM chain")
+	}
+
+	signature, err := evmChain.SignHash(hash)
+
 	if err != nil {
 		return ECDSASignature{}, err
 	}
@@ -191,18 +204,6 @@ func SignL1Action(privateKey *ecdsa.PrivateKey, action map[string]interface{}, n
 		S: hex.EncodeToString(s[:]),
 		V: v,
 	}, nil
-}
-
-func parsePrivateKey(hexKey string) (*ecdsa.PrivateKey, error) {
-	privateKeyBytes, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return nil, fmt.Errorf("invalid private key format: %w", err)
-	}
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-	return privateKey, nil
 }
 
 // sendRequest sends the HTTP POST request with the signed payload
@@ -264,4 +265,15 @@ func ActionHash(action map[string]interface{}, vaultAddress *string, nonce int64
 
 	// Compute the Keccak-256 hash of the serialized data
 	return crypto.Keccak256(buf.Bytes()), nil
+}
+
+func FindChainBySelector(e cldf.Environment, selector uint64) (chain.BlockChain, error) {
+	evmChains := e.BlockChains.EVMChains()
+
+	for _, chain := range evmChains {
+		if chain.ChainSelector() == selector {
+			return chain, nil
+		}
+	}
+	return nil, fmt.Errorf("error finding chain with selector: %w", selector)
 }
