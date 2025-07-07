@@ -175,7 +175,7 @@ targets:
       deltaStage: "45s"
       schedule: "oneAtATime"
 */
-
+//TODO(gg): are config.feedIds needed? Is config.report_id needed?
 const secureMintWorkflow = `
 name: "%s"
 owner: "0x%s"
@@ -183,8 +183,8 @@ triggers:
   - id: "securemint-trigger@1.0.0"
     config:
       maxFrequencyMs: 5000
-      feedIds:  //TODO(gg): needed?
-        - "1020001001"  //TODO(gg): needed?
+      feedIds:  
+        - "1020001001"  
 
 consensus:
   - id: "offchain_reporting@1.0.0"
@@ -193,7 +193,7 @@ consensus:
       observations:
         - "$(trigger.outputs)"
     config:
-      report_id: "0003"  //TODO(gg): needed?
+      report_id: "0003"  
       key_id: "evm"	
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
@@ -214,10 +214,6 @@ targets:
       deltaStage: 1s
       schedule: oneAtATime
 `
-
-// TODO(gg): needed in targets config?:
-//       params: ["$(report)"]
-//       abi: "receive(report bytes)"
 
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowName string,

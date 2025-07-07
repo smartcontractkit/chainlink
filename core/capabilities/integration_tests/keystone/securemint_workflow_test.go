@@ -83,11 +83,11 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 
 	// The workflow is configured to use feed ID "1020001001" and should generate a feed
 	// with a price derived from the Mintable value (99) in the trigger event
-	// The feed ID is generated from the chain selector (1337) as bytes
+	// The data ID is generated from the chain selector (1337) as bytes: 0x04 + chain selector as bytes + right padded with 0s
 	// The price is packed from Mintable (99) and block number (10)
 	expectedUpdates := []secureMintUpdate{
 		{
-			feedID:         "0x0000000000000000000000000000000000000000000000000000000000000539", // Chain selector 1337 as bytes (right-aligned)
+			feedID:         "0x0400000000000005390000000000000000000000000000000000000000000000",
 			mintableAmount: mintableAmount,
 			blockNumber:    blockNumber,
 		},
