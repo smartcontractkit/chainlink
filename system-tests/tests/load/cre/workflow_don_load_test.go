@@ -403,7 +403,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
 		LoadType:    wasp.RPS,
 		Schedule: wasp.Combine(
-			wasp.Plain(4, 5*time.Minute),
+			wasp.Plain(4, 10*time.Minute),
 		),
 		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
 		Labels:                labels,
@@ -429,9 +429,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	prometheusExecutor, err := benchspy.NewPrometheusQueryExecutor(
 		map[string]string{
-			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[5m]) * 100)`,
-			"mem_peak":             `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
-			"mem_avg":              `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[10m]) * 100)`,
+			"mem_peak":             `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[10m]))`,
+			"mem_avg":              `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[10m]))`,
 			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9][0-9]*"})`,
 			"network_tx":           `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
 			"network_rx":           `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
@@ -460,7 +460,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	if baselineReport != nil {
 		compareBenchmarkReports(t, benchmarkReport, baselineReport)
 	}
-
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and

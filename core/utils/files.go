@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -26,15 +25,6 @@ func FileExists(name string) (bool, error) {
 // TooPermissive checks if the file has more than the allowed permissions
 func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 	return fileMode&^maxAllowedPerms != 0
-}
-
-// IsFileOwnedByChainlink attempts to read fileInfo to verify file owner
-func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
-	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
-	if !ok {
-		return false, errors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
-	}
-	return int(stat.Uid) == os.Getuid(), nil
 }
 
 // EnsureDirAndMaxPerms ensures that the given path exists, that it's a directory,
