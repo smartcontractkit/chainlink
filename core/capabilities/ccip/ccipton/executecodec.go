@@ -43,8 +43,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 	tonReports := make([]bindings.ExecuteReport, 0, len(report.ChainReports))
 	for _, chainReport := range report.ChainReports {
-		var offChainTokenData *cell.Cell
-		var err error
+		var offChainTokenData [][]byte
 		rampMessages := make([]bindings.Any2TONRampMessage, 0, len(chainReport.Messages))
 
 		for _, msg := range chainReport.Messages {
@@ -105,27 +104,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				})
 			}
 
-			tokenAmountsDict, err := bindings.PackArrayWithRefChaining(tokenAmounts)
-			if err != nil {
-				return nil, fmt.Errorf("pack token amounts: %w", err)
-			}
-
 			header := bindings.RampMessageHeader{
 				MessageID:           msg.Header.MessageID[:],
 				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 				DestChainSelector:   uint64(msg.Header.DestChainSelector),
 				SequenceNumber:      uint64(msg.Header.SequenceNumber),
 				Nonce:               msg.Header.Nonce,
-			}
-
-			senderAddr, err := bindings.PackByteArrayToCell(msg.Sender)
-			if err != nil {
-				return nil, fmt.Errorf("pack sender address: %w", err)
-			}
-
-			dataCell, err := bindings.PackByteArrayToCell(msg.Data)
-			if err != nil {
-				return nil, fmt.Errorf("pack data: %w", err)
 			}
 
 			tonReceiverAddrStr, err := e.addressCodec.AddressBytesToString(msg.Receiver)
@@ -157,27 +141,19 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			}
 			rampMsg := bindings.Any2TONRampMessage{
 				Header:       header,
-				Sender:       senderAddr,
-				Data:         dataCell,
+				Sender:       bindings.SnakeBytes(msg.Sender),
+				Data:         bindings.SnakeBytes(msg.Data),
 				Receiver:     tonReceiverAddr,
 				GasLimit:     gasLimit, // TODO double check if this match with on-chain decimal. Note the offramp contract would not use this value base on current design.
-				TokenAmounts: tokenAmountsDict,
+				TokenAmounts: tokenAmounts,
 			}
 
 			rampMessages = append(rampMessages, rampMsg)
 		}
 
-		packedRampMsgsCell, err := bindings.PackArrayWithRefChaining(rampMessages)
-		if err != nil {
-			return nil, fmt.Errorf("pack ramp messages: %w", err)
-		}
-
 		if len(chainReport.Messages) > 0 && len(chainReport.OffchainTokenData) > 0 {
 			// should only have an offchain token data if there are tokens as part of the message
-			offChainTokenData, err = bindings.Pack2DByteArrayToCell(chainReport.OffchainTokenData[0])
-			if err != nil {
-				return nil, fmt.Errorf("pack offchain token data: %w", err)
-			}
+			offChainTokenData = chainReport.OffchainTokenData[0]
 		}
 
 		sigs := make([]bindings.Signature, 0, len(chainReport.Proofs))
@@ -187,16 +163,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		sigCell, err := bindings.PackArrayWithStaticType(sigs)
-		if err != nil {
-			return nil, fmt.Errorf("pack signatures: %w", err)
-		}
-
 		message := bindings.ExecuteReport{
 			SourceChainSelector: uint64(chainReport.SourceChainSelector),
 			OffChainTokenData:   offChainTokenData,
-			Messages:            packedRampMsgsCell,
-			Proofs:              sigCell,
+			Messages:            rampMessages,
+			Proofs:              sigs,
 			ProofFlagBits:       chainReport.ProofFlagBits.Int,
 		}
 
@@ -227,30 +198,15 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 	}
 
 	for _, tonReport := range unpackedReports {
-		signatures, err := bindings.UnpackArrayWithStaticType[bindings.Signature](tonReport.Proofs)
-		if err != nil {
-			return cciptypes.ExecutePluginReport{}, err
-		}
-
-		proofs := make([]cciptypes.Bytes32, 0, len(signatures))
-		for _, proof := range signatures {
+		proofs := make([]cciptypes.Bytes32, 0, len(tonReport.Proofs))
+		for _, proof := range tonReport.Proofs {
 			proofs = append(proofs, cciptypes.Bytes32(proof.Sig))
 		}
 
-		unpackedMsgs, err := bindings.UnPackArrayWithRefChaining[bindings.Any2TONRampMessage](tonReport.Messages)
-		if err != nil {
-			return executeReport, fmt.Errorf("unpack ramp messages: %w", err)
-		}
-
-		messages := make([]cciptypes.Message, 0, len(unpackedMsgs))
-		for _, msg := range unpackedMsgs {
-			tonTokenAmounts, err := bindings.UnPackArrayWithRefChaining[bindings.Any2TONTokenTransfer](msg.TokenAmounts)
-			if err != nil {
-				return executeReport, fmt.Errorf("unpack token amounts: %w", err)
-			}
-
-			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(tonTokenAmounts))
-			for _, tokenAmount := range tonTokenAmounts {
+		messages := make([]cciptypes.Message, 0, len(tonReport.Messages))
+		for _, msg := range tonReport.Messages {
+			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(msg.TokenAmounts))
+			for _, tokenAmount := range msg.TokenAmounts {
 				sourceTokenPoolAddr, err := bindings.UnloadCellToByteArray(tokenAmount.SourcePoolAddress)
 				if err != nil {
 					return executeReport, err
@@ -279,19 +235,9 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 				})
 			}
 
-			senderAddr, err := bindings.UnloadCellToByteArray(msg.Sender)
-			if err != nil {
-				return executeReport, fmt.Errorf("unload sender address: %w", err)
-			}
-
 			receiverAddr, err := e.addressCodec.AddressStringToBytes(msg.Receiver.String())
 			if err != nil {
 				return executeReport, err
-			}
-
-			msgData, err := bindings.UnloadCellToByteArray(msg.Data)
-			if err != nil {
-				return executeReport, fmt.Errorf("unload message data: %w", err)
 			}
 
 			extraArgs := bindings.GenericExtraArgsV2{
@@ -312,8 +258,8 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 					SequenceNumber:      cciptypes.SeqNum(msg.Header.SequenceNumber),
 					Nonce:               msg.Header.Nonce,
 				},
-				Sender:       senderAddr,
-				Data:         msgData,
+				Sender:       cciptypes.UnknownAddress(msg.Sender),
+				Data:         cciptypes.Bytes(msg.Data),
 				Receiver:     receiverAddr,
 				ExtraArgs:    extraArgsCell.ToBOC(),
 				TokenAmounts: tokenAmounts,
@@ -322,11 +268,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, data []byte) (cciptyp
 
 		offchainTokenData := make([][][]byte, 0)
 		if tonReport.OffChainTokenData != nil {
-			offchainData, err := bindings.Unpack2DByteArrayFromCell(tonReport.OffChainTokenData)
-			if err != nil {
-				return executeReport, fmt.Errorf("unload offchain token data: %w", err)
-			}
-			offchainTokenData = append(offchainTokenData, offchainData)
+			offchainTokenData = append(offchainTokenData, tonReport.OffChainTokenData)
 		}
 
 		executeReport.ChainReports = append(executeReport.ChainReports, cciptypes.ExecutePluginReportSingleChain{
