@@ -118,8 +118,11 @@ func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, 
 		if err != nil {
 			return fmt.Errorf("failed to load onchain state: %w", err)
 		}
-		proposal, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
+		proposal, err := proposalutils.AggregateProposalsV2(
+			e, proposalutils.MCMSStates{
+				MCMSEVMState:    state.EVMMCMSStateByChain(),
+				MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			},
 			allProposals, proposalDesc, cfg,
 		)
 		if err != nil {
@@ -361,8 +364,11 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
-		proposal, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), state.SolanaMCMSStateByChain(e),
+		proposal, err := proposalutils.AggregateProposalsV2(
+			e, proposalutils.MCMSStates{
+				MCMSEVMState:    state.EVMMCMSStateByChain(),
+				MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			},
 			finalCSOut.MCMSTimelockProposals, "E2ETokenPoolv2 changeset", cfg.MCMS,
 		)
 		if err != nil {
