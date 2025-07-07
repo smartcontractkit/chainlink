@@ -478,6 +478,18 @@ var testCases = []testCase{
 		contractType:    shared.BurnMintWithExternalMinterFastTransferTokenPool,
 		contractVersion: shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
 	},
+	{
+		name:            "HybridWithExternalMintFastTransferTokenPool",
+		mcmsEnabled:     false,
+		contractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+		contractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+	},
+	{
+		name:            "HybridWithExternalMintFastTransferTokenPool with MCMS",
+		mcmsEnabled:     true,
+		contractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+		contractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+	},
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
@@ -487,7 +499,7 @@ func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
 
 			externalMinterA := common.Address{}
 			externalMinterB := common.Address{}
-			if tc.contractType == shared.BurnMintWithExternalMinterFastTransferTokenPool {
+			if tc.contractType == shared.BurnMintWithExternalMinterFastTransferTokenPool || tc.contractType == shared.HybridWithExternalMinterFastTransferTokenPool {
 				externalMinterA, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
 				externalMinterB, _ = testhelpers.DeployTokenGovernor(t, e, selectorB, tokens[selectorB].Address)
 			}
@@ -555,7 +567,7 @@ func TestFastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
 
 			externalMinterA := common.Address{}
 			externalMinterB := common.Address{}
-			if tc.contractType == shared.BurnMintWithExternalMinterFastTransferTokenPool {
+			if tc.contractType == shared.BurnMintWithExternalMinterFastTransferTokenPool || tc.contractType == shared.HybridWithExternalMinterFastTransferTokenPool {
 				externalMinterA, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
 				externalMinterB, _ = testhelpers.DeployTokenGovernor(t, e, selectorB, tokens[selectorB].Address)
 			}

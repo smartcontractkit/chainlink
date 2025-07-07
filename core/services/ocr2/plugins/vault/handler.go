@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/json"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -13,7 +14,7 @@ var _ connector.GatewayConnectorHandler = (*Handler)(nil)
 const HandlerName = "VaultHandler"
 
 type gatewaySender interface {
-	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response) error
+	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error
 }
 
 type Handler struct {
@@ -44,7 +45,7 @@ func (h *Handler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
 }
 
-func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	// TODO: do something with the request
 	err := h.gatewaySender.SendToGateway(ctx, gatewayID, nil)
 	if err != nil {

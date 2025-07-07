@@ -132,7 +132,7 @@ func (g *gateway) Close() error {
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth string) (rawResponse []byte, httpStatusCode int) {
 	// decode
-	jsonRequest, err := jsonrpc2.DecodeRequest(rawRequest, auth)
+	jsonRequest, err := jsonrpc2.DecodeRequest[json.RawMessage](rawRequest, auth)
 	if err != nil {
 		return newError("", api.UserMessageParseError, err.Error())
 	}
@@ -180,7 +180,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 }
 
 func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
-	response := jsonrpc2.Response{
+	response := jsonrpc2.Response[json.RawMessage]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{

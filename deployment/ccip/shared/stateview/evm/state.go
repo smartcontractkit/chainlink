@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
@@ -45,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
@@ -57,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	shared2 "github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -70,7 +71,7 @@ import (
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
-// on a chain. If a binding is nil, it means here is no such contract on the chain.
+// on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
 	state.MCMSWithTimelockState
 	state.LinkTokenState
@@ -89,17 +90,21 @@ type CCIPChainState struct {
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
+
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens                                      map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token                        *factory_burn_mint_erc20.FactoryBurnMintERC20
-	ERC677Tokens                                     map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677                                map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokens677Helper                          map[shared.TokenSymbol]*burn_mint_erc677_helper.BurnMintERC677Helper
+	ERC20Tokens               map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token *factory_burn_mint_erc20.FactoryBurnMintERC20
+	ERC677Tokens              map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
+
+	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
+	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
 	BurnWithFromMintTokenPools                       map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools                           map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
 	USDCTokenPools                                   map[semver.Version]*usdc_token_pool.USDCTokenPool
@@ -134,7 +139,7 @@ type CCIPChainState struct {
 	FeeAggregator common.Address
 }
 
-// ValidateHomeChain validates the home chain contracts and their configurations after complete set up
+// ValidateHomeChain validates the home chain contracts and their configurations after complete setup.
 // It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
 // This should be called after the complete deployment is done
 func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
@@ -191,7 +196,7 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 	return nil
 }
 
-// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on corresponding chain selector and its state
+// validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on the corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
 func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
 	if homeCfg.ConfigDigest == [32]byte{} {

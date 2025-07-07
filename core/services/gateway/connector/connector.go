@@ -173,7 +173,7 @@ func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string
 	return gateway.awaitConn(ctx)
 }
 
-func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response) error {
+func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error {
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
@@ -214,7 +214,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			c.closeWait.Done()
 			return
 		case item := <-gatewayState.conn.ReadChannel():
-			var req jsonrpc.Request
+			var req jsonrpc.Request[json.RawMessage]
 			err := json.Unmarshal(item.Data, &req)
 			if err != nil {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
