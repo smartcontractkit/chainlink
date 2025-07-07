@@ -290,7 +290,7 @@ func SetupTestEnvironment(
 		nixShell,
 		homeChainOutput.BlockchainOutput,
 		topology,
-		input.InfraInput.InfraType,
+		input.InfraInput,
 		updatedNodeSets,
 	)
 	if jobsSeqErr != nil {
