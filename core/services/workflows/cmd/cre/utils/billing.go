@@ -6,12 +6,12 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 )
 
 type BillingService struct {
@@ -21,7 +21,7 @@ type BillingService struct {
 	lggr   logger.Logger
 	server *grpc.Server
 
-	billing.UnimplementedWorkflowServiceServer
+	billing.UnimplementedCreditReservationServiceServer
 }
 
 var _ services.Service = (*BillingService)(nil)
@@ -44,16 +44,26 @@ func (s *BillingService) ReserveCredits(
 ) (*billing.ReserveCreditsResponse, error) {
 	s.lggr.Infof("ReserveCredits: %v", request)
 
-	return &billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil
+	return &billing.ReserveCreditsResponse{
+		Success: true,
+		Entries: []*billing.RateCardEntry{
+			{
+				ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+				MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+				UnitsPerCredit:  "0.0001",
+			},
+		},
+		Credits: 10000,
+	}, nil
 }
 
-func (s *BillingService) WorkflowReceipt(
+func (s *BillingService) SubmitWorkflowReceipt(
 	_ context.Context,
 	request *billing.SubmitWorkflowReceiptRequest,
-) (*billing.SubmitWorkflowReceiptResponse, error) {
+) (*emptypb.Empty, error) {
 	s.lggr.Infof("WorkflowReceipt: %v", request.Metering)
 
-	return &billing.SubmitWorkflowReceiptResponse{Success: true}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (s *BillingService) start(ctx context.Context) error {
@@ -65,7 +75,7 @@ func (s *BillingService) start(ctx context.Context) error {
 
 	server := grpc.NewServer()
 
-	billing.RegisterWorkflowServiceServer(server, &BillingService{lggr: s.lggr})
+	billing.RegisterCreditReservationServiceServer(server, &BillingService{lggr: s.lggr})
 
 	go func() {
 		err = server.Serve(lis)

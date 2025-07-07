@@ -1,6 +1,46 @@
 # Changelog Chainlink Core
 
-## ## 2.25.0 - UNRELEASED
+## 2.27.0
+
+### Minor Changes
+
+- Bump to start the next version
+
+- Bump to start the next version
+
+## 2.26.0 - UNRELEASED
+
+### Minor Changes
+
+- [#18256](https://github.com/smartcontractkit/chainlink/pull/18256) [`156c8d7`](https://github.com/smartcontractkit/chainlink/commit/156c8d7639a22255ca508118f779594e338497c4) - #changed refactor cre/environment/environment.go to allow for injection of custom capabilities
+
+- [#18066](https://github.com/smartcontractkit/chainlink/pull/18066) [`98e69b4`](https://github.com/smartcontractkit/chainlink/commit/98e69b46430df10ba9447e388972a63331cf9e18) - Expose lifecycle hooks in v2 standalone engine
+
+- [#18260](https://github.com/smartcontractkit/chainlink/pull/18260) [`3309df3`](https://github.com/smartcontractkit/chainlink/commit/3309df34c7048576c0ca67cfde6981ca2ca619e3) - use ratelimiter, roundRobinSelector, logger from chainlink-common
+
+- [#17892](https://github.com/smartcontractkit/chainlink/pull/17892) [`f91053c`](https://github.com/smartcontractkit/chainlink/commit/f91053c3a03027ff331d429aa677df5d7033effb) - pass in gateway connector to standard capabilities. Gateway connector handlers accept jsonrpc structs instead of api.Message
+
+- [#18339](https://github.com/smartcontractkit/chainlink/pull/18339) [`c789e09`](https://github.com/smartcontractkit/chainlink/commit/c789e0988f295ebd30d48ababd60abedcf4ea86a) - Add Cron + HTTP Manual Triggers
+
+- [#18210](https://github.com/smartcontractkit/chainlink/pull/18210) [`a401854`](https://github.com/smartcontractkit/chainlink/commit/a401854ab3cf12a79af9c40139a4883af73dcf9e) - feeds: Refactor workflow job deletion with improved transaction handling and structured logging.
+
+- [#14406](https://github.com/smartcontractkit/chainlink/pull/14406) [`9127611`](https://github.com/smartcontractkit/chainlink/commit/9127611022be03bf1b86706891f9303ffbbd46e7) - Add OIDC Based Authentication
+
+### Patch Changes
+
+- [#18018](https://github.com/smartcontractkit/chainlink/pull/18018) [`132a81c`](https://github.com/smartcontractkit/chainlink/commit/132a81c3fca859ab6bc2ab425f6477d4a3a027df) - Add Vault service handler to Gateway
+
+- [#18364](https://github.com/smartcontractkit/chainlink/pull/18364) [`0035daa`](https://github.com/smartcontractkit/chainlink/commit/0035daa13c208167821fef5cea90bfbdd6598642) - Adding chainFamily to ocr3 prometheus metrics to distinguish between conflicting chainIDs #changed
+
+- [#17858](https://github.com/smartcontractkit/chainlink/pull/17858) [`b2cee34`](https://github.com/smartcontractkit/chainlink/commit/b2cee342d7fc56dc7409ec1448beff8822b5f765) - #changed allow approval of previous versions of job specs
+
+- [#18314](https://github.com/smartcontractkit/chainlink/pull/18314) [`d67c11f`](https://github.com/smartcontractkit/chainlink/commit/d67c11f2702610b7b36d8d4d3c929d1310c8befb) - set empty map directly on cap request for config #internal #bugfix
+
+- [#16576](https://github.com/smartcontractkit/chainlink/pull/16576) [`05f6cc4`](https://github.com/smartcontractkit/chainlink/commit/05f6cc4b7a99027ec95ac00e91f97bafc554b011) - add support for Aptos CCIP #added
+
+- [#18170](https://github.com/smartcontractkit/chainlink/pull/18170) [`afae225`](https://github.com/smartcontractkit/chainlink/commit/afae225c04428d785052d6918a79a0933b71c7a4) - Adding configuration EVM Service for submit transaction and calcualte transaction fee and configuration for submit transaction confirmation time behavior
+
+## ## 2.25.0 - 2025-06-16
 
 For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed before upgrading to 2.25.0 or beyond.
 
@@ -36,7 +76,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#17724](https://github.com/smartcontractkit/chainlink/pull/17724) [`a2d0dfc`](https://github.com/smartcontractkit/chainlink/commit/a2d0dfcca5c560508b8005fe22c03f383c57dba8) - #added p2p bundles to job distributor
 
-- [#17697](https://github.com/smartcontractkit/chainlink/pull/17697) [`ee935a4`](https://github.com/smartcontractkit/chainlink/commit/ee935a4481a18ad93df94f64a0799d0b9df898c5) - #nops Added validation to ensure the RPC node used can fetch the required config logs for OCR1 jobs. 
+- [#17697](https://github.com/smartcontractkit/chainlink/pull/17697) [`ee935a4`](https://github.com/smartcontractkit/chainlink/commit/ee935a4481a18ad93df94f64a0799d0b9df898c5) - #nops Added validation to ensure the RPC node used can fetch the required config logs for OCR1 jobs.
   NOTE: This behavior can be toggled on/off by using the new `OCR.ConfigLogValidation` setting
 
 - [#17628](https://github.com/smartcontractkit/chainlink/pull/17628) [`b6cf9d5`](https://github.com/smartcontractkit/chainlink/commit/b6cf9d5c3ae06af3223bacc3ea6517522ea66002) - #bugfix Fixed canceled context inside of PriceService

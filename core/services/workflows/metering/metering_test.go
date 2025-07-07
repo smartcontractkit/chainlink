@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -30,26 +31,47 @@ const (
 	testAccountID           = "accountId"
 	testWorkflowID          = "workflowId"
 	testWorkflowExecutionID = "workflowExecutionId"
-	testUnitA               = "a"
-	testUnitB               = "b"
-	testUnitC               = "c"
 )
 
 var (
-	successReserveResponse          = billing.ReserveCreditsResponse{Success: true, Credits: 10_000}
-	successReserveResponseWithRates = billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-		{ResourceUnit: testUnitA, ConversionRate: "2"},
+	successReserveResponse = billing.ReserveCreditsResponse{
+		Success: true,
+		Credits: 10_000,
+	}
+	successReserveResponseWithRates = billing.ReserveCreditsResponse{
+		Success: true,
+		Entries: []*billing.RateCardEntry{
+			{
+				ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+				MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+				UnitsPerCredit:  "2",
+			},
+		},
+		Credits: 10_000,
+	}
+	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+		{
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+			UnitsPerCredit:  "2",
+		},
+		{
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_GAS,
+			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
+			UnitsPerCredit:  "3",
+		},
 	}, Credits: 10_000}
-	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-		{ResourceUnit: testUnitA, ConversionRate: "2"},
-		{ResourceUnit: testUnitC, ConversionRate: "3"},
-	}, Credits: 10_000}
-	failureReserveResponse = billing.ReserveCreditsResponse{Success: false}
-	defaultLabels          = map[string]string{
+	failureReserveResponse = billing.ReserveCreditsResponse{
+		Success: false,
+	}
+	defaultLabels = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 	}
+	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
+	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
+	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_GAS)]
 	validConfig, _ = values.NewMap(map[string]any{
 		RatiosKey: map[string]string{
 			testUnitA: "0.4",
@@ -105,8 +127,8 @@ func Test_Report_MeteringMode(t *testing.T) {
 			report := newTestReport(t, lggr, billingClient)
 
 			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-				Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-					{ResourceUnit: "unit", ConversionRate: "invalid"},
+				Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, UnitsPerCredit: "invalid"},
 				}, Credits: 10_000}, nil)
 			require.NoError(t, report.Reserve(t.Context()))
 			require.True(t, report.meteringMode)
@@ -123,8 +145,8 @@ func Test_Report_MeteringMode(t *testing.T) {
 		report := newTestReport(t, lggr, billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-				{ResourceUnit: testUnitB, ConversionRate: "10"},
+			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "10"},
 			}}, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
@@ -221,7 +243,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 			// trigger metering mode spending type that doesn't match rates in reserve response
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-				SpendTypes: []capabilities.CapabilitySpendType{testUnitB},
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitB)},
 			}, config, decimal.NewFromInt(1_000))
 
 			assert.Empty(t, limits)
@@ -243,7 +265,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 			// 3 spend types and 2 ratios creates the mismatch
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB, testUnitC},
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitB), capabilities.CapabilitySpendType(testUnitC)},
 			}, validConfig, decimal.NewFromInt(1_000))
 
 			assert.Empty(t, limits)
@@ -266,7 +288,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 			// spend types and rates should match
 			// spend types and ratios should not match and return an error
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitC)},
 			}, validConfig, decimal.NewFromInt(1_000))
 
 			assert.Empty(t, limits)
@@ -289,7 +311,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 			// ratios for spend types should match
 			// rates for spend types should not match
 			limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-				SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitB},
+				SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitB)},
 			}, validConfig, decimal.NewFromInt(1_000))
 
 			assert.Empty(t, limits)
@@ -419,8 +441,8 @@ func Test_Report_ConvertToBalance(t *testing.T) {
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{
-				{ResourceUnit: testUnitA, ConversionRate: "2"},
+			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "2"},
 			}}, nil)
 
 		require.NoError(t, report.Reserve(t.Context()))
@@ -739,7 +761,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 		// errors on unsuccessful response
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-			Return(&billing.SubmitWorkflowReceiptResponse{Success: false}, nil)
+			Return(&emptypb.Empty{}, nil)
 		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
 
 		billingClient.AssertExpectations(t)
@@ -807,7 +829,7 @@ func Test_Report_CreditToSpendingLimits(t *testing.T) {
 		})
 
 		limits := report.CreditToSpendingLimits(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{testUnitA, testUnitC},
+			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA), capabilities.CapabilitySpendType(testUnitC)},
 		}, config, decimal.NewFromInt(1_000))
 
 		require.NotNil(t, limits)
@@ -849,7 +871,7 @@ func Test_MeterReports(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponseWithRates, nil)
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+			Return(&emptypb.Empty{}, nil)
 
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
@@ -875,7 +897,7 @@ func Test_MeterReports(t *testing.T) {
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(nil, errors.New("cannot"))
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+			Return(&emptypb.Empty{}, nil)
 
 		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
@@ -905,7 +927,7 @@ func Test_MeterReports_Length(t *testing.T) {
 	billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 		Return(&successReserveResponse, nil)
 	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+		Return(&emptypb.Empty{}, nil)
 
 	_, err = mrs.Start(t.Context(), "exec1")
 	require.NoError(t, err)
@@ -994,7 +1016,7 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-			Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil)
+			Return(&emptypb.Empty{}, nil)
 
 		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
@@ -1037,8 +1059,8 @@ func TestRatiosFromConfig(t *testing.T) {
 
 		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
-				testUnitA,
-				testUnitB,
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
 			},
 		}, validConfig)
 
@@ -1053,7 +1075,7 @@ func TestRatiosFromConfig(t *testing.T) {
 		t.Parallel()
 
 		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
-			SpendTypes: []capabilities.CapabilitySpendType{testUnitA},
+			SpendTypes: []capabilities.CapabilitySpendType{capabilities.CapabilitySpendType(testUnitA)},
 		}, nil)
 
 		require.NoError(t, err)
@@ -1089,8 +1111,8 @@ func TestRatiosFromConfig(t *testing.T) {
 
 		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
-				testUnitA,
-				testUnitC,
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitC),
 			},
 		}, validConfig)
 
@@ -1110,8 +1132,8 @@ func TestRatiosFromConfig(t *testing.T) {
 
 		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
-				testUnitA,
-				testUnitB,
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
 			},
 		}, config)
 
@@ -1131,8 +1153,8 @@ func TestRatiosFromConfig(t *testing.T) {
 
 		ratios, err := ratiosFromConfig(capabilities.CapabilityInfo{
 			SpendTypes: []capabilities.CapabilitySpendType{
-				testUnitA,
-				testUnitB,
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitB),
 			},
 		}, config)
 

@@ -11,28 +11,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
+	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+	basictriggermock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger/mock"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction"
-	basicactionmock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basicaction/basic_actionmock"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger"
-	basictriggermock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger/basic_triggermock"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/testutils/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -40,7 +40,6 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -306,6 +305,11 @@ func TestEngine_Execution(t *testing.T) {
 			).
 			Return(nil, nil).
 			Once()
+
+		// trigger event with an error should not start an execution
+		eventCh <- capabilities.TriggerResponse{
+			Err: errors.New("trigger event error"),
+		}
 
 		eventCh <- capabilities.TriggerResponse{
 			Event: mockTriggerEvent,
@@ -573,10 +577,10 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	}
 
 	triggerMock, basicActionMock := setupExpectedCalls(t)
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
-	wrappedActionMock := &registry.CapabilityWrapper{
+	wrappedActionMock := &CapabilityWrapper{
 		Capability: basicActionMock,
 	}
 
@@ -691,7 +695,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		require.Equal(t, giveNum, input.Number)
 		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
 	}
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
 	beholderObserver := beholdertest.NewObserver(t)
@@ -763,12 +767,18 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
-						Id:        "Foo",
-						Namespace: "Default",
-						Owner:     testWorkflowOwnerA,
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-							{
-								Shares: []string{expectedSecret, "encryptedShare2"},
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Default",
+							Owner:     testWorkflowOwnerA,
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										Shares: []string{expectedSecret},
+									},
+								},
 							},
 						},
 					},
@@ -812,7 +822,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		require.Equal(t, giveNum, input.Number)
 		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
 	}
-	wrappedTriggerMock := &registry.CapabilityWrapper{
+	wrappedTriggerMock := &CapabilityWrapper{
 		Capability: triggerMock,
 	}
 
@@ -872,12 +882,12 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Rates: []*billing.ResourceUnitRate{{ResourceUnit: metering.ComputeResourceDimension, ConversionRate: "0.0001"}}, Credits: 10000}, nil).Maybe()
+		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil).Maybe()
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.SubmitWorkflowReceiptResponse{Success: true}, nil).Maybe()
+		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
 }
 
@@ -974,4 +984,74 @@ func newNode(t *testing.T) capabilities.Node {
 	return capabilities.Node{
 		PeerID: &peerID,
 	}
+}
+
+type CapabilityWrapper struct {
+	registry.Capability
+}
+
+var _ capabilities.ExecutableAndTriggerCapability = (*CapabilityWrapper)(nil)
+
+func (c *CapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	ch := make(chan capabilities.TriggerResponse, 1)
+	defer close(ch)
+	trigger, err := c.InvokeTrigger(ctx, &sdkpb.TriggerSubscription{
+		Id:      request.TriggerID,
+		Payload: request.Payload,
+		Method:  request.Method,
+	})
+	if err != nil {
+		ch <- capabilities.TriggerResponse{Err: err}
+	}
+
+	if trigger == nil {
+		return nil, nil
+	}
+
+	ch <- capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: request.TriggerID,
+			Payload:     trigger.Payload,
+		},
+	}
+
+	return ch, nil
+}
+
+func (c *CapabilityWrapper) UnregisterTrigger(_ context.Context, _ capabilities.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) RegisterToWorkflow(_ context.Context, _ capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) UnregisterFromWorkflow(_ context.Context, _ capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func (c *CapabilityWrapper) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	v1Request := capabilitiespb.CapabilityRequestToProto(request)
+	v2Request := &sdkpb.CapabilityRequest{
+		Id:      v1Request.Metadata.ReferenceId,
+		Payload: v1Request.Payload,
+		Method:  v1Request.Method,
+	}
+
+	v2Response := c.Invoke(ctx, v2Request)
+	switch r := v2Response.Response.(type) {
+	case *sdkpb.CapabilityResponse_Error:
+		return capabilities.CapabilityResponse{}, errors.New(r.Error)
+	case *sdkpb.CapabilityResponse_Payload:
+		return capabilities.CapabilityResponse{
+			Payload: r.Payload,
+		}, nil
+	default:
+		return capabilities.CapabilityResponse{}, fmt.Errorf("unknown capability response type: %T", r)
+	}
+}
+
+func (c *CapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
+	return capabilities.NewCapabilityInfo(
+		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID())
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
@@ -256,6 +257,7 @@ func TestEvmWrite(t *testing.T) {
 			require.Equal(t, generateReportEncoded(reportType), payload["rawReport"])
 			require.Equal(t, signatures, payload["signatures"])
 		}).Once()
+		txManager.On("GetTransactionFee", mock.Anything, mock.Anything).Return(&commonevm.TransactionFee{TransactionFee: big.NewInt(10)}, nil)
 	}
 
 	generateValidInputs := func(reportType string) *values.Map {

@@ -75,6 +75,5 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Install testing tools"
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
-          go install gotest.tools/gotestsum@v1.12.2
+          go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"

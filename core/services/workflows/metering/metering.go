@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -23,9 +24,8 @@ import (
 )
 
 const (
-	ComputeResourceDimension = "COMPUTE"
-	RatiosKey                = "spendRatios"
-	defaultDecimalPrecision  = 3 // one thousandth of a dollar
+	RatiosKey               = "spendRatios"
+	defaultDecimalPrecision = 3 // one thousandth of a dollar
 )
 
 var (
@@ -45,8 +45,10 @@ var (
 )
 
 type BillingClient interface {
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
-	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
+	GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
+	GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)
+	ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
+	SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
 }
 
 type SpendTuple struct {
@@ -137,7 +139,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
 	req := billing.ReserveCreditsRequest{
-		AccountId:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
 		WorkflowId:          r.labels[platform.KeyWorkflowID],
 		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
 		Credits:             0,
@@ -156,7 +158,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetRates())
+	rateCard, err := toRateCard(resp.GetEntries())
 	if err != nil {
 		r.switchToMeteringMode(err)
 
@@ -421,7 +423,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		AccountId:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
 		WorkflowId:          r.labels[platform.KeyWorkflowID],
 		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
 		Metering:            r.FormatReport(),
@@ -432,7 +434,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		return err
 	}
 
-	if resp == nil || !resp.Success {
+	if resp == nil {
 		return ErrReceiptFailed
 	}
 
@@ -453,14 +455,18 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.ResourceUnitRate) (map[string]decimal.Decimal, error) {
+func toRateCard(rates []*billing.RateCardEntry) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
-		conversionDeci, err := decimal.NewFromString(rate.ConversionRate)
-		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceUnit, rate.ConversionRate)
+		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
+		if !ok {
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not find index %s in MeasurementUnit enum", rate.ResourceType)
 		}
-		rateCard[rate.ResourceUnit] = conversionDeci
+		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
+		if err != nil {
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", unit, rate.UnitsPerCredit)
+		}
+		rateCard[unit] = conversionDeci
 	}
 	return rateCard, nil
 }

@@ -10,6 +10,10 @@ CL_INSTALL_PRIVATE_PLUGINS ?= false
 CL_INSTALL_TESTING_PLUGINS ?= false
 # Output directory for loopinstall plugin manifests (set by caller)
 CL_LOOPINSTALL_OUTPUT_DIR ?=
+# Conditionally define arsguments for loopinstall based on CL_LOOPINSTALL_OUTPUT_DIR
+LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
+LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
+LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -69,27 +73,15 @@ install-loopinstall:
 
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
-	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
-	else \
-		loopinstall --concurrency 5 ./plugins/plugins.public.yaml; \
-	fi
+	loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml
 
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
-	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
-	else \
-		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.private.yaml; \
-	fi
+	GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml
 
 .PHONY: install-plugins-testing
 install-plugins-testing: ## Build & install testing LOOPP binaries (plugins).
-	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
-	else \
-		GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 ./plugins/plugins.testing.yaml; \
-	fi
+	GOPRIVATE=github.com/smartcontractkit/* loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml
 
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
@@ -227,7 +219,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.1.6 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.2.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:

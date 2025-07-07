@@ -135,6 +135,7 @@ func NewRunner(hooks *RunnerHooks) *Runner {
 // run instantiates the engine, starts it and blocks until the context is canceled.
 func (r *Runner) Run(
 	ctx context.Context,
+	workflowName string,
 	binary, config, secrets []byte,
 	cfg RunnerConfig,
 ) {
@@ -147,7 +148,7 @@ func (r *Runner) Run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks)
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

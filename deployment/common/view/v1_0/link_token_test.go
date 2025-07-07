@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -33,6 +34,9 @@ func TestLinkTokenView(t *testing.T) {
 }
 
 func TestLinkTokenViewZk(t *testing.T) {
+	// Timeouts in CI
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
+
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		ZkChains: 1,
 	})
