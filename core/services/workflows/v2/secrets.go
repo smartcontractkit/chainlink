@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -13,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -20,9 +23,13 @@ type SecretsFetcher interface {
 	GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error)
 }
 
+var _ registrysyncer.Listener = (*secretsFetcher)(nil)
+
 type secretsFetcher struct {
-	capRegistry core.CapabilitiesRegistry
-	lggr        logger.Logger
+	capRegistry    core.CapabilitiesRegistry
+	lggr           logger.Logger
+	encryptionKeys []string
+	mu             sync.RWMutex
 
 	semaphore *semaphore[[]*sdkpb.SecretResponse]
 
@@ -57,7 +64,18 @@ func keyFor(owner, namespace, id string) string {
 	return fmt.Sprintf("%s::%s::%s", owner, namespace, id)
 }
 
-func (s secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func (s *secretsFetcher) OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error {
+	encryptionKeys := make([]string, 0, len(registry.IDsToNodes))
+	for _, nodeInfo := range registry.IDsToNodes {
+		encryptionKeys = append(encryptionKeys, string(nodeInfo.EncryptionPublicKey[:]))
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.encryptionKeys = encryptionKeys
+	return nil
+}
+
+func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	start := time.Now()
 	resp, err := s.semaphore.WhenAcquired(ctx, func() ([]*sdkpb.SecretResponse, error) {
 		return s.getSecrets(ctx, request)
@@ -72,7 +90,7 @@ func (s secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecret
 	return resp, err
 }
 
-func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vault capability: %w", err)
@@ -91,9 +109,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 				Namespace: r.Namespace,
 				Owner:     s.workflowOwner,
 			},
-
-			// TODO: replace with actual encryption public key
-			EncryptionKeys: []string{"TODO_ENCRYPTION_PUBLIC_KEY"},
+			EncryptionKeys: s.encryptionKeys,
 		})
 	}
 

@@ -21,6 +21,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -114,7 +115,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	}
 
 	if cfg.SecretsFetcher == nil {
-		cfg.SecretsFetcher = NewSecretsFetcher(
+		fetcher := NewSecretsFetcher(
 			metricsLabeler,
 			cfg.CapRegistry,
 			beholderLogger,
@@ -125,6 +126,8 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 				return "", errors.New("decryption not implemented in v2 engine")
 			},
 		)
+		cfg.SecretsFetcher = fetcher
+		cfg.RegistrySyncer.AddListener(fetcher)
 	}
 
 	engine := &Engine{

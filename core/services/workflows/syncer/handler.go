@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -124,6 +125,7 @@ type eventHandler struct {
 	workflowLimits         *syncerlimiter.Limits
 	workflowArtifactsStore WorkflowArtifactsStore
 	billingClient          metering.BillingClient
+	registrySyncer         registrysyncer.RegistrySyncer
 }
 
 type Event struct {
@@ -179,6 +181,7 @@ func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
+	registrySyncer registrysyncer.RegistrySyncer,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	ratelimiter *ratelimiter.RateLimiter,
@@ -200,6 +203,7 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		registrySyncer:         registrySyncer,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		ratelimiter:            ratelimiter,
@@ -536,6 +540,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     h.capRegistry,
+		RegistrySyncer:  h.registrySyncer,
 		ExecutionsStore: h.workflowStore,
 
 		WorkflowID:    workflowID,

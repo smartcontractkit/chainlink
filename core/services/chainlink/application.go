@@ -945,7 +945,7 @@ func newCREServices(
 				opts.CapabilitiesRegistry,
 				workflowDonNotifier,
 			)
-			registrySyncer.AddLauncher(wfLauncher)
+			registrySyncer.AddListener(wfLauncher)
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
@@ -984,6 +984,7 @@ func newCREServices(
 					lggr,
 					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
+					registrySyncer,
 					engineRegistry,
 					custmsg.NewLabeler(),
 					workflowRateLimiter,
@@ -1271,7 +1272,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()}, // requestID
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
