@@ -11,15 +11,6 @@ import (
 	"testing"
 	"time"
 
-	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
-
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
@@ -47,6 +38,14 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 func TestEngine_Init(t *testing.T) {
