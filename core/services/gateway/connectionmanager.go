@@ -258,11 +258,11 @@ func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 
-func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request) error {
+func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
 	if req == nil {
 		return errors.New("nil request")
 	}
-	data, err := json.Marshal(req)
+	data, err := jsonrpc.EncodeRequest(req)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %w", nodeAddress, err)
 	}
@@ -281,7 +281,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			m.closeWait.Done()
 			return
 		case item := <-nodeState.conn.ReadChannel():
-			var resp jsonrpc.Response
+			var resp jsonrpc.Response[json.RawMessage]
 			err := json.Unmarshal(item.Data, &resp)
 			if err != nil {
 				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)

@@ -244,6 +244,13 @@ func validateFastTransferTokenPoolExists(chainState evm.CCIPChainState, tokenSym
 		if _, ok := chainState.BurnMintWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]; !ok {
 			return fmt.Errorf("token %s does not have a fast transfer token pool with version %s on %s", tokenSymbol, contractVersion.String(), chainString)
 		}
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		if _, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[tokenSymbol]; !ok {
+			return fmt.Errorf("token %s does not have a fast transfer token pool on %s", tokenSymbol, chainString)
+		}
+		if _, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]; !ok {
+			return fmt.Errorf("token %s does not have a fast transfer token pool with version %s on %s", tokenSymbol, contractVersion.String(), chainString)
+		}
 	default:
 		return fmt.Errorf("unsupported contract type %s for fast transfer token pools", contractType)
 	}

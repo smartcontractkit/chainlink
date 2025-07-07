@@ -804,7 +804,6 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, timeout time.Duration) {
 	for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
 		testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
-		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
 		dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
