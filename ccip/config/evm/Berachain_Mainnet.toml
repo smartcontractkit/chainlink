@@ -8,3 +8,5 @@ Mode = 'FeeHistory'
 # block_time was: 5s, per recommendation skip 1-2 blocks
 CacheTimeout = '10s'
 
+[HeadTracker]
+PersistenceEnabled = false
