@@ -7,10 +7,8 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
@@ -53,11 +51,25 @@ func (cfg ConfigureOCR3Config) UseMCMS() bool {
 }
 
 func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.ChangesetOutput, error) {
+	chain, ok := env.BlockChains.EVMChains()[cfg.ChainSel]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
+	}
+
+	if cfg.Address == nil {
+		return cldf.ChangesetOutput{}, errors.New("address of OCR3 contract to configure is required")
+	}
+
+	contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
+	}
+
 	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,
-		Address:    cfg.Address,
+		Contract:   contract.Contract,
 		DryRun:     cfg.DryRun,
 		UseMCMS:    cfg.UseMCMS(),
 	})
@@ -83,16 +95,6 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 	if cfg.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
-		}
-
-		chain, ok := env.BlockChains.EVMChains()[cfg.ChainSel]
-		if !ok {
-			return out, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
-		}
-
-		contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
-		if err != nil {
-			return out, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
 		if contract.McmsContracts == nil {
