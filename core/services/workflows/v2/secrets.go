@@ -2,7 +2,9 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -64,11 +66,20 @@ func keyFor(owner, namespace, id string) string {
 	return fmt.Sprintf("%s::%s::%s", owner, namespace, id)
 }
 
-func (s *secretsFetcher) OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error {
-	encryptionKeys := make([]string, 0, len(registry.IDsToNodes))
-	for _, nodeInfo := range registry.IDsToNodes {
-		encryptionKeys = append(encryptionKeys, string(nodeInfo.EncryptionPublicKey[:]))
+func (s *secretsFetcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+	s.lggr.Debug("OnNewRegistry triggered...")
+	myNode, err := localRegistry.LocalNode(ctx)
+	if err != nil {
+		return errors.New("failed to get local node from registry" + err.Error())
 	}
+
+	encryptionKeys := make([]string, 0, len(myNode.WorkflowDON.Members))
+	for _, node := range myNode.WorkflowDON.Members {
+		encryptionKey := localRegistry.IDsToNodes[node]
+		encryptionKeys = append(encryptionKeys, string(encryptionKey.EncryptionPublicKey[:]))
+	}
+	// Sort the encryption keys to ensure consistent ordering across all nodes.
+	sort.Strings(encryptionKeys)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.encryptionKeys = encryptionKeys
@@ -96,6 +107,9 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		return nil, fmt.Errorf("failed to get vault capability: %w", err)
 	}
 
+	if s.encryptionKeys == nil || len(s.encryptionKeys) == 0 {
+		return nil, fmt.Errorf("secrets fetcher is not initialized with encryption keys, cannot fetch secrets")
+	}
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
