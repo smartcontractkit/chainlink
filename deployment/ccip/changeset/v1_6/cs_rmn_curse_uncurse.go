@@ -73,10 +73,6 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 		return err
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
 	if len(c.CurseActions) == 0 {
 		return errors.New("curse actions are required")
 	}
@@ -946,18 +942,50 @@ func (c EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, su
 }
 
 type AptosCursableChain struct {
-	selector uint64
-	env      cldf.Environment
-	chain    aptosstateview.CCIPChainState
-	MCMSOp   mcmstypes.BatchOperation
+	selector            uint64
+	env                 cldf.Environment
+	chain               aptosstateview.CCIPChainState
+	MCMSOp              mcmstypes.BatchOperation
+	cursedSubjectsCache map[globals.Subject]struct{}
 }
 
 func (c AptosCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	chain := c.env.BlockChains.AptosChains()[c.selector]
-	ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
-	return ccipBind.RMNRemote().IsCursed(nil, subject[:])
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
+	_, cursed := c.cursedSubjectsCache[subject]
+	return cursed, nil
 }
 
+func (c *AptosCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
+	if _, isGloballyCursed := c.cursedSubjectsCache[globals.GlobalCurseSubject()]; isGloballyCursed {
+		return true, nil
+	}
+	_, isCursed := c.cursedSubjectsCache[subject]
+	return isCursed, nil
+}
+
+func (c *AptosCursableChain) cacheCurses() error {
+	if c.cursedSubjectsCache != nil {
+		return nil
+	}
+	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
+	cursedSubjects, err := ccipBind.RMNRemote().GetCursedSubjects(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+	}
+	for _, subj := range cursedSubjects {
+		c.cursedSubjectsCache[globals.Subject(subj)] = struct{}{}
+	}
+	return nil
+}
 func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
 	if err != nil {
@@ -1098,7 +1126,7 @@ func assertEndianness(subjects []globals.Subject, family string) error {
 				return fmt.Errorf("endianness incorrect for Solana curse subject: %s", subject)
 			}
 		default:
-			// EVM uses big endian to encode the subject so we expect the first 8 bytes to be 0
+			// EVM and Aptos uses big endian to encode the subject so we expect the first 8 bytes to be 0
 			if !bytes.Equal(subject[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
 				return fmt.Errorf("endianness incorrect for curse subject: %s", subject)
 			}
