@@ -392,22 +392,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-<<<<<<< HEAD
-||||||| parent of a7a8336ec8 (Fix cl-common version)
-// TODO(gg): temporary, base it on https://github.com/smartcontractkit/chainlink-common/pull/1224
-replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
-
-// replace github.com/smartcontractkit/chainlink-common/pkg/values => ../chainlink-common/pkg/values
-
-replace github.com/smartcontractkit/por_mock_ocr3plugin => ./modules/por_mock_ocr3plugin
-
-=======
-// TODO(gg): temporary, base it on https://github.com/smartcontractkit/chainlink-common/pull/1224
-// replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
-
-// replace github.com/smartcontractkit/chainlink-common/pkg/values => ../chainlink-common/pkg/values
-
-replace github.com/smartcontractkit/por_mock_ocr3plugin => ./modules/por_mock_ocr3plugin
-
->>>>>>> a7a8336ec8 (Fix cl-common version)
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df
