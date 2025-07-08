@@ -17,9 +17,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
@@ -30,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -145,6 +150,32 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 
 func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]int32) {
 
+	// 0. Add ourselves as a subscriber to the secure mint trigger capability
+	transmissions := atomic.NewInt32(0)
+	transmitter := securemint.XXX_SingletonTransmitter.Load().(capabilities.TriggerCapability)
+	triggerConfig, err := values.NewMap(map[string]any{
+		"workflowID":     "securemint-workflow",
+		"maxFrequencyMs": 1000,
+	})
+	require.NoError(t, err)
+	registerCh, err := transmitter.RegisterTrigger(testutils.Context(t), capabilities.TriggerRegistrationRequest{
+		TriggerID: "securemint-trigger",
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID: "securemint-workflow",
+		},
+		Config: triggerConfig,
+	})
+	require.NoError(t, err)
+	go func() {
+		for resp := range registerCh {
+			t.Logf("Received trigger response: %+v", resp)
+			outputs, err := resp.Event.Outputs.Unwrap()
+			require.NoError(t, err)
+			t.Logf("Received trigger response outputs: %+v", outputs)
+			transmissions.Inc()
+		}
+	}()
+
 	// 1. Assert no job spec errors
 	for i, node := range nodes {
 		jobs, _, err := node.app.JobORM().FindJobs(testutils.Context(t), 0, 1000)
@@ -199,16 +230,17 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 	wg.Wait()
 	t.Logf("All pipeline runs completed successfully")
 
-	// // 3. Check that transmissions work
-	// expectedNumTransmissions := int32(4)
-	// gomega.NewWithT(t).Eventually(func() bool {
-	// 	numTransmissions := securemint.StubTransmissionCounter.Load()
-	// 	t.Logf("Number of (stub) report transmissions: %d", numTransmissions)
-	// 	return numTransmissions >= expectedNumTransmissions
-	// }, 30*time.Second, 1*time.Second).Should(
-	// 	gomega.BeTrue(),
-	// 	fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
-	// )
+	// 3. Check that transmissions work
+	expectedNumTransmissions := int32(4)
+	gomega.NewWithT(t).Eventually(func() bool {
+		numTransmissions := transmissions.Load()
+		t.Logf("Number of (stub) report transmissions: %d", numTransmissions)
+		return numTransmissions >= expectedNumTransmissions
+	}, 30*time.Second, 1*time.Second).Should(
+		gomega.BeTrue(),
+		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
+	)
+
 }
 
 func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) (*configurator.Configurator, common.Address) {

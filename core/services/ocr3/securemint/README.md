@@ -18,7 +18,7 @@ make setup-testdb
 
 ### Run test:
 ```bash
- time CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^TestIntegration_SecureMint_happy_path$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }; tail all.log'
+ time SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^TestIntegration_SecureMint_happy_path$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }; tail all.log'
 ```
 
 ### If you change any dependencies:
@@ -73,3 +73,23 @@ Create a launch.json file in the .vscode directory with the following content:
 ```
 
 Then run the test by Cmd+P: "Start Debugging".
+
+## Hacks
+
+
+### XXX_SingletonTransmitter
+
+This is a hack to allow the `TestIntegration_SecureMint_happy_path` integration test to assess whether secure mint reports are being transmitted as a trigger to a Workflow.
+
+It gives the integration test access to the SecureMint transmitter, which is used to assert on the number of transmissions.
+
+
+### SECURE_TRANSMITTER_HACK_DISABLED
+
+This is a hack to allow testing the Secure Mint plugin in the local CRE dev environment.
+
+It makes sure that the secure mint workflow trigger (in `securemint/transmitter.go`) generates stub reports on a regular cadence. 
+
+It is enabled by default, but can be disabled by setting the `SECURE_TRANSMITTER_HACK_DISABLED` environment variable to `true`.
+
+
