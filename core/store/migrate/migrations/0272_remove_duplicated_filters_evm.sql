@@ -1,4 +1,4 @@
- -- +goose Up
+-- +goose Up
 -- +goose StatementBegin
 ALTER TABLE evm.log_poller_filters ADD COLUMN IF NOT EXISTS is_legacy_name BOOLEAN;
 UPDATE evm.log_poller_filters SET is_legacy_name = true;
