@@ -30,7 +30,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
-var EnableBigBlockChangeset = cldf.CreateChangeSet(EnableBigBlocksLogic, EnableBigBlocksPreCondition)
+var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
 
 type EnableBigBlocksConfig struct {
 	APIURL   string
