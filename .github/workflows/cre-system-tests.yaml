@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ecr_name:
-        description: "The name of the ECR repository to push the image to, defaults to 'chainlink'"
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
         required: false
         type: string
         default: "chainlink"
@@ -20,7 +20,7 @@ on:
   workflow_call:
     inputs:
       ecr_name:
-        description: "The name of the ECR repository to push the image to, defaults to 'chainlink'"
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
         required: false
         type: string
         default: "chainlink"
