@@ -129,6 +129,7 @@ func (t TestRelayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 }
 
 type TestRelayer struct {
+	types.UnimplementedRelayer
 	relayArgs  types.RelayArgs
 	pluginArgs types.PluginArgs
 }
