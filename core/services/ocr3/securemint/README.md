@@ -93,3 +93,14 @@ It makes sure that the secure mint workflow trigger (in `securemint/transmitter.
 It is enabled by default, but can be disabled by setting the `SECURE_TRANSMITTER_HACK_DISABLED` environment variable to `true`.
 
 
+## Secure Mint Workflow 
+
+The Secure Mint plugin's reports are triggers for a CRE Workflow. 
+
+The secure mint workflow, and specifically the securemint aggregator (see `chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds/securemint_aggregator.go`) are tested in `core/capabilities/integration_tests/keystone/securemint_workflow_test.go`. 
+
+You can run it as follows:
+```bash
+time SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'; tail all.log
+```
+
