@@ -3,7 +3,7 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -110,7 +110,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
-	return nil, fmt.Errorf("WriteReport is not supported yet")
+	return nil, errors.New("WriteReport is not supported yet")
 }
 
 func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmcappb.Log], error) {
