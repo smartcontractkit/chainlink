@@ -77,13 +77,6 @@ build_push_docker_image: build_docker_image
 	docker tag $(image):$(tag) 127.0.0.1:5000/chainlink:develop
 	docker push 127.0.0.1:5000/chainlink:develop
 
-#Build a chainlink docker image in plugin mode for local testing and push to k3d registry
-.PHONY: build_push_plugin_docker_image
-build_push_plugin_docker_image:
-	@echo "Run \"make docker-plugins\" from the root to build the chainlink-plugins (experimental) image."
-	@echo "After you run a build, you can push to your local docker registry with something like:"
-	@echo "docker push 127.0.0.1:5000/chainlink:develop"
-
 # Spins up containers needed to collect traces for local testing
 .PHONY: run_tracing
 run_tracing:
@@ -236,10 +229,6 @@ build_docker_image: check_github_token
 		--build-arg CHAINLINK_USER=chainlink \
 		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../
-
-.PHONY: build_plugin_docker_image
-build_plugin_docker_image:
-	@echo "Run \"make docker-plugins\" from the root to build the chainlink-plugins (experimental) image."
 
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest
