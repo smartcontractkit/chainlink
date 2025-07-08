@@ -2,6 +2,7 @@ package v1_6
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -76,7 +77,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
 
 	if err != nil {
-		return out, fmt.Errorf("Error converting string to uint64: %w", err)
+		return out, fmt.Errorf("error converting string to uint64: %w", err)
 	}
 
 	action := map[string]interface{}{
@@ -87,7 +88,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	chain, err := FindChainBySelector(env, cfg.ChainSel)
 
 	if err != nil {
-		return out, fmt.Errorf("Error: %w finding chain by selector: %d", err, cfg.ChainSel)
+		return out, fmt.Errorf("error: %w finding chain by selector: %d", err, cfg.ChainSel)
 	}
 
 	// Verifying contract address for EIP-712 signing
@@ -97,6 +98,9 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	defaultRequestTimeout := 10 * time.Second
 
 	nonce := time.Now().UnixMilli()
+	if chainID > math.MaxInt64 {
+		return out, fmt.Errorf("chain ID too large for int64: %d", chainID)
+	}
 	config := Config{
 		URL:               cfg.APIURL,
 		ChainID:           int64(chainID),
@@ -119,10 +123,8 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	}
 
 	out.Reports = append(out.Reports, operations.Report[any, any]{ //append txn hash or details , append response from txn
-		// :  "BigBlocks enabled successfully",
-		// TODO: What to put in the Report??
+		Output: "Big blocks enabled",
 	})
-
 	return out, nil
 }
 
@@ -187,12 +189,10 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 	}
 
 	signature, err := evmChain.SignHash(hash)
-
 	if err != nil {
 		return ECDSASignature{}, err
 	}
 
-	// Extract R, S, and V components from the signature
 	var r, s [32]byte
 	copy(r[:], signature[:32])
 	copy(s[:], signature[32:64])
@@ -214,7 +214,7 @@ func sendRequest(payload RequestPayload, config Config) error {
 	}
 
 	// Create & send the HTTP POST request
-	req, err := http.NewRequest("POST", config.URL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", config.URL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
