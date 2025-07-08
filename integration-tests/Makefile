@@ -223,6 +223,7 @@ test_reorg_automation: ## Run the automation reorg tests
 check_github_token:
 	@if [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable to pull private dependencies. Try to set it via the gh cli: GITHUB_TOKEN=\$$(gh auth token)"; \
+		echo "See: https://github.com/smartcontractkit/chainlink?tab=readme-ov-file#build-plugins"; \
 		exit 1; \
 	fi
 # image: the name for the chainlink image being built, example: image=chainlink
