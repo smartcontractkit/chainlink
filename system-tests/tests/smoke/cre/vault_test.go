@@ -29,13 +29,13 @@ type Config struct {
 	NodeSets   []*simple_node_set.Input `toml:"nodesets" validate:"required"`
 }
 
-const VAULT_DON_ID = "vault"
-const VAULT_HANDLER_NAME = "vault"
-const VAULT_GATEWAY_ID = "vault_gateway"
-const VAULT_NODE_1_NAME = "node_1"
-const GATEWAY_PORT_FOR_NODES = "18080"
-const GATEWAY_PORT_FOR_USERS = "5002"
-const NODE_REQUEST_PATH = "/node"
+const VaultDonID = "vault"
+const VaultHandlerName = "vault"
+const VaultGatewayID = "vault_gateway"
+const VaultNode1Name = "node_1"
+const GatewayPortForNodes = "18080"
+const GatewayPortForUsers = "5002"
+const NodeRequestPath = "/node"
 
 func TestVault_E2E(t *testing.T) {
 	configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
@@ -71,22 +71,20 @@ func TestVault_E2E(t *testing.T) {
 	require.NoError(t, err)
 
 	// Retrieve the ETH addresses of the vault nodes
-	var ethAddresses []string
+
+	ethAddresses := []string{}
 	for _, client := range vaultNodeSetClients {
-		nodeEthAddresses, err := client.EthAddresses()
-		require.NoError(t, err)
+		nodeEthAddresses, err2 := client.EthAddresses()
+		require.NoError(t, err2)
 		require.NotEmpty(t, nodeEthAddresses)
 		ethAddresses = append(ethAddresses, nodeEthAddresses[0])
 	}
 
 	// Update the vault node config to include the gateway connector configuration
 	for _, node := range vaultNodeSetConfig.NodeSpecs {
-
-		// Parse the gateway node internal URL to extract the hostname
-		parsedURL, err := url.Parse(gatewayNodeSet.CLNodes[0].Node.InternalP2PUrl)
-		require.NoError(t, err)
-		gatewayUrl := fmt.Sprintf("ws://%s:%s%s", parsedURL.Hostname(), GATEWAY_PORT_FOR_NODES, NODE_REQUEST_PATH)
-
+		parsedURL, err2 := url.Parse(gatewayNodeSet.CLNodes[0].Node.InternalP2PUrl)
+		require.NoError(t, err2)
+		internalGatewayURL := fmt.Sprintf("ws://%s:%s%s", parsedURL.Hostname(), GatewayPortForNodes, NodeRequestPath)
 		node.Node.UserConfigOverrides += fmt.Sprintf(`
 		[Capabilities.GatewayConnector]
 		DonID = "%s"
@@ -97,11 +95,11 @@ func TestVault_E2E(t *testing.T) {
 		Id = "%s"
 		URL = "%s"
 		`,
-			VAULT_DON_ID,
+			VaultDonID,
 			c.Blockchain.ChainID,
 			ethAddresses[0],
-			VAULT_GATEWAY_ID,
-			gatewayUrl,
+			VaultGatewayID,
+			internalGatewayURL,
 		)
 	}
 
@@ -156,13 +154,13 @@ func TestVault_E2E(t *testing.T) {
 		[[gatewayConfig.Dons.Members]]
 		Name = "%s"
 		Address = "%s"`,
-		VAULT_GATEWAY_ID,
-		NODE_REQUEST_PATH,
-		GATEWAY_PORT_FOR_NODES,
-		GATEWAY_PORT_FOR_USERS,
-		VAULT_DON_ID,
-		VAULT_HANDLER_NAME,
-		VAULT_NODE_1_NAME,
+		VaultGatewayID,
+		NodeRequestPath,
+		GatewayPortForNodes,
+		GatewayPortForUsers,
+		VaultDonID,
+		VaultHandlerName,
+		VaultNode1Name,
 		ethAddresses[0],
 	)
 
@@ -254,7 +252,7 @@ func TestVault_E2E(t *testing.T) {
 			// Make HTTP request to gateway endpoint
 			parsedURL, err := url.Parse(n.Node.ExternalURL)
 			require.NoError(t, err)
-			parsedURL.Host = parsedURL.Hostname() + ":" + GATEWAY_PORT_FOR_USERS
+			parsedURL.Host = parsedURL.Hostname() + ":" + GatewayPortForUsers
 			gatewayURL := parsedURL.String() + "/"
 			req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 			require.NoError(t, err)
