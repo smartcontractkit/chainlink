@@ -49,7 +49,7 @@ type ECDSASignature struct {
 	V byte   `json:"v"`
 }
 
-type HyperliquidEnableBigBlocksConfig struct {
+type EnableBigBlocksDetailConfig struct {
 	URL               string        // RPC URL
 	ChainID           int64         // chain ID
 	VerifyingContract string        // Verifying contract address
@@ -104,7 +104,7 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	defaultRequestTimeout := 10 * time.Second
 
 	nonce := time.Now().UnixMilli()
-	config := HyperliquidEnableBigBlocksConfig{
+	config := EnableBigBlocksDetailConfig{
 		URL:               cfg.APIURL,
 		ChainID:           int64(chainID),
 		VerifyingContract: defaultVerifyingContract,
@@ -128,7 +128,7 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	return out, nil
 }
 
-func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config HyperliquidEnableBigBlocksConfig, chain chain.BlockChain) (ECDSASignature, error) {
+func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config EnableBigBlocksDetailConfig, chain chain.BlockChain) (ECDSASignature, error) {
 	// Compute the action hash
 	actionHash, err := ActionHash(action, nil, nonce)
 	if err != nil {
@@ -206,7 +206,7 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 }
 
 // sendRequest sends the HTTP POST request with the signed payload
-func sendRequest(payload HyperliquidEnableBigBlocksRequestPayload, config HyperliquidEnableBigBlocksConfig) error {
+func sendRequest(payload HyperliquidEnableBigBlocksRequestPayload, config EnableBigBlocksDetailConfig) error {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error marshaling payload: %w", err)
