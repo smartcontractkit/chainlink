@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -17,11 +18,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	"github.com/ugorji/go/codec"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -186,7 +189,7 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 	// signature, err := crypto.Sign(hash, privateKey)
 	evmChain, ok := chain.(evm.Chain)
 	if !ok {
-		return ECDSASignature{}, fmt.Errorf("not an EVM chain")
+		return ECDSASignature{}, errors.New("not an EVM chain")
 	}
 
 	signature, err := evmChain.SignHash(hash)
