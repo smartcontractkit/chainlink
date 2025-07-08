@@ -19,7 +19,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/core
+/core/services/feeds @smartcontractkit/core @smartcontractkit/devex-tooling
 /core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
