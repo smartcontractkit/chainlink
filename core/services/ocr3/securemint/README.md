@@ -104,3 +104,18 @@ You can run it as follows:
 time SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'; tail all.log
 ```
 
+### Layers of abstraction in sending a Workflow trigger
+
+When sending a Workflow trigger, the SecureMint report is wrapped in a number of layers of abstraction.
+
+```
+Top
+===
+- transmitter wraps in: capabilities.TriggerResponse{Event: capabilities.TriggerEvent, Err}
+- transmitter wraps in: capabilities.TriggerEvent{TriggerType: 0, ID: "securemint-trigger", Outputs: values.Map, Payload: nil}
+- transmitter wraps in: values.Map{"sigs": signatures, "configDigest": cfgDigest, "seqNr": seqNr, "report": <ocr3types.ReportWithInfo>} 
+- libocr wraps in: ocr3types.ReportWithInfo{Report: json-marshaled PorReport, Info: chainSelector}
+- plugin creates: por.PorReport{ConfigDigest, SeqNr, Block, Mintable}
+===
+Bottom
+```
