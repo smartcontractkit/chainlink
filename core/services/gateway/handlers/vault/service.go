@@ -26,19 +26,22 @@ var (
 	ErrRateLimited       = errors.New("rate-limited")
 	ErrUnsupportedMethod = errors.New("unsupported method")
 
-	promHandlerError = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_handler_error",
+	// Track errors from the handler (internal errors)
+	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_vault_request_internal_error",
 		Help: "Metric to track vault handler errors",
 	}, []string{"don_id", "error"})
 
-	promSecretsCreateSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_secrets_create_success",
-		Help: "Metric to track successful vault secrets_create calls",
+	// Track failed secrets_create calls (user errors)
+	promRequestUserError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_vault_request_user_error",
+		Help: "Metric to track failed vault requests",
 	}, []string{"don_id"})
 
-	promSecretsCreateFailure = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_secrets_create_failure",
-		Help: "Metric to track failed vault secrets_create calls",
+	// Track successful secrets_create calls
+	promRequestSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_vault_request_success",
+		Help: "Metric to track successful vault requests",
 	}, []string{"don_id"})
 )
 
@@ -157,16 +160,18 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	s.lggr.Infof("Received message from node %s: %v", nodeAddr, resp)
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	pendingRequest, ok := s.pendingRequests[resp.ID]
 	if !ok {
-		s.lggr.Errorf("No pending request found for ID: %s", resp.ID)
-		return nil
+		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
+		return fmt.Errorf("no pending request found for ID: %s", resp.ID)
 	}
+	s.mu.Unlock()
+	defer delete(s.pendingRequests, resp.ID)
 
 	// SENDING DUMMY RESPONSE FOR NOW
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
+		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.NodeReponseEncodingError.String()).Inc()
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				resp.ID,
@@ -183,7 +188,19 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 	// END OF DUMMY RESPONSE
 
-	// TODO: Remove the pending request from the map
+	select {
+	case <-pendingRequest.timeoutCtx.Done():
+		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
+		return fmt.Errorf("request %s timed out", resp.ID)
+	case pendingRequest.callbackCh <- responseObj:
+		promRequestSuccess.WithLabelValues(s.donConfig.DonId).Inc()
+		s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
+		return nil
+	case <-ctx.Done():
+		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
+		return ctx.Err()
+	}
+}
 
 	s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
 
@@ -194,6 +211,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 	var req SecretsCreateRequest
 	if err := json.Unmarshal(*jsonRequest.Params, &req); err != nil {
+		promRequestUserError.WithLabelValues(s.donConfig.DonId).Inc()
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				jsonRequest.ID,
@@ -207,6 +225,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 	// Validate request
 	if req.ID == "" || req.Value == "" {
+		promRequestUserError.WithLabelValues(s.donConfig.DonId).Inc()
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				jsonRequest.ID,
@@ -226,11 +245,28 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	s.mu.Unlock()
 
 	// At this point, we know that the request is valid and we can send it to the nodes
+	var nodeErrors []error
 	for _, node := range s.donConfig.Members {
 		err := s.don.SendToNode(ctx, node.Address, &jsonRequest)
 		if err != nil {
+			nodeErrors = append(nodeErrors, err)
 			s.lggr.Errorw("error sending request to node", "node", node.Address, "error", err)
 		}
+	}
+
+	// If all nodes failed, return an error to the user
+	if len(nodeErrors) == len(s.donConfig.Members) && len(nodeErrors) > 0 {
+		promRequestInternalError.WithLabelValues(s.donConfig.DonId, "all_nodes_failed").Inc()
+		s.lggr.Errorw("all nodes failed to process request", "request_id", jsonRequest.ID, "error_count", len(nodeErrors))
+		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
+			RawResponse: s.codec.EncodeNewErrorResponse(
+				jsonRequest.ID,
+				api.ToJSONRPCErrorCode(api.HandlerError),
+				"Internal error",
+				nil,
+			),
+			ErrorCode: api.HandlerError,
+		}, callbackCh)
 	}
 
 	s.lggr.Infof("Processed request: %v", jsonRequest)
@@ -241,8 +277,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 
 func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
-	promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
-
+	promRequestUserError.WithLabelValues(s.donConfig.DonId).Inc()
 	return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 		RawResponse: s.codec.EncodeNewErrorResponse(
 			jsonRequest.ID,
