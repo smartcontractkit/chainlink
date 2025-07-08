@@ -7,12 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -24,8 +26,9 @@ import (
 
 // TODO this can move to the toml configuration file
 const (
-	awsProfile    = "sdlc"
-	creCLIVersion = "0.2.1"
+	awsProfile      = "sdlc"
+	creCLIVersion   = "0.2.1"
+	minGHCLIVersion = "v2.50.0"
 )
 
 // TODO these can move to the toml configuration file
@@ -506,6 +509,51 @@ func checkIfGHLIIsInstalled(ctx context.Context) (installed bool, err error) {
 
 	if isCommandAvailable("gh") {
 		logger.Info().Msg("✓ GitHub CLI is already installed")
+
+		ghVersionCmd := exec.Command("gh", "--version")
+		output, outputErr := ghVersionCmd.Output()
+		if outputErr != nil {
+			logger.Warn().Msgf("failed to get GH CLI version: %s", outputErr.Error())
+			return false, nil
+		}
+
+		re := regexp.MustCompile(`gh version (\d+\.\d+\.\d+)`)
+		matches := re.FindStringSubmatch(string(output))
+		if len(matches) < 2 {
+			logger.Warn().Msgf("failed to parse GH CLI version: %s", string(output))
+			return false, nil
+		}
+
+		version, versionErr := semver.NewVersion(matches[1])
+		if versionErr != nil {
+			logger.Warn().Msgf("failed to parse GH CLI version: %s", versionErr.Error())
+			return false, nil
+		}
+
+		isEnoughVersion := version.Compare(semver.MustParse(minGHCLIVersion)) >= 0
+		if isEnoughVersion {
+			logger.Info().Msgf("  ✓ GitHub CLI is up to date (v%s)", version)
+			return true, nil
+		}
+
+		logger.Info().Msg("  ✗ GitHub CLI is outdated, upgrading to latest via Homebrew")
+		brewInfoCmd := exec.Command("brew", "info", "gh")
+		brewInfoOutput, brewInfoErr := brewInfoCmd.Output()
+		if brewInfoErr != nil {
+			fmt.Fprint(os.Stderr, string(brewInfoOutput))
+			logger.Warn().Msgf("GH CLI wasn't installed via brew, please update it manually to at least %s", minGHCLIVersion)
+			return false, nil
+		}
+
+		brewUpgradeCmd := exec.Command("brew", "upgrade", "gh")
+		brewUpdateOutput, brewUpdateErr := brewUpgradeCmd.Output()
+		if brewUpdateErr != nil {
+			fmt.Fprint(os.Stderr, string(brewUpdateOutput))
+			logger.Warn().Msgf("failed to upgrade GitHub CLI via Homebrew, please update it manually to at least %s", minGHCLIVersion)
+			return false, nil
+		}
+		logger.Info().Msg("  ✓ GitHub CLI upgraded to latest via Homebrew")
+
 		return true, nil
 	}
 
