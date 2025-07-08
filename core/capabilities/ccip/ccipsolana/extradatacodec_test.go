@@ -81,7 +81,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 
 		gasLimit, exist := output["GasLimit"]
 		require.True(t, exist)
-		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}, gasLimit)
+		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}.BigInt(), gasLimit)
 
 		ooe, exist := output["AllowOutOfOrderExecution"]
 		require.True(t, exist)
