@@ -1068,9 +1068,10 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 		},
 		Listeners: []devenv.ListenerConfig{
 			{
-				ChainSelector:    strconv.FormatUint(sourceChainSelector, 10),
-				TokenPoolAddress: sourceTokenPoolAddress.Hex(),
-				RPCURL:           sourceChainNetwork.HTTPURLs[0],
+				ChainSelector:        strconv.FormatUint(sourceChainSelector, 10),
+				TokenPoolAddress:     sourceTokenPoolAddress.Hex(),
+				RPCURL:               sourceChainNetwork.HTTPURLs[0],
+				DestinationTokenPool: destinationTokenPoolAddress.Hex(),
 			},
 		},
 		Fillers: []devenv.FillerConfig{
@@ -1079,6 +1080,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 				TokenPoolAddress: destinationTokenPoolAddress.Hex(),
 				RPCURL:           destinationChainNetwork.HTTPURLs[0],
 				SignerProvider:   "filler",
+				SourceTokenPool:  sourceTokenPoolAddress.Hex(),
 			},
 		},
 	}

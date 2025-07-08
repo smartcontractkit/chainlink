@@ -740,6 +740,10 @@ func (e *TestEvmConfig) FinalityDepth() uint32 {
 	return 42
 }
 
+func (e *TestEvmConfig) SafeDepth() uint32 {
+	return 42
+}
+
 func (e *TestEvmConfig) FinalizedBlockOffset() uint32 {
 	return 42
 }

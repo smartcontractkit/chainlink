@@ -54,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -71,15 +70,15 @@ type Chaos struct {
 }
 
 type TestConfigLoadTest struct {
-	Duration                      string                               `toml:"duration"`
-	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
-	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                            `toml:"jd" validate:"required"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
-	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
-	Chaos                         *Chaos                               `toml:"chaos"`
+	Duration                      string                                  `toml:"duration"`
+	Blockchains                   []*keystonetypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                             `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                               `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput                    `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                           `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                     `toml:"mock_capabilities"`
+	Chaos                         *Chaos                                  `toml:"chaos"`
 }
 
 type MockCapabilities struct {
@@ -103,7 +102,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      []*creenv.BlockchainOutput
+	blockchainOutput      []*keystonetypes.WrappedBlockchainOutput
 	donTopology           *keystonetypes.DonTopology
 	nodeOutput            []*keystonetypes.WrappedNodeOutput
 }
