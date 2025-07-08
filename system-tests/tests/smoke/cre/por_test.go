@@ -683,6 +683,9 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	})
 
 	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
+
+	//TODO remove this
+	require.Fail(t, "TODO remove this")
 }
 
 // config file to use: environment-gateway-don.toml
