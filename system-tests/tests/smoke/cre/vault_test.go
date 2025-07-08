@@ -38,8 +38,8 @@ const GATEWAY_PORT_FOR_USERS = "5002"
 const NODE_REQUEST_PATH = "/node"
 
 func TestVault_E2E(t *testing.T) {
-	// configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
-	// require.NoError(t, configErr, "failed to set CTF config")
+	configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
+	require.NoError(t, configErr, "failed to set CTF config")
 
 	c, err := framework.Load[Config](t)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestVault_E2E(t *testing.T) {
 	gatewayNodeSetClients, err := clclient.New(gatewayNodeSet.CLNodes)
 	require.NoError(t, err)
 
-	// Vault node configuration
+	// Vault node job spec:
 	// 1. [Capabilities.GatewayConnector] must include the following:
 	// DonID, which must match the DonId in the gateway job spec
 	// ChainIDForNodeKey, which must match the ChainID in the gateway and vault job specs
@@ -103,8 +103,6 @@ func TestVault_E2E(t *testing.T) {
 			VAULT_GATEWAY_ID,
 			gatewayUrl,
 		)
-
-		fmt.Println("gatewayUrl: ", gatewayUrl)
 	}
 
 	vaultNodeSet, err = simple_node_set.UpgradeNodeSet(t, vaultNodeSetConfig, bc, 3*time.Second)
