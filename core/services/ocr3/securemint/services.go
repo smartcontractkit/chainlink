@@ -151,10 +151,15 @@ func NewSecureMintServices(ctx context.Context,
 		return nil, errors.New("LOOPP for securemint plugin not implemented yet")
 	}
 
+	ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
+	}
+
 	// Create the original SecureMint plugin factory
 	smPluginFactory := &sm_plugin.PorReportingPluginFactory{
 		Logger:          argsNoPlugin.Logger,
-		ExternalAdapter: sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr),
+		ExternalAdapter: ea,
 		ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
 		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
 	}

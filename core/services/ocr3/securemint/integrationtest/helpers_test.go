@@ -237,6 +237,7 @@ func getSecureMintJobSpec(t *testing.T, ocrContractAddress, keyBundleID string, 
 			maxChains                         = 5
 			token                             = "btc"
 			reserves                          = "custom"
+			chainSelectors                    = ["8953668971247136127", "729797994450396300"]
 		`, // Using lloConfigMode 'bluegreen' since otherwise LLO config poller won't work
 		ocrContractAddress, // contract address
 		keyBundleID,        // ocr key bundle id
@@ -326,8 +327,8 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 		assert.Len(t, eaRequest.SupplyChains, 2, "Should have exactly 2 supply chains")
 
 		assert.Len(t, eaRequest.SupplyChainBlocks, 2, "Should have exactly 2 supply chain blocks")
-		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[0], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
-		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[1], uint64(5), "Supply chain block should be at least 5 (based on initial EA response)")
+		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[0], uint64(0), "Supply chain block should be at least 0")
+		assert.GreaterOrEqual(t, eaRequest.SupplyChainBlocks[1], uint64(0), "Supply chain block should be at least 0")
 
 		// Return full EA response with mintable amounts
 		res.WriteHeader(http.StatusOK)

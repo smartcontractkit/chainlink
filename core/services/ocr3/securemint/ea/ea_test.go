@@ -34,8 +34,9 @@ func Test_GetPayload(t *testing.T) {
 	)
 
 	config := &sm_config.SecureMintConfig{
-		Token:    "eth",
-		Reserves: "platform",
+		Token:          "eth",
+		Reserves:       "platform",
+		ChainSelectors: []uint64{5009297550715157269},
 	}
 	job := job.Job{}
 	spec := pipeline.Spec{}
@@ -49,7 +50,7 @@ func Test_GetPayload(t *testing.T) {
 			Result: pipeline.Result{
 				Value: map[string]any{ // outer `data` field is already stripped off in the parse step of the pipeline
 					"mintables": map[string]any{
-						"1234567890": map[string]any{
+						"5009297550715157269": map[string]any{
 							"mintable": "10",
 							"block":    8,
 						},
@@ -59,7 +60,7 @@ func Test_GetPayload(t *testing.T) {
 						"timestamp":     1749483841486,
 					},
 					"latestBlocks": map[string]any{
-						"1234567890": 23,
+						"5009297550715157269": 23,
 					},
 				},
 				Error: nil,
@@ -75,7 +76,7 @@ func Test_GetPayload(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	payload, err := ea.GetPayload(ctx, por.Blocks{1234567890: 1234567890})
+	payload, err := ea.GetPayload(ctx, por.Blocks{1234567890: 1234567890, 5009297550715157269: 10})
 	require.NoError(t, err, "GetPayload should not return an error")
 
 	// Validate the 'ea_request' parameter serialized to json
@@ -85,10 +86,10 @@ func Test_GetPayload(t *testing.T) {
 		`{
 	        "reserves": "platform",
 	        "supplyChains": [
-	            "1234567890"
+	            "5009297550715157269"
 	        ],
 	        "supplyChainBlocks": [
-	            1234567890
+	            10
 	        ],
 			"token": "eth"
 	    }`,
@@ -100,7 +101,7 @@ func Test_GetPayload(t *testing.T) {
 	require.True(t, ok, "Failed to parse reserve amount from string")
 	expectedPayload := por.ExternalAdapterPayload{
 		Mintables: por.Mintables{
-			1234567890: {
+			5009297550715157269: {
 				Block:    8,
 				Mintable: big.NewInt(10),
 			},
@@ -110,7 +111,7 @@ func Test_GetPayload(t *testing.T) {
 			Timestamp:     time.UnixMilli(1749483841486),
 		},
 		LatestBlocks: por.Blocks{
-			1234567890: 23,
+			5009297550715157269: 23,
 		},
 	}
 	assert.Equal(t, expectedPayload, payload)

@@ -21,30 +21,31 @@ import (
 var _ por.ExternalAdapter = &externalAdapter{}
 
 type externalAdapter struct {
-	config *sm_config.SecureMintConfig
-	runner pipeline.Runner
-	job    job.Job
-	spec   pipeline.Spec
-	saver  ocrcommon.Saver
-	lggr   logger.Logger
+	config         *sm_config.SecureMintConfig
+	chainSelectors []uint64 // use parsed chain selectors from config
+	runner         pipeline.Runner
+	job            job.Job
+	spec           pipeline.Spec
+	saver          ocrcommon.Saver
+	lggr           logger.Logger
 }
 
-func NewExternalAdapter(config *sm_config.SecureMintConfig, runner pipeline.Runner, job job.Job, spec pipeline.Spec, saver ocrcommon.Saver, lggr logger.Logger) *externalAdapter {
-	return &externalAdapter{config: config, runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}
+func NewExternalAdapter(config *sm_config.SecureMintConfig, runner pipeline.Runner, job job.Job, spec pipeline.Spec, saver ocrcommon.Saver, lggr logger.Logger) (*externalAdapter, error) {
+	chainSelectors := make([]uint64, 0, len(config.ChainSelectors))
+	for _, chainSelector := range config.ChainSelectors {
+		chainSelectorUint64, err := strconv.ParseUint(chainSelector, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain selector: %s", chainSelector)
+		}
+		chainSelectors = append(chainSelectors, chainSelectorUint64)
+	}
+
+	return &externalAdapter{config: config, chainSelectors: chainSelectors, runner: runner, job: job, spec: spec, saver: saver, lggr: lggr}, nil
 }
 
 // GetPayload retrieves the payload for the given blocks by executing a pipeline run.
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks parameter: %v", blocks)
-	var firstRequest bool
-
-	if len(blocks) == 0 {
-		firstRequest = true
-
-		// set a hard-coded chainSelector for now to see it working TODO(gg): this should come from the plugin config
-		blocks[por.ChainSelector(5009297550715157269)] = por.BlockNumber(0)
-		ea.lggr.Debugf("Updated blocks to: %v", blocks)
-	}
 
 	// Create the request for the external adapter
 	req := Request{
@@ -52,9 +53,16 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 		Reserves: ea.config.Reserves,
 	}
 
-	for chainSelector, blockNumber := range blocks {
-		req.SupplyChains = append(req.SupplyChains, fmt.Sprintf("%d", chainSelector))
-		req.SupplyChainBlocks = append(req.SupplyChainBlocks, uint64(blockNumber))
+	// coalesce blocks with config.ChainSelectors
+	coalescedBlocks := make(map[uint64]uint64)
+	for _, chainSelector := range ea.chainSelectors {
+		coalescedBlocks[chainSelector] = uint64(blocks[por.ChainSelector(chainSelector)])
+	}
+
+	// add coalesced blocks to request
+	for chainSelector, blockNumber := range coalescedBlocks {
+		req.SupplyChains = append(req.SupplyChains, strconv.FormatUint(chainSelector, 10))
+		req.SupplyChainBlocks = append(req.SupplyChainBlocks, blockNumber)
 	}
 
 	// Serialize EA request to JSON
@@ -100,8 +108,10 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 		}
 
 		ea.lggr.Debugw("GetPayload result", "payload", payload)
-		if firstRequest {
+		if len(blocks) == 0 {
+			ea.lggr.Debugw("Plugin does not know about any chains or blocks yet, not returning any mintables")
 			// set Mintables to empty map - plugin will error out if it's not empty when it hasn't requested any mintables yet
+			// TODO(gg): we should probably update the plugin to handle this case
 			payload.Mintables = make(por.Mintables)
 		}
 		ea.lggr.Debugw("GetPayload returning", "payload", payload)
