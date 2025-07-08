@@ -36,6 +36,15 @@ func NewExternalAdapter(config *sm_config.SecureMintConfig, runner pipeline.Runn
 // GetPayload retrieves the payload for the given blocks by executing a pipeline run.
 func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (por.ExternalAdapterPayload, error) {
 	ea.lggr.Debugf("GetPayload called with blocks parameter: %v", blocks)
+	var firstRequest bool
+
+	if len(blocks) == 0 {
+		firstRequest = true
+
+		// set a hard-coded chainSelector for now to see it working TODO(gg): this should come from the plugin config
+		blocks[por.ChainSelector(5009297550715157269)] = por.BlockNumber(0)
+		ea.lggr.Debugf("Updated blocks to: %v", blocks)
+	}
 
 	// Create the request for the external adapter
 	req := Request{
@@ -91,6 +100,12 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks por.Blocks) (p
 		}
 
 		ea.lggr.Debugw("GetPayload result", "payload", payload)
+		if firstRequest {
+			// set Mintables to empty map - plugin will error out if it's not empty when it hasn't requested any mintables yet
+			payload.Mintables = make(por.Mintables)
+		}
+		ea.lggr.Debugw("GetPayload returning", "payload", payload)
+
 		return payload, nil
 	}
 
@@ -104,6 +119,8 @@ func (ea *externalAdapter) convertMapToPayload(resultMap map[string]any) (por.Ex
 	if err != nil {
 		return por.ExternalAdapterPayload{}, fmt.Errorf("failed to marshal EA payload map: %w", err)
 	}
+
+	ea.lggr.Debugf("EA response: %s", string(b))
 
 	var eaResponse Response
 	if err := json.Unmarshal(b, &eaResponse); err != nil {
