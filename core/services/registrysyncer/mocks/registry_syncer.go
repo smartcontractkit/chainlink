@@ -22,11 +22,11 @@ func (_m *RegistrySyncer) EXPECT() *RegistrySyncer_Expecter {
 	return &RegistrySyncer_Expecter{mock: &_m.Mock}
 }
 
-// AddListener provides a mock function with given fields: launchers
-func (_m *RegistrySyncer) AddListener(launchers ...registrysyncer.Listener) {
-	_va := make([]interface{}, len(launchers))
-	for _i := range launchers {
-		_va[_i] = launchers[_i]
+// AddListener provides a mock function with given fields: listeners
+func (_m *RegistrySyncer) AddListener(listeners ...registrysyncer.Listener) {
+	_va := make([]interface{}, len(listeners))
+	for _i := range listeners {
+		_va[_i] = listeners[_i]
 	}
 	var _ca []interface{}
 	_ca = append(_ca, _va...)
@@ -39,13 +39,13 @@ type RegistrySyncer_AddListener_Call struct {
 }
 
 // AddListener is a helper method to define mock.On call
-//   - launchers ...registrysyncer.Listener
-func (_e *RegistrySyncer_Expecter) AddListener(launchers ...interface{}) *RegistrySyncer_AddListener_Call {
+//   - listeners ...registrysyncer.Listener
+func (_e *RegistrySyncer_Expecter) AddListener(listeners ...interface{}) *RegistrySyncer_AddListener_Call {
 	return &RegistrySyncer_AddListener_Call{Call: _e.mock.On("AddListener",
-		append([]interface{}{}, launchers...)...)}
+		append([]interface{}{}, listeners...)...)}
 }
 
-func (_c *RegistrySyncer_AddListener_Call) Run(run func(launchers ...registrysyncer.Listener)) *RegistrySyncer_AddListener_Call {
+func (_c *RegistrySyncer_AddListener_Call) Run(run func(listeners ...registrysyncer.Listener)) *RegistrySyncer_AddListener_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		variadicArgs := make([]registrysyncer.Listener, len(args)-0)
 		for i, a := range args[0:] {
