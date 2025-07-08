@@ -87,6 +87,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 /deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/common @smartcontractkit/devex-tooling
 /deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
