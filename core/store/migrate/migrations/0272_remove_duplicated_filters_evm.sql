@@ -7,7 +7,7 @@ with uniques as (
 		select id,
 		ROW_NUMBER() OVER (
 			PARTITION BY 
-			event, topic2, topic4, topic4, address, event, evm_chain_id, split_part(name, '.', 1)
+			topic2, topic3, topic4, address, event, evm_chain_id, split_part(name, '.', 1)
 			ORDER BY
 			CASE WHEN retention = 0 then 0 else 1 end,
 				retention desc
