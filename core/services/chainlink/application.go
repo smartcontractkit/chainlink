@@ -359,8 +359,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, err
 	}
 
-	var billingClient billing.WorkflowClient
-	if cfg.Billing().URL() != "" {
+	var billingClient metering.BillingClient
+
+	if opts.BillingClient != nil {
+		billingClient = opts.BillingClient
+	} else if cfg.Billing().URL() != "" {
 		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
@@ -621,6 +624,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
+		creServices.externalPeerWrapper,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
@@ -801,6 +805,8 @@ type CREOpts struct {
 
 	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
+
+	BillingClient metering.BillingClient
 }
 
 // creServiceConfig contains the configuration required to create the CRE services
@@ -827,6 +833,11 @@ type CREServices struct {
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+
+	// externalPeerWrapper is the wrapper for external peering
+	// it is exposed because there are contingent services in the application
+	externalPeerWrapper p2ptypes.PeerWrapper
+
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
 }
@@ -1019,6 +1030,7 @@ func newCREServices(
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
 		srvs:                    srvcs,
 	}, nil
 }
@@ -1259,7 +1271,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

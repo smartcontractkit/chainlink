@@ -278,19 +278,17 @@ func TestVault_E2E(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
 			// Parse response
-			var response jsonrpc.Response
+			var response jsonrpc.Response[vault.SecretsCreateResponse]
 			err = json.Unmarshal(body, &response)
 			require.NoError(t, err)
 
 			// Verify JSON-RPC response structure
 			require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
 			require.Equal(t, "1", response.ID)
-			var result vault.SecretsCreateResponse
-			err = json.Unmarshal(response.Result, &result)
 			require.NoError(t, err)
-			require.True(t, result.Success)
-			require.Equal(t, "test-secret", result.SecretID)
-			require.Empty(t, result.ErrorMessage)
+			require.True(t, response.Result.Success)
+			require.Equal(t, "test-secret", response.Result.SecretID)
+			require.Empty(t, response.Result.ErrorMessage)
 		}
 	})
 }

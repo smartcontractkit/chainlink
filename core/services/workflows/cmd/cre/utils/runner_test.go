@@ -28,14 +28,15 @@ func TestRunner(t *testing.T) {
 		hooks := DefaultHooks()
 		hooks.Finally = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, svcs []services.Service) {
 			for _, service := range svcs {
-				require.ErrorContains(t, service.Ready(), "Stopped")
+				err := service.Ready()
+				require.ErrorContains(t, err, "Stopped")
 			}
 		}
 
 		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
 
 		runner := NewRunner(hooks)
-		runner.Run(ctx, binary, []byte{}, []byte{}, RunnerConfig{
+		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{
 			EnableBeholder:             false,
 			EnableBilling:              true,
 			EnableStandardCapabilities: false,

@@ -4,55 +4,26 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/mr-tron/base58"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-type peer struct {
-	PeerID string
+type peerIDAndOCRSigner struct {
+	PeerID p2ptypes.PeerID
 	Signer string
 }
 
-func peerIDToBytes(peerID string) ([32]byte, error) {
-	var peerIDB ragetypes.PeerID
-	err := peerIDB.UnmarshalText([]byte(peerID))
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	return peerIDB, nil
-}
-
-func peers(ps []peer) ([][32]byte, error) {
-	out := [][32]byte{}
-	for _, p := range ps {
-		b, err := peerIDToBytes(p.PeerID)
-		if err != nil {
-			return nil, err
-		}
-
-		out = append(out, b)
-	}
-
-	return out, nil
-}
-
-func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error) {
-	peerIDB, err := peerIDToBytes(p.PeerID)
-	if err != nil {
-		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert peerID: %w", err)
-	}
-
+func peerToNode(nopID uint32, p peerIDAndOCRSigner) (kcr.CapabilitiesRegistryNodeParams, error) {
 	sig := strings.TrimPrefix(p.Signer, "0x")
 	signerB, err := hex.DecodeString(sig)
 	if err != nil {
@@ -64,17 +35,20 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 
 	return kcr.CapabilitiesRegistryNodeParams{
 		NodeOperatorId:      nopID,
-		P2pId:               peerIDB,
+		P2pId:               p.PeerID,
 		Signer:              sigb,
 		EncryptionPublicKey: testutils.Random32Byte(),
 	}, nil
 }
 
-func getKeyBundlesAndPeerIDs(donName string, numNodes int) ([]ocr2key.KeyBundle, []peer, error) {
+func getKeyBundlesAndP2PKeys(donName string, numNodes int) ([]ocr2key.KeyBundle, []p2pkey.KeyV2, error) {
 	var keyBundles []ocr2key.KeyBundle
-	var donPeerIDs []peer
+	var donPeerKeys []p2pkey.KeyV2
 	for i := 0; i < numNodes; i++ {
-		peerID := NewPeerID(donName, i)
+		key, err := p2pkey.NewV2()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create p2p key: %w", err)
+		}
 
 		keyBundle, err := ocr2key.New(chaintype.EVM)
 		if err != nil {
@@ -83,16 +57,9 @@ func getKeyBundlesAndPeerIDs(donName string, numNodes int) ([]ocr2key.KeyBundle,
 
 		keyBundles = append(keyBundles, keyBundle)
 
-		pk := keyBundle.PublicKey()
-
-		p := peer{
-			PeerID: peerID,
-			Signer: fmt.Sprintf("0x%x", pk),
-		}
-
-		donPeerIDs = append(donPeerIDs, p)
+		donPeerKeys = append(donPeerKeys, key)
 	}
-	return keyBundles, donPeerIDs, nil
+	return keyBundles, donPeerKeys, nil
 }
 
 type peerWrapper struct {
@@ -165,6 +132,14 @@ func (t p2pPeer) Receive() <-chan p2ptypes.Message {
 
 func (t p2pPeer) IsBootstrap() bool {
 	return false
+}
+
+func getSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error) {
+	if keyBundle == nil {
+		return "", errors.New("keyBundle is nil")
+	}
+
+	return fmt.Sprintf("0x%x", keyBundle.PublicKey()), nil
 }
 
 func NewPeerID(donName string, nodeOrdinal int) string {

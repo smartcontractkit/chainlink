@@ -46,7 +46,7 @@ var _ gw_handlers.Handler = (*service)(nil)
 
 type pendingRequest struct {
 	callbackCh chan<- gw_handlers.UserCallbackPayload
-	responses  map[string]*jsonrpc.Response
+	responses  map[string]*jsonrpc.Response[json.RawMessage]
 }
 
 type service struct {
@@ -137,7 +137,7 @@ func (s *service) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	return errors.New("vault service does not support legacy messages")
 }
 
-func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("handling vault request", "method", jsonRequest.Method, "id", jsonRequest.ID)
 
 	// Create timeout context
@@ -153,7 +153,7 @@ func (s *service) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest json
 	}
 }
 
-func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	s.lggr.Infof("Received message from node %s: %v", nodeAddr, resp)
 
 	s.mu.Lock()
@@ -190,10 +190,10 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response,
 	return s.sendResponse(ctx, responseObj, pendingRequest.callbackCh)
 }
 
-func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 
 	var req SecretsCreateRequest
-	if err := json.Unmarshal(jsonRequest.Params, &req); err != nil {
+	if err := json.Unmarshal(*jsonRequest.Params, &req); err != nil {
 		return s.sendResponse(ctx, gw_handlers.UserCallbackPayload{
 			RawResponse: s.codec.EncodeNewErrorResponse(
 				jsonRequest.ID,
@@ -221,7 +221,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	s.mu.Lock()
 	s.pendingRequests[jsonRequest.ID] = &pendingRequest{
 		callbackCh: callbackCh,
-		responses:  make(map[string]*jsonrpc.Response),
+		responses:  make(map[string]*jsonrpc.Response[json.RawMessage]),
 	}
 	s.mu.Unlock()
 
@@ -239,7 +239,7 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	return nil
 }
 
-func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (s *service) handleUnsupportedMethod(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	s.lggr.Debugw("unsupported method", "method", jsonRequest.Method)
 	promHandlerError.WithLabelValues(s.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
 

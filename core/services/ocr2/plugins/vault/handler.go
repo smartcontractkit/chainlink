@@ -16,7 +16,7 @@ var _ connector.GatewayConnectorHandler = (*Handler)(nil)
 const HandlerName = "VaultHandler"
 
 type gatewaySender interface {
-	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response) error
+	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error
 }
 
 type Handler struct {
@@ -47,14 +47,14 @@ func (h *Handler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
 }
 
-func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	// TODO: authorize the request
 	// TODO: check method and handle accordingly
 	h.lggr.Infof("Received message from gateway %s: %v", gatewayID, req)
 	// TODO: do something with the request and send a proper response
 	// SENDING DUMMY RESPONSE FOR NOW
 	var requestData vault_api.SecretsCreateRequest
-	err := json.Unmarshal(req.Params, &requestData)
+	err := json.Unmarshal(*req.Params, &requestData)
 	if err != nil {
 		h.lggr.Errorf("Failed to unmarshal request: %v", err)
 		return err
@@ -75,10 +75,10 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 		h.lggr.Errorf("Failed to marshal response: %v", err)
 		return err
 	}
-	jsonResponse := jsonrpc.Response{
+	jsonResponse := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
-		Result:  resultBytes,
+		Result:  &resultBytes,
 	}
 	// END OF DUMMY RESPONSE
 

@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+
+	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -18,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -42,6 +47,7 @@ func NewStandaloneEngine(
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
+	workflowName string,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
@@ -56,7 +62,11 @@ func NewStandaloneEngine(
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
 
-	name, err := types.NewWorkflowName(defaultName)
+	if workflowName == "" {
+		workflowName = defaultName
+	}
+
+	name, err := types.NewWorkflowName(workflowName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,6 +258,18 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
+	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
+	if err := registry.Add(ctx, streamsTrigger); err != nil {
+		return nil, err
+	}
+	caps = append(caps, streamsTrigger)
+
+	httpAction := fakes.NewDirectHTTPAction(lggr)
+	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
+		return nil, err
+	}
+	caps = append(caps, httpAction)
+
 	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
 	if err != nil {
 		return nil, err
@@ -257,7 +279,15 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, fakeConsensus)
 
-	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(lggr)
+	// generate deterministic signers - need to be configured on the Forwarder contract
+	nSigners := 4
+	signers := []ocr2key.KeyBundle{}
+	for range nSigners {
+		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), chaintype.EVM)
+		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
+		signers = append(signers, signer)
+	}
+	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)
 	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {
 		return nil, err
 	}

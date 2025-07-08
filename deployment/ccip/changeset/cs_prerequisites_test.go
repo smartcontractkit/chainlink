@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -32,12 +33,13 @@ func TestDeployPrerequisites(t *testing.T) {
 }
 
 func TestDeployPrerequisitesZk(t *testing.T) {
+	// Timeouts in CI
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
+
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		ZkChains:   2,
-		Nodes:      4,
+		ZkChains: 2,
 	})
 
 	testDeployPrerequisitesWithEnv(t, e)
