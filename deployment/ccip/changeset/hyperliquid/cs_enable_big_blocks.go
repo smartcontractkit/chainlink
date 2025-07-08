@@ -116,7 +116,7 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		return out, fmt.Errorf("signing failed: %w", err)
 	}
 
-	err = sendRequest(HyperliquidEnableBigBlocksRequestPayload{
+	err = sendRequest(EnableBigBlocksRequestPayload{
 		Action:    action,
 		Nonce:     nonce,
 		Signature: sig,
@@ -206,7 +206,7 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 }
 
 // sendRequest sends the HTTP POST request with the signed payload
-func sendRequest(payload HyperliquidEnableBigBlocksRequestPayload, config EnableBigBlocksDetailConfig) error {
+func sendRequest(payload EnableBigBlocksRequestPayload, config EnableBigBlocksDetailConfig) error {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error marshaling payload: %w", err)
