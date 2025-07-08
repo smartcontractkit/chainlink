@@ -37,7 +37,7 @@ type EnableBigBlocksConfig struct {
 }
 
 // Payload to be sent in the HTTP POST request
-type HyperliquidEnableBigBlocksRequestPayload struct {
+type EnableBigBlocksRequestPayload struct {
 	Action    map[string]interface{} `json:"action"`    // Action details
 	Nonce     int64                  `json:"nonce"`     // Unique nonce for the request
 	Signature ECDSASignature         `json:"signature"` // ECDSA signature of the action
