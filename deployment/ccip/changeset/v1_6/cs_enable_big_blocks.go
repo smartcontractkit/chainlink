@@ -62,7 +62,7 @@ func EnableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig
 	return nil
 }
 
-func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) { //change name of function in line with other changesets
+func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
 	chainIDStr, err := chain_selectors.GetChainIDFromSelector(cfg.ChainSel)
 
 	out := cldf.ChangesetOutput{}
@@ -123,7 +123,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		return out, fmt.Errorf("send failed: %w", err)
 	}
 
-	out.Reports = append(out.Reports, operations.Report[any, any]{ //append txn hash or details , append response from txn
+	out.Reports = append(out.Reports, operations.Report[any, any]{
 		Output: "Big blocks enabled",
 	})
 	return out, nil
@@ -208,7 +208,6 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 
 // sendRequest sends the HTTP POST request with the signed payload
 func sendRequest(payload RequestPayload, config Config) error {
-
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error marshaling payload: %w", err)
@@ -251,6 +250,9 @@ func ActionHash(action map[string]interface{}, vaultAddress *string, nonce int64
 
 	// Append the nonce
 	nonceBytes := make([]byte, 8)
+	if nonce < 0 {
+		return nil, fmt.Errorf("nonce must be non-negative, got %d", nonce)
+	}
 	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))
 	buf.Write(nonceBytes)
 
