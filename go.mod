@@ -81,7 +81,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250703172708-3dacb811e668
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250704132534-8b66194211c0
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250707172246-8b66194211c0
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250704215855-8e0907d77096
 	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250704203933-af56933301a8
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
@@ -400,7 +400,7 @@ require (
 )
 
 // TODO(gg): temporary, base it on https://github.com/smartcontractkit/chainlink-common/pull/1224
-replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+// replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
 // replace github.com/smartcontractkit/chainlink-common/pkg/values => ../chainlink-common/pkg/values
 
