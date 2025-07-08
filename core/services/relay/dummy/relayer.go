@@ -24,12 +24,13 @@ type RelayConfig struct {
 }
 
 type relayer struct {
+	types.UnimplementedRelayer
 	lggr    logger.Logger
 	chainID string
 }
 
 func NewRelayer(lggr logger.Logger, chainID string) loop.Relayer {
-	return &relayer{lggr, chainID}
+	return &relayer{lggr: lggr, chainID: chainID}
 }
 
 func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byte) (types.ContractWriter, error) {
@@ -37,14 +38,6 @@ func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byt
 }
 
 func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []byte) (types.ContractReader, error) {
-	return nil, nil
-}
-
-func (r *relayer) EVM() (types.EVMService, error) {
-	return nil, nil
-}
-
-func (r *relayer) TON() (types.TONService, error) {
 	return nil, nil
 }
 
