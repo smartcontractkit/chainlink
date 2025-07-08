@@ -3,6 +3,7 @@ package securemint
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -115,7 +116,10 @@ func (t *transmitter) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to add transmitter to registry: %w", err)
 	}
-	go t.sendTriggerEvents(ctx)
+	secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
+	if !ok || secureMintTransmitterHackDisabled != "true" {
+		go t.sendTriggerEvents(ctx)
+	}
 	t.eng.Infow("SecureMintTransmitter registered", "triggerCapabilityInfo", t.CapabilityInfo)
 	return nil
 }
