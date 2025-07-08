@@ -57,11 +57,12 @@ func Test_Validate(t *testing.T) {
 
 func TestParseSecureMintConfig(t *testing.T) {
 	tests := []struct {
-		name             string
-		configJSON       string
-		expectedToken    string
-		expectedReserves string
-		expectError      bool
+		name                   string
+		configJSON             string
+		expectedToken          string
+		expectedReserves       string
+		expectedChainSelectors []string
+		expectError            bool
 	}{
 		{
 			name:        "empty config is invalid",
@@ -69,25 +70,36 @@ func TestParseSecureMintConfig(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:             "custom values",
-			configJSON:       `{"token": "btc", "reserves": "custom"}`,
-			expectedToken:    "btc",
-			expectedReserves: "custom",
-			expectError:      false,
+			name:                   "custom values",
+			configJSON:             `{"token": "btc", "reserves": "custom", "chainSelectors": ["8953668971247136127", "729797994450396300"]}`,
+			expectedToken:          "btc",
+			expectedReserves:       "custom",
+			expectedChainSelectors: []string{"8953668971247136127", "729797994450396300"},
+			expectError:            false,
 		},
 		{
-			name:             "partial config uses empty string",
-			configJSON:       `{"token": "link"}`,
-			expectedToken:    "link",
-			expectedReserves: "",
-			expectError:      false,
+			name:                   "partial config uses empty string",
+			configJSON:             `{"token": "link", "chainSelectors": ["8953668971247136127", "729797994450396300"]}`,
+			expectedToken:          "link",
+			expectedReserves:       "",
+			expectedChainSelectors: []string{"8953668971247136127", "729797994450396300"},
+			expectError:            false,
 		},
 		{
-			name:             "partial config uses empty string 2",
-			configJSON:       `{"reserves": "custom"}`,
-			expectedToken:    "",
-			expectedReserves: "custom",
-			expectError:      false,
+			name:                   "partial config uses empty string 2",
+			configJSON:             `{"reserves": "custom", "chainSelectors": ["8953668971247136127", "729797994450396300"]}`,
+			expectedToken:          "",
+			expectedReserves:       "custom",
+			expectedChainSelectors: []string{"8953668971247136127", "729797994450396300"},
+			expectError:            false,
+		},
+		{
+			name:                   "partial config uses empty slice",
+			configJSON:             `{"token": "btc", "reserves": "custom"}`,
+			expectedToken:          "btc",
+			expectedReserves:       "custom",
+			expectedChainSelectors: nil,
+			expectError:            false,
 		},
 		{
 			name:             "invalid JSON",
@@ -111,6 +123,7 @@ func TestParseSecureMintConfig(t *testing.T) {
 			require.NotNil(t, config)
 			require.Equal(t, tt.expectedToken, config.Token)
 			require.Equal(t, tt.expectedReserves, config.Reserves)
+			require.Equal(t, tt.expectedChainSelectors, config.ChainSelectors)
 		})
 	}
 }

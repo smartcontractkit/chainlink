@@ -240,7 +240,6 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 		gomega.BeTrue(),
 		fmt.Sprintf("expected at least %d reports transmitted, but got less", expectedNumTransmissions),
 	)
-
 }
 
 func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend, nodes []node, oracles []confighelper.OracleIdentityExtra) (*configurator.Configurator, common.Address) {

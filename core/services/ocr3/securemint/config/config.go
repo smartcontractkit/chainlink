@@ -8,8 +8,9 @@ import (
 
 // SecureMintConfig holds secure mint specific configuration
 type SecureMintConfig struct {
-	Token    string `json:"token"`
-	Reserves string `json:"reserves"`
+	Token          string   `json:"token"`
+	Reserves       string   `json:"reserves"`
+	ChainSelectors []string `json:"chainSelectors"`
 
 	// Trigger capability configuration
 	TriggerCapabilityName        string `json:"triggerCapabilityName"`
