@@ -171,7 +171,7 @@ func TestVault_E2E(t *testing.T) {
 		job, resp, err := client.CreateJobRaw(gatewayJobSpec)
 		require.NoError(t, err, "Gateway job creation request must not error")
 		require.Empty(t, job.Errors, "Gateway job creation response must not return any errors")
-		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Gateway job creation response must return a job ID: %v.", job))
+		require.NotEmpty(t, job.Data.ID, "Gateway job creation response must return a job ID: %v.", job)
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 	}
 	fmt.Println("✅ Gateway jobs created successfully.")
@@ -217,8 +217,8 @@ func TestVault_E2E(t *testing.T) {
 		fmt.Println(job)
 		fmt.Println(resp)
 		require.NoError(t, err, "Vault job creation request must not error")
-		require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("Vault job creation response must return 200 OK: %v", resp))
-		require.NotEmpty(t, job.Data.ID, fmt.Sprintf("Vault job creation response must return a job ID: %v.", job))
+		require.Equal(t, http.StatusOK, resp.StatusCode, "Vault job creation response must return 200 OK: %v", resp)
+		require.NotEmpty(t, job.Data.ID, "Vault job creation response must return a job ID: %v.", job)
 		fmt.Println(job.Data.ID)
 	}
 	fmt.Println("✅ Vault jobs created successfully.")

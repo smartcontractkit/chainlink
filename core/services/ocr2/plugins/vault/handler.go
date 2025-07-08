@@ -7,7 +7,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	vault_api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
@@ -87,13 +86,4 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 		return err
 	}
 	return nil
-}
-
-func sendResponse(ctx context.Context, response gw_handlers.UserCallbackPayload, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	select {
-	case callbackCh <- response:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
