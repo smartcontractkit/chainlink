@@ -79,10 +79,22 @@ jobs:
         if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
-      - name: Checkout
+      - name: Checkout chainlink repository
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
+
+      # checkout chainlink-evm repository so that Seth can load gethwrappers and decode report-submitting transactions
+      # in case of test failure
+      - name: Checkout chainlink-evm repository
+        uses: actions/checkout@v4
+        with:
+          ref: 'develop'
+          path: chainlink-evm
+          repository: smartcontractkit/chainlink-evm
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sparse-checkout: |
+            gethwrappers/keystone
 
       - name: Set up Go
         id: setup-go
