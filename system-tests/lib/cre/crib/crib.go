@@ -3,18 +3,20 @@ package crib
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/crib-sdk/crib"
-	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
-	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
-	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/smartcontractkit/crib-sdk/crib"
+	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
+	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
+	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -229,9 +231,20 @@ func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, 
 		return nil, nil, errors.Wrap(tomlErr, "failed to clean TOML")
 	}
 
+	// Merge user overrides
+	cleanedUserToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.UserConfigOverrides)
+	if tomlErr != nil {
+		return nil, nil, errors.Wrap(tomlErr, "failed to clean user TOML")
+	}
+
+	finalToml, err := mergeToml(cleanedToml, cleanedUserToml)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to merge TOML")
+	}
+
 	secretsFileBytes := []byte(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestSecretsOverrides)
 
-	tomlString := string(cleanedToml)
+	tomlString := string(finalToml)
 	secretsString := string(secretsFileBytes)
 	return &tomlString, &secretsString, nil
 }
@@ -374,6 +387,49 @@ func cleanToml(tomlStr string) ([]byte, error) {
 	}
 
 	return newTOMLBytes, nil
+}
+
+// mergeToml merges two TOML configurations.
+// It takes base TOML content (tomlOne) and overlay TOML content (tomlTwo) as byte slices,
+// and combines them with the overlay values taking precedence over the base values.
+func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
+	// Parse the first TOML
+	var baseConfig map[string]interface{}
+	if err := toml.Unmarshal(tomlOne, &baseConfig); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal first TOML")
+	}
+
+	// Parse the second TOML
+	var overlayConfig map[string]interface{}
+	if err := toml.Unmarshal(tomlTwo, &overlayConfig); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal second TOML")
+	}
+
+	// Deep merge the maps
+	for k, v := range overlayConfig {
+		// If both values are maps, merge them recursively
+		if baseVal, ok := baseConfig[k]; ok {
+			if baseMap, isBaseMap := baseVal.(map[string]interface{}); isBaseMap {
+				if overlayMap, isOverlayMap := v.(map[string]interface{}); isOverlayMap {
+					// Recursively merge nested maps
+					for nestedKey, nestedVal := range overlayMap {
+						baseMap[nestedKey] = nestedVal
+					}
+					continue
+				}
+			}
+		}
+		// Otherwise, override the value
+		baseConfig[k] = v
+	}
+
+	// Marshal back to TOML
+	result, err := toml.Marshal(baseConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal merged config")
+	}
+
+	return result, nil
 }
 
 func DeployJd(input *types.DeployCribJdInput) (*jd.Output, error) {
