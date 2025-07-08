@@ -44,6 +44,7 @@ concurrency:
 env:
   # for run-test variables and environment
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
+  ECR_NAME: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   TEST_SUITE: smoke
   MOD_CACHE_VERSION: 2
@@ -249,7 +250,7 @@ jobs:
           image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-          docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+          docker-repository-name: ${{ env.ECR_NAME }}
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -272,7 +273,7 @@ jobs:
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets: inherit
@@ -298,7 +299,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -335,7 +336,7 @@ jobs:
     if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
@@ -353,7 +354,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
@@ -379,7 +380,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -426,7 +427,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -473,7 +474,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -519,7 +520,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -564,7 +565,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -614,7 +615,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -664,7 +665,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -713,7 +714,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.changes.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr_name: ${{ env.ECR_NAME }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
