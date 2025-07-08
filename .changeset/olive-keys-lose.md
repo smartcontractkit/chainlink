@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Implement fetching encryption keys for all Workfow Nodes in the Secrets Fetcher
+#internal Implement fetching encryption keys for all Workflow Nodes in the SecretsFetcher
