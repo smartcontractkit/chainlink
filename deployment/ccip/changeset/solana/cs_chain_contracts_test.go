@@ -43,7 +43,7 @@ import (
 )
 
 // token setup
-func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, walletPubKeys []string) (cldf.Environment, solana.PublicKey, error) {
+func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, walletPubKeys []string, tokenSymbol string) (cldf.Environment, solana.PublicKey, error) {
 	mintMap := make(map[string]uint64)
 	for _, key := range walletPubKeys {
 		mintMap[key] = uint64(1000)
@@ -55,7 +55,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 				ChainSelector:       solChain,
 				TokenProgramName:    shared.SPLTokens,
 				TokenDecimals:       9,
-				TokenSymbol:         "TEST_TOKEN",
+				TokenSymbol:         tokenSymbol,
 				ATAList:             walletPubKeys,
 				MintAmountToAddress: mintMap,
 			},
@@ -70,7 +70,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 		cldf.TypeAndVersion{
 			Type:    shared.SPLTokens,
 			Version: deployment.Version1_0_0,
-			Labels:  cldf.NewLabelSet("TEST_TOKEN"),
+			Labels:  cldf.NewLabelSet(tokenSymbol),
 		},
 		addresses,
 	)
@@ -322,7 +322,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
@@ -591,14 +591,16 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
+	require.NoError(t, err)
+	e, tokenAddress2, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN_2")
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	linkTokenAddress := state.SolChains[solChain].LinkToken
 	newAdminNonTimelock, _ := solana.NewRandomPrivateKey()
-	newAdmin := newAdminNonTimelock.PublicKey()
-	newTokenAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
+	newAdminRegistryAdmin := newAdminNonTimelock.PublicKey()
+	tokenAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
@@ -613,8 +615,8 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 		}
 		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 		require.NoError(t, err)
-		newAdmin = timelockSignerPDA
-		newTokenAdmin = timelockSignerPDA
+		newAdminRegistryAdmin = timelockSignerPDA
+		tokenAdmin = timelockSignerPDA
 	}
 	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 	require.NoError(t, err)
@@ -624,40 +626,53 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 			// register token admin registry for tokenAddress via admin instruction
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress,
-				TokenAdminRegistryAdmin: newAdmin.String(),
-				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-				MCMS:                    mcmsConfig,
+				ChainSelector: solChain,
+				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+					{
+						TokenPubKey:             tokenAddress,
+						TokenAdminRegistryAdmin: newAdminRegistryAdmin,
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+					{
+						TokenPubKey:             tokenAddress2,
+						TokenAdminRegistryAdmin: newAdminRegistryAdmin,
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+				},
+				MCMS: mcmsConfig,
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
 				ChainSelector: solChain,
-				AuthorityType: solToken.AuthorityMintTokens,
-				TokenPubkey:   linkTokenAddress,
-				NewAuthority:  newTokenAdmin,
+				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
+					{
+						AuthorityType: solToken.AuthorityMintTokens,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  tokenAdmin,
+					},
+					{
+						AuthorityType: solToken.AuthorityFreezeAccount,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  tokenAdmin,
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
-			ccipChangesetSolana.SetTokenAuthorityConfig{
-				ChainSelector: solChain,
-				AuthorityType: solToken.AuthorityFreezeAccount,
-				TokenPubkey:   linkTokenAddress,
-				NewAuthority:  newTokenAdmin,
-			},
-		),
-		commonchangeset.Configure(
-			// register token admin registry for linkToken via owner instruction
+			// register token admin registry for tokenAddress via owner instruction
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             linkTokenAddress,
-				TokenAdminRegistryAdmin: newAdmin.String(),
-				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
-				MCMS:                    mcmsConfig,
+				ChainSelector: solChain,
+				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+					{
+						TokenPubKey:             linkTokenAddress,
+						TokenAdminRegistryAdmin: newAdminRegistryAdmin,
+						RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
+					},
+				},
+				MCMS: mcmsConfig,
 			},
 		),
 	},
@@ -670,13 +685,13 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
 	// pending administrator should be the proposed admin key
-	require.Equal(t, newAdmin, tokenAdminRegistryAccount.PendingAdministrator)
+	require.Equal(t, newAdminRegistryAdmin, tokenAdminRegistryAccount.PendingAdministrator)
 
 	linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
 	var linkTokenAdminRegistryAccount solCommon.TokenAdminRegistry
 	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
 	require.NoError(t, err)
-	require.Equal(t, newAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
+	require.Equal(t, newAdminRegistryAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
 
 	// While we can assign the admin role arbitrarily regardless of mcms, we can only accept it as timelock
 	if mcms {
@@ -686,8 +701,15 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress,
-					MCMS:          mcmsConfig,
+					AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+						{
+							TokenPubKey: tokenAddress,
+						},
+						{
+							TokenPubKey: tokenAddress2,
+						},
+					},
+					MCMS: mcmsConfig,
 				},
 			),
 		)
@@ -703,10 +725,18 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				// transfer admin role for tokenAddress
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
-					ChainSelector:             solChain,
-					TokenPubKey:               tokenAddress.String(),
-					NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey().String(),
-					MCMS:                      mcmsConfig,
+					ChainSelector: solChain,
+					TransferTokenAdminConfigs: []ccipChangesetSolana.TrasnferTokenAdminConfig{
+						{
+							TokenPubKey:               tokenAddress,
+							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
+						},
+						{
+							TokenPubKey:               tokenAddress2,
+							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
+						},
+					},
+					MCMS: mcmsConfig,
 				},
 			),
 		},
@@ -752,7 +782,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 		newAdmin = timelockSignerPDA
 	}
 
-	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{})
+	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
 	pool := solTestTokenPool.LockAndRelease_PoolType
 	e, err = commonchangeset.Apply(t, e,
@@ -781,28 +811,40 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 		// register token admin registry for linkToken via owner instruction
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 		ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-			ChainSelector:           solChain,
-			TokenPubKey:             tokenAddress,
-			TokenAdminRegistryAdmin: newAdmin.String(),
-			RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-			MCMS:                    mcmsConfig,
+			ChainSelector: solChain,
+			RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+				{
+					TokenPubKey:             tokenAddress,
+					TokenAdminRegistryAdmin: newAdmin,
+					RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+				},
+			},
+			MCMS: mcmsConfig,
 		},
 	), commonchangeset.Configure(
 		// accept admin role for tokenAddress
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
 		ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 			ChainSelector: solChain,
-			TokenPubKey:   tokenAddress,
-			MCMS:          mcmsConfig,
+			AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+				{
+					TokenPubKey: tokenAddress,
+				},
+			},
+			MCMS: mcmsConfig,
 		},
 	), commonchangeset.Configure(
 		// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
 		ccipChangesetSolana.SetPoolConfig{
-			ChainSelector:   solChain,
-			TokenPubKey:     tokenAddress,
-			PoolType:        &pool,
-			Metadata:        tokenMetadata,
+			ChainSelector: solChain,
+			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
+				{
+					TokenPubKey: tokenAddress,
+					PoolType:    &pool,
+					Metadata:    tokenMetadata,
+				},
+			},
 			WritableIndexes: []uint8{3, 4, 7},
 			MCMS:            mcmsConfig,
 		},

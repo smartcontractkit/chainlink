@@ -3,10 +3,10 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/protoc/pkg/test_capabilities/basictrigger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+	"github.com/smartcontractkit/cre-sdk-go/sdk"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
 	"gopkg.in/yaml.v3"
 )
 

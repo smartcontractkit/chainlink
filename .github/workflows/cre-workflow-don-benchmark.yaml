@@ -30,7 +30,7 @@ jobs:
   workflow-don-benchmark:
     runs-on: ubuntu-latest
     environment: "integration"
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
       id-token: write
@@ -90,7 +90,7 @@ jobs:
           cat > prometheus.yml<<EOF
           global:
             scrape_interval: 5s
-          
+
           scrape_configs:
             - job_name: 'cadvisor'
               static_configs:
@@ -125,11 +125,35 @@ jobs:
           PROMETHEUS_URL: "http://localhost:9090"
         run: |
           cd system-tests/tests/load/cre
-          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 15m
+          go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 20m 2>&1 | tee test_output.log
 
+      - name: Parse logs for performance regressions
+        if: always()
+        id: parse-regressions
+        run: |
+          cd system-tests/tests/load/cre
+
+          # Count the number of regressions - handle exit code properly
+          if grep -c "PERFORMANCE REGRESSION:" test_output.log > /tmp/count.txt; then
+            regression_count=$(cat /tmp/count.txt)
+          else
+            regression_count=0
+          fi
+
+          echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
+
+          if [ $regression_count -gt 0 ]; then
+            echo "::warning::$regression_count performance regressions detected"
+            echo "See the regression_reports artifact for details"
+            # Extract detailed PERFORMANCE REGRESSION lines
+            grep -o "PERFORMANCE REGRESSION.*)" test_output.log | awk '{printf "%s\  ", $0}' > logs/regression_details.txt
+          else
+            echo "No performance regressions detected"
+            mkdir -p logs
+            touch logs/regression_details.txt
+          fi
 
       - name: Upload node logs
-        if: always()
         uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
@@ -148,6 +172,85 @@ jobs:
           path: |
             system-tests/tests/load/cre/performance_reports
           retention-days: 30
+
+
+      - name: Create regression slack payload
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        id: create-regression-payload
+        run: |
+          cd system-tests/tests/load/cre
+          
+          # Read regression details
+          REGRESSION_DETAILS=$(cat logs/regression_details.txt)
+
+          # Create JSON payload with properly escaped details
+          cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
+          {
+            "channel": "C094W1V9A5N",
+            "text": "Performance Regressions Detected",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*:rotating_light: ${{steps.parse-regressions.outputs.regression_count}} Performance Regressions Detected :rotating_light:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "Performance regression for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>."
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Regression Details:*\\n $REGRESSION_DETAILS"
+                }
+              }
+            ]
+          }
+          EOF
+
+      - name: Send regression slack notification
+        if: success() && steps.parse-regressions.outputs.regression_count > 0
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload-file-path: ${{ github.workspace }}/slack_payload.json
+
+      - name: Send failure slack notification
+        if: failure()
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            {
+              "channel": "C094W1V9A5N",
+              "text": "Test failure",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: Test failure :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Test failure for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. ${{ github.event_name != 'pull_request' && 'This commit was already merged to develop.' || 'This is from a pull request.' }}"
+                  }
+                }
+              ]
+            }
 
       - name: Teardown
         if: always()

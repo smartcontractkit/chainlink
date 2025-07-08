@@ -300,6 +300,64 @@ func assertDestinationBalanceEqual(expectedBalance *big.Int) balanceAssertion {
 	}
 }
 
+func withdrawPoolFeesUsingChangeset(t *testing.T, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, recipientAddress common.Address, useMCMS bool) error {
+	config := v1_5_1.FastTransferWithdrawPoolFeesConfig{
+		TokenSymbol:     shared.TokenSymbol(tokenSymbol),
+		ContractType:    contractType,
+		ContractVersion: contractVersion,
+		Withdrawals: map[uint64]common.Address{
+			chainSelector: recipientAddress,
+		},
+	}
+
+	if useMCMS {
+		config.MCMS = &proposalutils.TimelockConfig{
+			MinDelay:   0 * time.Second,
+			MCMSAction: mcmstypes.TimelockActionSchedule,
+		}
+	}
+
+	_, _, err := commonchangeset.ApplyChangesets(t, env,
+		[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			v1_5_1.FastTransferWithdrawPoolFeesChangeset,
+			config,
+		)}, commonchangeset.WithRealBackend())
+
+	return err
+}
+
+func assertPoolFeeWithdrawal(expectedWithdrawnAmount *big.Int, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, destinationToken balanceToken, useMCMS bool, withdrawLock *sync.Mutex) balanceAssertion {
+	return func(t *testing.T, sourceToken balanceToken, destinationTokenParam balanceToken, address common.Address, description string) {
+		withdrawLock.Lock()
+		defer withdrawLock.Unlock()
+
+		recipientAddress, _, _ := createAccount(t, destinationChainID)
+
+		pool, err := bindings.GetFastTransferTokenPoolContract(env, shared.TokenSymbol(tokenSymbol), contractType, contractVersion, chainSelector)
+		require.NoError(t, err)
+
+		accumulatedFees, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, expectedWithdrawnAmount.Int64(), accumulatedFees.Int64(), description+" - Accumulated pool fees should match expected amount")
+
+		recipientBalanceBefore, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		err = withdrawPoolFeesUsingChangeset(t, env, tokenSymbol, contractType, contractVersion, chainSelector, recipientAddress, useMCMS)
+		require.NoError(t, err)
+
+		recipientBalanceAfter, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		expectedRecipientBalance := big.NewInt(0).Add(recipientBalanceBefore, expectedWithdrawnAmount)
+		require.Equal(t, expectedRecipientBalance.Int64(), recipientBalanceAfter.Int64(), description+" - Recipient should receive the withdrawn pool fees")
+
+		accumulatedFeesAfter, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), accumulatedFeesAfter.Int64(), description+" - Pool accumulated fees should be zero after withdrawal")
+	}
+}
+
 func createAccount(t *testing.T, chainID uint64) (common.Address, func() *bind.TransactOpts, *ecdsa.PrivateKey) {
 	userPrivateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1320,7 +1378,7 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		sourceToken := deployTokenAndGrantAllRoles(t, ctx.SourceChain(), tc.tokenSymbol, tokenDecimals, ctx.sourceLock, tc.externalMinter || tc.isHybridPool)
 		destinationToken := deployTokenAndGrantAllRoles(t, ctx.DestinationChain(), tc.tokenSymbol, tokenDecimals, ctx.destinationLock, tc.externalMinter || tc.isHybridPool)
 
-		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
+		sourceTokenPoolAddress, destinationTokenPoolAddress, contractVersion, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
 		var contractType cldf.ContractType
 		switch {
 		case tc.isHybridPool:
@@ -1422,6 +1480,17 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
 		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
 
+		if tc.enableFiller {
+			expectedPoolFee := big.NewInt(0).Mul(transferAmount, big.NewInt(int64(tc.fastTransferPoolFeeBps)))
+			expectedPoolFee = big.NewInt(0).Div(expectedPoolFee, big.NewInt(10000))
+			// Pool fees are only accumulated during fast fills
+			poolFeeAssertion := assertPoolFeeWithdrawal(expectedPoolFee, ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test")
+		} else {
+			// When no filler was used, pool fees should be 0
+			poolFeeAssertion := assertPoolFeeWithdrawal(big.NewInt(0), ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test (No Filler)")
+		}
 		if !tc.expectNoExecutionError {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
 			// We want to ensure regular transfer works as expected
