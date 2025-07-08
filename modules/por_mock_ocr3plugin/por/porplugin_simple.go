@@ -29,15 +29,8 @@ func (f *PorReportingPluginFactory) NewReportingPlugin(ctx context.Context, conf
 	}
 
 	maxChains := porOffchainConfig.MaxChains
-
-	mintablesMapLength := maxChains * (8 + 32)   // 8 bytes for BlockNumber, 32 bytes for big.Int (assuming max 256-bit big.Int size)
-	honestBlocksMapLength := maxChains * (8 + 8) // 8 bytes for BlockNumber, 8 bytes for ChainSelector (64-bit integers)
-
-	porObservationLength := mintablesMapLength + honestBlocksMapLength
-	porPluginOutcomeLength := mintablesMapLength + honestBlocksMapLength + 1
-
-	maxObservationLength := int(max((3*porObservationLength)/2, 128)) // estimate the size of the JSON-encoded observation
-	maxOutcomeLength := int(max((3*porPluginOutcomeLength)/2, 128))   // estimate the size of the JSON-encoded outcome
+	maxObservationLength := maxPorPluginObservationLengthJsonEstimate(uint64(maxChains))    // estimate the size of the JSON-encoded observation
+	maxOutcomeLength := maxPorPluginOutcomeObservationJsonLengthEstimate(uint64(maxChains)) // estimate the size of the JSON-encoded outcome
 
 	rm := f.ReportMarshaler
 	if rm == nil {
@@ -46,11 +39,11 @@ func (f *PorReportingPluginFactory) NewReportingPlugin(ctx context.Context, conf
 	maxReportLength := rm.MaxReportSize(ctx)
 
 	limits := ocr3types.ReportingPluginLimits{
-		0,
-		maxObservationLength,
-		maxOutcomeLength,
-		maxReportLength,
-		int(maxChains),
+		MaxQueryLength:       0,
+		MaxObservationLength: maxObservationLength,
+		MaxOutcomeLength:     maxOutcomeLength,
+		MaxReportLength:      maxReportLength,
+		MaxReportCount:       int(maxChains),
 	}
 
 	ea := f.ExternalAdapter
@@ -63,6 +56,9 @@ func (f *PorReportingPluginFactory) NewReportingPlugin(ctx context.Context, conf
 		cr = NewMockContractReader(config.ConfigDigest)
 	}
 
+	// Note: it is guaranteed that 3F+1 <= N in the config file passed as argument, as it is a strict
+	// requirement for the OCR protocol. Hence, there is no need for an explicit check here.
+
 	return &porReportingPlugin{
 			maxChains,
 			ea,
@@ -71,8 +67,8 @@ func (f *PorReportingPluginFactory) NewReportingPlugin(ctx context.Context, conf
 			config,
 			f.Logger,
 		}, ocr3types.ReportingPluginInfo{
-			"PorReportingPluginV1",
-			limits,
+			Name:   "PorReportingPluginV1",
+			Limits: limits,
 		},
 		nil
 }
@@ -311,8 +307,8 @@ func (p *porReportingPlugin) Reports(ctx context.Context, seqNr uint64, outcome 
 		// Create a report for the chain
 		reports = append(reports, ocr3types.ReportPlus[ChainSelector]{
 			ReportWithInfo: ocr3types.ReportWithInfo[ChainSelector]{
-				encodedReport,
-				chain,
+				Report: encodedReport,
+				Info:   chain,
 			},
 			TransmissionScheduleOverride: nil,
 		})
@@ -434,11 +430,7 @@ func (p *porReportingPlugin) deduceHonestMintables(outctx ocr3types.OutcomeConte
 			return nil, fmt.Errorf("could not convert query response to string: %w", err)
 		}
 
-		if _, exists := mintablesFrequencyMap[string(uniqueEncoding)]; exists {
-			mintablesFrequencyMap[string(uniqueEncoding)]++
-		} else {
-			mintablesFrequencyMap[string(uniqueEncoding)] = 1
-		}
+		mintablesFrequencyMap[string(uniqueEncoding)]++
 	}
 
 	// Find mintables with enough support (seen by at least F+1 oracles)
@@ -502,11 +494,11 @@ func (p *porReportingPlugin) deduceLatestHonestBlocks(honestBlocks Blocks, ppos 
 
 		slices.Sort(numbers)
 
-		// Among |pos| >= 2F+1 observations, it is safe to pick any block index where N-F > X >= F.
+		// Among |pos| >= 2F+1 observations, it is safe to pick any block index where |pos|-F > X >= F.
 		// In this case, we are choosing the highest block number among the safe options.
 		// (In practice, the number of faults will often be zero, to in the next round the top F+1
 		// fastest oracles should be able to answer the query corresponding the F+1th fastest oracle.)
-		safeBlock := numbers[p.config.N-p.config.F-1]
+		safeBlock := numbers[len(numbers)-p.config.F-1]
 		originalHonestBlock := honestBlocks[chain]
 
 		// Ensure monotonicity of the honest blocks
@@ -528,6 +520,10 @@ func (p *porReportingPlugin) deduceLatestHonestBlocks(honestBlocks Blocks, ppos 
 
 	// Then we check if enough oracles (> F) want to start tracking each new chain to avoid malicious suggestions.
 	for chain, blockNumbers := range newChains {
+		// Here, we cannot pick a higher quorum threshold than F+1, as we can only guarantee that F+1 responses
+		// come from honest oracles out of the total of 2F+1 responses. For the remaining F responses, we cannot
+		// distinguish whether the oracle is malicious, or if they are honest and have not yet started tracking
+		// the new chain.
 		if len(blockNumbers) > int(p.config.F) {
 			// It is safe to underestimate the block number. In theory, we could even just start at 0.
 			// However, it is *not* safe to overestimate.
@@ -561,7 +557,7 @@ func deserializePorPluginOutcome(outcome []byte) (porPluginOutcome, error) {
 	if err != nil {
 		return porPluginOutcome{}, err
 	}
-	return ppo, err
+	return ppo, nil
 }
 
 func serializePorPluginOutcome(ppo porPluginOutcome) (ocr3types.Outcome, error) {
@@ -605,4 +601,24 @@ func deserializePorPluginObservation(raw []byte) (porPluginObservation, error) {
 
 func serializePorPluginObservation(rq porPluginObservation) (types.Observation, error) {
 	return json.Marshal(rq)
+}
+
+func mintablesMapLength(maxChains uint64) uint64 {
+	// Estimate the size of the mintables map
+	return maxChains * (8 + 32) // 8 bytes for BlockNumber, 32 bytes for big.Int (assuming max 256-bit big.Int size)
+}
+
+func honestBlocksMapLength(maxChains uint64) uint64 {
+	// Estimate the size of the honest blocks map
+	return maxChains * (8 + 8) // 8 bytes for BlockNumber, 8 bytes for ChainSelector (64-bit integers)
+}
+
+func maxPorPluginOutcomeObservationJsonLengthEstimate(maxChains uint64) int {
+	porPluginOutcomeLength := mintablesMapLength(maxChains) + honestBlocksMapLength(maxChains) + maxChains // +1 for changedMintables map
+	return int((4 * porPluginOutcomeLength) + 256)                                                         // estimate the size of the JSON-encoded outcome
+}
+
+func maxPorPluginObservationLengthJsonEstimate(maxChains uint64) int {
+	porObservationLength := mintablesMapLength(maxChains) + honestBlocksMapLength(maxChains)
+	return int((4 * porObservationLength) + 256) // estimate the size of the JSON-encoded observation
 }
