@@ -75,6 +75,10 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	}
 
 	chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if chainID > uint64(maxInt64) {
+		return out, fmt.Errorf("chain ID too large for int64: %d", chainID)
+	}
 
 	if err != nil {
 		return out, fmt.Errorf("error converting string to uint64: %w", err)
@@ -98,9 +102,6 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	defaultRequestTimeout := 10 * time.Second
 
 	nonce := time.Now().UnixMilli()
-	if chainID > math.MaxInt64 {
-		return out, fmt.Errorf("chain ID too large for int64: %d", chainID)
-	}
 	config := Config{
 		URL:               cfg.APIURL,
 		ChainID:           int64(chainID),
