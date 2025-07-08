@@ -1,4 +1,4 @@
-package v1_6
+package hyperliquid
 
 import (
 	"bytes"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/ugorji/go/codec"
@@ -38,7 +37,7 @@ type EnableBigBlocksConfig struct {
 }
 
 // Payload to be sent in the HTTP POST request
-type RequestPayload struct {
+type HyperliquidEnableBigBlocksRequestPayload struct {
 	Action    map[string]interface{} `json:"action"`    // Action details
 	Nonce     int64                  `json:"nonce"`     // Unique nonce for the request
 	Signature ECDSASignature         `json:"signature"` // ECDSA signature of the action
@@ -50,14 +49,14 @@ type ECDSASignature struct {
 	V byte   `json:"v"`
 }
 
-type Config struct {
+type HyperliquidEnableBigBlocksConfig struct {
 	URL               string        // RPC URL
 	ChainID           int64         // chain ID
 	VerifyingContract string        // Verifying contract address
 	RequestTimeout    time.Duration // HTTP request timeout
 }
 
-func EnableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig) error {
+func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig) error {
 	_, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -65,7 +64,7 @@ func EnableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig
 	return nil
 }
 
-func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
+func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
 	chainIDStr, err := chain_selectors.GetChainIDFromSelector(cfg.ChainSel)
 
 	out := cldf.ChangesetOutput{}
@@ -105,7 +104,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	defaultRequestTimeout := 10 * time.Second
 
 	nonce := time.Now().UnixMilli()
-	config := Config{
+	config := HyperliquidEnableBigBlocksConfig{
 		URL:               cfg.APIURL,
 		ChainID:           int64(chainID),
 		VerifyingContract: defaultVerifyingContract,
@@ -117,7 +116,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		return out, fmt.Errorf("signing failed: %w", err)
 	}
 
-	err = sendRequest(RequestPayload{
+	err = sendRequest(HyperliquidEnableBigBlocksRequestPayload{
 		Action:    action,
 		Nonce:     nonce,
 		Signature: sig,
@@ -126,13 +125,10 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		return out, fmt.Errorf("send failed: %w", err)
 	}
 
-	out.Reports = append(out.Reports, operations.Report[any, any]{
-		Output: "Big blocks enabled",
-	})
 	return out, nil
 }
 
-func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config Config, chain chain.BlockChain) (ECDSASignature, error) {
+func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config HyperliquidEnableBigBlocksConfig, chain chain.BlockChain) (ECDSASignature, error) {
 	// Compute the action hash
 	actionHash, err := ActionHash(action, nil, nonce)
 	if err != nil {
@@ -210,7 +206,7 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 }
 
 // sendRequest sends the HTTP POST request with the signed payload
-func sendRequest(payload RequestPayload, config Config) error {
+func sendRequest(payload HyperliquidEnableBigBlocksRequestPayload, config HyperliquidEnableBigBlocksConfig) error {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error marshaling payload: %w", err)
