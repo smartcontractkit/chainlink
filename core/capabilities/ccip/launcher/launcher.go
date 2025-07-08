@@ -80,7 +80,7 @@ type launcher struct {
 	instances map[registrysyncer.DonID]pluginRegistry
 }
 
-// Launch implements registrysyncer.Listener.
+// OnNewRegistry implements registrysyncer.Listener.
 func (l *launcher) OnNewRegistry(ctx context.Context, state *registrysyncer.LocalRegistry) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
