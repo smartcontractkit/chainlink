@@ -17,7 +17,6 @@ ifeq ($(UNAME_S),Darwin)
 		OSFLAG = $(OSX)
 endif
 endif
-comma := ,
 
 install_qa_tools:
 ifeq ($(OSFLAG),$(WINDOWS))
@@ -234,7 +233,7 @@ build_docker_image: check_github_token
 	docker build -f ../core/chainlink.Dockerfile \
 		--build-arg COMMIT_SHA=$(git rev-parse HEAD) \
 		--build-arg CHAINLINK_USER=chainlink \
-		--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN \
+		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../
 
 .PHONY: build_plugin_docker_image
