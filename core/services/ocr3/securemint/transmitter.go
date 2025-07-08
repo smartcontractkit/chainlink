@@ -218,7 +218,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.T
 }
 
 func (t *transmitter) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
-	t.eng.Infow("RegisterTrigger", "triggerID", req.TriggerID, "metadata", req.Metadata)
+	t.eng.Debugw("RegisterTrigger", "triggerID", req.TriggerID, "metadata", req.Metadata)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -252,7 +252,7 @@ func validateConfig(registerConfig *values.Map, capabilityConfig *TransmitterCon
 }
 
 func (t *transmitter) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
-	t.eng.Infow("UnregisterTrigger", "triggerID", req.TriggerID)
+	t.eng.Debugw("UnregisterTrigger", "triggerID", req.TriggerID)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
