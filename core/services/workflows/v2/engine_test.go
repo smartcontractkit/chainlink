@@ -870,7 +870,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	)
 	peer := coreCap.RandomUTF8BytesWord()
 	localRegistry := v2.CreateLocalRegistry(t, peer)
-	secretsFetcher.OnNewRegistry(t.Context(), localRegistry)
+	require.NoError(t, secretsFetcher.OnNewRegistry(t.Context(), localRegistry))
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
@@ -904,8 +904,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 			secretList = append(secretList, string(peers.EncryptionPublicKey[:]))
 		}
 		sort.Strings(secretList)
-		for _, peers := range localRegistry.IDsToNodes {
-			expectedSecret = expectedSecret + string(peers.EncryptionPublicKey[:]) + ", "
+		for _, secret := range secretList {
+			expectedSecret = expectedSecret + secret + ", "
 		}
 		require.Equal(t, expectedSecret, unwrapped)
 	default:

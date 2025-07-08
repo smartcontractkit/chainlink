@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
-
 type SecretsFetcher interface {
 	GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error)
 }
@@ -108,7 +107,7 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		return nil, errors.New("failed to get vault capability: " + err.Error())
 	}
 
-	if s.encryptionKeys == nil || len(s.encryptionKeys) == 0 {
+	if len(s.encryptionKeys) == 0 {
 		return nil, errors.New("secrets fetcher is not initialized with encryption keys, cannot fetch secrets")
 	}
 	vp := &vault.GetSecretsRequest{

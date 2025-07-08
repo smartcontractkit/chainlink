@@ -5,16 +5,17 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -97,7 +98,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		},
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -138,7 +139,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		func(shares []string) (string, error) { return "", nil },
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	_, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -175,7 +176,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		},
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -214,7 +215,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		},
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -278,7 +279,7 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 		},
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -339,7 +340,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		},
 	)
 	peer := coreCap.RandomUTF8BytesWord()
-	sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer))
+	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
