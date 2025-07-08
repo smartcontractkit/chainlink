@@ -530,35 +530,51 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 				// deploy token pool and set the burn/mint authority to the tokenPool
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
 				ccipChangesetSolana.E2ETokenPoolConfig{
-					AddTokenPoolAndLookupTable: []ccipChangesetSolana.TokenPoolConfig{
+					AddTokenPoolAndLookupTable: []ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
 						{
 							ChainSelector: solChainSel,
-							TokenPubKey:   solTokenAddress,
-							PoolType:      &bnm,
-							Metadata:      shared.CLLMetadata,
+							TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
+								{
+									TokenPubKey: solTokenAddress,
+									PoolType:    &bnm,
+									Metadata:    shared.CLLMetadata,
+								},
+							},
 						},
 					},
 					RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 						{
-							ChainSelector:           solChainSel,
-							TokenPubKey:             solTokenAddress,
-							TokenAdminRegistryAdmin: e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey().String(),
-							RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+							ChainSelector: solChainSel,
+							RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+								{
+									TokenPubKey:             solTokenAddress,
+									TokenAdminRegistryAdmin: e.BlockChains.SolanaChains()[solChainSel].DeployerKey.PublicKey(),
+									RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+								},
+							},
 						},
 					},
 					AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 						{
 							ChainSelector: solChainSel,
-							TokenPubKey:   solTokenAddress,
+							AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
+								{
+									TokenPubKey: solTokenAddress,
+								},
+							},
 						},
 					},
 					SetPool: []ccipChangesetSolana.SetPoolConfig{
 						{
 							ChainSelector:   solChainSel,
-							TokenPubKey:     solTokenAddress,
-							PoolType:        &bnm,
-							Metadata:        shared.CLLMetadata,
 							WritableIndexes: []uint8{3, 4, 7},
+							SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
+								{
+									TokenPubKey: solTokenAddress,
+									PoolType:    &bnm,
+									Metadata:    shared.CLLMetadata,
+								},
+							},
 						},
 					},
 				},
@@ -759,18 +775,22 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				laneChangesets = append(laneChangesets,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-						ccipChangesetSolana.RemoteChainTokenPoolConfig{
+						ccipChangesetSolana.SetupTokenPoolForRemoteChainConfig{
 							SolChainSelector: solSelector.Selector,
-							SolTokenPubKey:   solChainState.LinkToken,
-							SolPoolType:      &bnm,
-							EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
-								evmSelector.Selector: {
-									TokenSymbol: shared.LinkSymbol,
-									PoolType:    shared.BurnMintTokenPool,
-									PoolVersion: shared.CurrentTokenPoolVersion,
-									RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
-										Inbound:  solTestTokenPool.RateLimitConfig{},
-										Outbound: solTestTokenPool.RateLimitConfig{},
+							RemoteTokenPoolConfigs: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
+								{
+									SolTokenPubKey: solChainState.LinkToken,
+									SolPoolType:    &bnm,
+									EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
+										evmSelector.Selector: {
+											TokenSymbol: shared.LinkSymbol,
+											PoolType:    shared.BurnMintTokenPool,
+											PoolVersion: shared.CurrentTokenPoolVersion,
+											RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
+												Inbound:  solTestTokenPool.RateLimitConfig{},
+												Outbound: solTestTokenPool.RateLimitConfig{},
+											},
+										},
 									},
 								},
 							},
