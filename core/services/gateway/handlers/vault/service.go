@@ -189,9 +189,6 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	// END OF DUMMY RESPONSE
 
 	select {
-	case <-pendingRequest.timeoutCtx.Done():
-		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
-		return fmt.Errorf("request %s timed out", resp.ID)
 	case pendingRequest.callbackCh <- responseObj:
 		promRequestSuccess.WithLabelValues(s.donConfig.DonId).Inc()
 		s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
@@ -204,7 +201,21 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
 
-	return s.sendResponse(ctx, responseObj, pendingRequest.callbackCh)
+	// TODO: Implement request timeout
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(s.requestTimeoutSec)*time.Second)
+	defer cancel()
+	s.mu.Lock()
+	s.pendingRequests[jsonRequest.ID] = &pendingRequest{
+		callbackCh: callbackCh,
+		responses:  make(map[string]*jsonrpc.Response[json.RawMessage]),
+	}
+	s.mu.Unlock()
+	switch jsonRequest.Method {
+	case MethodSecretsCreate:
+		return s.handleSecretsCreate(timeoutCtx, jsonRequest, callbackCh)
+	default:
+		return s.handleUnsupportedMethod(timeoutCtx, jsonRequest, callbackCh)
+	}
 }
 
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {

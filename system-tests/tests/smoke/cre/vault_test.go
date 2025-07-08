@@ -71,7 +71,6 @@ func TestVault_E2E(t *testing.T) {
 	require.NoError(t, err)
 
 	// Retrieve the ETH addresses of the vault nodes
-
 	ethAddresses := []string{}
 	for _, client := range vaultNodeSetClients {
 		nodeEthAddresses, err2 := client.EthAddresses()
