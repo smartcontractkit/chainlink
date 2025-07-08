@@ -15,7 +15,7 @@ var _ services.Service = (*ManualHTTPTriggerService)(nil)
 var _ httpserver.HTTPCapability = (*ManualHTTPTriggerService)(nil)
 
 const HTTPTriggerServiceName = "HttpTriggerService"
-const HTTPTriggerID = "http-trigger@1.0.0"
+const HTTPTriggerID = "http-trigger@1.0.0-alpha"
 
 var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 	HTTPTriggerID,
