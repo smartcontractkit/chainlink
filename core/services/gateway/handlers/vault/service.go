@@ -168,7 +168,6 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	s.mu.Unlock()
 	defer delete(s.pendingRequests, resp.ID)
 
-	// SENDING DUMMY RESPONSE FOR NOW
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		promRequestInternalError.WithLabelValues(s.donConfig.DonId, api.NodeReponseEncodingError.String()).Inc()
@@ -186,7 +185,6 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		RawResponse: rawResponse,
 		ErrorCode:   api.NoError,
 	}
-	// END OF DUMMY RESPONSE
 
 	select {
 	case pendingRequest.callbackCh <- responseObj:
@@ -199,27 +197,7 @@ func (s *service) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 }
 
-	s.lggr.Infof("Processed response for request %s from node %s", resp.ID, nodeAddr)
-
-	// TODO: Implement request timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(s.requestTimeoutSec)*time.Second)
-	defer cancel()
-	s.mu.Lock()
-	s.pendingRequests[jsonRequest.ID] = &pendingRequest{
-		callbackCh: callbackCh,
-		responses:  make(map[string]*jsonrpc.Response[json.RawMessage]),
-	}
-	s.mu.Unlock()
-	switch jsonRequest.Method {
-	case MethodSecretsCreate:
-		return s.handleSecretsCreate(timeoutCtx, jsonRequest, callbackCh)
-	default:
-		return s.handleUnsupportedMethod(timeoutCtx, jsonRequest, callbackCh)
-	}
-}
-
 func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-
 	var req SecretsCreateRequest
 	if err := json.Unmarshal(*jsonRequest.Params, &req); err != nil {
 		promRequestUserError.WithLabelValues(s.donConfig.DonId).Inc()
@@ -281,8 +259,6 @@ func (s *service) handleSecretsCreate(ctx context.Context, jsonRequest jsonrpc.R
 	}
 
 	s.lggr.Infof("Processed request: %v", jsonRequest)
-
-	// Block until the channel receives a response
 	return nil
 }
 
