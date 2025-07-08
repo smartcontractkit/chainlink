@@ -33,7 +33,7 @@ func (e ErrorCode) String() string {
 	case FatalError:
 		return "FatalError"
 	case UnsupportedMethodError:
-		return "UnsupportedMthodError"
+		return "UnsupportedMethodError"
 	case InvalidParamsError:
 		return "InvalidParamsError"
 	default:
