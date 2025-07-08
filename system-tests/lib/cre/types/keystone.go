@@ -1,15 +1,18 @@
 package types
 
 import (
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -42,11 +45,12 @@ type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
 
 type WorkflowRegistryInput struct {
-	ChainSelector  uint64                  `toml:"-"`
-	CldEnv         *cldf.Environment       `toml:"-"`
-	AllowedDonIDs  []uint32                `toml:"-"`
-	WorkflowOwners []common.Address        `toml:"-"`
-	Out            *WorkflowRegistryOutput `toml:"out"`
+	ContractAddress common.Address          `toml:"_"`
+	ChainSelector   uint64                  `toml:"-"`
+	CldEnv          *cldf.Environment       `toml:"-"`
+	AllowedDonIDs   []uint32                `toml:"-"`
+	WorkflowOwners  []common.Address        `toml:"-"`
+	Out             *WorkflowRegistryOutput `toml:"out"`
 }
 
 func (w *WorkflowRegistryInput) Validate() error {
@@ -204,6 +208,9 @@ type ConfigureKeystoneInput struct {
 	Topology      *Topology
 	CldEnv        *cldf.Environment
 	OCR3Config    keystone_changeset.OracleConfig
+
+	OCR3Address                 *common.Address
+	CapabilitiesRegistryAddress *common.Address
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -218,6 +225,9 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	}
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
+	}
+	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
+		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
 	}
 
 	return nil
@@ -278,7 +288,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {
-		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
 	return nil
 }
@@ -441,7 +451,9 @@ type FullCLDEnvironmentInput struct {
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
+	Datastore         datastore.DataStore
 	Topology          *Topology
+	OperationsBundle  operations.Bundle
 }
 
 func (f *FullCLDEnvironmentInput) Validate() error {

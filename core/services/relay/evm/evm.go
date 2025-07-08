@@ -139,6 +139,7 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 }
 
 type Relayer struct {
+	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
@@ -284,6 +285,10 @@ func (r *Relayer) LatestHead(ctx context.Context) (commontypes.Head, error) {
 
 func (r *Relayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
 	return r.chain.GetChainStatus(ctx)
+}
+
+func (r *Relayer) GetChainInfo(ctx context.Context) (commontypes.ChainInfo, error) {
+	return r.chain.GetChainInfo(ctx)
 }
 
 func (r *Relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {

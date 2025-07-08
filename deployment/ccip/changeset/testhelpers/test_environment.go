@@ -2,9 +2,13 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
@@ -18,6 +22,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
@@ -48,6 +53,7 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -98,6 +104,7 @@ type TestConfigs struct {
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
+	IsLBTC                     bool
 	IsTokenPoolFactory         bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
@@ -128,6 +135,11 @@ type TestConfigs struct {
 	// RoleDONTopology is the chain-node topology of the role DON.
 	// Only used in memory mode.
 	RoleDONTopology cciptesthelpertypes.RoleDONTopology
+
+	// SkipDONConfigurations allows you to skip the configuration of DONs in the test environment.
+	// i.e. AddDONAndSetCandidate, SetCandidate, PromoteCandidate, and SetOCR3.
+	// This is useful for tests that need to initialize DONs using different changesets.
+	SkipDONConfiguration bool
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -214,6 +226,12 @@ func WithStaticLink() TestOps {
 	}
 }
 
+func WithDONConfigurationSkipped() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SkipDONConfiguration = true
+	}
+}
+
 func WithPrerequisiteDeploymentOnly(v1_5Cfg *changeset.V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
@@ -265,6 +283,12 @@ func WithUSDCAttestationMissing() TestOps {
 func WithUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
+	}
+}
+
+func WithLBTC() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.IsLBTC = true
 	}
 }
 
@@ -331,6 +355,7 @@ type TestEnvironment interface {
 	DeployedEnvironment() DeployedEnv
 	UpdateDeployedEnvironment(env DeployedEnv)
 	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
+	MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string
 }
 
 type DeployedEnv struct {
@@ -377,28 +402,37 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	var chains map[uint64]cldf_evm.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
-		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
+		chains = cldf_chain.NewBlockChainsFromSlice(
+			memory.NewMemoryChainsEVMWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain),
+		).EVMChains()
+		users = usersMap(t, chains)
+
 		if tc.Chains > len(tc.ChainIDs) {
-			additionalChains, additionalUsers := memory.NewMemoryChains(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain)
-			for k, v := range additionalChains {
-				chains[k] = v
-			}
-			for k, v := range additionalUsers {
-				users[k] = v
-			}
+			additionalChains := cldf_chain.NewBlockChainsFromSlice(
+				memory.NewMemoryChainsEVM(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain),
+			)
+
+			maps.Copy(chains, additionalChains.EVMChains())
+
+			additionalUsers := usersMap(t, chains)
+			maps.Copy(users, additionalUsers)
 		}
 	} else {
-		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
+		chains = cldf_chain.NewBlockChainsFromSlice(
+			memory.NewMemoryChainsEVM(t, tc.Chains, tc.NumOfUsersPerChain),
+		).EVMChains()
+		users = usersMap(t, chains)
 	}
 
 	m.Chains = chains
 	solChains := memory.NewMemoryChainsSol(t, tc.SolChains)
 	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	m.TonChains = memory.NewMemoryChainsTon(t, tc.TonChains)
+	tonChains := memory.NewMemoryChainsTon(t, tc.TonChains)
 	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
 	// environment, so we have to convert it back to the concrete type. This needs to be refactored
 	m.AptosChains = cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
 	m.SolChains = cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
+	m.TonChains = cldf_chain.NewBlockChainsFromSlice(tonChains).TonChains()
 
 	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for selector, ch := range m.Chains {
@@ -440,10 +474,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	tc := m.TestConfig
 	c := memory.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
-		Chains:         m.Chains,
-		SolChains:      m.SolChains,
-		AptosChains:    m.AptosChains,
-		TonChains:      m.TonChains,
+		BlockChains:    m.Env.BlockChains,
 		NumNodes:       tc.Nodes,
 		NumBootstraps:  tc.Bootstraps,
 		RegistryConfig: crConfig,
@@ -459,7 +490,12 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		})
 	}
 	m.nodes = nodes
-	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, m.AptosChains, m.TonChains, nodes)
+	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(
+		func() context.Context { return ctx },
+		lggr,
+		m.Env.BlockChains,
+		nodes,
+	)
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -490,9 +526,44 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 	return endpoint
 }
 
+func (m *MemoryEnvironment) MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var response lbtc.AttestationResponse
+		if isAttestationMissing {
+			response = lbtc.AttestationResponse{
+				Code:    3,
+				Message: "invalid hash",
+			}
+		} else {
+			response = lbtc.AttestationResponse{
+				Attestations: []lbtc.Attestation{
+					{
+						MessageHash: "0xdee9d5a70c34ab6ad3d3be55cc81b8f3dbd7aaf4070d7f1046b239e4995df489",
+						Status:      "NOTARIZATION_STATUS_SESSION_APPROVED",
+						Data:        "0x0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000e45c70a5050000000000000000000000000000000000000000000000000000000000000061000000000000000000000000ca571682d1478ab3f7fcbcbade6e4954de3a96760000000000000000000000000000000000000000000000000000000000014a34000000000000000000000000ca571682d1478ab3f7fcbcbade6e4954de3a96760000000000000000000000004b431813bcf797bf9bf93890656618ac80a1d5d20000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000040fd53ff0dd6da6873e12afe8ac0b4e2c1c92ac5edf940ba53cf2a1ae2f70dbf4a7bbd6b5949b2bb511d1cbfd3e90ebb12dd6bf20074a3c5b67732f63571363d6b000000000000000000000000000000000000000000000000000000000000004094aa83e1524340ed3365b6ef061cb337c593ace76ca9565b984a8695f7292edf2aa55673ed153fe3282c18bfab6383fcdc23f96fefb0246264d6f12769cf34b0000000000000000000000000000000000000000000000000000000000000004052a309783debf3682b377c309e105fb288d0acf7aae352ea02b306cd11506aee7f418fb1a13284c9262243d69120d5064f1c442f652c4f03b4ff0071f7e5923a00000000000000000000000000000000000000000000000000000000000000406dd9501ab5af88098f2443634c5196c5ceddfab27bb109d7cd8d464dfe0c86bf36d5dad799a9c755fb30ff00aaee4eabeb8cbc2380e3903f260d24833aa26a51",
+					},
+				},
+			}
+		}
+		responseRaw, err := json.Marshal(response)
+		if err != nil {
+			panic(err)
+		}
+		_, err = w.Write(responseRaw)
+		if err != nil {
+			panic(err)
+		}
+	}))
+	endpoint := server.URL
+	t.Cleanup(func() {
+		server.Close()
+	})
+	return endpoint
+}
+
 // mineBlocks forces the simulated backend to produce a new block every X seconds
 // NOTE: based on implementation in cltest/simulated_backend.go
-func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining func()) {
+func mineBlocks(simClient *cldf_evm_provider.SimClient, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
 	done := make(chan struct{})
@@ -501,7 +572,7 @@ func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining fu
 		for {
 			select {
 			case <-timer.C:
-				backend.Commit()
+				simClient.Commit()
 			case <-chStop:
 				return
 			}
@@ -516,7 +587,7 @@ func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining fu
 
 func (m *MemoryEnvironment) MineBlocks(t *testing.T, blockTime time.Duration) {
 	for _, chain := range m.Chains {
-		if backend, ok := chain.Client.(*memory.Backend); ok {
+		if backend, ok := chain.Client.(*cldf_evm_provider.SimClient); ok {
 			stopMining := mineBlocks(backend, blockTime)
 			t.Cleanup(stopMining)
 		}
@@ -571,6 +642,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			}
 			if tc.IsUSDC {
 				opts = append(opts, changeset.WithUSDCEnabled())
+			}
+			if tc.IsLBTC {
+				opts = append(opts, changeset.WithLBTCEnabled())
 			}
 			if tc.IsMultiCall3 {
 				opts = append(opts, changeset.WithMultiCall3Enabled())
@@ -673,10 +747,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// load the state again to get the latest addresses
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	err = state.ValidatePostDeploymentState(e.Env)
+	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
 	require.NoError(t, err)
 	return e
 }
+
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
@@ -872,6 +947,26 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				Tokens: cctpContracts,
 			}})
 	}
+	if tc.IsLBTC {
+		endpoint := tEnv.MockLBTCAttestationServer(t, tc.IsUSDCAttestationMissing)
+		lbtcPools := make(map[cciptypes.ChainSelector]string)
+		for _, chain := range evmChains {
+			lbtcPool := state.MustGetEVMChainState(chain).BurnMintTokenPools[shared.LBTCSymbol][deployment.Version1_5_1]
+			require.NotNil(t, lbtcPool)
+			lbtcPools[cciptypes.ChainSelector(chain)] = lbtcPool.Address().String()
+		}
+		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
+			Type:    pluginconfig.LBTCHandlerType,
+			Version: "1.0",
+			LBTCObserverConfig: &pluginconfig.LBTCObserverConfig{
+				AttestationConfig: pluginconfig.AttestationConfig{
+					AttestationAPI:         endpoint,
+					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				},
+				SourcePoolAddressByChain: lbtcPools,
+			}})
+	}
 
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -1055,7 +1150,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				MCMS:              mcmsConfig,
 			},
 		),
-		commonchangeset.Configure(
+	}
+	if !tc.SkipDONConfiguration {
+		apps = append(apps, commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain.
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
@@ -1070,8 +1167,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
-		),
-		commonchangeset.Configure(
+		))
+		apps = append(apps, commonchangeset.Configure(
 			// Add the exec OCR instances for the new chains.
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
@@ -1088,8 +1185,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					},
 				},
 			},
-		),
-		commonchangeset.Configure(
+		))
+		apps = append(apps, commonchangeset.Configure(
 			// Promote everything
 			cldf.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
 			v1_6.PromoteCandidateChangesetConfig{
@@ -1106,8 +1203,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 				MCMS: mcmsConfig,
 			},
-		),
-		commonchangeset.Configure(
+		))
+		apps = append(apps, commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
 			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 			v1_6.SetOCR3OffRampConfig{
@@ -1115,8 +1212,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				RemoteChainSels:    evmChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		),
-		commonchangeset.Configure(
+		))
+		apps = append(apps, commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
 			aptoscs.SetOCR3Offramp{},
 			v1_6.SetOCR3OffRampConfig{
@@ -1129,8 +1226,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					OverrideRoot: false,
 				},
 			},
-		),
-		commonchangeset.Configure(
+		))
+		apps = append(apps, commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetOCR3ConfigSolana),
 			v1_6.SetOCR3OffRampConfig{
@@ -1138,10 +1235,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				RemoteChainSels:    solChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		),
-
+		))
 		// TODO(ton): We need OCR3OffRamp Changeset for Ton, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-		// commonchangeset.Configure(
+		// apps = append(apps, commonchangeset.Configure(
 		// 	// Enable the OCR config on the remote chains.
 		// 	cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 		// 	v1_6.SetOCR3OffRampConfig{
@@ -1149,12 +1245,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		// 		RemoteChainSels:    tonChains,
 		// 		CCIPHomeConfigType: globals.ConfigTypeActive,
 		// 	},
-		// ),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
-			nil, // Changeset ignores any config
-		),
+		// ))
 	}
+	apps = append(apps, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
+		nil, // Changeset ignores any config
+	))
 	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
@@ -1213,4 +1309,18 @@ func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NoError(t, err)
 	e.SetupJobs(t)
 	return e
+}
+
+// usersMap generates a map of chain selectors to additional users (bind.TransactOpts) for each
+// chain.
+func usersMap(t *testing.T, chains map[uint64]cldf_evm.Chain) map[uint64][]*bind.TransactOpts {
+	t.Helper()
+
+	users := make(map[uint64][]*bind.TransactOpts, 0)
+
+	for _, c := range chains {
+		users[c.ChainSelector()] = c.Users
+	}
+
+	return users
 }

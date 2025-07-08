@@ -7,17 +7,22 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 const (
 	FunctionsHandlerType   HandlerType = "functions"
 	DummyHandlerType       HandlerType = "dummy"
-	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
+	WebAPICapabilitiesType HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
+	HTTPCapabilityType     HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
+	VaultHandlerType       HandlerType = "vault"
 )
 
 type handlerFactory struct {
@@ -46,6 +51,10 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+	case HTTPCapabilityType:
+		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+	case VaultHandlerType:
+		return vault.NewService(donConfig.HandlerConfig, donConfig, don, hf.lggr), nil
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}
