@@ -266,7 +266,7 @@ jobs:
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
     # TODO: restore original commit before merging
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@7982e37421c8ea8f110980365c5c037fa33f957f # 27th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@972606ad4659499c6024685c992e9144c9d76078 # 27th June 2025
     with:
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
