@@ -39,7 +39,6 @@ func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsTo
 				donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 			}
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
-
 		}
 	}
 

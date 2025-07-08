@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
+	"github.com/smartcontractkit/cre-sdk-go/sdk"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
 )
 
 func RunEmptyWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}], error) {
