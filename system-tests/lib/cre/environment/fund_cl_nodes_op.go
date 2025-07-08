@@ -21,7 +21,7 @@ import (
 
 type FundCLNodesOpDeps struct {
 	Env               *cldf.Environment
-	BlockchainOutputs []*BlockchainOutput
+	BlockchainOutputs []*types.WrappedBlockchainOutput
 	DonTopology       *types.DonTopology
 }
 
@@ -52,6 +52,9 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 		errGroup := &errgroup.Group{}
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
 			for _, bcOut := range deps.BlockchainOutputs {
+				if bcOut.ReadOnly {
+					continue
+				}
 				for _, node := range metaDon.DON.Nodes {
 					errGroup.Go(func() error {
 						nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]

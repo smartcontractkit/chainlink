@@ -20,6 +20,10 @@ func GenerateWebAPITargetJobSpecs(donTopology *types.DonTopology) (types.DonsToJ
 	donToJobSpecs := make(types.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
+			continue
+		}
+
 		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -31,8 +35,7 @@ func GenerateWebAPITargetJobSpecs(donTopology *types.DonTopology) (types.DonsToJ
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
-				config := `"""
+			config := `"""
 						[rateLimiter]
 						GlobalRPS = 1000.0
 						GlobalBurst = 1000
@@ -40,8 +43,7 @@ func GenerateWebAPITargetJobSpecs(donTopology *types.DonTopology) (types.DonsToJ
 						PerSenderBurst = 1000
 						"""`
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITargetCapability, "__builtin_web-api-target", config))
-			}
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITargetCapability, "__builtin_web-api-target", config))
 		}
 	}
 
