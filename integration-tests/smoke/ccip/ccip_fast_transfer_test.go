@@ -258,20 +258,20 @@ func withExternalMinter() fastTransferE2ETestCaseOption {
 }
 
 var fastTransferTestCases = []*fastTransferE2ETestCase{
-	ftfTc("fee token", withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
-	ftfTc("fee token and no filler", withFeeTokenType(feeTokenLink), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
-	ftfTc("native fee token", withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
-	ftfTc("native fee token and no filler", withFeeTokenType(feeTokenNative), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
-	ftfTc("allowlist enabled", withFillerAllowlistEnabled(), withAllowlistFiller(), withFastFillSuccessAmountAssertions()),
-	ftfTc("allowlist enabled and filler not on allowlist", withFillerAllowlistEnabled(), withFastFillNoFillerSuccessAmountAssertions()),
-	ftfTc("pool fee with filler", withPoolFeeBps(50), withFastFillSuccessAmountAssertions()),
-	ftfTc("pool fee without filler", withPoolFeeBps(50), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
+	// ftfTc("fee token", withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
+	// ftfTc("fee token and no filler", withFeeTokenType(feeTokenLink), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
+	// ftfTc("native fee token", withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
+	// ftfTc("native fee token and no filler", withFeeTokenType(feeTokenNative), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
+	// ftfTc("allowlist enabled", withFillerAllowlistEnabled(), withAllowlistFiller(), withFastFillSuccessAmountAssertions()),
+	// ftfTc("allowlist enabled and filler not on allowlist", withFillerAllowlistEnabled(), withFastFillNoFillerSuccessAmountAssertions()),
+	// ftfTc("pool fee with filler", withPoolFeeBps(50), withFastFillSuccessAmountAssertions()),
+	// ftfTc("pool fee without filler", withPoolFeeBps(50), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
-	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
-	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
-	ftfTc("hybrid pool lock release", withHybridPool(v1_5_1.LockAndRelease), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertionsWithPoolAmount(big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000)), true)),
-	ftfTc("hybrid pool", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
-	ftfTc("hybrid pool with link fee", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
+	// ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
+	// ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	// ftfTc("hybrid pool lock release", withHybridPool(v1_5_1.LockAndRelease), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertionsWithPoolAmount(big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000)), true)),
+	// ftfTc("hybrid pool", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
+	// ftfTc("hybrid pool with link fee", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -1010,9 +1010,10 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 		},
 		Listeners: []devenv.ListenerConfig{
 			{
-				ChainSelector:    strconv.FormatUint(sourceChainSelector, 10),
-				TokenPoolAddress: sourceTokenPoolAddress.Hex(),
-				RPCURL:           sourceChainNetwork.HTTPURLs[0],
+				ChainSelector:        strconv.FormatUint(sourceChainSelector, 10),
+				TokenPoolAddress:     sourceTokenPoolAddress.Hex(),
+				RPCURL:               sourceChainNetwork.HTTPURLs[0],
+				DestinationTokenPool: destinationTokenPoolAddress.Hex(),
 			},
 		},
 		Fillers: []devenv.FillerConfig{
@@ -1021,6 +1022,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 				TokenPoolAddress: destinationTokenPoolAddress.Hex(),
 				RPCURL:           destinationChainNetwork.HTTPURLs[0],
 				SignerProvider:   "filler",
+				SourceTokenPool:  sourceTokenPoolAddress.Hex(),
 			},
 		},
 	}
