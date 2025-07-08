@@ -583,21 +583,32 @@ targets:
 			require.Len(t, req.Metadata.SpendLimits, 1)
 			assert.Equal(t, capabilities.SpendLimit{
 				SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-				Limit:     "1000000.000",
+				// capability limit includes the entire reserve amount; no standard deductions
+				// default worker limit is 100 so each capability call receives 10_000 / 100 units (100)
+				// 100 / 0.0001 = 1_000_000
+				Limit: "1000000.000",
 			}, req.Metadata.SpendLimits[0])
 		})
 		target := withTarget(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
 			t.Helper()
 			require.NotNil(t, req.Metadata.SpendLimits)
 			require.Len(t, req.Metadata.SpendLimits, 2)
+
+			// 100 * 0.0001 (0.01) units were deducted for the previous capability
+			// this leaves 9_999.99 units available
+			// again for 100 possible concurrent workers: 9_999.99 / 100 = 99.9999
 			assert.Equal(t, []capabilities.SpendLimit{
 				{
 					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					Limit:     "399999.600",
+					// 40% of remaining units divided by 0.0001 is the following
+					// 99.9999 * 0.4 / 0.0001
+					Limit: "399999.600",
 				},
 				{
 					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
-					Limit:     "5999.994",
+					// 60% of remaining units divided by 0.01 is the following
+					// 99.9999 * 0.6 / 0.01
+					Limit: "5999.994",
 				},
 			}, req.Metadata.SpendLimits)
 		})
