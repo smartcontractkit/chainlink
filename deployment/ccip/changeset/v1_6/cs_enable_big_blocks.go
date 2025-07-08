@@ -87,7 +87,7 @@ func EnableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	chain, err := FindChainBySelector(env, cfg.ChainSel)
 
 	if err != nil {
-		return out, fmt.Errorf("Error finding chain by selector: %w", cfg.ChainSel)
+		return out, fmt.Errorf("Error: %w finding chain by selector: %d", err, cfg.ChainSel)
 	}
 
 	// Verifying contract address for EIP-712 signing
@@ -274,5 +274,5 @@ func FindChainBySelector(e cldf.Environment, selector uint64) (chain.BlockChain,
 			return chain, nil
 		}
 	}
-	return nil, fmt.Errorf("error finding chain with selector: %w", selector)
+	return nil, fmt.Errorf("error finding chain with selector: %d", selector)
 }
