@@ -385,28 +385,28 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
-				WorkflowDONId:		 dID,
+				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[0],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorId:      1,
-				WorkflowDONId:		 dID,
+				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[1],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorId:      1,
-				WorkflowDONId:		 dID,
+				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[2],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorId:      1,
-				WorkflowDONId:		 dID,
+				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[3],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),

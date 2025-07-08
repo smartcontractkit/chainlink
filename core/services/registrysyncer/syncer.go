@@ -35,7 +35,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddListener(launchers ...Listener)
+	AddListener(listeners ...Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
