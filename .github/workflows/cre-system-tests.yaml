@@ -3,6 +3,11 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
@@ -14,6 +19,11 @@ on:
         default: "develop"
   workflow_call:
     inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
@@ -26,7 +36,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -141,7 +151,7 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.test_config }}
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -160,4 +170,4 @@ jobs:
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
-             /tmp/gotest.log
+            /tmp/gotest.log

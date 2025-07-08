@@ -30,6 +30,11 @@ on:
         description: "A unique identifier for this run, only use from other repos"
         required: false
         type: string
+      ecr_name:
+        description: "The name of the ECR repository to push the image to, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
 
 # Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
@@ -39,7 +44,7 @@ concurrency:
 env:
   # for run-test variables and environment
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   TEST_SUITE: smoke
   MOD_CACHE_VERSION: 2
 
@@ -212,10 +217,10 @@ jobs:
         if: needs.changes.outputs.should-run-cre-tests == 'true' || needs.run-core-e2e-tests-setup.outputs.should-run == 'true' || needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          image-tag: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
+          image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-          docker-repository-name: "chainlink"
+          docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -236,10 +241,11 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets: inherit
 
   #TODO migrate to using cre-system-tests.yaml once it has soaked in
@@ -253,7 +259,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes, labels]
     if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@1e6b821dc36a55e338d6bdbda1320a0db93b729d # 2025-07-04
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
     with:
       workflow_name: Run Core CRE Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -263,6 +269,7 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -297,10 +304,11 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
-     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-     chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
       inherit
 
@@ -314,8 +322,9 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
     with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets:
@@ -385,7 +394,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@1e6b821dc36a55e338d6bdbda1320a0db93b729d # 2025-07-04
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -396,6 +405,7 @@ jobs:
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       extraArgs: ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -484,7 +494,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@1e6b821dc36a55e338d6bdbda1320a0db93b729d # 2025-07-04
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -493,8 +503,9 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       extraArgs: ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
+      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

@@ -501,91 +501,53 @@ You can use one changeset to
 
 
 ```golang
-  registry.Add("0172_configure_pepe_pool_solana",
-		migrations.ConfigureLegacy(
-			func(e cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
-				timelockSignerPDA, err := ccipchangesetsolana.FetchTimelockSigner(e, chainsel.SOLANA_MAINNET.Selector)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-				}
-
-				return ccipchangesetsolana.E2ETokenPool(e, ccipchangesetsolana.E2ETokenPoolConfig{
-					AddTokenPoolAndLookupTable: []ccipchangesetsolana.TokenPoolConfig{
-						{
-							ChainSelector: chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey: shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							PoolType:    shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:    shared.PepeWhitegloveMetadata,
-						},
-					},
-					RegisterTokenAdminRegistry: []ccipchangesetsolana.RegisterTokenAdminRegistryConfig{
-						{
-							ChainSelector:           chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:             shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							TokenAdminRegistryAdmin: timelockSignerPDA.String(),
-							RegisterType:            ccipchangesetsolana.ViaGetCcipAdminInstruction,
-							MCMS:                    timelockConfig,
-						},
-					},
-					AcceptAdminRoleTokenAdminRegistry: []ccipchangesetsolana.AcceptAdminRoleTokenAdminRegistryConfig{
-						{
-							ChainSelector:     chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:       shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							MCMS:              timelockConfig,
-							SkipRegistryCheck: true,
-						},
-					},
-					SetPool: []ccipchangesetsolana.SetPoolConfig{
-						{
-							ChainSelector:     chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:       shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							PoolType:          shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:          shared.PepeWhitegloveMetadata,
-							WritableIndexes:   []uint8{3, 4, 7},
-							MCMS:              timelockConfig,
-							SkipRegistryCheck: true,
-						},
-					},
-					RemoteChainTokenPool: []ccipchangesetsolana.RemoteChainTokenPoolConfig{
-						{
-							SolChainSelector: chainsel.SOLANA_MAINNET.Selector,
-							SolTokenPubKey:   shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							SolPoolType:      shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:         shared.PepeWhitegloveMetadata,
-							EVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
-									TokenSymbol:       ccipshared.TokenSymbol(shared.PepeToken),
-									PoolType:          ccipshared.LockReleaseTokenPool,
-									PoolVersion:       ccipshared.CurrentTokenPoolVersion,
-									RateLimiterConfig: shared.PepeRateLimitConfigSolanaToEvm,
-								},
+registry.Add("0321_deploy_CCIP_TEST_solana_token_pool",
+		migrations.ConfigureLegacy(ccipchangesetsolana.E2ETokenPoolv2).
+			With(ccipchangesetsolana.E2ETokenPoolConfigv2{
+				ChainSelector: chainsel.SOLANA_DEVNET.Selector,
+				MCMS:          mcmsConfigForCS,
+				E2ETokens: []ccipchangesetsolana.E2ETokenConfig{
+					{
+						TokenPubKey: solana.MustPublicKeyFromBase58("3kffP9DNcWKBZFUqJkx5pgNMbHj1q73kzkgiuUiZJpq8"),
+						Metadata:    shared.SoylanaManlettWhitegloveMetadata,
+						PoolType:    shared.SolanaBnMTokenPoolEnumPtr,
+						SolanaToEVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
+							chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector: {
+								TokenSymbol:       ccipshared.TokenSymbol("SOYMAN"),
+								PoolType:          ccipshared.BurnMintTokenPool,
+								PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+								RateLimiterConfig: shared.DefaultRateLimiterConfigForTestTokensSolana,
+							},
+							chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector: {
+								TokenSymbol:       ccipshared.TokenSymbol("SOYMAN"),
+								PoolType:          ccipshared.BurnMintTokenPool,
+								PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+								RateLimiterConfig: shared.DefaultRateLimiterConfigForTestTokensSolana,
 							},
 						},
-					},
-					ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
-						{
-							TokenSymbol: ccipshared.TokenSymbol(shared.PepeToken),
-							MCMS:        timelockConfig,
+						EVMToSolanaRemoteConfigs: v1_5_1.ConfigureTokenPoolContractsConfig{
+							MCMS:        mcmsConfigForCS,
+							TokenSymbol: ccipshared.TokenSymbol("SOYMAN"),
 							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
+								chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector: {
 									Type:    ccipshared.LockReleaseTokenPool,
 									Version: deployment.Version1_5_1,
 									SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
-										chainsel.SOLANA_MAINNET.Selector: {
-											TokenAddress:      shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken.String(),
+										chainsel.SOLANA_DEVNET.Selector: {
+											TokenAddress:      shared.SolanaTokenAddress[chainsel.SOLANA_DEVNET.Selector].SolvBTCToken.String(),
 											Type:              ccipshared.BurnMintTokenPool,
-											Metadata:          shared.PepeWhitegloveMetadata,
-											RateLimiterConfig: shared.PepeRateLimitConfigEvmToSolana,
+											Metadata:          shared.SolvWhitegloveMetadata,
+											RateLimiterConfig: shared.SolvRateLimitConfigEvmToSolana,
 										},
 									},
 								},
 							},
 						},
 					},
-					MCMS: timelockConfig,
-				})
-			},
-		).With(struct{}{}))
+				},
+			}),
+		migrations.OnlyLoadChainsFor(chainsel.SOLANA_DEVNET.Selector, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector),
+	)
 ```
 
 ### Updating Token Pool Rate Limits for a EVM <> Solana Lane
@@ -602,36 +564,33 @@ This changeset allows you to generate one proposal for EVM + Solana rate limit c
 				}
 
 				return ccipchangesetsolana.E2ETokenPool(e, ccipchangesetsolana.E2ETokenPoolConfig{
-					RemoteChainTokenPool: []ccipchangesetsolana.RemoteChainTokenPoolConfig{
+					RemoteChainTokenPool: []ccipchangesetsolana.SetupTokenPoolForRemoteChainConfig{
 						{
 							SolChainSelector: chainsel.SOLANA_MAINNET.Selector,
-							SolTokenPubKey:   shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
-							SolPoolType:      shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:         shared.PepeWhitegloveMetadata,
-							EVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
-									TokenSymbol:       ccipshared.TokenSymbol(shared.PepeToken),
-									PoolType:          ccipshared.LockReleaseTokenPool,
-									PoolVersion:       ccipshared.CurrentTokenPoolVersion,
-									RateLimiterConfig: shared.PepeRateLimitConfigSolanaToEvm,
+							RemoteTokenPoolConfigs: []ccipchangesetsolana.RemoteChainTokenPoolConfig{
+								{
+									SolTokenPubKey: shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
+									SolPoolType:    shared.SolanaBnMTokenPoolEnumPtr,
+									Metadata:       shared.PepeWhitegloveMetadata,
+									EVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
+										chainsel.ETHEREUM_MAINNET.Selector: {
+											TokenSymbol:       ccipshared.TokenSymbol(shared.PepeToken),
+											PoolType:          ccipshared.LockReleaseTokenPool,
+											PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+											RateLimiterConfig: shared.DefaultRateLimiterConfigForTestTokensSolana, // circumvent bug
+										},
+									},
 								},
-							},
-						},
-					},
-					ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
-						{
-							TokenSymbol: ccipshared.TokenSymbol(shared.PepeToken),
-							MCMS:        timelockConfig,
-							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
-									Type:    ccipshared.LockReleaseTokenPool,
-									Version: deployment.Version1_5_1,
-									SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
-										chainsel.SOLANA_MAINNET.Selector: {
-											TokenAddress:      shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken.String(),
-											Type:              ccipshared.BurnMintTokenPool,
-											Metadata:          shared.PepeWhitegloveMetadata,
-											RateLimiterConfig: shared.PepeRateLimitConfigEvmToSolana,
+								{
+									SolTokenPubKey: shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].PepeToken,
+									SolPoolType:    shared.SolanaBnMTokenPoolEnumPtr,
+									Metadata:       shared.PepeWhitegloveMetadata,
+									EVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
+										chainsel.ETHEREUM_MAINNET.Selector: {
+											TokenSymbol:       ccipshared.TokenSymbol(shared.PepeToken),
+											PoolType:          ccipshared.LockReleaseTokenPool,
+											PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+											RateLimiterConfig: shared.PepeRateLimitConfigSolanaToEvm, // set actual value
 										},
 									},
 								},
@@ -649,19 +608,33 @@ This changeset allows you to generate one proposal for EVM + Solana rate limit c
 ```golang
 // transfer contract owner to timelock
 // owner here is the onchain authority that is enforced using rust code
-registry.Add("0272_transfer_all_ownership_to_timelock_solana",
-		migrations.ConfigureLegacy(ccipchangesetsolana.TransferCCIPToMCMSWithTimelockSolana).
-			With(ccipchangesetsolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: *mcmsConfigForCS,
-				ContractsByChain: map[uint64]ccipchangesetsolana.CCIPContractsToTransfer{
-					chainsel.SOLANA_DEVNET.Selector: {
-						Router:    true,
-						FeeQuoter: true,
-						OffRamp:   true,
+	registry.Add("0143_transfer_to_timelock_solana",
+		migrations.ConfigureLegacy(
+			func(e cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
+				return ccipchangesetsolana.TransferCCIPToMCMSWithTimelockSolana(e, ccipchangesetsolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+					MCMSCfg: *timelockConfig,
+					ContractsByChain: map[uint64]ccipchangesetsolana.CCIPContractsToTransfer{
+						chainsel.SOLANA_MAINNET.Selector: {
+							Router:    true,
+							FeeQuoter: true,
+							OffRamp:   true,
+							BurnMintTokenPools: map[string][]solana.PublicKey{
+								ccipshared.CLLMetadata: {shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].LinkToken},
+								shared.SolvWhitegloveMetadata: {
+									shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
+									shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].XSolvBTCToken,
+									shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCJUPToken,
+								},
+								shared.MapleWhitegloveMetadata: {shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SyrupUSDCToken},
+							},
+							LockReleaseTokenPools: map[string][]solana.PublicKey{
+								shared.ZeusWhitegloveMetadata: {shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].ZBTCToken},
+							},
+						},
 					},
-				},
-			}),
-	)
+				})
+			},
+		).With(struct{}{}))
 
 // transfer upgrade authority of contract executable to timelock
 // upgrade authority here is the authority allowed to perform an upgrade to the executable
@@ -790,78 +763,40 @@ registry.Add("0091_deploy_partner_token_pool_for_solana_solv_bnm_zeus_lnr",
   ).With(struct{}{}))
 
 // setup token pool solana <> lane
-registry.Add("0172_configure_pepe_pool_solana",
-		migrations.ConfigureLegacy(
-			func(e cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
-				timelockSignerPDA, err := ccipchangesetsolana.FetchTimelockSigner(e, chainsel.SOLANA_MAINNET.Selector)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-				}
-
-				return ccipchangesetsolana.E2ETokenPool(e, ccipchangesetsolana.E2ETokenPoolConfig{
-					AddTokenPoolAndLookupTable: []ccipchangesetsolana.TokenPoolConfig{
-						{
-							ChainSelector: chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey: shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
-							PoolType:    shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:    shared.SolvWhitegloveMetadata,
-						},
-					},
-					RegisterTokenAdminRegistry: []ccipchangesetsolana.RegisterTokenAdminRegistryConfig{
-						{
-							ChainSelector:           chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:             shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
-							TokenAdminRegistryAdmin: timelockSignerPDA.String(),
-							RegisterType:            ccipchangesetsolana.ViaGetCcipAdminInstruction,
-							MCMS:                    timelockConfig,
-						},
-					},
-					AcceptAdminRoleTokenAdminRegistry: []ccipchangesetsolana.AcceptAdminRoleTokenAdminRegistryConfig{
-						{
-							ChainSelector:     chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:       shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
-							MCMS:              timelockConfig,
-							SkipRegistryCheck: true,
-						},
-					},
-					SetPool: []ccipchangesetsolana.SetPoolConfig{
-						{
-							ChainSelector:     chainsel.SOLANA_MAINNET.Selector,
-							TokenPubKey:       shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
-							PoolType:          shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:          shared.SolvWhitegloveMetadata,
-							WritableIndexes:   []uint8{3, 4, 7},
-							MCMS:              timelockConfig,
-							SkipRegistryCheck: true,
-						},
-					},
-					RemoteChainTokenPool: []ccipchangesetsolana.RemoteChainTokenPoolConfig{
-						{
-							SolChainSelector: chainsel.SOLANA_MAINNET.Selector,
-							SolTokenPubKey:   shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken,
-							SolPoolType:      shared.SolanaBnMTokenPoolEnumPtr,
-							Metadata:         shared.SolvWhitegloveMetadata,
-							EVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
-									TokenSymbol:       ccipshared.TokenSymbol(shared.PepeToken),
-									PoolType:          ccipshared.LockReleaseTokenPool,
-									PoolVersion:       ccipshared.CurrentTokenPoolVersion,
-									RateLimiterConfig: shared.SolvRateLimitConfigSolanaToEvm,
-								},
+registry.Add("0321_deploy_CCIP_TEST_solana_token_pool",
+		migrations.ConfigureLegacy(ccipchangesetsolana.E2ETokenPoolv2).
+			With(ccipchangesetsolana.E2ETokenPoolConfigv2{
+				ChainSelector: chainsel.SOLANA_DEVNET.Selector,
+				MCMS:          mcmsConfigForCS,
+				E2ETokens: []ccipchangesetsolana.E2ETokenConfig{
+					{
+						TokenPubKey: solana.MustPublicKeyFromBase58("3kffP9DNcWKBZFUqJkx5pgNMbHj1q73kzkgiuUiZJpq8"),
+						Metadata:    shared.SoylanaManlettWhitegloveMetadata,
+						PoolType:    shared.SolanaBnMTokenPoolEnumPtr,
+						SolanaToEVMRemoteConfigs: map[uint64]ccipchangesetsolana.EVMRemoteConfig{
+							chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector: {
+								TokenSymbol:       ccipshared.TokenSymbol("SOYMAN"),
+								PoolType:          ccipshared.BurnMintTokenPool,
+								PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+								RateLimiterConfig: shared.DefaultRateLimiterConfigForTestTokensSolana,
+							},
+							chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector: {
+								TokenSymbol:       ccipshared.TokenSymbol("SOYMAN"),
+								PoolType:          ccipshared.BurnMintTokenPool,
+								PoolVersion:       ccipshared.CurrentTokenPoolVersion,
+								RateLimiterConfig: shared.DefaultRateLimiterConfigForTestTokensSolana,
 							},
 						},
-					},
-					ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
-						{
-							TokenSymbol: ccipshared.TokenSymbol(shared.SolvBTCToken),
-							MCMS:        timelockConfig,
+						EVMToSolanaRemoteConfigs: v1_5_1.ConfigureTokenPoolContractsConfig{
+							MCMS:        mcmsConfigForCS,
+							TokenSymbol: ccipshared.TokenSymbol("SOYMAN"),
 							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-								chainsel.ETHEREUM_MAINNET.Selector: {
+								chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector: {
 									Type:    ccipshared.LockReleaseTokenPool,
 									Version: deployment.Version1_5_1,
 									SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
-										chainsel.SOLANA_MAINNET.Selector: {
-											TokenAddress:      shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].SolvBTCToken.String(),
+										chainsel.SOLANA_DEVNET.Selector: {
+											TokenAddress:      shared.SolanaTokenAddress[chainsel.SOLANA_DEVNET.Selector].SolvBTCToken.String(),
 											Type:              ccipshared.BurnMintTokenPool,
 											Metadata:          shared.SolvWhitegloveMetadata,
 											RateLimiterConfig: shared.SolvRateLimitConfigEvmToSolana,
@@ -871,10 +806,10 @@ registry.Add("0172_configure_pepe_pool_solana",
 							},
 						},
 					},
-					MCMS: timelockConfig,
-				})
-			},
-		).With(struct{}{}))
+				},
+			}),
+		migrations.OnlyLoadChainsFor(chainsel.SOLANA_DEVNET.Selector, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector),
+	)
 ```
 
 ## Verify Contracts
@@ -931,6 +866,8 @@ registry.Add("0086_verify_solana_programs",
       UpgradeAuthority: timelockSignerPDA,
       RemoteVerification: true // this is KEY in step 2
     }))
-
-
 ```
+### Example Verification PRs
+1. https://github.com/smartcontractkit/chainlink-deployments/pull/3907 (Step 1)
+2. https://github.com/smartcontractkit/chainlink-deployments/pull/3944 (Step 2)
+3. https://github.com/smartcontractkit/chainlink-deployments/actions/runs/15774291241/job/44465124148 (Successful e2e remote verification via MCMs)

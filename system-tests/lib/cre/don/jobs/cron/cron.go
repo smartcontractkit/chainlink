@@ -25,6 +25,9 @@ func GenerateJobSpecs(donTopology *types.DonTopology, cronBinaryPath string) (ty
 	donToJobSpecs := make(types.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
+			continue
+		}
 		workflowNodeSet, err := crenode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -36,9 +39,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, cronBinaryPath string) (ty
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, types.CronCapability, cronBinaryPath, jobs.EmptyStdCapConfig))
-			}
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, types.CronCapability, cronBinaryPath, jobs.EmptyStdCapConfig))
 		}
 	}
 

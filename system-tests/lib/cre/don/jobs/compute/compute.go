@@ -20,6 +20,10 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 	donToJobSpecs := make(types.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
+			continue
+		}
+
 		workflowNodeSet, err := crenode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -31,8 +35,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
-				config := `"""
+			config := `"""
 					NumWorkers = 3
 					[rateLimiter]
 					globalRPS = 20.0
@@ -40,8 +43,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 					perSenderRPS = 1.0
 					perSenderBurst = 5
 					"""`
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, types.CustomComputeCapability, "__builtin_custom-compute-action", config))
-			}
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, types.CustomComputeCapability, "__builtin_custom-compute-action", config))
 		}
 	}
 

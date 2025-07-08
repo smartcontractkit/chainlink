@@ -40,6 +40,8 @@ type FastTransferPool interface {
 	CcipSendToken(opts *bind.TransactOpts, destinationChainSelector uint64, amount *big.Int, maxFastTransferFee *big.Int, receiver []byte, feeToken common.Address, extraArgs []byte) (*types.Transaction, error)
 	GetCcipSendTokenFee(opts *bind.CallOpts, destinationChainSelector uint64, amount *big.Int, receiver []byte, settlementFeeToken common.Address, extraArgs []byte) (Quote, error)
 	FilterFastTransferRequested(opts *bind.FilterOpts, destinationChainSelector []uint64, fillID [][32]byte, settlementID [][32]byte) (*FastTransferRequestedIterator, error)
+	GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error)
+	WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error)
 }
 
 // Conversion functions for type compatibility
@@ -185,6 +187,12 @@ func (a *burnMintPoolAdapter) IsAllowedFiller(opts *bind.CallOpts, filler common
 func (a *burnMintPoolAdapter) CcipSendToken(opts *bind.TransactOpts, destinationChainSelector uint64, amount *big.Int, maxFastTransferFee *big.Int, receiver []byte, feeToken common.Address, extraArgs []byte) (*types.Transaction, error) {
 	return a.pool.CcipSendToken(opts, destinationChainSelector, amount, maxFastTransferFee, receiver, feeToken, extraArgs)
 }
+func (a *burnMintPoolAdapter) GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error) {
+	return a.pool.GetAccumulatedPoolFees(opts)
+}
+func (a *burnMintPoolAdapter) WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return a.pool.WithdrawPoolFees(opts, recipient)
+}
 
 // burnMintExternalPoolAdapter - no conversion needed, types already match
 func (a *burnMintExternalPoolAdapter) GetDestChainConfig(opts *bind.CallOpts, remoteChainSelector uint64) (DestChainConfig, []common.Address, error) {
@@ -211,6 +219,13 @@ func (a *burnMintExternalPoolAdapter) CcipSendToken(opts *bind.TransactOpts, des
 func (a *burnMintExternalPoolAdapter) GetCcipSendTokenFee(opts *bind.CallOpts, destinationChainSelector uint64, amount *big.Int, receiver []byte, settlementFeeToken common.Address, extraArgs []byte) (Quote, error) {
 	return a.pool.GetCcipSendTokenFee(opts, destinationChainSelector, amount, receiver, settlementFeeToken, extraArgs)
 }
+func (a *burnMintExternalPoolAdapter) GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error) {
+	return a.pool.GetAccumulatedPoolFees(opts)
+}
+func (a *burnMintExternalPoolAdapter) WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return a.pool.WithdrawPoolFees(opts, recipient)
+}
+
 func (a *burnMintExternalPoolAdapter) FilterFastTransferRequested(opts *bind.FilterOpts, destinationChainSelector []uint64, fillID [][32]byte, settlementID [][32]byte) (*FastTransferRequestedIterator, error) {
 	iter, err := a.pool.FilterFastTransferRequested(opts, destinationChainSelector, fillID, settlementID)
 	if err != nil {
@@ -263,6 +278,12 @@ func (a *hybridExternalPoolAdapter) IsAllowedFiller(opts *bind.CallOpts, filler 
 }
 func (a *hybridExternalPoolAdapter) CcipSendToken(opts *bind.TransactOpts, destinationChainSelector uint64, amount *big.Int, maxFastTransferFee *big.Int, receiver []byte, feeToken common.Address, extraArgs []byte) (*types.Transaction, error) {
 	return a.pool.CcipSendToken(opts, destinationChainSelector, amount, maxFastTransferFee, receiver, feeToken, extraArgs)
+}
+func (a *hybridExternalPoolAdapter) GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error) {
+	return a.pool.GetAccumulatedPoolFees(opts)
+}
+func (a *hybridExternalPoolAdapter) WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return a.pool.WithdrawPoolFees(opts, recipient)
 }
 
 // AdapterFactory defines the interface for creating pool adapters
@@ -535,6 +556,16 @@ type FastTransferRequestedEvent struct {
 	SourceDecimals           uint8
 	Receiver                 []byte
 	Raw                      types.Log
+}
+
+// GetAccumulatedPoolFees retrieves the accumulated pool fees
+func (w *FastTransferTokenPoolWrapper) GetAccumulatedPoolFees(opts *bind.CallOpts) (*big.Int, error) {
+	return w.pool.GetAccumulatedPoolFees(opts)
+}
+
+// WithdrawPoolFees withdraws accumulated pool fees to the specified recipient
+func (w *FastTransferTokenPoolWrapper) WithdrawPoolFees(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return w.pool.WithdrawPoolFees(opts, recipient)
 }
 
 func GetFastTransferTokenPoolContract(env cldf.Environment, tokenSymbol shared.TokenSymbol, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64) (*FastTransferTokenPoolWrapper, error) {

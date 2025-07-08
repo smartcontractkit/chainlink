@@ -14,7 +14,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
 	[[EVM]]
-	ChainID = '%s'
+	ChainID = '%d'
 	AutoCreateKey = false
 
 	[[EVM.Nodes]]
@@ -71,13 +71,14 @@ func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
 }
 
 type WorkerEVMInput struct {
-	Name             string
-	ChainID          string
-	ChainSelector    uint64
-	HTTPRPC          string
-	WSRPC            string
-	FromAddress      common.Address
-	ForwarderAddress string
+	Name                 string
+	ChainID              uint64
+	ChainSelector        uint64
+	HTTPRPC              string
+	WSRPC                string
+	FromAddress          common.Address
+	ForwarderAddress     string
+	HasForwarderContract bool
 }
 
 func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
@@ -85,7 +86,7 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
 	[[EVM]]
-	ChainID = '%s'
+	ChainID = '%d'
 	AutoCreateKey = false
 	# reduce workflow registry sync time to minimum to speed up tests & local environment
 	FinalityDepth = 1
@@ -95,6 +96,15 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	Name = '%s'
 	WSURL = '%s'
 	HTTPURL = '%s'
+`,
+			chain.ChainID,
+			chain.Name,
+			chain.WSRPC,
+			chain.HTTPRPC,
+		)
+
+		if chain.HasForwarderContract {
+			evmChainsConfig += fmt.Sprintf(`
 
 	[EVM.Workflow]
 	FromAddress = '%s'
@@ -106,14 +116,11 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 
 	[EVM.Transactions]
 	ForwardersEnabled = true
-`,
-			chain.ChainID,
-			chain.Name,
-			chain.WSRPC,
-			chain.HTTPRPC,
-			chain.FromAddress,
-			chain.ForwarderAddress,
-		)
+	`,
+				chain.FromAddress,
+				chain.ForwarderAddress,
+			)
+		}
 	}
 
 	return fmt.Sprintf(`
