@@ -1273,8 +1273,6 @@ github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-2025
 github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250707133321-27faefc9ce45/go.mod h1:2w3TPI7vLgJfFmhhxWjtkwoQzoo8AQT8zsp90TqJ+mM=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae h1:BmqiIDbA9FB/uOCOHi/shgL7P0XmjFxhfRtJHdKPLE4=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae/go.mod h1:2MggrMtbhqr0u4U2pcYa21lvAtvaeSawjxdIy1ytHWE=
-github.com/smartcontractkit/chainlink-deployments-framework v0.17.0 h1:o/Lu+ynF11wxGf5lVks31bmkmO1+m2KVXWbwn6g80HM=
-github.com/smartcontractkit/chainlink-deployments-framework v0.17.0/go.mod h1:U4vWLp0dTmYgiN3Y7BXasDfM8NF3ZTIhDo5NjM+7RhQ=
 github.com/smartcontractkit/chainlink-deployments-framework v0.17.1 h1:NaNFI5ngYI9WEolxFRu42J4sh7Sfy3E93Lsr30JbEao=
 github.com/smartcontractkit/chainlink-deployments-framework v0.17.1/go.mod h1:U4vWLp0dTmYgiN3Y7BXasDfM8NF3ZTIhDo5NjM+7RhQ=
 github.com/smartcontractkit/chainlink-evm v0.0.0-20250707113334-93191f4c5ff4 h1:Yr0ELTdn3/5PXXAoLt5jWqAVdCZ2Znk2SOdRAgkXLf0=
@@ -1323,8 +1321,6 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12i
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e h1:o7GTU8Vh7geHHt5uq2TrgqnVq+2P/Uo2n0sSYO+kznA=
 github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e/go.mod h1:lzZ0Hq8zK1FfPb7aHuKQKrsWlrsCtBs6gNRNXh59H7Q=
-github.com/smartcontractkit/mcms v0.19.2 h1:z99AGjYf83XOm6tn/7beRFji09S4H7Bko3KvXaXWLM4=
-github.com/smartcontractkit/mcms v0.19.2/go.mod h1:LsHh9Tazb41glEZv4IdwFOG/D65nvpekCS3jOsDr9H0=
 github.com/smartcontractkit/mcms v0.20.2 h1:pcqKKtrF6jd8f9tCOWDtLIaPa7Y9ANOPDjLwxQK4+w8=
 github.com/smartcontractkit/mcms v0.20.2/go.mod h1:GrMd6EH4ogqYot6IeBC52B9CfD7oCi5POYdTJPRTv2U=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de h1:n0w0rKF+SVM+S3WNlup6uabXj2zFlFNfrlsKCMMb/co=
