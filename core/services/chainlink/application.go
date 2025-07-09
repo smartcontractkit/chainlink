@@ -1003,7 +1003,7 @@ func newCREServices(
 				}
 				wfSyncer, err := syncer.NewWorkflowRegistry(
 					lggr,
-					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					func(ctx context.Context, bytes []byte) (commontypes.ContractReader, error) {
 						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					capCfg.WorkflowRegistry().Address(),
