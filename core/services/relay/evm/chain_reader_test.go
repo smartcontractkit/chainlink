@@ -283,3 +283,7 @@ func (h *simpleHeadTracker) Start(context.Context) error { return nil }
 func (h *simpleHeadTracker) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error) {
 	return &evmtypes.Head{}, &evmtypes.Head{}, nil
 }
+
+func (h *simpleHeadTracker) LatestSafeBlock(ctx context.Context) (safe *evmtypes.Head, err error) {
+	return &evmtypes.Head{}, nil
+}

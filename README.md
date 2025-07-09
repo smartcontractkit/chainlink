@@ -74,12 +74,14 @@ Then you can build the plugins with:
 make install-plugins-private
 ```
 
-### Apple Silicon - ARM64
+### Docker Builds
 
-Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
+To build the experimental "plugins" Chainlink docker image, you can run this from the root of the repository:
 
-```bash
-$ docker build . -t chainlink-develop:latest -f ./core/chainlink.Dockerfile
+```shell
+# The GITHUB_TOKEN is required to access private repos which are used by some plugins.
+export GITHUB_TOKEN=$(gh auth token) # requires the `gh` cli tool.
+make docker-plugins
 ```
 
 ### Ethereum Execution Client Requirements
