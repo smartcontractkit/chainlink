@@ -2310,7 +2310,7 @@ func MintAndAllow(
 	tokenMap map[uint64][]MintTokenInfo,
 ) {
 	configurePoolGrp := errgroup.Group{}
-	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
+	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
 		mintTokenInfos := mintTokenInfos
