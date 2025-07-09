@@ -682,6 +682,8 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]'  }}
     runs-on: ubuntu-latest
     needs: [changes, labels]
+    permissions:
+      contents: read
     outputs:
       should-run-solana-tests: ${{ steps.run-tests.outputs.should-run-solana-tests }}
     steps:
