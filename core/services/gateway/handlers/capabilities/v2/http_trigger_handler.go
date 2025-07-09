@@ -156,6 +156,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		ErrorCode:   api.NoError,
 	}:
 		close(saved.callbackCh)
+		delete(h.callbacks, resp.ID)
 	}
 	return nil
 }
