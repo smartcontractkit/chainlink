@@ -19,7 +19,7 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/kvstore"
   readcontract:
     - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
-      gitRef: "fed08e9ef44646e515c6ce002867abac53740949"
+      gitRef: "161b25a9c183d140cdf982f623968fa1352457f5"
       installPath: "github.com/smartcontractkit/capabilities/readcontract"
   workflowevent:
     - enabled: false
