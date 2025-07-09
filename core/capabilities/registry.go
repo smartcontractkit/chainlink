@@ -102,7 +102,6 @@ func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node
 	}, nil
 }
 
-
 func (t *TestMetadataRegistry) NodeByPeerID(ctx context.Context, _ p2ptypes.PeerID) (capabilities.Node, error) {
 	return t.LocalNode(ctx)
 }

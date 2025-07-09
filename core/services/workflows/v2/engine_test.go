@@ -769,8 +769,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(localNode, nil)
 	for _, peerID := range localNode.WorkflowDON.Members {
-		node, err := localRegistry.NodeByPeerID(t.Context(), peerID)
-		require.NoError(t, err)
+		node, err2 := localRegistry.NodeByPeerID(t.Context(), peerID)
+		require.NoError(t, err2)
 		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
 	}
 
