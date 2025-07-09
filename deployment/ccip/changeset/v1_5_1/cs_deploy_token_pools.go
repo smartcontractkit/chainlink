@@ -255,13 +255,13 @@ func deployTokenPool(
 			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = burn_mint_with_external_minter_fast_transfer_token_pool.DeployBurnMintWithExternalMinterFastTransferTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.HybridWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = hybrid_with_external_minter_fast_transfer_token_pool.DeployHybridWithExternalMinterFastTransferTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 

@@ -5,12 +5,14 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -28,9 +30,9 @@ type CCIPContractsToTransfer struct {
 	Router    bool
 	FeeQuoter bool
 	OffRamp   bool
-	// metadata -> Token Pool PDA -> Token Mint
-	LockReleaseTokenPools map[string]map[solana.PublicKey]solana.PublicKey
-	BurnMintTokenPools    map[string]map[solana.PublicKey]solana.PublicKey
+	// metadata -> Token Mint
+	LockReleaseTokenPools map[string][]solana.PublicKey
+	BurnMintTokenPools    map[string][]solana.PublicKey
 	RMNRemote             bool
 }
 
@@ -225,8 +227,10 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				Transactions:  mcmsTxs,
 			})
 		}
-		for metadata, tokenPools := range contractsToTransfer.LockReleaseTokenPools {
-			for tokenPoolConfigPDA, tokenMint := range tokenPools {
+		for metadata, tokenMints := range contractsToTransfer.LockReleaseTokenPools {
+			for _, tokenMint := range tokenMints {
+				lockReleaseTokenPool := ccipState.SolChains[chainSelector].LockReleaseTokenPools[metadata]
+				tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, lockReleaseTokenPool)
 				mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
 					ccipState,
 					tokenPoolConfigPDA,
@@ -248,8 +252,10 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			}
 		}
 
-		for metadata, tokenPools := range contractsToTransfer.BurnMintTokenPools {
-			for tokenPoolConfigPDA, tokenMint := range tokenPools {
+		for metadata, tokenMints := range contractsToTransfer.BurnMintTokenPools {
+			for _, tokenMint := range tokenMints {
+				burnMintTokenPool := ccipState.SolChains[chainSelector].BurnMintTokenPools[metadata]
+				tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenMint, burnMintTokenPool)
 				mcmsTxs, err := transferOwnershipBurnMintTokenPools(
 					ccipState,
 					tokenPoolConfigPDA,
