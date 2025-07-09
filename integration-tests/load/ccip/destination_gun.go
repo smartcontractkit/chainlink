@@ -444,6 +444,7 @@ func (m *DestinationGun) getSolanaMessage(src uint64) (ccip_router.SVM2AnyMessag
 	message := ccip_router.SVM2AnyMessage{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{},
+		FeeToken:  m.state.SolChains[src].LinkToken,
 	}
 
 	switch {
