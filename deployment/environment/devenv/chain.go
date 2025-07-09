@@ -233,7 +233,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
-					KeypairPath: fmt.Sprintf("%s/deploy-keypair.json", solArtifactPath),
+					KeypairPath: solArtifactPath + "/deploy-keypair.json",
 					URL:         chainCfg.HTTPRPCs[0].External,
 					WSURL:       chainCfg.WSRPCs[0].External,
 					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
