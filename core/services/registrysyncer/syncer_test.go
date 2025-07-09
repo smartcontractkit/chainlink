@@ -570,9 +570,12 @@ func TestSyncer_LocalNode(t *testing.T) {
 		AcceptsWorkflows: true,
 	}
 	expectedNode := capabilities.Node{
-		PeerID:         &pid,
-		WorkflowDON:    don,
-		CapabilityDONs: []capabilities.DON{don},
+		PeerID:              &pid,
+		NodeOperatorID:      1,
+		Signer:              localRegistry.IDsToNodes[pid].Signer,
+		EncryptionPublicKey: localRegistry.IDsToNodes[pid].EncryptionPublicKey,
+		WorkflowDON:         don,
+		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
 }
