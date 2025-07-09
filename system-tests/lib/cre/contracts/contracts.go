@@ -310,6 +310,21 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		}
 		configDONs = append(configDONs, don)
 	}
+
+	// remove chains that do not require any configurations ('read-only' chains that do not have forwarders deployed)
+	allAddresses, addrErr := input.CldEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+	if addrErr != nil {
+		return errors.Wrap(addrErr, "failed to get addresses from address book")
+	}
+	chainsWithForwarders := make(map[uint64]struct{})
+	for chainSelector, addresses := range allAddresses {
+		for _, typeAndVersion := range addresses {
+			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
+				chainsWithForwarders[chainSelector] = struct{}{}
+			}
+		}
+	}
+
 	_, err = operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureForwardersSeq,
@@ -320,6 +335,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		ks_contracts_op.ConfigureForwardersSeqInput{
 			RegistryChainSel: input.ChainSelector,
 			DONs:             configDONs,
+			Chains:           chainsWithForwarders,
 		},
 	)
 	if err != nil {

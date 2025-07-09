@@ -107,10 +107,10 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.relayerChainInterops.EVMChains = legacyEVMChains
 				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
-					types.RelayID{
+					{
 						Network: relay.NetworkEVM,
 						ChainID: "12",
-					}: testutils.MockRelayer{
+					}: &testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -168,10 +168,10 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
-					types.RelayID{
+					{
 						Network: relay.NetworkEVM,
 						ChainID: "12",
-					}: testutils.MockRelayer{
+					}: &testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -331,10 +331,10 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
-					types.RelayID{
+					{
 						Network: relay.NetworkEVM,
 						ChainID: "12",
-					}: testutils.MockRelayer{
+					}: &testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -399,10 +399,10 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
-					types.RelayID{
+					{
 						Network: relay.NetworkEVM,
 						ChainID: "12",
-					}: testutils.MockRelayer{
+					}: &testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,

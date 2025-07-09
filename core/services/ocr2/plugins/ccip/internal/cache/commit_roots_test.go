@@ -90,7 +90,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 	assertRoots(t, roots, root2)
 
 	// Finality progress, mark all roots as finalized
-	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 3, time.Now(), 3))
+	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 3, time.Now(), 3, 3))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
 	require.NoError(t, err)
 	assertRoots(t, roots, root2)
@@ -163,7 +163,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 	root3 := utils.RandomBytes32()
 
 	// Genesis block
-	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 1, block1, 1))
+	require.NoError(t, orm.InsertBlock(ctx, utils.RandomBytes32(), 1, block1, 1, 1))
 	inputLogs := []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block2),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),

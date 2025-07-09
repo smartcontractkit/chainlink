@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -184,9 +186,14 @@ func (t *DxTracker) Track(event string, metadata map[string]any) error {
 func (t *DxTracker) sendEvent(name string, timestamp int64, metadata map[string]any) error {
 	url := "https://api.getdx.com/events.track"
 
+	truncatedMetadata, truncateErr := truncateMetadata(metadata, []string{"to_truncate", "debug"})
+	if truncateErr != nil {
+		return errors.Wrap(truncateErr, "failed to truncate metadata")
+	}
+
 	body := map[string]any{
 		"name":            name,
-		"metadata":        metadata,
+		"metadata":        truncatedMetadata,
 		"timestamp":       strconv.FormatInt(timestamp, 10),
 		"github_username": t.githubUsername,
 	}
@@ -544,4 +551,119 @@ func configPath() (string, error) {
 	}
 
 	return filepath.Join(homeDir, ".local", "share", "dx", "config.json"), nil
+}
+
+const maxMetadataSize = 1024
+const truncatedNote = " (... truncated)"
+
+// truncateMetadata ensures the JSON-serialized metadata fits within the 1024-byte limit
+// by intelligently truncating string values while preserving as much data as possible.
+//
+// The function creates a deep copy of the input metadata to avoid mutations, then applies
+// a priority-based truncation strategy:
+//
+//  1. If the metadata is already under the size limit, it's returned unchanged
+//  2. A priority list is built starting with keys specified in truncateFirst,
+//     followed by remaining keys sorted by string value length (descending)
+//  3. For each key in priority order:
+//     - First attempts to keep the full value if it fits
+//     - If not, uses binary search to find the optimal truncation point
+//     - Appends " (... truncated)" suffix to indicate truncation
+//     - Non-string values are skipped during truncation
+//
+// Parameters:
+//   - metadata: The original metadata map to potentially truncate
+//   - truncateFirst: Keys to prioritize for truncation (useful for debug/verbose fields)
+//
+// Returns:
+//   - A metadata map that fits within maxMetadataSize (1024 bytes) when JSON-serialized
+//   - An error if the metadata cannot be reduced to fit even after aggressive truncation
+//
+// The function guarantees that the returned metadata, when marshaled to JSON,
+// will not exceed 1024 bytes in size.
+func truncateMetadata(metadata map[string]any, truncateFirst []string) (map[string]any, error) {
+	// Deep copy to avoid mutating input
+	original := maps.Clone(metadata)
+
+	getSize := func(m map[string]any) int {
+		b, _ := json.Marshal(m)
+		return len(b)
+	}
+
+	if getSize(original) <= maxMetadataSize {
+		return original, nil
+	}
+
+	// Build priority list
+	priority := make([]string, 0, len(original))
+	seen := map[string]bool{}
+	for _, k := range truncateFirst {
+		if _, ok := original[k]; ok {
+			priority = append(priority, k)
+			seen[k] = true
+		}
+	}
+	for k := range original {
+		if !seen[k] {
+			priority = append(priority, k)
+		}
+	}
+
+	// Sort by string length descending
+	sort.SliceStable(priority, func(i, j int) bool {
+		vi, okI := original[priority[i]].(string)
+		vj, okJ := original[priority[j]].(string)
+		if !okI {
+			return false
+		}
+		if !okJ {
+			return true
+		}
+		return len(vi) > len(vj)
+	})
+
+	// Map of best truncations so far
+	bestSoFar := maps.Clone(original)
+
+	for _, key := range priority {
+		val, ok := original[key].(string)
+		if !ok {
+			continue
+		}
+
+		// First: try full value
+		bestSoFar[key] = val
+		if getSize(bestSoFar) <= maxMetadataSize {
+			continue
+		}
+
+		// Binary search on prefix length
+		low, high := 0, len(val)
+		best := ""
+		for low <= high {
+			mid := (low + high) / 2
+			trialVal := val[:mid] + truncatedNote
+
+			trialMap := maps.Clone(bestSoFar)
+			trialMap[key] = trialVal
+
+			if getSize(trialMap) <= maxMetadataSize {
+				best = trialVal
+				low = mid + 1
+			} else {
+				high = mid - 1
+			}
+		}
+
+		if best != "" {
+			bestSoFar[key] = best
+		} else {
+			bestSoFar[key] = truncatedNote
+		}
+	}
+
+	if getSize(bestSoFar) <= maxMetadataSize {
+		return bestSoFar, nil
+	}
+	return map[string]any{}, errors.New("unable to fit metadata within 1024 bytes even after truncation")
 }

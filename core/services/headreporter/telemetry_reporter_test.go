@@ -135,9 +135,9 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 		Hash:      blockHash[:],
 		Timestamp: 1000,
 	}
-	relay := mockRelayer{latestHead: head}
+	relay := &mockRelayer{latestHead: head}
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		types.RelayID{Network: "Solana", ChainID: "testchain"}: relay,
+		{Network: "Solana", ChainID: "testchain"}: relay,
 	}
 
 	request := telem.HeadReportRequest{
@@ -174,7 +174,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 		Return(monitoringEndpoint)
 
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		types.RelayID{Network: "Solana", ChainID: "testchain"}: testutils2.MockRelayer{},
+		{Network: "Solana", ChainID: "testchain"}: &testutils2.MockRelayer{},
 	}
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
