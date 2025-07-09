@@ -1,4 +1,24 @@
 #!/usr/bin/env bash
+# dynamic-kubefwd.sh
+#
+# Automatically manages port-forwarding to Kubernetes services using kubefwd,
+# with real-time detection and adaptation to service changes. When services
+# are added, removed, or modified in the specified namespace, this script
+# automatically restarts the port forwarding to reflect the changes.
+#
+# Features:
+# - Continuous monitoring of Kubernetes services in a namespace
+# - Automatic restart of kubefwd when service definitions change
+# - Clean process management with proper signal handling
+# - Throttled restarts to prevent rapid fluctuations
+# - Detailed logging of service changes and forwarding status
+#
+# Requirements:
+# - kubectl configured with access to the target cluster
+# - kubefwd installed (https://github.com/txn2/kubefwd)
+# - sudo access (required by kubefwd)
+#
+# Usage: ./dynamic-kubefwd.sh <namespace>
 set -eo pipefail
 
 # Usage: ./live-kubefwd.sh <namespace>

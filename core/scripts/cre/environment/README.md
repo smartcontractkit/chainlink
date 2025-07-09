@@ -37,7 +37,7 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 
 ## Prerequisites For CRIB ###
 1. kubefwd installed: `brew install txn2/tap/kubefwd`
-2. Start the port forward script `sudo ./port-forward.sh <NAMESPACE>`
+2. Start the port forward script `sudo ./dynamic-kubefwd.sh <NAMESPACE>`
 
 
 # QUICKSTART
