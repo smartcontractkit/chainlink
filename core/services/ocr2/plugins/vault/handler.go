@@ -68,7 +68,7 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
 	case vault_api.MethodSecretsCreate:
-		response = h.handleSecretsCreate(ctx, gatewayID, req)
+		response = h.handleSecretsCreate(req)
 	default:
 		response = h.errorResponse(req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -83,7 +83,7 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 	return nil
 }
 
-func (h *Handler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *Handler) handleSecretsCreate(req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
 	var requestData vault_api.SecretsCreateRequest
 	if err := json.Unmarshal(*req.Params, &requestData); err != nil {
 		return h.errorResponse(req, api.UserMessageParseError, err)
