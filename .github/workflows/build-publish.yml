@@ -115,7 +115,6 @@ jobs:
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
-      docker-tag-custom-suffix: "-ccip"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
