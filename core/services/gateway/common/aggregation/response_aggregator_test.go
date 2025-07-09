@@ -334,9 +334,9 @@ func TestIdenticalNodeResponseAggregator_NodeChangesResponse(t *testing.T) {
 		require.JSONEq(t, string(*resp2.Result), string(*result.Result))
 
 		// Generate keys
-		key1, err := digest(resp1)
+		key1, err := resp1.Digest()
 		require.NoError(t, err)
-		key2, err := digest(resp2)
+		key2, err := resp2.Digest()
 		require.NoError(t, err)
 
 		// Both nodes should be associated with key2
