@@ -138,17 +138,6 @@ func Test_ReportCodec(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
 
-		multiplier1, err := decimal.NewFromString("1")
-		require.NoError(t, err)
-		multiplier2, err := decimal.NewFromString("1000000000000000000") // 10^18
-		require.NoError(t, err)
-
-		opts, err := (&ReportCodecCapabilityTriggerOpts{
-			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
-				{Multiplier: multiplier1, StreamID: 1},
-				{Multiplier: multiplier2, StreamID: 2},
-			},
-		}).Encode()
 		require.NoError(t, err)
 		err = c.Verify(
 			llotypes.ChannelDefinition{

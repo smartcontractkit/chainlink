@@ -131,7 +131,7 @@ func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) erro
 	if err := opts.Decode(cd.Opts); err != nil {
 		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
 	}
-	if len(opts.Multipliers) != len(cd.Streams) {
+	if opts != nil && len(opts.Multipliers) != len(cd.Streams) {
 		return fmt.Errorf("multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
 	}
 
