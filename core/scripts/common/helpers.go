@@ -505,7 +505,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 				Result: &hs[i],
 			}
 		}
-		err := env.Jc.BatchCallContext(context.Background(), batchElems)
+		err := batchCallContext(context.Background(), env.Jc, batchElems)
 		if err != nil {
 			return nil, hashes, fmt.Errorf("failed to get header: %w", err)
 		}
@@ -549,7 +549,7 @@ func getRlpHeaders[HEADER Hashable](env Environment, blockNumbers []*big.Int, of
 			Result: &hs[i],
 		}
 	}
-	err = env.Jc.BatchCallContext(context.Background(), batchElems)
+	err = batchCallContext(context.Background(), env.Jc, batchElems)
 	if err != nil {
 		return nil, hashes, fmt.Errorf("failed to get header: %w", err)
 	}
@@ -562,6 +562,37 @@ func getRlpHeaders[HEADER Hashable](env Environment, blockNumbers []*big.Int, of
 		headers[i] = rlpHeader
 	}
 	return
+}
+
+// batchCallContext is a wrapper around rpc.Client.BatchCallContext that deals with RPC node batch size limitations.
+func batchCallContext(ctx context.Context, client *rpc.Client, batchElems []rpc.BatchElem) error {
+	err := client.BatchCallContext(ctx, batchElems)
+	if err != nil {
+		// Try again with a batch size of 1
+		err = client.BatchCallContext(ctx, batchElems[0:1])
+		if err != nil {
+			// The error is unlikely to be due to a batch size issue, so return it.
+			return err
+		}
+		// If we got here, the batch size of 1 worked, so we can try to find the maximum batch size that works.
+		loBatchSize := 1
+		hiBatchSize := len(batchElems)
+		for start := 1; start < len(batchElems); {
+			batchSize := (hiBatchSize + loBatchSize) / 2
+			end := start + batchSize
+			if end > len(batchElems) {
+				end = len(batchElems)
+			}
+			err = client.BatchCallContext(ctx, batchElems[start:end])
+			if err != nil {
+				hiBatchSize = batchSize
+			} else {
+				loBatchSize = batchSize
+				start += batchSize
+			}
+		}
+	}
+	return err
 }
 
 // IsPolygonEdgeNetwork returns true if the given chain ID corresponds to an Pologyon Edge network.
