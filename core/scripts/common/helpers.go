@@ -492,7 +492,9 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 	switch {
 	case IsAvaxNetwork(env.ChainID):
 		return getRlpHeaders[*AvaHeader](env, blockNumbers, offset)
-	case IsAvaxSubnet(env.ChainID):
+	case IsAvaxSubnet(env.ChainID) &&
+		// For some reason, Nexon chain does not work with AvaSubnetHeader
+		!IsNexonChain(env.ChainID):
 		return getRlpHeaders[*AvaSubnetHeader](env, blockNumbers, offset)
 	case IsPolygonEdgeNetwork(env.ChainID):
 		hs := make([]*PolygonEdgeHeader, len(blockNumbers))
@@ -636,18 +638,6 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 func IsAvaxNetwork(chainID int64) bool {
 	return chainID == 43114 || // C-chain mainnet
 		chainID == 43113 // Fuji testnet
-}
-
-// IsAvaxSubnet returns true if the given chain ID corresponds to an avalanche subnet.
-func IsAvaxSubnet(chainID int64) bool {
-	return chainID == 335 || // DFK testnet
-		chainID == 53935 || // DFK mainnet
-		chainID == 5668 || // Nexon Dev
-		chainID == 595581 || // Nexon Test
-		chainID == 807424 || // Nexon QA
-		chainID == 847799 || // Nexon Stage
-		chainID == 60118 || // Nexon Mainnet (Actually a testnet)
-		chainID == 68414 // Nexon Henesys Mainnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {
