@@ -816,6 +816,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		logged := logs.TakeAll()
 		require.Len(t, logged, 1)
+		assert.Contains(t, logged[0].Message, "metering mode")
 	})
 
 	require.NoError(t, engine.Close())
