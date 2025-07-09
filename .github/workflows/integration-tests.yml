@@ -85,9 +85,11 @@ jobs:
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
-    environment: integration
     name: Check Paths That Require Tests To Run
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    environment: integration
     outputs:
       github-ci-changes: ${{ steps.changes.outputs.github_ci_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
@@ -141,6 +143,7 @@ jobs:
 
   labels:
     name: Get PR labels and set runner labels
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -182,7 +185,11 @@ jobs:
           fi
 
   build-chainlink:
+    name: Build Chainlink Image ${{ matrix.image.name }}
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     environment: integration
+    needs: [changes, labels, enforce-ctf-version, run-core-e2e-tests-setup, run-ccip-e2e-tests-setup, solana-smoke-tests-setup]
     permissions:
       id-token: write
       contents: read
@@ -196,10 +203,6 @@ jobs:
           - name: (plugins)
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
-
-    name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
-    needs: [changes, labels, enforce-ctf-version, run-core-e2e-tests-setup, run-ccip-e2e-tests-setup]
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -214,7 +217,7 @@ jobs:
           ref: ${{ inputs.cl_ref || github.sha }}
 
       - name: Build Chainlink Image
-        if: needs.changes.outputs.should-run-cre-tests == 'true' || needs.run-core-e2e-tests-setup.outputs.should-run == 'true' || needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
+        if: needs.changes.outputs.should-run-cre-tests == 'true' || needs.run-core-e2e-tests-setup.outputs.should-run == 'true' || needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' || needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
@@ -673,16 +676,67 @@ jobs:
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
 
   ## Solana Section
-  get-solana-sha:
+  solana-smoke-tests-setup:
+    name: Solana Smoke Tests Setup
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
-    name: Get Solana Sha From Go Mod
-    environment: Integration
+    if: ${{ github.actor != 'dependabot[bot]'  }}
     runs-on: ubuntu-latest
     needs: [changes, labels]
     outputs:
-      sha: ${{ steps.getsha.outputs.sha }}
       should-run-solana-tests: ${{ steps.run-tests.outputs.should-run-solana-tests }}
+    steps:
+      - name: Determine if Solana tests should run
+        id: run-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
+          INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
+        run: |
+          if [[ "${INPUTS_RUN_SOLANA}" == 'false' ]]; then
+            echo "Solana tests are disabled by input, skipping."
+            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+            # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
+              echo "Solana tests will run on PR with label and relevant changes."
+              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
+            # Run Solana tests in the merge queue, if there are relevant changes
+            echo "Solana tests will run in the merge queue."
+            echo "should-run-solana-tests=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
+            # Always run Solana tests on workflow dispatch
+            echo "Solana tests will run on workflow dispatch."
+            echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            # Run Solana tests on push events, only if there are relevant changes or if it's a tag push
+            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
+              echo "Solana tests will run on push with relevant changes or tag push."
+              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+
+          else
+            echo "Solana tests will not run for this event type: ${GITHUB_EVENT_NAME}."
+            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+  get-solana-sha:
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+    name: Get Solana Sha From Go Mod
+    environment: Integration
+    runs-on: ubuntu-latest
+    needs: [ solana-smoke-tests-setup ]
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -729,38 +783,6 @@ jobs:
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Determine if Solana tests should run
-        id: run-tests
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
-          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Solana tests in the merge queue, if there are relevant changes
-            echo "should-run-solana-tests=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Solana tests on workflow dispatch
-            echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Solana tests on push events, only if there are relevant changes or if it's a tag push
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          else
-            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
-          fi
-
   solana-test-image-exists:
     environment: integration
     permissions:
@@ -784,15 +806,16 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   solana-build-contracts:
+    name: Solana Build Artifacts
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    name: Solana Build Artifacts
     runs-on: ubuntu22.04-8cores-32GB
-    needs: [changes, solana-test-image-exists, get-solana-sha]
+    needs: [changes, solana-test-image-exists, get-solana-sha, solana-smoke-tests-setup]
     steps:
       - name: Checkout the solana repo
         uses: actions/checkout@v4
@@ -801,20 +824,21 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get-solana-sha.outputs.sha }}
       - name: Build contracts
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get-solana-sha.outputs.sha }}
           runner-os: ${{ runner.os }}
 
   solana-build-test-image:
+    name: Solana Build Test Image
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    name: Solana Build Test Image
     runs-on: ubuntu22.04-8cores-32GB
     needs:
       [
@@ -822,25 +846,27 @@ jobs:
         solana-test-image-exists,
         changes,
         get-solana-sha,
+        solana-smoke-tests-setup
       ]
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
       GOTOOLCHAIN: auto
     steps:
       - name: Checkout the repo
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get-solana-sha.outputs.sha }}
       - name: Download Artifacts
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/download-artifact@v4
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
         with:
           repository: chainlink-solana-tests
@@ -858,6 +884,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
     runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     needs:
       [
@@ -867,6 +894,7 @@ jobs:
         labels,
         changes,
         get-solana-sha,
+        solana-smoke-tests-setup
       ]
     env:
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -886,7 +914,6 @@ jobs:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get-solana-sha.outputs.sha }}
       - name: Run Setup
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@4ff522b1aef76519d2ced17b5d052927754fd34b # ctf-setup-run-tests-environment@v0.2.1
         with:
           go_mod_path: ./integration-tests/go.mod
@@ -900,7 +927,6 @@ jobs:
           main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       - name: Pull Artifacts
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true'
         run: |
           IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }}
           # Pull the Docker image
@@ -942,7 +968,6 @@ jobs:
           # shellcheck disable=SC2086
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
-        if: needs.get-solana-sha.outputs.should-run-solana-tests == 'true'
         uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
         env:
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
