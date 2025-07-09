@@ -95,9 +95,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250619160901-79b609b1021c
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250708220600-853616d583f4
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250701132001-f8be142155b6
-	github.com/smartcontractkit/cre-sdk-go v0.0.0-20250709200547-a81a7d08d6d5
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250709200547-a81a7d08d6d5
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709200547-a81a7d08d6d5
+	github.com/smartcontractkit/cre-sdk-go v0.0.0-20250709203740-9197d929abcd
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250709203740-9197d929abcd
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709203740-9197d929abcd
 	github.com/smartcontractkit/freeport v0.1.1
 	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
