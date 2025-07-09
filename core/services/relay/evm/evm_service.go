@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
@@ -22,18 +23,17 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // Direct RPC
-func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
+func (r *Relayer) CallContract(ctx context.Context, msg *evm.CallMsg, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) ([]byte, error) {
+	return r.chain.Client().CallContractWithConfidence(ctx, toEthMsg(msg), blockNumber, confidenceLevel)
 }
 
-func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
-	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery))
+func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
+	logs, err := r.chain.Client().FilterLogsWithConfidence(ctx, convertEthFilter(filterQuery), confidenceLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +47,8 @@ func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQue
 	return ret, nil
 }
 
-func (r *Relayer) BalanceAt(ctx context.Context, account evmtypes.Address, blockNumber *big.Int) (*big.Int, error) {
-	return r.chain.Client().BalanceAt(ctx, account, blockNumber)
+func (r *Relayer) BalanceAt(ctx context.Context, account evmtypes.Address, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
+	return r.chain.Client().BalanceAtWithConfidence(ctx, account, blockNumber, confidenceLevel)
 }
 
 func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
@@ -78,13 +78,44 @@ func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontyp
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, evmtypes.Head, error) {
-	latest, finalized, err := r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+func (r *Relayer) HeaderByNumber(ctx context.Context, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Head, error) {
+	rpcBlockNumber, err := blockNumberToRPCBlockNumber(blockNumber)
 	if err != nil {
-		return evmtypes.Head{}, evmtypes.Head{}, err
+		return evmtypes.Head{}, err
 	}
 
-	return convertHead(latest), convertHead(finalized), nil
+	var result *types.Head
+	switch rpcBlockNumber {
+	case rpc.LatestBlockNumber:
+		result, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+	case rpc.FinalizedBlockNumber:
+		_, result, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+	case rpc.SafeBlockNumber:
+		result, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
+	default:
+		result, err = r.chain.Client().HeadByNumberWithConfidence(ctx, blockNumber, confidenceLevel)
+	}
+	if err != nil {
+		return evmtypes.Head{}, err
+	}
+
+	if result == nil {
+		return evmtypes.Head{}, fmt.Errorf("no header found for block number %d: %w", blockNumber, ethereum.NotFound)
+	}
+
+	return convertHead(result), nil
+}
+
+func blockNumberToRPCBlockNumber(blockNumber *big.Int) (rpc.BlockNumber, error) {
+	if blockNumber == nil {
+		return rpc.LatestBlockNumber, nil
+	}
+
+	if !blockNumber.IsInt64() {
+		return rpc.LatestBlockNumber, errors.Errorf("block number must be an int64, got %v", blockNumber)
+	}
+
+	return rpc.BlockNumber(blockNumber.Int64()), nil
 }
 
 // TODO introduce parameters validation PLEX-1437
@@ -251,7 +282,7 @@ func queryNameFromFilter(filterQuery []query.Expression) string {
 	return address + "-" + eventSig
 }
 
-func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Head {
+func convertHead(h *types.Head) evmtypes.Head {
 	return evmtypes.Head{
 		Timestamp:  uint64(h.GetTimestamp().Unix()),
 		Hash:       bytesToHash(h.BlockHash().Bytes()),
