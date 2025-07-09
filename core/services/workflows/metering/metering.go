@@ -228,6 +228,9 @@ func (r *Report) CreditToSpendingLimits(
 	config *values.Map,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.meteringMode {
 		return []capabilities.SpendLimit{}
 	}
@@ -451,6 +454,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 
 func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Errorf("switching to metering mode: %s", err)
+
 	r.meteringMode = true
 	r.ready = true
 }
