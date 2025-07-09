@@ -138,14 +138,12 @@ func Test_ReportCodec(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
 
-		require.NoError(t, err)
-		err = c.Verify(
+		err := c.Verify(
 			llotypes.ChannelDefinition{
 				Streams: []llotypes.Stream{
 					{StreamID: 1},
 					{StreamID: 2},
 				},
-				Opts: opts,
 			},
 		)
 		require.NoError(t, err)
