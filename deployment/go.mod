@@ -29,14 +29,14 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
-	github.com/smartcontractkit/chain-selectors v1.0.62-0.20250630182638-8bd9c28cf772
+	github.com/smartcontractkit/chain-selectors v1.0.62
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250626122206-319db248496a
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250707220619-84bd6c292469
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250709131155-6c69a4803f9a
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250707214334-e164c13b2f32
-	github.com/smartcontractkit/chainlink-deployments-framework v0.17.0
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709122409-f930df296d3d
+	github.com/smartcontractkit/chainlink-deployments-framework v0.17.1
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709151830-779a62e4fc4a
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0
@@ -44,11 +44,12 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/freeport v0.1.1
 	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
-	github.com/smartcontractkit/mcms v0.19.2
+	github.com/smartcontractkit/mcms v0.20.2
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
+	github.com/ugorji/go/codec v1.2.12
 	github.com/xssnick/tonutils-go v1.13.0
 	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6
 	go.uber.org/zap v1.27.0
@@ -412,7 +413,6 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/urfave/cli v1.22.16 // indirect
 	github.com/urfave/cli/v2 v2.27.6 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect

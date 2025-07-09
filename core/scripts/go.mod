@@ -37,14 +37,14 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.62-0.20250630182638-8bd9c28cf772
+	github.com/smartcontractkit/chain-selectors v1.0.62
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250707220619-84bd6c292469
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250709131155-6c69a4803f9a
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250707214334-e164c13b2f32
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
-	github.com/smartcontractkit/chainlink-deployments-framework v0.17.0
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709122409-f930df296d3d
+	github.com/smartcontractkit/chainlink-deployments-framework v0.17.1
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709151830-779a62e4fc4a
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
@@ -468,7 +468,7 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250701132001-f8be142155b6 // indirect
 	github.com/smartcontractkit/freeport v0.1.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/mcms v0.19.2 // indirect
+	github.com/smartcontractkit/mcms v0.20.2 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
