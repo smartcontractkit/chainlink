@@ -22,30 +22,27 @@ import (
 )
 
 var (
+	_ gw_handlers.Handler = (*service)(nil)
+
 	ErrNotAllowlisted    = errors.New("sender not allowlisted")
 	ErrRateLimited       = errors.New("rate-limited")
 	ErrUnsupportedMethod = errors.New("unsupported method")
 
-	// Track errors from the handler (internal errors)
 	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_request_internal_error",
-		Help: "Metric to track vault handler errors",
+		Name: "gateway_node_vault_request_internal_error",
+		Help: "Gateway node, Vault handler: Metric to track internal errors",
 	}, []string{"don_id", "error"})
 
-	// Track failed secrets_create calls (user errors)
 	promRequestUserError = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_request_user_error",
-		Help: "Metric to track failed vault requests",
+		Name: "gateway_node_vault_request_user_error",
+		Help: "Gateway node, Vault handler: Metric to track failed requests",
 	}, []string{"don_id"})
 
-	// Track successful secrets_create calls
 	promRequestSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_vault_request_success",
-		Help: "Metric to track successful vault requests",
+		Name: "gateway_node_vault_request_success",
+		Help: "Gateway node, Vault handler: Metric to track successful requests",
 	}, []string{"don_id"})
 )
-
-var _ gw_handlers.Handler = (*service)(nil)
 
 type pendingRequest struct {
 	callbackCh chan<- gw_handlers.UserCallbackPayload
