@@ -48,17 +48,17 @@ func TestLoader_Chains(t *testing.T) {
 	require.NoError(t, err)
 
 	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
-		commontypes.RelayID{
+		{
 			Network: relay.NetworkEVM,
 			ChainID: "1",
-		}: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		}: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "1",
 			Enabled: true,
 			Config:  config1,
-		}}, commontypes.RelayID{
+		}}, {
 			Network: relay.NetworkEVM,
 			ChainID: "2",
-		}: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		}: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "2",
 			Enabled: true,
 			Config:  config2,
@@ -117,17 +117,17 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 		ChainID: "1",
 	}
 	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
-		evm1: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		evm1: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "1",
 			Enabled: true,
 			Config:  config1,
 		}},
-		evm2: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		evm2: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "2",
 			Enabled: true,
 			Config:  config2,
 		}},
-		solana1: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		solana1: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "1",
 			Enabled: true,
 			Config:  "config",
