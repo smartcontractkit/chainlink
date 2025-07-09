@@ -984,7 +984,6 @@ func newCREServices(
 					lggr,
 					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
-					registrySyncer,
 					engineRegistry,
 					custmsg.NewLabeler(),
 					workflowRateLimiter,

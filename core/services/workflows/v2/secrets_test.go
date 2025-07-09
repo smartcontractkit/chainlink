@@ -34,6 +34,8 @@ func MetricsLabelerTest(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
@@ -97,8 +99,6 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 			return "", errors.New("unexpected shares")
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -129,6 +129,8 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
@@ -138,8 +140,6 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		func(shares []string) (string, error) { return "", nil },
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	_, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -155,7 +155,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return nil, errors.New("could not authorize the request")
@@ -175,8 +176,6 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 			return "", nil
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -192,7 +191,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -214,9 +214,6 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 			return "", nil
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
-
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
 			{
@@ -236,7 +233,8 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -278,8 +276,6 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 			return "", nil
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
@@ -300,7 +296,8 @@ func TestSecretsFetcher_ReturnsErrorIfTooManyDecryptionShares(t *testing.T) {
 func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-
+	peer := coreCap.RandomUTF8BytesWord()
+	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -339,8 +336,6 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 			return "", errors.New("could not combine shares")
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	require.NoError(t, sf.OnNewRegistry(t.Context(), CreateLocalRegistry(t, peer)))
 
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{

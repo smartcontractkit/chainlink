@@ -12,7 +12,6 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	regsyncermocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -66,7 +65,6 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		Lggr:                 lggr,
 		Module:               modulemocks.NewModuleV2(t),
 		CapRegistry:          regmocks.NewCapabilitiesRegistry(t),
-		RegistrySyncer:       regsyncermocks.NewRegistrySyncer(t),
 		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		WorkflowID:           testWorkflowID,
 		WorkflowOwner:        testWorkflowOwnerA,

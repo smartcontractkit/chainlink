@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -26,7 +25,6 @@ type EngineConfig struct {
 	Module          host.ModuleV2
 	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
-	RegistrySyncer  registrysyncer.RegistrySyncer
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher

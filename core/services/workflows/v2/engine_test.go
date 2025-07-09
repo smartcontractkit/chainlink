@@ -43,7 +43,6 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	regsyncermocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -57,15 +56,12 @@ func TestEngine_Init(t *testing.T) {
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 
 	initDoneCh := make(chan error)
 
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -99,8 +95,6 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 	initDoneCh := make(chan error)
 	hooks := v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -111,7 +105,6 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.GlobalLimits = sLimiter
 	cfg.Hooks = hooks
 	var engine1, engine2, engine3, engine4 *v2.Engine
@@ -162,8 +155,6 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -171,7 +162,6 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -260,8 +250,6 @@ func TestEngine_Execution(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
@@ -271,7 +259,6 @@ func TestEngine_Execution(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -357,8 +344,6 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
@@ -368,7 +353,6 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.BillingClient = billingClient
 	// Set a very short execution timeout (100ms)
 	cfg.LocalLimits.WorkflowExecutionTimeoutMs = 100
@@ -447,8 +431,6 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
@@ -458,7 +440,6 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.BillingClient = billingClient
 	// Set a very short capability call timeout (50ms)
 	cfg.LocalLimits.CapabilityCallTimeoutMs = 50
@@ -571,15 +552,12 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 
 	billingClient := setupMockBillingClient(t)
 
 	cfg := defaultTestConfig(t)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.BillingClient = billingClient
 
 	initDoneCh := make(chan error, 1)
@@ -685,8 +663,6 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	registrySyncer := regsyncermocks.NewRegistrySyncer(t)
-	registrySyncer.EXPECT().AddListener(mock.Anything).Once()
 
 	billingClient := setupMockBillingClient(t)
 
@@ -694,7 +670,6 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.RegistrySyncer = registrySyncer
 	cfg.BillingClient = billingClient
 
 	initDoneCh := make(chan error, 1)
@@ -788,7 +763,17 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
-	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	peer := coreCap.RandomUTF8BytesWord()
+	localRegistry := v2.CreateLocalRegistry(t, peer)
+	localNode, err := localRegistry.LocalNode(t.Context())
+	require.NoError(t, err)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(localNode, nil)
+	for _, peerID := range localNode.WorkflowDON.Members {
+		node, err := localRegistry.NodeByPeerID(t.Context(), peerID)
+		require.NoError(t, err)
+		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
+	}
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -868,9 +853,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 			return result, nil
 		},
 	)
-	peer := coreCap.RandomUTF8BytesWord()
-	localRegistry := v2.CreateLocalRegistry(t, peer)
-	require.NoError(t, secretsFetcher.OnNewRegistry(t.Context(), localRegistry))
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)

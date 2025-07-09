@@ -115,7 +115,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	}
 
 	if cfg.SecretsFetcher == nil {
-		fetcher := NewSecretsFetcher(
+		cfg.SecretsFetcher = NewSecretsFetcher(
 			metricsLabeler,
 			cfg.CapRegistry,
 			beholderLogger,
@@ -126,8 +126,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 				return "", errors.New("decryption not implemented in v2 engine")
 			},
 		)
-		cfg.SecretsFetcher = fetcher
-		cfg.RegistrySyncer.AddListener(fetcher)
 	}
 
 	engine := &Engine{
