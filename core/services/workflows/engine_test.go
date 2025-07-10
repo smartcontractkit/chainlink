@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -43,6 +44,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -341,6 +343,323 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 		return errors.New("failed to unregister a non-registered trigger")
 	}
 	return nil
+}
+
+func TestEngine_Metering_ValidBillingClient(t *testing.T) {
+	t.Parallel()
+
+	const meteringSimpleWorkflow = `
+triggers:
+  - id: "simple-trigger@1.0.0"
+    config:
+      data: "test"
+consensus:
+  - id: "simple-capability@1.0.0"
+    ref: "simple_cap"
+    config:
+      data: "test"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+targets:
+  - id: "write_polygon-testnet-mumbai@1.0.0"
+    inputs:
+      report: "$(simple_cap.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+	setConfig := func(t *testing.T, registry *coreCap.Registry, vals map[string]any) {
+		t.Helper()
+
+		conf, err := values.WrapMap(vals)
+
+		require.NoError(t, err)
+		registry.SetLocalRegistry(&testConfigProvider{
+			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+				cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+					RestrictedConfig: values.ProtoMap(conf),
+					RestrictedKeys:   []string{metering.RatiosKey},
+				})
+
+				return registrysyncer.CapabilityConfiguration{
+					Config: cb,
+				}, err
+			},
+		})
+	}
+
+	withTrigger := func(t *testing.T, registry *coreCap.Registry) capabilities.TriggerResponse {
+		t.Helper()
+
+		trigger := &mockTriggerCapability{
+			CapabilityInfo: capabilities.MustNewCapabilityInfo(
+				"simple-trigger@1.0.0",
+				capabilities.CapabilityTypeTrigger,
+				"issues a test trigger",
+			),
+			ch:                         make(chan capabilities.TriggerResponse, 10),
+			registerTriggerCallCounter: make(map[string]int),
+		}
+
+		testResp, _ := values.NewMap(map[string]any{
+			"123": decimal.NewFromFloat(1.00),
+			"456": decimal.NewFromFloat(1.25),
+			"789": decimal.NewFromFloat(1.50),
+		})
+
+		response := capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{
+				TriggerType: trigger.ID,
+				ID:          fmt.Sprintf("%v:%v", "simple-trigger@1.0.0", time.Now().UTC().Format(time.RFC3339)),
+				Outputs:     testResp,
+			},
+		}
+		trigger.triggerEvent = &response
+
+		require.NoError(t, registry.Add(t.Context(), trigger))
+
+		return response
+	}
+
+	withCompute := func(t *testing.T, registry *coreCap.Registry, assertion func(*testing.T, capabilities.CapabilityRequest)) {
+		t.Helper()
+
+		capability := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"simple-capability@1.0.0",
+				capabilities.CapabilityTypeConsensus,
+				"an ocr3 consensus capability",
+				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				assertion(t, req)
+
+				obs := req.Inputs.Underlying["observations"]
+				report := obs.(*values.List)
+				rm := map[string]any{
+					"report": report.Underlying[0],
+				}
+
+				rv, err := values.NewMap(rm)
+				if err != nil {
+					return capabilities.CapabilityResponse{}, err
+				}
+
+				return capabilities.CapabilityResponse{
+					Metadata: capabilities.ResponseMetadata{
+						Metering: []capabilities.MeteringNodeDetail{
+							{
+								Peer2PeerID: "local",
+								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+								SpendValue:  "100",
+							},
+						},
+					},
+					Value: rv,
+				}, nil
+			},
+		)
+
+		require.NoError(t, registry.Add(t.Context(), capability))
+	}
+
+	withTarget := func(t *testing.T, registry *coreCap.Registry, assertion func(*testing.T, capabilities.CapabilityRequest)) *mockCapability {
+		t.Helper()
+
+		target := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_polygon-testnet-mumbai@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a simple write capability",
+				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				assertion(t, req)
+
+				return capabilities.CapabilityResponse{
+					Value: req.Inputs.Underlying["report"].(*values.Map),
+					Metadata: capabilities.ResponseMetadata{
+						Metering: []capabilities.MeteringNodeDetail{
+							{
+								Peer2PeerID: "local",
+								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+								SpendValue:  "100",
+							},
+							{
+								Peer2PeerID: "local",
+								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+								SpendValue:  "1000",
+							},
+						},
+					},
+				}, nil
+			},
+		)
+
+		require.NoError(t, registry.Add(t.Context(), target))
+
+		return target
+	}
+
+	t.Run("incorrect ratios config switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		tr := withTrigger(t, reg)
+		withCompute(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
+			t.Helper()
+			assert.NotNil(t, req.Metadata.SpendLimits)
+			assert.Len(t, req.Metadata.SpendLimits, 1)
+		})
+		target := withTarget(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
+			t.Helper()
+			assert.NotNil(t, req.Metadata.SpendLimits)
+			assert.Empty(t, req.Metadata.SpendLimits)
+		})
+
+		lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			meteringSimpleWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.Lggr = lggr
+			},
+		)
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+			})).
+			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+			}, Credits: 10_000}, nil)
+
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+			})).
+			Return(&emptypb.Empty{}, nil)
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		errLogs := logs.TakeAll()
+
+		require.Len(t, errLogs, 1)
+		assert.Contains(t, errLogs[0].Message, "metering mode")
+
+		mBillingClient.AssertExpectations(t)
+	})
+
+	t.Run("correct ratios config produces spending limits", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		tr := withTrigger(t, reg)
+		withCompute(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
+			t.Helper()
+			require.NotNil(t, req.Metadata.SpendLimits)
+			require.Len(t, req.Metadata.SpendLimits, 1)
+			assert.Equal(t, capabilities.SpendLimit{
+				SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+				// capability limit includes the entire reserve amount; no standard deductions
+				// default worker limit is 100 so each capability call receives 10_000 / 100 units (100)
+				// 100 / 0.0001 = 1_000_000
+				Limit: "1000000.000",
+			}, req.Metadata.SpendLimits[0])
+		})
+		target := withTarget(t, reg, func(t *testing.T, req capabilities.CapabilityRequest) {
+			t.Helper()
+			require.NotNil(t, req.Metadata.SpendLimits)
+			require.Len(t, req.Metadata.SpendLimits, 2)
+
+			// 100 * 0.0001 (0.01) units were deducted for the previous capability
+			// this leaves 9_999.99 units available
+			// again for 100 possible concurrent workers: 9_999.99 / 100 = 99.9999
+			assert.Equal(t, []capabilities.SpendLimit{
+				{
+					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+					// 40% of remaining units divided by 0.0001 is the following
+					// 99.9999 * 0.4 / 0.0001
+					Limit: "399999.600",
+				},
+				{
+					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					// 60% of remaining units divided by 0.01 is the following
+					// 99.9999 * 0.6 / 0.01
+					Limit: "5999.994",
+				},
+			}, req.Metadata.SpendLimits)
+		})
+
+		lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			meteringSimpleWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.Lggr = lggr
+			},
+		)
+
+		setConfig(t, reg, map[string]any{
+			metering.RatiosKey: map[string]any{
+				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
+				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+			},
+		})
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+			})).
+			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+			}, Credits: 10_000}, nil)
+
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+			})).
+			Return(&emptypb.Empty{}, nil)
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+
+		assert.Equal(t, store.StatusCompleted, state.Status)
+		assert.Empty(t, logs)
+
+		mBillingClient.AssertExpectations(t)
+	})
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
