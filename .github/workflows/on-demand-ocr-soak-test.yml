@@ -76,99 +76,76 @@ jobs:
   # Based on the `inputs.chainlink_version` define whether to:
   # - use a private or public ECR registry
   # - skip image build if public ECR registry is used
-  version-to-docker-registry:
-    name: Define Image Location Based on Version
+  # - resolve the docker version
+  # - set test secrets
+  setup-test-parameters:
+    name: Setup Test Parameters
     runs-on: ubuntu-latest
     outputs:
-      skip_image_build: ${{ steps.set-registry-type.outputs.skip_image_build }}
+      skip_image_build: ${{ steps.should-build-image.outputs.skip_image_build }}
+      chainlink_image_version: ${{ steps.resolve-version.outputs.chainlink_image_version }}
+      test_secrets_override_key: ${{ steps.set-test-secrets.outputs.test_secrets_override_key }}
     env:
       VERSION: ${{ inputs.chainlink_version || github.ref_name }}
+      SECRETS_OVERRIDE_KEY: ${{ inputs.test_secrets_override_key }}
+      PUBLIC_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/DEFAULT_TEST_SECRETS
+      PRIVATE_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/PRIVATE_DEFAULT_TEST_SECRETS
     steps:
-      - name: Select ECR registry (private or public) Based on Version
-        id: set-registry-type
+      - name: Define if Image Build is Required Based on Version
+        id: should-build-image
         shell: bash
         run: |
-          # Ensure version is present (from input or tag name)
-          if [[ -z "$VERSION" ]]; then
-            echo "Error: version is not set. 'chainlink_version' input or GH tag is required."
-            exit 1
-          fi
-
           # Check if VERSION matches a public registry pattern (e.g., v2.26.0-beta.0)
           if [[ "$VERSION" =~ ^v[0-9]+\..*$ ]]; then
-            echo "skip_image_build=true" >> $GITHUB_OUTPUT
+            echo "skip_image_build=true" | tee -a "$GITHUB_OUTPUT"
             echo "Version '$VERSION' detected. Using PUBLIC ECR registry - no image build required."
           else
-            echo "skip_image_build=false" >> $GITHUB_OUTPUT
+            echo "skip_image_build=false" | tee -a "$GITHUB_OUTPUT"
             echo "Detected version: '$VERSION'. Using PRIVATE ECR registry - image build is required."
           fi
 
-  # Prefix `v` should be stripped for Docker images
-  resolve-docker-version:
-    name: Resolve Version
-    runs-on: ubuntu-latest
-    needs: version-to-docker-registry
-    outputs:
-      chainlink_image_version: ${{ steps.resolve.outputs.chainlink_image_version }}
-    env:
-      VERSION: ${{ inputs.chainlink_version || github.ref_name }}
-    steps:
       - name: Check if '${{ env.VERSION }}' is a 'Core' Release Version
-        if: ${{ needs.version-to-docker-registry.outputs.skip_image_build == 'true' }}
         id: is-core
         run: |
           # Examples: `v2.23.1-beta.0`, `v2.23.1-rc.1`, `v2.23.1`
           if [[ "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-beta.*$ || "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-rc.*$ || "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "is-core=true" >> $GITHUB_OUTPUT
+            echo "is-core=true" | tee -a "$GITHUB_OUTPUT"
             echo "Version '$VERSION' is a 'core' release version."
           else
-            echo "is-core=false" >> $GITHUB_OUTPUT
+            echo "is-core=false" | tee -a "$GITHUB_OUTPUT"
             echo "Version '$VERSION' is NOT a 'core' release version."
           fi
 
       - name: Resolve '${{ env.VERSION }}' version for Docker
-        id: resolve
+        id: resolve-version
         shell: bash
         run: |
-          if [[ ${{ steps.is-core.outputs.is-core == 'true' }} ]]; then
+          if [[ "${{ steps.is-core.outputs.is-core }}" == "true" ]]; then
             # strip the `v` prefix from the version
             resolved_version="${VERSION#v}"
             echo "Resolved version for 'core' image: '$resolved_version' (stripped 'v' prefix)."
-            echo "chainlink_image_version=$resolved_version" >> $GITHUB_OUTPUT
+            echo "chainlink_image_version=$resolved_version" | tee -a "$GITHUB_OUTPUT"
           else
             resolved_version="$VERSION"
             echo "Using image version as-is: '$resolved_version'."
-            echo "chainlink_image_version=$resolved_version" >> $GITHUB_OUTPUT
+            echo "chainlink_image_version=$resolved_version" | tee -a "$GITHUB_OUTPUT"
           fi
 
-  # Set provided or default test secrets
-  set-test-secrets:
-    name: Set Test Secrets
-    runs-on: ubuntu-latest
-    needs: version-to-docker-registry
-    outputs:
-      test_secrets_override_key: ${{ steps.test-secrets.outputs.test_secrets_override_key }}
-    env:
-      SECRETS_OVERRIDE_KEY: ${{ inputs.test_secrets_override_key }}
-      SKIP_IMAGE_BUILD: ${{ needs.version-to-docker-registry.outputs.skip_image_build }}
-      PUBLIC_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/DEFAULT_TEST_SECRETS
-      PRIVATE_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/PRIVATE_DEFAULT_TEST_SECRETS
-    steps:
       - name: Set Test Secrets (default or provided)
-        id: test-secrets
+        id: set-test-secrets
         run: |
           if [[ -n "$SECRETS_OVERRIDE_KEY" ]]; then
             echo "Using explicitly provided test secrets."
-            echo "test_secrets_override_key=$SECRETS_OVERRIDE_KEY" >> $GITHUB_OUTPUT
+            echo "test_secrets_override_key=$SECRETS_OVERRIDE_KEY" | tee -a "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "No 'test_secrets_override_key' provided. Selecting default based on image registry..."
-          if [[ "$SKIP_IMAGE_BUILD" == 'true' ]]; then
-            echo "test_secrets_override_key=$PUBLIC_ECR_DEFAULT_TEST_SECRETS" >> $GITHUB_OUTPUT
+          if [[ "${{ steps.should-build-image.outputs.skip_image_build }}" == "true" ]]; then
+            echo "test_secrets_override_key=$PUBLIC_ECR_DEFAULT_TEST_SECRETS" | tee -a "$GITHUB_OUTPUT"
             echo "Using default secrets for PUBLIC ECR registry."
           else
-            echo "test_secrets_override_key=$PRIVATE_ECR_DEFAULT_TEST_SECRETS" >> $GITHUB_OUTPUT
+            echo "test_secrets_override_key=$PRIVATE_ECR_DEFAULT_TEST_SECRETS" | tee -a "$GITHUB_OUTPUT"
             echo "Using default secrets for PRIVATE ECR registry."
           fi
 
@@ -176,24 +153,23 @@ jobs:
     name: Run E2E Tests
     needs:
       - wait-for-workflows
-      - resolve-docker-version
-      - set-test-secrets
+      - setup-test-parameters
     # Run this job only if:
     # - optional wait-for-workflows did not fail (published release image might not be required),
     # - and the other dependencies were successful.
     if: >-
       always() &&
-      needs.wait-for-workflows.result != 'failure' &&
-      needs.resolve-docker-version.result == 'success' && needs.set-test-secrets.result == 'success'
+      needs.wait-for-workflows.result != 'failure' && 
+      needs.setup-test-parameters.result == 'success'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1
     with:
-      chainlink_version: ${{ needs.resolve-docker-version.outputs.chainlink_image_version }}
+      chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml
       test_ids: ${{ inputs.testToRun }}
-      test_secrets_override_key: ${{ inputs.test_secrets_override_key || needs.set-test-secrets.outputs.test_secrets_override_key }}
+      test_secrets_override_key: ${{ inputs.test_secrets_override_key || needs.setup-test-parameters.outputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
       # Fallback is used to properly convert a string to boolean 
-      skip_image_build: ${{ needs.version-to-docker-registry.outputs.skip_image_build == 'true' && true || false }}
+      skip_image_build: ${{ needs.setup-test-parameters.outputs.skip_image_build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}
     secrets:
@@ -214,7 +190,7 @@ jobs:
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[needs.set-test-secrets.outputs.test_secrets_override_key] }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[needs.setup-test-parameters.outputs.test_secrets_override_key] }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
