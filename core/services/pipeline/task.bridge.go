@@ -198,9 +198,21 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 				bt.ResponseError = new(string)
 				*bt.ResponseError = err.Error()
 			}
+
 			if t.StreamID.Valid {
 				bt.StreamID = &t.StreamID.Uint32
+			} else {
+				if streamID, err := vars.Get("jb.streamID"); err == nil {
+					if streamIDptr, ok := streamID.(*uint32); !ok {
+						lggr.Debugw("Bridge task: streamID from vars is not a *uint32", "streamID", streamID)
+					} else {
+						bt.StreamID = streamIDptr
+					}
+				} else {
+					lggr.Debugw("Bridge task: failed to get streamID from vars", "err", err)
+				}
 			}
+
 			select {
 			case telemetryCh <- bt:
 			default:
