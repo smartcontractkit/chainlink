@@ -396,7 +396,6 @@ func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPCha
 
 // isDestinationEnabledOnSolanaRouter checks if a destination is enabled on the Solana Router
 func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(ctx context.Context, chainState solState.CCIPChainState, destinationChain uint64, client *solrpc.Client) (bool, error) {
-
 	routerRemoteStatePDA, _ := ccipSolState.FindDestChainStatePDA(destinationChain, chainState.RouterConfigPDA)
 	var destChainStateAccount2 solRouter.DestChain
 	err := solCommonUtil.GetAccountDataBorshInto(ctx, client, routerRemoteStatePDA, cldf_solana.SolDefaultCommitment, &destChainStateAccount2)
