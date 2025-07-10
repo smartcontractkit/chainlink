@@ -45,8 +45,8 @@ var (
 	}, []string{"don_id"})
 )
 
-type userRequest struct {
-	req        *jsonrpc.Request[json.RawMessage]
+type activeRequest struct {
+	req        jsonrpc.Request[json.RawMessage]
 	createdAt  time.Time
 	callbackCh chan<- gw_handlers.UserCallbackPayload
 }
@@ -65,7 +65,7 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	userRequests map[string]userRequest
+	activeRequests map[string]activeRequest
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -109,7 +109,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		lggr:            logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
 		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeRateLimiter: nodeRateLimiter,
-		userRequests:    make(map[string]userRequest),
+		activeRequests:  make(map[string]activeRequest),
 		mu:              sync.RWMutex{},
 		stopCh:          make(services.StopChan),
 	}, nil
@@ -146,19 +146,19 @@ func (h *handler) Close() error {
 // removeExpiredRequests removes expired requests from the pending requests map
 func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RLock()
-	var expiredRequests []userRequest
+	var expiredRequests []activeRequest
 	now := time.Now()
-	for _, userRequest := range h.userRequests {
+	for _, userRequest := range h.activeRequests {
 		if now.Sub(userRequest.createdAt) > h.requestTimeout {
 			expiredRequests = append(expiredRequests, userRequest)
 		}
 	}
 	h.mu.RUnlock()
 
-	for _, userRequest := range expiredRequests {
-		err := h.sendResponse(ctx, userRequest, h.errorResponse(userRequest.req, api.RequestTimeoutError))
+	for _, er := range expiredRequests {
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError))
 		if err != nil {
-			h.lggr.Errorw("error sending response to user", "request_id", userRequest.req.ID, "error", err)
+			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
 	}
 }
@@ -169,20 +169,20 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	h.lggr.Debugw("handling vault request", "method", req.Method, "id", req.ID)
-	ur := userRequest{
+	ar := activeRequest{
 		callbackCh: callbackCh,
-		req:        &req,
+		req:        req,
 		createdAt:  time.Now(),
 	}
 
 	h.mu.Lock()
-	h.userRequests[req.ID] = ur
+	h.activeRequests[req.ID] = ar
 	h.mu.Unlock()
 	switch req.Method {
 	case MethodSecretsCreate:
-		return h.handleSecretsCreate(ctx, ur)
+		return h.handleSecretsCreate(ctx, ar)
 	default:
-		return h.sendResponse(ctx, ur, h.errorResponse(&req, api.UnsupportedMethodError))
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError))
 	}
 }
 
@@ -195,18 +195,16 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	h.mu.RLock()
-	userRequest, ok := h.userRequests[resp.ID]
+	ur, ok := h.activeRequests[resp.ID]
+	h.mu.RUnlock()
 	if !ok {
-		h.mu.RUnlock()
 		promRequestInternalError.WithLabelValues(h.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
 		return fmt.Errorf("no pending request found for ID: %s", resp.ID)
 	}
 
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
-		errorResp := h.errorResponse(userRequest.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err))
-		h.mu.RUnlock()
-		return h.sendResponse(ctx, userRequest, errorResp)
+		return h.sendResponse(ctx, ur, h.errorResponse(ur.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err)))
 	}
 
 	var errorCode api.ErrorCode
@@ -220,25 +218,25 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
 	}
-	h.mu.RUnlock()
-
-	return h.sendResponse(ctx, userRequest, successResp)
+	return h.sendResponse(ctx, ur, successResp)
 }
 
-func (h *handler) handleSecretsCreate(ctx context.Context, userRequest userRequest) error {
+func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
 	var secretsCreateRequest SecretsCreateRequest
-	if err := json.Unmarshal(*userRequest.req.Params, &secretsCreateRequest); err != nil {
-		return h.sendResponse(ctx, userRequest, h.errorResponse(userRequest.req, api.UserMessageParseError, err))
+	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
 	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
-		return h.sendResponse(ctx, userRequest, h.errorResponse(userRequest.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
 	}
 
 	// At this point, we know that the request is valid and we can send it to the nodes
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, userRequest.req)
+		h.mu.RLock()
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		h.mu.RUnlock()
 		if err != nil {
 			nodeErrors = append(nodeErrors, err)
 			h.lggr.Errorw("error sending request to node", "node", node.Address, "error", err)
@@ -246,14 +244,18 @@ func (h *handler) handleSecretsCreate(ctx context.Context, userRequest userReque
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, userRequest, h.errorResponse(userRequest.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
-	h.lggr.Debugf("Forwarded request to Vault nodes: %v", userRequest.req)
+	h.lggr.Debugf("Forwarded request to Vault nodes: %v", ar.req)
 	return nil
 }
 
-func (h *handler) errorResponse(req *jsonrpc.Request[json.RawMessage], errorCode api.ErrorCode, errs ...error) gw_handlers.UserCallbackPayload {
+func (h *handler) errorResponse(
+	req jsonrpc.Request[json.RawMessage],
+	errorCode api.ErrorCode,
+	errs ...error,
+) gw_handlers.UserCallbackPayload {
 	err := errors.New("unknown error")
 	if len(errs) > 0 && errs[0] != nil {
 		err = errs[0]
@@ -292,7 +294,7 @@ func (h *handler) errorResponse(req *jsonrpc.Request[json.RawMessage], errorCode
 	}
 }
 
-func (h *handler) sendResponse(ctx context.Context, userRequest userRequest, resp gw_handlers.UserCallbackPayload) error {
+func (h *handler) sendResponse(ctx context.Context, userRequest activeRequest, resp gw_handlers.UserCallbackPayload) error {
 	switch resp.ErrorCode {
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -312,12 +314,12 @@ func (h *handler) sendResponse(ctx context.Context, userRequest userRequest, res
 	case userRequest.callbackCh <- resp:
 		h.lggr.Debugw("sent response", "request_id", userRequest.req.ID)
 		h.mu.Lock()
-		delete(h.userRequests, userRequest.req.ID)
+		delete(h.activeRequests, userRequest.req.ID)
 		h.mu.Unlock()
 		return nil
 	case <-ctx.Done():
 		h.mu.Lock()
-		delete(h.userRequests, userRequest.req.ID)
+		delete(h.activeRequests, userRequest.req.ID)
 		h.mu.Unlock()
 		return ctx.Err()
 	}
