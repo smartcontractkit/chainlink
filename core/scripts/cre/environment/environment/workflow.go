@@ -26,18 +26,48 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
-var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
-	Use:   "deploy-verify-example",
-	Short: "Deploys and verifies example (optionally)",
-	Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
-		if timeoutErr != nil {
-			return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
-		}
+func workflowCmds() *cobra.Command {
+	workflowCmd := &cobra.Command{
+		Use:   "workflow",
+		Short: "Workflow management commands",
+		Long:  `Commands to manage workflows`,
+	}
 
-		return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, chainIDFlag, timeout, exampleWorkflowTriggerFlag)
-	},
+	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
+	// TODO commands to create and manage workflows
+
+	return workflowCmd
+}
+
+func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
+	var (
+		rpcURLFlag                 string
+		gatewayURLFlag             string
+		chainIDFlag                uint64
+		exampleWorkflowTriggerFlag string
+		exampleWorkflowTimeoutFlag string
+	)
+	cmd := &cobra.Command{
+		Use:   "run-por-example",
+		Short: "Runs v1 Proof-of-Reserve example workflow",
+		Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
+			if timeoutErr != nil {
+				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
+			}
+
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, chainIDFlag, timeout, exampleWorkflowTriggerFlag)
+		},
+	}
+
+	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "c", 1337, "Chain ID")
+	cmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
+	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
+	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
+
+	return cmd
 }
 
 type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error
