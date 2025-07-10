@@ -21,6 +21,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -144,9 +145,7 @@ func (c *ChainConfig) ToRPCs() []cldf.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm.Chain, map[uint64]cldf_solana.Chain, error) {
-	evmChains := make(map[uint64]cldf_evm.Chain)
-	solChains := make(map[uint64]cldf_solana.Chain)
+func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockChains, error) {
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 
@@ -253,20 +252,22 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]cldf_evm
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, nil, err
+		return cldf_chain.BlockChains{}, err
 	}
 
+	var blockChains []cldf_chain.BlockChain
+
 	evmSyncMap.Range(func(sel, value interface{}) bool {
-		evmChains[sel.(uint64)] = value.(cldf_evm.Chain)
+		blockChains = append(blockChains, value.(cldf_evm.Chain))
 		return true
 	})
 
 	solSyncMap.Range(func(sel, value interface{}) bool {
-		solChains[sel.(uint64)] = value.(cldf_solana.Chain)
+		blockChains = append(blockChains, value.(cldf_solana.Chain))
 		return true
 	})
 
-	return evmChains, solChains, nil
+	return cldf_chain.NewBlockChainsFromSlice(blockChains), nil
 }
 
 func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {

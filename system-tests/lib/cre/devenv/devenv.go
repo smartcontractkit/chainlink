@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -189,14 +188,9 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 		})
 	}
 
-	allChains, _, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)
+	blockChains, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)
 	if allChainsErr != nil {
 		return nil, errors.Wrap(allChainsErr, "failed to create chains")
-	}
-
-	cldfChains := make([]cldf_chain.BlockChain, 0)
-	for _, c := range allChains {
-		cldfChains = append(cldfChains, c)
 	}
 
 	// we take stateless fields from the first environment, because they are not environment specific
@@ -210,7 +204,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
-			BlockChains:       cldf_chain.NewBlockChainsFromSlice(cldfChains),
+			BlockChains:       blockChains,
 			OperationsBundle:  input.OperationsBundle,
 		},
 	}

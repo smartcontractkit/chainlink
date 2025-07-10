@@ -9,6 +9,33 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+const (
+	DFKTestnetChainID          = 335
+	DFKMainnetChainID          = 53935
+	NexonDevChainID            = 5668
+	NexonTestChainID           = 595581
+	NexonQAChainID             = 807424
+	NexonStageChainID          = 847799
+	NexonMainnetChainID        = 60118 // Actually a testnet
+	NexonHenesysMainnetChainID = 68414
+)
+
+// IsAvaxSubnet returns true if the given chain ID corresponds to an avalanche subnet.
+func IsAvaxSubnet(chainID int64) bool {
+	return chainID == DFKTestnetChainID ||
+		chainID == DFKMainnetChainID ||
+		IsNexonChain(chainID)
+}
+
+func IsNexonChain(chainID int64) bool {
+	return chainID == NexonDevChainID ||
+		chainID == NexonTestChainID ||
+		chainID == NexonQAChainID ||
+		chainID == NexonStageChainID ||
+		chainID == NexonMainnetChainID ||
+		chainID == NexonHenesysMainnetChainID
+}
+
 // AvaSubnetHeader is a copy of [github.com/ava-labs/subnet-evm/core/types.Header] to avoid importing the whole module.
 type AvaSubnetHeader struct {
 	ParentHash   common.Hash    `json:"parentHash"       gencodec:"required"`
