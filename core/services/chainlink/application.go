@@ -98,8 +98,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const HeartbeatPeriod = 15 * time.Second
-
 // Application implements the common functions used in the core node.
 type Application interface {
 	Start(ctx context.Context) error
@@ -223,7 +221,7 @@ type Heartbeat struct {
 func NewHeartbeat(opts ApplicationOpts) Heartbeat {
 	lggr := logger.Sugared(opts.Logger).Named("Heartbeat")
 	h := Heartbeat{
-		beat: HeartbeatPeriod,
+		beat: opts.Config.Telemetry().HeartbeatInterval(),
 		lggr: lggr,
 		opts: opts,
 	}

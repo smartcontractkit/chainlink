@@ -334,6 +334,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
+HeartbeatInterval = '1s'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
