@@ -141,12 +141,16 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 	p.PeerID = key.PeerID()
 
+	peerKeyring, err := NewSignerPeerKeyring(key)
+	if err != nil {
+		return ocrnetworking.PeerConfig{}, err
+	}
 	discovererDB := NewOCRDiscovererDatabase(p.ds, p.PeerID.Raw())
 
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
-		PrivKey: key.PrivKey(),
-		Logger:  commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
+		PeerKeyring: peerKeyring,
+		Logger:      commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
 		V2ListenAddresses:    config.V2().ListenAddresses(),

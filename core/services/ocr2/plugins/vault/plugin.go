@@ -434,7 +434,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		for _, o := range obs.Observations {
 			err := validateObservation(o)
 			if err != nil {
-				r.lggr.Errorw("invalid observation type", "error", err, "observation", o)
+				r.lggr.Errorw("invalid observation", "error", err, "observation", o)
 				continue
 			}
 
@@ -462,7 +462,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		chosen := []*vault.Observation{}
 		threshold := 2*r.config.F + 1
 		for sha, obs := range shaToObs {
-			if len(obs) > threshold {
+			if len(obs) >= threshold {
 				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", threshold, "id", id)
 				chosen = shaToObs[sha]
 				break
@@ -525,10 +525,26 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 					if r.GetData() != nil {
 						data := mergedResp.GetData()
-						data.EncryptedDecryptionKeyShares = append(
-							data.EncryptedDecryptionKeyShares,
-							r.GetData().EncryptedDecryptionKeyShares...,
-						)
+
+						if len(data.EncryptedDecryptionKeyShares) == 0 {
+							data.EncryptedDecryptionKeyShares = []*vault.EncryptedShares{}
+						}
+
+						keyToShares := map[string]*vault.EncryptedShares{}
+						for _, s := range data.EncryptedDecryptionKeyShares {
+							keyToShares[s.EncryptionKey] = s
+						}
+
+						for _, existing := range r.GetData().EncryptedDecryptionKeyShares {
+							if shares, ok := keyToShares[existing.EncryptionKey]; ok {
+								shares.Shares = append(shares.Shares, existing.Shares...)
+							} else {
+								data.EncryptedDecryptionKeyShares = append(
+									data.EncryptedDecryptionKeyShares,
+									existing,
+								)
+							}
+						}
 					}
 				}
 			}
@@ -543,6 +559,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					Responses: sortedResponses,
 				},
 			}
+			os.Outcomes = append(os.Outcomes, o)
 		case vault.RequestType_CREATE_SECRETS:
 			// First we'll aggregate the requests.
 			// Since the shas for all requests match, we can just take the first entry
@@ -630,6 +647,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					Responses: sortedResps,
 				},
 			}
+			os.Outcomes = append(os.Outcomes, o)
 		default:
 			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
 			continue
