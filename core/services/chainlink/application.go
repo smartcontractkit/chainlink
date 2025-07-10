@@ -241,7 +241,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 	}
 
 	cme := custmsg.NewLabeler()
-
+	cme.With("system", "Application", "version", static.Version, "commit", static.Sha)
 	// Define tick functions
 	beatFn := func(ctx context.Context) {
 		// TODO allow override of tracer provider into engine for beholder
@@ -257,7 +257,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 		}
 	}
 
-	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
+	h.eng.GoTick(timeutil.NewTicker(func() time.Duration { h.eng.SugaredLogger.Debugw("heartbeat tick"); return time.Minute }), beatFn)
 	return nil
 }
 
