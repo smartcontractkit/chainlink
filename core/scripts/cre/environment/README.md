@@ -20,7 +20,7 @@ Slack: #topic-local-dev-environments
 
 # Using the CLI
 
-The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]`.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -31,17 +31,15 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 2. **AWS SSO access to SDLC**
   - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
 >  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
-3. **gh cli**
-  - To pull the `cre` cli. Minimum version `v.2.50.0`
 
 
 # QUICKSTART
 ```
-AWS_ECR=<PROD_AWS_ACCOUNT_ID> go run . env start --auto-setup
+# e.g. AWS_ECR=<PROD_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
+AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
 ```
-> [Read more about finding PROD_AWS_ACCOUNT_ID and configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
+> You can find `PROD_ACCOUNT_ID` and `REGION` in the `[profile prod]` section of the [AWS CLI configuration guide](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI#Configure).
 
-The script will ensure all pre-requisites are configured and installed for the `single-don.toml` profile.
 If you are missing requirements, you may need to fix the errors and re-run.
 
 Use `#topic-local-dev-environments` for help.
@@ -219,17 +217,17 @@ Other environment variables:
 
 # Job Distributor Image
 
-Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.9.0`.
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.12.7`.
 
 To build locally:
 ```bash
 git clone https://github.com/smartcontractkit/job-distributor
 cd job-distributor
-git checkout v0.9.0
-docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
+git checkout v0.12.7
+docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
 ```
 
-If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.9.0`.
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.12.7`.
 
 ## Example workflows
 

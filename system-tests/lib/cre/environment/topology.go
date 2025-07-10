@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
@@ -23,7 +22,7 @@ func BuildTopology(
 	nodeSets []*cretypes.CapabilitiesAwareNodeSet,
 	infraInput libtypes.InfraInput,
 	chainIDs []int,
-	blockchainOutput map[uint64]*blockchain.Output,
+	blockchainOutput map[uint64]*cretypes.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	configFactoryFunctions []cretypes.ConfigFactoryFn,
 	customBinariesPaths map[cretypes.CapabilityFlag]string,

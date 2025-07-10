@@ -287,8 +287,8 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	bnm := test_token_pool.BurnAndMint_PoolType
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
-			solanachangesets.TokenPoolConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressLockRelease,
 				PoolType:      &lnr,
@@ -296,12 +296,38 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
-			solanachangesets.TokenPoolConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressBurnMint,
 				PoolType:      &bnm,
 				Metadata:      shared.CLLMetadata,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
+			solanachangesets.AddTokenPoolAndLookupTableConfig{
+				ChainSelector: solChain1,
+				TokenPoolConfigs: []solanachangesets.TokenPoolConfig{
+					{
+						TokenPubKey: tokenAddressLockRelease,
+						PoolType:    &lnr,
+						Metadata:    shared.CLLMetadata,
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
+			solanachangesets.AddTokenPoolAndLookupTableConfig{
+				ChainSelector: solChain1,
+				TokenPoolConfigs: []solanachangesets.TokenPoolConfig{
+					{
+						TokenPubKey: tokenAddressBurnMint,
+						PoolType:    &bnm,
+						Metadata:    shared.CLLMetadata,
+					},
+				},
 			},
 		),
 	})
@@ -329,8 +355,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 			FeeQuoter:             true,
 			OffRamp:               true,
 			RMNRemote:             true,
-			BurnMintTokenPools:    map[string]map[solana.PublicKey]solana.PublicKey{shared.CLLMetadata: {burnMintPoolConfigPDA: tokenAddressBurnMint}},
-			LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{shared.CLLMetadata: {lockReleasePoolConfigPDA: tokenAddressLockRelease}},
+			BurnMintTokenPools:    map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressBurnMint}},
+			LockReleaseTokenPools: map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressLockRelease}},
 		})
 
 	// 5. Now verify on-chain that each contract’s “config account” authority is the Timelock PDA.
@@ -418,8 +444,8 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 			FeeQuoter:             true,
 			OffRamp:               true,
 			RMNRemote:             true,
-			BurnMintTokenPools:    map[string]map[solana.PublicKey]solana.PublicKey{shared.CLLMetadata: {burnMintPoolConfigPDA: tokenAddressBurnMint}},
-			LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{shared.CLLMetadata: {lockReleasePoolConfigPDA: tokenAddressLockRelease}},
+			BurnMintTokenPools:    map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressBurnMint}},
+			LockReleaseTokenPools: map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressLockRelease}},
 		})
 	// Transfer ownership back to the deployer
 	e, _, err := commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -431,20 +457,12 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 				ProposedOwner: solChain.DeployerKey.PublicKey(),
 				ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 					solChain1: ccipChangesetSolana.CCIPContractsToTransfer{
-						Router:    true,
-						FeeQuoter: true,
-						OffRamp:   true,
-						RMNRemote: true,
-						BurnMintTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-							shared.CLLMetadata: {
-								burnMintPoolConfigPDA: tokenAddressBurnMint,
-							},
-						},
-						LockReleaseTokenPools: map[string]map[solana.PublicKey]solana.PublicKey{
-							shared.CLLMetadata: {
-								lockReleasePoolConfigPDA: tokenAddressLockRelease,
-							},
-						},
+						Router:                true,
+						FeeQuoter:             true,
+						OffRamp:               true,
+						RMNRemote:             true,
+						BurnMintTokenPools:    map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressBurnMint}},
+						LockReleaseTokenPools: map[string][]solana.PublicKey{shared.CLLMetadata: {tokenAddressLockRelease}},
 					},
 				},
 			},

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
@@ -200,8 +199,7 @@ func (b *EventBinding) Update(ctx context.Context) error {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString()))
-
+	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, b.registrar.deriveName()))
 	if b.registrar == nil {
 		return nil
 	}

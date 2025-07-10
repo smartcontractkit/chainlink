@@ -1,17 +1,18 @@
 package types
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -139,6 +140,20 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
+type WrappedBlockchainInput struct {
+	blockchain.Input
+	ReadOnly bool `toml:"read_only"`
+}
+
+type WrappedBlockchainOutput struct {
+	ChainSelector      uint64
+	ChainID            uint64
+	BlockchainOutput   *blockchain.Output
+	SethClient         *seth.Client
+	DeployerPrivateKey string
+	ReadOnly           bool
+}
+
 type CreateJobsInput struct {
 	CldEnv        *cldf.Environment
 	DonTopology   *DonTopology
@@ -261,7 +276,7 @@ type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverri
 
 type GenerateConfigsInput struct {
 	DonMetadata            *DonMetadata
-	BlockchainOutput       map[uint64]*blockchain.Output
+	BlockchainOutput       map[uint64]*WrappedBlockchainOutput
 	HomeChainSelector      uint64
 	Flags                  []string
 	PeeringData            CapabilitiesPeeringData
@@ -287,7 +302,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {
-		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
 	return nil
 }
@@ -446,7 +461,7 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutputs map[uint64]*blockchain.Output
+	BlockchainOutputs map[uint64]*WrappedBlockchainOutput
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
