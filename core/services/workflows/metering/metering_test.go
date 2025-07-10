@@ -617,7 +617,7 @@ func Test_Report_Settle(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
 		report := newTestReport(t, lggr, billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -639,7 +639,7 @@ func Test_Report_Settle(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
 		report := newTestReport(t, lggr, billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
