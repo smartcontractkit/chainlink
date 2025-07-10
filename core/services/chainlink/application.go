@@ -261,7 +261,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 		gauge.Record(ctx, 1)
 		count.Record(ctx, 1)
 
-		err = cme.Emit(ctx, "heartbeat")
+		err = cme.Emit(ctx, "hi Bartek! heartbeat")
 		if err != nil {
 			h.eng.Errorw("heartbeat emit failed", "err", err)
 		}
