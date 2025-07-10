@@ -67,6 +67,9 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 	}
 
 	if cmdName := env.EVMPlugin.Cmd.Get(); cmdName != "" {
+		if config.GenEthClient != nil {
+			return nil, fmt.Errorf("GenEthClient override is not supported in the loopp mode")
+		}
 		for _, chain := range config.ChainConfigs {
 			relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ChainID.String()}
 			// loopp

@@ -11,6 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -139,7 +143,16 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		chain, ok := chainService.(legacyevm.Chain)
 		require.True(t, ok)
-		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
+
+		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
+			DS:                   db,
+			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+		})
+		require.NoError(t, err)
+
+		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, evmRelayer, lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
 		require.Equal(t, []string{"some transmitterID string"}, jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string))
@@ -156,7 +169,15 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			chain, ok := chainService.(legacyevm.Chain)
 			require.True(t, ok)
 
-			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
+			evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
+				DS:                   db,
+				EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+				CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
+				CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+			})
+			require.NoError(t, err)
+
+			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, evmRelayer, lggr)
 			if tc.expectedError {
 				require.Error(t, err)
 			} else {
