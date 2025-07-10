@@ -232,7 +232,7 @@ func TestVault_E2E(t *testing.T) {
 
 	fmt.Println("⏳ Waiting for a connection between gateway and vault to be established...")
 	// TODO: Make this more robust
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 	fmt.Println("Proceeding to test...")
 
 	t.Run("vault secrets create", func(t *testing.T) {
@@ -241,18 +241,16 @@ func TestVault_E2E(t *testing.T) {
 			require.NotEmpty(t, n.Node.InternalP2PUrl)
 
 			// Prepare the JSON-RPC request to create a secret
-			secretRequest := map[string]interface{}{
-				"jsonrpc": "2.0",
-				"method":  "vault.secrets.create",
-				"params": map[string]interface{}{
-					"id":    "test-secret",
-					"value": "test-secret-value",
+			secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
+				Version: jsonrpc.JsonRpcVersion,
+				Method:  vault.MethodSecretsCreate,
+				Params: &vault.SecretsCreateRequest{
+					ID:    "test-secret",
+					Value: "test-secret-value",
 				},
-				"id":   "1",
-				"auth": "jwt-token",
+				ID: "1",
 			}
-
-			requestBody, err := json.Marshal(secretRequest)
+			requestBody, err := json.Marshal(secretsRequest)
 			require.NoError(t, err)
 
 			// Make HTTP request to gateway endpoint
