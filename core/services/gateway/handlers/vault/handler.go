@@ -262,9 +262,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 	// At this point, we know that the request is valid and we can send it to the nodes
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
-		h.mu.RLock()
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		h.mu.RUnlock()
 		if err != nil {
 			nodeErrors = append(nodeErrors, err)
 			h.lggr.Errorw("error sending request to node", "node", node.Address, "error", err)
