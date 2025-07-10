@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -148,18 +149,13 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		})
 	}
 
-	allChains, _, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
+	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create chains")
 	}
 
-	blockChains := make(map[uint64]chain.BlockChain, len(allChains))
-	for selector, ch := range allChains {
-		blockChains[selector] = ch
-	}
-
 	return StartBlockchainsOutput{
 		BlockChainOutputs: blockchainsOutput,
-		BlockChains:       blockChains,
+		BlockChains:       maps.Collect(blockChains.All()),
 	}, nil
 }
