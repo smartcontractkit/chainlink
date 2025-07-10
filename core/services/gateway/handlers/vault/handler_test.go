@@ -11,6 +11,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -30,9 +31,22 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 		DonId:   "test_don_id",
 		Members: []config.NodeConfig{NodeOne},
 	}
-	methodConfig := json.RawMessage(`{"request_timeout_sec": 30}`)
+	handlerConfig := Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiterConfig: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   10,
+			PerSenderBurst: 10,
+		},
+	}
+	methodConfig, err := json.Marshal(handlerConfig)
+	require.NoError(t, err)
 
-	return NewHandler(methodConfig, donConfig, don, lggr), make(chan handlers.UserCallbackPayload), don
+	handler, err := NewHandler(methodConfig, donConfig, don, lggr)
+	require.NoError(t, err)
+
+	return handler, make(chan handlers.UserCallbackPayload), don
 }
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {

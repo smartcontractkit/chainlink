@@ -62,6 +62,24 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 	return code
 }
 
+func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
+	jsonrpcErrorToGatewayError := map[int64]ErrorCode{
+		0:                            NoError,
+		jsonrpc2.ErrParse:            UserMessageParseError,
+		jsonrpc2.ErrInvalidParams:    InvalidParamsError,
+		jsonrpc2.ErrInvalidRequest:   HandlerError,
+		jsonrpc2.ErrServerOverloaded: RequestTimeoutError,
+		jsonrpc2.ErrInternal:         FatalError,
+		jsonrpc2.ErrMethodNotFound:   UnsupportedMethodError,
+	}
+
+	code, ok := jsonrpcErrorToGatewayError[errorCode]
+	if !ok {
+		return FatalError
+	}
+	return code
+}
+
 // See https://go.dev/src/net/http/status.go
 func ToHttpErrorCode(errorCode ErrorCode) int {
 	gatewayErrorToHttpError := map[ErrorCode]int{

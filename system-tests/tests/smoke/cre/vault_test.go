@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -38,8 +39,8 @@ const GatewayPortForUsers = "5002"
 const NodeRequestPath = "/node"
 
 func TestVault_E2E(t *testing.T) {
-	configErr := setCICtfConfigIfMissing("environment-gateway-vault-don.toml")
-	require.NoError(t, configErr, "failed to set CTF config")
+	configErr := setDefaultConfig("environment-gateway-vault-don.toml")
+	require.NoError(t, configErr, "failed to set default CTF config")
 
 	c, err := framework.Load[Config](t)
 	require.NoError(t, err)
@@ -149,6 +150,12 @@ func TestVault_E2E(t *testing.T) {
 
 		[gatewayConfig.Dons.HandlerConfig]
 		request_timeout_sec = 30
+		node_rate_limiter = {
+			globalRPS = 100,
+			globalBurst = 100,
+			perSenderRPS = 10,
+			perSenderBurst = 10,
+		}
 
 		[[gatewayConfig.Dons.Members]]
 		Name = "%s"
@@ -286,4 +293,12 @@ func TestVault_E2E(t *testing.T) {
 			require.Empty(t, response.Result.ErrorMessage)
 		}
 	})
+}
+
+func setDefaultConfig(configName string) error {
+	if os.Getenv("CTF_CONFIGS") == "" {
+		return os.Setenv("CTF_CONFIGS", configName)
+	}
+
+	return nil
 }
