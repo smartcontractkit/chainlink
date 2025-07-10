@@ -223,6 +223,24 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mm.InputChan,
 				finalSeqNrCommitChannels,
 				finalSeqNrExecChannels)
+		case selectors.FamilyAptos:
+			client := env.BlockChains.AptosChains()[cs].Client
+			var version uint64 = 0 // tx version
+			startBlocks[cs] = &version
+			go subscribeAptosTransmitEvents(
+				ctx,
+				t,
+				lggr,
+				state.AptosChains[cs].CCIPAddress,
+				destChains,
+				startBlocks[cs],
+				cs,
+				loadFinished,
+				client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
 		}
 	}
 
@@ -388,6 +406,51 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				*startBlocks[cs],
 				cs,
 				env.BlockChains.SolanaChains()[cs].Client,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
+		case selectors.FamilyAptos:
+			receiverAddress := state.AptosChains[cs].ReceiverAddress
+			receiver := receiverAddress[:]
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				receiver,
+				userOverrides,
+				evmSourceKeys[cs],
+				solSourceKeys,
+				mm.InputChan,
+				srcChains,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+			wg.Add(2)
+			go subscribeAptosCommitEvents(
+				ctx,
+				t,
+				lggr,
+				state.AptosChains[cs].CCIPAddress,
+				srcChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.AptosChains()[cs].Client,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+
+			go subscribeAptosExecutionEvents(
+				ctx,
+				t,
+				lggr,
+				state.AptosChains[cs].CCIPAddress,
+				srcChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.AptosChains()[cs].Client,
 				finalSeqNrExecChannels[cs],
 				&wg,
 				mm.InputChan)
