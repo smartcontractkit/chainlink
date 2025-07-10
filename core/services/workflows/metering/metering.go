@@ -353,7 +353,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		for _, detail := range spendDetails {
 			value, err := decimal.NewFromString(detail.SpendValue)
 			if err != nil {
-				r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
 			}
@@ -381,7 +381,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	// Refund the difference between what local balance had been earmarked and the actual spend
 	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
 		// invariant: capability should not let spend exceed reserve
-		r.lggr.Error("invariant: spend exceeded reserve")
+		r.lggr.Info("invariant: spend exceeded reserve")
 	}
 
 	return nil
