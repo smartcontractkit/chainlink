@@ -5,34 +5,31 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	"math/big"
 	mathrand "math/rand"
 	"time"
-
-	selectors "github.com/smartcontractkit/chain-selectors"
-	"go.uber.org/atomic"
-
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+	"go.uber.org/atomic"
 
+	selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 type SeqNumRange struct {
@@ -51,8 +48,7 @@ type DestinationGun struct {
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
 	metricPipe       chan messageData
-	laneConfig       *crib.LaneConfiguration // Lane configuration with discovered lanes
-	availableSources []uint64                // Cache of available source chains for this destination
+	availableSources []uint64 // Cache of available source chains for this destination
 }
 
 func NewDestinationGun(
