@@ -154,7 +154,7 @@ func TestVault_E2E(t *testing.T) {
 			globalRPS = 100,
 			globalBurst = 100,
 			perSenderRPS = 10,
-			perSenderBurst = 10,
+			perSenderBurst = 10
 		}
 
 		[[gatewayConfig.Dons.Members]]
