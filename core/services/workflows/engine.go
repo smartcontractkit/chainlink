@@ -1279,6 +1279,9 @@ func (e *Engine) Close() error {
 		// decrement the global and per owner engine counter
 		e.workflowLimits.Decrement(e.workflow.owner)
 
+		// reset metering mode metric so that a positive value does not persist
+		e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
+
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 		return nil

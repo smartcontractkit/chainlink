@@ -82,6 +82,7 @@ type Report struct {
 	balance *balanceStore
 	client  BillingClient
 	lggr    logger.Logger
+	metrics *monitoring.WorkflowsMetricLabeler
 
 	// internal state
 	mu    sync.RWMutex
@@ -95,7 +96,12 @@ type Report struct {
 	steps        map[string]ReportStep
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient) (*Report, error) {
+func NewReport(
+	labels map[string]string,
+	lggr logger.Logger,
+	client BillingClient,
+	metrics *monitoring.WorkflowsMetricLabeler,
+) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -115,6 +121,7 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		balance: balanceStore,
 		client:  client,
 		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
+		metrics: metrics,
 
 		ready:        false,
 		meteringMode: false,
@@ -423,6 +430,8 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		return ErrNoBillingClient
 	}
 
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.meteringMode)
+
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
@@ -502,7 +511,13 @@ type Reports struct {
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler) *Reports {
+func NewReports(
+	client BillingClient,
+	owner, workflowID string,
+	lggr logger.Logger,
+	labels map[string]string,
+	metrics *monitoring.WorkflowsMetricLabeler,
+) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
@@ -538,7 +553,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client)
+	report, err := NewReport(labels, s.lggr, s.client, s.metrics)
 	if err != nil {
 		return nil, err
 	}
