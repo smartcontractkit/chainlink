@@ -12,5 +12,5 @@ type Telemetry interface {
 	EmitterBatchProcessor() bool
 	EmitterExportTimeout() time.Duration
 	ChipIngressEndpoint() string
-	HeartbeatInterval() time.Duration // New method
+	HeartbeatInterval() time.Duration
 }

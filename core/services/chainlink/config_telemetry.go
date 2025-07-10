@@ -90,7 +90,7 @@ func (b *telemetryConfig) ChipIngressEndpoint() string {
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
-	if b.s.HeartbeatInterval == nil {
+	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
 		return defaultHeartbeatInterval
 	}
 	return b.s.HeartbeatInterval.Duration()
