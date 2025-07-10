@@ -404,6 +404,7 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
     interfaces:
       ORM:
+      RegistrySyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
       ORM:

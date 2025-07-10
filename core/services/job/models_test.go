@@ -24,6 +24,46 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
+func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
+	tomlData := `
+	type = "standardcapabilities"
+	schemaVersion = 1
+	name = "consensus-capabilities"
+	externalJobID = "aea7103f-6e87-5c01-b644-a0b4aeaed3eb"
+	forwardingAllowed = false
+	command = "consensus"
+	config = """"""
+	
+	[oracle_factory]
+	enabled = true
+	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
+	ocr_contract_address = "0x2C84cff4cd5fA5a0c17dbc710fcCb8FC6A03dEEd"
+	ocr_key_bundle_id = "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240"
+	chain_id = "11155111"
+	transmitter_id = "0x60042fBB756f736744C334c463BeBE1A72Add04F"
+	[oracle_factory.onchainSigningStrategy]
+	strategyName = "multi-chain"
+	[oracle_factory.onchainSigningStrategy.config]
+	aptos = "7c2df2e806306383f9aa2bc7a3198cf0e1c626f873799992b2841240c6931733"
+	evm = "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240"
+	`
+
+	var spec job.StandardCapabilitiesSpec
+	err := toml.Unmarshal([]byte(tomlData), &spec)
+	require.NoError(t, err)
+	assert.Equal(t, "consensus", spec.Command)
+	assert.Equal(t, "11155111", spec.OracleFactory.ChainID)
+	assert.Equal(t, "multi-chain", spec.OracleFactory.OnchainSigning.StrategyName)
+	assert.Equal(t, []string{"12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"}, spec.OracleFactory.BootstrapPeers)
+	assert.Equal(t, map[string]string{
+		"aptos": "7c2df2e806306383f9aa2bc7a3198cf0e1c626f873799992b2841240c6931733",
+		"evm":   "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240",
+	}, spec.OracleFactory.OnchainSigning.Config)
+	assert.Equal(t, "0x60042fBB756f736744C334c463BeBE1A72Add04F", spec.OracleFactory.TransmitterID)
+	assert.Equal(t, "0x2C84cff4cd5fA5a0c17dbc710fcCb8FC6A03dEEd", spec.OracleFactory.OCRContractAddress)
+	assert.Equal(t, "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240", spec.OracleFactory.OCRKeyBundleID)
+}
+
 func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	type fields struct {
 		Relay       string

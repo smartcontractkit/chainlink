@@ -50,7 +50,6 @@ import (
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -143,12 +142,12 @@ const (
 )
 
 type Config struct {
-	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
-	JD                *jd.Input               `toml:"jd" validate:"required"`
-	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input       `toml:"s3provider"`
+	Blockchains       []*cretypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets          []*ns.Input                        `toml:"nodesets" validate:"required"`
+	JD                *jd.Input                          `toml:"jd" validate:"required"`
+	Infra             *libtypes.InfraInput               `toml:"infra" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig            `toml:"extra_capabilities"`
+	S3ProviderInput   *s3provider.Input                  `toml:"s3provider"`
 }
 
 func (c Config) Validate() error {
@@ -236,7 +235,7 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag stri
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(homeChainOut *cretypes.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
 	for _, bcOut := range output.BlockchainOutput {
 		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
@@ -646,7 +645,10 @@ func StartCLIEnvironment(
 		if chainErr != nil {
 			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 		}
-		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+
+		if !blockchain.ReadOnly {
+			capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		}
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 
