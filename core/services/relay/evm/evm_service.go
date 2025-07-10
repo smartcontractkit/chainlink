@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
@@ -28,11 +27,11 @@ import (
 )
 
 // Direct RPC
-func (r *Relayer) CallContract(ctx context.Context, msg *evm.CallMsg, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) ([]byte, error) {
+func (r *Relayer) CallContractWithConfidence(ctx context.Context, msg *evm.CallMsg, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) ([]byte, error) {
 	return r.chain.Client().CallContractWithConfidence(ctx, toEthMsg(msg), blockNumber, confidenceLevel)
 }
 
-func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
+func (r *Relayer) FilterLogsWithConfidence(ctx context.Context, filterQuery evmtypes.FilterQuery, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
 	logs, err := r.chain.Client().FilterLogsWithConfidence(ctx, convertEthFilter(filterQuery), confidenceLevel)
 	if err != nil {
 		return nil, err
@@ -47,7 +46,7 @@ func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQue
 	return ret, nil
 }
 
-func (r *Relayer) BalanceAt(ctx context.Context, account evmtypes.Address, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
+func (r *Relayer) BalanceAtWithConfidence(ctx context.Context, account evmtypes.Address, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
 	return r.chain.Client().BalanceAtWithConfidence(ctx, account, blockNumber, confidenceLevel)
 }
 
@@ -78,23 +77,24 @@ func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontyp
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) HeaderByNumber(ctx context.Context, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Head, error) {
-	rpcBlockNumber, err := blockNumberToRPCBlockNumber(blockNumber)
-	if err != nil {
-		return evmtypes.Head{}, err
+func (r *Relayer) HeaderByNumberWithConfidence(ctx context.Context, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Head, error) {
+	var result *types.Head
+	var err error
+	if blockNumber != nil {
+		result, err = r.chain.Client().HeadByNumberWithConfidence(ctx, blockNumber, confidenceLevel)
+	} else {
+		switch confidenceLevel {
+		case primitives.Unconfirmed:
+			result, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+		case primitives.Finalized:
+			_, result, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+		case primitives.Safe:
+			result, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
+		default:
+			return evmtypes.Head{}, fmt.Errorf("unexpected confidence level: %s", confidenceLevel)
+		}
 	}
 
-	var result *types.Head
-	switch rpcBlockNumber {
-	case rpc.LatestBlockNumber:
-		result, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
-	case rpc.FinalizedBlockNumber:
-		_, result, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
-	case rpc.SafeBlockNumber:
-		result, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
-	default:
-		result, err = r.chain.Client().HeadByNumberWithConfidence(ctx, blockNumber, confidenceLevel)
-	}
 	if err != nil {
 		return evmtypes.Head{}, err
 	}
@@ -104,18 +104,6 @@ func (r *Relayer) HeaderByNumber(ctx context.Context, blockNumber *big.Int, conf
 	}
 
 	return convertHead(result), nil
-}
-
-func blockNumberToRPCBlockNumber(blockNumber *big.Int) (rpc.BlockNumber, error) {
-	if blockNumber == nil {
-		return rpc.LatestBlockNumber, nil
-	}
-
-	if !blockNumber.IsInt64() {
-		return rpc.LatestBlockNumber, errors.Errorf("block number must be an int64, got %v", blockNumber)
-	}
-
-	return rpc.BlockNumber(blockNumber.Int64()), nil
 }
 
 // TODO introduce parameters validation PLEX-1437

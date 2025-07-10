@@ -40,11 +40,11 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.62
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250707220619-84bd6c292469
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250709131155-6c69a4803f9a
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250709182350-cc5088f0e844
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250707214334-e164c13b2f32
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.1
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709151830-779a62e4fc4a
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250709181545-d0b1bc723975
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
