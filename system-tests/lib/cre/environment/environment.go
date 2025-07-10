@@ -501,7 +501,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
 
-	err = GenerateArtifact(
+	err = DumpArtifact(
 		memoryDatastore.AddressRefStore,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		*jdOutput,

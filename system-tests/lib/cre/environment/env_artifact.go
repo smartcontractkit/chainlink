@@ -17,6 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
+const (
+	artifactDirName = "env_artifact"
+	NOPAdminPrefix  = "0xaadd000000000000000000000000000000"
+)
+
 type EnvArtifact struct {
 	AddressRefs   []datastore.AddressRef                               `json:"address_refs"`
 	AddressBook   map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
@@ -74,7 +79,22 @@ type NOPArtifact struct {
 	Admin string `json:"admin"`
 }
 
-const NOPAdminPrefix = "0xaadd000000000000000000000000000000"
+func DumpArtifact(
+	datastore *datastore.MemoryAddressRefStore,
+	addressBook cldf_deployment.AddressBook,
+	jdOutput jd.Output,
+	donTopology types.DonTopology,
+	offchainClient cldf_deployment.OffchainClient,
+	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
+) error {
+	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
+	if err != nil {
+		return pkgerrors.Wrap(err, "failed to generate environment artifact")
+	}
+
+	// Let's save the artifact to disk
+	return persistArtifact(artifact)
+}
 
 func GenerateArtifact(
 	datastore *datastore.MemoryAddressRefStore,
@@ -83,12 +103,12 @@ func GenerateArtifact(
 	donTopology types.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
 	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
-) error {
+) (*EnvArtifact, error) {
 	var err error
 
 	addresses, err := addressBook.Addresses()
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to get addresses from address book")
+		return nil, pkgerrors.Wrap(err, "failed to get addresses from address book")
 	}
 
 	artifact := EnvArtifact{
@@ -118,7 +138,7 @@ func GenerateArtifact(
 			Value: types.WorkerNode,
 		}, crenode.EqualLabels)
 		if workerNodesErr != nil {
-			return pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
+			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
 		}
 
 		donArtifact.F = uint8((len(workerNodes) - 1) / 3)
@@ -150,7 +170,7 @@ func GenerateArtifact(
 
 		nodeInfo, nodeInfoErr := deployment.NodeInfo(nodeIDs, offchainClient)
 		if nodeInfoErr != nil {
-			return pkgerrors.Wrapf(nodeInfoErr, "failed to get node info for DON %s", don.Name)
+			return nil, pkgerrors.Wrapf(nodeInfoErr, "failed to get node info for DON %s", don.Name)
 		}
 
 		for _, node := range nodeInfo {
@@ -180,13 +200,19 @@ func GenerateArtifact(
 	}
 
 	// Let's save the artifact to disk
+	if err = persistArtifact(&artifact); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to persist environment artifact")
+	}
 
-	dirName := "env_artifact"
-	err = os.MkdirAll(dirName, 0755)
+	return &artifact, nil
+}
+
+func persistArtifact(artifact *EnvArtifact) error {
+	err := os.MkdirAll(artifactDirName, 0755)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
 	}
-	err = WriteJSONFile(dirName+"/env_artifact.json", artifact)
+	err = WriteJSONFile(artifactDirName+"/env_artifact.json", artifact)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to write environment artifact to file")
 	}
