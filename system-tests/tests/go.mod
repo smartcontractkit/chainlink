@@ -23,7 +23,7 @@ require (
 	github.com/prometheus/common v0.63.0
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250709160835-3dbd1ee373a2
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250710001137-e3576b0815e2
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250709160835-3dbd1ee373a2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.1
