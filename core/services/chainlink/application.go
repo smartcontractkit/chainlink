@@ -98,7 +98,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const HeartbeatPeriod = time.Second
+const HeartbeatPeriod = 15 * time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -215,12 +215,17 @@ type Heartbeat struct {
 	commonservices.Service
 	eng *commonservices.Engine
 
+	lggr logger.Logger
+	opts ApplicationOpts
 	beat time.Duration
 }
 
-func NewHeartbeat(lggr logger.Logger) Heartbeat {
+func NewHeartbeat(opts ApplicationOpts) Heartbeat {
+	lggr := logger.Sugared(opts.Logger).Named("Heartbeat")
 	h := Heartbeat{
 		beat: HeartbeatPeriod,
+		lggr: lggr,
+		opts: opts,
 	}
 	h.Service, h.eng = commonservices.Config{
 		Name:  "Heartbeat",
@@ -241,7 +246,14 @@ func (h *Heartbeat) start(_ context.Context) error {
 	}
 
 	cme := custmsg.NewLabeler()
-	cme.With("system", "Application", "version", static.Version, "commit", static.Sha)
+	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
+	if h.opts.Config.P2P() != nil && h.opts.Config.P2P().PeerID().String() != "" {
+		labels["peer_id"] = h.opts.Config.P2P().PeerID().String()
+	}
+	if h.opts.Config.AppID().String() != "" {
+		labels["appID"] = h.opts.Config.AppID().String()
+	}
+	cme.WithMapLabels(labels)
 	// Define tick functions
 	beatFn := func(ctx context.Context) {
 		// TODO allow override of tracer provider into engine for beholder
@@ -257,7 +269,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 		}
 	}
 
-	h.eng.GoTick(timeutil.NewTicker(func() time.Duration { h.eng.SugaredLogger.Debugw("heartbeat tick"); return time.Minute }), beatFn)
+	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
 	return nil
 }
 
@@ -273,7 +285,7 @@ func (h *Heartbeat) getBeat() time.Duration {
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
-	heartbeat := NewHeartbeat(opts.Logger)
+	heartbeat := NewHeartbeat(opts)
 	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger
