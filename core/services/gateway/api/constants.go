@@ -14,6 +14,7 @@ const (
 	FatalError
 	UnsupportedMethodError
 	InvalidParamsError
+	StaleNodeResponseError
 )
 
 func (e ErrorCode) String() string {
@@ -36,6 +37,8 @@ func (e ErrorCode) String() string {
 		return "UnsupportedMethodError"
 	case InvalidParamsError:
 		return "InvalidParamsError"
+	case StaleNodeResponseError:
+		return "StaleNodeResponseError"
 	default:
 		return "UnknownError"
 	}
@@ -53,6 +56,7 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 		NodeReponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
 		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
+		StaleNodeResponseError:   jsonrpc2.ErrInternal,         // Internal Error
 	}
 
 	code, ok := gatewayErrorToJSONRPCError[errorCode]
@@ -82,7 +86,7 @@ func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
 
 // See https://go.dev/src/net/http/status.go
 func ToHttpErrorCode(errorCode ErrorCode) int {
-	gatewayErrorToHttpError := map[ErrorCode]int{
+	gatewayErrorToHTTPError := map[ErrorCode]int{
 		NoError:                  200, // OK
 		UserMessageParseError:    400, // Bad Request
 		UnsupportedDONIdError:    400, // Bad Request
@@ -92,9 +96,10 @@ func ToHttpErrorCode(errorCode ErrorCode) int {
 		RequestTimeoutError:      504, // Gateway Timeout
 		NodeReponseEncodingError: 500, // Internal Server Error
 		FatalError:               500, // Internal Server Error
+		StaleNodeResponseError:   500, // Internal Server Error
 	}
 
-	code, ok := gatewayErrorToHttpError[errorCode]
+	code, ok := gatewayErrorToHTTPError[errorCode]
 	if !ok {
 		return 500
 	}

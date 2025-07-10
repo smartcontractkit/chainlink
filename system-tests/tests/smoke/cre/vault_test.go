@@ -232,7 +232,7 @@ func TestVault_E2E(t *testing.T) {
 
 	fmt.Println("⏳ Waiting for a connection between gateway and vault to be established...")
 	// TODO: Make this more robust
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 	fmt.Println("Proceeding to test...")
 
 	t.Run("vault secrets create", func(t *testing.T) {

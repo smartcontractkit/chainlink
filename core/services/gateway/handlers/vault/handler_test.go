@@ -187,4 +187,35 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NoError(t, err)
 		wg.Wait()
 	})
+
+	t.Run("stale node response", func(t *testing.T) {
+		handler, callbackCh, _ := setupHandler(t)
+
+		// Create a response for a request that was never sent or has already been processed
+		responseData := SecretsCreateResponse{
+			ResponseBase: ResponseBase{
+				Success: true,
+			},
+			SecretID: "stale_secret_id",
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		staleResponse := jsonrpc.Response[json.RawMessage]{
+			ID:     "stale_request_id",
+			Result: (*json.RawMessage)(&resultBytes),
+		}
+
+		// Handle the stale node response - this should not trigger any callback
+		// since there's no matching pending request
+		err = handler.HandleNodeMessage(t.Context(), &staleResponse, NodeOne.Address)
+		require.NoError(t, err)
+
+		// Verify that no callback was sent by checking that the channel is empty
+		select {
+		case <-callbackCh:
+			t.Error("Expected no callback for stale node response, but received one")
+		default:
+			// Expected: no callback should be sent for stale responses
+		}
+	})
 }

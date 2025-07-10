@@ -632,7 +632,10 @@ func (d *Delegate) newServicesVaultPlugin(
 
 	service := vault.NewService()
 
-	handler := vault.NewHandler(service, gwconnector, d.lggr)
+	handler, err := vault.NewHandler(service, gwconnector, d.lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
+	}
 	if err = handler.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
 	}

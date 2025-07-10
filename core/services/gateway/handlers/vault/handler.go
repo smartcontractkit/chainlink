@@ -8,9 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -28,22 +29,36 @@ const (
 
 var (
 	_ gw_handlers.Handler = (*handler)(nil)
-
-	promRequestInternalError = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_node_vault_request_internal_error",
-		Help: "Gateway node, Vault handler: Metric to track internal errors",
-	}, []string{"don_id", "error"})
-
-	promRequestUserError = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_node_vault_request_user_error",
-		Help: "Gateway node, Vault handler: Metric to track failed requests",
-	}, []string{"don_id"})
-
-	promRequestSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gateway_node_vault_request_success",
-		Help: "Gateway node, Vault handler: Metric to track successful requests",
-	}, []string{"don_id"})
 )
+
+type metrics struct {
+	requestInternalError metric.Int64Counter
+	requestUserError     metric.Int64Counter
+	requestSuccess       metric.Int64Counter
+}
+
+func newMetrics() (*metrics, error) {
+	requestInternalError, err := beholder.GetMeter().Int64Counter("gateway_vault_request_internal_error")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
+	}
+
+	requestUserError, err := beholder.GetMeter().Int64Counter("gateway_vault_request_user_error")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register user error counter: %w", err)
+	}
+
+	requestSuccess, err := beholder.GetMeter().Int64Counter("gateway_vault_request_success")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register success counter: %w", err)
+	}
+
+	return &metrics{
+		requestInternalError: requestInternalError,
+		requestUserError:     requestUserError,
+		requestSuccess:       requestSuccess,
+	}, nil
+}
 
 type activeRequest struct {
 	req        jsonrpc.Request[json.RawMessage]
@@ -66,6 +81,7 @@ type handler struct {
 	requestTimeout  time.Duration
 
 	activeRequests map[string]activeRequest
+	metrics        *metrics
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -102,6 +118,11 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 
+	metrics, err := newMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics: %w", err)
+	}
+
 	return &handler{
 		methodConfig:    cfg,
 		donConfig:       donConfig,
@@ -112,6 +133,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		activeRequests:  make(map[string]activeRequest),
 		mu:              sync.RWMutex{},
 		stopCh:          make(services.StopChan),
+		metrics:         metrics,
 	}, nil
 }
 
@@ -198,8 +220,14 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	ur, ok := h.activeRequests[resp.ID]
 	h.mu.RUnlock()
 	if !ok {
-		promRequestInternalError.WithLabelValues(h.donConfig.DonId, api.RequestTimeoutError.String()).Inc()
-		return fmt.Errorf("no pending request found for ID: %s", resp.ID)
+		// Request is not found, so we don't need to send a response to the user
+		// This might happen if the response is stale
+		h.lggr.Errorw("no pending request found for ID", "request_id", resp.ID)
+		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("error", api.StaleNodeResponseError.String()),
+		))
+		return nil
 	}
 
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
@@ -280,6 +308,7 @@ func (h *handler) errorResponse(
 	case api.UnsupportedDONIdError:
 	case api.HandlerError:
 	case api.RequestTimeoutError:
+	case api.StaleNodeResponseError:
 		// Unused in this handler
 	}
 
@@ -296,18 +325,26 @@ func (h *handler) errorResponse(
 
 func (h *handler) sendResponse(ctx context.Context, userRequest activeRequest, resp gw_handlers.UserCallbackPayload) error {
 	switch resp.ErrorCode {
+	case api.StaleNodeResponseError:
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
 	case api.RequestTimeoutError:
 	case api.HandlerError:
-		promRequestInternalError.WithLabelValues(h.donConfig.DonId, resp.ErrorCode.String()).Inc()
+		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("error", resp.ErrorCode.String()),
+		))
 	case api.InvalidParamsError:
 	case api.UnsupportedMethodError:
 	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
-		promRequestUserError.WithLabelValues(h.donConfig.DonId).Inc()
+		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
 	case api.NoError:
-		promRequestSuccess.WithLabelValues(h.donConfig.DonId).Inc()
+		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
 	}
 
 	select {
