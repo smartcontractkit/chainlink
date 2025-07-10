@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -26,7 +27,7 @@ import (
 )
 
 type BlockchainsInput struct {
-	blockchainsInput []*blockchain.Input
+	blockchainsInput []*cretypes.WrappedBlockchainInput
 	infra            *libtypes.InfraInput
 	nixShell         *libnix.Shell
 }
@@ -37,20 +38,17 @@ type BlockchainOutput struct {
 	BlockchainOutput   *blockchain.Output
 	SethClient         *seth.Client
 	DeployerPrivateKey string
-
-	// private data depending crib vs docker
-	c *blockchain.Output // non-nil if running in docker
 }
 
 func CreateBlockchains(
 	testLogger zerolog.Logger,
 	input BlockchainsInput,
-) ([]*BlockchainOutput, error) {
+) ([]*cretypes.WrappedBlockchainOutput, error) {
 	if len(input.blockchainsInput) == 0 {
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
-	blockchainOutput := make([]*BlockchainOutput, 0)
+	blockchainOutput := make([]*cretypes.WrappedBlockchainOutput, 0)
 	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
 		var bcErr error
@@ -60,7 +58,7 @@ func CreateBlockchains(
 			}
 
 			deployCribBlockchainInput := &cretypes.DeployCribBlockchainInput{
-				BlockchainInput: bi,
+				BlockchainInput: &bi.Input,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
 			}
@@ -73,7 +71,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
 		} else {
-			bcOut, bcErr = blockchain.NewBlockchainNetwork(bi)
+			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi.Input)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
@@ -103,13 +101,13 @@ func CreateBlockchains(
 			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
 		}
 
-		blockchainOutput = append(blockchainOutput, &BlockchainOutput{
+		blockchainOutput = append(blockchainOutput, &cretypes.WrappedBlockchainOutput{
 			ChainSelector:      chainSelector,
 			ChainID:            chainID,
 			BlockchainOutput:   bcOut,
 			SethClient:         sethClient,
 			DeployerPrivateKey: pkey,
-			c:                  bcOut,
+			ReadOnly:           bi.ReadOnly,
 		})
 	}
 
@@ -122,7 +120,7 @@ type BlockchainLoggers struct {
 }
 
 type StartBlockchainsOutput struct {
-	BlockChainOutputs []*BlockchainOutput
+	BlockChainOutputs []*cretypes.WrappedBlockchainOutput
 	BlockChains       map[uint64]chain.BlockChain
 }
 
@@ -151,18 +149,13 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		})
 	}
 
-	allChains, _, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
+	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create chains")
 	}
 
-	blockChains := make(map[uint64]chain.BlockChain, len(allChains))
-	for selector, ch := range allChains {
-		blockChains[selector] = ch
-	}
-
 	return StartBlockchainsOutput{
 		BlockChainOutputs: blockchainsOutput,
-		BlockChains:       blockChains,
+		BlockChains:       maps.Collect(blockChains.All()),
 	}, nil
 }

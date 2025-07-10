@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,14 +24,13 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -63,7 +63,7 @@ const (
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cretypes.WorkflowRegistryOutput
 	CldEnvironment                      *cldf.Environment
-	BlockchainOutput                    []*BlockchainOutput
+	BlockchainOutput                    []*cretypes.WrappedBlockchainOutput
 	DonTopology                         *cretypes.DonTopology
 	NodeOutput                          []*cretypes.WrappedNodeOutput
 	InfraInput                          libtypes.InfraInput
@@ -75,7 +75,7 @@ type SetupInput struct {
 	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
 	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
 	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
-	BlockchainsInput                     []*blockchain.Input
+	BlockchainsInput                     []*cretypes.WrappedBlockchainInput
 	JdInput                              jd.Input
 	InfraInput                           libtypes.InfraInput
 	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
@@ -86,6 +86,8 @@ type SetupInput struct {
 type backgroundStageResult struct {
 	err            error
 	successMessage string
+	panicValue     any
+	panicStack     []byte
 }
 
 func SetupTestEnvironment(
@@ -166,16 +168,18 @@ func SetupTestEnvironment(
 		GetContext: func() context.Context {
 			return ctx
 		},
-		BlockChains: chain.NewBlockChains(blockChains),
+		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	forwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range blockchainOutputs {
+		if bcOut.ReadOnly {
+			continue
+		}
 		forwardersSelectors = append(forwardersSelectors, bcOut.ChainSelector)
 	}
 
@@ -214,17 +218,16 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, forwarderSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
 	}
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	// and also for creating the CLD environment
 	chainIDs := make([]int, 0)
-	bcOuts := make(map[uint64]*blockchain.Output)
+	bcOuts := make(map[uint64]*cretypes.WrappedBlockchainOutput)
 	sethClients := make(map[uint64]*seth.Client)
 	for _, bcOut := range blockchainOutputs {
 		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
-		bcOuts[bcOut.ChainSelector] = bcOut.BlockchainOutput
+		bcOuts[bcOut.ChainSelector] = bcOut
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
@@ -234,7 +237,8 @@ func SetupTestEnvironment(
 		homeChainOutput.ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		chainIDs, bcOuts,
+		chainIDs,
+		bcOuts,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		input.ConfigFactoryFunctions,
 		input.CustomBinariesPaths,
@@ -256,16 +260,54 @@ func SetupTestEnvironment(
 	var startTime time.Time
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 		startTime = time.Now()
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 1/3] Configuring Workflow Registry contract\n"))
+
+		allAddresses, addrErr := allChainsCLDEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+		if addrErr != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(addrErr, "failed to get addresses from address book")}
+			return
+		}
+
+		chainsWithContracts := make(map[uint64]bool)
+		for chainSelector, addresses := range allAddresses {
+			chainsWithContracts[chainSelector] = len(addresses) > 0
+		}
+
+		nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
+		for chainSelector, chain := range allChainsCLDEnvironment.BlockChains.EVMChains() {
+			if chainsWithContracts[chain.Selector] {
+				nonEmptyBlockchains[chainSelector] = chain
+			}
+		}
+
+		nonEmptyChainsCLDEnvironment := &cldf.Environment{
+			Logger:            singleFileLogger,
+			ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+			GetContext: func() context.Context {
+				return ctx
+			},
+			DataStore:   allChainsCLDEnvironment.DataStore,
+			BlockChains: cldf_chain.NewBlockChains(nonEmptyBlockchains),
+		}
+		nonEmptyChainsCLDEnvironment.OperationsBundle = operations.NewBundle(nonEmptyChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 		// Configure Workflow Registry contract
 		workflowRegistryInput = &cretypes.WorkflowRegistryInput{
 			ContractAddress: wfRegAddr,
 			ChainSelector:   homeChainOutput.ChainSelector,
-			CldEnv:          allChainsCLDEnvironment,
-			AllowedDonIDs:   []uint32{topology.WorkflowDONID},
-			WorkflowOwners:  []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+			// TODO, here we might need to pass new environment that doesn't have chains that do not have forwarders deployed
+			CldEnv:         nonEmptyChainsCLDEnvironment,
+			AllowedDonIDs:  []uint32{topology.WorkflowDONID},
+			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 		}
 
 		_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
@@ -343,6 +385,14 @@ func SetupTestEnvironment(
 	backgroundStagesWaitGroup.Add(1)
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 
 		startTime = time.Now()
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 2/3] Funding Chainlink nodes\n\n"))
@@ -388,6 +438,14 @@ func SetupTestEnvironment(
 	backgroundStagesWaitGroup.Add(1)
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 
 		if input.InfraInput.InfraType != libtypes.CRIB {
 			hasGateway := false
@@ -449,6 +507,13 @@ func SetupTestEnvironment(
 		if result.err != nil {
 			return nil, pkgerrors.Wrap(result.err, "background stage failed")
 		}
+		if result.panicValue != nil {
+			// Print the original stack trace from the background goroutine
+			if result.panicStack != nil {
+				fmt.Fprintf(os.Stderr, "Original panic stack trace from background goroutine:\n%s\n", result.panicStack)
+			}
+			panic(result.panicValue)
+		}
 		fmt.Print(result.successMessage)
 	}
 
@@ -491,7 +556,7 @@ type ConcurrentNonceMap struct {
 	nonceByChainID map[uint64]uint64
 }
 
-func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
+func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cretypes.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
 		var err error

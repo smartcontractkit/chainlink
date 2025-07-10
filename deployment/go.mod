@@ -29,26 +29,27 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
-	github.com/smartcontractkit/chain-selectors v1.0.62-0.20250630182638-8bd9c28cf772
+	github.com/smartcontractkit/chain-selectors v1.0.62
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250626122206-319db248496a
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250703172708-3dacb811e668
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250707170629-3b697507abf4
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250707133321-27faefc9ce45
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250707220619-84bd6c292469
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250704143810-ee587a6c0562
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250710001137-e3576b0815e2
+	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250709160835-3dbd1ee373a2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.0
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250707113334-93191f4c5ff4
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250707140145-45280ea11f19
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250522110034-65c54665034a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.7.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250702130714-144d99d2d871
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.3
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250708220600-853616d583f4
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/freeport v0.1.1
 	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
-	github.com/smartcontractkit/mcms v0.19.2
+	github.com/smartcontractkit/mcms v0.20.2
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
+	github.com/ugorji/go/codec v1.2.12
 	github.com/xssnick/tonutils-go v1.13.0
 	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6
 	go.uber.org/zap v1.27.0
@@ -379,7 +380,7 @@ require (
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250707133321-27faefc9ce45 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250709160835-3dbd1ee373a2 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250702183345-3f9ae622e391 // indirect
@@ -412,7 +413,6 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/urfave/cli v1.22.16 // indirect
 	github.com/urfave/cli/v2 v2.27.6 // indirect
 	github.com/valyala/fastjson v1.6.4 // indirect

@@ -405,7 +405,7 @@ func populateDatabaseForCommitReportAccepted(
 
 	// Insert logs into the database
 	require.NoError(b, orm.InsertLogs(ctx, logs))
-	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports)))
+	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfReports), timestamp, int64(offset+numOfReports), int64(offset+numOfReports)))
 }
 
 func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCount, destChainsCount int) ccipreaderpkg.CCIPReader {
@@ -551,6 +551,7 @@ func populateDatabaseForMessageSent(
 			latestBlock,
 			time.Now(),
 			latestBlock-finalityDepth,
+			latestBlock-finalityDepth,
 		))
 }
 
@@ -658,7 +659,7 @@ func populateDatabaseForExecutionStateChanged(
 
 	// Insert logs into the database
 	require.NoError(b, orm.InsertLogs(ctx, logs))
-	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents)))
+	require.NoError(b, orm.InsertBlock(ctx, utils.RandomHash(), int64(offset+numOfEvents), time.Now(), int64(offset+numOfEvents), int64(offset+numOfEvents)))
 }
 
 func benchSetup(

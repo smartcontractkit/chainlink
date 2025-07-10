@@ -41,9 +41,9 @@ var (
 			hybridPool := pool.(*hybrid_external.HybridWithExternalMinterFastTransferTokenPool)
 
 			// Convert our GroupUpdate struct to the contract's expected format
-			var groupUpdates []hybrid_external.HybridWithExternalMinterFastTransferTokenPoolGroupUpdate
+			var groupUpdates []hybrid_external.HybridTokenPoolAbstractGroupUpdate
 			for _, update := range input.GroupUpdates {
-				groupUpdates = append(groupUpdates, hybrid_external.HybridWithExternalMinterFastTransferTokenPoolGroupUpdate{
+				groupUpdates = append(groupUpdates, hybrid_external.HybridTokenPoolAbstractGroupUpdate{
 					RemoteChainSelector: update.RemoteChainSelector,
 					Group:               update.Group,
 					RemoteChainSupply:   update.RemoteChainSupply,

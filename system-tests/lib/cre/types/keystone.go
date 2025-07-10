@@ -1,11 +1,11 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -140,6 +140,20 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
+type WrappedBlockchainInput struct {
+	blockchain.Input
+	ReadOnly bool `toml:"read_only"`
+}
+
+type WrappedBlockchainOutput struct {
+	ChainSelector      uint64
+	ChainID            uint64
+	BlockchainOutput   *blockchain.Output
+	SethClient         *seth.Client
+	DeployerPrivateKey string
+	ReadOnly           bool
+}
+
 type CreateJobsInput struct {
 	CldEnv        *cldf.Environment
 	DonTopology   *DonTopology
@@ -262,7 +276,7 @@ type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverri
 
 type GenerateConfigsInput struct {
 	DonMetadata            *DonMetadata
-	BlockchainOutput       map[uint64]*blockchain.Output
+	BlockchainOutput       map[uint64]*WrappedBlockchainOutput
 	HomeChainSelector      uint64
 	Flags                  []string
 	PeeringData            CapabilitiesPeeringData
@@ -447,7 +461,7 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutputs map[uint64]*blockchain.Output
+	BlockchainOutputs map[uint64]*WrappedBlockchainOutput
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
