@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
@@ -61,7 +62,7 @@ type DONCapabilityArtifact struct {
 }
 
 type DONCapabilityConfig struct {
-	capabilitiespb.CapabilityConfig
+	*capabilitiespb.CapabilityConfig
 }
 
 type BootstrapNodeArtifact struct {
@@ -146,7 +147,7 @@ func GenerateArtifact(
 			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
 		}
 
-		donArtifact.F = uint8((len(workerNodes) - 1) / 3)
+		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
 		for _, factoryFn := range capabilityFactoryFns {
 			capabilities := factoryFn(don.Flags)
@@ -157,7 +158,7 @@ func GenerateArtifact(
 						LabelledName:   capability.Capability.LabelledName,
 						CapabilityType: capability.Capability.CapabilityType,
 					},
-					Config: &DONCapabilityConfig{CapabilityConfig: *capability.Config},
+					Config: &DONCapabilityConfig{capability.Config},
 				})
 			}
 		}

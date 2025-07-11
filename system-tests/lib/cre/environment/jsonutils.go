@@ -12,5 +12,5 @@ func WriteJSONFile(path string, data any) error {
 		return err
 	}
 
-	return os.WriteFile(path, b, 0644)
+	return os.WriteFile(path, b, 0600)
 }
