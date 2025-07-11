@@ -14,6 +14,7 @@ const (
 	FatalError
 	UnsupportedMethodError
 	InvalidParamsError
+	StaleNodeResponseError
 )
 
 func (e ErrorCode) String() string {
@@ -33,9 +34,11 @@ func (e ErrorCode) String() string {
 	case FatalError:
 		return "FatalError"
 	case UnsupportedMethodError:
-		return "UnsupportedMthodError"
+		return "UnsupportedMethodError"
 	case InvalidParamsError:
 		return "InvalidParamsError"
+	case StaleNodeResponseError:
+		return "StaleNodeResponseError"
 	default:
 		return "UnknownError"
 	}
@@ -53,6 +56,7 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 		NodeReponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
 		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
+		StaleNodeResponseError:   jsonrpc2.ErrInternal,         // Internal Error
 	}
 
 	code, ok := gatewayErrorToJSONRPCError[errorCode]
@@ -62,9 +66,27 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 	return code
 }
 
+func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
+	jsonrpcErrorToGatewayError := map[int64]ErrorCode{
+		0:                            NoError,
+		jsonrpc2.ErrParse:            UserMessageParseError,
+		jsonrpc2.ErrInvalidParams:    InvalidParamsError,
+		jsonrpc2.ErrInvalidRequest:   HandlerError,
+		jsonrpc2.ErrServerOverloaded: RequestTimeoutError,
+		jsonrpc2.ErrInternal:         FatalError,
+		jsonrpc2.ErrMethodNotFound:   UnsupportedMethodError,
+	}
+
+	code, ok := jsonrpcErrorToGatewayError[errorCode]
+	if !ok {
+		return FatalError
+	}
+	return code
+}
+
 // See https://go.dev/src/net/http/status.go
 func ToHttpErrorCode(errorCode ErrorCode) int {
-	gatewayErrorToHttpError := map[ErrorCode]int{
+	gatewayErrorToHTTPError := map[ErrorCode]int{
 		NoError:                  200, // OK
 		UserMessageParseError:    400, // Bad Request
 		UnsupportedDONIdError:    400, // Bad Request
@@ -74,9 +96,10 @@ func ToHttpErrorCode(errorCode ErrorCode) int {
 		RequestTimeoutError:      504, // Gateway Timeout
 		NodeReponseEncodingError: 500, // Internal Server Error
 		FatalError:               500, // Internal Server Error
+		StaleNodeResponseError:   500, // Internal Server Error
 	}
 
-	code, ok := gatewayErrorToHttpError[errorCode]
+	code, ok := gatewayErrorToHTTPError[errorCode]
 	if !ok {
 		return 500
 	}

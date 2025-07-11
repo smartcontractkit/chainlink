@@ -226,10 +226,47 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				lggr.Infow("Execution batch created", "batchSize", len(batch), "messageStates", msgExecStates)
 				return batch, nil
 			}
-			r.commitRootsCache.Snooze(merkleRoot)
+			// Skip snoozing if we have token data delays but no serious processing errors
+			shouldSkipSnooze := shouldSkipSnoozeForTokenDataNotReady(msgExecStates)
+
+			if shouldSkipSnooze {
+				rootLggr.Infow("Skipping snooze - messages waiting for token data with no processing errors")
+			} else {
+				r.commitRootsCache.Snooze(merkleRoot)
+			}
 		}
 	}
 	return []ccip.ObservedMessage{}, nil
+}
+
+// shouldSkipSnoozeForTokenDataNotReady checks if we should skip snoozing for token data not ready.
+// If there are token data delays but no serious processing errors, we skip snoozing.
+func shouldSkipSnoozeForTokenDataNotReady(msgExecStates []messageExecStatus) bool {
+	if len(msgExecStates) == 0 {
+		return false
+	}
+
+	hasTokenDataNotReady := false
+	hasProcessingErrors := false
+
+	harmlessStatuses := map[messageStatus]bool{
+		AlreadyExecuted:      true,
+		TokenDataNotReady:    true,
+		SkippedInflight:      true,
+		AddedToBatch:         true,
+		SuccesfullyValidated: true,
+	}
+
+	for _, state := range msgExecStates {
+		if state.Status == TokenDataNotReady {
+			hasTokenDataNotReady = true
+		}
+		if !harmlessStatuses[state.Status] {
+			hasProcessingErrors = true
+		}
+	}
+
+	return hasTokenDataNotReady && !hasProcessingErrors
 }
 
 // Calculates a map that indicates whether a sequence number has already been executed.
