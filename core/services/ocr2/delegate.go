@@ -663,7 +663,8 @@ func (d *Delegate) newDonTimePlugin(
 		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
 	}
 
-	factory, err := dontime.NewFactory(d.dontimeStore, lggr)
+	var factory *dontime.Factory
+	factory, err = dontime.NewFactory(d.dontimeStore, lggr)
 	if err != nil {
 		return nil, err
 	}
