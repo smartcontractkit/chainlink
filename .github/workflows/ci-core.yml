@@ -265,9 +265,9 @@ jobs:
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
-      - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' }}
-        run: make install-plugins
+#      - name: Install LOOP Plugins
+#        if: ${{ matrix.type.should-run == 'true' }}
+#        run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
