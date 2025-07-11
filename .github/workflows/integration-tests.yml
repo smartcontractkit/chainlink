@@ -363,8 +363,8 @@ jobs:
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
             # Run Core E2E tests in the merge queue, if there are relevant changes
-            echo "workflow-name=Run Core CRE Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Merge Queue CRE E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            echo "workflow-name=Run Core E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Merge Queue E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
