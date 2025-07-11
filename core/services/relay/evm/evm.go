@@ -139,6 +139,7 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 }
 
 type Relayer struct {
+	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
@@ -310,7 +311,7 @@ func (r *Relayer) Chain() legacyevm.Chain {
 	return r.chain
 }
 
-func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
@@ -332,7 +333,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
-	configWatcher, err := newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	configWatcher, err := NewOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -718,7 +719,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		// performance hit no matter how minor.
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
-		configProvider, err = newOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
+		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

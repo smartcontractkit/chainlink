@@ -20,6 +20,10 @@ func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsTo
 	donToJobSpecs := make(types.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
+		if !flags.HasFlag(donWithMetadata.Flags, types.WebAPITriggerCapability) {
+			continue
+		}
+
 		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -31,12 +35,10 @@ func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsTo
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITriggerCapability) {
-				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
-				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
+			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
+				donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 			}
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
 		}
 	}
 

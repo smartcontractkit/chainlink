@@ -136,7 +136,7 @@ type launcher struct {
 	mu            sync.RWMutex
 }
 
-func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -300,7 +300,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	l := &launcher{}
-	syncer.AddLauncher(l)
+	syncer.AddListener(l)
 
 	err = syncer.Sync(ctx, false) // not looking to load from the DB in this specific test.
 	s := l.localRegistry
@@ -476,7 +476,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	})
 
 	l := &launcher{}
-	syncer.AddLauncher(l)
+	syncer.AddListener(l)
 
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool
 	timeout := time.After(testutils.WaitTimeout(t))
@@ -570,9 +570,12 @@ func TestSyncer_LocalNode(t *testing.T) {
 		AcceptsWorkflows: true,
 	}
 	expectedNode := capabilities.Node{
-		PeerID:         &pid,
-		WorkflowDON:    don,
-		CapabilityDONs: []capabilities.DON{don},
+		PeerID:              &pid,
+		NodeOperatorID:      1,
+		Signer:              localRegistry.IDsToNodes[pid].Signer,
+		EncryptionPublicKey: localRegistry.IDsToNodes[pid].EncryptionPublicKey,
+		WorkflowDON:         don,
+		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
 }

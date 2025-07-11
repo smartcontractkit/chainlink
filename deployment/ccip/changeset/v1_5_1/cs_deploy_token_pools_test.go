@@ -188,6 +188,16 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 			ErrStr: "external minter must be defined for burn mint with external minter fast transfer pools",
 		},
 		{
+			Msg:    "External Minter should be defined for hybrid pools",
+			Symbol: testhelpers.TestTokenSymbol,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+				TokenAddress:       tokens[selectorA].Address,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			},
+			ErrStr: "external minter must be defined for hybrid with external minter fast transfer pools",
+		},
+		{
 			Msg:    "Accept liquidity should be omitted",
 			Symbol: testhelpers.TestTokenSymbol,
 			Input: v1_5_1.DeployTokenPoolInput{
@@ -302,6 +312,21 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 			},
 			GetPool: func(cs evm.CCIPChainState) Ownable {
 				tokenPools, ok := cs.BurnMintWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_6_0]
+			},
+		},
+		{
+			Msg:                 "HybridWithExternalMinterFastTransfer",
+			SetupExternalMinter: true,
+			Input: v1_5_1.DeployTokenPoolInput{
+				Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs evm.CCIPChainState) Ownable {
+				tokenPools, ok := cs.HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
 				return tokenPools[deployment.Version1_6_0]

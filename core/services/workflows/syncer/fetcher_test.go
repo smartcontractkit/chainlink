@@ -67,7 +67,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -96,7 +96,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, inconsistentPayload(t, msgID, donID))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -124,14 +124,15 @@ func TestNewFetcherService(t *testing.T) {
 		gatewayMessage := gatewayResponse(t, msgID, donID, 500) // gateway response that is not signed
 		payload, err := json.Marshal(gatewayMessage)
 		require.NoError(t, err)
-		gatewayResp := &jsonrpc.Request{
+		rawPayload := json.RawMessage(payload)
+		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      gatewayMessage.Body.MessageId,
 			Method:  gatewayMessage.Body.Method,
-			Params:  payload,
+			Params:  &rawPayload,
 		}
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -168,11 +169,12 @@ func TestNewFetcherService(t *testing.T) {
 		}
 		payload, err := json.Marshal(gatewayMsg)
 		require.NoError(t, err)
-		gatewayResp := &jsonrpc.Request{
+		rawPayload := json.RawMessage(payload)
+		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      gatewayMsg.Body.MessageId,
 			Method:  gatewayMsg.Body.Method,
-			Params:  payload,
+			Params:  &rawPayload,
 		}
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
@@ -180,7 +182,7 @@ func TestNewFetcherService(t *testing.T) {
 		defer fetcher.Close()
 
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -208,7 +210,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 500))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -273,7 +275,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway2", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -331,7 +333,7 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 
 // signGatewayResponse signs the gateway response with a private key and arbitrarily sets the receiver
 // to the signer's address.  A signature and receiver are required for a valid gateway response.
-func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request {
+func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	nodeKeys := common.NewTestNodes(t, 1)
 	s := &signer{pk: nodeKeys[0].PrivateKey}
 	msgToSign := api.GetRawMessageBody(&msg.Body)

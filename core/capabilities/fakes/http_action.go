@@ -20,7 +20,7 @@ var _ httpserver.ClientCapability = (*DirectHTTPAction)(nil)
 var _ services.Service = (*DirectHTTPAction)(nil)
 var _ commonCap.ExecutableCapability = (*DirectHTTPAction)(nil)
 
-const HTTPActionID = "http-action@1.0.0"
+const HTTPActionID = "http-actions@0.1.0"
 const HTTPActionServiceName = "HttpActionService"
 
 var directHTTPActionInfo = commonCap.MustNewCapabilityInfo(
@@ -43,9 +43,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 	}
 
 	fc.Service, fc.eng = services.Config{
-		Name:  "directHttpAction",
-		Start: fc.Start,
-		Close: fc.Close,
+		Name: "directHttpAction",
 	}.NewServiceEngine(lggr)
 	return fc
 }
@@ -127,16 +125,6 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	return response, nil
 }
 
-func (fh *DirectHTTPAction) Start(ctx context.Context) error {
-	fh.eng.Debugw("HTTP Action Start Started")
-	return nil
-}
-
-func (fh *DirectHTTPAction) Close() error {
-	fh.eng.Debugw("HTTP Action Closed")
-	return nil
-}
-
 func (fh *DirectHTTPAction) Description() string {
 	return directHTTPActionInfo.Description
 }
@@ -147,7 +135,8 @@ func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ cor
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	// TODO: do validation of config here
 
 	err := fh.Start(ctx)

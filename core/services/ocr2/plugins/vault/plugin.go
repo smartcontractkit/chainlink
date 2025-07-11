@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
-	"strings"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -30,6 +30,10 @@ const (
 	defaultBatchSize = 20
 	defaultNamespace = "main"
 	keySeparator     = ":"
+)
+
+var (
+	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
 
 func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) *ReportingPluginFactory {
@@ -62,15 +66,17 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 }
 
 type ReportingPlugin struct {
-	lggr                  logger.Logger
-	store                 *requests.Store[*Request]
-	batchSize             int
-	config                ocr3types.ReportingPluginConfig
-	publicKey             *tdh2easy.PublicKey
-	privateKeyShare       *tdh2easy.PrivateShare
-	maxSecretsPerOwner    int
-	maxCiphertextLenBytes int
-	maxIdentifierLenBytes int
+	lggr                           logger.Logger
+	store                          *requests.Store[*Request]
+	batchSize                      int
+	config                         ocr3types.ReportingPluginConfig
+	publicKey                      *tdh2easy.PublicKey
+	privateKeyShare                *tdh2easy.PrivateShare
+	maxSecretsPerOwner             int
+	maxCiphertextLenBytes          int
+	maxIdentifierKeyLenBytes       int
+	maxIdentifierOwnerLenBytes     int
+	maxIdentifierNamespaceLenBytes int
 }
 
 func (r *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Query, error) {
@@ -78,6 +84,9 @@ func (r *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReade
 }
 
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
+	// Note: this could mean that we end up processing more than `batchSize` requests
+	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
+	// guaranteed to fetch the same requests.
 	batch, err := r.store.FirstN(r.batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
@@ -187,11 +196,11 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (
 
 	namespace := id.Namespace
 	if namespace == "" {
-		id.Namespace = defaultNamespace
+		namespace = defaultNamespace
 	}
 
-	if strings.Contains(id.Key, keySeparator) || strings.Contains(id.Owner, keySeparator) || strings.Contains(namespace, keySeparator) {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: id cannot contain `%s`", keySeparator))
+	if !isValidIDComponent(id.Key) || !isValidIDComponent(id.Owner) || !isValidIDComponent(namespace) {
+		return nil, newUserError("invalid secret identifier: key, owner and namespace must only contain alphanumeric characters")
 	}
 
 	newId := &vault.SecretIdentifier{
@@ -200,10 +209,17 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (
 		Namespace: namespace,
 	}
 
-	if len(keyFor(newId)) > r.maxIdentifierLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: id exceeds maximum length of %d bytes", r.maxIdentifierLenBytes))
+	if len(id.Owner) > r.maxIdentifierOwnerLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.maxIdentifierOwnerLenBytes))
 	}
 
+	if len(id.Namespace) > r.maxIdentifierNamespaceLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.maxIdentifierNamespaceLenBytes))
+	}
+
+	if len(id.Key) > r.maxIdentifierKeyLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.maxIdentifierKeyLenBytes))
+	}
 	return newId, nil
 }
 
@@ -355,8 +371,6 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 }
 
 func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) (quorumReached bool, err error) {
-	// TODO ???
-	// I don't think this is correct -- for GetSecrets the quorum should be F+T (?)
 	return quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.config.N, r.config.F, aos), nil
 }
 
@@ -400,8 +414,6 @@ func validateObservation(o *vault.Observation) error {
 		if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
 			return errors.New("GetSecrets request and response must have the same number of items")
 		}
-
-		// TODO: validate id
 	case vault.RequestType_CREATE_SECRETS:
 		if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
 			return errors.New("GetSecrets observation must have both request and response")
@@ -410,9 +422,6 @@ func validateObservation(o *vault.Observation) error {
 		if len(o.GetCreateSecretsRequest().EncryptedSecrets) != len(o.GetCreateSecretsResponse().Responses) {
 			return errors.New("GetSecrets request and response must have the same number of items")
 		}
-
-		// TODO: validate id
-		// TODO: validate no duplicates
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -593,17 +602,17 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 			sortedResps := []*vault.CreateSecretResponse{}
 			for _, id := range slices.Sorted(maps.Keys(idToResps)) {
-				r := idToResps[id]
+				resp := idToResps[id]
 				req := idToReqs[id]
-				if r.GetError() != "" {
-					sortedResps = append(sortedResps, r)
+				if resp.GetError() != "" {
+					sortedResps = append(sortedResps, resp)
 					continue
 				}
 
 				encryptedSecret, err := base64.StdEncoding.DecodeString(req.EncryptedValue)
 				if err != nil {
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "could not decode secret value: invalid base64",
 					})
@@ -614,9 +623,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					EncryptedSecret: encryptedSecret,
 				})
 				if err != nil {
-					// TODO: log the error
+					r.lggr.Errorw("failed to write secret to key value store", "error", err, "id", resp.Id)
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "failed to write secret to key value store",
 					})
@@ -625,18 +634,17 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 				err = store.addKeyToMetadata(req.Id)
 				if err != nil {
-					// TODO: log the error
+					r.lggr.Errorw("failed to add key to metadata", "error", err, "id", resp.Id)
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "failed to write secret to key value store",
 					})
 					continue
 				}
-				// Now update the
 
 				sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-					Id:      r.Id,
+					Id:      resp.Id,
 					Success: true,
 					Error:   "",
 				})

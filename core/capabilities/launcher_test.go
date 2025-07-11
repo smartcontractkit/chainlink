@@ -19,6 +19,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -89,9 +90,9 @@ func TestLauncher(t *testing.T) {
 
 		nodes := []ragetypes.PeerID{
 			pid,
-			randomWord(),
-			randomWord(),
-			randomWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
 		}
 
 		fullTriggerCapID := "streams-trigger@1.0.0"
@@ -112,11 +113,11 @@ func TestLauncher(t *testing.T) {
 		}
 		require.NoError(t, registry.Add(t.Context(), mtarg))
 
-		triggerCapID := randomWord()
-		targetCapID := randomWord()
+		triggerCapID := RandomUTF8BytesWord()
+		targetCapID := RandomUTF8BytesWord()
 		// one capability from onchain registry is not set up locally
 		fullMissingTargetID := "super-duper-target@6.6.6"
-		missingTargetCapID := randomWord()
+		missingTargetCapID := RandomUTF8BytesWord()
 		dID := uint32(1)
 		// The below state describes a Workflow DON (AcceptsWorkflows = true),
 		// which exposes the streams-trigger and write_chain capabilities.
@@ -157,30 +158,30 @@ func TestLauncher(t *testing.T) {
 			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[0],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[1]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[1],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[2]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[2],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[3]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[3],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 			},
@@ -197,7 +198,7 @@ func TestLauncher(t *testing.T) {
 		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
 		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*executable.server")).Return(nil)
 
-		err = launcher.Launch(t.Context(), state)
+		err = launcher.OnNewRegistry(t.Context(), state)
 		require.NoError(t, err)
 		defer launcher.Close()
 	})
@@ -219,9 +220,9 @@ func TestLauncher(t *testing.T) {
 
 		nodes := []ragetypes.PeerID{
 			pid,
-			randomWord(),
-			randomWord(),
-			randomWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
 		}
 
 		// We intentionally create a Trigger capability with a Target type
@@ -235,7 +236,7 @@ func TestLauncher(t *testing.T) {
 		}
 		require.NoError(t, registry.Add(t.Context(), mtarg))
 
-		triggerCapID := randomWord()
+		triggerCapID := RandomUTF8BytesWord()
 
 		dID := uint32(1)
 		// The below state describes a Workflow DON (AcceptsWorkflows = true),
@@ -267,30 +268,30 @@ func TestLauncher(t *testing.T) {
 			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[0],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID},
 				},
 				nodes[1]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[1],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID},
 				},
 				nodes[2]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[2],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID},
 				},
 				nodes[3]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[3],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{triggerCapID},
 				},
 			},
@@ -304,7 +305,7 @@ func TestLauncher(t *testing.T) {
 			&mockDonNotifier{},
 		)
 
-		err = launcher.Launch(t.Context(), state)
+		err = launcher.OnNewRegistry(t.Context(), state)
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a trigger capability - it won't be exposed remotely").Len())
@@ -328,9 +329,9 @@ func TestLauncher(t *testing.T) {
 
 		nodes := []ragetypes.PeerID{
 			pid,
-			randomWord(),
-			randomWord(),
-			randomWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
+			RandomUTF8BytesWord(),
 		}
 
 		fullTargetID := "write-chain_evm_1@1.0.0"
@@ -341,7 +342,7 @@ func TestLauncher(t *testing.T) {
 		))
 		require.NoError(t, registry.Add(t.Context(), mt))
 
-		targetCapID := randomWord()
+		targetCapID := RandomUTF8BytesWord()
 		dID := uint32(1)
 		// The below state describes a Workflow DON (AcceptsWorkflows = true),
 		// which exposes the streams-trigger and write_chain capabilities.
@@ -372,30 +373,30 @@ func TestLauncher(t *testing.T) {
 			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[0],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{targetCapID},
 				},
 				nodes[1]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[1],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{targetCapID},
 				},
 				nodes[2]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[2],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{targetCapID},
 				},
 				nodes[3]: {
 					NodeOperatorId:      1,
-					Signer:              randomWord(),
+					Signer:              RandomUTF8BytesWord(),
 					P2pId:               nodes[3],
-					EncryptionPublicKey: randomWord(),
+					EncryptionPublicKey: RandomUTF8BytesWord(),
 					HashedCapabilityIds: [][32]byte{targetCapID},
 				},
 			},
@@ -409,7 +410,7 @@ func TestLauncher(t *testing.T) {
 			&mockDonNotifier{},
 		)
 
-		err = launcher.Launch(t.Context(), state)
+		err = launcher.OnNewRegistry(t.Context(), state)
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
@@ -463,22 +464,22 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 
 	workflowDonNodes := []ragetypes.PeerID{
 		pid,
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	capabilityDonNodes := []ragetypes.PeerID{
-		randomWord(),
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	fullTriggerCapID := "log-event-trigger-evm-43113@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
-	triggerCapID := randomWord()
-	targetCapID := randomWord()
+	triggerCapID := RandomUTF8BytesWord()
+	targetCapID := RandomUTF8BytesWord()
 	dID := uint32(1)
 	capDonID := uint32(2)
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
@@ -541,55 +542,55 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
 	}
@@ -613,7 +614,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		}
 	})
 
-	err = launcher.Launch(ctx, state)
+	err = launcher.OnNewRegistry(ctx, state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
@@ -673,16 +674,16 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 
 	nodes := []ragetypes.PeerID{
 		pid,
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	dID := uint32(1)
 	triggerID := "streams-trigger@1.0.0"
-	hashedTriggerID := randomWord()
+	hashedTriggerID := RandomUTF8BytesWord()
 	targetID := "write-chain_evm_1@1.0.0"
-	hashedTargetID := randomWord()
+	hashedTargetID := RandomUTF8BytesWord()
 
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which isn't public (IsPublic = false), but hosts the
@@ -718,30 +719,30 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               nodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               nodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               nodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               nodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 		},
@@ -758,7 +759,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// If the DON were public, this would fail with two errors:
 	// - error fetching the capabilities from the registry since they haven't been added
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
-	err = launcher.Launch(t.Context(), state)
+	err = launcher.OnNewRegistry(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
@@ -783,22 +784,22 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 
 	workflowDonNodes := []ragetypes.PeerID{
 		pid,
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	capabilityDonNodes := []ragetypes.PeerID{
-		randomWord(),
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
-	triggerCapID := randomWord()
-	targetCapID := randomWord()
+	triggerCapID := RandomUTF8BytesWord()
+	targetCapID := RandomUTF8BytesWord()
 	dID := uint32(1)
 	capDonID := uint32(2)
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
@@ -860,55 +861,55 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
 	}
@@ -924,7 +925,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 
-	err = launcher.Launch(t.Context(), state)
+	err = launcher.OnNewRegistry(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
@@ -952,22 +953,22 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 
 	workflowDonNodes := []ragetypes.PeerID{
 		pid,
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	capabilityDonNodes := []ragetypes.PeerID{
-		randomWord(),
-		randomWord(),
-		randomWord(),
-		randomWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
-	triggerCapID := randomWord()
-	targetCapID := randomWord()
+	triggerCapID := RandomUTF8BytesWord()
+	targetCapID := RandomUTF8BytesWord()
 	dID := uint32(1)
 	triggerCapDonID := uint32(2)
 	targetCapDonID := uint32(3)
@@ -1026,55 +1027,55 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               capabilityDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[0],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[1],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[2],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorId:      1,
-				Signer:              randomWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pId:               workflowDonNodes[3],
-				EncryptionPublicKey: randomWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
 	}
@@ -1089,7 +1090,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 
-	err = launcher.Launch(t.Context(), state)
+	err = launcher.OnNewRegistry(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
@@ -1124,7 +1125,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 
 	tt := NewTestTopology(pid, 4, 4)
 
-	triggerCapID := randomWord()
+	triggerCapID := RandomUTF8BytesWord()
 	workflowDONID := uint32(1)
 	capabilitiesDONID := uint32(2)
 	workflowNCapabilitiesDONID := uint32(3)
@@ -1155,7 +1156,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		&mockDonNotifier{},
 	)
 
-	err = launcher.Launch(t.Context(), state)
+	err = launcher.OnNewRegistry(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 }
@@ -1187,7 +1188,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 
 	tt := NewTestTopology(pid, 4, 4)
 
-	triggerCapID := randomWord()
+	triggerCapID := RandomUTF8BytesWord()
 	workflowDONID := uint32(1)
 	capabilitiesDONID := uint32(2)
 	workflowNCapabilitiesDONID := uint32(3)
@@ -1244,7 +1245,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		require.Len(t, allPeers, expectedPeerCount[i])
 	}
 
-	err = launcher.Launch(t.Context(), localRegistry)
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 	defer launcher.Close()
 }

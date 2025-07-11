@@ -2,22 +2,30 @@ package capabilities
 
 import (
 	"crypto/rand"
+	"math/big"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
-func randomWord() [32]byte {
-	word := make([]byte, 32)
-	_, err := rand.Read(word)
-	if err != nil {
-		panic(err)
+// RandomUTF8BytesWord generates a [32]byte array containing random UTF-8 encoded characters.
+func RandomUTF8BytesWord() [32]byte {
+	var result [32]byte
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	for i := 0; i < 32; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			panic(err)
+		}
+		result[i] = letters[num.Int64()]
 	}
-	return [32]byte(word)
+	return result
 }
 
 type TestTopology struct {
@@ -28,7 +36,7 @@ type TestTopology struct {
 func MakeNodes(count int) []p2ptypes.PeerID {
 	nodes := make([]p2ptypes.PeerID, count)
 	for i := range nodes {
-		nodes[i] = randomWord()
+		nodes[i] = RandomUTF8BytesWord()
 	}
 	return nodes
 }
@@ -49,9 +57,9 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 	for i := range tt.capabilityDonNodes {
 		IDsToNodes[tt.capabilityDonNodes[i]] = kcr.INodeInfoProviderNodeInfo{
 			NodeOperatorId:      1,
-			Signer:              randomWord(),
+			Signer:              RandomUTF8BytesWord(),
 			P2pId:               tt.capabilityDonNodes[i],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: RandomUTF8BytesWord(),
 			HashedCapabilityIds: [][32]byte{triggerCapID},
 			CapabilitiesDONIds:  nil,
 		}
@@ -59,9 +67,9 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 	for i := range tt.workflowDonNodes {
 		IDsToNodes[tt.workflowDonNodes[i]] = kcr.INodeInfoProviderNodeInfo{
 			NodeOperatorId:      1,
-			Signer:              randomWord(),
+			Signer:              RandomUTF8BytesWord(),
 			P2pId:               tt.workflowDonNodes[i],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: RandomUTF8BytesWord(),
 		}
 	}
 	return IDsToNodes

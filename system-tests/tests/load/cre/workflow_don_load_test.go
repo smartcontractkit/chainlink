@@ -54,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -71,15 +70,15 @@ type Chaos struct {
 }
 
 type TestConfigLoadTest struct {
-	Duration                      string                               `toml:"duration"`
-	Blockchains                   []*blockchain.Input                  `toml:"blockchains" validate:"required"`
-	NodeSets                      []*ns.Input                          `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                            `toml:"jd" validate:"required"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *libtypes.InfraInput                 `toml:"infra" validate:"required"`
-	WorkflowDONLoad               *WorkflowLoad                        `toml:"workflow_load"`
-	MockCapabilities              []*MockCapabilities                  `toml:"mock_capabilities"`
-	Chaos                         *Chaos                               `toml:"chaos"`
+	Duration                      string                                  `toml:"duration"`
+	Blockchains                   []*keystonetypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                             `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                               `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput                    `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                           `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                     `toml:"mock_capabilities"`
+	Chaos                         *Chaos                                  `toml:"chaos"`
 }
 
 type MockCapabilities struct {
@@ -103,7 +102,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      []*creenv.BlockchainOutput
+	blockchainOutput      []*keystonetypes.WrappedBlockchainOutput
 	donTopology           *keystonetypes.DonTopology
 	nodeOutput            []*keystonetypes.WrappedNodeOutput
 }
@@ -403,7 +402,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		CallTimeout: time.Minute * 2, // Give enough time for the workflow to execute
 		LoadType:    wasp.RPS,
 		Schedule: wasp.Combine(
-			wasp.Plain(4, 5*time.Minute),
+			wasp.Plain(4, 10*time.Minute),
 		),
 		Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, int(in.WorkflowDONLoad.Streams), int(in.WorkflowDONLoad.Jobs)),
 		Labels:                labels,
@@ -429,9 +428,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	prometheusExecutor, err := benchspy.NewPrometheusQueryExecutor(
 		map[string]string{
-			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[5m]) * 100)`,
-			"mem_peak":             `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
-			"mem_avg":              `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[5m]))`,
+			"cpu_percent":          `avg (rate(container_cpu_usage_seconds_total{name=~"workflow-node[1-9][0-9]*"}[10m]) * 100)`,
+			"mem_peak":             `avg (max_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[10m]))`,
+			"mem_avg":              `avg (avg_over_time(container_memory_working_set_bytes{name=~"workflow-node[1-9][0-9]*"}[10m]))`,
 			"disk_io_time_seconds": `avg (container_fs_io_time_seconds_total{name=~"workflow-node[1-9][0-9]*"})`,
 			"network_tx":           `avg (container_network_transmit_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
 			"network_rx":           `avg (container_network_receive_bytes_total{name=~"workflow-node[1-9][0-9]*"})`,
@@ -460,7 +459,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	if baselineReport != nil {
 		compareBenchmarkReports(t, benchmarkReport, baselineReport)
 	}
-
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and

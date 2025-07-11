@@ -81,12 +81,12 @@ func sendNodeReponse(t *testing.T, handler handlers.Handler, userRequestMsg api.
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
 		err := nodeResponseMsg.Sign(nodes[id].PrivateKey)
-		var jsonResp *jsonrpc.Response
+		var jsonResp *jsonrpc.Response[json.RawMessage]
 		if err == nil {
 			jsonResp, err = hc.ValidatedResponseFromMessage(&nodeResponseMsg) // ensure the message is valid
 		}
 		if err != nil {
-			jsonResp = &jsonrpc.Response{
+			jsonResp = &jsonrpc.Response[json.RawMessage]{
 				ID:     userRequestMsg.Body.MessageId,
 				Result: nil,
 				Error: &jsonrpc.WireError{

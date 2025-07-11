@@ -76,15 +76,15 @@ type CustomAnvilMiner struct {
 }
 
 type TestConfig struct {
-	Blockchains                   []*blockchain.Input          `toml:"blockchains" validate:"required"`
-	CustomAnvilMiner              *CustomAnvilMiner            `toml:"custom_anvil_miner"`
-	NodeSets                      []*ns.Input                  `toml:"nodesets" validate:"required"`
-	WorkflowConfigs               []WorkflowConfig             `toml:"workflow_configs" validate:"required"`
-	JD                            *jd.Input                    `toml:"jd" validate:"required"`
-	Fake                          *fake.Input                  `toml:"fake"`
-	WorkflowRegistryConfiguration *types.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *libtypes.InfraInput         `toml:"infra" validate:"required"`
-	DependenciesConfig            *DependenciesConfig          `toml:"dependencies" validate:"required"`
+	Blockchains                   []*types.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	CustomAnvilMiner              *CustomAnvilMiner               `toml:"custom_anvil_miner"`
+	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
+	WorkflowConfigs               []WorkflowConfig                `toml:"workflow_configs" validate:"required"`
+	JD                            *jd.Input                       `toml:"jd" validate:"required"`
+	Fake                          *fake.Input                     `toml:"fake"`
+	WorkflowRegistryConfiguration *types.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
+	Infra                         *libtypes.InfraInput            `toml:"infra" validate:"required"`
+	DependenciesConfig            *DependenciesConfig             `toml:"dependencies" validate:"required"`
 }
 
 type WorkflowConfig struct {
@@ -517,6 +517,9 @@ func setupPoRTestEnvironment(
 	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
 
 	for idx, bo := range universalSetupOutput.BlockchainOutput {
+		if bo.ReadOnly {
+			continue
+		}
 		chainSelectorToWorkflowConfig[bo.ChainSelector] = in.WorkflowConfigs[idx]
 		chainSelectorToSethClient[bo.ChainSelector] = bo.SethClient
 		chainSelectorToBlockchainOutput[bo.ChainSelector] = bo.BlockchainOutput
@@ -804,7 +807,6 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, timeout time.Duration) {
 	for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
 		testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
-		timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
 
 		dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)

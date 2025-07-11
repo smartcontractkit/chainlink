@@ -238,7 +238,7 @@ func (w *launcher) Name() string {
 	return w.lggr.Name()
 }
 
-func (w *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetLocalRegistry(localRegistry)
 
@@ -566,7 +566,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 				}
 
 				return executable.NewServer(
-					capabilityConfig.RemoteExecutableConfig,
+					remoteConfig,
 					myPeerID,
 					actionCapability,
 					info,
@@ -575,6 +575,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					w.dispatcher,
 					defaultTargetRequestTimeout,
 					defaultMaxParallelCapabilityExecuteRequests,
+					nil, // TODO: create a capability-specific hasher
 					w.lggr,
 				), nil
 			}
@@ -586,7 +587,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 			}
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Debug("no remote client configured for capability type consensus, skipping configuration")
-		case capabilities.CapabilityTypeTarget:
+		case capabilities.CapabilityTypeTarget: // TODO: unify Target and Action into Executable
 			newTargetServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
 				targetCapability, ok := (cap).(capabilities.TargetCapability)
 				if !ok {
@@ -608,6 +609,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					w.dispatcher,
 					defaultTargetRequestTimeout,
 					defaultMaxParallelCapabilityExecuteRequests,
+					nil, // TODO: create a capability-specific hasher
 					w.lggr,
 				), nil
 			}

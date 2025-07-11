@@ -3,6 +3,7 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -30,7 +31,7 @@ type FakeEVMChain struct {
 	lggr logger.Logger
 
 	// log trigger callback channel
-	callbackCh chan commonCap.TriggerAndId[*evmcappb.Log]
+	callbackCh map[string]chan commonCap.TriggerAndId[*evmcappb.Log]
 }
 
 var evmExecInfo = commonCap.MustNewCapabilityInfo(
@@ -49,7 +50,7 @@ func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKe
 		lggr:           lggr,
 		gethClient:     gethClient,
 		privateKey:     privateKey,
-		callbackCh:     make(chan commonCap.TriggerAndId[*evmcappb.Log]),
+		callbackCh:     make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -65,7 +66,8 @@ func (fc *FakeEVMChain) Initialise(ctx context.Context, config string, _ core.Te
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	// TODO: do validation of config here
 
 	err := fc.Start(ctx)
@@ -107,31 +109,25 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
-	fc.eng.Infow("EVM Chain WriteReport Finished")
 
-	return &evmcappb.WriteReportReply{
-		TxStatus:                        evmcappb.TxStatus_TX_SUCCESS,
-		TxHash:                          []byte{},
-		ReceiverContractExecutionStatus: evmcappb.ReceiverContractExecutionStatus_SUCCESS.Enum(),
-		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)), // TODO: add transaction fee
-		ErrorMessage:                    nil,
-	}, nil
+	return nil, errors.New("WriteReport is not supported yet")
 }
 
 func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmcappb.Log], error) {
-	return fc.callbackCh, nil
+	fc.callbackCh[triggerID] = make(chan commonCap.TriggerAndId[*evmcappb.Log])
+	return fc.callbackCh[triggerID], nil
 }
 
 func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) error {
 	return nil
 }
 
-func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, log *evmcappb.Log) error {
+func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log *evmcappb.Log) error {
 	fc.eng.Debugf("ManualTrigger: %s", log.String())
 
 	go func() {
 		select {
-		case fc.callbackCh <- fc.createManualTriggerEvent(log):
+		case fc.callbackCh[triggerID] <- fc.createManualTriggerEvent(log):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine

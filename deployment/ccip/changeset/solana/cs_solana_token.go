@@ -258,41 +258,56 @@ func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (c
 	return cldf.ChangesetOutput{}, nil
 }
 
-type SetTokenAuthorityConfig struct {
-	ChainSelector uint64
+type TokenAuthorityConfig struct {
 	AuthorityType solToken.AuthorityType
 	TokenPubkey   solana.PublicKey
 	NewAuthority  solana.PublicKey
 }
 
+type SetTokenAuthorityConfig struct {
+	ChainSelector         uint64
+	TokenAuthorityConfigs []TokenAuthorityConfig
+}
+
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
+	if cfg.ChainSelector == 0 {
+		return cldf.ChangesetOutput{}, errors.New("chain selector is required")
+	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-
-	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
-	ix, err := solToken.NewSetAuthorityInstruction(
-		cfg.AuthorityType,
-		cfg.NewAuthority,
-		cfg.TokenPubkey,
-		chain.DeployerKey.PublicKey(),
-		solana.PublicKeySlice{},
-	).ValidateAndBuild()
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	tokenIx := &solTokenUtil.TokenInstruction{Instruction: ix, Program: tokenprogramID}
 
-	// confirm instructions
-	if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for SetTokenAuthority", "chain", chain.String(), "err", err)
-		return cldf.ChangesetOutput{}, err
+	for _, tokenAuthorityConfig := range cfg.TokenAuthorityConfigs {
+		tokenprogramID, err := chainState.TokenToTokenProgram(tokenAuthorityConfig.TokenPubkey)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+
+		ix, err := solToken.NewSetAuthorityInstruction(
+			tokenAuthorityConfig.AuthorityType,
+			tokenAuthorityConfig.NewAuthority,
+			tokenAuthorityConfig.TokenPubkey,
+			chain.DeployerKey.PublicKey(),
+			solana.PublicKeySlice{},
+		).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		tokenIx := &solTokenUtil.TokenInstruction{Instruction: ix, Program: tokenprogramID}
+
+		// confirm instructions
+		if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
+			e.Logger.Errorw("Failed to confirm instructions for SetTokenAuthority", "chain", chain.String(), "err", err)
+			return cldf.ChangesetOutput{}, err
+		}
+		e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", tokenAuthorityConfig.TokenPubkey.String(), "newAuthority", tokenAuthorityConfig.NewAuthority.String(), "authorityType", tokenAuthorityConfig.AuthorityType)
 	}
-	e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String(), "authorityType", cfg.AuthorityType)
 
 	return cldf.ChangesetOutput{}, nil
 }

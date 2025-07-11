@@ -83,6 +83,8 @@ type fastTransferE2ETestCase struct {
 	feeTokenType                        string // "LINK" or "NATIVE"
 	fastTransferPoolFeeBps              uint16
 	externalMinter                      bool
+	isHybridPool                        bool // If true, the test case is for a hybrid pool
+	hybridPool                          v1_5_1.Group
 	settlementGasOverhead               uint32 // Used for fast transfer lane config
 	expectNoExecutionError              bool
 }
@@ -137,7 +139,15 @@ func withFillerDisabled() fastTransferE2ETestCaseOption {
 	}
 }
 
-func withFastFillSuccessAmountAssertions() fastTransferE2ETestCaseOption {
+func withHybridPool(groupType v1_5_1.Group) fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.isHybridPool = true
+		tc.hybridPool = groupType
+		return tc
+	}
+}
+
+func withFastFillSuccessAmountAssertionsWithPoolAmount(poolAmount *big.Int, isLockRelease bool) fastTransferE2ETestCaseOption {
 	transferAmountMinusFee := big.NewInt(0).Sub(transferAmount, expectedFastTransferFee)
 	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
 		// Calculate pool fee: (transferAmount * fastTransferPoolFeeBps) / 10000
@@ -154,15 +164,26 @@ func withFastFillSuccessAmountAssertions() fastTransferE2ETestCaseOption {
 		tc.postRegularTransferUserAssertions = append(tc.postRegularTransferUserAssertions, assertDestinationBalanceEventuallyEqual(userReceivedAmount))
 
 		// Pool assertions
-		tc.preFastTransferPoolAssertions = append(tc.preFastTransferPoolAssertions, assertDestinationBalanceEqual(big.NewInt(0)))
-		tc.postFastTransferPoolAssertions = append(tc.postFastTransferPoolAssertions, assertDestinationBalanceEventuallyEqual(big.NewInt(0)))
-		tc.postRegularTransferPoolAssertions = append(tc.postRegularTransferPoolAssertions, assertDestinationBalanceEqual(poolFee))
+		finalPoolAmount := big.NewInt(0).Add(poolAmount, poolFee)
+		if isLockRelease {
+			// In lock release mode we release the transfer amount from the pool this include the filler fee and the actual amount transferred to the user
+			finalPoolAmount = big.NewInt(0).Sub(finalPoolAmount, transferAmount)
+		}
+		tc.preFastTransferPoolAssertions = append(tc.preFastTransferPoolAssertions, assertDestinationBalanceEqual(poolAmount))
+		tc.postFastTransferPoolAssertions = append(tc.postFastTransferPoolAssertions, assertDestinationBalanceEventuallyEqual(poolAmount))
+		tc.postRegularTransferPoolAssertions = append(tc.postRegularTransferPoolAssertions, assertDestinationBalanceEqual(finalPoolAmount))
 
 		return tc
 	}
 }
 
-func withFastFillNoFillerSuccessAmountAssertions() fastTransferE2ETestCaseOption {
+func withFastFillSuccessAmountAssertions() fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		return withFastFillSuccessAmountAssertionsWithPoolAmount(big.NewInt(0), false)(tc)
+	}
+}
+
+func withFastFillNoFillerSuccessAmountAssertionsWithPoolAmount(poolAmount *big.Int) fastTransferE2ETestCaseOption {
 	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
 		// Filler assertions
 		tc.postFastTransferFillerAssertions = append(tc.postFastTransferFillerAssertions, assertDestinationBalanceEqual(initialFillerTokenAmountOnDest))
@@ -173,11 +194,17 @@ func withFastFillNoFillerSuccessAmountAssertions() fastTransferE2ETestCaseOption
 		tc.postRegularTransferUserAssertions = append(tc.postRegularTransferUserAssertions, assertDestinationBalanceEventuallyEqual(transferAmount))
 
 		// Pool assertions
-		tc.preFastTransferPoolAssertions = append(tc.preFastTransferPoolAssertions, assertDestinationBalanceEqual(big.NewInt(0)))
-		tc.postFastTransferPoolAssertions = append(tc.postFastTransferPoolAssertions, assertDestinationBalanceEventuallyEqual(big.NewInt(0)))
-		tc.postRegularTransferPoolAssertions = append(tc.postRegularTransferPoolAssertions, assertDestinationBalanceEqual(big.NewInt(0)))
+		tc.preFastTransferPoolAssertions = append(tc.preFastTransferPoolAssertions, assertDestinationBalanceEqual(poolAmount))
+		tc.postFastTransferPoolAssertions = append(tc.postFastTransferPoolAssertions, assertDestinationBalanceEventuallyEqual(poolAmount))
+		tc.postRegularTransferPoolAssertions = append(tc.postRegularTransferPoolAssertions, assertDestinationBalanceEqual(poolAmount))
 
 		return tc
+	}
+}
+
+func withFastFillNoFillerSuccessAmountAssertions() fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		return withFastFillNoFillerSuccessAmountAssertionsWithPoolAmount(big.NewInt(0))(tc)
 	}
 }
 
@@ -242,6 +269,9 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
 	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	ftfTc("hybrid pool lock release", withHybridPool(v1_5_1.LockAndRelease), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertionsWithPoolAmount(big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000)), true)),
+	ftfTc("hybrid pool", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
+	ftfTc("hybrid pool with link fee", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
 }
 
 func assertDestinationBalanceEventuallyEqual(expectedBalance *big.Int) balanceAssertion {
@@ -267,6 +297,64 @@ func assertDestinationBalanceEqual(expectedBalance *big.Int) balanceAssertion {
 		balance, err := destinationToken.BalanceOf(nil, address)
 		require.NoError(t, err)
 		require.Equal(t, expectedBalance.Int64(), balance.Int64(), description+" - Balance should be equal to expected value")
+	}
+}
+
+func withdrawPoolFeesUsingChangeset(t *testing.T, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, recipientAddress common.Address, useMCMS bool) error {
+	config := v1_5_1.FastTransferWithdrawPoolFeesConfig{
+		TokenSymbol:     shared.TokenSymbol(tokenSymbol),
+		ContractType:    contractType,
+		ContractVersion: contractVersion,
+		Withdrawals: map[uint64]common.Address{
+			chainSelector: recipientAddress,
+		},
+	}
+
+	if useMCMS {
+		config.MCMS = &proposalutils.TimelockConfig{
+			MinDelay:   0 * time.Second,
+			MCMSAction: mcmstypes.TimelockActionSchedule,
+		}
+	}
+
+	_, _, err := commonchangeset.ApplyChangesets(t, env,
+		[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			v1_5_1.FastTransferWithdrawPoolFeesChangeset,
+			config,
+		)}, commonchangeset.WithRealBackend())
+
+	return err
+}
+
+func assertPoolFeeWithdrawal(expectedWithdrawnAmount *big.Int, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, destinationToken balanceToken, useMCMS bool, withdrawLock *sync.Mutex) balanceAssertion {
+	return func(t *testing.T, sourceToken balanceToken, destinationTokenParam balanceToken, address common.Address, description string) {
+		withdrawLock.Lock()
+		defer withdrawLock.Unlock()
+
+		recipientAddress, _, _ := createAccount(t, destinationChainID)
+
+		pool, err := bindings.GetFastTransferTokenPoolContract(env, shared.TokenSymbol(tokenSymbol), contractType, contractVersion, chainSelector)
+		require.NoError(t, err)
+
+		accumulatedFees, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, expectedWithdrawnAmount.Int64(), accumulatedFees.Int64(), description+" - Accumulated pool fees should match expected amount")
+
+		recipientBalanceBefore, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		err = withdrawPoolFeesUsingChangeset(t, env, tokenSymbol, contractType, contractVersion, chainSelector, recipientAddress, useMCMS)
+		require.NoError(t, err)
+
+		recipientBalanceAfter, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		expectedRecipientBalance := big.NewInt(0).Add(recipientBalanceBefore, expectedWithdrawnAmount)
+		require.Equal(t, expectedRecipientBalance.Int64(), recipientBalanceAfter.Int64(), description+" - Recipient should receive the withdrawn pool fees")
+
+		accumulatedFeesAfter, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), accumulatedFeesAfter.Int64(), description+" - Pool accumulated fees should be zero after withdrawal")
 	}
 }
 
@@ -461,6 +549,152 @@ func configureExternalMinterTokenPool(t *testing.T, e cldf.Environment, sourceCh
 		postSetupAction:   postSetupAction,
 		version:           shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
 		poolType:          shared.BurnMintWithExternalMinterFastTransferTokenPool,
+	}
+}
+
+func configureHybridTokenPool(t *testing.T, e cldf.Environment, sourceChainSelector, destinationChainSelector uint64, sourceTokenAddress, destinationTokenAddress common.Address, tokenDecimals uint8, tokenSymbol shared.TokenSymbol, useMcms bool, groupType v1_5_1.Group) tokenPoolConfig {
+	sourceChain := e.BlockChains.EVMChains()[sourceChainSelector]
+	destChain := e.BlockChains.EVMChains()[destinationChainSelector]
+
+	_, sourceTokenGovernor := testhelpers.DeployTokenGovernor(t, e, sourceChainSelector, sourceTokenAddress)
+	_, destinationTokenGovernor := testhelpers.DeployTokenGovernor(t, e, destinationChainSelector, destinationTokenAddress)
+
+	bridgeBurnMintRole, err := sourceTokenGovernor.BRIDGEMINTERORBURNERROLE(nil)
+	require.NoError(t, err)
+
+	poolConfig := map[uint64]v1_5_1.DeployTokenPoolInput{
+		sourceChainSelector: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       sourceTokenAddress,
+			AllowList:          nil,
+			LocalTokenDecimals: tokenDecimals,
+			AcceptLiquidity:    nil,
+			ExternalMinter:     sourceTokenGovernor.Address(),
+		},
+		destinationChainSelector: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       destinationTokenAddress,
+			AllowList:          nil,
+			LocalTokenDecimals: tokenDecimals,
+			AcceptLiquidity:    nil,
+			ExternalMinter:     destinationTokenGovernor.Address(),
+		},
+	}
+
+	postSetupAction := func(sourceTokenPool common.Address, destinationTokenPool common.Address) {
+		tx, err := sourceTokenGovernor.GrantRole(sourceChain.DeployerKey, bridgeBurnMintRole, sourceTokenPool)
+		require.NoError(t, err)
+		_, err = sourceChain.Confirm(tx)
+		require.NoError(t, err)
+		tx, err = destinationTokenGovernor.GrantRole(destChain.DeployerKey, bridgeBurnMintRole, destinationTokenPool)
+		require.NoError(t, err)
+		_, err = destChain.Confirm(tx)
+		require.NoError(t, err)
+
+		sourceToken, err := usd_stablecoin.NewStablecoin(sourceTokenAddress, sourceChain.Client)
+		require.NoError(t, err)
+		tx, err = sourceToken.TransferOwnership(sourceChain.DeployerKey, sourceTokenGovernor.Address())
+		require.NoError(t, err)
+		_, err = sourceChain.Confirm(tx)
+		require.NoError(t, err)
+
+		tx, err = sourceTokenGovernor.AcceptOwnership(sourceChain.DeployerKey)
+		require.NoError(t, err)
+		_, err = sourceChain.Confirm(tx)
+		require.NoError(t, err)
+
+		destinationToken, err := usd_stablecoin.NewStablecoin(destinationTokenAddress, destChain.Client)
+		require.NoError(t, err)
+		tx, err = destinationToken.TransferOwnership(destChain.DeployerKey, destinationTokenGovernor.Address())
+		require.NoError(t, err)
+		_, err = destChain.Confirm(tx)
+		require.NoError(t, err)
+		tx, err = destinationTokenGovernor.AcceptOwnership(destChain.DeployerKey)
+		require.NoError(t, err)
+		_, err = destChain.Confirm(tx)
+		require.NoError(t, err)
+
+		minterRole, err := sourceTokenGovernor.MINTERROLE(nil)
+		require.NoError(t, err)
+		tx, err = sourceTokenGovernor.GrantRole(sourceChain.DeployerKey, minterRole, sourceChain.DeployerKey.From)
+		require.NoError(t, err)
+		_, err = sourceChain.Confirm(tx)
+		require.NoError(t, err)
+		tx, err = destinationTokenGovernor.GrantRole(destChain.DeployerKey, minterRole, destChain.DeployerKey.From)
+		require.NoError(t, err)
+		_, err = destChain.Confirm(tx)
+		require.NoError(t, err)
+
+		poolAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000))
+		tx, err = sourceTokenGovernor.Mint(sourceChain.DeployerKey, sourceTokenPool, poolAmount)
+		require.NoError(t, err)
+		_, err = sourceChain.Confirm(tx)
+		require.NoError(t, err)
+
+		tx, err = destinationTokenGovernor.Mint(destChain.DeployerKey, destinationTokenPool, poolAmount)
+		require.NoError(t, err)
+		_, err = destChain.Confirm(tx)
+		require.NoError(t, err)
+
+		createGroupConfig := func(group v1_5_1.Group) v1_5_1.HybridTokenPoolUpdateGroupsConfig {
+			config := v1_5_1.HybridTokenPoolUpdateGroupsConfig{
+				TokenSymbol:     tokenSymbol,
+				ContractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+				ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+				Updates: map[uint64][]v1_5_1.GroupUpdateConfig{
+					sourceChainSelector: {
+						{
+							RemoteChainSelector: destinationChainSelector,
+							Group:               group,
+							RemoteChainSupply:   poolAmount,
+						},
+					},
+					destinationChainSelector: {
+						{
+							RemoteChainSelector: sourceChainSelector,
+							Group:               group,
+							RemoteChainSupply:   poolAmount,
+						},
+					},
+				},
+			}
+
+			if useMcms {
+				config.MCMS = &proposalutils.TimelockConfig{
+					MinDelay:   0 * time.Second,
+					MCMSAction: mcmstypes.TimelockActionSchedule,
+				}
+			}
+
+			return config
+		}
+
+		// Apply BurnAndMint configuration
+		_, _, err = commonchangeset.ApplyChangesets(t, e,
+			[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				v1_5_1.HybridTokenPoolUpdateGroupsChangeset,
+				createGroupConfig(v1_5_1.BurnAndMint),
+			)}, commonchangeset.WithRealBackend())
+		require.NoError(t, err)
+
+		// Apply LockAndRelease configuration if needed
+		if groupType == v1_5_1.LockAndRelease {
+			_, _, err = commonchangeset.ApplyChangesets(t, e,
+				[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+					v1_5_1.HybridTokenPoolUpdateGroupsChangeset,
+					createGroupConfig(v1_5_1.LockAndRelease),
+				)}, commonchangeset.WithRealBackend())
+			require.NoError(t, err)
+		}
+	}
+
+	return tokenPoolConfig{
+		poolConfig:        poolConfig,
+		sourceMinter:      sourceTokenGovernor,
+		destinationMinter: destinationTokenGovernor,
+		postSetupAction:   postSetupAction,
+		version:           shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+		poolType:          shared.HybridWithExternalMinterFastTransferTokenPool,
 	}
 }
 
@@ -727,6 +961,8 @@ func configureTokenPoolContractsWithMCMS(t *testing.T, e cldf.Environment, token
 	var config tokenPoolConfig
 	if tc.externalMinter {
 		config = configureExternalMinterTokenPool(t, e, sourceChainSelector, destinationChainSelector, sourceTokenAddress, destinationTokenAddress, tokenDecimals)
+	} else if tc.isHybridPool {
+		config = configureHybridTokenPool(t, e, sourceChainSelector, destinationChainSelector, sourceTokenAddress, destinationTokenAddress, tokenDecimals, shared.TokenSymbol(tokenSymbol), useMCMS, tc.hybridPool)
 	} else {
 		config = configureBurnMintTokenPool(t, e, sourceChainSelector, destinationChainSelector, sourceTokenAddress, destinationTokenAddress, tokenDecimals)
 	}
@@ -832,9 +1068,10 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 		},
 		Listeners: []devenv.ListenerConfig{
 			{
-				ChainSelector:    strconv.FormatUint(sourceChainSelector, 10),
-				TokenPoolAddress: sourceTokenPoolAddress.Hex(),
-				RPCURL:           sourceChainNetwork.HTTPURLs[0],
+				ChainSelector:        strconv.FormatUint(sourceChainSelector, 10),
+				TokenPoolAddress:     sourceTokenPoolAddress.Hex(),
+				RPCURL:               sourceChainNetwork.HTTPURLs[0],
+				DestinationTokenPool: destinationTokenPoolAddress.Hex(),
 			},
 		},
 		Fillers: []devenv.FillerConfig{
@@ -843,6 +1080,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 				TokenPoolAddress: destinationTokenPoolAddress.Hex(),
 				RPCURL:           destinationChainNetwork.HTTPURLs[0],
 				SignerProvider:   "filler",
+				SourceTokenPool:  sourceTokenPoolAddress.Hex(),
 			},
 		},
 	}
@@ -1139,14 +1377,17 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		t.Parallel()
 		userAddress, userTransactor, _ := createAccount(t, sourceChainID)
 		fillerAddress, fillerTransactor, fillerPrivateKey := createAccount(t, destinationChainID)
-		sourceToken := deployTokenAndGrantAllRoles(t, ctx.SourceChain(), tc.tokenSymbol, tokenDecimals, ctx.sourceLock, tc.externalMinter)
-		destinationToken := deployTokenAndGrantAllRoles(t, ctx.DestinationChain(), tc.tokenSymbol, tokenDecimals, ctx.destinationLock, tc.externalMinter)
+		sourceToken := deployTokenAndGrantAllRoles(t, ctx.SourceChain(), tc.tokenSymbol, tokenDecimals, ctx.sourceLock, tc.externalMinter || tc.isHybridPool)
+		destinationToken := deployTokenAndGrantAllRoles(t, ctx.DestinationChain(), tc.tokenSymbol, tokenDecimals, ctx.destinationLock, tc.externalMinter || tc.isHybridPool)
 
-		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
+		sourceTokenPoolAddress, destinationTokenPoolAddress, contractVersion, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
 		var contractType cldf.ContractType
-		if tc.externalMinter {
+		switch {
+		case tc.isHybridPool:
+			contractType = shared.HybridWithExternalMinterFastTransferTokenPool
+		case tc.externalMinter:
 			contractType = shared.BurnMintWithExternalMinterFastTransferTokenPool
-		} else {
+		default:
 			contractType = shared.BurnMintFastTransferTokenPool
 		}
 		pool, err := bindings.NewFastTransferTokenPoolWrapper(sourceTokenPoolAddress, ctx.SourceChain().Client, contractType)
@@ -1241,6 +1482,17 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
 		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
 
+		if tc.enableFiller {
+			expectedPoolFee := big.NewInt(0).Mul(transferAmount, big.NewInt(int64(tc.fastTransferPoolFeeBps)))
+			expectedPoolFee = big.NewInt(0).Div(expectedPoolFee, big.NewInt(10000))
+			// Pool fees are only accumulated during fast fills
+			poolFeeAssertion := assertPoolFeeWithdrawal(expectedPoolFee, ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test")
+		} else {
+			// When no filler was used, pool fees should be 0
+			poolFeeAssertion := assertPoolFeeWithdrawal(big.NewInt(0), ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+			poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test (No Filler)")
+		}
 		if !tc.expectNoExecutionError {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
 			// We want to ensure regular transfer works as expected

@@ -30,6 +30,8 @@ type EngineMetrics struct {
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
+	workflowTriggerEventErrorCounter         metric.Int64Counter
+	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
 	// Deprecated: use the gauge instead
 	engineHeartbeatCounter metric.Int64Counter
@@ -118,6 +120,16 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow step error counter: %w", err)
+	}
+
+	em.workflowTriggerEventErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_errors")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow trigger event error counter: %w", err)
+	}
+
+	em.workflowTriggerEventQueueFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_queue_full")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow trigger event queue full counter: %w", err)
 	}
 
 	// Deprecated: use the gauge below
@@ -315,6 +327,16 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationCounter(ctx conte
 	c.em.workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowTriggerEventErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventQueueFullCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowTriggerEventQueueFullCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) UpdateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowCompletedDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
@@ -347,5 +369,5 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowMissingMeteringReport(ctx conte
 
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
