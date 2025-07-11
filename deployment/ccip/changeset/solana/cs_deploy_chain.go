@@ -1088,7 +1088,6 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 	return cldf.ChangesetOutput{}, nil
 }
 
-
 // In case of emergency, this changeset can be used to extend the global lookup table
 // by default the LUT is extended by the changesets that perform other operations
 type ExtendGlobalLookupTableConfig struct {

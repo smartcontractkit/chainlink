@@ -136,7 +136,6 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 			},
 		),
 	}
-
 }
 
 // use this for a quick deploy test
