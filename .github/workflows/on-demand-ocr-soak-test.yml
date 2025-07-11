@@ -1,5 +1,10 @@
 name: On Demand OCR Soak Test
 on:
+  push:
+    tags:
+      # Run on release tags
+      - 'v*'
+
   workflow_dispatch:
     inputs:
       testToRun:
@@ -19,7 +24,7 @@ on:
           - soak/ocr_test.go:TestOCRSoak_RPCDownForAllCLNodes
           - soak/ocr_test.go:TestOCRSoak_RPCDownForHalfCLNodes
       chainlink_version:
-        description: Chainlink image version (e.g. "v2.25.0-beta.0" or "develop")
+        description: Version to test (e.g. "v2.25.0-beta.0", "develop", etc.)
         required: true
         default: develop
         type: string
@@ -29,89 +34,147 @@ on:
         default: 'integration-tests/testconfig/ocr2/overrides/ethereum_sepolia_12h.toml'
         type: string
       test_secrets_override_key:
-        description: Test secrets (default EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
+        description: Test secrets (defaults to EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
         required: false
-        default: 'aws:testsecrets/DEFAULT_TEST_SECRETS'
         type: string
       team:
         description: Team (e.g. BIX, CCIP, CRE, etc.)
         required: true
         type: string
       slackMemberID:
-        description: Slack Member ID (to tag when results published in \#test-run-notifications Slack channel).
+        description: Slack Member ID (to tag when results published in `#test-run-notifications` Slack channel).
         required: true
         default: U01A2B2C3D4
 
 jobs:
-  # Check if ECR registry is public or private
-  # Skip building image if public registry is used
-  check-registry-type:
-    name: Check used ECR registry type
+  # When running on a tag, wait for the image to be published to a registry
+  wait-for-workflows:
+    name: Wait for Release Image Build
     runs-on: ubuntu-latest
-    environment: integration
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
-      id-token: write
-    outputs:
-      skip-image-build: ${{ steps.skip-image-build.outputs.skip-image-build}}
+      contents: read
+      actions: read
     steps:
-      - name: Validate if AWS Secrets
-        id: validate-secrets-type
-        run: |
-          if [[ "${{ inputs.test_secrets_override_key }}" =~ ^aws:* ]]; then
-            echo "Detected AWS secret"
-            echo "is-aws-secret=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Detected non-AWS secret"
-            echo "is-aws-secret=false" >> "$GITHUB_OUTPUT"
-            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Get AWS test secret ID (strip 'aws:' prefix)
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: get-secret-id
-        run: echo "secret_id=${{ inputs.test_secrets_override_key }}" | sed 's/aws://' >> $GITHUB_OUTPUT
-
-      - name: Get test secrets from AWS Secret Manager
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: aws-test-secrets
-        uses: smartcontractkit/.github/actions/ctf-fetch-aws-secret@921f4b0ca850dd473dcef9082e3169ccbb83cc52 # ctf-fetch-aws-secret@0.0.0
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
         with:
-          secret_id: ${{ steps.get-secret-id.outputs.secret_id }}
-          aws_region: ${{ secrets.QA_AWS_REGION }}
-          aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          ref: ${{ github.ref_name || github.sha }}
 
-      - name: Parse and mask test secrets
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: parsed-aws-test-secrets
-        uses: smartcontractkit/.github/actions/parse-and-mask-test-secrets@parse-and-mask-test-secrets/0.1.0 # parse-and-mask-test-secrets@0.1.0
+      - name: Wait for Image Build
+        uses: smartcontractkit/.github/actions/wait-for-workflows@wait-for-workflows/1.0.0
         with:
-          encoded_test_secrets: ${{ steps.aws-test-secrets.outputs.secret_value }}
-
-      - name: Check registry type
-        if: ${{ steps.validate-secrets-type.outputs.is-aws-secret == 'true' }}
-        id: skip-image-build
+          max-timeout: '900'
+          polling-interval: '30'
+          exclude-workflow-names: |
+            Automation Nightly Tests
+            Client Compatibility Tests
+            Integration In-Memory Tests
+            Integration Tests
+          exclude-workflow-ids: ''
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          DEBUG: 'true'
+  
+  # Based on the `inputs.chainlink_version` define whether to:
+  # - use a private or public ECR registry
+  # - skip image build if public ECR registry is used
+  # - resolve the docker version
+  # - set test secrets
+  setup-test-parameters:
+    name: Setup Test Parameters
+    runs-on: ubuntu-latest
+    outputs:
+      skip_image_build: ${{ steps.should-build-image.outputs.skip_image_build }}
+      chainlink_image_version: ${{ steps.resolve-version.outputs.chainlink_image_version }}
+      test_secrets_override_key: ${{ steps.set-test-secrets.outputs.test_secrets_override_key }}
+    env:
+      VERSION: ${{ inputs.chainlink_version || github.ref_name }}
+      SECRETS_OVERRIDE_KEY: ${{ inputs.test_secrets_override_key }}
+      PUBLIC_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/DEFAULT_TEST_SECRETS
+      PRIVATE_ECR_DEFAULT_TEST_SECRETS: aws:testsecrets/PRIVATE_DEFAULT_TEST_SECRETS
+    steps:
+      - name: Define if Image Build is Required Based on Version
+        id: should-build-image
         shell: bash
         run: |
-          if [[ "$E2E_TEST_CHAINLINK_IMAGE" =~ ^public\.ecr ]]; then
-            echo "Using public registry. No image will be built."
-            echo "skip-image-build=true" >> "$GITHUB_OUTPUT"
+          # Check if VERSION matches a public registry pattern (e.g., v2.26.0-beta.0)
+          if [[ "$VERSION" =~ ^v[0-9]+\..*$ ]]; then
+            echo "skip_image_build=true" | tee -a "$GITHUB_OUTPUT"
+            echo "Version '$VERSION' detected. Using PUBLIC ECR registry - no image build required."
           else
-            echo "Using private registry for Chainlink image."
-            echo "skip-image-build=false" >> "$GITHUB_OUTPUT"
+            echo "skip_image_build=false" | tee -a "$GITHUB_OUTPUT"
+            echo "Detected version: '$VERSION'. Using PRIVATE ECR registry - image build is required."
+          fi
+
+      - name: Check if '${{ env.VERSION }}' is a 'Core' Release Version
+        id: is-core
+        shell: bash
+        run: |
+          # Examples: `v2.23.1-beta.0`, `v2.23.1-rc.1`, `v2.23.1`
+          if [[ "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-beta.*$ || "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+-rc.*$ || "$VERSION" =~ v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is-core=true" | tee -a "$GITHUB_OUTPUT"
+            echo "Version '$VERSION' is a 'core' release version."
+          else
+            echo "is-core=false" | tee -a "$GITHUB_OUTPUT"
+            echo "Version '$VERSION' is NOT a 'core' release version."
+          fi
+
+      - name: Resolve '${{ env.VERSION }}' version for Docker
+        id: resolve-version
+        shell: bash
+        run: |
+          if [[ "${{ steps.is-core.outputs.is-core }}" == "true" ]]; then
+            # strip the `v` prefix from the version
+            resolved_version="${VERSION#v}"
+            echo "Resolved version for 'core' image: '$resolved_version' (stripped 'v' prefix)."
+            echo "chainlink_image_version=$resolved_version" | tee -a "$GITHUB_OUTPUT"
+          else
+            resolved_version="$VERSION"
+            echo "Using image version as-is: '$resolved_version'."
+            echo "chainlink_image_version=$resolved_version" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set Test Secrets (default or provided)
+        id: set-test-secrets
+        shell: bash
+        run: |
+          if [[ -n "$SECRETS_OVERRIDE_KEY" ]]; then
+            echo "Using explicitly provided test secrets."
+            echo "test_secrets_override_key=$SECRETS_OVERRIDE_KEY" | tee -a "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "No 'test_secrets_override_key' provided. Selecting default based on image registry..."
+          if [[ "${{ steps.should-build-image.outputs.skip_image_build }}" == "true" ]]; then
+            echo "test_secrets_override_key=$PUBLIC_ECR_DEFAULT_TEST_SECRETS" | tee -a "$GITHUB_OUTPUT"
+            echo "Using default secrets for PUBLIC ECR registry."
+          else
+            echo "test_secrets_override_key=$PRIVATE_ECR_DEFAULT_TEST_SECRETS" | tee -a "$GITHUB_OUTPUT"
+            echo "Using default secrets for PRIVATE ECR registry."
           fi
 
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    needs: check-registry-type
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9271f82b74a6dcc92bb66e1363460146897c8637
+    needs:
+      - wait-for-workflows
+      - setup-test-parameters
+    # Run this job only if:
+    # - optional wait-for-workflows did not fail (published release image might not be required),
+    # - and the other dependencies were successful.
+    if: >-
+      always() &&
+      needs.wait-for-workflows.result != 'failure' && 
+      needs.setup-test-parameters.result == 'success'
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1
     with:
-      chainlink_version: ${{ inputs.chainlink_version }}
+      chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml
-      test_ids: ${{ inputs.testToRun}}
-      test_secrets_override_key: ${{ inputs.test_secrets_override_key }}
+      test_ids: ${{ inputs.testToRun }}
+      test_secrets_override_key: ${{ needs.setup-test-parameters.outputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
       # Fallback is used to properly convert a string to boolean 
-      skip_image_build: ${{ needs.check-registry-type.outputs.skip-image-build == 'true' && true || false }}
+      skip_image_build: ${{ needs.setup-test-parameters.outputs.skip_image_build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}
     secrets:
@@ -132,8 +195,10 @@ jobs:
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[needs.setup-test-parameters.outputs.test_secrets_override_key] }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}

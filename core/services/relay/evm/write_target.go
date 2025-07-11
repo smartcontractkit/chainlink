@@ -120,7 +120,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}
-
+	ts, err := NewEVMTargetStrategy(cr, cw, relayer.chain.TxManager(), config.ForwarderAddress().String(), gasLimitDefault, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create target strategy: %w", err)
+	}
 	opts := writetarget.WriteTargetOpts{
 		ID:     id,
 		Logger: lggr,
@@ -139,7 +142,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ConfigValidateFn:     evaluate,
 		NodeAddress:          config.FromAddress().String(),
 		ForwarderAddress:     config.ForwarderAddress().String(),
-		TargetStrategy:       NewEVMTargetStrategy(cr, cw, config.ForwarderAddress().String(), gasLimitDefault, lggr),
+		TargetStrategy:       ts,
 		WriteAcceptanceState: *config.TxAcceptanceState(),
 	}
 

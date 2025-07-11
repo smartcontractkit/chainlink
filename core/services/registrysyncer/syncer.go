@@ -20,13 +20,13 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type Launcher interface {
-	Launch(ctx context.Context, registry *LocalRegistry) error
+type Listener interface {
+	OnNewRegistry(ctx context.Context, registry *LocalRegistry) error
 }
 
 type Syncer interface {
 	services.Service
-	AddLauncher(h ...Launcher)
+	AddListener(h ...Listener)
 }
 
 type ContractReaderFactory interface {
@@ -35,7 +35,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddLauncher(launchers ...Launcher)
+	AddListener(listeners ...Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -47,7 +47,7 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	launchers            []Launcher
+	listeners            []Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
@@ -276,8 +276,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if len(s.launchers) == 0 {
-		s.lggr.Warn("sync called, but no launchers are registered; nooping")
+	if len(s.listeners) == 0 {
+		s.lggr.Warn("sync called, but no listeners are registered; nooping")
 		return nil
 	}
 
@@ -325,9 +325,9 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		}
 	}
 
-	for _, h := range s.launchers {
+	for _, listener := range s.listeners {
 		lrCopy := deepCopyLocalRegistry(latestRegistry)
-		if err := h.Launch(ctx, &lrCopy); err != nil {
+		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
 		}
@@ -429,10 +429,10 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 }
 
-func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
+func (s *registrySyncer) AddListener(listeners ...Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.launchers = append(s.launchers, launchers...)
+	s.listeners = append(s.listeners, listeners...)
 }
 
 func (s *registrySyncer) Close() error {

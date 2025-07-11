@@ -1233,7 +1233,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-16cores-64GB
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
-      - Merge Queue E2E CCIP Tests
+      - PR E2E CCIP Tests
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
@@ -1242,7 +1242,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      E2E_FAST_FILLER_VERSION: main-amd6487746c2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5LanesWithMCMS$
@@ -1251,7 +1251,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-16cores-64GB
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
-      - Merge Queue E2E CCIP Tests    
+      - PR E2E CCIP Tests  
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
@@ -1260,7 +1260,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      E2E_FAST_FILLER_VERSION: main-amd6487746c2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_6Lanes$
@@ -1270,7 +1270,6 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP Tests
-      - Merge Queue E2E CCIP Tests   
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
@@ -1279,7 +1278,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      E2E_FAST_FILLER_VERSION: main-amd6487746c2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5Lanes$
@@ -1289,7 +1288,6 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP Tests
-      - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
@@ -1298,7 +1296,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd64b7dd37f
+      E2E_FAST_FILLER_VERSION: main-amd6487746c2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$

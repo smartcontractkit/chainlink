@@ -624,6 +624,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
+		creServices.externalPeerWrapper,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
@@ -832,6 +833,11 @@ type CREServices struct {
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+
+	// externalPeerWrapper is the wrapper for external peering
+	// it is exposed because there are contingent services in the application
+	externalPeerWrapper p2ptypes.PeerWrapper
+
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
 }
@@ -939,7 +945,7 @@ func newCREServices(
 				opts.CapabilitiesRegistry,
 				workflowDonNotifier,
 			)
-			registrySyncer.AddLauncher(wfLauncher)
+			registrySyncer.AddListener(wfLauncher)
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
@@ -997,7 +1003,7 @@ func newCREServices(
 				}
 				wfSyncer, err := syncer.NewWorkflowRegistry(
 					lggr,
-					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+					func(ctx context.Context, bytes []byte) (commontypes.ContractReader, error) {
 						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					capCfg.WorkflowRegistry().Address(),
@@ -1024,6 +1030,7 @@ func newCREServices(
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
 		srvs:                    srvcs,
 	}, nil
 }
@@ -1264,7 +1271,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()}, // requestID
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

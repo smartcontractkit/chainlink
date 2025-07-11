@@ -36,13 +36,13 @@ func (s *StageGen) Next() {
 	s.startTime = time.Now()
 }
 
-func (s *StageGen) Wrap(msg string, args ...interface{}) string {
+func (s *StageGen) Wrap(msg string, args ...any) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return fmt.Sprintf("\n[%s %d/%d] %s\n\n", s.label, s.no, s.total, fmt.Sprintf(msg, args...))
+	return fmt.Sprintf("[%s %d/%d] %s\n\n", s.label, s.no, s.total, fmt.Sprintf(msg, args...))
 }
 
-func (s *StageGen) WrapAndNext(msg string, args ...interface{}) string {
+func (s *StageGen) WrapAndNext(msg string, args ...any) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	formatted := fmt.Sprintf("\n[%s %d/%d] %s\n\n", s.label, s.no, s.total, fmt.Sprintf(msg, args...))

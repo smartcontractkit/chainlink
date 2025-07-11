@@ -355,8 +355,6 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 }
 
 func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) (quorumReached bool, err error) {
-	// TODO ???
-	// I don't think this is correct -- for GetSecrets the quorum should be F+T (?)
 	return quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.config.N, r.config.F, aos), nil
 }
 
@@ -400,8 +398,6 @@ func validateObservation(o *vault.Observation) error {
 		if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
 			return errors.New("GetSecrets request and response must have the same number of items")
 		}
-
-		// TODO: validate id
 	case vault.RequestType_CREATE_SECRETS:
 		if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
 			return errors.New("GetSecrets observation must have both request and response")
@@ -410,9 +406,6 @@ func validateObservation(o *vault.Observation) error {
 		if len(o.GetCreateSecretsRequest().EncryptedSecrets) != len(o.GetCreateSecretsResponse().Responses) {
 			return errors.New("GetSecrets request and response must have the same number of items")
 		}
-
-		// TODO: validate id
-		// TODO: validate no duplicates
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -593,17 +586,17 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 			sortedResps := []*vault.CreateSecretResponse{}
 			for _, id := range slices.Sorted(maps.Keys(idToResps)) {
-				r := idToResps[id]
+				resp := idToResps[id]
 				req := idToReqs[id]
-				if r.GetError() != "" {
-					sortedResps = append(sortedResps, r)
+				if resp.GetError() != "" {
+					sortedResps = append(sortedResps, resp)
 					continue
 				}
 
 				encryptedSecret, err := base64.StdEncoding.DecodeString(req.EncryptedValue)
 				if err != nil {
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "could not decode secret value: invalid base64",
 					})
@@ -614,9 +607,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					EncryptedSecret: encryptedSecret,
 				})
 				if err != nil {
-					// TODO: log the error
+					r.lggr.Errorw("failed to write secret to key value store", "error", err, "id", resp.Id)
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "failed to write secret to key value store",
 					})
@@ -625,18 +618,17 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 				err = store.addKeyToMetadata(req.Id)
 				if err != nil {
-					// TODO: log the error
+					r.lggr.Errorw("failed to add key to metadata", "error", err, "id", resp.Id)
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      r.Id,
+						Id:      resp.Id,
 						Success: false,
 						Error:   "failed to write secret to key value store",
 					})
 					continue
 				}
-				// Now update the
 
 				sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-					Id:      r.Id,
+					Id:      resp.Id,
 					Success: true,
 					Error:   "",
 				})

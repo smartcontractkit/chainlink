@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -78,15 +77,11 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 
 		// for each nodeSet create only chains that the DON supports
 		for chainSelector, bcOut := range input.BlockchainOutputs {
-			chainIDUint64, convErr := strconv.ParseUint(bcOut.ChainID, 10, 64)
-			if convErr != nil {
-				return nil, errors.Wrap(convErr, "failed to convert chain ID to uint64")
-			}
-			if len(input.Topology.DonsMetadata[idx].SupportedChains) > 0 && !slices.Contains(input.Topology.DonsMetadata[idx].SupportedChains, chainIDUint64) {
+			if len(input.Topology.DonsMetadata[idx].SupportedChains) > 0 && !slices.Contains(input.Topology.DonsMetadata[idx].SupportedChains, bcOut.ChainID) {
 				continue
 			}
 
-			chainConfig, err := buildChain(chainSelector, bcOut)
+			chainConfig, err := buildChain(chainSelector, bcOut.BlockchainOutput)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to build chain config")
 			}
@@ -172,40 +167,30 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 	// create chains for all chains that are supported by any of the DONs, so that changeset can be applied to all chains
 	allChainsConfigs := make([]devenv.ChainConfig, 0)
 	for chainSelector, bcOut := range input.BlockchainOutputs {
-		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
-		}
-
 		sethClient, ok := input.SethClients[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
 		}
 
 		allChainsConfigs = append(allChainsConfigs, devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(cID, 10),
+			ChainID:   strconv.FormatUint(bcOut.ChainID, 10),
 			ChainName: sethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.Family),
+			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.Nodes[0].InternalWSUrl,
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.Nodes[0].InternalHTTPUrl,
+				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 		})
 	}
 
-	allChains, _, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)
+	blockChains, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)
 	if allChainsErr != nil {
 		return nil, errors.Wrap(allChainsErr, "failed to create chains")
-	}
-
-	cldfChains := make([]cldf_chain.BlockChain, 0)
-	for _, c := range allChains {
-		cldfChains = append(cldfChains, c)
 	}
 
 	// we take stateless fields from the first environment, because they are not environment specific
@@ -214,11 +199,13 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
 			ExistingAddresses: input.ExistingAddresses,
+			DataStore:         input.Datastore,
 			Offchain:          jd,
 			OCRSecrets:        envs[0].OCRSecrets,
 			GetContext:        envs[0].GetContext,
 			NodeIDs:           nodeIDs,
-			BlockChains:       cldf_chain.NewBlockChainsFromSlice(cldfChains),
+			BlockChains:       blockChains,
+			OperationsBundle:  input.OperationsBundle,
 		},
 	}
 

@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
 	codec := api.JsonRPCCodec{}
-	jsonRequest, err := jsonrpc.DecodeRequest(input, "")
+	jsonRequest, err := jsonrpc.DecodeRequest[json.RawMessage](input, "")
 	require.NoError(t, err)
 	msg, err := codec.DecodeJSONRequest(jsonRequest)
 	require.NoError(t, err)

@@ -69,13 +69,27 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
+		require.NoError(t, err)
+
+		// Find existing OCR3 contract
+		var existingOCR3Addr string
+		for addr, tv := range existingContracts {
+			if tv.Type == internal.OCR3Capability {
+				existingOCR3Addr = addr
+				break
+			}
+		}
 
 		w := &bytes.Buffer{}
+		addr := common.HexToAddress(existingOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             te.RegistrySelector,
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
+			Address:              &addr,
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
@@ -116,6 +130,9 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+
+		require.NoError(t, resp.DataStore.Merge(te.Env.DataStore))
+		te.Env.DataStore = resp.DataStore.Seal()
 
 		// Verify after merge there are three original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
@@ -190,7 +207,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		_, err = changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "OCR contract address is unspecified")
+		require.ErrorContains(t, err, "OCR3 contract to configure is required")
 	})
 
 	t.Run("fails multiple OCR3 contracts but address not found", func(t *testing.T) {
@@ -236,7 +253,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		_, err = changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "not found in contract set")
+		require.ErrorContains(t, err, "not found in datastore")
 	})
 
 	t.Run("mcms", func(t *testing.T) {

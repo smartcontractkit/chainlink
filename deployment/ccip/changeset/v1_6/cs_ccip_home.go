@@ -1044,10 +1044,10 @@ func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("chain to add %d is not supported", add)
 		}
 		if ccfg.FChain == 0 {
-			return errors.New("FChain must be set")
+			return fmt.Errorf("fChain must be set for selector %d", add)
 		}
 		if len(ccfg.Readers) == 0 {
-			return errors.New("Readers must be set")
+			return fmt.Errorf("readers must be set for selector %d", add)
 		}
 		if err := ccfg.EncodableChainConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid chain config for selector %d: %w", add, err)

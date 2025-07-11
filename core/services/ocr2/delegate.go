@@ -702,7 +702,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		ContractTransmitter:          nil, // TODO
 		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      ocrcommon.NewKeyValueDatabaseFactory(),
+		KeyValueDatabaseFactory:      nil, // TODO
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
@@ -711,7 +711,8 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(store)
+	// TODO: use properly generated keys
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr, store, nil, nil)
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
@@ -1792,6 +1793,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 		return nil, err
 	}
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -1976,6 +1978,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		return nil, err
 	}
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin2 := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
