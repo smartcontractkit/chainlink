@@ -223,11 +223,7 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) getContractTypeAndVersion(ctx context.Context) error {
-	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-		return s.relayer.NewContractReader(ctx, bytes)
-	}
-
-	version, err := versioning.VerifyTypeAndVersion(ctx, s.capabilitiesContract.Address, contractReaderFn, versioning.ContractType(capabilitiesRegistryContractName))
+	version, err := versioning.VerifyTypeAndVersion(ctx, s.capabilitiesContract.Address, s.relayer.NewContractReader, versioning.ContractType(capabilitiesRegistryContractName))
 	if err != nil {
 		return err
 	}
