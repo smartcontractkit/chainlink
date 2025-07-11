@@ -80,7 +80,7 @@ type NOPArtifact struct {
 }
 
 func DumpArtifact(
-	datastore *datastore.MemoryAddressRefStore,
+	datastore datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
 	donTopology types.DonTopology,
@@ -97,7 +97,7 @@ func DumpArtifact(
 }
 
 func GenerateArtifact(
-	datastore *datastore.MemoryAddressRefStore,
+	ds datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
 	donTopology types.DonTopology,
@@ -111,10 +111,15 @@ func GenerateArtifact(
 		return nil, pkgerrors.Wrap(err, "failed to get addresses from address book")
 	}
 
+	addressRecords, err := ds.Fetch()
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to fetch address records from datastore")
+	}
+
 	artifact := EnvArtifact{
 		JdConfig:    jdOutput,
 		AddressBook: addresses,
-		AddressRefs: datastore.Records,
+		AddressRefs: addressRecords,
 		Nodes: NodesArtifact{
 			Nodes: make(map[string]SimpleNodeArtifact),
 		},
