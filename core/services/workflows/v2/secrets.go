@@ -2,7 +2,9 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -57,7 +60,7 @@ func keyFor(owner, namespace, id string) string {
 	return fmt.Sprintf("%s::%s::%s", owner, namespace, id)
 }
 
-func (s secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	start := time.Now()
 	resp, err := s.semaphore.WhenAcquired(ctx, func() ([]*sdkpb.SecretResponse, error) {
 		return s.getSecrets(ctx, request)
@@ -72,12 +75,16 @@ func (s secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecret
 	return resp, err
 }
 
-func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vault capability: %w", err)
+		return nil, errors.New("failed to get vault capability: " + err.Error())
 	}
 
+	encryptionKeys, err := s.getEncryptionKeys(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
+	}
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
@@ -91,9 +98,7 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 				Namespace: r.Namespace,
 				Owner:     s.workflowOwner,
 			},
-
-			// TODO: replace with actual encryption public key
-			EncryptionKeys: []string{"TODO_ENCRYPTION_PUBLIC_KEY"},
+			EncryptionKeys: encryptionKeys,
 		})
 	}
 
@@ -213,4 +218,24 @@ func (s secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecret
 	}
 
 	return sdkResp, nil
+}
+
+func (s *secretsFetcher) getEncryptionKeys(ctx context.Context) ([]string, error) {
+	s.lggr.Debug("Fetching encryption keys...")
+	myNode, err := s.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return nil, errors.New("failed to get local node from registry" + err.Error())
+	}
+
+	encryptionKeys := make([]string, 0, len(myNode.WorkflowDON.Members))
+	for _, peerID := range myNode.WorkflowDON.Members {
+		peerNode, err := s.capRegistry.NodeByPeerID(ctx, peerID)
+		if err != nil {
+			return nil, errors.New("failed to get node info for peerID: " + peerID.String() + " - " + err.Error())
+		}
+		encryptionKeys = append(encryptionKeys, string(peerNode.EncryptionPublicKey[:]))
+	}
+	// Sort the encryption keys to ensure consistent ordering across all nodes.
+	sort.Strings(encryptionKeys)
+	return encryptionKeys, nil
 }

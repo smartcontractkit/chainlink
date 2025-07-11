@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -22,7 +20,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*cldf.Environment, *DON, error) {
-	chains, solChains, err := NewChains(lggr, config.Chains)
+	blockChains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
@@ -52,14 +50,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		nodeIDs = jd.don.NodeIds()
 	}
 
-	blockChains := map[uint64]chain.BlockChain{}
-	for _, c := range chains {
-		blockChains[c.Selector] = c
-	}
-	for _, c := range solChains {
-		blockChains[c.Selector] = c
-	}
-
 	return cldf.NewEnvironment(
 		DevEnv,
 		lggr,
@@ -69,6 +59,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		offChain,
 		ctx,
 		cldf.XXXGenerateTestOCRSecrets(),
-		chain.NewBlockChains(blockChains),
+		blockChains,
 	), jd.don, nil
 }

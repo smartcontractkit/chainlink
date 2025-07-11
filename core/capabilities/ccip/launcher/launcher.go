@@ -24,7 +24,7 @@ import (
 
 var (
 	_ job.ServiceCtx          = (*launcher)(nil)
-	_ registrysyncer.Launcher = (*launcher)(nil)
+	_ registrysyncer.Listener = (*launcher)(nil)
 )
 
 // New creates a new instance of the CCIP launcher.
@@ -80,8 +80,8 @@ type launcher struct {
 	instances map[registrysyncer.DonID]pluginRegistry
 }
 
-// Launch implements registrysyncer.Launcher.
-func (l *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegistry) error {
+// OnNewRegistry implements registrysyncer.Listener.
+func (l *launcher) OnNewRegistry(ctx context.Context, state *registrysyncer.LocalRegistry) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.lggr.Debugw("Received new state from syncer", "dons", state.IDsToDONs)
