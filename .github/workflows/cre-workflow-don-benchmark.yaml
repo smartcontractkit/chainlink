@@ -105,7 +105,7 @@ jobs:
           cat > prometheus.yml<<EOF
           global:
             scrape_interval: 5s
-          
+
           scrape_configs:
             - job_name: 'cadvisor'
               static_configs:
@@ -141,7 +141,6 @@ jobs:
         run: |
           cd system-tests/tests/load/cre
           go test -run TestLoad_Workflow_Streams_MockCapabilities -timeout 20m 2>&1 | tee test_output.log
-
 
       - name: Parse logs for performance regressions
         if: always()
