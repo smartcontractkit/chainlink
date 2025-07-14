@@ -8,8 +8,8 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -34,6 +34,7 @@ type Delegate struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
 	billingClient  metering.BillingClient
+	dontimeStore   *dontime.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -84,6 +85,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		SecretsFetcher: d.secretsFetcher,
 		RateLimiter:    d.ratelimiter,
 		WorkflowLimits: d.workflowLimits,
+		DonTimeStore:   d.dontimeStore,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -96,6 +98,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
+	dontimeStore *dontime.Store,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
 	workflowLimits *syncerlimiter.Limits,
@@ -110,6 +113,7 @@ func NewDelegate(
 		store:          store,
 		ratelimiter:    ratelimiter,
 		workflowLimits: workflowLimits,
+		dontimeStore:   dontimeStore,
 	}
 }
 
