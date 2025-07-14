@@ -24,14 +24,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	rpcTypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // Direct RPC
 func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
-	result, err := r.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, rpcTypes.CallContractOpts{ConfidenceLevel: request.ConfidenceLevel})
+	result, err := r.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, types.CallContractOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +39,7 @@ func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContrac
 }
 
 func (r *Relayer) FilterLogs(ctx context.Context, request evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
-	rawLogs, err := r.chain.Client().FilterLogsWithOpts(ctx, convertEthFilter(request.FilterQuery), rpcTypes.FilterLogsOpts{ConfidenceLevel: request.ConfidenceLevel})
+	rawLogs, err := r.chain.Client().FilterLogsWithOpts(ctx, convertEthFilter(request.FilterQuery), types.FilterLogsOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +53,7 @@ func (r *Relayer) FilterLogs(ctx context.Context, request evmtypes.FilterLogsReq
 }
 
 func (r *Relayer) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
-	balance, err := r.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, rpcTypes.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
+	balance, err := r.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, types.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +98,8 @@ func (r *Relayer) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByN
 		// non-special block or larger that int64
 	case request.Number.Sign() >= 0 || request.Number.IsInt64():
 		var header *types.Header
-		header, err = r.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, rpcTypes.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
-		h = (*rpcTypes.Head)(header)
+		header, err = r.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, types.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
+		h = (*types.Head)(header)
 	case request.Number.Int64() == rpc.FinalizedBlockNumber.Int64():
 		_, h, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 	case request.Number.Int64() == rpc.SafeBlockNumber.Int64():
