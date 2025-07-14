@@ -384,11 +384,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		}
 
 		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   "c6cd4a526da4",
+			GitCommitSha:   "6aaf88e0848a",
 			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-				BuildLocally: true,
-			},
 		}
 
 		solTestReceiver := commonchangeset.Configure(

@@ -232,7 +232,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
-					KeypairPath: solArtifactPath,
+					KeypairPath: solArtifactPath + "/deploy-keypair.json",
 					URL:         chainCfg.HTTPRPCs[0].External,
 					WSURL:       chainCfg.WSRPCs[0].External,
 					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {

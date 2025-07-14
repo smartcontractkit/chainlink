@@ -30,7 +30,7 @@ jobs:
   workflow-don-benchmark:
     runs-on: ubuntu-latest
     environment: "integration"
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
@@ -67,6 +67,24 @@ jobs:
         id: set-date
         if:  ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Build Image
+        if: github.event_name == 'pull_request'
+        id: build-chainlink-image
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
+        with:
+          image-tag: ${{ format('PR-{0}-{1}',github.event.pull_request.number, github.sha ) }}
+          dockerfile: core/chainlink.Dockerfile
+          docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          docker-repository-name: 'chainlink'
+          docker-additional-build-args: |
+            CL_INSTALL_PRIVATE_PLUGINS=true
+            CL_INSTALL_TESTING_PLUGINS=true
+          aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
       - name: Set up cAdvisor
         shell: bash
@@ -114,7 +132,7 @@ jobs:
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins-testing', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('PR-{0}-{1}',github.event.pull_request.number, github.sha ) || inputs.chainlink_image_tag }}
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
@@ -132,16 +150,16 @@ jobs:
         id: parse-regressions
         run: |
           cd system-tests/tests/load/cre
-
+          
           # Count the number of regressions - handle exit code properly
           if grep -c "PERFORMANCE REGRESSION:" test_output.log > /tmp/count.txt; then
             regression_count=$(cat /tmp/count.txt)
           else
             regression_count=0
           fi
-
+          
           echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
-
+          
           if [ $regression_count -gt 0 ]; then
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
@@ -173,16 +191,15 @@ jobs:
             system-tests/tests/load/cre/performance_reports
           retention-days: 30
 
-
       - name: Create regression slack payload
         if: success() && steps.parse-regressions.outputs.regression_count > 0
         id: create-regression-payload
         run: |
           cd system-tests/tests/load/cre
-          
+
           # Read regression details
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
-
+          
           # Create JSON payload with properly escaped details
           cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
           {
@@ -251,8 +268,6 @@ jobs:
                 }
               ]
             }
-
       - name: Teardown
         if: always()
         run: |
-          docker rm -f cadvisor prometheus

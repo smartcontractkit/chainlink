@@ -668,13 +668,13 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents), "metadata", workflowMetadata)
 			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, don.ID)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
 			}
-			w.lggr.Debugw("generated events to reconcile", "num", len(events))
+			w.lggr.Debugw("generated events to reconcile", "num", len(events), "events", events)
 
 			pendingEvents = map[string]*reconciliationEvent{}
 
