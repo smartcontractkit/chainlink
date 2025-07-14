@@ -24,7 +24,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -32,7 +31,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -209,6 +207,7 @@ type ApplicationOpts struct {
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 }
 
+/*
 type Heartbeat struct {
 	commonservices.Service
 	eng *commonservices.Engine
@@ -274,7 +273,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 func (h *Heartbeat) GetBeat() time.Duration {
 	return h.beat
 }
-
+*/
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -283,7 +282,7 @@ func (h *Heartbeat) GetBeat() time.Duration {
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
-	heartbeat := NewHeartbeat(opts)
+	heartbeat := NewHeartbeat2(NewHeartbeatConfig(opts))
 	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger
