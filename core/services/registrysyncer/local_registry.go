@@ -61,7 +61,32 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
 
-	return l.NodeByPeerID(ctx, pid)
+	var workflowDON capabilities.DON
+	var capabilityDONs []capabilities.DON
+	for _, d := range l.IDsToDONs {
+		for _, p := range d.Members {
+			if p == pid {
+				if d.AcceptsWorkflows {
+					// The CapabilitiesRegistry enforces that the DON ID is strictly
+					// greater than 0, so if the ID is 0, it means we've not set `workflowDON` initialized above yet.
+					if workflowDON.ID == 0 {
+						workflowDON = d.DON
+						l.lggr.Debug("Workflow DON identified: %+v", workflowDON)
+					} else {
+						l.lggr.Errorf("Configuration error: node %s belongs to more than one workflowDON", pid)
+					}
+				}
+
+				capabilityDONs = append(capabilityDONs, d.DON)
+			}
+		}
+	}
+
+	return capabilities.Node{
+		PeerID:         &pid,
+		WorkflowDON:    workflowDON,
+		CapabilityDONs: capabilityDONs,
+	}, nil
 }
 
 func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (capabilities.Node, error) {
