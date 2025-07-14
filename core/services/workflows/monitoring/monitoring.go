@@ -369,5 +369,5 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowMissingMeteringReport(ctx conte
 
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }

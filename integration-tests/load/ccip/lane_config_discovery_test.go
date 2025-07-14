@@ -3,16 +3,14 @@ package ccip
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
-
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -45,22 +43,22 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 
 	// Should have n*(n-1) lanes for n chains (any-to-any)
 	expectedLaneCount := len(chains) * (len(chains) - 1)
-	require.Equal(t, expectedLaneCount, len(discoveredLanes),
+	require.Len(t, discoveredLanes, expectedLaneCount,
 		"Should discover %d lanes for %d chains in any-to-any setup", expectedLaneCount, len(chains))
 
 	// Verify all chains are connected
 	connectedChains := laneConfig.GetConnectedChains()
-	require.Equal(t, len(chains), len(connectedChains),
+	require.Len(t, connectedChains, len(chains),
 		"All chains should be connected")
 
 	// Verify each chain can reach every other chain
 	for _, src := range chains {
 		destinations := laneConfig.GetDestinationChainsForSource(src)
-		require.Equal(t, len(chains)-1, len(destinations),
+		require.Len(t, destinations, len(chains)-1,
 			"Each chain should have %d destinations", len(chains)-1)
 
 		sources := laneConfig.GetSourceChainsForDestination(src)
-		require.Equal(t, len(chains)-1, len(sources),
+		require.Len(t, sources, len(chains)-1,
 			"Each chain should have %d sources", len(chains)-1)
 	}
 
@@ -89,12 +87,11 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	chainA, chainB, chainC, chainD := chains[0], chains[1], chains[2], chains[3]
 
 	// Setup partial connectivity: A->B, A->C,  B->C, C->D, D->A (cycle)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainB, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainC, false)
-
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainC, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainD, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainA, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainB, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainC, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainC, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainD, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainA, false))
 
 	// Reload state after adding lanes
 	state, err = stateview.LoadOnchainState(e)
@@ -181,7 +178,7 @@ func TestLaneDiscovery_EmptyState(t *testing.T) {
 
 // TestLaneDiscovery_NilConfiguration tests behavior with nil configuration
 func TestLaneDiscovery_NilConfiguration(t *testing.T) {
-	var laneConfig *crib.LaneConfiguration = nil
+	var laneConfig *crib.LaneConfiguration
 
 	// Test GetLanes with nil config
 	lanes, err := laneConfig.GetLanes()

@@ -9,6 +9,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -56,7 +57,7 @@ func TestIntegration_Launcher(t *testing.T) {
 		1*time.Second,
 		oracleCreator,
 	)
-	regSyncer.AddLauncher(launcher)
+	regSyncer.AddListener(launcher)
 
 	require.NoError(t, launcher.Start(ctx))
 	require.NoError(t, regSyncer.Start(ctx))

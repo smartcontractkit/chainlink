@@ -187,6 +187,18 @@ func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, e
 	}, nil
 }
 
+func (t testConfigProvider) NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error) {
+	if t.localNode != nil {
+		return t.localNode(ctx)
+	}
+	return capabilities.Node{
+		WorkflowDON: capabilities.DON{
+			ID: 1,
+		},
+		PeerID: &peerID,
+	}, nil
+}
+
 func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
 	if t.configForCapability != nil {
 		return t.configForCapability(ctx, capabilityID, donID)

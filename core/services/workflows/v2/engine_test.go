@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -33,6 +34,8 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
+	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1162,8 +1165,17 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
-	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	expectedSecret := "encryptedShare1"
+	peer := coreCap.RandomUTF8BytesWord()
+	localRegistry := v2.CreateLocalRegistry(t, peer)
+	localNode, err := localRegistry.LocalNode(t.Context())
+	require.NoError(t, err)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(localNode, nil)
+	for _, peerID := range localNode.WorkflowDON.Members {
+		node, err2 := localRegistry.NodeByPeerID(t.Context(), peerID)
+		require.NoError(t, err2)
+		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
+	}
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -1178,7 +1190,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 							Data: &vault.SecretData{
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
-										Shares: []string{expectedSecret},
+										Shares: req.Requests[0].GetEncryptionKeys(),
 									},
 								},
 							},
@@ -1228,7 +1240,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		Capability: triggerMock,
 	}
 
-	cfg.SecretsFetcher = v2.NewSecretsFetcher(
+	secretsFetcher := v2.NewSecretsFetcher(
 		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
 		cfg.Lggr,
@@ -1236,9 +1248,14 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		func(shares []string) (string, error) {
-			return shares[0], nil
+			var result string
+			for _, share := range shares {
+				result = result + share + ", "
+			}
+			return result, nil
 		},
 	)
+	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
 
@@ -1265,6 +1282,15 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		require.NoError(t, execErr)
 		unwrapped, execErr = value.Unwrap()
 		require.NoError(t, execErr)
+		var expectedSecret string
+		secretList := make([]string, 0, len(localRegistry.IDsToNodes))
+		for _, peers := range localRegistry.IDsToNodes {
+			secretList = append(secretList, string(peers.EncryptionPublicKey[:]))
+		}
+		sort.Strings(secretList)
+		for _, secret := range secretList {
+			expectedSecret = expectedSecret + secret + ", "
+		}
 		require.Equal(t, expectedSecret, unwrapped)
 	default:
 		t.Fatalf("unexpected response type %T: %v", output, output)
