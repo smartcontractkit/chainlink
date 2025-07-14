@@ -187,17 +187,26 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
+            # todo: optimize this conditional
             should-build: >-
               ${{
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
 
           - name: (plugins)
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
-            should-build: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' }}
+            # todo: optimize this conditional
+            should-build: >-
+              ${{
+                needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+              }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
