@@ -207,73 +207,6 @@ type ApplicationOpts struct {
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 }
 
-/*
-type Heartbeat struct {
-	commonservices.Service
-	eng *commonservices.Engine
-
-	lggr logger.Logger
-	opts ApplicationOpts
-	beat time.Duration
-}
-
-func NewHeartbeat(opts ApplicationOpts) Heartbeat {
-	lggr := logger.Sugared(opts.Logger).Named("Heartbeat")
-	h := Heartbeat{
-		beat: opts.Config.Telemetry().HeartbeatInterval(),
-		lggr: lggr,
-		opts: opts,
-	}
-	h.Service, h.eng = commonservices.Config{
-		Name:  "Heartbeat",
-		Start: h.start,
-	}.NewServiceEngine(lggr)
-	return h
-}
-
-func (h *Heartbeat) start(_ context.Context) error {
-	// Setup beholder resources
-	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
-	if err != nil {
-		return err
-	}
-	count, err := beholder.GetMeter().Int64Gauge("heartbeat_count")
-	if err != nil {
-		return err
-	}
-
-	cme := custmsg.NewLabeler()
-	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
-	if h.opts.Config.P2P() != nil && h.opts.Config.P2P().PeerID().String() != "" {
-		labels["peer_id"] = h.opts.Config.P2P().PeerID().String()
-	}
-	if h.opts.Config.AppID().String() != "" {
-		labels["appID"] = h.opts.Config.AppID().String()
-	}
-	cme.WithMapLabels(labels)
-	// Define tick functions
-	beatFn := func(ctx context.Context) {
-		// TODO allow override of tracer provider into engine for beholder
-		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
-		defer innerSpan.End()
-
-		gauge.Record(ctx, 1)
-		count.Record(ctx, 1)
-
-		err = cme.Emit(ctx, "hi Bartek! heartbeat")
-		if err != nil {
-			h.eng.Errorw("heartbeat emit failed", "err", err)
-		}
-	}
-
-	h.eng.GoTick(timeutil.NewTicker(h.GetBeat), beatFn)
-	return nil
-}
-
-func (h *Heartbeat) GetBeat() time.Duration {
-	return h.beat
-}
-*/
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -282,7 +215,7 @@ func (h *Heartbeat) GetBeat() time.Duration {
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
-	heartbeat := NewHeartbeat2(NewHeartbeatConfig(opts))
+	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
 	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger

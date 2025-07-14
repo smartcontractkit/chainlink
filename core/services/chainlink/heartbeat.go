@@ -44,17 +44,28 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 }
 
 // Update the constructor to accept optional emitter and meter
-func NewHeartbeat2(opts HeartbeatConfig, testOpts ...HeartbeatOpt) Heartbeat {
-	lggr := logger.Sugared(opts.Lggr).Named("Heartbeat")
+func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
+	lggr := logger.Sugared(cfg.Lggr).Named("Heartbeat")
+	// setup default emitter and meter
+	cme := custmsg.NewLabeler()
+	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
+	if cfg.P2P != "" {
+		labels["peer_id"] = cfg.P2P
+	}
+	if cfg.AppID != "" {
+		labels["appID"] = cfg.AppID
+	}
+
+	cme.WithMapLabels(labels)
 	h := Heartbeat{
-		beat:    opts.Beat,
-		opts:    opts,
-		emitter: nil, // Will be set in start() if nil
-		meter:   nil, // Will be set in start() if nil
+		beat:    cfg.Beat,
+		opts:    cfg,
+		emitter: cme,
+		meter:   beholder.GetMeter(),
 	}
 
 	// Apply test options if any
-	for _, opt := range testOpts {
+	for _, opt := range opts {
 		opt(&h)
 	}
 
@@ -82,44 +93,15 @@ func WithMeter(meter metric.Meter) HeartbeatOpt {
 
 // Update the start method to use the injected emitter if provided
 func (h *Heartbeat) start(_ context.Context) error {
-	// Setup beholder resources
-	var gauge, count metric.Int64Gauge
-	var err error
+	// Setup the heartbeat gauge and count
 
-	// Use injected gauger or get default
-	gauger := h.meter
-	if gauger == nil {
-		gauge, err = beholder.GetMeter().Int64Gauge("heartbeat")
-		if err != nil {
-			return err
-		}
-		count, err = beholder.GetMeter().Int64Gauge("heartbeat_count")
-		if err != nil {
-			return err
-		}
-	} else {
-		gauge, err = gauger.Int64Gauge("heartbeat")
-		if err != nil {
-			return fmt.Errorf("failed to create heartbeat gauge: %w", err)
-		}
-		count, err = gauger.Int64Gauge("heartbeat_count")
-		if err != nil {
-			return fmt.Errorf("failed to create heartbeat count gauge: %w", err)
-		}
+	gauge, err := h.meter.Int64Gauge("heartbeat")
+	if err != nil {
+		return fmt.Errorf("failed to create heartbeat gauge: %w", err)
 	}
-
-	// Use injected emitter or create a new one
-	cme := h.emitter
-	if cme == nil {
-		cme = custmsg.NewLabeler()
-		labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
-		if h.opts.P2P != "" {
-			labels["peer_id"] = h.opts.P2P
-		}
-		if h.opts.AppID != "" {
-			labels["appID"] = h.opts.AppID
-		}
-		cme.WithMapLabels(labels)
+	count, err := h.meter.Int64Gauge("heartbeat_count")
+	if err != nil {
+		return fmt.Errorf("failed to create heartbeat count gauge: %w", err)
 	}
 
 	// Define tick functions
@@ -131,7 +113,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 		gauge.Record(ctx, 1)
 		count.Record(ctx, 1)
 
-		err = cme.Emit(ctx, "heartbeat")
+		err = h.emitter.Emit(ctx, "heartbeat")
 		if err != nil {
 			h.eng.Errorw("heartbeat emit failed", "err", err)
 		}

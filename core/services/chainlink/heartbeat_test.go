@@ -42,7 +42,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 				AppID: "app-id",
 			}
 			// Create a new heartbeat service
-			heartbeat := chainlink.NewHeartbeat2(c)
+			heartbeat := chainlink.NewHeartbeat(c)
 
 			// Verify the heartbeat interval was set correctly
 			assert.Equal(t, tt.interval, heartbeat.GetBeat())
@@ -50,7 +50,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 	}
 }
 
-func TestHeartbeat2_MeterEvents(t *testing.T) {
+func TestHeartbeat_MeterEvents(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// beholder client to capture output
@@ -71,7 +71,7 @@ func TestHeartbeat2_MeterEvents(t *testing.T) {
 		P2P:   "peer-id",
 		AppID: "app-id",
 	}
-	heartbeat := chainlink.NewHeartbeat2(c, chainlink.WithMeter(mockMeter))
+	heartbeat := chainlink.NewHeartbeat(c, chainlink.WithMeter(mockMeter))
 	require.NoError(t, heartbeat.Start(t.Context()))
 
 	// Wait for ~10 heartbeats
@@ -80,15 +80,14 @@ func TestHeartbeat2_MeterEvents(t *testing.T) {
 	require.NoError(t, heartbeat.Close())
 
 	// Assert both counts are in the expected range (8-12)
-	assert.InDelta(t, expectedCalls, &heartbeatCounter, 2, "Expected ~%d heartbeat gauge calls", expectedCalls)
-	assert.InDelta(t, expectedCalls, &heartbeatCountCounter, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
+	hb := atomic.LoadInt32(&heartbeatCounter)
+	hbCount := atomic.LoadInt32(&heartbeatCountCounter)
+	assert.InDelta(t, expectedCalls, hb, 2, "Expected ~%d heartbeat gauge calls", expectedCalls)
+	assert.InDelta(t, expectedCalls, hbCount, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
 
 	// Check the output buffer for heartbeat messages
 	outputStr := outputBuffer.String()
 	assert.Contains(t, outputStr, "heartbeat", "Output should contain heartbeat messages")
-	t.Logf("Captured output: %s", outputStr)
-	t.FailNow()
-
 }
 
 // mockMeter is a custom implementation of metric.Meter that counts gauge creation specifically for heartbeat metrics.
