@@ -220,7 +220,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	assert.Len(t, p.Requests, 1)
 	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
 
-	assert.Equal(t, batchResp.Responses[0].Id, createdId)
+	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdId))
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
