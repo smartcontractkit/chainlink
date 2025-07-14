@@ -77,6 +77,9 @@ jobs:
           dockerfile: core/chainlink.Dockerfile
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: 'chainlink'
+          docker-additional-build-args: |
+            CL_INSTALL_PRIVATE_PLUGINS=true
+            CL_INSTALL_TESTING_PLUGINS=true
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -193,7 +196,7 @@ jobs:
         id: create-regression-payload
         run: |
           cd system-tests/tests/load/cre
-          
+
           # Read regression details
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
           
