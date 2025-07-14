@@ -94,6 +94,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	ids := []string{}
 	obs := []*vault.Observation{}
+	newSecretsByOwner := map[string]map[string]bool{}
 	for _, req := range batch {
 		o := &vault.Observation{
 			Id: req.ID(),
@@ -138,9 +139,20 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 				CreateSecretsRequest: tp,
 			}
 
+			requestsCountForId := map[string]int{}
+			for _, sr := range tp.EncryptedSecrets {
+				var key string
+				if sr.Id == nil {
+					key = "<nil>"
+				} else {
+					key = keyFor(sr.Id)
+				}
+				requestsCountForId[key]++
+			}
+
 			resps := []*vault.CreateSecretResponse{}
 			for _, sr := range tp.EncryptedSecrets {
-				resp, err := r.handleCreateSecretRequest(ctx, newReadStore(keyValueReader), sr)
+				validatedId, err := r.handleCreateSecretRequest(ctx, newReadStore(keyValueReader), sr, requestsCountForId, newSecretsByOwner)
 				if err != nil {
 					r.lggr.Errorw("failed to handle create secret request", "id", sr.Id, "error", err)
 					errorMsg := "failed to handle create secret request"
@@ -153,7 +165,13 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 						Error:   errorMsg,
 					})
 				} else {
-					resps = append(resps, resp)
+					resps = append(resps, &vault.CreateSecretResponse{
+						Id: validatedId,
+						// false because it hasn't been processed yet.
+						// When the write is handled successfully in StateTransition
+						// we'll update this to true.
+						Success: false,
+					})
 				}
 			}
 
@@ -163,7 +181,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 				},
 			}
 		default:
-			r.lggr.Debugw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
+			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
 			continue
 		}
 
@@ -241,7 +259,11 @@ func (u *userError) Is(target error) bool {
 }
 
 func keyFor(id *vault.SecretIdentifier) string {
-	return fmt.Sprintf("%s::%s::%s", id.Owner, id.Namespace, id.Key)
+	namespace := id.Namespace
+	if namespace == "" {
+		namespace = defaultNamespace
+	}
+	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
 }
 
 func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader readKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
@@ -293,6 +315,7 @@ func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader rea
 		}
 
 		shares = append(shares, &vault.EncryptedShares{
+			EncryptionKey: pk,
 			Shares: []string{
 				base64.StdEncoding.EncodeToString(encrypted),
 			},
@@ -310,60 +333,69 @@ func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader rea
 	}, nil
 }
 
-func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader readKVStore, secretRequest *vault.EncryptedSecret) (*vault.CreateSecretResponse, error) {
+func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader readKVStore, secretRequest *vault.EncryptedSecret, requestsCountForId map[string]int, newSecretsByOwner map[string]map[string]bool) (*vault.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
-		return nil, err
+		return id, err
+	}
+
+	if requestsCountForId[keyFor(secretRequest.Id)] > 1 {
+		return id, newUserError(fmt.Sprintf("duplicate create request for secret identifier %s", keyFor(id)))
 	}
 
 	rawCiphertext := secretRequest.EncryptedValue
 	rawCiphertextB, err := base64.StdEncoding.DecodeString(rawCiphertext)
 	if err != nil {
-		return nil, newUserError(fmt.Sprintf("invalid base64 encoding for ciphertext: %s", err.Error()))
+		return id, newUserError(fmt.Sprintf("invalid base64 encoding for ciphertext: %s", err.Error()))
 	}
 
 	if len(rawCiphertextB) > r.maxCiphertextLenBytes {
-		return nil, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.maxCiphertextLenBytes))
+		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.maxCiphertextLenBytes))
 	}
 
 	ct := &tdh2easy.Ciphertext{}
 	err = ct.UnmarshalVerify(rawCiphertextB, r.publicKey)
 	if err != nil {
-		return nil, newUserError(fmt.Sprintf("failed to verify ciphertext: %s", err.Error()))
+		return id, newUserError(fmt.Sprintf("failed to verify ciphertext: %s", err.Error()))
+	}
+
+	secret, err := reader.getSecret(id)
+	if err != nil {
+		return id, err
+	}
+
+	if secret != nil {
+		return id, newUserError("key already exists")
 	}
 
 	md, err := reader.getMetadata(id.Owner)
 	if err != nil {
-		return nil, err
+		return id, err
 	}
 
 	// If the metadata record doesn't exist, we can assume this is the first time
 	// creating a secret for this user and check against the default limit.
 	count := 0
 	if md != nil {
-		count = len(md.Keys)
+		count = len(md.SecretIdentifiers)
 	}
 
-	if count+1 > r.maxSecretsPerOwner {
-		return nil, newUserError(fmt.Sprintf("maximum number of secrets per owner reached: %d", r.maxSecretsPerOwner))
+	// Check if adding this secret would exceed the max number of secrets allowed per owner.
+	// To do this we need to include the number of secrets that previous observations have agreed to create.
+	newSecretsByOwnerInBatch := len(newSecretsByOwner[id.Owner])
+	if count+newSecretsByOwnerInBatch+1 > r.maxSecretsPerOwner {
+		return id, newUserError(fmt.Sprintf("maximum number of secrets per owner reached: %d", r.maxSecretsPerOwner))
+	} else {
+		// We're happy to create the secret; let's update our ongoing counter of created secrets.
+		_, ok := newSecretsByOwner[id.Owner]
+		if ok {
+			newSecretsByOwner[id.Owner][keyFor(id)] = true
+		} else {
+			newSecretsByOwner[id.Owner] = map[string]bool{keyFor(id): true}
+		}
 	}
 
-	secret, err := reader.getSecret(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if secret != nil {
-		return nil, newUserError("key already exists")
-	}
-
-	// Return an initialized response,
-	// This will get filled in during the outcome step.
-	return &vault.CreateSecretResponse{
-		Id:      id,
-		Success: false,
-		Error:   "",
-	}, nil
+	return id, nil
 }
 
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) error {
@@ -416,11 +448,23 @@ func validateObservation(o *vault.Observation) error {
 		}
 	case vault.RequestType_CREATE_SECRETS:
 		if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
-			return errors.New("GetSecrets observation must have both request and response")
+			return errors.New("CreateSecrets observation must have both request and response")
 		}
 
 		if len(o.GetCreateSecretsRequest().EncryptedSecrets) != len(o.GetCreateSecretsResponse().Responses) {
-			return errors.New("GetSecrets request and response must have the same number of items")
+			return errors.New("CreateSecrets request and response must have the same number of items")
+		}
+
+		// We disallow duplicate create requests within a single batch request.
+		// This prevents users from clobbering their own writes.
+		idSet := map[string]bool{}
+		for _, r := range o.GetCreateSecretsRequest().EncryptedSecrets {
+			_, ok := idSet[keyFor(r.Id)]
+			if !ok {
+				idSet[keyFor(r.Id)] = true
+			} else {
+				return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", r.Id)
+			}
 		}
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
@@ -458,6 +502,10 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		Outcomes: []*vault.Outcome{},
 	}
 	for id, obs := range obsMap {
+		// For each observation we've received for a given Id,
+		// we'll sha it and store it in `shaToObs`.
+		// This means that each entry in `shaToObs` will contain a list of all
+		// of the entries matching a given sha.
 		shaToObs := map[string][]*vault.Observation{}
 		for _, ob := range obs {
 			sha, err := shaForObservation(ob)
@@ -468,6 +516,10 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			shaToObs[sha] = append(shaToObs[sha], ob)
 		}
 
+		// Now let's identify the "chosen" observation.
+		// We do this by checking if which sha has 2F+1 observations.
+		// Once we have it, we can break, as mathematically only one
+		// sha can reach at least 2F+1 observaions.
 		chosen := []*vault.Observation{}
 		threshold := 2*r.config.F + 1
 		for sha, obs := range shaToObs {
@@ -520,19 +572,19 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			idToAggResponse := map[string]*vault.SecretResponse{}
 			for _, resp := range chosen {
 				getSecretsResp := resp.GetGetSecretsResponse()
-				for _, r := range getSecretsResp.Responses {
-					key := keyFor(r.Id)
+				for _, rsp := range getSecretsResp.Responses {
+					key := keyFor(rsp.Id)
 					mergedResp, ok := idToAggResponse[key]
 					if !ok {
 						resp := &vault.SecretResponse{
-							Id:     r.Id,
-							Result: r.Result,
+							Id:     rsp.Id,
+							Result: rsp.Result,
 						}
 						idToAggResponse[key] = resp
 						continue
 					}
 
-					if r.GetData() != nil {
+					if rsp.GetData() != nil {
 						data := mergedResp.GetData()
 
 						if len(data.EncryptedDecryptionKeyShares) == 0 {
@@ -544,14 +596,15 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 							keyToShares[s.EncryptionKey] = s
 						}
 
-						for _, existing := range r.GetData().EncryptedDecryptionKeyShares {
+						for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
 							if shares, ok := keyToShares[existing.EncryptionKey]; ok {
 								shares.Shares = append(shares.Shares, existing.Shares...)
 							} else {
-								data.EncryptedDecryptionKeyShares = append(
-									data.EncryptedDecryptionKeyShares,
-									existing,
-								)
+								// This shouldn't happen -- this is because we're aggregating
+								// requests that have a matching sha (excluding the decryption share).
+								// Accordingly, we can assume that the request has been made with the same
+								// set of encryption keys.
+								r.lggr.Errorw("unexpected encryption key in response", "id", rsp.Id, "encryptionKey", existing.EncryptionKey)
 							}
 						}
 					}
@@ -632,17 +685,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					continue
 				}
 
-				err = store.addKeyToMetadata(req.Id)
-				if err != nil {
-					r.lggr.Errorw("failed to add key to metadata", "error", err, "id", resp.Id)
-					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      resp.Id,
-						Success: false,
-						Error:   "failed to write secret to key value store",
-					})
-					continue
-				}
-
+				r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id))
 				sortedResps = append(sortedResps, &vault.CreateSecretResponse{
 					Id:      resp.Id,
 					Success: true,

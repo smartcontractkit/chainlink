@@ -27,7 +27,7 @@ type writeKVStore interface {
 	readKVStore
 	writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	writeMetadata(owner string, metadata *vault.StoredMetadata) error
-	addKeyToMetadata(id *vault.SecretIdentifier) error
+	addIdToMetadata(id *vault.SecretIdentifier) error
 }
 
 func newReadStore(reader ocr3_1types.KeyValueReader) readKVStore {
@@ -88,7 +88,7 @@ func (s *kvStore) writeMetadata(owner string, metadata *vault.StoredMetadata) er
 	return nil
 }
 
-func (s *kvStore) addKeyToMetadata(id *vault.SecretIdentifier) error {
+func (s *kvStore) addIdToMetadata(id *vault.SecretIdentifier) error {
 	md, err := s.getMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -96,10 +96,10 @@ func (s *kvStore) addKeyToMetadata(id *vault.SecretIdentifier) error {
 
 	if md == nil {
 		md = &vault.StoredMetadata{
-			Keys: []string{keyPrefix + keyFor(id)},
+			SecretIdentifiers: []*vault.SecretIdentifier{id},
 		}
 	} else {
-		md.Keys = append(md.Keys, keyPrefix+keyFor(id))
+		md.SecretIdentifiers = append(md.SecretIdentifiers, id)
 	}
 
 	err = s.writeMetadata(id.Owner, md)
@@ -119,6 +119,10 @@ func (s *kvStore) writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 	err = s.writer.Write([]byte(keyPrefix+keyFor(id)), b)
 	if err != nil {
 		return fmt.Errorf("failed to write secret: %w", err)
+	}
+
+	if err := s.addIdToMetadata(id); err != nil {
+		return fmt.Errorf("failed to add id to metadata: %w", err)
 	}
 
 	return nil
