@@ -20,7 +20,7 @@ var EVMJobSpecFactoryFn = func(chainID int, networkFamily string, pollInterval t
 }
 
 var jobName = func(chainID int) string {
-	return fmt.Sprintf("evm-capability-%d-%s", chainID)
+	return fmt.Sprintf("evm-capability-%d", chainID)
 }
 
 func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily string, interval time.Duration, evmBinaryPath string) (types.DonsToJobSpecs, error) {
@@ -48,7 +48,6 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 			if evmBinaryPath == "" {
 				return nil, errors.New("log event trigger binary path is empty")
 			}
-			//todo lautaro marker (print the config for evm)
 			jobSpec := libjobs.WorkerStandardCapability(nodeID, jobName(chainID), evmBinaryPath,
 				fmt.Sprintf(
 					`'{"chainId":"%d","network":"%s","logTriggerPollInterval":%s,"CREForwarderAddress":%s,"ReceiverGasMinimum":%d,"NodeAddress":%s}'`,

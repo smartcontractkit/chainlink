@@ -1,8 +1,8 @@
 
 [[blockchains]]
-  type = "anvil"
-  chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+type = "anvil"
+chain_id = "1337"
+docker_cmd_params = ["-b", "5"]
 
 # uncomment to start a second blockchain
 #[[blockchains]]
@@ -12,18 +12,18 @@
 #  docker_cmd_params = ["-b", "5"]
 
 [jd]
-  # change to your version
-  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
-  image = "job-distributor:0.12.7" //#modified, was 0.9.0 before
+# change to your version
+csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+image = "job-distributor:0.12.7"
 
 [s3provider]
-  # use all defaults
-  port = 9000
-  console_port = 9001
+# use all defaults
+port = 9000
+console_port = 9001
 
 [infra]
-  # either "docker" or "crib"
-  type = "docker"
+# either "docker" or "crib"
+type = "docker"
 
 #[infra.crib]
 #  namespace = "crib-local"
@@ -34,36 +34,30 @@
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
 # cron_capability_binary_path = "./cron"
-#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/integration_tests/evm/integration_tests_temp/cron"
-#cron_capability_binary_path = "/Users/lautarofernandez/repos/chainlink/core/scripts/cre/environment/cron"
-#cron_capability_binary_path = "/Users/lautarofernandez/go/bin/cron"
-#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/integration_tests/cron/integration_tests_temp/cron"
-#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/cron/cron"
 cron_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/cron"
 evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
-#evm_capability_binary_path = "/Users/lautarofernandez/go/bin/evm"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 
 [[nodesets]]
-  nodes = 5
-  override_mode = "each"
-  http_port_range_start = 10100
-  name = "workflow"
+nodes = 5
+override_mode = "each"
+http_port_range_start = 10100
+name = "workflow"
 
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13000
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      custom_ports = ["5002:5002"]
-      user_config_overrides = """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+# image = "chainlink-tmp:latest"
+# omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+# capabilities = ['./cron']
+custom_ports = ["5002:5002"]
+user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
@@ -75,17 +69,17 @@ evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
       InsecureConnection = true
       TraceSampleRatio = 1
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      user_config_overrides = """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+# image = "chainlink-tmp:latest"
+# omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+# capabilities = ['./cron']
+user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
@@ -97,17 +91,17 @@ evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
       InsecureConnection = true
       TraceSampleRatio = 1
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      user_config_overrides = """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+# image = "chainlink-tmp:latest"
+# omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+# capabilities = ['./cron']
+user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
@@ -119,17 +113,17 @@ evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
       InsecureConnection = true
       TraceSampleRatio = 1
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      user_config_overrides = """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+# image = "chainlink-tmp:latest"
+# omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+# capabilities = ['./cron']
+user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
@@ -141,17 +135,17 @@ evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
       InsecureConnection = true
       TraceSampleRatio = 1
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      user_config_overrides = """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+docker_ctx = "../../../.."
+docker_file = "core/chainlink.Dockerfile"
+# image = "chainlink-tmp:latest"
+# omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+# capabilities = ['./cron']
+user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
@@ -163,5 +157,5 @@ evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
       InsecureConnection = true
       TraceSampleRatio = 1
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
