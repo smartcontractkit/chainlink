@@ -267,11 +267,11 @@ func (h *Heartbeat) start(_ context.Context) error {
 		}
 	}
 
-	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
+	h.eng.GoTick(timeutil.NewTicker(h.GetBeat), beatFn)
 	return nil
 }
 
-func (h *Heartbeat) getBeat() time.Duration {
+func (h *Heartbeat) GetBeat() time.Duration {
 	return h.beat
 }
 
