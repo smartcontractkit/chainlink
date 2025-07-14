@@ -33,6 +33,9 @@
 [extra_capabilities]
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
 # cron_capability_binary_path = "./cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/repos/chainlink/core/scripts/cre/environment/cron"
+cron_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/cron"
+#evm_capability_binary_path = "/Users/lautarofernandez/go/bin/evm"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 

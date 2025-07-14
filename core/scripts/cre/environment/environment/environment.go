@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
+	evmJob "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/evm"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -159,6 +161,7 @@ func (c Config) Validate() error {
 
 type ExtraCapabilitiesConfig struct {
 	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
+	EVMCapabilityBinaryPath   string `toml:"evm_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }
@@ -492,6 +495,11 @@ func StartCLIEnvironment(
 			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.EVMCapability)
+			capabilitiesBinaryPaths[cretypes.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		}
+
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
 			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
@@ -528,6 +536,11 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
 			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.EVMCapability)
+			capabilitiesBinaryPaths[cretypes.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -618,6 +631,13 @@ func StartCLIEnvironment(
 		cronBinaryName = "cron"
 	}
 
+	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		evmBinaryName = "evm"
+	}
+
+	//lautaro marker for evm
+
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
 	if withPluginsDockerImageFlag != "" {
 		logEventTriggerBinaryName = "log-event-trigger"
@@ -634,6 +654,7 @@ func StartCLIEnvironment(
 		webapi.WebAPITargetJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
+		//TODO lautaro: ask if the evm capability needs a job
 		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
 	}
@@ -647,10 +668,23 @@ func StartCLIEnvironment(
 		}
 
 		if !blockchain.ReadOnly {
+			//todo lautaro base your example factory out of this WriteEVMCapabilityFactory
+
 			capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
 		}
+
+		capabilityFactoryFns = append(capabilityFactoryFns, evm.EVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.EVMJobSpecFactoryFn(
+			//todo lautaro marker talk to ilija
+			chainIDInt,
+			"evm",
+			2*time.Second, // default timeout for EVM job
+			// path within the container/pod
+			filepath.Join(containerPath, evmBinaryName),
+		))
 
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, crelogevent.LogEventTriggerJobSpecFactoryFn(
 			chainIDInt,
@@ -685,6 +719,7 @@ func StartCLIEnvironment(
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
+			//todo lautaro check if the capability needs extra small bits of configuration here (probably not)
 		},
 		S3ProviderInput: in.S3ProviderInput,
 	}

@@ -1,0 +1,7 @@
+addresses:
+  - 0xF5E513C7a2412798A6D7b04BE7a01A19280847C8
+topics:
+  - values:
+      - 0x50ede1f15a65bab9edf83cef0d1ffb1f21234653b3e58170594c3d8685d30e7a
+abi: '[{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"message","type":"string"}],"name":"MessageEmitted","type":"event"},{"inputs":[{"internalType":"string","name":"message","type":"string"}],"name":"emitMessage","outputs":[],"stateMutability":"nonpayable","type":"function"}]'
+event: MessageEmitted

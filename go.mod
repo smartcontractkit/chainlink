@@ -96,6 +96,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250702130714-144d99d2d871
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250701132001-f8be142155b6
 	github.com/smartcontractkit/cre-sdk-go v0.0.0-20250707153600-4506f1b6b342
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.0.0-20250707153600-4506f1b6b342
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250707153600-4506f1b6b342
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250707153600-4506f1b6b342
 	github.com/smartcontractkit/freeport v0.1.1

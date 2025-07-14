@@ -14,7 +14,7 @@
 [jd]
   # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
-  image = "job-distributor:0.12.7"
+  image = "job-distributor:0.12.7" //#modified, was 0.9.0 before
 
 [s3provider]
   # use all defaults
@@ -34,6 +34,14 @@
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
 # cron_capability_binary_path = "./cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/integration_tests/evm/integration_tests_temp/cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/repos/chainlink/core/scripts/cre/environment/cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/go/bin/cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/integration_tests/cron/integration_tests_temp/cron"
+#cron_capability_binary_path = "/Users/lautarofernandez/repos/capabilities/cron/cron"
+cron_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/cron"
+evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cronBinary/evm"
+#evm_capability_binary_path = "/Users/lautarofernandez/go/bin/evm"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 

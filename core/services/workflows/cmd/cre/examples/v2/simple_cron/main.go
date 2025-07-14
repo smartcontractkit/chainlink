@@ -1,4 +1,4 @@
-//go:build wasip1
+///go:build wasip1
 
 package main
 
@@ -23,6 +23,8 @@ func RunSimpleCronWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}]
 
 func onTrigger(env *sdk.Environment[struct{}], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
 	env.Logger.Info("inside onTrigger handler")
+	env.Logger.Info("lautaro001 onTrigger called")
+	env.Logger.Info("lautaro002 onTrigger called", "outputs", outputs)
 	return "success!", nil
 }
 
