@@ -147,13 +147,16 @@ jobs:
         id: parse-regressions
         run: |
           cd system-tests/tests/load/cre
+          
           # Count the number of regressions - handle exit code properly
           if grep -c "PERFORMANCE REGRESSION:" test_output.log > /tmp/count.txt; then
             regression_count=$(cat /tmp/count.txt)
           else
             regression_count=0
           fi
+          
           echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
+          
           if [ $regression_count -gt 0 ]; then
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
@@ -193,6 +196,7 @@ jobs:
           
           # Read regression details
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
+          
           # Create JSON payload with properly escaped details
           cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
           {
@@ -223,6 +227,7 @@ jobs:
             ]
           }
           EOF
+
       - name: Send regression slack notification
         if: success() && steps.parse-regressions.outputs.regression_count > 0
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
