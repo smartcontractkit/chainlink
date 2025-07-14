@@ -1,6 +1,9 @@
 package v2
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-903 implement the methods
 
@@ -10,6 +13,6 @@ func (tp *TimeProvider) GetNodeTime() time.Time {
 	return time.Now().UTC()
 }
 
-func (tp *TimeProvider) GetDONTime() time.Time {
-	return time.Now().UTC()
+func (tp *TimeProvider) GetDONTime(_ context.Context) (time.Time, error) {
+	return time.Now().UTC(), nil
 }
