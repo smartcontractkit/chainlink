@@ -8,15 +8,22 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 )
 
-type TimeProvider struct {
+type TimeProvider interface {
+	GetNodeTime() time.Time
+	GetDONTime(ctx context.Context) (time.Time, error)
+}
+
+var _ TimeProvider = &DonTimeProvider{}
+
+type DonTimeProvider struct {
 	workflowExecutionID string
 	timeSeqNum          int
 	donTimeStore        *dontime.Store
 	lggr                logger.Logger
 }
 
-func NewTimeProvider(store *dontime.Store, workflowExecutionID string, lggr logger.Logger) TimeProvider {
-	return TimeProvider{
+func NewDonTimeProvider(store *dontime.Store, workflowExecutionID string, lggr logger.Logger) TimeProvider {
+	return &DonTimeProvider{
 		workflowExecutionID: workflowExecutionID,
 		timeSeqNum:          0,
 		donTimeStore:        store,
@@ -24,12 +31,12 @@ func NewTimeProvider(store *dontime.Store, workflowExecutionID string, lggr logg
 	}
 }
 
-func (tp *TimeProvider) GetNodeTime() time.Time {
+func (tp *DonTimeProvider) GetNodeTime() time.Time {
 	return fromUnixMilli(tp.donTimeStore.GetLastObservedDonTime())
 }
 
 // GetDONTime makes a request to the WorkflowLib plugin store for DON Time
-func (tp *TimeProvider) GetDONTime(ctx context.Context) (time.Time, error) {
+func (tp *DonTimeProvider) GetDONTime(ctx context.Context) (time.Time, error) {
 	defer func() {
 		tp.timeSeqNum++
 	}()
