@@ -37,6 +37,10 @@ func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpt
 
 func (s *FetcherService) Start(ctx context.Context) error {
 	return s.StartOnce("FetcherService", func() error {
+		if s.wrapper == nil {
+			return errors.New("failed to start fetcher service: gateway connector is not configured")
+		}
+
 		connector := s.wrapper.GetGatewayConnector()
 
 		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
