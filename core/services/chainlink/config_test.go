@@ -596,6 +596,9 @@ func TestConfig_Marshal(t *testing.T) {
 	full.Billing = toml.Billing{
 		URL: ptr("localhost:4319"),
 	}
+	full.JobDistributor = toml.JobDistributor{
+		NopFriendlyName: ptr("test-node"),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),
@@ -1058,6 +1061,9 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+`},
+		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
+NopFriendlyName = 'test-node'
 `},
 		{"P2P", Config{Core: toml.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13

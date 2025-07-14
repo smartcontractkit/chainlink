@@ -16,6 +16,10 @@ type FeatureConfig interface {
 	MultiFeedsManagers() bool
 }
 
+type JobDistributorConfig interface {
+	NopFriendlyName() string
+}
+
 type JobConfig interface {
 	DefaultHTTPTimeout() commonconfig.Duration
 }

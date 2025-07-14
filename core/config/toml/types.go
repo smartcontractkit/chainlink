@@ -46,6 +46,7 @@ type Core struct {
 	AuditLogger      AuditLogger      `toml:",omitempty"`
 	Log              Log              `toml:",omitempty"`
 	WebServer        WebServer        `toml:",omitempty"`
+	JobDistributor   JobDistributor   `toml:",omitempty"`
 	JobPipeline      JobPipeline      `toml:",omitempty"`
 	FluxMonitor      FluxMonitor      `toml:",omitempty"`
 	OCR2             OCR2             `toml:",omitempty"`
@@ -102,6 +103,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
 	c.CRE.setFrom(&f.CRE)
@@ -2256,4 +2258,14 @@ func (b *Billing) ValidateConfig() error {
 	}
 
 	return nil
+}
+
+type JobDistributor struct {
+	NopFriendlyName *string
+}
+
+func (jd *JobDistributor) setFrom(f *JobDistributor) {
+	if f.NopFriendlyName != nil {
+		jd.NopFriendlyName = f.NopFriendlyName
+	}
 }
