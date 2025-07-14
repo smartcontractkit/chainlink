@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/crib-sdk/crib"
 	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
-	nodesetv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/nodeset/v1"
 )
 
 // todo: after it's done it will replace crib.DeployDons
@@ -22,7 +21,7 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 		return nil, errors.Wrap(valErr, "input validation failed")
 	}
 
-	propsSlice := make([]*nodev1.Props, 0)
+	componentFuncs := make([]crib.ComponentFunc, 0)
 
 	for j, donMetadata := range input.Topology.DonsMetadata {
 
@@ -36,7 +35,8 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 			if confSecretsErr != nil {
 				return nil, confSecretsErr
 			}
-			props := &nodev1.Props{
+			cFunc := nodev1.Component(&nodev1.Props{
+				Namespace:       input.Namespace,
 				Image:           fmt.Sprintf("%s:%s", imageName, imageTag),
 				AppInstanceName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
 				// passing as config not as override
@@ -44,22 +44,16 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 				SecretsOverrides: map[string]string{
 					"overrides": *secrets,
 				},
-			}
-			propsSlice = append(propsSlice, props)
+			})
+			componentFuncs = append(componentFuncs, cFunc)
 		}
 	}
-
-	component := nodesetv1.Component(&nodesetv1.Props{
-		Namespace: input.Namespace,
-		NodeProps: propsSlice,
-		Size:      len(propsSlice),
-	})
 
 	plan := crib.NewPlan(
 		"nodesets",
 		crib.Namespace(input.Namespace),
 		crib.ComponentSet(
-			component,
+			componentFuncs...,
 		),
 	)
 
@@ -75,17 +69,22 @@ func DeployDonsWithCribSDK(input *types.DeployCribDonsInput) ([]*types.Capabilit
 
 	for component := range nodeComponents {
 		res := crib.ComponentState[nodev1.Result](component)
-		fmt.Printf("result: %v\n", res)
 		nodeResults = append(nodeResults, res)
+		fmt.Printf("Node API URL: %s\n", res.APIUrl())
+		fmt.Printf("API Credentials: username: %s , password: %s\n", res.APICredentials.UserName, res.APICredentials.Password)
 	}
 
 	// setting outputs in a similar way as in func ReadNodeSetURL
-	for j, _ := range input.Topology.DonsMetadata {
-		out := &ns.Output{}
-		out.CLNodes = []*clnode.Output{}
+	for j := range input.Topology.DonsMetadata {
+		out := &ns.Output{
+			// UseCache: true will disable deploying docker containers via CTF
+			UseCache: true,
+			CLNodes:  []*clnode.Output{},
+		}
 		// todo: for now this is hardcoded for a single don, we need to group results for each don
 		for _, res := range nodeResults {
 			out.CLNodes = append(out.CLNodes, &clnode.Output{
+				// UseCache: true will disable deploying docker containers via CTF
 				UseCache: true,
 				Node: &clnode.NodeOut{
 					APIAuthUser:     res.APICredentials.UserName,

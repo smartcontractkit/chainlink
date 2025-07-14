@@ -147,7 +147,7 @@ require (
 	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.74 // indirect
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 // indirect
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -266,7 +266,7 @@ require (
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.26.0 // indirect
+	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/go-resty/resty/v2 v2.16.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
 	github.com/go-webauthn/webauthn v0.9.4 // indirect

@@ -288,8 +288,8 @@ github.com/bytedance/sonic v1.12.3/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKz
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
 github.com/bytedance/sonic/loader v0.2.0 h1:zNprn+lsIP06C/IqCHs3gPQIvnvpKbbxyXQP1iU4kWM=
 github.com/bytedance/sonic/loader v0.2.0/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.74 h1:bEcaS0Vqt1urlk2vrI0NN/2iu0yjeU+O3bPQCnbD+Qw=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.74/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 h1:3p3ygjYCNZ9wqPbbQ7oeDZEhY7xX8UPJs/pOuhxBP+E=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 h1:vtT/G9hb1fstaeS52wcSYDKmZY0qExoroP5lhiFQe8U=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8/go.mod h1:7uUKWwq8GOkVQFkVH9ymTajphRFJM6HeHhIQ3S/tFJw=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
@@ -675,8 +675,8 @@ github.com/go-playground/universal-translator v0.18.0/go.mod h1:UvRDBj+xPUEGrFYl
 github.com/go-playground/universal-translator v0.18.1 h1:Bcnm0ZwsGyWbCzImXv+pAJnYK9S473LQFuzCbDbfSFY=
 github.com/go-playground/universal-translator v0.18.1/go.mod h1:xekY+UJKNuX9WP91TpwSH2VMlDf28Uj24BCp08ZFTUY=
 github.com/go-playground/validator/v10 v10.10.0/go.mod h1:74x4gJWsvQexRdW8Pn3dXSGrTK4nAUsbPlLADvpJkos=
-github.com/go-playground/validator/v10 v10.26.0 h1:SP05Nqhjcvz81uJaRfEV0YBSSSGMc/iMaVtFbr3Sw2k=
-github.com/go-playground/validator/v10 v10.26.0/go.mod h1:I5QpIEbmr8On7W0TktmJAumgzX4CA1XNl4ZmDuVHKKo=
+github.com/go-playground/validator/v10 v10.27.0 h1:w8+XrWVMhGkxOaaowyKH35gFydVHOvC0/uWoy2Fzwn4=
+github.com/go-playground/validator/v10 v10.27.0/go.mod h1:I5QpIEbmr8On7W0TktmJAumgzX4CA1XNl4ZmDuVHKKo=
 github.com/go-resty/resty/v2 v2.16.3 h1:zacNT7lt4b8M/io2Ahj6yPypL7bqx9n1iprfQuodV+E=
 github.com/go-resty/resty/v2 v2.16.3/go.mod h1:hkJtXbA2iKHzJheXYvQ8snQES5ZLGKMwQ07xAwp/fiA=
 github.com/go-sql-driver/mysql v1.3.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
