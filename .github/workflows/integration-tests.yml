@@ -320,7 +320,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@ac1330bdd4ad8bbbc4780151c1f8b7092b6f2cea # 2025-07-14
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
