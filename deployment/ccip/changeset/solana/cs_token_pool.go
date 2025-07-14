@@ -438,7 +438,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 	return onChainEVMRemoteConfig, nil
 }
 
-//func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
+// func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 //	e.Logger.Infow("Setting up token pool global config", "cfg", cfg)
 //
 //	state, err := stateview.LoadOnchainState(e)
@@ -525,9 +525,9 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 //	}
 //
 //	return cldf.ChangesetOutput{}, nil
-//}
+// }
 
-//func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
+// func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
 //	e.Logger.Infow("Use multisig as mint authority", "cfg", cfg)
 //
 //	state, err := stateview.LoadOnchainState(e)
@@ -613,7 +613,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 //	}
 //
 //	return cldf.ChangesetOutput{}, nil
-//}
+// }
 
 func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting up token pool for remote chain", "cfg", cfg)
@@ -1758,8 +1758,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 				poolConfigPDA,
 				tokenPubKey,
 				authority,
-				//tokenPool,
-				//programData.Address,
+				// tokenPool,
+				// programData.Address,
 			).ValidateAndBuild()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
@@ -1797,8 +1797,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 				poolConfigPDA,
 				tokenPubKey,
 				authority,
-				//tokenPool,
-				//programData.Address,
+				// tokenPool,
+				// programData.Address,
 			).ValidateAndBuild()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
