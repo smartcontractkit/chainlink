@@ -331,14 +331,14 @@ func useWorkflowCmd() *cobra.Command {
 				return errors.Wrap(compileErr, "❌ failed to compile workflow")
 			}
 
-			fmt.Printf("\n✅ workflow compiled and compressed successfully\n\n")
+			fmt.Printf("\n✅ Workflow compiled and compressed successfully\n\n")
 
 			copyErr := copyWorkflowToDockerContainers(compressedWorkflowWasmPath, containerNamePatternFlag, containerTargetDirFlag)
 			if copyErr != nil {
 				return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 			}
 
-			fmt.Printf("\n✅ workflow copied to Docker containers\n")
+			fmt.Printf("\n✅ Workflow copied to Docker containers\n")
 			fmt.Printf("\n⚙️ Creating Seth client\n\n")
 
 			var privateKey string
@@ -351,7 +351,7 @@ func useWorkflowCmd() *cobra.Command {
 			sethClient, scErr := seth.NewClientBuilder().
 				WithRpcUrl(rpcURLFlag).
 				WithPrivateKeys([]string{privateKey}).
-				WithGethWrappersFolders([]string{"/Users/bartektofel/Desktop/repos/chainlink-evm/gethwrappers"}). // TODO: remove this
+				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
 				Build()
 			if scErr != nil {
 				return errors.Wrap(scErr, "failed to create Seth client")

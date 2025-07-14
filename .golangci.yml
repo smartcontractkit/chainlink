@@ -189,6 +189,8 @@ linters:
           - gosec
         path: test
         text: "^G404:"
+    paths:
+      - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
 formatters:
