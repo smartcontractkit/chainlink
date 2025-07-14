@@ -9,11 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -22,32 +24,42 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	rpcTypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // Direct RPC
-func (r *Relayer) CallContractWithConfidence(ctx context.Context, msg *evm.CallMsg, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) ([]byte, error) {
-	return r.chain.Client().CallContractWithConfidence(ctx, toEthMsg(msg), blockNumber, confidenceLevel)
-}
-
-func (r *Relayer) FilterLogsWithConfidence(ctx context.Context, filterQuery evmtypes.FilterQuery, confidenceLevel primitives.ConfidenceLevel) ([]*evmtypes.Log, error) {
-	logs, err := r.chain.Client().FilterLogsWithConfidence(ctx, convertEthFilter(filterQuery), confidenceLevel)
+func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
+	result, err := r.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, rpcTypes.CallContractOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]*evmtypes.Log, 0, len(logs))
-
-	for _, l := range logs {
-		ret = append(ret, convertLog(&l))
-	}
-
-	return ret, nil
+	return &evmtypes.CallContractReply{Data: result}, nil
 }
 
-func (r *Relayer) BalanceAtWithConfidence(ctx context.Context, account evmtypes.Address, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
-	return r.chain.Client().BalanceAtWithConfidence(ctx, account, blockNumber, confidenceLevel)
+func (r *Relayer) FilterLogs(ctx context.Context, request evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
+	rawLogs, err := r.chain.Client().FilterLogsWithOpts(ctx, convertEthFilter(request.FilterQuery), rpcTypes.FilterLogsOpts{ConfidenceLevel: request.ConfidenceLevel})
+	if err != nil {
+		return nil, err
+	}
+
+	logs := make([]*evmtypes.Log, 0, len(rawLogs))
+	for _, l := range rawLogs {
+		logs = append(logs, convertLog(&l))
+	}
+
+	return &evmtypes.FilterLogsReply{Logs: logs}, nil
+}
+
+func (r *Relayer) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
+	balance, err := r.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, rpcTypes.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
+	if err != nil {
+		return nil, err
+	}
+
+	return &evmtypes.BalanceAtReply{Balance: balance}, nil
 }
 
 func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
@@ -77,33 +89,36 @@ func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontyp
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) HeaderByNumberWithConfidence(ctx context.Context, blockNumber *big.Int, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Head, error) {
-	var result *types.Head
+func (r *Relayer) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByNumberRequest) (*evmtypes.HeaderByNumberReply, error) {
 	var err error
-	if blockNumber != nil {
-		result, err = r.chain.Client().HeadByNumberWithConfidence(ctx, blockNumber, confidenceLevel)
-	} else {
-		switch confidenceLevel {
-		case primitives.Unconfirmed:
-			result, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
-		case primitives.Finalized:
-			_, result, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
-		case primitives.Safe:
-			result, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
-		default:
-			return evmtypes.Head{}, fmt.Errorf("unexpected confidence level: %s", confidenceLevel)
-		}
+	var h *types.Head
+	switch {
+	// latest block
+	case request.Number == nil || request.Number.Int64() == rpc.LatestBlockNumber.Int64():
+		h, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+		// non-special block or larger that int64
+	case request.Number.Sign() >= 0 || request.Number.IsInt64():
+		var header *types.Header
+		header, err = r.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, rpcTypes.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
+		h = (*rpcTypes.Head)(header)
+	case request.Number.Int64() == rpc.FinalizedBlockNumber.Int64():
+		_, h, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+	case request.Number.Int64() == rpc.SafeBlockNumber.Int64():
+		h, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
+	default:
+		return nil, fmt.Errorf("unexpected block number %s: %w", request.Number.String(), ethereum.NotFound)
 	}
 
 	if err != nil {
-		return evmtypes.Head{}, err
+		return nil, err
 	}
 
-	if result == nil {
-		return evmtypes.Head{}, fmt.Errorf("no header found for block number %d: %w", blockNumber, ethereum.NotFound)
+	if h == nil {
+		return nil, ethereum.NotFound
 	}
 
-	return convertHead(result), nil
+	header := convertHead(h)
+	return &evmtypes.HeaderByNumberReply{Header: header}, nil
 }
 
 // TODO introduce parameters validation PLEX-1437
@@ -270,8 +285,8 @@ func queryNameFromFilter(filterQuery []query.Expression) string {
 	return address + "-" + eventSig
 }
 
-func convertHead(h *types.Head) evmtypes.Head {
-	return evmtypes.Head{
+func convertHead(h *types.Head) *evmtypes.Header {
+	return &evmtypes.Header{
 		Timestamp:  uint64(h.GetTimestamp().Unix()),
 		Hash:       bytesToHash(h.BlockHash().Bytes()),
 		Number:     big.NewInt(h.BlockNumber()),
