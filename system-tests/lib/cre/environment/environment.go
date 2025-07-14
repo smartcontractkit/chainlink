@@ -2,7 +2,6 @@ package environment
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/big"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -310,17 +308,7 @@ func SetupTestEnvironment(
 		OperationsBundle:  allChainsCLDEnvironment.OperationsBundle,
 	}
 
-	// We need to use TLS for CRIB, because it exposes HTTPS endpoints
-	var creds credentials.TransportCredentials
-	if input.InfraInput.InfraType == libtypes.CRIB {
-		creds = credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-		})
-	} else {
-		creds = insecure.NewCredentials()
-	}
-
-	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, creds)
+	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, insecure.NewCredentials())
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
