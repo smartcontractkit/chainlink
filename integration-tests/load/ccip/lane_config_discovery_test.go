@@ -16,9 +16,9 @@ import (
 
 // TestLaneDiscovery_AnyToAny tests lane discovery when all chains are connected to each other
 func TestLaneDiscovery_AnyToAny(t *testing.T) {
-	//TODO: ADD Solana lanes
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfChains(3),
+		testhelpers.WithSolChains(1),
 	)
 
 	e := tenv.Env
@@ -39,7 +39,7 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 	// Verify discovered lanes
 	discoveredLanes, err := laneConfig.GetLanes()
 	require.NoError(t, err)
-	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	chains := e.BlockChains.ListChainSelectors()
 
 	// Should have n*(n-1) lanes for n chains (any-to-any)
 	expectedLaneCount := len(chains) * (len(chains) - 1)
@@ -70,21 +70,25 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 	require.Equal(t, len(chains), stats.DestinationChains)
 }
 
-// TODO: ADD Solana lanes
 // TestLaneDiscovery_PartialConnectivity tests lane discovery with limited connectivity
 func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithNumOfChains(4),
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithSolChains(1),
 	)
 
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	require.Len(t, chains, 4, "Should have 4 chains")
+	evmChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	require.Len(t, evmChains, 3, "Should have 3 evmChains")
 
-	chainA, chainB, chainC, chainD := chains[0], chains[1], chains[2], chains[3]
+	solChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	require.Len(t, solChains, 1, "Should have 1 solChains")
+
+	chainA, chainB, chainC := evmChains[0], evmChains[1], evmChains[2]
+	chainD := solChains[0]
 
 	// Setup partial connectivity: A->B, A->C,  B->C, C->D, D->A (cycle)
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainB, false))

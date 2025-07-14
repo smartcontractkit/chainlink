@@ -299,7 +299,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which destination chains are configured on the OnRamp
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, allChains)
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, srcChain, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
 		}
@@ -347,11 +347,17 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 }
 
 // getEnabledDestinationsFromOnRamp checks which destinations are enabled on the OnRamp
-func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(chainState evm.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(
+	chainState evm.CCIPChainState,
+	srcSelector uint64,
+	candidateDestinations []uint64) ([]uint64, error) {
 	var enabledDestinations []uint64
 
 	// For each candidate destination, check if it's enabled on the OnRamp
 	for _, dstChain := range candidateDestinations {
+		if dstChain == srcSelector {
+			continue
+		}
 		isEnabled, err := lc.isDestinationEnabledOnOnRamp(chainState, dstChain)
 		if err != nil {
 			// Log but continue - some destinations might not be configured
@@ -372,6 +378,9 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromSolanaRouter(env cldf.Env
 
 	// For each candidate destination, check if it's enabled on the Solana Router
 	for _, dstChain := range candidateDestinations {
+		if dstChain == selector {
+			continue
+		}
 		// we don't verify against error because if the destination is not configured, it will return an error
 		isEnabled, _ := lc.isDestinationEnabledOnSolanaRouter(env.GetContext(), chainState, dstChain, env.BlockChains.SolanaChains()[selector].Client)
 		if isEnabled {
