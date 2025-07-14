@@ -198,13 +198,13 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 		instructions := []solana.Instruction{createI}
 
-		//var configPDA solana.PublicKey
+		// var configPDA solana.PublicKey
 		//
-		//// Global Configuration
-		//configPDA, err = tokens.TokenPoolGlobalConfigPDA(tokenPool)
-		//if err != nil {
-		//	return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
-		//}
+		// // Global Configuration
+		// configPDA, err = tokens.TokenPoolGlobalConfigPDA(tokenPool)
+		// if err != nil {
+		// 	return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
+		// }
 
 		// initialize token pool config pda
 		var poolInitI solana.Instruction
@@ -225,7 +225,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
-				//configPDA,
+				// configPDA,
 			).ValidateAndBuild()
 		case solTestTokenPool.LockAndRelease_PoolType:
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
@@ -239,7 +239,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
-				//configPDA,
+				// configPDA,
 			).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", tokenPoolCfg.PoolType)
@@ -1721,10 +1721,10 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 		cfg.Metadata,
 	)
 
-	//programData, err := getSolProgramData(e, chain, tokenPool)
-	//if err != nil {
-	//	return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
-	//}
+	// programData, err := getSolProgramData(e, chain, tokenPool)
+	// if err != nil {
+	// 	return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
+	// }
 
 	switch *cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
@@ -1830,7 +1830,7 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 	return cldf.ChangesetOutput{}, nil
 }
 
-//func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
+// func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 //	e.Logger.Infow("Init state version for old tp", "cfg", cfg)
 //
 //	state, err := stateview.LoadOnchainState(e)
@@ -1904,4 +1904,4 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 //	}
 //
 //	return cldf.ChangesetOutput{}, nil
-//}
+// }

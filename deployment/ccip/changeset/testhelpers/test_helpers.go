@@ -1913,8 +1913,8 @@ func DeployTransferableTokenSolana(
 	)
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
-	//// Setup global config
-	//e, err = commoncs.Apply(nil, e,
+	// // Setup global config
+	// e, err = commoncs.Apply(nil, e,
 	//	commoncs.Configure(
 	//		cldf.CreateLegacyChangeSet(ccipChangeSetSolana.InitGlobalConfigTokenPoolProgram),
 	//		ccipChangeSetSolana.TokenPoolConfigWithMCM{
@@ -1923,10 +1923,10 @@ func DeployTransferableTokenSolana(
 	//			PoolType:      &bnm,
 	//			Metadata:      shared.CLLMetadata,
 	//		}),
-	//)
-	//if err != nil {
+	// )
+	// if err != nil {
 	//	return nil, nil, solana.PublicKey{}, err
-	//}
+	// }
 
 	// deploy and configure solana token pool
 	e, err = commoncs.Apply(nil, e,
