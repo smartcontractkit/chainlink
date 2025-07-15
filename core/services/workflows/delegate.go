@@ -85,7 +85,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		SecretsFetcher: d.secretsFetcher,
 		RateLimiter:    d.ratelimiter,
 		WorkflowLimits: d.workflowLimits,
-		DonTimeStore:   d.dontimeStore,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
