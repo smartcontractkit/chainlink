@@ -101,6 +101,9 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSt
 	return nil
 }
 
+// RegisterTokenAdminRegistry registers a token admin registry for a given token
+// you can register using the ccipAdminRole which can be the deployer key or timelock signer
+// you can register using the token mint authority which can be the deployer key only
 func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("RegisterTokenAdminRegistry", "cfg", cfg)
 	state, err := stateview.LoadOnchainState(e)
