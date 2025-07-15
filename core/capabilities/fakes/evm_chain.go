@@ -3,11 +3,12 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -92,7 +93,8 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 	}
 
 	// Call contract
-	data, err := fc.gethClient.CallContract(ctx, msg, nil)
+	blockNumber := pb.NewIntFromBigInt(input.BlockNumber)
+	data, err := fc.gethClient.CallContract(ctx, msg, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,69 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
-	return nil, errors.New("WriteReport is not supported yet")
+	mockKeystoneForwarder, err := NewMockKeystoneForwarder(common.HexToAddress("0x15fC6ae953E024d975e77382eEeC56A9101f9F88"), fc.gethClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create authenticated transactor
+	chainID, err := fc.gethClient.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := bind.NewKeyedTransactorWithChainID(fc.privateKey, chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	reportTx, err := mockKeystoneForwarder.Report(
+		auth,
+		common.Address(input.Receiver),
+		input.Report.RawReport,
+		input.Report.ReportContext,
+		input.Report.Signatures,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: should we wait for the transaction to be mined?
+	receipt, err := bind.WaitMined(ctx, fc.gethClient, reportTx)
+	if err != nil {
+		return nil, err
+	}
+
+	fc.eng.Debugw("EVM Chain WriteReport Receipt", "status", receipt.Status, "gasUsed", receipt.GasUsed, "txHash", receipt.TxHash.Hex())
+
+	txHash := receipt.TxHash.Bytes()
+
+	// Calculate transaction fee (gas used * effective gas price)
+	transactionFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
+
+	if receipt.Status == types.ReceiptStatusSuccessful {
+		fc.eng.Infow("EVM Chain WriteReport Successful", "txHash", receipt.TxHash.Hex(), "gasUsed", receipt.GasUsed, "fee", transactionFee.String())
+
+		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
+		return &evmcappb.WriteReportReply{
+			TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
+			ReceiverContractExecutionStatus: &receiverStatus,
+			TxHash:                          txHash,
+			TransactionFee:                  pb.NewBigIntFromInt(transactionFee),
+		}, nil
+	}
+
+	fc.eng.Infow("EVM Chain WriteReport Failed", "txHash", receipt.TxHash.Hex(), "gasUsed", receipt.GasUsed, "fee", transactionFee.String())
+
+	receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
+	errorMsg := "Transaction reverted"
+	return &evmcappb.WriteReportReply{
+		TxStatus:                        evmcappb.TxStatus_TX_STATUS_REVERTED,
+		ReceiverContractExecutionStatus: &receiverStatus,
+		TxHash:                          txHash,
+		TransactionFee:                  pb.NewBigIntFromInt(transactionFee),
+		ErrorMessage:                    &errorMsg,
+	}, nil
 }
 
 func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmcappb.Log], error) {
