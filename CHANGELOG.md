@@ -661,7 +661,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#15237](https://github.com/smartcontractkit/chainlink/pull/15237) [`1f9c07de61`](https://github.com/smartcontractkit/chainlink/commit/1f9c07de618ecfa3f23b8259ce0558941b5c357f) - #added feat: support creating solana chain config in job distributor page
 
-- [#15299](https://github.com/smartcontractkit/chainlink/pull/15299) [`a2c3da471c`](https://github.com/smartcontractkit/chainlink/commit/a2c3da471cc344a14003f53c2c2f09c937c204c1) - #updated Update few incorrect occurences of the password for notreal@fakeemail.ch.
+- [#15299](https://github.com/smartcontractkit/chainlink/pull/15299) [`a2c3da471c`](https://github.com/smartcontractkit/chainlink/commit/a2c3da471cc344a14003f53c2c2f09c937c204c1) - #updated Update few incorrect occurrences of the password for notreal@fakeemail.ch.
 
 ### Patch Changes
 
