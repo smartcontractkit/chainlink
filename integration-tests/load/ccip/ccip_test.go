@@ -397,7 +397,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
 	require.NoError(t, err)
 
-	for _, gun := range gunMap {
+	for destSelector, gun := range gunMap {
+		selectorFamily, err := selectors.GetSelectorFamily(destSelector)
+		require.NoError(t, err)
+		if selectorFamily == selectors.FamilySolana {
+			requestFrequency = 30 * time.Second // Solana should only receive messages at 1 / 30s
+		}
+
 		p.Add(wasp.NewGenerator(&wasp.Config{
 			T:           t,
 			GenName:     "ccipLoad",
