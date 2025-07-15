@@ -110,7 +110,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 			resps := []*vault.SecretResponse{}
 			for _, secretRequest := range tp.Requests {
-				resp, err := r.handleGetSecretRequest(ctx, newReadStore(keyValueReader), secretRequest)
+				resp, err := r.handleGetSecretRequest(ctx, NewReadStore(keyValueReader), secretRequest)
 				if err != nil {
 					r.lggr.Errorw("failed to handle get secret request", "id", secretRequest.Id, "error", err)
 					errorMsg := "failed to handle get secret request"
@@ -152,7 +152,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 			resps := []*vault.CreateSecretResponse{}
 			for _, sr := range tp.EncryptedSecrets {
-				validatedId, err := r.handleCreateSecretRequest(ctx, newReadStore(keyValueReader), sr, requestsCountForId, newSecretsByOwner)
+				validatedId, err := r.handleCreateSecretRequest(ctx, NewReadStore(keyValueReader), sr, requestsCountForId, newSecretsByOwner)
 				if err != nil {
 					r.lggr.Errorw("failed to handle create secret request", "id", sr.Id, "error", err)
 					errorMsg := "failed to handle create secret request"
@@ -266,13 +266,13 @@ func keyFor(id *vault.SecretIdentifier) string {
 	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
 }
 
-func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader readKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
+func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	secret, err := reader.getSecret(id)
+	secret, err := reader.GetSecret(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
@@ -333,7 +333,7 @@ func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader rea
 	}, nil
 }
 
-func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader readKVStore, secretRequest *vault.EncryptedSecret, requestsCountForId map[string]int, newSecretsByOwner map[string]map[string]bool) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.EncryptedSecret, requestsCountForId map[string]int, newSecretsByOwner map[string]map[string]bool) (*vault.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return id, err
@@ -359,7 +359,7 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 		return id, newUserError(fmt.Sprintf("failed to verify ciphertext: %s", err.Error()))
 	}
 
-	secret, err := reader.getSecret(id)
+	secret, err := reader.GetSecret(id)
 	if err != nil {
 		return id, err
 	}
@@ -368,7 +368,7 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 		return id, newUserError("key already exists")
 	}
 
-	md, err := reader.getMetadata(id.Owner)
+	md, err := reader.GetMetadata(id.Owner)
 	if err != nil {
 		return id, err
 	}
@@ -474,7 +474,7 @@ func validateObservation(o *vault.Observation) error {
 }
 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
-	store := newWriteStore(keyValueReadWriter)
+	store := NewWriteStore(keyValueReadWriter)
 
 	obsMap := map[string][]*vault.Observation{}
 	for _, ao := range aos {
@@ -672,7 +672,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					continue
 				}
 
-				err = store.writeSecret(req.Id, &vault.StoredSecret{
+				err = store.WriteSecret(req.Id, &vault.StoredSecret{
 					EncryptedSecret: encryptedSecret,
 				})
 				if err != nil {

@@ -13,32 +13,32 @@ const (
 	metadataPrefix = "Metadata::"
 )
 
-type kvStore struct {
+type KVStore struct {
 	reader ocr3_1types.KeyValueReader
 	writer ocr3_1types.KeyValueReadWriter
 }
 
-type readKVStore interface {
-	getSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error)
-	getMetadata(owner string) (*vault.StoredMetadata, error)
+type ReadKVStore interface {
+	GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error)
+	GetMetadata(owner string) (*vault.StoredMetadata, error)
 }
 
-type writeKVStore interface {
-	readKVStore
-	writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
-	writeMetadata(owner string, metadata *vault.StoredMetadata) error
-	addIdToMetadata(id *vault.SecretIdentifier) error
+type WriteKVStore interface {
+	ReadKVStore
+	WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
+	WriteMetadata(owner string, metadata *vault.StoredMetadata) error
+	AddIdToMetadata(id *vault.SecretIdentifier) error
 }
 
-func newReadStore(reader ocr3_1types.KeyValueReader) readKVStore {
-	return &kvStore{reader: reader}
+func NewReadStore(reader ocr3_1types.KeyValueReader) ReadKVStore {
+	return &KVStore{reader: reader}
 }
 
-func newWriteStore(writer ocr3_1types.KeyValueReadWriter) writeKVStore {
-	return &kvStore{reader: writer, writer: writer}
+func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) WriteKVStore {
+	return &KVStore{reader: writer, writer: writer}
 }
 
-func (s *kvStore) getSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
+func (s *KVStore) GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
 	b, err := s.reader.Read([]byte(keyPrefix + keyFor(id)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret: %w", err)
@@ -56,7 +56,7 @@ func (s *kvStore) getSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, er
 	return secret, nil
 }
 
-func (s *kvStore) getMetadata(owner string) (*vault.StoredMetadata, error) {
+func (s *KVStore) GetMetadata(owner string) (*vault.StoredMetadata, error) {
 	b, err := s.reader.Read([]byte(metadataPrefix + owner))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata: %w", err)
@@ -74,7 +74,7 @@ func (s *kvStore) getMetadata(owner string) (*vault.StoredMetadata, error) {
 	return md, nil
 }
 
-func (s *kvStore) writeMetadata(owner string, metadata *vault.StoredMetadata) error {
+func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) error {
 	b, err := proto.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
@@ -88,8 +88,8 @@ func (s *kvStore) writeMetadata(owner string, metadata *vault.StoredMetadata) er
 	return nil
 }
 
-func (s *kvStore) addIdToMetadata(id *vault.SecretIdentifier) error {
-	md, err := s.getMetadata(id.Owner)
+func (s *KVStore) AddIdToMetadata(id *vault.SecretIdentifier) error {
+	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
 	}
@@ -102,7 +102,7 @@ func (s *kvStore) addIdToMetadata(id *vault.SecretIdentifier) error {
 		md.SecretIdentifiers = append(md.SecretIdentifiers, id)
 	}
 
-	err = s.writeMetadata(id.Owner, md)
+	err = s.WriteMetadata(id.Owner, md)
 	if err != nil {
 		return fmt.Errorf("failed to write metadata for owner %s: %w", id.Owner, err)
 	}
@@ -110,7 +110,7 @@ func (s *kvStore) addIdToMetadata(id *vault.SecretIdentifier) error {
 	return nil
 }
 
-func (s *kvStore) writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error {
+func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error {
 	b, err := proto.Marshal(secret)
 	if err != nil {
 		return fmt.Errorf("failed to marshal secret: %w", err)
@@ -121,7 +121,7 @@ func (s *kvStore) writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
 
-	if err := s.addIdToMetadata(id); err != nil {
+	if err := s.AddIdToMetadata(id); err != nil {
 		return fmt.Errorf("failed to add id to metadata: %w", err)
 	}
 

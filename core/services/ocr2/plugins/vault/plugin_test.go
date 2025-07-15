@@ -182,7 +182,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	err = newWriteStore(rdr).writeSecret(createdId, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(createdId, &vault.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -307,7 +307,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		m: make(map[string]response),
 	}
 
-	err = newWriteStore(rdr).writeSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
 		EncryptedSecret: []byte("invalid-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -387,7 +387,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = newWriteStore(rdr).writeSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -459,7 +459,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = newWriteStore(rdr).writeSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -998,7 +998,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretExistsForKey(t *testing.T
 		Namespace: "main",
 		Key:       "secret",
 	}
-	err = newWriteStore(rdr).writeSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("already exists")})
+	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("already exists")})
 	require.NoError(t, err)
 
 	ct, err := tdh2easy.Encrypt(pk, []byte("my secret value"))
@@ -1066,8 +1066,8 @@ func TestPlugin_Observation_CreateSecretsRequest_TooManySecretsForOwner(t *testi
 		Namespace: "main",
 		Key:       "secret",
 	}
-	kvstore := newWriteStore(rdr)
-	err = kvstore.writeMetadata(id.Owner, &vault.StoredMetadata{
+	kvstore := NewWriteStore(rdr)
+	err = kvstore.WriteMetadata(id.Owner, &vault.StoredMetadata{
 		SecretIdentifiers: []*vault.SecretIdentifier{
 			{
 				Owner:     "owner",
@@ -1692,7 +1692,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := newReadStore(kv)
+	rs := NewReadStore(kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -1749,7 +1749,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetCreateSecretsResponse()), o.GetCreateSecretsResponse())
 
-	ss, err := rs.getSecret(id)
+	ss, err := rs.GetSecret(id)
 	require.NoError(t, err)
 
 	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))

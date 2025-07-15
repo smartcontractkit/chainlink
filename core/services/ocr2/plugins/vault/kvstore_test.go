@@ -47,7 +47,7 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Key::owner::main::secret1"] = response{
 		err: errors.New("not found"),
 	}
-	store := newWriteStore(kv)
+	store := NewWriteStore(kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -55,7 +55,7 @@ func TestKVStore_Secrets(t *testing.T) {
 		Key:       "secret1",
 	}
 
-	_, err := store.getSecret(id)
+	_, err := store.GetSecret(id)
 	require.ErrorContains(t, err, "not found")
 
 	d, err := proto.Marshal(&vault.StoredSecret{
@@ -65,12 +65,12 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Key::owner::main::secret1"] = response{
 		data: d,
 	}
-	s, err := store.getSecret(id)
+	s, err := store.GetSecret(id)
 	require.NoError(t, err)
 	assert.Equal(t, s.EncryptedSecret, []byte("encrypted data"))
 
 	delete(kv.m, "Key::owner::main::secret1")
-	s, err = store.getSecret(id)
+	s, err = store.GetSecret(id)
 	assert.Nil(t, s)
 	assert.NoError(t, err)
 
@@ -78,10 +78,10 @@ func TestKVStore_Secrets(t *testing.T) {
 	ss := &vault.StoredSecret{
 		EncryptedSecret: newData,
 	}
-	err = store.writeSecret(id, ss)
+	err = store.WriteSecret(id, ss)
 	assert.NoError(t, err)
 
-	s, err = store.getSecret(id)
+	s, err = store.GetSecret(id)
 	assert.NoError(t, err)
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
@@ -94,9 +94,9 @@ func TestKVStore_Metadata(t *testing.T) {
 	kv.m["Metadata::"+owner] = response{
 		err: errors.New("not found"),
 	}
-	store := newWriteStore(kv)
+	store := NewWriteStore(kv)
 
-	_, err := store.getMetadata(owner)
+	_, err := store.GetMetadata(owner)
 	require.ErrorContains(t, err, "not found")
 
 	id := &vault.SecretIdentifier{
@@ -111,13 +111,13 @@ func TestKVStore_Metadata(t *testing.T) {
 	kv.m["Metadata::owner"] = response{
 		data: d,
 	}
-	m, err := store.getMetadata(owner)
+	m, err := store.GetMetadata(owner)
 	require.NoError(t, err)
 	assert.Len(t, m.SecretIdentifiers, 1)
 	assert.True(t, proto.Equal(m.SecretIdentifiers[0], id))
 
 	delete(kv.m, "Metadata::"+owner)
-	m, err = store.getMetadata(owner)
+	m, err = store.GetMetadata(owner)
 	assert.Nil(t, m)
 	assert.NoError(t, err)
 
@@ -135,10 +135,10 @@ func TestKVStore_Metadata(t *testing.T) {
 			},
 		},
 	}
-	err = store.writeMetadata(owner, m)
+	err = store.WriteMetadata(owner, m)
 	assert.NoError(t, err)
 
-	gotM, err := store.getMetadata(owner)
+	gotM, err := store.GetMetadata(owner)
 	assert.NoError(t, err)
 	assert.True(t, proto.Equal(m, gotM))
 
@@ -147,10 +147,10 @@ func TestKVStore_Metadata(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret3",
 	}
-	err = store.addIdToMetadata(newKey)
+	err = store.AddIdToMetadata(newKey)
 	assert.NoError(t, err)
 
-	gotM, err = store.getMetadata(owner)
+	gotM, err = store.GetMetadata(owner)
 	assert.NoError(t, err)
 	assert.Len(t, gotM.SecretIdentifiers, 3)
 }
