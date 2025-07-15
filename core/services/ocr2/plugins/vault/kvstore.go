@@ -21,6 +21,7 @@ type KVStore struct {
 type ReadKVStore interface {
 	GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error)
 	GetMetadata(owner string) (*vault.StoredMetadata, error)
+	GetSecretIdentifiersCountForOwner(owner string) (int, error)
 }
 
 type WriteKVStore interface {
@@ -72,6 +73,19 @@ func (s *KVStore) GetMetadata(owner string) (*vault.StoredMetadata, error) {
 		return nil, fmt.Errorf("failed to unmarshal md: %w", err)
 	}
 	return md, nil
+}
+
+func (s *KVStore) GetSecretIdentifiersCountForOwner(owner string) (int, error) {
+	md, err := s.GetMetadata(owner)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get metadata for owner %s: %w", owner, err)
+	}
+
+	count := 0
+	if md != nil {
+		count = len(md.SecretIdentifiers)
+	}
+	return count, nil
 }
 
 func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) error {

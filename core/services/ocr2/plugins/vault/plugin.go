@@ -107,7 +107,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 			resps := []*vault.SecretResponse{}
 			for _, secretRequest := range tp.Requests {
-				resp, err := r.handleGetSecretRequest(ctx, NewReadStore(keyValueReader), secretRequest)
+				resp, err := r.observeGetSecretsRequest(ctx, NewReadStore(keyValueReader), secretRequest)
 				if err != nil {
 					r.lggr.Errorw("failed to handle get secret request", "id", secretRequest.Id, "error", err)
 					errorMsg := "failed to handle get secret request"
@@ -152,7 +152,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 			resps := []*vault.CreateSecretResponse{}
 			for _, sr := range tp.EncryptedSecrets {
-				validatedId, err := r.handleCreateSecretRequest(ctx, NewReadStore(keyValueReader), sr, requestsCountForId, newSecretsByOwner)
+				validatedId, err := r.observeCreateSecretRequest(ctx, NewReadStore(keyValueReader), sr, requestsCountForId, newSecretsByOwner)
 				if err != nil {
 					r.lggr.Errorw("failed to handle create secret request", "id", sr.Id, "error", err)
 					errorMsg := "failed to handle create secret request"
@@ -266,7 +266,7 @@ func keyFor(id *vault.SecretIdentifier) string {
 	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
 }
 
-func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return nil, err
@@ -333,7 +333,7 @@ func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader Rea
 	}, nil
 }
 
-func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.EncryptedSecret, requestsCountForId map[string]int, newSecretsByOwner map[string]map[string]bool) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.EncryptedSecret, requestsCountForId map[string]int, newSecretsByOwner map[string]map[string]bool) (*vault.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return id, err
@@ -359,42 +359,11 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 		return id, newUserError(fmt.Sprintf("failed to verify ciphertext: %s", err.Error()))
 	}
 
-	secret, err := reader.GetSecret(id)
-	if err != nil {
-		return id, err
-	}
-
-	if secret != nil {
-		return id, newUserError("key already exists")
-	}
-
-	md, err := reader.GetMetadata(id.Owner)
-	if err != nil {
-		return id, err
-	}
-
-	// If the metadata record doesn't exist, we can assume this is the first time
-	// creating a secret for this user and check against the default limit.
-	count := 0
-	if md != nil {
-		count = len(md.SecretIdentifiers)
-	}
-
-	// Check if adding this secret would exceed the max number of secrets allowed per owner.
-	// To do this we need to include the number of secrets that previous observations have agreed to create.
-	newSecretsByOwnerInBatch := len(newSecretsByOwner[id.Owner])
-	if count+newSecretsByOwnerInBatch+1 > r.cfg.MaxSecretsPerOwner {
-		return id, newUserError(fmt.Sprintf("maximum number of secrets per owner reached: %d", r.cfg.MaxSecretsPerOwner))
-	} else {
-		// We're happy to create the secret; let's update our ongoing counter of created secrets.
-		_, ok := newSecretsByOwner[id.Owner]
-		if ok {
-			newSecretsByOwner[id.Owner][keyFor(id)] = true
-		} else {
-			newSecretsByOwner[id.Owner] = map[string]bool{keyFor(id): true}
-		}
-	}
-
+	// Other verifications, such as checking whether the key already exists,
+	// or whether we have hit the limit on the number of secrets per owner,
+	// are done in the StateTransition phase.
+	// This guarantees that we correctly account for changes made in other requests
+	// in the batch.
 	return id, nil
 }
 
@@ -503,6 +472,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
 		}
+
+		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
 	os := &vault.Outcomes{
@@ -664,40 +635,23 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 				resp := idToResps[id]
 				req := idToReqs[id]
-				if resp.GetError() != "" {
-					sortedResps = append(sortedResps, resp)
-					continue
-				}
-
-				encryptedSecret, err := base64.StdEncoding.DecodeString(req.EncryptedValue)
+				resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 				if err != nil {
+					r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "error", err)
+					errorMsg := "failed to handle create secret request"
+					if errors.Is(err, &userError{}) {
+						errorMsg = err.Error()
+					}
 					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      resp.Id,
+						Id:      req.Id,
 						Success: false,
-						Error:   "could not decode secret value: invalid base64",
-					})
-					continue
-				}
-
-				err = store.WriteSecret(req.Id, &vault.StoredSecret{
-					EncryptedSecret: encryptedSecret,
-				})
-				if err != nil {
-					r.lggr.Errorw("failed to write secret to key value store", "error", err, "id", resp.Id)
-					sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-						Id:      resp.Id,
-						Success: false,
-						Error:   "failed to write secret to key value store",
+						Error:   errorMsg,
 					})
 					continue
 				}
 
 				r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id))
-				sortedResps = append(sortedResps, &vault.CreateSecretResponse{
-					Id:      resp.Id,
-					Success: true,
-					Error:   "",
-				})
+				sortedResps = append(sortedResps, resp)
 			}
 
 			o.Response = &vault.Outcome_CreateSecretsResponse{
@@ -719,6 +673,48 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
+}
+
+func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vault.EncryptedSecret, resp *vault.CreateSecretResponse) (*vault.CreateSecretResponse, error) {
+	if resp.GetError() != "" {
+		return resp, nil
+	}
+
+	encryptedSecret, err := base64.StdEncoding.DecodeString(req.EncryptedValue)
+	if err != nil {
+		return nil, newUserError("could not decode secret value: invalid base64")
+	}
+
+	secret, err := store.GetSecret(req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
+	}
+
+	if secret != nil {
+		return nil, newUserError("could not write to key value store: key already exists")
+	}
+
+	count, err := store.GetSecretIdentifiersCountForOwner(req.Id.Owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret identifiers count for owner: %w", err)
+	}
+
+	if count+1 > r.cfg.MaxSecretsPerOwner {
+		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (%d)", req.Id.Owner, r.cfg.MaxSecretsPerOwner))
+	}
+
+	err = store.WriteSecret(req.Id, &vault.StoredSecret{
+		EncryptedSecret: encryptedSecret,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to write secret to key value store: %w", err)
+	}
+
+	return &vault.CreateSecretResponse{
+		Id:      req.Id,
+		Success: true,
+		Error:   "",
+	}, nil
 }
 
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {

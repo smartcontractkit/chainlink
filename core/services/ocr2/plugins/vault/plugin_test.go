@@ -705,7 +705,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Contains(t, resp.GetError(), "duplicate create request for secret identifier")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
+func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -729,34 +729,42 @@ func TestPlugin_Observation_CreateSecretsRequest_CorrectlyTracksLimits(t *testin
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
-		Owner:     "owner",
-		Namespace: "main",
-		Key:       "my_secret",
-	}
+
 	ct, err := tdh2easy.Encrypt(pk, []byte("my secret value"))
 	require.NoError(t, err)
 
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
-	p := &vault.CreateSecretsRequest{
+
+	id1 := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	req1 := &vault.CreateSecretsRequest{
 		RequestId: "req1",
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
-				Id:             id,
+				Id:             id1,
 				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	err = store.Add(&Request{id: "req1", Payload: p})
-	require.NoError(t, err)
+	resp1 := &vault.CreateSecretsResponse{
+		Responses: []*vault.CreateSecretResponse{
+			{
+				Id:      id1,
+				Success: false,
+			},
+		},
+	}
 
 	id2 := &vault.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret2",
 	}
-	p2 := &vault.CreateSecretsRequest{
+	req2 := &vault.CreateSecretsRequest{
 		RequestId: "req2",
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
@@ -765,44 +773,55 @@ func TestPlugin_Observation_CreateSecretsRequest_CorrectlyTracksLimits(t *testin
 			},
 		},
 	}
-	err = store.Add(&Request{id: "req2", Payload: p2})
+	resp2 := &vault.CreateSecretsResponse{
+		Responses: []*vault.CreateSecretResponse{
+			{
+				Id:      id2,
+				Success: false,
+			},
+		},
+	}
+
+	obs := marshalObservations(t, observation{id1, req1, resp1}, observation{id2, req2, resp2})
+
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{
+				Observation: obs,
+			},
+			{
+				Observation: obs,
+			},
+			{
+				Observation: obs,
+			},
+		},
+		rdr,
+		nil,
+	)
 	require.NoError(t, err)
-	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
-	err = proto.Unmarshal(data, obs)
-	require.NoError(t, err)
+	assert.Len(t, os.Outcomes, 2)
 
-	assert.Len(t, obs.Observations, 2)
-	o := obs.Observations[0]
+	o1 := os.Outcomes[0]
+	assert.Equal(t, o1.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Len(t, o1.GetCreateSecretsResponse().Responses, 1)
+	r1 := o1.GetCreateSecretsResponse().Responses[0]
+	assert.True(t, r1.Success)
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
-	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
-
-	batchResp := o.GetCreateSecretsResponse()
-	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
-
-	// This one should be allowed
-	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
-	resp := batchResp.Responses[0]
-	assert.Equal(t, resp.Error, "")
-
-	// This one shouldn't be allowed -- we've already exceeded the limit of 1 secret
-	// for the owner.
-	o = obs.Observations[1]
-
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
-	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p2))
-
-	batchResp = o.GetCreateSecretsResponse()
-	assert.Len(t, p2.EncryptedSecrets, 1)
-	assert.Equal(t, len(p2.EncryptedSecrets), len(batchResp.Responses))
-
-	assert.True(t, proto.Equal(p2.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
-	resp = batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "maximum number of secrets per owner reached")
+	o2 := os.Outcomes[1]
+	assert.Equal(t, o2.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Len(t, o2.GetCreateSecretsResponse().Responses, 1)
+	r2 := o2.GetCreateSecretsResponse().Responses[0]
+	assert.False(t, r2.Success)
+	assert.Contains(t, r2.GetError(), "owner has reached maximum number of secrets")
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
@@ -997,77 +1016,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	assert.Contains(t, resp.GetError(), "failed to verify ciphertext")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
-	}
-
-	seqNr := uint64(1)
-	rdr := &kv{
-		m: make(map[string]response),
-	}
-	id := &vault.SecretIdentifier{
-		Owner:     "owner",
-		Namespace: "main",
-		Key:       "secret",
-	}
-	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("already exists")})
-	require.NoError(t, err)
-
-	ct, err := tdh2easy.Encrypt(pk, []byte("my secret value"))
-	require.NoError(t, err)
-
-	ciphertextBytes, err := ct.Marshal()
-	require.NoError(t, err)
-
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
-			{
-				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
-			},
-		},
-	}
-	err = store.Add(&Request{Payload: p})
-	require.NoError(t, err)
-	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
-	require.NoError(t, err)
-
-	obs := &vault.Observations{}
-	err = proto.Unmarshal(data, obs)
-	require.NoError(t, err)
-
-	assert.Len(t, obs.Observations, 1)
-	o := obs.Observations[0]
-
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
-	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
-
-	batchResp := o.GetCreateSecretsResponse()
-	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
-
-	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
-	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "key already exists")
-}
-
-func TestPlugin_Observation_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
+func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1114,7 +1063,7 @@ func TestPlugin_Observation_CreateSecretsRequest_TooManySecretsForOwner(t *testi
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	p := &vault.CreateSecretsRequest{
+	req := &vault.CreateSecretsRequest{
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
@@ -1122,28 +1071,119 @@ func TestPlugin_Observation_CreateSecretsRequest_TooManySecretsForOwner(t *testi
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	resp := &vault.CreateSecretsResponse{
+		Responses: []*vault.CreateSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+			},
+		},
+	}
+	data, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{
+				Observation: marshalObservations(t, observation{id, req, resp}),
+			},
+		},
+		rdr,
+		nil,
+	)
 	require.NoError(t, err)
-	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(data, os)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
-	err = proto.Unmarshal(data, obs)
+	assert.Len(t, os.Outcomes, 1)
+	o := os.Outcomes[0]
+
+	assert.Len(t, o.GetCreateSecretsResponse().Responses, 1)
+	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "owner has reached maximum number of secrets")
+}
+
+func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	kvstore := NewWriteStore(rdr)
+	err = kvstore.WriteSecret(id, &vault.StoredSecret{
+		EncryptedSecret: []byte("some-ciphertext"),
+	})
 	require.NoError(t, err)
 
-	assert.Len(t, obs.Observations, 1)
-	o := obs.Observations[0]
+	ct, err := tdh2easy.Encrypt(pk, []byte("my secret value"))
+	require.NoError(t, err)
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
-	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
+	ciphertextBytes, err := ct.Marshal()
+	require.NoError(t, err)
 
-	batchResp := o.GetCreateSecretsResponse()
-	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	req := &vault.CreateSecretsRequest{
+		EncryptedSecrets: []*vault.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+			},
+		},
+	}
+	resp := &vault.CreateSecretsResponse{
+		Responses: []*vault.CreateSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+			},
+		},
+	}
+	data, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{
+				Observation: marshalObservations(t, observation{id, req, resp}),
+			},
+		},
+		rdr,
+		nil,
+	)
+	require.NoError(t, err)
 
-	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
-	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "maximum number of secrets per owner reached")
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(data, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+	o := os.Outcomes[0]
+
+	assert.Len(t, o.GetCreateSecretsResponse().Responses, 1)
+	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "key already exists")
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
