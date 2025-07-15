@@ -16,7 +16,7 @@ for interacting with Ethereum contracts.
 ## Features
 
 * Headless API implementation
-* CLI tool providing conveniance commands for node configuration, administration,
+* CLI tool providing convenience commands for node configuration, administration,
   and CRUD object operations (e.g. Jobs, Runs, and even the VRF)
 
 ## Installation
