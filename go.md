@@ -63,6 +63,8 @@ flowchart LR
 	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-framework/metrics
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
+	chainlink-protos
+	click chainlink-protos href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/billing/go --> chainlink-protos/workflows/go
 	click chainlink-protos/billing/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
@@ -84,6 +86,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
+	chainlink/v2 --> chainlink-protos
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
@@ -133,6 +136,7 @@ flowchart LR
 	click chainlink-framework-repo href "https://github.com/smartcontractkit/chainlink-framework"
 
 	subgraph chainlink-protos-repo[chainlink-protos]
+		 chainlink-protos
 		 chainlink-protos/billing/go
 		 chainlink-protos/orchestrator
 		 chainlink-protos/rmn/v1.6/go
@@ -227,6 +231,8 @@ flowchart LR
 	click chainlink-framework/metrics href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/multinode --> chainlink-framework/metrics
 	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
+	chainlink-protos
+	click chainlink-protos href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/billing/go --> chainlink-protos/workflows/go
 	click chainlink-protos/billing/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/job-distributor
@@ -291,6 +297,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
+	chainlink/v2 --> chainlink-protos
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
@@ -355,6 +362,7 @@ flowchart LR
 	click chainlink-framework-repo href "https://github.com/smartcontractkit/chainlink-framework"
 
 	subgraph chainlink-protos-repo[chainlink-protos]
+		 chainlink-protos
 		 chainlink-protos/billing/go
 		 chainlink-protos/job-distributor
 		 chainlink-protos/orchestrator
