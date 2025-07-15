@@ -84,6 +84,7 @@ type Report struct {
 	balance *balanceStore
 	client  BillingClient
 	lggr    logger.Logger
+	metrics *monitoring.WorkflowsMetricLabeler
 
 	// internal state
 	mu    sync.RWMutex
@@ -102,7 +103,7 @@ type Report struct {
 	workflowRegistryChainSelector string
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, workflowRegistryAddress, workflowRegistryChainSelector string) (*Report, error) {
+func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainSelector string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -122,6 +123,7 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		balance: balanceStore,
 		client:  client,
 		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
+		metrics: metrics,
 
 		ready:        false,
 		meteringMode: false,
@@ -378,7 +380,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		for _, detail := range spendDetails {
 			value, err := decimal.NewFromString(detail.SpendValue)
 			if err != nil {
-				r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
 			}
@@ -406,7 +408,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	// Refund the difference between what local balance had been earmarked and the actual spend
 	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
 		// invariant: capability should not let spend exceed reserve
-		r.lggr.Error("invariant: spend exceeded reserve")
+		r.lggr.Info("invariant: spend exceeded reserve")
 	}
 
 	return nil
@@ -447,6 +449,8 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	if r.client == nil {
 		return ErrNoBillingClient
 	}
+
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.meteringMode)
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 

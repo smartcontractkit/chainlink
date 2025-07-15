@@ -92,6 +92,7 @@ jobs:
               - '!nix-darwin-shell-hook.sh'
               - '!LICENSE'
               - '!.github/**'
+              - '!core/scripts/cre/environment/examples/workflows/**'
             all:
               - '**'
 
@@ -107,7 +108,7 @@ jobs:
             echo "module_names=$json_array" >> "$GITHUB_OUTPUT"
           else
             # Ensure the step uses `with.list-files: json` to get the list of files in JSON format
-            bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}'
+            bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}' '["core/scripts/cre/environment/examples/workflows"]'
           fi
 
   golangci:

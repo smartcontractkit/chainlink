@@ -336,6 +336,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 			input.CompiledWorkflowConfig.BinaryURL,
 			&input.CompiledWorkflowConfig.ConfigURL,
 			&input.CompiledWorkflowConfig.SecretsURL,
+			nil, // URLs are HTTP, not file://, so we don't need to pass the artifacts directory inside the container
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to register workflow")

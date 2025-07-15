@@ -2325,7 +2325,7 @@ func MintAndAllow(
 	tokenMap map[uint64][]MintTokenInfo,
 ) {
 	configurePoolGrp := errgroup.Group{}
-	tenCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
+	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
 		mintTokenInfos := mintTokenInfos
@@ -2341,13 +2341,13 @@ func MintAndAllow(
 					tx, err := token.Mint(
 						mintTokenInfo.auth,
 						sender.From,
-						new(big.Int).Mul(tenCoins, big.NewInt(10)),
+						new(big.Int).Mul(allowance, big.NewInt(10)),
 					)
 					require.NoError(t, err)
 					_, err = e.BlockChains.EVMChains()[chain].Confirm(tx)
 					require.NoError(t, err)
 
-					tx, err = token.Approve(sender, state.MustGetEVMChainState(chain).Router.Address(), tenCoins)
+					tx, err = token.Approve(sender, state.MustGetEVMChainState(chain).Router.Address(), allowance)
 					require.NoError(t, err)
 					_, err = e.BlockChains.EVMChains()[chain].Confirm(tx)
 					require.NoError(t, err)
@@ -2521,7 +2521,7 @@ func TransferMultiple(
 			}
 			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
 
-			if _, ok := startBlocks[tt.DestChain]; !ok {
+			if prev, ok := startBlocks[tt.DestChain]; !ok || *blocks[tt.DestChain] < *prev {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
