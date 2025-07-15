@@ -132,7 +132,7 @@ KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.37'
 
 [JobDistributor]
-NopFriendlyName = 'test-node'
+DisplayName = 'test-node'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = true

@@ -8,9 +8,9 @@ type jobDistributorConfig struct {
 	c toml.JobDistributor
 }
 
-func (s jobDistributorConfig) NopFriendlyName() string {
-	if s.c.NopFriendlyName == nil {
+func (s jobDistributorConfig) DisplayName() string {
+	if s.c.DisplayName == nil {
 		return ""
 	}
-	return *s.c.NopFriendlyName
+	return *s.c.DisplayName
 }

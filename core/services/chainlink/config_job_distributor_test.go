@@ -15,5 +15,5 @@ func TestJobDistributorConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	p := cfg.JobDistributor()
-	assert.Equal(t, "test-node", p.NopFriendlyName())
+	assert.Equal(t, "test-node", p.DisplayName())
 }

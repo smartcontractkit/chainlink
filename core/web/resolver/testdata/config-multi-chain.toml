@@ -15,7 +15,7 @@ Level = 'panic'
 JSONConsole = true
 
 [JobDistributor]
-NopFriendlyName = ''
+DisplayName = ''
 
 [JobPipeline]
 [JobPipeline.HTTPRequest]

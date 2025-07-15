@@ -793,7 +793,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 				}
 
 				svc = setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.JobDistributor.NopFriendlyName = testutils.Ptr("nop-friendly-name-test")
+					c.JobDistributor.DisplayName = testutils.Ptr("nop-friendly-name-test")
 				})
 			)
 

@@ -2261,11 +2261,11 @@ func (b *Billing) ValidateConfig() error {
 }
 
 type JobDistributor struct {
-	NopFriendlyName *string
+	DisplayName *string
 }
 
 func (jd *JobDistributor) setFrom(f *JobDistributor) {
-	if f.NopFriendlyName != nil {
-		jd.NopFriendlyName = f.NopFriendlyName
+	if f.DisplayName != nil {
+		jd.DisplayName = f.DisplayName
 	}
 }

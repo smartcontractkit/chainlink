@@ -17,7 +17,7 @@ type FeatureConfig interface {
 }
 
 type JobDistributorConfig interface {
-	NopFriendlyName() string
+	DisplayName() string
 }
 
 type JobConfig interface {

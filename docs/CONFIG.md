@@ -875,15 +875,16 @@ ListenIP specifies the IP to bind the HTTPS server to
 ## JobDistributor
 ```toml
 [JobDistributor]
-NopFriendlyName = "MyDON-Production-01" # Example
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
 ```
 Job Distributor stores the configuration for Job Distributor
 
-### NopFriendlyName
+### DisplayName
 ```toml
-NopFriendlyName = "MyDON-Production-01" # Example
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
 ```
-NopFriendlyName is a friendly name set by the NOP to be shown in Job Distributor.
+DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
+It should uniquely and unambiguously represent the node when communicating with Job Distributor maintainers or operators
 
 ## JobPipeline
 ```toml

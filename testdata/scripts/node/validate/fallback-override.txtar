@@ -279,7 +279,7 @@ KeyPath = ''
 ListenIP = '0.0.0.0'
 
 [JobDistributor]
-NopFriendlyName = ''
+DisplayName = ''
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false

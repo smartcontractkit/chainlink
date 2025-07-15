@@ -385,7 +385,7 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		ChainConfigs:    cfgMsgs,
 		WorkflowKey:     &workflowKey,
 		P2PKeyBundles:   p2pKeysBundles,
-		NopFriendlyName: s.jdCfg.NopFriendlyName(),
+		NopFriendlyName: s.jdCfg.DisplayName(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")

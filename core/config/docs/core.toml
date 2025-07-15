@@ -293,8 +293,9 @@ ListenIP = '0.0.0.0' # Default
 
 # Job Distributor stores the configuration for Job Distributor
 [JobDistributor]
-# NopFriendlyName is a friendly name set by the NOP to be shown in Job Distributor.
-NopFriendlyName = "MyDON-Production-01" # Example
+# DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
+# It should uniquely and unambiguously represent the node when communicating with Job Distributor maintainers or operators
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
 
 [JobPipeline]
 # ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
