@@ -806,6 +806,10 @@ WsURL = "streams.url" # Example
 # RestURL is the REST url for the streams sdk config
 RestURL = "streams.url" # Example
 
+[CRE.WorkflowFetcher]
+# URL is override URL for the workflow fetcher service. 
+URL = '' # Default
+
 # Billing holds settings for connecting to the billing service.
 [Billing]
 # URL is the locator for the Chainlink billing service.

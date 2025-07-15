@@ -1082,7 +1082,19 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
 		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
-		ocrOverride := tc.OCRConfigOverride
+		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			// Commit
+			params.CommitOffChainConfig.RMNEnabled = false
+			// Execute
+			params.ExecuteOffChainConfig.MultipleReportsEnabled = false
+			params.ExecuteOffChainConfig.MaxReportMessages = 1
+			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			params.ExecuteOffChainConfig.MaxCommitReportsToFetch = 1
+			if tc.OCRConfigOverride != nil {
+				tc.OCRConfigOverride(params)
+			}
+			return params
+		}
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
