@@ -300,15 +300,7 @@ Before using CRIB, ensure the following:
 
 7. **Connect VPN** (for AWS provider only)
 
-8. **Start `kubefwd`**
-After initializing CRIB with `crib init` you will need to start kubefwd process to enable connectivity to the kubernetes environment.  It is required for both kind and aws provider.
-
-```bash
-sudo kubefwd -n crib-namespace svc
-```
-
-The command above will enable connectivity to services deployed within `crib-namespace` namespace.
-If you switch the namespace you will need to re-run the command.
+8. **Install `telepresence`**.  CRIB requires telepresence for connecting to the services deployed within a cluster. You can install it with `brew install telepresenceio/telepresence/telepresence-oss` or with [other methods listed here](https://telepresence.io/docs/install/client#install-with-brew)
 
 ---
 

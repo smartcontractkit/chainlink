@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/crib-sdk/crib"
 	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
 	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
+	telepresencev1 "github.com/smartcontractkit/crib-sdk/crib/composite/cluster-services/telepresence/v1"
 	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -85,7 +86,9 @@ func Bootstrap(infraInput *libtypes.InfraInput) error {
 		crib.Namespace(infraInput.CRIB.Namespace),
 		crib.ComponentSet(
 			namespacev1.Component(infraInput.CRIB.Namespace),
-			// todo: add telepresence install here for now
+			telepresencev1.Component(&telepresencev1.Props{
+				Namespace: infraInput.CRIB.Namespace,
+			}),
 		),
 	)
 	_, err := plan.Apply(context.Background())

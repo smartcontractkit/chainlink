@@ -36,9 +36,8 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 
 
 ## Prerequisites For CRIB ###
-1. kubefwd installed: `brew install txn2/tap/kubefwd`
-2. Start the port forward script `sudo ./dynamic-kubefwd.sh <NAMESPACE>`
-
+1. telepresence installed: `brew install telepresenceio/telepresence/telepresence-oss`
+2. Telepresence will update the /etc/resolver configs and will require to enter sudo password the first time you run it
 
 # QUICKSTART
 ```
