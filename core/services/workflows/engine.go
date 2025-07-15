@@ -1312,6 +1312,11 @@ type Config struct {
 	StepTimeout          time.Duration
 	BillingClient        metering.BillingClient
 
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	WorkflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	WorkflowRegistryChainSelector string
+
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
 	RateLimiter *ratelimiter.RateLimiter
@@ -1489,7 +1494,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
 	}
 
 	return engine, nil

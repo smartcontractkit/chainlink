@@ -7,12 +7,14 @@ import (
 	"log"
 	"maps"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -93,9 +95,14 @@ type Report struct {
 	// note: meteringMode == true allows negative balances.
 	meteringMode bool
 	steps        map[string]ReportStep
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient) (*Report, error) {
+func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, workflowRegistryAddress, workflowRegistryChainSelector string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -119,6 +126,9 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		ready:        false,
 		meteringMode: false,
 		steps:        make(map[string]ReportStep),
+
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: workflowRegistryChainSelector,
 	}, nil
 }
 
@@ -138,11 +148,26 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
+	chainSelector, err := strconv.ParseUint(r.workflowRegistryChainSelector, 10, 64)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return nil
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(chainSelector)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return nil
+	}
+
 	req := billing.ReserveCreditsRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             0,
+		WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:              r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:     r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress: r.workflowRegistryAddress,
+		RegistryChainSelector:   selector,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -425,11 +450,27 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
+	chainSelector, err := strconv.ParseUint(r.workflowRegistryChainSelector, 10, 64)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return nil
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(chainSelector)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return nil
+	}
+
 	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Metering:            r.FormatReport(),
+		WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:              r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:     r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress: r.workflowRegistryAddress,
+		RegistryChainSelector:   selector,
+		Metering:                r.FormatReport(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
@@ -499,10 +540,15 @@ type Reports struct {
 	owner      string
 	workflowID string
 	labelMap   map[string]string
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler) *Reports {
+func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainSelector string) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
@@ -512,6 +558,9 @@ func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logg
 		owner:      owner,
 		workflowID: workflowID,
 		labelMap:   labels,
+
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: workflowRegistryChainSelector,
 	}
 }
 
@@ -538,7 +587,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client)
+	report, err := NewReport(labels, s.lggr, s.client, s.workflowRegistryAddress, s.workflowRegistryChainSelector)
 	if err != nil {
 		return nil, err
 	}
