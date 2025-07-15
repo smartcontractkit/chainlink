@@ -11,6 +11,9 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
+// Uncomment to work with local version of crib-sdk
+// replace github.com/smartcontractkit/crib-sdk => ../../../crib-sdk
+
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/ethereum/go-ethereum v1.15.7
