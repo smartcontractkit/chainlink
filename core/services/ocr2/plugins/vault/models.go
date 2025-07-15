@@ -56,7 +56,8 @@ func (r *Request) SendTimeout(ctx context.Context) {
 type Response struct {
 	ID      string
 	Error   string
-	Payload proto.Message
+	Payload []byte
+	Format  string
 }
 
 func (r *Response) RequestID() string {

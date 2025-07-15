@@ -700,7 +700,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
-		ContractTransmitter:          nil, // TODO
+		ContractTransmitter:          vault.NewContractTransmitter(), // TODO
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      nil, // TODO
 		LocalConfig:                  lc,
