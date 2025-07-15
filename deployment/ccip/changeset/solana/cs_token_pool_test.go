@@ -477,7 +477,7 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 	},
 }
 
-func TestAddTokenPoolE2EWitMcms(t *testing.T) {
+func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
@@ -625,7 +625,7 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAddTokenPoolE2EWitMcmsv2(t *testing.T) {
+func TestAddTokenPoolE2EWithMcmsv2(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]

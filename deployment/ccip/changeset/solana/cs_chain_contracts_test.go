@@ -336,9 +336,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
-				Router:    true,
 				FeeQuoter: true,
-				OffRamp:   true,
 			})
 		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
@@ -891,9 +889,7 @@ func TestSetOcr3Active(t *testing.T) {
 	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router:    true,
-			FeeQuoter: true,
-			OffRamp:   true,
+			OffRamp: true,
 		})
 
 	tenv.Env, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
@@ -920,9 +916,7 @@ func TestSetOcr3Candidate(t *testing.T) {
 	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router:    true,
-			FeeQuoter: true,
-			OffRamp:   true,
+			OffRamp: true,
 		})
 
 	tenv.Env, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
