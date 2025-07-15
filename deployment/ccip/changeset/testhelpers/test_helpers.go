@@ -2521,7 +2521,7 @@ func TransferMultiple(
 			}
 			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
 
-			if _, ok := startBlocks[tt.DestChain]; !ok {
+			if prev, ok := startBlocks[tt.DestChain]; !ok || *blocks[tt.DestChain] < *prev {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
