@@ -131,7 +131,7 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 			return []LaneConfig{}
 		}
 
-		lc.generatedLanes = generateRandomLanesWithMinConnectivity(chains, *lc.NumLanes)
+		lc.generatedLanes = generateBidirectionalRandomLanesWithMinConnectivity(chains, *lc.NumLanes)
 
 		return lc.generatedLanes
 
@@ -160,7 +160,7 @@ func generateAnyToAnyLanes(chains []uint64) []LaneConfig {
 	return lanes
 }
 
-func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
+func generateBidirectionalRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
 	if len(chains) <= 1 {
 		// If there's only one chain or none, no lanes can be generated
 		return []LaneConfig{}

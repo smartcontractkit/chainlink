@@ -93,9 +93,10 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	// Setup partial connectivity: A->B, A->C,  B->C, C->D, D->A (cycle)
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainB, false))
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainC, false))
-	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainC, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainA, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainA, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainC, false))
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainD, false))
-	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainA, false))
 
 	// Reload state after adding lanes
 	state, err = stateview.LoadOnchainState(e)
@@ -117,17 +118,17 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	}
 
 	// The test setup creates bidirectional routing for Solana chains:
-	// When adding C->D, it also enables D->C routing capabilities
-	// Expected lanes: A->B, A->C, B->C, C->D, D->A, D->C
+	// Expected lanes: A<->B, A<->C, D<->C
 	require.Equal(t, 6, len(discoveredLanes), "Should discover exactly 6 lanes")
 
 	// Verify specific lanes exist
 	expectedLanes := []crib.LaneConfig{
 		{SourceChain: chainA, DestinationChain: chainB},
 		{SourceChain: chainA, DestinationChain: chainC},
-		{SourceChain: chainB, DestinationChain: chainC},
+		{SourceChain: chainB, DestinationChain: chainA},
+		{SourceChain: chainC, DestinationChain: chainA},
+		{SourceChain: chainD, DestinationChain: chainC},
 		{SourceChain: chainC, DestinationChain: chainD},
-		{SourceChain: chainD, DestinationChain: chainA},
 	}
 
 	for _, expectedLane := range expectedLanes {
@@ -145,15 +146,13 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 
 	// Verify connectivity patterns
 	require.Equal(t, []uint64{chainB, chainC}, laneConfig.GetDestinationChainsForSource(chainA))
-	require.Equal(t, []uint64{chainC}, laneConfig.GetDestinationChainsForSource(chainB))
-	require.Equal(t, []uint64{chainD}, laneConfig.GetDestinationChainsForSource(chainC))
-	// Due to bidirectional Solana routing setup, D can route to both A (explicit) and C (from C->D setup)
-	require.Equal(t, []uint64{chainA, chainC}, laneConfig.GetDestinationChainsForSource(chainD))
+	require.Equal(t, []uint64{chainA}, laneConfig.GetDestinationChainsForSource(chainB))
+	require.Equal(t, []uint64{chainA, chainD}, laneConfig.GetDestinationChainsForSource(chainC))
+	require.Equal(t, []uint64{chainC}, laneConfig.GetDestinationChainsForSource(chainD))
 
-	require.Equal(t, []uint64{chainD}, laneConfig.GetSourceChainsForDestination(chainA))
+	require.Equal(t, []uint64{chainB, chainC}, laneConfig.GetSourceChainsForDestination(chainA))
 	require.Equal(t, []uint64{chainA}, laneConfig.GetSourceChainsForDestination(chainB))
-	// Due to bidirectional Solana routing setup, C can receive from A, B, and D
-	require.Equal(t, []uint64{chainA, chainB, chainD}, laneConfig.GetSourceChainsForDestination(chainC))
+	require.Equal(t, []uint64{chainA, chainD}, laneConfig.GetSourceChainsForDestination(chainC))
 	require.Equal(t, []uint64{chainC}, laneConfig.GetSourceChainsForDestination(chainD))
 }
 
