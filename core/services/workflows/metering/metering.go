@@ -591,7 +591,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client, s.workflowRegistryAddress, s.workflowRegistryChainSelector)
+	report, err := NewReport(labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector)
 	if err != nil {
 		return nil, err
 	}
