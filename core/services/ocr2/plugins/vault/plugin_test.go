@@ -24,16 +24,18 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      nil,
-		privateKeyShare:                nil,
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      nil,
+			PrivateKeyShare:                nil,
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -95,16 +97,18 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			maxIdLen = tc.maxIdLen
 		}
 		r := &ReportingPlugin{
-			lggr:                           lggr,
-			store:                          store,
-			batchSize:                      10,
-			publicKey:                      nil,
-			privateKeyShare:                nil,
-			maxSecretsPerOwner:             1,
-			maxCiphertextLenBytes:          1024,
-			maxIdentifierOwnerLenBytes:     maxIdLen / 3,
-			maxIdentifierNamespaceLenBytes: maxIdLen / 3,
-			maxIdentifierKeyLenBytes:       maxIdLen / 3,
+			lggr:  lggr,
+			store: store,
+			cfg: &ReportingPluginConfig{
+				BatchSize:                      10,
+				PublicKey:                      nil,
+				PrivateKeyShare:                nil,
+				MaxSecretsPerOwner:             1,
+				MaxCiphertextLenBytes:          1024,
+				MaxIdentifierOwnerLenBytes:     maxIdLen / 3,
+				MaxIdentifierNamespaceLenBytes: maxIdLen / 3,
+				MaxIdentifierKeyLenBytes:       maxIdLen / 3,
+			},
 		}
 
 		seqNr := uint64(1)
@@ -150,16 +154,18 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	id := &vault.SecretIdentifier{
@@ -227,16 +233,18 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      nil,
-		privateKeyShare:                nil,
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      nil,
+			PrivateKeyShare:                nil,
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -286,16 +294,18 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	id := &vault.SecretIdentifier{
@@ -360,16 +370,18 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	id := &vault.SecretIdentifier{
@@ -432,16 +444,18 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	id := &vault.SecretIdentifier{
@@ -573,16 +587,18 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			maxIdLen = tc.maxIdLen
 		}
 		r := &ReportingPlugin{
-			lggr:                           lggr,
-			store:                          store,
-			batchSize:                      10,
-			publicKey:                      nil,
-			privateKeyShare:                nil,
-			maxSecretsPerOwner:             1,
-			maxCiphertextLenBytes:          1024,
-			maxIdentifierOwnerLenBytes:     maxIdLen / 3,
-			maxIdentifierNamespaceLenBytes: maxIdLen / 3,
-			maxIdentifierKeyLenBytes:       maxIdLen / 3,
+			lggr:  lggr,
+			store: store,
+			cfg: &ReportingPluginConfig{
+				BatchSize:                      10,
+				PublicKey:                      nil,
+				PrivateKeyShare:                nil,
+				MaxSecretsPerOwner:             1,
+				MaxCiphertextLenBytes:          1024,
+				MaxIdentifierOwnerLenBytes:     maxIdLen / 3,
+				MaxIdentifierNamespaceLenBytes: maxIdLen / 3,
+				MaxIdentifierKeyLenBytes:       maxIdLen / 3,
+			},
 		}
 
 		seqNr := uint64(1)
@@ -626,16 +642,18 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      nil,
-		privateKeyShare:                nil,
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     30,
-		maxIdentifierNamespaceLenBytes: 30,
-		maxIdentifierKeyLenBytes:       30,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      nil,
+			PrivateKeyShare:                nil,
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     30,
+			MaxIdentifierNamespaceLenBytes: 30,
+			MaxIdentifierKeyLenBytes:       30,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -693,16 +711,18 @@ func TestPlugin_Observation_CreateSecretsRequest_CorrectlyTracksLimits(t *testin
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     30,
-		maxIdentifierNamespaceLenBytes: 30,
-		maxIdentifierKeyLenBytes:       30,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     30,
+			MaxIdentifierNamespaceLenBytes: 30,
+			MaxIdentifierKeyLenBytes:       30,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -789,16 +809,18 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      nil,
-		privateKeyShare:                nil,
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      nil,
+			PrivateKeyShare:                nil,
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -847,16 +869,18 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      nil,
-		privateKeyShare:                nil,
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          10,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      nil,
+			PrivateKeyShare:                nil,
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          10,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -911,16 +935,18 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -977,16 +1003,18 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretExistsForKey(t *testing.T
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1045,16 +1073,18 @@ func TestPlugin_Observation_CreateSecretsRequest_TooManySecretsForOwner(t *testi
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1122,16 +1152,18 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:                           lggr,
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1235,19 +1267,21 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1305,19 +1339,21 @@ func TestPlugin_StateTransition_InvalidObservations(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1385,19 +1421,21 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1464,19 +1502,21 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1537,19 +1577,21 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1673,19 +1715,21 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	seqNr := uint64(1)
@@ -1840,19 +1884,21 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr: lggr,
-		config: ocr3types.ReportingPluginConfig{
+		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
 		},
-		store:                          store,
-		batchSize:                      10,
-		publicKey:                      pk,
-		privateKeyShare:                shares[0],
-		maxSecretsPerOwner:             1,
-		maxCiphertextLenBytes:          1024,
-		maxIdentifierOwnerLenBytes:     100,
-		maxIdentifierNamespaceLenBytes: 100,
-		maxIdentifierKeyLenBytes:       100,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                      10,
+			PublicKey:                      pk,
+			PrivateKeyShare:                shares[0],
+			MaxSecretsPerOwner:             1,
+			MaxCiphertextLenBytes:          1024,
+			MaxIdentifierOwnerLenBytes:     100,
+			MaxIdentifierNamespaceLenBytes: 100,
+			MaxIdentifierKeyLenBytes:       100,
+		},
 	}
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)

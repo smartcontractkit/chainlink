@@ -36,47 +36,44 @@ var (
 	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
 
-func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) *ReportingPluginFactory {
+type ReportingPluginConfig struct {
+	BatchSize                      int
+	PublicKey                      *tdh2easy.PublicKey
+	PrivateKeyShare                *tdh2easy.PrivateShare
+	MaxSecretsPerOwner             int
+	MaxCiphertextLenBytes          int
+	MaxIdentifierKeyLenBytes       int
+	MaxIdentifierOwnerLenBytes     int
+	MaxIdentifierNamespaceLenBytes int
+}
+
+func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], cfg *ReportingPluginConfig) *ReportingPluginFactory {
 	return &ReportingPluginFactory{
-		lggr:            lggr,
-		store:           store,
-		batchSize:       defaultBatchSize, // TODO fetch from onchain config
-		publicKey:       publicKey,
-		privateKeyShare: privateKeyShare,
+		lggr:  lggr,
+		store: store,
+		cfg:   cfg,
 	}
 }
 
 type ReportingPluginFactory struct {
-	lggr            logger.Logger
-	store           *requests.Store[*Request]
-	batchSize       int
-	publicKey       *tdh2easy.PublicKey
-	privateKeyShare *tdh2easy.PrivateShare
+	lggr  logger.Logger
+	store *requests.Store[*Request]
+	cfg   *ReportingPluginConfig
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	return &ReportingPlugin{
-		lggr:            r.lggr.Named("ReportingPlugin"),
-		store:           r.store,
-		batchSize:       r.batchSize,
-		config:          config,
-		publicKey:       r.publicKey,
-		privateKeyShare: r.privateKeyShare,
+		lggr:  r.lggr.Named("ReportingPlugin"),
+		store: r.store,
+		cfg:   r.cfg,
 	}, ocr3_1types.ReportingPluginInfo{}, nil
 }
 
 type ReportingPlugin struct {
-	lggr                           logger.Logger
-	store                          *requests.Store[*Request]
-	batchSize                      int
-	config                         ocr3types.ReportingPluginConfig
-	publicKey                      *tdh2easy.PublicKey
-	privateKeyShare                *tdh2easy.PrivateShare
-	maxSecretsPerOwner             int
-	maxCiphertextLenBytes          int
-	maxIdentifierKeyLenBytes       int
-	maxIdentifierOwnerLenBytes     int
-	maxIdentifierNamespaceLenBytes int
+	lggr       logger.Logger
+	store      *requests.Store[*Request]
+	onchainCfg ocr3types.ReportingPluginConfig
+	cfg        *ReportingPluginConfig
 }
 
 func (r *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Query, error) {
@@ -87,7 +84,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Note: this could mean that we end up processing more than `batchSize` requests
 	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
 	// guaranteed to fetch the same requests.
-	batch, err := r.store.FirstN(r.batchSize)
+	batch, err := r.store.FirstN(r.cfg.BatchSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
@@ -227,16 +224,16 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (
 		Namespace: namespace,
 	}
 
-	if len(id.Owner) > r.maxIdentifierOwnerLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.maxIdentifierOwnerLenBytes))
+	if len(id.Owner) > r.cfg.MaxIdentifierOwnerLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.cfg.MaxIdentifierOwnerLenBytes))
 	}
 
-	if len(id.Namespace) > r.maxIdentifierNamespaceLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.maxIdentifierNamespaceLenBytes))
+	if len(id.Namespace) > r.cfg.MaxIdentifierNamespaceLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.cfg.MaxIdentifierNamespaceLenBytes))
 	}
 
-	if len(id.Key) > r.maxIdentifierKeyLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.maxIdentifierKeyLenBytes))
+	if len(id.Key) > r.cfg.MaxIdentifierKeyLenBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.cfg.MaxIdentifierKeyLenBytes))
 	}
 	return newId, nil
 }
@@ -282,12 +279,12 @@ func (r *ReportingPlugin) handleGetSecretRequest(ctx context.Context, reader Rea
 	}
 
 	ct := &tdh2easy.Ciphertext{}
-	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.publicKey)
+	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.cfg.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
 	}
 
-	share, err := tdh2easy.Decrypt(ct, r.privateKeyShare)
+	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate decryption share: %w", err)
 	}
@@ -349,12 +346,12 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 		return id, newUserError(fmt.Sprintf("invalid base64 encoding for ciphertext: %s", err.Error()))
 	}
 
-	if len(rawCiphertextB) > r.maxCiphertextLenBytes {
-		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.maxCiphertextLenBytes))
+	if len(rawCiphertextB) > r.cfg.MaxCiphertextLenBytes {
+		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.cfg.MaxCiphertextLenBytes))
 	}
 
 	ct := &tdh2easy.Ciphertext{}
-	err = ct.UnmarshalVerify(rawCiphertextB, r.publicKey)
+	err = ct.UnmarshalVerify(rawCiphertextB, r.cfg.PublicKey)
 	if err != nil {
 		return id, newUserError(fmt.Sprintf("failed to verify ciphertext: %s", err.Error()))
 	}
@@ -383,8 +380,8 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 	// Check if adding this secret would exceed the max number of secrets allowed per owner.
 	// To do this we need to include the number of secrets that previous observations have agreed to create.
 	newSecretsByOwnerInBatch := len(newSecretsByOwner[id.Owner])
-	if count+newSecretsByOwnerInBatch+1 > r.maxSecretsPerOwner {
-		return id, newUserError(fmt.Sprintf("maximum number of secrets per owner reached: %d", r.maxSecretsPerOwner))
+	if count+newSecretsByOwnerInBatch+1 > r.cfg.MaxSecretsPerOwner {
+		return id, newUserError(fmt.Sprintf("maximum number of secrets per owner reached: %d", r.cfg.MaxSecretsPerOwner))
 	} else {
 		// We're happy to create the secret; let's update our ongoing counter of created secrets.
 		_, ok := newSecretsByOwner[id.Owner]
@@ -403,7 +400,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 }
 
 func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) (quorumReached bool, err error) {
-	return quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.config.N, r.config.F, aos), nil
+	return quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.onchainCfg.N, r.onchainCfg.F, aos), nil
 }
 
 func shaForProto(msg proto.Message) (string, error) {
@@ -521,7 +518,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// Once we have it, we can break, as mathematically only one
 		// sha can reach at least 2F+1 observaions.
 		chosen := []*vault.Observation{}
-		threshold := 2*r.config.F + 1
+		threshold := 2*r.onchainCfg.F + 1
 		for sha, obs := range shaToObs {
 			if len(obs) >= threshold {
 				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", threshold, "id", id)
