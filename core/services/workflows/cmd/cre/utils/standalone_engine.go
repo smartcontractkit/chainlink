@@ -95,8 +95,6 @@ func NewStandaloneEngine(
 		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
 	}
 
-	dontimeStore := dontime.NewStore(dontime.DefaultRequestTimeout)
-
 	if module.IsLegacyDAG() {
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
@@ -110,7 +108,6 @@ func NewStandaloneEngine(
 			WorkflowOwner:        defaultOwner,
 			WorkflowName:         name,
 			Registry:             registry,
-			DonTimeStore:         dontimeStore,
 			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 			Config:               config,
 			Binary:               binary,
@@ -140,7 +137,7 @@ func NewStandaloneEngine(
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     registry,
-		DonTimeStore:    dontimeStore,
+		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
