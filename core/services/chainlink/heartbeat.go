@@ -44,7 +44,6 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 
 // Update the constructor to accept optional emitter and meter
 func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
-	lggr := logger.Sugared(cfg.Lggr).Named("Heartbeat")
 	// setup default emitter and meter
 	cme := custmsg.NewLabeler()
 	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
@@ -71,7 +70,7 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	h.Service, h.eng = commonservices.Config{
 		Name:  "Heartbeat",
 		Start: h.start,
-	}.NewServiceEngine(lggr)
+	}.NewServiceEngine(cfg.Lggr)
 	return h
 }
 
