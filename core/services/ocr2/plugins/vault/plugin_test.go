@@ -789,15 +789,9 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 		seqNr,
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
-			{
-				Observation: obs,
-			},
-			{
-				Observation: obs,
-			},
-			{
-				Observation: obs,
-			},
+			{Observation: obs},
+			{Observation: obs},
+			{Observation: obs},
 		},
 		rdr,
 		nil,
@@ -1439,6 +1433,25 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	)
 
 	assert.ErrorContains(t, err, "failed to unmarshal observations")
+
+	// Invalid observation -- a single observation set has observations for multiple request ids
+	correctResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: id1,
+			},
+		},
+	}
+	obsb = marshalObservations(t, observation{id1, req, correctResp}, observation{id1, req, correctResp})
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observation: types.Observation(obsb)},
+		kv,
+		nil,
+	)
+	assert.ErrorContains(t, err, "invalid observation: a single observation cannot contain duplicate observations for the same request id")
 }
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
@@ -1574,12 +1587,14 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 		},
 	}
 
-	obsb := marshalObservations(t, observation{id, req, resp}, observation{id, req, resp}, observation{id, req, resp})
+	obsb := marshalObservations(t, observation{id, req, resp})
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
 			{Observation: types.Observation(obsb)},
 		}, kv, nil)
 	require.NoError(t, err)
@@ -1693,13 +1708,17 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		},
 	}
 
-	obsb := marshalObservations(t, observation{id, req, resp1}, observation{id, req, resp2}, observation{id, req, resp3})
+	obsb1 := marshalObservations(t, observation{id, req, resp1})
+	obsb2 := marshalObservations(t, observation{id, req, resp2})
+	obsb3 := marshalObservations(t, observation{id, req, resp3})
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
-			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb1)},
+			{Observation: types.Observation(obsb2)},
+			{Observation: types.Observation(obsb3)},
 		}, kv, nil)
 	require.NoError(t, err)
 
@@ -1790,12 +1809,14 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 		},
 	}
 
-	obsb := marshalObservations(t, observation{id, req, resp}, observation{id, req, resp}, observation{id, req, resp})
+	obsb := marshalObservations(t, observation{id, req, resp})
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
 			{Observation: types.Observation(obsb)},
 		}, kv, nil)
 	require.NoError(t, err)

@@ -373,10 +373,18 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return errors.New("failed to unmarshal observations: " + err.Error())
 	}
 
+	seen := map[string]bool{}
 	for _, o := range obs.Observations {
 		err := validateObservation(o)
 		if err != nil {
 			return errors.New("invalid observation: " + err.Error())
+		}
+
+		_, ok := seen[o.Id]
+		if ok {
+			return errors.New("invalid observation: a single observation cannot contain duplicate observations for the same request id")
+		} else {
+			seen[o.Id] = true
 		}
 	}
 
