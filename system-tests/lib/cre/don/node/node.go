@@ -67,6 +67,7 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 		}
 		if i <= bootstrapNodeCount {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
+				DONName:     prefix,
 				IsBootstrap: true,
 				Name:        fmt.Sprintf("%s_bootstrap-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),
@@ -82,6 +83,7 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 			})
 		} else {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
+				DONName:     prefix,
 				IsBootstrap: false,
 				Name:        fmt.Sprintf("%s_node-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),

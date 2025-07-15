@@ -53,6 +53,7 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
+	DONName       string                   // name of the DON to which the node belongs, used to identify the node within JD
 	CLConfig      clclient.ChainlinkConfig // config to connect to chainlink node via API
 	P2PPort       string                   // port for P2P communication
 	IsBootstrap   bool                     // denotes if the node is a bootstrap node
@@ -163,6 +164,12 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
 				Value: ptr(LabelNodeTypeValuePlugin),
+			}, &ptypes.Label{
+				Key: LabelEnvironmentKey, Value: ptr("local"),
+			}, &ptypes.Label{
+				Key: LabelProductKey, Value: ptr("keystone"),
+			}, &ptypes.Label{
+				Key: "don-" + info.DONName, Value: ptr("true"),
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
