@@ -2165,6 +2165,7 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
+HeartbeatInterval = '1s' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2219,6 +2220,12 @@ EmitterExportTimeout sets timeout for exporting telemetry events
 ChipIngressEndpoint = '' # Default
 ```
 ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
+
+### HeartbeatInterval
+```toml
+HeartbeatInterval = '1s' # Default
+```
+HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 
 ## Telemetry.ResourceAttributes
 ```toml

@@ -20,7 +20,6 @@ type Heartbeat struct {
 	commonservices.Service
 	eng *commonservices.Engine
 
-	lggr    logger.Logger
 	opts    HeartbeatConfig
 	beat    time.Duration
 	emitter custmsg.MessageEmitter // Add emitter field
