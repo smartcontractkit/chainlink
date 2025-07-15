@@ -74,7 +74,7 @@ func TestScripts(t *testing.T) {
 				Dir:             path,
 				Setup:           commonEnv(t),
 				ContinueOnError: true,
-				UpdateScripts:   true, // uncomment to update golden files
+				// UpdateScripts:   true, // uncomment to update golden files
 			})
 		})
 		return nil
