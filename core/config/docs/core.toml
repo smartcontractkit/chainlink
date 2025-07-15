@@ -294,7 +294,7 @@ ListenIP = '0.0.0.0' # Default
 # Job Distributor stores the configuration for Job Distributor
 [JobDistributor]
 # DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
-# It should uniquely and unambiguously represent the node when communicating with Job Distributor maintainers or operators
+# It should uniquely and unambiguously represent the node for clear communication between Job Distributor maintainers/operators ↔ NOPs.
 DisplayName = "cre-workflow-1-chainlinklabs" # Example
 
 [JobPipeline]

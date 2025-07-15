@@ -884,7 +884,7 @@ Job Distributor stores the configuration for Job Distributor
 DisplayName = "cre-workflow-1-chainlinklabs" # Example
 ```
 DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
-It should uniquely and unambiguously represent the node when communicating with Job Distributor maintainers or operators
+It should uniquely and unambiguously represent the node for clear communication between Job Distributor maintainers/operators ↔ NOPs.
 
 ## JobPipeline
 ```toml
