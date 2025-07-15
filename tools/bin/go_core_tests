@@ -4,41 +4,51 @@ set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
-EXTRA_FLAGS="-timeout 16m"
+JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
+GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+
+echo "Installing gotestsum..."
+go install gotest.tools/gotestsum@v1.12.3
+PATH=$PATH:$(go env GOPATH)/bin
+export PATH
 
 echo "Running go_core_tests for event: $GITHUB_EVENT_NAME"
+GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+  GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
+elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
+  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
+  RERUN_FLAGS="--rerun-fails-abort-on-data-race --rerun-fails=3"
+fi
 
-if [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == "merge_group" || "$GITHUB_EVENT_NAME" == "push" ]]; then
-  go install gotest.tools/gotestsum@v1.12.3
-  PATH=$PATH:$(go env GOPATH)/bin
-  export PATH
+if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
+  JUNIT_FLAG="--junitfile=$JUNIT_FILE"
+fi
 
-  gotestsum \
-    --format='standard-quiet' \
-    --rerun-fails-abort-on-data-race \
-    --rerun-fails='3' \
-    --packages='./...' \
-    --jsonfile "$OUTPUT_FILE"
+echo "Using GO_TEST_FLAGS: $GO_TEST_FLAGS"
+echo "Using RERUN_FLAGS: $RERUN_FLAGS"
+echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 
-  EXITCODE=${PIPESTATUS[0]}
-else
-  if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-    EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
-  fi
+echo "Test execution results: ---------------------"
+echo ""
 
-  echo "Test execution results: ---------------------"
-  echo ""
+gotestsum \
+  --format='standard-quiet' \
+  $RERUN_FLAGS \
+  --packages='./...' \
+  --jsonfile "$OUTPUT_FILE" \
+  "$JUNIT_FLAG" \
+  -- $GO_TEST_FLAGS
 
-  go test $EXTRA_FLAGS $1 | tee "$OUTPUT_FILE" | grep -Ev '\[no test files\]|\[no tests to run\]'
-  EXITCODE=${PIPESTATUS[0]}
+EXITCODE=${PIPESTATUS[0]}
 
-  # Assert no known sensitive strings present in test logger output
-  printf "\n----------------------------------------------\n\n"
-  echo "Beginning check of output logs for sensitive strings"
-  $SCRIPT_PATH/scrub_logs $OUTPUT_FILE
-  if [[ $? != 0 ]]; then
-    exit 1
-  fi
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
 fi
 
 echo "Exit code: $EXITCODE"
@@ -47,5 +57,4 @@ if [[ $EXITCODE != 0 ]]; then
 else
   echo "All tests passed!"
 fi
-echo "go_core_tests exiting with code $EXITCODE"
 exit $EXITCODE
