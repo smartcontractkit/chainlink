@@ -74,7 +74,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		ExecutionRateLimiter:          rateLimiter,
 		BeholderEmitter:               &noopBeholderEmitter{},
 		BillingClient:                 metmocks.NewBillingClient(t),
-		WorkflowRegistryAddress:       "0x1234567890123456789012345678901234567890",
+		WorkflowRegistryAddress:       "0x123",
 		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}
 }
