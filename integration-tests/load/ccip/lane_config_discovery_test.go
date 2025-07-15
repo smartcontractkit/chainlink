@@ -119,7 +119,7 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 
 	// The test setup creates bidirectional routing for Solana chains:
 	// Expected lanes: A<->B, A<->C, D<->C
-	require.Equal(t, 6, len(discoveredLanes), "Should discover exactly 6 lanes")
+	require.Len(t, len(discoveredLanes), 6, "Should have 6 connected chains")
 
 	// Verify specific lanes exist
 	expectedLanes := []crib.LaneConfig{
