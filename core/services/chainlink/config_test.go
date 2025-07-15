@@ -589,6 +589,9 @@ func TestConfig_Marshal(t *testing.T) {
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
 		},
+		WorkflowFetcher: &toml.WorkflowFetcherConfig{
+			URL: ptr("https://workflow.fetcher.url"),
+		},
 	}
 	full.Billing = toml.Billing{
 		URL: ptr("localhost:4319"),

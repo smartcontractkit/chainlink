@@ -136,6 +136,9 @@ packages:
     interfaces:
       Handler:
       DON:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2:
+    interfaces:
+      HTTPTriggerHandler:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist:
     interfaces:
       OnchainAllowlist:
