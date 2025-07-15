@@ -742,7 +742,6 @@ func (d *Delegate) newDonTimePlugin(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 ) (srvs []job.ServiceCtx, err error) {
-	// TODO: Create and deploy DonTime Job Spec https://smartcontract-it.atlassian.net/browse/CAPPL-944
 	spec := jb.OCR2OracleSpec
 
 	cfg := &dontimeCfg.Config{}

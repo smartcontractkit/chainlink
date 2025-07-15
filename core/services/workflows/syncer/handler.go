@@ -523,7 +523,6 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			WorkflowOwner:  owner, // this gets hex encoded in the engine.
 			WorkflowName:   name,
 			Registry:       h.capRegistry,
-			DonTimeStore:   h.dontimeStore,
 			Store:          h.workflowStore,
 			Config:         config,
 			Binary:         binary,
