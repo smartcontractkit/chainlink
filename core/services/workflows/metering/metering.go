@@ -187,7 +187,7 @@ func (r *Report) ConvertToBalance(fromUnit string, amount decimal.Decimal) (deci
 	bal, err := r.balance.ConvertToBalance(fromUnit, amount)
 	if err != nil {
 		// Fail open, continue optimistically
-		r.switchToMeteringMode(err)
+		r.switchToMeteringMode(fmt.Errorf("failed to convert to balance [%s]: %w", fromUnit, err))
 	}
 
 	return bal, nil
@@ -228,6 +228,9 @@ func (r *Report) CreditToSpendingLimits(
 	config *values.Map,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.meteringMode {
 		return []capabilities.SpendLimit{}
 	}
@@ -265,7 +268,7 @@ func (r *Report) CreditToSpendingLimits(
 		// use rate card to convert capSpendLimit to native units
 		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
 		if err != nil {
-			r.switchToMeteringMode(err)
+			r.switchToMeteringMode(fmt.Errorf("attempted to create spending limits [%s]: %w", spendType, err))
 
 			return []capabilities.SpendLimit{}
 		}
@@ -361,7 +364,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		aggregateSpend := medianSpend(deciVals)
 		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
 		if err != nil {
-			r.switchToMeteringMode(err)
+			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
 		}
 
 		spentCredits = spentCredits.Add(bal)
@@ -451,6 +454,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 
 func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Errorf("switching to metering mode: %s", err)
+
 	r.meteringMode = true
 	r.ready = true
 }

@@ -127,7 +127,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		log,
 		headTracker,
 		lpOpts)
-	assert.NoError(t, orm.InsertBlock(ctx, common.Hash{}, 1, time.Now(), 1))
+	require.NoError(t, orm.InsertBlock(ctx, common.Hash{}, 1, time.Now(), 1, 1))
 	// Setup offRamp.
 	var offRampAddress common.Address
 	switch version {

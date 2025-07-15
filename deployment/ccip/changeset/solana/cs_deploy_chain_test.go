@@ -35,8 +35,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
-	NewSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
+	OldSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
+	NewSha = "ee587a6c056204009310019b790ed6d474825316"
 )
 
 func verifyProgramSizes(t *testing.T, e cldf.Environment) {
@@ -126,6 +126,13 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey.String(),
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.ExtendGlobalLookupTableChangeset),
+			ccipChangesetSolana.ExtendGlobalLookupTableConfig{
+				ChainSelector:   solChainSelectors[0],
+				LookupTableKeys: []solana.PublicKey{feeAggregatorPubKey, solLinkTokenPrivKey.PublicKey()}, // just add some random keys
 			},
 		),
 	}

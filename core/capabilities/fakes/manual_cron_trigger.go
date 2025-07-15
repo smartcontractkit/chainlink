@@ -37,7 +37,7 @@ type ManualCronTriggerService struct {
 	capabilities.CapabilityInfo
 	config           ManualCronConfig
 	lggr             logger.Logger
-	callbackCh       chan capabilities.TriggerAndId[*crontypedapi.Payload]
+	callbackCh       map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 }
 
@@ -48,7 +48,7 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 		CapabilityInfo:   manualCronTriggerInfo,
 		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
-		callbackCh:       make(chan capabilities.TriggerAndId[*crontypedapi.Payload]),
+		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	}
 }
@@ -86,7 +86,8 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string
 }
 
 func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], error) {
-	return f.callbackCh, nil
+	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload])
+	return f.callbackCh[triggerID], nil
 }
 
 func (f *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) error {
@@ -101,12 +102,12 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 	return nil
 }
 
-func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, scheduledExecutionTime time.Time) error {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, scheduledExecutionTime time.Time) error {
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
 
 	go func() {
 		select {
-		case f.callbackCh <- f.createManualTriggerEvent(scheduledExecutionTime):
+		case f.callbackCh[triggerID] <- f.createManualTriggerEvent(scheduledExecutionTime):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine

@@ -55,28 +55,56 @@ var (
 	ErrJobAlreadyExists      = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
 	ErrFeedsManagerDisabled  = errors.New("feeds manager is disabled")
 
-	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
+	promFeedsJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
+		Help: "Deprecated. Use job_proposal_requests",
+	})
+
+	promFeedsWorkflowRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_requests",
+		Help: "Deprecated. Use feeds_workflow_requests",
+	})
+
+	promFeedsWorkflowApprovals = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_approvals",
+		Help: "Deprecated. Use feeds_workflow_approvals",
+	})
+
+	promFeedsWorkflowFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_workflow_rejections",
+		Help: "Deprecated. Use feeds_workflow_rejections",
+	})
+
+	promFeedsJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "feeds_job_proposal_count",
+		Help: "Deprecated. Use job_proposal_count",
+	}, []string{
+		// Job Proposal status
+		"status",
+	})
+
+	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "job_proposal_requests",
 		Help: "Metric to track job proposal requests",
 	})
 
 	promWorkflowRequests = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "feeds_workflow_requests",
+		Name: "workflow_requests",
 		Help: "Metric to track workflow requests",
 	})
 
 	promWorkflowApprovals = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "feeds_workflow_approvals",
+		Name: "workflow_approvals",
 		Help: "Metric to track workflow successful auto approvals",
 	})
 
 	promWorkflowFailures = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "feeds_workflow_rejections",
+		Name: "workflow_rejections",
 		Help: "Metric to track workflow failed auto approvals",
 	})
 
 	promJobProposalCounts = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "feeds_job_proposal_count",
+		Name: "job_proposal_count",
 		Help: "Number of job proposals for the node partitioned by status.",
 	}, []string{
 		// Job Proposal status
@@ -747,17 +775,21 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// auto approve workflow specs
 	if isWFSpec(logger, args.Spec) {
 		promWorkflowRequests.Inc()
+		promFeedsWorkflowRequests.Inc()
 		err = s.ApproveSpec(ctx, specID, true)
 		if err != nil {
 			promWorkflowFailures.Inc()
+			promFeedsWorkflowFailures.Inc()
 			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
 			return 0, fmt.Errorf("failed to approve workflow spec %d: %w", id, err)
 		}
 		logger.Infow("Successful workflow spec auto approval", "id", id)
 		promWorkflowApprovals.Inc()
+		promFeedsWorkflowApprovals.Inc()
 	} else {
 		// Track the given job proposal request
 		promJobProposalRequest.Inc()
+		promFeedsJobProposalRequest.Inc()
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
@@ -1268,6 +1300,7 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 		status := status
 
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
+		promFeedsJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
 	}
 
 	return nil

@@ -3,6 +3,11 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
@@ -14,6 +19,11 @@ on:
         default: "develop"
   workflow_call:
     inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
@@ -26,7 +36,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -59,7 +69,7 @@ jobs:
           tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
           tests=$(echo $tests | jq -c .)
 
-          echo "matrix=$tests" >> $GITHUB_OUTPUT
+          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
     permissions:
@@ -108,15 +118,6 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Setup GitHub token using GATI
-        id: setup-gati-token
-        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-duration-seconds: "1800"
-
       # gotestloghelper gives us pretty test output
       - name: Set Up gotestloghelper
         shell: bash
@@ -125,11 +126,14 @@ jobs:
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
       - name: Download test dependencies
-        shell: bash
-        working-directory: system-tests/tests/smoke/cre/cmd
-        env:
-          GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token }}
-        run: ./download_cre_ci_deps.sh 3
+        uses: ./.github/actions/setup-cre-e2e-test-dependencies
+        with:
+          cre-cli-version: "v0.2.0"
+          capability-version: "v1.0.2-alpha"
+          capability-names: "cron"
+          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          gati-region: ${{ secrets.AWS_REGION }}
 
       # TODO
       # Add Flakeguard support
@@ -141,7 +145,7 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.test_config }}
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -160,4 +164,4 @@ jobs:
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
-             /tmp/gotest.log
+            /tmp/gotest.log

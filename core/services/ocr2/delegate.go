@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -30,6 +31,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -549,7 +551,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 
 	case types.VaultPlugin:
-		return d.newServicesVaultPlugin(ctx, lggr, jb, d.gatewayConnectorServiceWrapper)
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -611,6 +613,11 @@ func (d *Delegate) newServicesVaultPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	capabilitiesRegistry core.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
@@ -621,23 +628,104 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
 	}
 
+	if wrapper == nil {
+		return nil, errors.New("failed to instantiate vault plugin: gateway service wrapper is not configured")
+	}
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	service := vault.NewService()
+	store := requests.NewStore[*vault.Request]()
+	service := vault.NewService(
+		lggr,
+		store,
+		clockwork.NewRealClock(),
+		cfg.RequestExpiryDuration,
+	)
+	srvs = append(srvs, service)
 
-	handler := vault.NewHandler(service, gwconnector, d.lggr)
+	err = capabilitiesRegistry.Add(ctx, service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
+	}
+
+	handler, err := vault.NewHandler(service, gwconnector, d.lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
+	}
 	if err = handler.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
 	}
+	srvs = append(srvs, handler)
 
 	if err := gwconnector.AddHandler(ctx, []string{vault.ConnectorMethod}, handler); err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", err)
 	}
 
-	return []job.ServiceCtx{service, handler}, nil
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: string(types.VaultPlugin), Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.VaultPlugin),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.VaultPlugin),
+	)
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          nil, // TODO
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(store)
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(

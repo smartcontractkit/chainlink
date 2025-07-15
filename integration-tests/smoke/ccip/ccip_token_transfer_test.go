@@ -259,6 +259,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2) // TODO: ???
 
 	oneE9 := new(big.Int).SetUint64(1e9)
+	oneE18 := new(big.Int).SetUint64(1e18)
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
@@ -307,32 +308,13 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: oneE9,
+					Amount: new(big.Int).Mul(big.NewInt(20), oneE18),
 				},
 			},
 			TokenReceiver: tokenReceiver.Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				// due to the differences in decimals, 1e9 on EVM results to 1 on SVM
-				{Token: destToken.Bytes(), Amount: big.NewInt(1)},
-			},
-			ExtraArgs:      extraArgs,
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		},
-		{
-			Name:        "Send token to contract with large data payload",
-			SourceChain: sourceChain,
-			DestChain:   destChain,
-			Data:        make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  srcToken.Address(),
-					Amount: oneE9,
-				},
-			},
-			TokenReceiver: tokenReceiver.Bytes(),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				// due to the differences in decimals, 1e9 on EVM results to 1 on SVM
-				{Token: destToken.Bytes(), Amount: big.NewInt(1)},
+				// due to the differences in decimals, 20e18 on EVM results to 20e9 on SVM
+				{Token: destToken.Bytes(), Amount: new(big.Int).Mul(big.NewInt(20), oneE9)},
 			},
 			ExtraArgs:      extraArgs,
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,

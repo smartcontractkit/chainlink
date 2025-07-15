@@ -370,6 +370,9 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
+[CRE.WorkflowFetcher]
+URL = ''
+
 [Billing]
 URL = 'localhost:4319'
 

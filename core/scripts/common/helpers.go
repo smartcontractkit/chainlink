@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
+	"github.com/umbracle/fastrlp"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -221,6 +222,10 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 324: // zkSync mainnet
 		prefix = "https://explorer.zksync.io"
 
+	case RoninChainID:
+		prefix = "https://app.roninchain.com"
+	case RoninSaigonChainID:
+		prefix = "https://saigon-app.roninchain.com"
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
 	}
@@ -475,99 +480,121 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
 func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
-	hashes = make([]string, 0)
+	headers = make([][]byte, len(blockNumbers))
+	hashes = make([]string, len(blockNumbers))
 
 	offset := big.NewInt(0)
 	if getParentBlocks {
 		offset = big.NewInt(1)
 	}
 
-	headers = [][]byte{}
-	var rlpHeader []byte
-	for _, blockNum := range blockNumbers {
-		// Avalanche block headers are special, handle them by using the avalanche rpc client
-		// rather than the regular go-ethereum ethclient.
-		if IsAvaxNetwork(env.ChainID) {
-			var h AvaHeader
+	batchElems := make([]rpc.BatchElem, len(blockNumbers))
+	switch {
+	case IsAvaxNetwork(env.ChainID):
+		return getRlpHeaders[*AvaHeader](env, blockNumbers, offset)
+	case IsAvaxSubnet(env.ChainID) &&
+		// For some reason, Nexon chain does not work with AvaSubnetHeader
+		!IsNexonChain(env.ChainID):
+		return getRlpHeaders[*AvaSubnetHeader](env, blockNumbers, offset)
+	case IsPolygonEdgeNetwork(env.ChainID):
+		hs := make([]*PolygonEdgeHeader, len(blockNumbers))
+		for i, blockNum := range blockNumbers {
 			// Get child block since it's the one that has the parent hash in its header.
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
-			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+w", err2)
+			batchElems[i] = rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{"0x" + nextBlockNum.Text(16), false},
+				Result: &hs[i],
 			}
-			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
-			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
-			rlpHeader, err2 = rlp.EncodeToBytes(h)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+w", err2)
-			}
-
-			hashes = append(hashes, h.Hash().String())
-
-			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
-			// blockhash.
-			// bh := crypto.Keccak256Hash(rlpHeader)
-			// fmt.Println("Calculated BH:", bh.String(),
-			//	"fetched BH:", h.Hash(),
-			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
-		} else if IsAvaxSubnet(env.ChainID) {
-			var h AvaSubnetHeader
-			// Get child block since it's the one that has the parent hash in its header.
-			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
-			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
-			}
-			rlpHeader, err2 = rlp.EncodeToBytes(h)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
-			}
-
-			hashes = append(hashes, h.Hash().String())
-		} else if IsPolygonEdgeNetwork(env.ChainID) {
-			// Get child block since it's the one that has the parent hash in its header.
-			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
-			var hash string
-			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
+		}
+		err := batchCallContext(context.Background(), env.Jc, batchElems)
+		if err != nil {
+			return nil, hashes, fmt.Errorf("failed to get header: %w", err)
+		}
+		for i, h := range hs {
+			ar := &fastrlp.Arena{}
+			val, err := MarshalRLPWith(ar, h)
 			if err != nil {
 				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err)
 			}
 
-			hashes = append(hashes, hash)
-		} else if IsRoninChain(env.ChainID) {
-			var h RoninHeader
-			// Get child block since it's the one that has the parent hash in its header.
-			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
-			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
-			}
-			rlpHeader, err2 = rlp.EncodeToBytes(h)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
-			}
+			rlpHeader := make([]byte, 0)
+			rlpHeader = val.MarshalTo(rlpHeader)
 
-			hashes = append(hashes, h.Hash().String())
-		} else {
-			// Get child block since it's the one that has the parent hash in its header.
-			h, err2 := env.Ec.HeaderByNumber(
-				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, offset),
-			)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %w", err2)
-			}
-			rlpHeader, err2 = rlp.EncodeToBytes(h)
-			if err2 != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err2)
-			}
-
-			hashes = append(hashes, h.Hash().String())
+			hashes[i] = h.Hash.String()
+			headers[i] = rlpHeader
 		}
+		return headers, hashes, nil
+	case IsRoninChain(env.ChainID):
+		return getRlpHeaders[*RoninHeader](env, blockNumbers, offset)
+	default:
+		return getRlpHeaders[*types.Header](env, blockNumbers, offset)
+	}
+}
 
-		headers = append(headers, rlpHeader)
+type Hashable interface {
+	Hash() common.Hash
+}
+
+func getRlpHeaders[HEADER Hashable](env Environment, blockNumbers []*big.Int, offset *big.Int) (headers [][]byte, hashes []string, err error) {
+	headers = make([][]byte, len(blockNumbers))
+	hashes = make([]string, len(blockNumbers))
+
+	batchElems := make([]rpc.BatchElem, len(blockNumbers))
+	hs := make([]HEADER, len(blockNumbers))
+	for i, blockNum := range blockNumbers {
+		// Get child block since it's the one that has the parent hash in its header.
+		nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+		batchElems[i] = rpc.BatchElem{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{hexutil.EncodeBig(nextBlockNum), false},
+			Result: &hs[i],
+		}
+	}
+	err = batchCallContext(context.Background(), env.Jc, batchElems)
+	if err != nil {
+		return nil, hashes, fmt.Errorf("failed to get header: %w", err)
+	}
+	for i, h := range hs {
+		rlpHeader, err := rlp.EncodeToBytes(h)
+		if err != nil {
+			return nil, hashes, fmt.Errorf("failed to encode rlp: %w", err)
+		}
+		hashes[i] = h.Hash().String()
+		headers[i] = rlpHeader
 	}
 	return
+}
+
+// batchCallContext is a wrapper around rpc.Client.BatchCallContext that deals with RPC node batch size limitations.
+func batchCallContext(ctx context.Context, client *rpc.Client, batchElems []rpc.BatchElem) error {
+	err := client.BatchCallContext(ctx, batchElems)
+	if err != nil {
+		// Try again with a batch size of 1
+		err = client.BatchCallContext(ctx, batchElems[0:1])
+		if err != nil {
+			// The error is unlikely to be due to a batch size issue, so return it.
+			return err
+		}
+		// If we got here, the batch size of 1 worked, so we can try to find the maximum batch size that works.
+		loBatchSize := 1
+		hiBatchSize := len(batchElems)
+		for start := 1; start < len(batchElems); {
+			batchSize := (hiBatchSize + loBatchSize) / 2
+			end := start + batchSize
+			if end > len(batchElems) {
+				end = len(batchElems)
+			}
+			err = client.BatchCallContext(ctx, batchElems[start:end])
+			if err != nil {
+				hiBatchSize = batchSize
+			} else {
+				loBatchSize = batchSize
+				start += batchSize
+			}
+		}
+	}
+	return err
 }
 
 // IsPolygonEdgeNetwork returns true if the given chain ID corresponds to an Pologyon Edge network.
@@ -611,23 +638,6 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 func IsAvaxNetwork(chainID int64) bool {
 	return chainID == 43114 || // C-chain mainnet
 		chainID == 43113 // Fuji testnet
-}
-
-// IsAvaxSubnet returns true if the given chain ID corresponds to an avalanche subnet.
-func IsAvaxSubnet(chainID int64) bool {
-	return chainID == 335 || // DFK testnet
-		chainID == 53935 || // DFK mainnet
-		chainID == 5668 || // Nexon Dev
-		chainID == 595581 || // Nexon Test
-		chainID == 807424 || // Nexon QA
-		chainID == 847799 || // Nexon Stage
-		chainID == 60118 || // Nexon Mainnet (Actually a testnet)
-		chainID == 68414 // Nexon Henesys Mainnet
-}
-
-func IsRoninChain(chainID int64) bool {
-	return chainID == 2020 || // Ronin Mainnet
-		chainID == 2021 // Ronin Saigon testnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

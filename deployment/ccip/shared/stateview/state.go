@@ -143,7 +143,7 @@ func (c CCIPOnChainState) WriteEVMChainState(selector uint64, chainState evm.CCI
 // ValidatePostDeploymentState should be called after the deployment and configuration for all contracts
 // in environment is complete.
 // It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
-func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error {
+func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, validateHomeChain bool) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 	for _, selector := range c.EVMChains() {
@@ -163,8 +163,10 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment) error 
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := c.MustGetEVMChainState(homeChain)
-	if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
-		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+	if validateHomeChain {
+		if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
+			return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+		}
 	}
 	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
 		Context: e.GetContext(),
