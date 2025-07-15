@@ -92,6 +92,7 @@ jobs:
               - '!nix-darwin-shell-hook.sh'
               - '!LICENSE'
               - '!.github/**'
+              - '!core/scripts/cre/environment/examples/workflows/**'
             all:
               - '**'
 
