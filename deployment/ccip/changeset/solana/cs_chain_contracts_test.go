@@ -337,6 +337,8 @@ func doTestBilling(t *testing.T, mcms bool) {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				FeeQuoter: true,
+				Router:    true,
+				OffRamp:   true,
 			})
 		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
