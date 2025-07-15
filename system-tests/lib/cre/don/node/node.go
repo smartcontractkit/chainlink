@@ -80,6 +80,8 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 				Labels: map[string]string{
 					NodeTypeKey: types.BootstrapNode,
 				},
+				EnvironmentLabel: "local",
+				ProductLabel:     "keystone",
 			})
 		} else {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
@@ -96,6 +98,8 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 				Labels: map[string]string{
 					NodeTypeKey: types.WorkerNode,
 				},
+				EnvironmentLabel: "local",
+				ProductLabel:     "keystone",
 			})
 		}
 	}
