@@ -1,21 +1,14 @@
 package environment
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/andybalholm/brotli"
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -42,7 +35,7 @@ func workflowCmds() *cobra.Command {
 	}
 
 	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
-	workflowCmd.AddCommand(useWorkflowCmd())
+	workflowCmd.AddCommand(deployWorkflowCmd())
 
 	return workflowCmd
 }
@@ -306,7 +299,7 @@ func readWorkflowData(workflowTrigger string) (*workflowData, error) {
 	return wdData, nil
 }
 
-func useWorkflowCmd() *cobra.Command {
+func deployWorkflowCmd() *cobra.Command {
 	var (
 		workflowFilePathFlag        string
 		configFilePathFlag          string
@@ -320,20 +313,20 @@ func useWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "use",
+		Use:   "deploy",
 		Short: "Compiles and uploads a workflow to the environment",
 		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
-			compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag)
+			compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
 			if compileErr != nil {
 				return errors.Wrap(compileErr, "❌ failed to compile workflow")
 			}
 
 			fmt.Printf("\n✅ Workflow compiled and compressed successfully\n\n")
 
-			copyErr := copyWorkflowToDockerContainers(compressedWorkflowWasmPath, containerNamePatternFlag, containerTargetDirFlag)
+			copyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, containerNamePatternFlag, containerTargetDirFlag)
 			if copyErr != nil {
 				return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 			}
@@ -397,129 +390,4 @@ func useWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "m", "exampleworkflow", "Workflow name")
 
 	return cmd
-}
-
-func compileWorkflow(workflowPath string) (string, error) {
-	workflowWasmPath := "workflow.wasm"
-
-	goModTidyCmd := exec.Command("go", "mod", "tidy")
-	goModTidyCmd.Dir = filepath.Dir(workflowPath)
-	if err := goModTidyCmd.Run(); err != nil {
-		return "", errors.Wrap(err, "failed to run go mod tidy")
-	}
-
-	buffer := bytes.Buffer{}
-	compileCmd := exec.Command("go", "build", "-o", workflowWasmPath, filepath.Base(workflowPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-	compileCmd.Dir = filepath.Dir(workflowPath)
-	compileCmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
-	compileCmd.Stdout = &buffer
-	compileCmd.Stderr = &buffer
-	if err := compileCmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, buffer.String())
-		return "", errors.Wrap(err, "failed to compile workflow")
-	}
-
-	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowPath), workflowWasmPath))
-	if workflowWasmAbsPathErr != nil {
-		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
-	}
-
-	compressedWorkflowWasmPath, compressedWorkflowWasmPathErr := compressWorkflow(workflowWasmAbsPath)
-	if compressedWorkflowWasmPathErr != nil {
-		return "", errors.Wrap(compressedWorkflowWasmPathErr, "failed to compress workflow")
-	}
-
-	defer func() {
-		_ = os.Remove(workflowWasmAbsPath)
-	}()
-
-	return compressedWorkflowWasmPath, nil
-}
-
-func compressWorkflow(workflowWasmPath string) (string, error) {
-	baseName := strings.TrimSuffix(workflowWasmPath, filepath.Ext(workflowWasmPath))
-	outputFile := baseName + ".br.b64"
-
-	input, inputErr := os.ReadFile(workflowWasmPath)
-	if inputErr != nil {
-		return "", errors.Wrap(inputErr, "failed to read workflow WASM file")
-	}
-
-	var compressed bytes.Buffer
-	brotliWriter := brotli.NewWriter(&compressed)
-
-	if _, writeErr := brotliWriter.Write(input); writeErr != nil {
-		return "", errors.Wrap(writeErr, "failed to compress workflow WASM file")
-	}
-	brotliWriter.Close()
-
-	outputData := []byte(base64.StdEncoding.EncodeToString(compressed.Bytes()))
-
-	if err := os.WriteFile(outputFile, outputData, 0600); err != nil {
-		return "", errors.Wrap(err, "failed to write output file")
-	}
-
-	outputFileAbsPath, outputFileAbsPathErr := filepath.Abs(outputFile)
-	if outputFileAbsPathErr != nil {
-		return "", errors.Wrap(outputFileAbsPathErr, "failed to get absolute path of the output file")
-	}
-
-	return outputFileAbsPath, nil
-}
-
-func findAllDockerContainerNames(pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-	if dockerClientErr != nil {
-		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
-	}
-
-	containers, containersErr := dockerClient.ContainerList(context.Background(), ctypes.ListOptions{})
-	if containersErr != nil {
-		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
-	}
-
-	containerNames := []string{}
-	for _, container := range containers {
-		for _, name := range container.Names {
-			if strings.Contains(name, pattern) {
-				// Remove leading slash from container name
-				cleanName := strings.TrimPrefix(name, "/")
-				containerNames = append(containerNames, cleanName)
-			}
-		}
-	}
-
-	return containerNames, nil
-}
-
-func copyWorkflowToDockerContainers(workflowWasmPath string, containerNamePattern string, targetDir string) error {
-	containerNames, containerNamesErr := findAllDockerContainerNames(containerNamePattern)
-	if containerNamesErr != nil {
-		return errors.Wrap(containerNamesErr, "failed to find Docker containers")
-	}
-
-	if len(containerNames) == 0 {
-		return fmt.Errorf("no Docker containers found with name pattern %s", containerNamePattern)
-	}
-
-	frameworkDockerClient, frameworkDockerClientErr := framework.NewDockerClient()
-	if frameworkDockerClientErr != nil {
-		return errors.Wrap(frameworkDockerClientErr, "failed to create framework Docker client")
-	}
-
-	for _, containerName := range containerNames {
-		execOutput, execOutputErr := frameworkDockerClient.ExecContainer(containerName, []string{"mkdir", "-p", targetDir})
-		if execOutputErr != nil {
-			fmt.Fprint(os.Stderr, execOutput)
-			return errors.Wrap(execOutputErr, "failed to execute mkdir command in Docker container")
-		}
-
-		copyErr := frameworkDockerClient.CopyFile(containerName, workflowWasmPath, targetDir)
-		if copyErr != nil {
-			fmt.Fprint(os.Stderr, execOutput)
-			return errors.Wrap(copyErr, "failed to copy workflow to Docker container")
-		}
-	}
-
-	return nil
 }

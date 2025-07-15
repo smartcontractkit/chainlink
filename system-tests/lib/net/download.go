@@ -11,16 +11,6 @@ import (
 	"time"
 )
 
-func readFile(path string) ([]byte, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return io.ReadAll(file)
-}
-
 func downloadFile(ctx context.Context, url string) ([]byte, error) {
 	requestCtx, cancelFn := context.WithTimeout(ctx, 120*time.Second)
 	defer cancelFn()
@@ -51,7 +41,7 @@ func downloadFile(ctx context.Context, url string) ([]byte, error) {
 func Download(ctx context.Context, url string) ([]byte, error) {
 	switch {
 	case strings.HasPrefix(url, "file://"):
-		return readFile(url[7:])
+		return os.ReadFile(url[7:])
 	case strings.HasPrefix(url, "http://"), strings.HasPrefix(url, "https://"):
 		return downloadFile(ctx, url)
 	default:
