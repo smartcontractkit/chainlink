@@ -349,6 +349,9 @@ PerOwner = 200
 WsURL = 'streams.url'
 RestURL = 'streams.url'
 
+[CRE.WorkflowFetcher]
+URL = 'https://workflow.fetcher.url'
+
 [Billing]
 URL = 'localhost:4319'
 

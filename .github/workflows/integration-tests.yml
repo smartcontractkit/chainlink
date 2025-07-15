@@ -45,6 +45,7 @@ env:
   # for run-test variables and environment
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+  CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
   MOD_CACHE_VERSION: 2
 
@@ -84,6 +85,7 @@ jobs:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
+
   changes:
     name: Check Paths That Require Tests To Run
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -95,20 +97,6 @@ jobs:
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
       ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
-      # Run CRE tests on PR always, when there are changes to CRE code
-      # but still require the "run-e2e-tests" label to be present for CI changes
-      should-run-cre-tests: >-
-        ${{
-          steps.changes.outputs.cre_changes == 'true' ||
-          github.event_name == 'workflow_dispatch' ||
-          github.ref_type == 'tag' ||
-          (steps.changes.outputs.github_ci_changes == 'true' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-tests')) ||
-          (
-            (steps.changes.outputs.github_ci_changes == 'true' ||
-            steps.changes.outputs.cre_changes == 'true') &&
-            github.event_name == 'merge_group'
-          )
-        }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
@@ -189,7 +177,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     environment: integration
-    needs: [changes, labels, enforce-ctf-version, run-core-e2e-tests-setup, run-ccip-e2e-tests-setup, solana-smoke-tests-setup]
+    needs: [labels, enforce-ctf-version, run-core-cre-e2e-tests-setup, run-core-e2e-tests-setup, run-ccip-e2e-tests-setup, solana-smoke-tests-setup]
     permissions:
       id-token: write
       contents: read
@@ -199,28 +187,69 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
+            # todo: optimize this conditional
+            should-build: >-
+              ${{
+                needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+              }}
 
           - name: (plugins)
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
+            # todo: optimize this conditional
+            should-build: >-
+              ${{
+                needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+              }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
         if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
+      - name: Check if image exists in ECR
+        id: check-image-exists
+        uses: smartcontractkit/.github/actions/ecr-image-exists@ecr-image-exists/0.0.1
+        with:
+          repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+          tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
+          aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+      - name: Explain
+        env:
+          SHOULD_BUILD: ${{ matrix.image.should-build }}
+          IMAGE_EXISTS: ${{ steps.check-image-exists.outputs.exists }}
+        run: |
+          if [[ "${SHOULD_BUILD}" == 'true' && "${IMAGE_EXISTS}" == 'false' ]]; then
+            echo "We will build the image because the matrix's should-build is true and the image does not already exist in ECR."
+            echo "Should build is true when:"
+              echo "- For the non-plugins image: the core tests, ccip tests, or solana tests will be run."
+              echo "- For the plugins image: the core cre e2e tests will be run."
+          else
+            echo "We will not build the image because either the matrix's should-build is false or the image already exists in ECR."
+            echo "should-build: ${SHOULD_BUILD}"
+            echo "image-exists: ${IMAGE_EXISTS}"
+          fi
+
       - name: Checkout the repo
+        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.sha }}
+          ref: ${{ env.CHAINLINK_REF }}
 
       - name: Build Chainlink Image
-        if: needs.changes.outputs.should-run-cre-tests == 'true' || needs.run-core-e2e-tests-setup.outputs.should-run == 'true' || needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' || needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          image-tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}${{ matrix.image.tag-suffix }}
+          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
@@ -234,104 +263,69 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  run-core-cre-e2e-tests-for-pr:
-    name: Run Core CRE E2E Tests For PR
+  run-core-cre-e2e-tests-setup:
+    name: Run Core CRE E2E Tests Setup
+    runs-on: ubuntu-latest
+    needs: [ changes, labels ]
+    permissions:
+      contents: read
+    outputs:
+      should-run: ${{ steps.form-inputs.outputs.should-run }}
+      workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
+    steps:
+      - name: Form Inputs for Core CRE E2E Tests
+        id: form-inputs
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+            # Run Core CRE E2E tests on PRs if there are relevant changes
+            echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
+            if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
+            # Run Core CRE E2E tests in the merge queue, if there are relevant changes
+            echo "workflow-name=Run Core CRE E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
+            echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
+            # Always run Core CRE E2E tests on workflow dispatch
+            echo "workflow-name=Run Core CRE E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
+            echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            # Run Core CRE E2E tests on push events, only if there are relevant changes, or it's a tag push
+            echo "workflow-name=Run Core CRE E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
+            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+
+          else
+            echo "workflow-name=Run Core CRE E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Unknown CRE E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+  run-core-cre-e2e-tests:
+    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@ac1330bdd4ad8bbbc4780151c1f8b7092b6f2cea # 2025-07-14
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
     secrets: inherit
-
-  #TODO migrate to using cre-system-tests.yaml once it has soaked in
-  run-core-cre-e2e-tests-for-merge-queue:
-    name: Run Core CRE E2E Tests For Merge Queue
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes, labels]
-    if: github.event_name == 'merge_group' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
-    with:
-      workflow_name: Run Core CRE Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      test_path: .github/e2e-tests.yml
-      test_trigger: Merge Queue CRE E2E Core Tests
-      upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
-      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
-      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-
-  run-core-cre-e2e-tests-for-push:
-    name: Run Core CRE E2E Tests For Push
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes]
-    if: github.event_name == 'push' && needs.changes.outputs.should-run-cre-tests == 'true'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
-    with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag:  ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
-    secrets:
-      inherit
-
-  run-core-cre-e2e-tests-for-workflow-dispatch:
-    name: Run Core CRE E2E Tests For Workflow Dispatch
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes]
-    if: github.event_name == 'workflow_dispatch'
-    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@b48efd44e74faeaef7291cf8e32ffb31bd8e97c4 # 2025-07-08
-    with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag:  test-${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
-    secrets:
-      inherit
 
   run-core-e2e-tests-setup:
     name: Run Core E2E Tests Setup
@@ -545,10 +539,7 @@ jobs:
         build-chainlink,
         run-core-e2e-tests,
         run-ccip-e2e-tests,
-        run-core-cre-e2e-tests-for-pr,
-        run-core-cre-e2e-tests-for-push,
-        run-core-cre-e2e-tests-for-merge-queue,
-        run-core-cre-e2e-tests-for-workflow-dispatch,
+        run-core-cre-e2e-tests,
       ]
     steps:
       - name: Check Core test results
@@ -556,16 +547,6 @@ jobs:
         run: |
           results='${{ needs.run-core-e2e-tests.outputs.test_results }}'
           echo "Core e2e test results:"
-          echo "$results" | jq .
-
-          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
-
-      - name: Check Core CRE test results
-        id: check_core_cre_results
-        run: |
-          results='${{ needs.run-core-cre-e2e-tests-for-pr.outputs.test_results }}'
-          echo "CRE e2e test results:"
           echo "$results" | jq .
 
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
@@ -590,19 +571,26 @@ jobs:
           if [[ "${RESULT}" == "failure" ]]; then
             echo "::error::Core E2E tests failed."
             exit 1
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::error::Core E2E tests were cancelled."
+            exit 1
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::Core E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE tests were not successful
         if: always()
         env:
-          PR_RESULT: ${{ needs.run-core-cre-e2e-tests-for-pr.result }}
-          PUSH_RESULT: ${{ needs.run-core-cre-e2e-tests-for-push.result }}
-          MERGE_QUEUE_RESULT: ${{ needs.run-core-cre-e2e-tests-for-merge-queue.result }}
-          WORKFLOW_DISPATCH_RESULT: ${{ needs.run-core-cre-e2e-tests-for-workflow-dispatch.result }}
+          RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
         run: |
-          if [[ "${PR_RESULT}" == "failure" || "${PUSH_RESULT}" == "failure" || "${MERGE_QUEUE_RESULT}" == "failure" || "${WORKFLOW_DISPATCH_RESULT}" == "failure" ]]; then
+          if [[ "${RESULT}" == "failure" ]]; then
             echo "::error::Core CRE E2E tests failed."
             exit 1
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::error::Core CRE E2E tests were cancelled."
+            exit 1
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::Core CRE E2E tests were skipped."
           fi
 
       - name: Warn if CCIP tests were not successful
@@ -612,6 +600,10 @@ jobs:
         run: |
           if [[ "${RESULT}" == "failure" ]]; then
             echo "::warning::CCIP E2E tests failed in one of the runs. Not failing as they are not mandatory."
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::warning::CCIP E2E tests were cancelled."
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::CCIP E2E tests were skipped."
           fi
 
       - name: Fail the job if Chainlink image wasn't built
@@ -627,10 +619,7 @@ jobs:
       [
         run-core-e2e-tests,
         run-ccip-e2e-tests,
-        run-core-cre-e2e-tests-for-pr,
-        run-core-cre-e2e-tests-for-merge-queue,
-        run-core-cre-e2e-tests-for-push,
-        run-core-cre-e2e-tests-for-workflow-dispatch,
+        run-core-cre-e2e-tests,
       ]
     runs-on: ubuntu-latest
     steps:
@@ -640,7 +629,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.sha }}
+          ref: ${{ env.CHAINLINK_REF }}
 
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
@@ -665,7 +654,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.sha }}
+          ref: ${{ env.CHAINLINK_REF }}
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -745,7 +734,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.sha }}
+          ref: ${{ env.CHAINLINK_REF }}
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -908,7 +897,6 @@ jobs:
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
         if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
@@ -953,7 +941,7 @@ jobs:
           yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
         env:
-          VERSION: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+          VERSION: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
         run:
           | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
@@ -979,7 +967,7 @@ jobs:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }} && make test_smoke
           test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: test-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+          cl_image_tag: test-${{ inputs.evm-ref || env.CHAINLINK_REF }}
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
