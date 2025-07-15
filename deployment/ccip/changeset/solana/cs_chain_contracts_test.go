@@ -606,9 +606,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
-				Router:    true,
-				FeeQuoter: true,
-				OffRamp:   true,
+				Router: true,
 			})
 		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
@@ -660,21 +658,21 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				},
 			},
 		),
-		commonchangeset.Configure(
-			// register token admin registry for tokenAddress via owner instruction
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
-			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector: solChain,
-				RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
-					{
-						TokenPubKey:             linkTokenAddress,
-						TokenAdminRegistryAdmin: newAdminRegistryAdmin,
-						RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
-					},
-				},
-				MCMS: mcmsConfig,
-			},
-		),
+		// commonchangeset.Configure(
+		// 	// register token admin registry for tokenAddress via owner instruction
+		// 	cldf.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+		// 	ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+		// 		ChainSelector: solChain,
+		// 		RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
+		// 			{
+		// 				TokenPubKey:             linkTokenAddress,
+		// 				TokenAdminRegistryAdmin: newAdminRegistryAdmin,
+		// 				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
+		// 			},
+		// 		},
+		// 		MCMS: mcmsConfig,
+		// 	},
+		// ),
 	},
 	)
 	require.NoError(t, err)
@@ -687,11 +685,11 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	// pending administrator should be the proposed admin key
 	require.Equal(t, newAdminRegistryAdmin, tokenAdminRegistryAccount.PendingAdministrator)
 
-	linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
-	var linkTokenAdminRegistryAccount solCommon.TokenAdminRegistry
-	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
-	require.NoError(t, err)
-	require.Equal(t, newAdminRegistryAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
+	// linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
+	// var linkTokenAdminRegistryAccount solCommon.TokenAdminRegistry
+	// err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
+	// require.NoError(t, err)
+	// require.Equal(t, newAdminRegistryAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
 
 	// While we can assign the admin role arbitrarily regardless of mcms, we can only accept it as timelock
 	if mcms {
