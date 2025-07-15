@@ -1332,8 +1332,8 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
 }
 
-func TestPlugin_StateTransition_InvalidObservations(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -1377,41 +1377,28 @@ func TestPlugin_StateTransition_InvalidObservations(t *testing.T) {
 
 	// Request and response don't match
 	obsb := marshalObservations(t, observation{id1, req, resp})
-	reportPrecursor, err := r.StateTransition(
+	err = r.ValidateObservation(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
-		[]types.AttributedObservation{
-			{Observation: types.Observation(obsb)},
-		}, kv, nil)
-	require.NoError(t, err)
-
-	os := &vault.Outcomes{}
-	err = proto.Unmarshal(reportPrecursor, os)
-	require.NoError(t, err)
-
-	assert.Len(t, os.Outcomes, 0)
-
-	assert.Equal(t, 1, observed.FilterMessage("invalid observation").Len())
+		types.AttributedObservation{Observation: types.Observation(obsb)},
+		kv,
+		nil,
+	)
+	assert.ErrorContains(t, err, "GetSecrets observation must have both request and response")
 
 	// Invalid observation -- data can't be unmarshaled
 	obsb = marshalObservations(t, observation{id1, req, resp})
-	reportPrecursor, err = r.StateTransition(
+	err = r.ValidateObservation(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
-		[]types.AttributedObservation{
-			{Observation: types.Observation([]byte("hello world"))},
-		}, kv, nil)
-	require.NoError(t, err)
+		types.AttributedObservation{Observation: types.Observation([]byte("hello world"))},
+		kv,
+		nil,
+	)
 
-	os = &vault.Outcomes{}
-	err = proto.Unmarshal(reportPrecursor, os)
-	require.NoError(t, err)
-
-	assert.Len(t, os.Outcomes, 0)
-
-	assert.Equal(t, 1, observed.FilterMessage("invalid observation").Len())
+	assert.ErrorContains(t, err, "failed to unmarshal observations")
 }
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {

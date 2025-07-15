@@ -139,6 +139,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			requestsCountForId := map[string]int{}
 			for _, sr := range tp.EncryptedSecrets {
 				var key string
+				// This can happen if a user provides a malformed request.
+				// We validate this case away in `handleCreateSecretRequest`,
+				// but need to still handle it here to avoid panics.
 				if sr.Id == nil {
 					key = "<nil>"
 				} else {
@@ -396,6 +399,18 @@ func (r *ReportingPlugin) handleCreateSecretRequest(ctx context.Context, reader 
 }
 
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) error {
+	obs := &vault.Observations{}
+	if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
+		return errors.New("failed to unmarshal observations: " + err.Error())
+	}
+
+	for _, o := range obs.Observations {
+		err := validateObservation(o)
+		if err != nil {
+			return errors.New("invalid observation: " + err.Error())
+		}
+	}
+
 	return nil
 }
 
@@ -477,17 +492,12 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	for _, ao := range aos {
 		obs := &vault.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
+			// Note: this shouldn't happen as all observations are validated in ValidateObservation.
 			r.lggr.Errorw("failed to unmarshal observations", "error", err, "observation", ao.Observation)
 			continue
 		}
 
 		for _, o := range obs.Observations {
-			err := validateObservation(o)
-			if err != nil {
-				r.lggr.Errorw("invalid observation", "error", err, "observation", o)
-				continue
-			}
-
 			if _, ok := obsMap[o.Id]; !ok {
 				obsMap[o.Id] = []*vault.Observation{}
 			}
