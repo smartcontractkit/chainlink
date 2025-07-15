@@ -3,6 +3,9 @@ package crib
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,16 +19,13 @@ import (
 	telepresencev1 "github.com/smartcontractkit/crib-sdk/crib/composite/cluster-services/telepresence/v1"
 	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -147,7 +147,6 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 
 	return nil, errors.New("failed to find a valid component")
 }
-
 func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
@@ -157,85 +156,120 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		return nil, errors.Wrap(valErr, "input validation failed")
 	}
 
+	componentFuncs := make([]crib.ComponentFunc, 0)
+
 	for j, donMetadata := range input.Topology.DonsMetadata {
-		deployDonEnvVars := map[string]string{}
-		cribConfigsDirAbs := filepath.Join(".", input.CribConfigsDir, donMetadata.Name)
-		err := os.MkdirAll(cribConfigsDirAbs, os.ModePerm)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create crib configs directory '%s' for %s", cribConfigsDirAbs, donMetadata.Name)
-		}
 
 		imageName, imageTag, err := imageNameAndTag(input, j)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
 		}
 
-		deployDonEnvVars["DEVSPACE_IMAGE"] = imageName
-		deployDonEnvVars["DEVSPACE_IMAGE_TAG"] = imageTag
-
-		bootstrapNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.BootstrapNode}, libnode.EqualLabels)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
-		}
-
-		for i, btNode := range bootstrapNodes {
-			writeErr := writeOverrides(btNode, i, types.BootstrapNode, j, input, donMetadata, cribConfigsDirAbs)
-			if writeErr != nil {
-				return nil, writeErr
+		for i, nodeMetadata := range donMetadata.NodesMetadata {
+			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, j, input, donMetadata)
+			if confSecretsErr != nil {
+				return nil, confSecretsErr
 			}
-		}
-
-		workerNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to find worker nodes")
-		}
-
-		for i, workerNode := range workerNodes {
-			writeErr := writeOverrides(workerNode, i, types.WorkerNode, j, input, donMetadata, cribConfigsDirAbs)
-			if writeErr != nil {
-				return nil, writeErr
+			nodeSpec, confSecretsErr := getNodeSpecForNode(nodeMetadata, j, input, donMetadata)
+			if confSecretsErr != nil {
+				return nil, errors.Wrapf(confSecretsErr, "failed to get node spec for %s", donMetadata.Name)
 			}
+			cFunc := nodev1.Component(&nodev1.Props{
+				Namespace:       input.Namespace,
+				Image:           fmt.Sprintf("%s:%s", imageName, imageTag),
+				AppInstanceName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
+				// passing as config not as override
+				Config: *configToml,
+				SecretsOverrides: map[string]string{
+					"overrides": *secrets,
+				},
+				EnvVars: nodeSpec.Node.EnvVars,
+			})
+			componentFuncs = append(componentFuncs, cFunc)
 		}
+	}
 
-		deployDonEnvVars["DON_BOOT_NODE_COUNT"] = strconv.Itoa(len(bootstrapNodes))
-		deployDonEnvVars["DON_NODE_COUNT"] = strconv.Itoa(len(workerNodes))
-		// IMPORTANT: CRIB will deploy gateway only if don_type == "gateway", in other cases the DON_TYPE value has no other impact than being uses in release/service/etc names
-		deployDonEnvVars["DON_TYPE"] = donMetadata.Name
+	plan := crib.NewPlan(
+		"nodesets",
+		crib.Namespace(input.Namespace),
+		crib.ComponentSet(
+			componentFuncs...,
+		),
+	)
 
-		_, deployErr := input.NixShell.RunCommandWithEnvVars("devspace run deploy-don --no-warn", deployDonEnvVars)
-		if deployErr != nil {
-			return nil, errors.Wrap(deployErr, "failed to run devspace run deploy-don")
+	planState, err := plan.Apply(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to apply plan")
+	}
+
+	// Setting outputs based on the Plan Results
+	nodeComponents := planState.ComponentByName(nodev1.ComponentName)
+
+	var nodeResults []nodev1.Result
+
+	for component := range nodeComponents {
+		res := crib.ComponentState[nodev1.Result](component)
+		nodeResults = append(nodeResults, res)
+		fmt.Printf("Node API URL: %s\n", res.APIUrl())
+		fmt.Printf("API Credentials: username: %s , password: %s\n", res.APICredentials.UserName, res.APICredentials.Password)
+	}
+
+	// setting outputs in a similar way as in func ReadNodeSetURL
+	for j := range input.Topology.DonsMetadata {
+		out := &ns.Output{
+			// UseCache: true will disable deploying docker containers via CTF
+			UseCache: true,
+			CLNodes:  []*clnode.Output{},
 		}
-
-		nsOutput, err := infra.ReadNodeSetURL(filepath.Join(".", input.CribConfigsDir), donMetadata)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read node set URLs from file")
+		// todo: for now this is hardcoded for a single don, we need to group results for each don
+		for _, res := range nodeResults {
+			out.CLNodes = append(out.CLNodes, &clnode.Output{
+				// UseCache: true will disable deploying docker containers via CTF
+				UseCache: true,
+				Node: &clnode.NodeOut{
+					APIAuthUser:     res.APICredentials.UserName,
+					APIAuthPassword: res.APICredentials.Password,
+					ExternalURL:     res.APIUrl(),
+					InternalURL:     res.APIUrl(),
+					// todo: this should be simplified in the CTF types, we should just pass P2P port
+					InternalP2PUrl: fmt.Sprintf("http://%s:%d", res.HostName(), res.P2PPort),
+					InternalIP:     res.HostName(),
+				},
+			})
 		}
-
-		input.NodeSetInputs[j].Out = nsOutput
+		input.NodeSetInputs[j].Out = out
 	}
 
 	return input.NodeSetInputs, nil
 }
 
-func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*string, *string, error) {
+func getNodeSpecForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*clnode.Input, error) {
 	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
 	if findErr != nil {
-		return nil, nil, errors.Wrapf(findErr, "failed to find node index in nodeset %s", donMetadata.Name)
+		return nil, errors.Wrapf(findErr, "failed to find node index in nodeset %s", donMetadata.Name)
 	}
 
 	nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
 	if convErr != nil {
-		return nil, nil, errors.Wrapf(convErr, "failed to convert node index '%s' to int in nodeset %s", nodeIndexStr, donMetadata.Name)
+		return nil, errors.Wrapf(convErr, "failed to convert node index '%s' to int in nodeset %s", nodeIndexStr, donMetadata.Name)
 	}
 
-	cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
+	nodeSpec := input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex]
+	return nodeSpec, nil
+}
+
+func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*string, *string, error) {
+	nodeSpec, err := getNodeSpecForNode(nodeMetadata, donIndex, input, donMetadata)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get node spec")
+	}
+	cleanedToml, tomlErr := cleanToml(nodeSpec.Node.TestConfigOverrides)
 	if tomlErr != nil {
 		return nil, nil, errors.Wrap(tomlErr, "failed to clean TOML")
 	}
 
 	// Merge user overrides
-	cleanedUserToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.UserConfigOverrides)
+	cleanedUserToml, tomlErr := cleanToml(nodeSpec.Node.UserConfigOverrides)
 	if tomlErr != nil {
 		return nil, nil, errors.Wrap(tomlErr, "failed to clean user TOML")
 	}
@@ -245,7 +279,7 @@ func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, 
 		return nil, nil, errors.Wrap(err, "failed to merge TOML")
 	}
 
-	secretsFileBytes := []byte(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestSecretsOverrides)
+	secretsFileBytes := []byte(nodeSpec.Node.TestSecretsOverrides)
 
 	tomlString := string(finalToml)
 	secretsString := string(secretsFileBytes)

@@ -30,7 +30,7 @@ func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cretypes.Topo
 		}
 
 		var devspaceErr error
-		capabilitiesAwareNodeSets, devspaceErr = crib.DeployDonsWithCribSDK(deployCribDonsInput)
+		capabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		if devspaceErr != nil {
 			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
