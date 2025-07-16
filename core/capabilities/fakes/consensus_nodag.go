@@ -71,17 +71,14 @@ func (fc *fakeConsensusNoDAG) close() error {
 // NOTE: This fake capability currently bounces back the request payload, ignoring everything else.
 // When the real NoDAG consensus OCR plugin is ready, it should be used here, similarly to how the V1 fake works.
 func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*valuespb.Value, error) {
-	fc.eng.Errorw("Executing Fake Consensus NoDAG", "input", input)
+	fc.eng.Infow("Executing Fake Consensus NoDAG", "input", input)
 
 	switch obs := input.Observation.(type) {
 	case *sdkpb.SimpleConsensusInputs_Value:
 		if obs.Value == nil {
 			return nil, errors.New("input value cannot be nil")
 		}
-		return valuespb.NewMapValue(map[string]*valuespb.Value{
-			"payload":  obs.Value,
-			"metadata": valuespb.NewMapValue(map[string]*valuespb.Value{}),
-		}), nil
+		return obs.Value, nil
 	case *sdkpb.SimpleConsensusInputs_Error:
 		return nil, errors.New(obs.Error)
 	case nil:
