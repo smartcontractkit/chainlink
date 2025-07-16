@@ -92,6 +92,8 @@ func GenerateJobSpecs(donTopology *types.DonTopology, addressBook cldf.AddressBo
 				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 			}
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, oCR3CapabilityAddress, chainID))
 		}
 	}
 

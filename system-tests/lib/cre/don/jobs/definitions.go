@@ -187,6 +187,35 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
+func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "DON Time Test"
+	forwardingAllowed = false
+	maxTaskDuration = "0s"
+	contractID = "%s"
+	relay = "evm"
+	pluginType = "dontime"
+	onchainSigningStrategy = { }
+
+	[relayConfig]
+	chainID = "%d"
+
+	[pluginConfig]
+`,
+			uuid,
+			ocr3CapabilityAddress, // re-use OCR3Capability contract
+			chainID,
+		),
+	}
+}
+
 func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
