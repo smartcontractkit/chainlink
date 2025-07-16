@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -61,7 +60,6 @@ import (
 
 const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
-const creCLI = "cre_v0.2.0_darwin_arm64"
 
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
@@ -345,7 +343,7 @@ func startCmd() *cobra.Command {
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
-				wfRegAddr := libcontracts.MustFindAddressesForChain(output.CldEnvironment.ExistingAddresses, output.BlockchainOutput[0].ChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck // won't migrate now
+				wfRegAddr := libcontracts.MustFindAddressesForChain(output.CldEnvironment.ExistingAddresses, output.BlockchainOutput[0].ChainSelector, keystone_changeset.WorkflowRegistry.String())
 				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
@@ -674,80 +672,6 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
-}
-
-func isCRECLIIsAvailable() bool {
-	if _, statErr := os.Stat(creCLI); statErr == nil {
-		return true
-	}
-
-	pathCmd := exec.Command("which", creCLI)
-	if err := pathCmd.Run(); err == nil {
-		return true
-	}
-
-	return false
-}
-
-func tryToDownloadCRECLI() error {
-	start := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n"))
-	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*", "--skip-existing"}
-
-	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
-	ghCmd.Stdout = os.Stdout
-	ghCmd.Stderr = os.Stderr
-	if startErr := ghCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start gh cli command")
-	}
-
-	if waitErr := ghCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for gh cli command")
-	}
-
-	archiveName := "cre_v0.2.0_darwin_arm64.tar.gz"
-	tarArgs := []string{"-xf", archiveName}
-	tarCmd := exec.Command("tar", tarArgs...)
-
-	tarCmd.Stdout = os.Stdout
-	tarCmd.Stderr = os.Stderr
-	if startErr := tarCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start tar command")
-	}
-
-	if waitErr := tarCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for tar command")
-	}
-
-	removeErr := os.Remove(archiveName)
-	if removeErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to remove %s. Please remove it manually.\n", archiveName)
-	}
-
-	fmt.Print(libformat.PurpleText("[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
-
-	return nil
-}
-
-func creCLIAbsPath() (string, error) {
-	var CRECLIAbsPath string
-
-	_, statErr := os.Stat(creCLI)
-	if statErr != nil {
-		path, lookErr := exec.LookPath(creCLI)
-		if lookErr != nil {
-			return "", errors.Wrap(lookErr, "failed to find absolute path of the CRE CLI binary in PATH")
-		}
-		CRECLIAbsPath = path
-	} else {
-		var CRECLIAbsPathErr error
-		CRECLIAbsPath, CRECLIAbsPathErr = filepath.Abs(creCLI)
-		if CRECLIAbsPathErr != nil {
-			return "", errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary in current directory")
-		}
-	}
-
-	return CRECLIAbsPath, nil
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {

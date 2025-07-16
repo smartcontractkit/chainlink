@@ -10,6 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
@@ -17,8 +20,6 @@ import (
 	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
@@ -150,7 +151,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, "workflow-node", "/home/chainlink/workflows", configFilePath, rpcURL) //TODO make this address a flag
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, "workflow-node", "/home/chainlink/workflows", configFilePath, rpcURL)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
@@ -189,7 +190,7 @@ func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, feedID, folder string
 	}
 
 	filePath := filepath.Join(folder, "web_trigger_config.yaml")
-	writeErr := os.WriteFile(filePath, yaml, 0644)
+	writeErr := os.WriteFile(filePath, yaml, 0600)
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write config to file")
 	}
@@ -217,7 +218,7 @@ func builAndSavePoRCronConfig(dataFeedsCacheAddress, feedID, folder string) (str
 	}
 
 	filePath := filepath.Join(folder, "cron_config.yaml")
-	writeErr := os.WriteFile(filePath, yaml, 0644)
+	writeErr := os.WriteFile(filePath, yaml, 0600)
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write config to file")
 	}
