@@ -50,7 +50,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "chainlink:cre-workshop"
       custom_ports = ["5002:5002"]
       user_config_overrides = """
       [Log]
@@ -73,7 +73,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "chainlink:cre-workshop"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -95,7 +95,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "chainlink:cre-workshop"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -117,7 +117,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "chainlink:cre-workshop"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -139,7 +139,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "chainlink:cre-workshop"
       user_config_overrides = """
       [Log]
       Level = 'debug'
