@@ -22,8 +22,9 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
