@@ -60,48 +60,8 @@ func TestTONAddress(t *testing.T) {
 	}
 }
 
-// TODO re-enable this test once the OracleIDAsAddressBytes function is checked and used properly
-func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
-	codec := AddressCodec{}
-
-	testCases := []struct {
-		name     string
-		oracleID uint8
-		expected []byte
-	}{
-		{
-			name:     "oracleID 0",
-			oracleID: 0,
-			expected: func() []byte {
-				return packOracleID(t, 0)
-			}(),
-		},
-		{
-			name:     "oracleID 1",
-			oracleID: 1,
-			expected: func() []byte {
-				return packOracleID(t, 1)
-			}(),
-		},
-		{
-			name:     "oracleID 255",
-			oracleID: 255,
-			expected: func() []byte {
-				return packOracleID(t, 255)
-			}(),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			actual, err := codec.OracleIDAsAddressBytes(tc.oracleID)
-
-			require.NoError(t, err)
-			require.Equal(t, tc.expected, actual, "expected %x, got %x", tc.expected, actual)
-			require.Len(t, actual, 36)
-		})
-	}
-}
+// TODO: The OracleIDAsAddressBytes test has been moved to addresscodec_oracle_test.go
+// with comprehensive test coverage including edge cases and consistency tests.
 
 func packOracleID(t *testing.T, oracleID uint8) []byte {
 	addr := make([]byte, 32)
