@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -350,9 +351,23 @@ func deployWorkflowCmd() *cobra.Command {
 				return errors.Wrap(scErr, "failed to create Seth client")
 			}
 
-			var configURL *string
+			var configPath *string
 			if configFilePathFlag != "" {
-				configURL = &configFilePathFlag
+				fmt.Printf("\n⚙️ Copying workflow config file to Docker container\n\n")
+				configPathAbs, configPathAbsErr := filepath.Abs(configFilePathFlag)
+				if configPathAbsErr != nil {
+					return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
+				}
+
+				configCopyErr := creworkflow.CopyWorkflowToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+				if configCopyErr != nil {
+					return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
+				}
+
+				configPathAbs = "file://" + configPathAbs
+				configPath = &configPathAbs
+
+				fmt.Printf("\n✅ Workflow config file copied to Docker container\n\n")
 			}
 
 			fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
@@ -364,7 +379,7 @@ func deployWorkflowCmd() *cobra.Command {
 
 			fmt.Printf("\n⚙️ Registering workflow %s with the workflow registry\n\n", workflowNameFlag)
 
-			registerErr := creworkflow.RegisterWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configURL, nil, &containerTargetDirFlag)
+			registerErr := creworkflow.RegisterWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, nil, &containerTargetDirFlag)
 			if registerErr != nil {
 				return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 			}
