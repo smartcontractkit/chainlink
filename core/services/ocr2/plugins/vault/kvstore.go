@@ -3,9 +3,10 @@ package vault
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )
 
 const (
@@ -28,7 +29,7 @@ type WriteKVStore interface {
 	ReadKVStore
 	WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	WriteMetadata(owner string, metadata *vault.StoredMetadata) error
-	AddIdToMetadata(id *vault.SecretIdentifier) error
+	AddIDToMetadata(id *vault.SecretIdentifier) error
 }
 
 func NewReadStore(reader ocr3_1types.KeyValueReader) ReadKVStore {
@@ -102,7 +103,7 @@ func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) er
 	return nil
 }
 
-func (s *KVStore) AddIdToMetadata(id *vault.SecretIdentifier) error {
+func (s *KVStore) AddIDToMetadata(id *vault.SecretIdentifier) error {
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -135,7 +136,7 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
 
-	if err := s.AddIdToMetadata(id); err != nil {
+	if err := s.AddIDToMetadata(id); err != nil {
 		return fmt.Errorf("failed to add id to metadata: %w", err)
 	}
 

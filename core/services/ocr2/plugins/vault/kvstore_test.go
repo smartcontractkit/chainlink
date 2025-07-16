@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )
 
 type response struct {
@@ -72,17 +72,17 @@ func TestKVStore_Secrets(t *testing.T) {
 	delete(kv.m, "Key::owner::main::secret1")
 	s, err = store.GetSecret(id)
 	assert.Nil(t, s)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	newData := []byte("new encrypted data 2")
 	ss := &vault.StoredSecret{
 		EncryptedSecret: newData,
 	}
 	err = store.WriteSecret(id, ss)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	s, err = store.GetSecret(id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
 
@@ -119,7 +119,7 @@ func TestKVStore_Metadata(t *testing.T) {
 	delete(kv.m, "Metadata::"+owner)
 	m, err = store.GetMetadata(owner)
 	assert.Nil(t, m)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	m = &vault.StoredMetadata{
 		SecretIdentifiers: []*vault.SecretIdentifier{
@@ -136,10 +136,10 @@ func TestKVStore_Metadata(t *testing.T) {
 		},
 	}
 	err = store.WriteMetadata(owner, m)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	gotM, err := store.GetMetadata(owner)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, proto.Equal(m, gotM))
 
 	newKey := &vault.SecretIdentifier{
@@ -147,10 +147,10 @@ func TestKVStore_Metadata(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret3",
 	}
-	err = store.AddIdToMetadata(newKey)
-	assert.NoError(t, err)
+	err = store.AddIDToMetadata(newKey)
+	require.NoError(t, err)
 
 	gotM, err = store.GetMetadata(owner)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, gotM.SecretIdentifiers, 3)
 }

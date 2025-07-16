@@ -533,13 +533,13 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 
 		block := []byte("hello world")
 		err := db.WriteBlock(ctx, cd1, 0, block)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(1)
 
 		block = []byte("hello world 2")
 		err = db.WriteBlock(ctx, cd1, math.MaxUint64, block)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(2)
 
@@ -550,7 +550,7 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 
 		// Writing nil should delete the block
 		err = db.WriteBlock(ctx, cd1, math.MaxUint64, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(1)
 
@@ -561,7 +561,7 @@ func Test_DB_ReadWriteBlock(t *testing.T) {
 		// Overwrite
 		block2 := []byte("new block")
 		err = db.WriteBlock(ctx, cd1, 0, block2)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		gotBlock, err = db.ReadBlock(ctx, cd1, 0)
 		require.NoError(t, err)
