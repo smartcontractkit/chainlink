@@ -249,7 +249,7 @@ func setupTestServiceCfg(
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
 	keyStore.On("Workflow").Return(workflowKeystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(),
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.JobDistributor(), gcfg.Feature(), gcfg.Insecure(),
 		gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil, opts...)
 	svc.SetConnectionsManager(connMgr)
 
@@ -646,8 +646,9 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey:   &wkID,
-				P2PKeyBundles: []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
+				WorkflowKey:     &wkID,
+				P2PKeyBundles:   []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
+				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -706,10 +707,11 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
 	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
-		Version:       nodeVersion.Version,
-		ChainConfigs:  []*proto.ChainConfig{},
-		WorkflowKey:   &wkID,
-		P2PKeyBundles: []*proto.P2PKeyBundle{},
+		Version:         nodeVersion.Version,
+		ChainConfigs:    []*proto.ChainConfig{},
+		WorkflowKey:     &wkID,
+		P2PKeyBundles:   []*proto.P2PKeyBundle{},
+		NopFriendlyName: "",
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -790,7 +792,9 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 					OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
 				}
 
-				svc = setupTestService(t)
+				svc = setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+					c.JobDistributor.DisplayName = testutils.Ptr("nop-friendly-name-test")
+				})
 			)
 
 			workflowKey, err := workflowkey.New()
@@ -820,8 +824,9 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey:   &wkID,
-				P2PKeyBundles: []*proto.P2PKeyBundle{},
+				WorkflowKey:     &wkID,
+				P2PKeyBundles:   []*proto.P2PKeyBundle{},
+				NopFriendlyName: "nop-friendly-name-test",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1690,7 +1695,7 @@ ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
-# omit gasPriceSubunitsSource intentionally 
+# omit gasPriceSubunitsSource intentionally
 """
 `
 
@@ -2025,6 +2030,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					{PeerId: p2pKey2.PeerID().String(), PublicKey: p2pKey2.PublicKeyHex()},
 					{PeerId: p2pKey3.PeerID().String(), PublicKey: p2pKey3.PublicKeyHex()},
 				},
+				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
@@ -2069,8 +2075,9 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
 			},
-			WorkflowKey:   func(s string) *string { return &s }(workflowKey.ID()),
-			P2PKeyBundles: []*proto.P2PKeyBundle{},
+			WorkflowKey:     func(s string) *string { return &s }(workflowKey.ID()),
+			P2PKeyBundles:   []*proto.P2PKeyBundle{},
+			NopFriendlyName: "",
 		}
 	}
 	successResponse := func() *proto.UpdateNodeResponse {

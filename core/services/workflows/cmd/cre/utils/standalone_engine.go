@@ -91,7 +91,7 @@ func NewStandaloneEngine(
 
 	var billingClient billing.WorkflowClient
 	if billingClientAddr != "" {
-		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
+		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr)
 	}
 
 	if module.IsLegacyDAG() {
