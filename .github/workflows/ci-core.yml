@@ -187,7 +187,6 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             setup-solana: "true"
-            setup-aptos: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
