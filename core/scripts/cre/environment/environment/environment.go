@@ -58,6 +58,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
+var rootPath string
+var binDir string
+
 const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
 
@@ -66,6 +69,30 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd)
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+	// add the working directory /bin to the PATH so that installed CLIs can be found
+	var err error
+	rootPath, err = os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting working directory: %v\n", err)
+		os.Exit(1)
+	}
+	binDir = filepath.Join(rootPath, "bin")
+	if _, err := os.Stat(binDir); os.IsNotExist(err) {
+		if err := os.Mkdir("bin", 0755); err != nil {
+			panic(fmt.Errorf("failed to create bin directory: %w", err))
+		}
+	}
+	currentPath := os.Getenv("PATH")
+	if currentPath == "" {
+		currentPath = binDir
+	} else {
+		currentPath = binDir + string(os.PathListSeparator) + currentPath
+	}
+	if err := os.Setenv("PATH", currentPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error setting PATH: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Initialized PATH with bin directory:", binDir)
 }
 
 func waitToCleanUp(d time.Duration) {
@@ -248,7 +275,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{})
+				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}

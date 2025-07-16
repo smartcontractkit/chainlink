@@ -73,7 +73,7 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      image = "**.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
+      image = "***.dkr.ecr.us-west-2.amazonaws.com/chainlink:manual-249d8db-plugins"
       user_config_overrides = """
       [Log]
       Level = 'debug'
