@@ -872,6 +872,20 @@ ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTPS server to
 
+## JobDistributor
+```toml
+[JobDistributor]
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
+```
+Job Distributor stores the configuration for Job Distributor
+
+### DisplayName
+```toml
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
+```
+DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
+It should uniquely and unambiguously represent the node for clear communication between Job Distributor maintainers/operators ↔ NOPs.
+
 ## JobPipeline
 ```toml
 [JobPipeline]

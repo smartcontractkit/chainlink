@@ -81,11 +81,11 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250703172708-3dacb811e668
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed
-	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250716184350-c0caeec4f261
+	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250716123636-be1313fbd156
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250716113058-ebc5e77f06ba
 	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250715132921-fbb00f834ac8
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250715141457-bbd0d2aa9bc0
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250716125226-8f70efcc16dd
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250702183345-3f9ae622e391
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250715134218-10b17f312eae
@@ -99,7 +99,7 @@ require (
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250709203740-9197d929abcd
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709203740-9197d929abcd
 	github.com/smartcontractkit/freeport v0.1.1
-	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
+	github.com/smartcontractkit/libocr v0.0.0-20250703184212-d054fa589c01
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
@@ -141,16 +141,6 @@ require (
 )
 
 require (
-	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
-	github.com/pion/dtls/v2 v2.2.12 // indirect
-	github.com/pion/logging v0.2.2 // indirect
-	github.com/pion/stun/v2 v2.0.0 // indirect
-	github.com/pion/transport/v2 v2.2.10 // indirect
-	github.com/pion/transport/v3 v3.0.1 // indirect
-	golang.org/x/net v0.40.0 // indirect
-)
-
-require (
 	cosmossdk.io/api v0.7.6 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.0 // indirect
@@ -183,6 +173,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/buger/goterm v1.0.4 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -323,6 +314,11 @@ require (
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
+	github.com/pion/dtls/v2 v2.2.12 // indirect
+	github.com/pion/logging v0.2.2 // indirect
+	github.com/pion/stun/v2 v2.0.0 // indirect
+	github.com/pion/transport/v2 v2.2.10 // indirect
+	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/procfs v0.16.0 // indirect
@@ -387,6 +383,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
 	golang.org/x/arch v0.11.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect

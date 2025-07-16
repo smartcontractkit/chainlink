@@ -138,6 +138,8 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 	return ocrtypes.ConfigDigest{}, 0, fmt.Errorf("unimplemented for this relayer")
 }
 
+var _ commontypes.EVMService = (*Relayer)(nil)
+
 type Relayer struct {
 	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource

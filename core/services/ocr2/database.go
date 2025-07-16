@@ -378,3 +378,34 @@ ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, 
 
 	return
 }
+
+// Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
+func (d *db) ReadBlock(ctx context.Context, configDigest ocrtypes.ConfigDigest, seqNr uint64) (block []byte, err error) {
+	err = d.ds.GetContext(ctx, &block, `
+SELECT block FROM ocr2_blocks
+WHERE config_digest = $1 and seq_nr = $2`,
+		configDigest, seqNr)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	err = errors.Wrapf(err, "ReadBlock failed for job %d", d.oracleSpecID)
+
+	return
+}
+
+// Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
+func (d *db) WriteBlock(ctx context.Context, configDigest ocrtypes.ConfigDigest, seqNr uint64, block []byte) (err error) {
+	if block == nil {
+		_, err = d.ds.ExecContext(ctx, `DELETE FROM ocr2_blocks WHERE config_digest = $1 AND seq_nr = $2;`, configDigest, seqNr)
+	} else {
+		_, err = d.ds.ExecContext(ctx, `
+INSERT INTO ocr2_blocks (config_digest, seq_nr, block) VALUES ($1, $2, $3)
+ON CONFLICT (config_digest, seq_nr) DO UPDATE SET block = $3;`, configDigest, seqNr, block)
+	}
+
+	err = errors.Wrapf(err, "WriteBlock failed for job %d", d.oracleSpecID)
+
+	return
+}

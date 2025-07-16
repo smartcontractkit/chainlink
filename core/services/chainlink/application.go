@@ -677,6 +677,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.JobDistributor(),
 			cfg.Feature(),
 			cfg.Insecure(),
 			cfg.JobPipeline(),

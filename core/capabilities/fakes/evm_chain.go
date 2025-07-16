@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -362,7 +363,7 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 	}, nil
 }
 
-func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata commonCap.RequestMetadata, input *emptypb.Empty) (*evmcappb.HeaderByNumberReply, error) {
+func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*evmcappb.HeaderByNumberReply, error) {
 	fc.eng.Infow("EVM Chain latest and finalized head", "input", input)
 
 	// Get latest and finalized head

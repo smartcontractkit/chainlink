@@ -40,17 +40,17 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.62
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250707220619-84bd6c292469
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250714181736-674a6a44b5df
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250709160835-3dbd1ee373a2
+	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250716123636-be1313fbd156
+	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250716113058-ebc5e77f06ba
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250604171706-a98fa6515eae
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.2
-	github.com/smartcontractkit/chainlink-evm v0.0.0-20250715141457-bbd0d2aa9bc0
+	github.com/smartcontractkit/chainlink-evm v0.0.0-20250716125226-8f70efcc16dd
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
+	github.com/smartcontractkit/libocr v0.0.0-20250703184212-d054fa589c01
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
@@ -451,7 +451,8 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250626122206-319db248496a // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250609091505-5c8cd74b92ed // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250709160835-3dbd1ee373a2 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250715132921-fbb00f834ac8 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250702183345-3f9ae622e391 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250715134218-10b17f312eae // indirect

@@ -125,6 +125,9 @@ HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
