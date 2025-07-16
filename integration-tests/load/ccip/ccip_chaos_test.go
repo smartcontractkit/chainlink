@@ -57,7 +57,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 	config, cr, _ := prepareChaos(t)
 	cfg := config.Chaos
 
-	labelValues := []string{"geth-1337", "geth-2337"}
+	labelValues := []string{"geth-1337", "geth-2337", "solana-1000"}
 	for i := range numChains - 2 {
 		labelValues = append(labelValues, fmt.Sprintf("geth-%d", 90000001+i))
 	}

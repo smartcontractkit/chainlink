@@ -394,10 +394,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
-	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
-	require.NoError(t, err)
-
 	for destSelector, gun := range gunMap {
+		requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
+		require.NoError(t, err)
 		selectorFamily, err := selectors.GetSelectorFamily(destSelector)
 		require.NoError(t, err)
 		if selectorFamily == selectors.FamilySolana {
