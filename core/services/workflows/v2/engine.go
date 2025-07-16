@@ -153,6 +153,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 					if err != nil {
 						return "", errors.New("Failed to unmarshal DecryptionShare" + err.Error())
 					}
+					err = tdh2easy.VerifyShare(ct, &publicKey, &decryptionShare)
+					if err != nil {
+						return "", errors.New("failed to verifyshare the decryptionshare" + err.Error())
+					}
 					decryptionShares = append(decryptionShares, &decryptionShare)
 				}
 				decryptedSecret, err := tdh2easy.Aggregate(ct, decryptionShares, len(shares))
