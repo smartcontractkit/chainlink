@@ -46,6 +46,7 @@ type Core struct {
 	AuditLogger      AuditLogger      `toml:",omitempty"`
 	Log              Log              `toml:",omitempty"`
 	WebServer        WebServer        `toml:",omitempty"`
+	JobDistributor   JobDistributor   `toml:",omitempty"`
 	JobPipeline      JobPipeline      `toml:",omitempty"`
 	FluxMonitor      FluxMonitor      `toml:",omitempty"`
 	OCR2             OCR2             `toml:",omitempty"`
@@ -102,6 +103,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
 	c.CRE.setFrom(&f.CRE)
@@ -2147,6 +2149,7 @@ type Telemetry struct {
 	EmitterBatchProcessor *bool
 	EmitterExportTimeout  *commonconfig.Duration
 	ChipIngressEndpoint   *string
+	HeartbeatInterval     *commonconfig.Duration
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2176,6 +2179,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
+	}
+	if v := f.HeartbeatInterval; v != nil {
+		b.HeartbeatInterval = v
 	}
 }
 
@@ -2256,4 +2262,14 @@ func (b *Billing) ValidateConfig() error {
 	}
 
 	return nil
+}
+
+type JobDistributor struct {
+	DisplayName *string
+}
+
+func (jd *JobDistributor) setFrom(f *JobDistributor) {
+	if f.DisplayName != nil {
+		jd.DisplayName = f.DisplayName
+	}
 }

@@ -427,8 +427,8 @@ func SetupTestEnvironment(
 				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
 			})
 		}
-		if err := eg.Wait(); err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to wait for ConfigWatcher health check")
+		if waitErr := eg.Wait(); waitErr != nil {
+			return nil, pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
 		}
 	}
 
