@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.1
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250402195829-918b2a02a926
-	github.com/smartcontractkit/libocr v0.0.0-20250604151357-2fe8c61bbf2e
+	github.com/smartcontractkit/libocr v0.0.0-20250703184212-d054fa589c01
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.15.0
