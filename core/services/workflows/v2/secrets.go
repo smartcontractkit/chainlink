@@ -31,7 +31,7 @@ type secretsFetcher struct {
 
 	workflowOwner string
 	workflowName  string
-	decrypter     func(shares []string) (string, error)
+	decrypter     func(shares []string, publicKey *[32]byte) (string, error)
 
 	metrics *monitoring.WorkflowsMetricLabeler
 }
@@ -43,7 +43,7 @@ func NewSecretsFetcher(
 	semaphore *semaphore[[]*sdkpb.SecretResponse],
 	workflowOwner string,
 	workflowName string,
-	decrypter func(shares []string) (string, error),
+	decrypter func(shares []string, publicKey *[32]byte) (string, error),
 ) *secretsFetcher {
 	return &secretsFetcher{
 		capRegistry:   capRegistry,
@@ -139,6 +139,12 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		m[key] = s
 	}
 
+	myNode, err := s.capRegistry.LocalNode(ctx)
+	if err != nil {
+		lggr.Errorw("failed to get local node from registry" + err.Error())
+		return nil, errors.New("failed to get local node from registry: " + err.Error())
+	}
+
 	sdkResp := []*sdkpb.SecretResponse{}
 	for _, r := range request.Requests {
 		key := keyFor(s.workflowOwner, r.Namespace, r.Id)
@@ -189,7 +195,8 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		}
 
 		shares := resp.GetData().EncryptedDecryptionKeyShares[0].Shares
-		secret, err := s.decrypter(shares)
+
+		secret, err := s.decrypter(shares, &myNode.EncryptionPublicKey)
 		if err != nil {
 			lggr.Errorw("failed to combine decryption shares", "key", key, "err", err)
 			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
