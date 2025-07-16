@@ -24,7 +24,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -32,7 +31,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -97,8 +95,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
-
-const HeartbeatPeriod = time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -211,60 +207,6 @@ type ApplicationOpts struct {
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 }
 
-type Heartbeat struct {
-	commonservices.Service
-	eng *commonservices.Engine
-
-	beat time.Duration
-}
-
-func NewHeartbeat(lggr logger.Logger) Heartbeat {
-	h := Heartbeat{
-		beat: HeartbeatPeriod,
-	}
-	h.Service, h.eng = commonservices.Config{
-		Name:  "Heartbeat",
-		Start: h.start,
-	}.NewServiceEngine(lggr)
-	return h
-}
-
-func (h *Heartbeat) start(_ context.Context) error {
-	// Setup beholder resources
-	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
-	if err != nil {
-		return err
-	}
-	count, err := beholder.GetMeter().Int64Gauge("heartbeat_count")
-	if err != nil {
-		return err
-	}
-
-	cme := custmsg.NewLabeler()
-
-	// Define tick functions
-	beatFn := func(ctx context.Context) {
-		// TODO allow override of tracer provider into engine for beholder
-		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
-		defer innerSpan.End()
-
-		gauge.Record(ctx, 1)
-		count.Record(ctx, 1)
-
-		err = cme.Emit(ctx, "heartbeat")
-		if err != nil {
-			h.eng.Errorw("heartbeat emit failed", "err", err)
-		}
-	}
-
-	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
-	return nil
-}
-
-func (h *Heartbeat) getBeat() time.Duration {
-	return h.beat
-}
-
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -273,7 +215,7 @@ func (h *Heartbeat) getBeat() time.Duration {
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
-	heartbeat := NewHeartbeat(opts.Logger)
+	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
 	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger
@@ -364,7 +306,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
-		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
+		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL())
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
 		}
@@ -735,6 +677,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.JobDistributor(),
 			cfg.Feature(),
 			cfg.Insecure(),
 			cfg.JobPipeline(),

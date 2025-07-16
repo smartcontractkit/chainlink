@@ -274,7 +274,8 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
-	ctx, _ := m.shutdownCh.NewCtx()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-m.shutdownCh:
@@ -296,8 +297,9 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 }
 
 func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
-	ctx, _ := m.shutdownCh.NewCtx()
 	defer m.closeWait.Done()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 
 	if intervalSec == 0 {
 		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)

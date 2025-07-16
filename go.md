@@ -34,12 +34,15 @@ flowchart LR
 	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> chain-selectors
+	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/pkg/chipingress
+	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/monitoring
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/values
@@ -118,6 +121,7 @@ flowchart LR
 
 	subgraph chainlink-common-repo[chainlink-common]
 		 chainlink-common
+		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
 		 chainlink-common/pkg/workflows/sdk/v2/pb
@@ -194,12 +198,15 @@ flowchart LR
 	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> chain-selectors
+	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/pkg/chipingress
+	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/monitoring
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/values
@@ -340,6 +347,7 @@ flowchart LR
 
 	subgraph chainlink-common-repo[chainlink-common]
 		 chainlink-common
+		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
 		 chainlink-common/pkg/workflows/sdk/v2/pb

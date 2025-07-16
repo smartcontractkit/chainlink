@@ -21,4 +21,4 @@ cre.yaml
 *.state.yaml
 
 # dumped data
-env_artifact/**
+env_artifact/

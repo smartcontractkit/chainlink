@@ -87,7 +87,7 @@ func Test_Report(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		_, err := NewReport(map[string]string{}, logger.Nop(), billingClient)
+		_, err := NewReport(map[string]string{}, logger.Nop(), billingClient, defaultMetrics(t))
 		require.ErrorIs(t, err, ErrMissingLabels)
 	})
 }
@@ -617,7 +617,7 @@ func Test_Report_Settle(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
 		report := newTestReport(t, lggr, billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -639,7 +639,7 @@ func Test_Report_Settle(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
 		report := newTestReport(t, lggr, billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -1167,13 +1167,13 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 	t.Helper()
 
 	if client == nil {
-		meteringReport, err := NewReport(defaultLabels, lggr, nil)
+		meteringReport, err := NewReport(defaultLabels, lggr, nil, defaultMetrics(t))
 		require.NoError(t, err)
 
 		return meteringReport
 	}
 
-	meteringReport, err := NewReport(defaultLabels, lggr, client)
+	meteringReport, err := NewReport(defaultLabels, lggr, client, defaultMetrics(t))
 	require.NoError(t, err)
 
 	return meteringReport
