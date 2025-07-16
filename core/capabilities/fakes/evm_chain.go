@@ -26,8 +26,9 @@ type FakeEVMChain struct {
 	services.Service
 	eng *services.Engine
 
-	gethClient *ethclient.Client
-	privateKey *ecdsa.PrivateKey
+	gethClient            *ethclient.Client
+	privateKey            *ecdsa.PrivateKey
+	mockKeystoneForwarder *MockKeystoneForwarder
 
 	lggr logger.Logger
 
@@ -45,13 +46,25 @@ var _ services.Service = (*FakeEVMChain)(nil)
 var _ evmserver.ClientCapability = (*FakeEVMChain)(nil)
 var _ commonCap.ExecutableCapability = (*FakeEVMChain)(nil)
 
-func NewFakeEvmChain(lggr logger.Logger, gethClient *ethclient.Client, privateKey *ecdsa.PrivateKey) *FakeEVMChain {
+func NewFakeEvmChain(
+	lggr logger.Logger,
+	gethClient *ethclient.Client,
+	privateKey *ecdsa.PrivateKey,
+	mockKeystoneForwarderAddress common.Address,
+) *FakeEVMChain {
+	mockKeystoneForwarder, err := NewMockKeystoneForwarder(mockKeystoneForwarderAddress, gethClient)
+	if err != nil {
+		lggr.Errorw("Failed to create mock keystone forwarder", "error", err)
+		return nil
+	}
+
 	fc := &FakeEVMChain{
-		CapabilityInfo: evmExecInfo,
-		lggr:           lggr,
-		gethClient:     gethClient,
-		privateKey:     privateKey,
-		callbackCh:     make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		CapabilityInfo:        evmExecInfo,
+		lggr:                  lggr,
+		gethClient:            gethClient,
+		privateKey:            privateKey,
+		mockKeystoneForwarder: mockKeystoneForwarder,
+		callbackCh:            make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -112,11 +125,6 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
-	mockKeystoneForwarder, err := NewMockKeystoneForwarder(common.HexToAddress("0x15fC6ae953E024d975e77382eEeC56A9101f9F88"), fc.gethClient)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create authenticated transactor
 	chainID, err := fc.gethClient.ChainID(ctx)
 	if err != nil {
@@ -128,7 +136,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
-	reportTx, err := mockKeystoneForwarder.Report(
+	reportTx, err := fc.mockKeystoneForwarder.Report(
 		auth,
 		common.Address(input.Receiver),
 		input.Report.RawReport,
