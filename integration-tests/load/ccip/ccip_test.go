@@ -430,6 +430,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			config.CCIP.Load.GetRPCLatency(),
 			config.CCIP.Load.GetRPCJitter(),
 			len(evmChains),
+			len(solChains),
 		)
 	case ccip.ChaosModeTypeFull:
 		go runFullChaosSuite(t)

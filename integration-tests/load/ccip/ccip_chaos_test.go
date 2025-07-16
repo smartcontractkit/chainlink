@@ -53,13 +53,16 @@ func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner
 	return cfg, cr, gc
 }
 
-func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration, numChains int) {
+func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration, numEvmChains, numSolChains int) {
 	config, cr, _ := prepareChaos(t)
 	cfg := config.Chaos
 
-	labelValues := []string{"geth-1337", "geth-2337", "solana-1000"}
-	for i := range numChains - 2 {
+	labelValues := []string{"geth-1337", "geth-2337"}
+	for i := range numEvmChains - 2 {
 		labelValues = append(labelValues, fmt.Sprintf("geth-%d", 90000001+i))
+	}
+	for i := range numSolChains {
+		labelValues = append(labelValues, fmt.Sprintf("solana-%d", 1000*i))
 	}
 	testCases := []struct {
 		name string
