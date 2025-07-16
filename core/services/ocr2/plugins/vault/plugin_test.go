@@ -49,14 +49,14 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
-	assert.Len(t, obs.Observations, 0)
+	assert.Empty(t, obs.Observations)
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
 		id       *vault.SecretIdentifier
-		maxIdLen int
+		maxIDLen int
 		err      string
 	}{
 		{
@@ -79,7 +79,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		},
 		{
 			name:     "id is too long",
-			maxIdLen: 10,
+			maxIDLen: 10,
 			id: &vault.SecretIdentifier{
 				Owner:     "owner",
 				Key:       "hello",
@@ -92,9 +92,9 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
 		store := requests.NewStore[*Request]()
-		maxIdLen := 256
-		if tc.maxIdLen > 0 {
-			maxIdLen = tc.maxIdLen
+		maxIDLen := 256
+		if tc.maxIDLen > 0 {
+			maxIDLen = tc.maxIDLen
 		}
 		r := &ReportingPlugin{
 			lggr:  lggr,
@@ -105,9 +105,9 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 				PrivateKeyShare:                nil,
 				MaxSecretsPerOwner:             1,
 				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIdLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIdLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIdLen / 3,
+				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
+				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
+				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
 			},
 		}
 
@@ -135,12 +135,12 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		assert.Len(t, obs.Observations, 1)
 		o := obs.Observations[0]
 
-		assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+		assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 		assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 		batchResp := o.GetGetSecretsResponse()
 		assert.Len(t, p.Requests, 1)
-		assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+		assert.Len(t, p.Requests, len(batchResp.Responses))
 
 		assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
 		resp := batchResp.Responses[0]
@@ -183,12 +183,12 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	createdId := &vault.SecretIdentifier{
+	createdID := &vault.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	err = NewWriteStore(rdr).WriteSecret(createdId, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(createdID, &vault.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -219,14 +219,14 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
-	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+	assert.Len(t, p.Requests, len(batchResp.Responses))
 
-	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdId))
+	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdID))
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
@@ -276,12 +276,12 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
-	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -343,12 +343,12 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
-	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -358,7 +358,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 
 	// Inspect logs to get true source of error
 	logs := observed.FilterMessage("failed to handle get secret request")
-	assert.Equal(t, logs.Len(), 1)
+	assert.Equal(t, 1, logs.Len())
 	fields := logs.All()[0].ContextMap()
 	errString := fields["error"]
 	assert.Contains(t, errString, "failed to unmarshal ciphertext")
@@ -425,12 +425,12 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
-	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -504,12 +504,12 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_GET_SECRETS)
+	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
-	assert.Equal(t, len(p.Requests), len(batchResp.Responses))
+	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -546,7 +546,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 	tcs := []struct {
 		name     string
 		id       *vault.SecretIdentifier
-		maxIdLen int
+		maxIDLen int
 		err      string
 	}{
 		{
@@ -569,7 +569,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		},
 		{
 			name:     "id is too long",
-			maxIdLen: 10,
+			maxIDLen: 10,
 			id: &vault.SecretIdentifier{
 				Owner:     "owner",
 				Key:       "hello",
@@ -582,9 +582,9 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
 		store := requests.NewStore[*Request]()
-		maxIdLen := 256
-		if tc.maxIdLen > 0 {
-			maxIdLen = tc.maxIdLen
+		maxIDLen := 256
+		if tc.maxIDLen > 0 {
+			maxIDLen = tc.maxIDLen
 		}
 		r := &ReportingPlugin{
 			lggr:  lggr,
@@ -595,9 +595,9 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 				PrivateKeyShare:                nil,
 				MaxSecretsPerOwner:             1,
 				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIdLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIdLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIdLen / 3,
+				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
+				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
+				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
 			},
 		}
 
@@ -625,12 +625,12 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		assert.Len(t, obs.Observations, 1)
 		o := obs.Observations[0]
 
-		assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+		assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 		assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 		batchResp := o.GetCreateSecretsResponse()
 		assert.Len(t, p.EncryptedSecrets, 1)
-		assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+		assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 		assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 		resp := batchResp.Responses[0]
@@ -689,12 +689,12 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
 	assert.Len(t, p.EncryptedSecrets, 2)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -805,13 +805,13 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	assert.Len(t, os.Outcomes, 2)
 
 	o1 := os.Outcomes[0]
-	assert.Equal(t, o1.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o1.RequestType)
 	assert.Len(t, o1.GetCreateSecretsResponse().Responses, 1)
 	r1 := o1.GetCreateSecretsResponse().Responses[0]
 	assert.True(t, r1.Success)
 
 	o2 := os.Outcomes[1]
-	assert.Equal(t, o2.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o2.RequestType)
 	assert.Len(t, o2.GetCreateSecretsResponse().Responses, 1)
 	r2 := o2.GetCreateSecretsResponse().Responses[0]
 	assert.False(t, r2.Success)
@@ -866,12 +866,12 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
 	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -927,12 +927,12 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
 	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -944,6 +944,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	store := requests.NewStore[*Request]()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
 	// Right key
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -998,12 +999,12 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
 	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -1235,12 +1236,12 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, o.RequestType, vault.RequestType_CREATE_SECRETS)
+	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
 	assert.Len(t, p.EncryptedSecrets, 1)
-	assert.Equal(t, len(p.EncryptedSecrets), len(batchResp.Responses))
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
@@ -1262,27 +1263,27 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 		o := &vault.Observation{
 			Id: keyFor(ob.id),
 		}
-		switch ob.req.(type) {
+		switch tr := ob.req.(type) {
 		case *vault.GetSecretsRequest:
 			o.RequestType = vault.RequestType_GET_SECRETS
 			o.Request = &vault.Observation_GetSecretsRequest{
-				GetSecretsRequest: ob.req.(*vault.GetSecretsRequest),
+				GetSecretsRequest: tr,
 			}
 		case *vault.CreateSecretsRequest:
 			o.RequestType = vault.RequestType_CREATE_SECRETS
 			o.Request = &vault.Observation_CreateSecretsRequest{
-				CreateSecretsRequest: ob.req.(*vault.CreateSecretsRequest),
+				CreateSecretsRequest: tr,
 			}
 		}
 
-		switch ob.resp.(type) {
+		switch tr := ob.resp.(type) {
 		case *vault.GetSecretsResponse:
 			o.Response = &vault.Observation_GetSecretsResponse{
-				GetSecretsResponse: ob.resp.(*vault.GetSecretsResponse),
+				GetSecretsResponse: tr,
 			}
 		case *vault.CreateSecretsResponse:
 			o.Response = &vault.Observation_CreateSecretsResponse{
-				CreateSecretsResponse: ob.resp.(*vault.CreateSecretsResponse),
+				CreateSecretsResponse: tr,
 			}
 		}
 
@@ -1361,7 +1362,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
-	assert.Len(t, os.Outcomes, 0)
+	assert.Empty(t, os.Outcomes, 0)
 
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
 }
@@ -1419,10 +1420,9 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 		kv,
 		nil,
 	)
-	assert.ErrorContains(t, err, "GetSecrets observation must have both request and response")
+	require.ErrorContains(t, err, "GetSecrets observation must have both request and response")
 
 	// Invalid observation -- data can't be unmarshaled
-	obsb = marshalObservations(t, observation{id1, req, resp})
 	err = r.ValidateObservation(
 		t.Context(),
 		seqNr,
@@ -1432,7 +1432,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 		nil,
 	)
 
-	assert.ErrorContains(t, err, "failed to unmarshal observations")
+	require.ErrorContains(t, err, "failed to unmarshal observations")
 
 	// Invalid observation -- a single observation set has observations for multiple request ids
 	correctResp := &vault.GetSecretsResponse{
@@ -1530,7 +1530,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
-	assert.Len(t, os.Outcomes, 0)
+	assert.Empty(t, os.Outcomes)
 
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
 }
