@@ -364,27 +364,6 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 }
 
 func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*evmcappb.HeaderByNumberReply, error) {
-	fc.eng.Infow("EVM Chain latest and finalized head", "input", input)
-
-	// Get latest and finalized head
-	head, err := fc.gethClient.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert head to protobuf
-	headPb := &evmcappb.HeaderByNumberReply{
-		Header: &evmcappb.Header{
-			Timestamp:   head.Time,
-			BlockNumber: pb.NewBigIntFromInt(head.Number),
-			Hash:        head.Hash().Bytes(),
-			ParentHash:  head.ParentHash.Bytes(),
-		},
-	}
-	return headPb, nil
-}
-
-func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*evmcappb.HeaderByNumberReply, error) {
 	fc.eng.Infow("EVM Chain HeaderByNumber Started", "input", input)
 
 	// Prepare header by number request
