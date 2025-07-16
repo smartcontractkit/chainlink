@@ -818,6 +818,8 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.Reques
 	}, nil
 }
 
+=======
+>>>>>>> develop
 func (r *ReportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	return true, nil
 }
