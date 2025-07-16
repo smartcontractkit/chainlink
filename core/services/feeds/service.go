@@ -170,6 +170,7 @@ type service struct {
 	workflowKeyStore    keystore.Workflow
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
+	jdCfg               JobDistributorConfig
 	featCfg             FeatureConfig
 	insecureCfg         InsecureConfig
 	jobCfg              JobConfig
@@ -194,6 +195,7 @@ func NewService(
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	gCfg GeneralConfig,
+	jdCfg JobDistributorConfig,
 	fCfg FeatureConfig,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
@@ -216,6 +218,7 @@ func NewService(
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
 		workflowKeyStore:    keyStore.Workflow(),
+		jdCfg:               jdCfg,
 		gCfg:                gCfg,
 		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
@@ -378,10 +381,11 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 	workflowKey := s.getWorkflowPublicKey(ctx)
 
 	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
-		Version:       s.version,
-		ChainConfigs:  cfgMsgs,
-		WorkflowKey:   &workflowKey,
-		P2PKeyBundles: p2pKeysBundles,
+		Version:         s.version,
+		ChainConfigs:    cfgMsgs,
+		WorkflowKey:     &workflowKey,
+		P2PKeyBundles:   p2pKeysBundles,
+		NopFriendlyName: s.jdCfg.DisplayName(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")

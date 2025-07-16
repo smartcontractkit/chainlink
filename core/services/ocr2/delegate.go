@@ -703,12 +703,13 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		ContractTransmitter:          nil, // TODO
 		Database:                     ocrDB,
+		KeyValueDatabaseFactory:      nil, // TODO
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
@@ -717,7 +718,8 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(store)
+	// TODO: use properly generated config
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr.Named("VaultPluginFactory"), store, &vault.ReportingPluginConfig{})
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
