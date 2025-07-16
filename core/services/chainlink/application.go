@@ -306,7 +306,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
-		billingClient, err = billing.NewWorkflowClient(opts.Config.Billing().URL())
+		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL())
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
 		}

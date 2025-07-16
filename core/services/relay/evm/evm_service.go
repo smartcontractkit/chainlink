@@ -28,12 +28,19 @@ import (
 )
 
 // Direct RPC
-func (r *Relayer) CallContract(ctx context.Context, msg *evmtypes.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return r.chain.Client().CallContract(ctx, toEthMsg(msg), blockNumber)
+func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
+	reply, err := r.chain.Client().CallContract(ctx, toEthMsg(request.Msg), request.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return &evmtypes.CallContractReply{
+		Data: reply,
+	}, nil
 }
 
-func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQuery) ([]*evmtypes.Log, error) {
-	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery))
+func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
+	logs, err := r.chain.Client().FilterLogs(ctx, convertEthFilter(filterQuery.FilterQuery))
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +51,38 @@ func (r *Relayer) FilterLogs(ctx context.Context, filterQuery evmtypes.FilterQue
 		ret = append(ret, convertLog(&l))
 	}
 
-	return ret, nil
+	return &evmtypes.FilterLogsReply{
+		Logs: ret,
+	}, nil
 }
 
-func (r *Relayer) BalanceAt(ctx context.Context, account evmtypes.Address, blockNumber *big.Int) (*big.Int, error) {
-	return r.chain.Client().BalanceAt(ctx, account, blockNumber)
+func (r *Relayer) GetFiltersNames(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+func (r *Relayer) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
+	balance, err := r.chain.Client().BalanceAt(ctx, request.Address, request.BlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return &evmtypes.BalanceAtReply{Balance: balance}, nil
+}
+
+func (r *Relayer) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByNumberRequest) (*evmtypes.HeaderByNumberReply, error) {
+	head, err := r.chain.Client().HeaderByNumber(ctx, request.Number)
+	if err != nil {
+		return nil, err
+	}
+	if head == nil {
+		return nil, errors.New("header not found")
+	}
+
+	return &evmtypes.HeaderByNumberReply{Header: &evmtypes.Header{
+		Timestamp:  head.Time,
+		Hash:       head.Hash(),
+		Number:     head.Number,
+		ParentHash: head.ParentHash,
+	}}, nil
 }
 
 func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
@@ -78,10 +112,10 @@ func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontyp
 	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Head, evmtypes.Head, error) {
+func (r *Relayer) LatestAndFinalizedHead(ctx context.Context) (evmtypes.Header, evmtypes.Header, error) {
 	latest, finalized, err := r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 	if err != nil {
-		return evmtypes.Head{}, evmtypes.Head{}, err
+		return evmtypes.Header{}, evmtypes.Header{}, err
 	}
 
 	return convertHead(latest), convertHead(finalized), nil
@@ -251,8 +285,8 @@ func queryNameFromFilter(filterQuery []query.Expression) string {
 	return address + "-" + eventSig
 }
 
-func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Head {
-	return evmtypes.Head{
+func convertHead[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable](h H) evmtypes.Header {
+	return evmtypes.Header{
 		Timestamp:  uint64(h.GetTimestamp().Unix()),
 		Hash:       bytesToHash(h.BlockHash().Bytes()),
 		Number:     big.NewInt(h.BlockNumber()),
