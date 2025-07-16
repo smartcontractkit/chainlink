@@ -201,7 +201,9 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uin
 	maxTaskDuration = "0s"
 	contractID = "%s"
 	relay = "evm"
-	pluginType = "dontime"
+	pluginType = "plugin"
+	pluginName = "dontime"
+	providerType = "dontime"
 	onchainSigningStrategy = { }
 
 	[relayConfig]
