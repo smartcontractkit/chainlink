@@ -214,7 +214,7 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
 	_, err = enc.Encode(testutils.Context(t), *wrapped)
-	assert.ErrorContains(t, err, "incorrect length for id")
+	assert.ErrorContains(t, err, "wrong length")
 }
 
 func TestEVMEncoder_SubABI(t *testing.T) {
