@@ -43,6 +43,7 @@ type AppConfig interface {
 	Feature() Feature
 	FluxMonitor() FluxMonitor
 	Insecure() Insecure
+	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
 	Keeper() Keeper
 	Log() Log

@@ -1,6 +1,7 @@
 package crib
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -11,9 +12,14 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -125,7 +131,7 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 			return []LaneConfig{}
 		}
 
-		lc.generatedLanes = generateRandomLanesWithMinConnectivity(chains, *lc.NumLanes)
+		lc.generatedLanes = generateBidirectionalRandomLanesWithMinConnectivity(chains, *lc.NumLanes)
 
 		return lc.generatedLanes
 
@@ -154,7 +160,7 @@ func generateAnyToAnyLanes(chains []uint64) []LaneConfig {
 	return lanes
 }
 
-func generateRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
+func generateBidirectionalRandomLanesWithMinConnectivity(chains []uint64, numLanes int) []LaneConfig {
 	if len(chains) <= 1 {
 		// If there's only one chain or none, no lanes can be generated
 		return []LaneConfig{}
@@ -293,7 +299,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which destination chains are configured on the OnRamp
-		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, allChains)
+		destinations, err := lc.getEnabledDestinationsFromOnRamp(srcChainState, srcChain, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for EVM chain %d: %w", srcChain, err)
 		}
@@ -314,7 +320,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 
 		// Check which EVM destination chains are configured on the Solana Router
-		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(srcChainState, allChains)
+		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(env, srcChain, srcChainState, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled EVM destinations for Solana chain %d: %w", srcChain, err)
 		}
@@ -341,11 +347,17 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 }
 
 // getEnabledDestinationsFromOnRamp checks which destinations are enabled on the OnRamp
-func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(chainState evm.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(
+	chainState evm.CCIPChainState,
+	srcSelector uint64,
+	candidateDestinations []uint64) ([]uint64, error) {
 	var enabledDestinations []uint64
 
 	// For each candidate destination, check if it's enabled on the OnRamp
 	for _, dstChain := range candidateDestinations {
+		if dstChain == srcSelector {
+			continue
+		}
 		isEnabled, err := lc.isDestinationEnabledOnOnRamp(chainState, dstChain)
 		if err != nil {
 			// Log but continue - some destinations might not be configured
@@ -361,17 +373,16 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromOnRamp(chainState evm.CCI
 }
 
 // getEnabledDestinationsFromSolanaRouter checks which destinations are enabled on the Solana Router
-func (lc *LaneConfiguration) getEnabledDestinationsFromSolanaRouter(chainState solState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+func (lc *LaneConfiguration) getEnabledDestinationsFromSolanaRouter(env cldf.Environment, selector uint64, chainState solState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
 	var enabledDestinations []uint64
 
 	// For each candidate destination, check if it's enabled on the Solana Router
 	for _, dstChain := range candidateDestinations {
-		isEnabled, err := lc.isDestinationEnabledOnSolanaRouter(chainState, dstChain)
-		if err != nil {
-			// Log but continue - some destinations might not be configured
+		if dstChain == selector {
 			continue
 		}
-
+		// we don't verify against error because if the destination is not configured, it will return an error
+		isEnabled, _ := lc.isDestinationEnabledOnSolanaRouter(env.GetContext(), chainState, dstChain, env.BlockChains.SolanaChains()[selector].Client)
 		if isEnabled {
 			enabledDestinations = append(enabledDestinations, dstChain)
 		}
@@ -393,8 +404,15 @@ func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPCha
 }
 
 // isDestinationEnabledOnSolanaRouter checks if a destination is enabled on the Solana Router
-func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(chainState solState.CCIPChainState, destinationChain uint64) (bool, error) {
-	panic("isDestinationEnabledOnSolanaRouter not implemented yet") // TODO: Implement this function
+func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(ctx context.Context, chainState solState.CCIPChainState, destinationChain uint64, client *solrpc.Client) (bool, error) {
+	routerRemoteStatePDA, _ := ccipSolState.FindDestChainStatePDA(destinationChain, chainState.Router)
+	var destChainStateAccount solRouter.DestChain
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, client, routerRemoteStatePDA, cldf_solana.SolDefaultCommitment, &destChainStateAccount)
+	if err != nil {
+		// If we can't get the config, assume it's not enabled
+		return false, fmt.Errorf("failed to get dest chain state for %d: %w", destinationChain, err)
+	}
+	return true, nil
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination

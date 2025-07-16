@@ -19,3 +19,6 @@ logs/
 .cre.settings.yaml
 cre.yaml
 *.state.yaml
+
+# dumped data
+env_artifact/

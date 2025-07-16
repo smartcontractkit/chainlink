@@ -6,15 +6,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	triggermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/mocks"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	httpmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -115,19 +118,21 @@ func TestHandleNodeMessage(t *testing.T) {
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		// Prepare outbound request
-		outboundReq := gateway.OutboundHTTPRequest{
+		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:        "GET",
 			URL:           "https://example.com/api",
 			TimeoutMs:     5000,
 			Headers:       map[string]string{"Content-Type": "application/json"},
 			Body:          []byte(`{"test": "data"}`),
-			CacheSettings: gateway.CacheSettings{},
+			CacheSettings: gateway_common.CacheSettings{},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
+
+		id := fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String())
 		rawRequest := json.RawMessage(reqBytes)
 		resp := &jsonrpc.Response[json.RawMessage]{
-			ID:     "test-request-id",
+			ID:     id,
 			Result: &rawRequest,
 		}
 
@@ -141,7 +146,7 @@ func TestHandleNodeMessage(t *testing.T) {
 		})).Return(httpResp, nil)
 
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
-			return req.ID == "test-request-id"
+			return req.ID == id
 		})).Return(nil)
 
 		err = handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
@@ -150,11 +155,11 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("returns cached response if available", func(t *testing.T) {
-		outboundReq := gateway.OutboundHTTPRequest{
+		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://return-cached.com/api",
 			TimeoutMs: 5000,
-			CacheSettings: gateway.CacheSettings{
+			CacheSettings: gateway_common.CacheSettings{
 				StoreInCache:  true,
 				ReadFromCache: true,
 				TTLMs:         600000, // 10 minute TTL
@@ -162,9 +167,10 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
+		id := fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String())
 		rawRequest := json.RawMessage(reqBytes)
 		resp := &jsonrpc.Response[json.RawMessage]{
-			ID:     "test-request-id",
+			ID:     id,
 			Result: &rawRequest,
 		}
 
@@ -185,7 +191,7 @@ func TestHandleNodeMessage(t *testing.T) {
 
 		// Second call: should return cached response (no HTTP client call)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
-			var cached gateway.OutboundHTTPResponse
+			var cached gateway_common.OutboundHTTPResponse
 			err2 := json.Unmarshal(*req.Params, &cached)
 			return err2 == nil && string(cached.Body) == string(httpResp.Body)
 		})).Return(nil)
@@ -196,11 +202,11 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("status code 500 is not cached if StoreInCache is false", func(t *testing.T) {
-		outboundReq := gateway.OutboundHTTPRequest{
+		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",
 			TimeoutMs: 5000,
-			CacheSettings: gateway.CacheSettings{
+			CacheSettings: gateway_common.CacheSettings{
 				StoreInCache:  true,
 				ReadFromCache: true,
 				TTLMs:         600000,
@@ -208,9 +214,10 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 		reqBytes, err := json.Marshal(outboundReq)
 		require.NoError(t, err)
+
 		rawRequest := json.RawMessage(reqBytes)
 		resp := &jsonrpc.Response[json.RawMessage]{
-			ID:     "test-request-id-500",
+			ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
 			Result: &rawRequest,
 		}
 
@@ -254,7 +261,7 @@ func TestHandleNodeMessage(t *testing.T) {
 	t.Run("invalid JSON in response result", func(t *testing.T) {
 		rawRes := json.RawMessage([]byte(`{invalid json}`))
 		resp := &jsonrpc.Response[json.RawMessage]{
-			ID:     "test-request-id2",
+			ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
 			Result: &rawRes,
 		}
 
@@ -309,6 +316,57 @@ func TestServiceLifecycle(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
+	// This test covers the case where the response ID does not contain a "/"
+	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
+	mockTriggerHandler := triggermocks.NewHTTPTriggerHandler(t)
+	handler := createTestHandler(t)
+	handler.triggerHandler = mockTriggerHandler
+
+	rawRes := json.RawMessage([]byte(`{}`))
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     "triggerResponseID", // No "/" in ID
+		Result: &rawRes,
+	}
+	nodeAddr := "node1"
+
+	mockTriggerHandler.
+		On("HandleNodeTriggerResponse", mock.Anything, resp, nodeAddr).
+		Return(nil).
+		Once()
+
+	err := handler.HandleNodeMessage(testutils.Context(t), resp, nodeAddr)
+	require.NoError(t, err)
+	mockTriggerHandler.AssertExpectations(t)
+}
+
+func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
+	handler := createTestHandler(t)
+	rawRes := json.RawMessage([]byte(`{}`))
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     "unsupportedMethod/123",
+		Result: &rawRes,
+	}
+	nodeAddr := "node1"
+
+	err := handler.HandleNodeMessage(testutils.Context(t), resp, nodeAddr)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported method unsupportedMethod")
+}
+
+func TestHandleNodeMessage_EmptyID(t *testing.T) {
+	handler := createTestHandler(t)
+	rawRes := json.RawMessage([]byte(`{}`))
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     "",
+		Result: &rawRes,
+	}
+	nodeAddr := "node1"
+
+	err := handler.HandleNodeMessage(testutils.Context(t), resp, nodeAddr)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty request ID")
+}
 
 type mockResponseCache struct {
 	deleteExpiredCh chan struct{}
@@ -320,10 +378,10 @@ func newMockResponseCache() *mockResponseCache {
 	}
 }
 
-func (m *mockResponseCache) Set(gateway.OutboundHTTPRequest, gateway.OutboundHTTPResponse, time.Duration) {
+func (m *mockResponseCache) Set(gateway_common.OutboundHTTPRequest, gateway_common.OutboundHTTPResponse, time.Duration) {
 }
 
-func (m *mockResponseCache) Get(gateway.OutboundHTTPRequest) *gateway.OutboundHTTPResponse {
+func (m *mockResponseCache) Get(gateway_common.OutboundHTTPRequest) *gateway_common.OutboundHTTPResponse {
 	return nil
 }
 

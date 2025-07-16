@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )
 
 type response struct {
@@ -47,7 +47,7 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Key::owner::main::secret1"] = response{
 		err: errors.New("not found"),
 	}
-	store := newWriteStore(kv)
+	store := NewWriteStore(kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -55,7 +55,7 @@ func TestKVStore_Secrets(t *testing.T) {
 		Key:       "secret1",
 	}
 
-	_, err := store.getSecret(id)
+	_, err := store.GetSecret(id)
 	require.ErrorContains(t, err, "not found")
 
 	d, err := proto.Marshal(&vault.StoredSecret{
@@ -65,24 +65,24 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Key::owner::main::secret1"] = response{
 		data: d,
 	}
-	s, err := store.getSecret(id)
+	s, err := store.GetSecret(id)
 	require.NoError(t, err)
 	assert.Equal(t, s.EncryptedSecret, []byte("encrypted data"))
 
 	delete(kv.m, "Key::owner::main::secret1")
-	s, err = store.getSecret(id)
+	s, err = store.GetSecret(id)
 	assert.Nil(t, s)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	newData := []byte("new encrypted data 2")
 	ss := &vault.StoredSecret{
 		EncryptedSecret: newData,
 	}
-	err = store.writeSecret(id, ss)
-	assert.NoError(t, err)
+	err = store.WriteSecret(id, ss)
+	require.NoError(t, err)
 
-	s, err = store.getSecret(id)
-	assert.NoError(t, err)
+	s, err = store.GetSecret(id)
+	require.NoError(t, err)
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
 
@@ -94,37 +94,52 @@ func TestKVStore_Metadata(t *testing.T) {
 	kv.m["Metadata::"+owner] = response{
 		err: errors.New("not found"),
 	}
-	store := newWriteStore(kv)
+	store := NewWriteStore(kv)
 
-	_, err := store.getMetadata(owner)
+	_, err := store.GetMetadata(owner)
 	require.ErrorContains(t, err, "not found")
 
-	key := "Key::owner::main::secret1"
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret1",
+	}
 	d, err := proto.Marshal(&vault.StoredMetadata{
-		Keys: []string{key},
+		SecretIdentifiers: []*vault.SecretIdentifier{id},
 	})
 	require.NoError(t, err)
 	kv.m["Metadata::owner"] = response{
 		data: d,
 	}
-	m, err := store.getMetadata(owner)
+	m, err := store.GetMetadata(owner)
 	require.NoError(t, err)
-	assert.Len(t, m.Keys, 1)
-	assert.Equal(t, m.Keys[0], key)
+	assert.Len(t, m.SecretIdentifiers, 1)
+	assert.True(t, proto.Equal(m.SecretIdentifiers[0], id))
 
 	delete(kv.m, "Metadata::"+owner)
-	m, err = store.getMetadata(owner)
+	m, err = store.GetMetadata(owner)
 	assert.Nil(t, m)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	m = &vault.StoredMetadata{
-		Keys: []string{"Key::owner::main::secret1", "Key::owner::main::secret2"},
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			{
+				Owner:     "owner",
+				Namespace: "main",
+				Key:       "secret2",
+			},
+			{
+				Owner:     "owner",
+				Namespace: "main",
+				Key:       "secret3",
+			},
+		},
 	}
-	err = store.writeMetadata(owner, m)
-	assert.NoError(t, err)
+	err = store.WriteMetadata(owner, m)
+	require.NoError(t, err)
 
-	gotM, err := store.getMetadata(owner)
-	assert.NoError(t, err)
+	gotM, err := store.GetMetadata(owner)
+	require.NoError(t, err)
 	assert.True(t, proto.Equal(m, gotM))
 
 	newKey := &vault.SecretIdentifier{
@@ -132,10 +147,10 @@ func TestKVStore_Metadata(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret3",
 	}
-	err = store.addKeyToMetadata(newKey)
-	assert.NoError(t, err)
+	err = store.AddIDToMetadata(newKey)
+	require.NoError(t, err)
 
-	gotM, err = store.getMetadata(owner)
-	assert.NoError(t, err)
-	assert.Len(t, gotM.Keys, 3)
+	gotM, err = store.GetMetadata(owner)
+	require.NoError(t, err)
+	assert.Len(t, gotM.SecretIdentifiers, 3)
 }

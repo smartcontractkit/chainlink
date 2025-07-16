@@ -131,22 +131,24 @@ func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) erro
 	if err := opts.Decode(cd.Opts); err != nil {
 		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
 	}
-	if len(opts.Multipliers) != len(cd.Streams) {
-		return fmt.Errorf("multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
-	}
+	if opts != nil && opts.Multipliers != nil {
+		if len(opts.Multipliers) != len(cd.Streams) {
+			return fmt.Errorf("multipliers length %d != StreamValues length %d", len(opts.Multipliers), len(cd.Streams))
+		}
 
-	for i, stream := range cd.Streams {
-		if opts.Multipliers[i].StreamID != stream.StreamID {
-			return fmt.Errorf("LLO StreamID %d mismatched with Multiplier StreamID %d", stream.StreamID, opts.Multipliers[i].StreamID)
-		}
-		if !(opts.Multipliers[i].Multiplier.IsInteger()) {
-			return fmt.Errorf("multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
-		}
-		if opts.Multipliers[i].Multiplier.IsZero() {
-			return fmt.Errorf("multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
-		}
-		if opts.Multipliers[i].Multiplier.IsNegative() {
-			return fmt.Errorf("multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
+		for i, stream := range cd.Streams {
+			if opts.Multipliers[i].StreamID != stream.StreamID {
+				return fmt.Errorf("LLO StreamID %d mismatched with Multiplier StreamID %d", stream.StreamID, opts.Multipliers[i].StreamID)
+			}
+			if !(opts.Multipliers[i].Multiplier.IsInteger()) {
+				return fmt.Errorf("multiplier for StreamID %d must be an integer", opts.Multipliers[i].StreamID)
+			}
+			if opts.Multipliers[i].Multiplier.IsZero() {
+				return fmt.Errorf("multiplier for StreamID %d can't be zero", opts.Multipliers[i].StreamID)
+			}
+			if opts.Multipliers[i].Multiplier.IsNegative() {
+				return fmt.Errorf("multiplier for StreamID %d can't be negative", opts.Multipliers[i].StreamID)
+			}
 		}
 	}
 	return nil

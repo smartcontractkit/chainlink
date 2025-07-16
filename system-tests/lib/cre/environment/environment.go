@@ -124,7 +124,7 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	stageGen := NewStageGen(7, "STAGE")
+	stageGen := NewStageGen(8, "STAGE")
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 
@@ -427,8 +427,8 @@ func SetupTestEnvironment(
 				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
 			})
 		}
-		if err := eg.Wait(); err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to wait for ConfigWatcher health check")
+		if waitErr := eg.Wait(); waitErr != nil {
+			return nil, pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
 		}
 	}
 
@@ -498,6 +498,23 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
+
+	err = DumpArtifact(
+		memoryDatastore.AddressRefStore,
+		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		*jdOutput,
+		*fullCldOutput.DonTopology,
+		fullCldOutput.Environment.Offchain,
+		input.CapabilitiesContractFactoryFunctions,
+	)
+	if err != nil {
+		testLogger.Error().Err(err).Msg("failed to generate artifact")
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Failed to write bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
+	} else {
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Wrote bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
+	}
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()

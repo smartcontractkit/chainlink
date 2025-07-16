@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -237,10 +238,17 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+	}
+	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
+		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create workflow fetcher: %w", err)
+		}
+	}
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
-			CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
-		},
+		CREOpts:                  creOpts,
 		Config:                   cfg,
 		DS:                       ds,
 		KeyStore:                 keyStore,

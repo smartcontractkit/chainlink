@@ -128,6 +128,13 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 				FeeAggregator: feeAggregatorPubKey.String(),
 			},
 		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.ExtendGlobalLookupTableChangeset),
+			ccipChangesetSolana.ExtendGlobalLookupTableConfig{
+				ChainSelector:   solChainSelectors[0],
+				LookupTableKeys: []solana.PublicKey{feeAggregatorPubKey, solLinkTokenPrivKey.PublicKey()}, // just add some random keys
+			},
+		),
 	}
 }
 
