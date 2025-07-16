@@ -29,6 +29,7 @@ type FakeEVMChain struct {
 	gethClient            *ethclient.Client
 	privateKey            *ecdsa.PrivateKey
 	mockKeystoneForwarder *MockKeystoneForwarder
+	chainSelector         uint64
 
 	lggr logger.Logger
 
@@ -51,6 +52,7 @@ func NewFakeEvmChain(
 	gethClient *ethclient.Client,
 	privateKey *ecdsa.PrivateKey,
 	mockKeystoneForwarderAddress common.Address,
+	chainSelector uint64,
 ) *FakeEVMChain {
 	mockKeystoneForwarder, err := NewMockKeystoneForwarder(mockKeystoneForwarderAddress, gethClient)
 	if err != nil {
@@ -64,6 +66,7 @@ func NewFakeEvmChain(
 		gethClient:            gethClient,
 		privateKey:            privateKey,
 		mockKeystoneForwarder: mockKeystoneForwarder,
+		chainSelector:         chainSelector,
 		callbackCh:            make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
@@ -359,7 +362,7 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 	}, nil
 }
 
-func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata commonCap.RequestMetadata, input *emptypb.Empty) (*evmcappb.LatestAndFinalizedHeadReply, error) {
+func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata commonCap.RequestMetadata, input *emptypb.Empty) (*evmcappb.HeaderByNumberReply, error) {
 	fc.eng.Infow("EVM Chain latest and finalized head", "input", input)
 
 	// Get latest and finalized head
@@ -369,8 +372,8 @@ func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata com
 	}
 
 	// Convert head to protobuf
-	headPb := &evmcappb.LatestAndFinalizedHeadReply{
-		Latest: &evmcappb.Head{
+	headPb := &evmcappb.HeaderByNumberReply{
+		Header: &evmcappb.Header{
 			Timestamp:   head.Time,
 			BlockNumber: pb.NewBigIntFromInt(head.Number),
 			Hash:        head.Hash().Bytes(),
@@ -378,6 +381,32 @@ func (fc *FakeEVMChain) LatestAndFinalizedHead(ctx context.Context, metadata com
 		},
 	}
 	return headPb, nil
+}
+
+func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*evmcappb.HeaderByNumberReply, error) {
+	fc.eng.Infow("EVM Chain HeaderByNumber Started", "input", input)
+
+	// Prepare header by number request
+	blockNumber := new(big.Int).SetBytes(input.BlockNumber.AbsVal)
+
+	// Get header by number
+	header, err := fc.gethClient.HeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert header to protobuf
+	headerPb := &evmcappb.HeaderByNumberReply{
+		Header: &evmcappb.Header{
+			Timestamp:   header.Time,
+			BlockNumber: pb.NewBigIntFromInt(header.Number),
+			Hash:        header.Hash().Bytes(),
+			ParentHash:  header.ParentHash.Bytes(),
+		},
+	}
+
+	fc.eng.Infow("EVM Chain HeaderByNumber Finished", "header", headerPb)
+	return headerPb, nil
 }
 
 func (fc *FakeEVMChain) RegisterLogTracking(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.RegisterLogTrackingRequest) (*emptypb.Empty, error) {
@@ -425,4 +454,8 @@ func (fc *FakeEVMChain) Execute(ctx context.Context, request commonCap.Capabilit
 
 func (fc *FakeEVMChain) Description() string {
 	return "EVM Chain"
+}
+
+func (fc *FakeEVMChain) ChainSelector() uint64 {
+	return fc.chainSelector
 }
