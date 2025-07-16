@@ -258,11 +258,11 @@ func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 
-func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request) error {
+func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
 	if req == nil {
 		return errors.New("nil request")
 	}
-	data, err := json.Marshal(req)
+	data, err := jsonrpc.EncodeRequest(req)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %w", nodeAddress, err)
 	}
@@ -274,14 +274,15 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
-	ctx, _ := m.shutdownCh.NewCtx()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-m.shutdownCh:
 			m.closeWait.Done()
 			return
 		case item := <-nodeState.conn.ReadChannel():
-			var resp jsonrpc.Response
+			var resp jsonrpc.Response[json.RawMessage]
 			err := json.Unmarshal(item.Data, &resp)
 			if err != nil {
 				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
@@ -296,8 +297,9 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 }
 
 func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
-	ctx, _ := m.shutdownCh.NewCtx()
 	defer m.closeWait.Done()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 
 	if intervalSec == 0 {
 		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)

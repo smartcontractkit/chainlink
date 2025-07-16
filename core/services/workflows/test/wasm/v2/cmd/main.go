@@ -3,10 +3,10 @@
 package main
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/testhelpers/v2"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils"
+	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
 )
 
 func main() {
-	testhelpers.RunTestWorkflow(wasm.NewRunner(func(b []byte) (string, error) { return string(b), nil }))
+	testutils.RunTestWorkflow(wasm.NewRunner(func(b []byte) (string, error) { return string(b), nil }))
 }

@@ -17,8 +17,11 @@ cre_v*
 # crib-specific CL node configuration and secrets that will be used to override the default configuration
 crib-configs/
 cache/
+blockscout/
+compose/
 
 logs/
 
 cre.yaml
 *.state.yaml
+env_artifact/

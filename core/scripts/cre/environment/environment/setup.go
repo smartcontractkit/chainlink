@@ -7,13 +7,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/client"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
@@ -23,8 +26,9 @@ import (
 
 // TODO this can move to the toml configuration file
 const (
-	awsProfile    = "sdlc"
-	creCLIVersion = "0.2.1"
+	awsProfile      = "sdlc"
+	creCLIVersion   = "0.2.1"
+	minGHCLIVersion = "v2.50.0"
 )
 
 // TODO these can move to the toml configuration file
@@ -56,6 +60,7 @@ var (
 		Dockerfile: "chip-ingress/Dockerfile",
 		Dir:        "chip-ingress",
 		LocalImage: "chip-ingress:local-cre",
+		PreRun:     chipVendor,
 	}
 	ChipPullConfig = PullConfig{
 		LocalImage: "chip-ingress:local-cre",
@@ -79,10 +84,94 @@ type BuildConfig struct {
 	Dockerfile string
 	Dir        string
 	LocalImage string
+	PreRun     func(ctx context.Context, c BuildConfig) error // Optional function to run before building
 }
 
 func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
-	return buildImage(ctx, c.RepoURL, c.Branch, c.Dockerfile, c.Dir, c.LocalImage)
+	var (
+		repo = c.RepoURL
+		tag  = c.Branch
+	)
+	logger := framework.L
+	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
+	name = cases.Title(language.English).String(name)
+	logger.Info().Msgf("Building %s image...", name)
+
+	// Check if repo is a local directory
+	isLocalRepo := false
+	if _, err2 := os.Stat(repo); err2 == nil {
+		fileInfo, err3 := os.Stat(repo)
+		if err3 == nil && fileInfo.IsDir() {
+			isLocalRepo = true
+			logger.Info().Msgf("Using local repository at %s", repo)
+		}
+	}
+
+	var workingDir string
+
+	if isLocalRepo {
+		// Use the local repo path directly
+		workingDir = repo
+	} else {
+		// Create a temporary directory for cloning the remote repo
+		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
+		if err2 != nil {
+			return "", fmt.Errorf("failed to create temporary directory: %w", err2)
+		}
+		defer os.RemoveAll(tempDir)
+		workingDir = tempDir
+
+		// Clone the repository
+		logger.Info().Msgf("Cloning repository from %s", repo)
+		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err2 := cmd.Run(); err2 != nil {
+			return "", fmt.Errorf("failed to clone repository: %w", err2)
+		}
+	}
+
+	// Save current directory and change to working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := os.Chdir(workingDir); err != nil {
+		return "", fmt.Errorf("failed to change to working directory: %w", err)
+	}
+	defer func() {
+		_ = os.Chdir(currentDir)
+	}()
+
+	// Only checkout specific version if using a git repo and version is specified
+	if !isLocalRepo && tag != "" {
+		logger.Info().Msgf("Checking out version %s", tag)
+		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
+		}
+	}
+	// If pre-run function is specified, run it
+	if c.PreRun != nil {
+		if err := c.PreRun(ctx, c); err != nil {
+			return "", fmt.Errorf("pre-run step failed: %w", err)
+		}
+	}
+
+	// Build Docker image
+	cmd := exec.CommandContext(ctx, "docker", "build", "-t", c.LocalImage, "-f", c.Dockerfile, c.Dir) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to build Docker image: %w", err)
+	}
+
+	logger.Info().Msgf("  ✓ %s image built successfully", name)
+	return c.LocalImage, nil
 }
 
 type PullConfig struct {
@@ -92,7 +181,7 @@ type PullConfig struct {
 
 func (c PullConfig) Pull(ctx context.Context) (localImage string, err error) {
 	if ECR == "" {
-		return "", errors.New("AWS_ECR environment variable is not set. See README for more details and references to find the correct ECR URL")
+		return "", errors.New("AWS_ECR environment variable is not set. See README for more details and references to find the correct ECR URL or visit https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI")
 	}
 	return pullImage(ctx, c.LocalImage, c.EcrImage)
 }
@@ -113,12 +202,17 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client) (l
 		name := strings.ReplaceAll(strings.Split(c.BuildConfig.LocalImage, ":")[0], "-", " ")
 		name = cases.Title(language.English).String(name)
 		logger.Info().Msgf("🔍 %s image not found.", name)
-		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b)", name)
+		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
 
 		var input string
 		_, err := fmt.Scanln(&input)
 		if err != nil {
-			return "", fmt.Errorf("failed to read input: %w", err)
+			// If error is due to empty input (just pressing Enter), use default
+			if err.Error() != "unexpected newline" {
+				return "", errors.Wrap(err, "failed to read input")
+			}
+
+			input = "p" // Default to Pull
 		}
 
 		if strings.ToLower(input) == "b" {
@@ -144,7 +238,7 @@ func init() {
 	}
 
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "", "Path to the TOML configuration file")
-	_ = SetupCmd.MarkFlagRequired("config")
+	// _ = SetupCmd.MarkFlagRequired("config")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
 }
@@ -161,20 +255,20 @@ func RunSetup(ctx context.Context, config SetupConfig) error {
 	logger.Info().Msg("✓ Docker is installed")
 
 	// Check if Docker is running
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if err != nil {
-		return fmt.Errorf("failed to create Docker client: %w", err)
+	dockerClient, clientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if clientErr != nil {
+		return errors.Wrap(clientErr, "failed to create Docker client")
 	}
 
-	_, err = dockerClient.Ping(ctx)
-	if err != nil {
-		return fmt.Errorf("docker is not running. Please start Docker and try again: %w", err)
+	_, pingErr := dockerClient.Ping(ctx)
+	if pingErr != nil {
+		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
 	}
 	logger.Info().Msg("✓ Docker is running")
 
 	// Check Docker configuration
-	if err2 := checkDockerConfiguration(ctx); err2 != nil {
-		return err2
+	if dockerConfigErr := checkDockerConfiguration(); dockerConfigErr != nil {
+		return errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
 	}
 
 	// Check if AWS CLI is installed
@@ -183,35 +277,50 @@ func RunSetup(ctx context.Context, config SetupConfig) error {
 	}
 	logger.Info().Msg("✓ AWS CLI is installed")
 
-	jdLocalImage, err := JDImageConfig.Ensure(ctx, dockerClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure Job Distributor image: %w", err)
+	ghCli, ghCliErr := checkGHCli(ctx)
+	if ghCliErr != nil {
+		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
 	}
-	chipLocalImage, err := ChipImageConfig.Ensure(ctx, dockerClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure Atlas Chip Ingress image: %w", err)
+
+	jdLocalImage, jdErr := JDImageConfig.Ensure(ctx, dockerClient)
+	if jdErr != nil {
+		return errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 	}
-	creCLI, err := checkCRECLI(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to ensure CRE CLI: %w", err)
+	chipLocalImage, chipErr := ChipImageConfig.Ensure(ctx, dockerClient)
+	if chipErr != nil {
+		return errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
 	}
+
+	creCLI, creCliErr := checkCRECLI(ctx)
+	if creCliErr != nil {
+		return errors.Wrap(creCliErr, "failed to ensure CRE CLI")
+	}
+
 	// Print summary
-	logger.Info().Msg("\n✅ Setup Summary:")
+	fmt.Println()
+	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if ghCli {
+		logger.Info().Msg("   ✓ GitHub CLI is installed")
+	} else {
+		logger.Warn().Msg("   ✗ GitHub CLI is not installed")
+	}
 	if creCLI {
 		logger.Info().Msg("   ✓ CRE CLI is installed")
 	} else {
 		logger.Warn().Msg("   ✗ CRE CLI is not installed")
 	}
 
-	logger.Info().Msg("\n🚀 Next Steps:")
+	fmt.Println()
+	logger.Info().Msg("🚀 Next Steps:")
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
-	logger.Info().Msg("2. Start the environment: go run main.go env start")
+	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
 	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
-	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/docs.md")
+	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
+	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 
 	return nil
 }
@@ -223,7 +332,7 @@ func isCommandAvailable(cmd string) bool {
 }
 
 // checkDockerConfiguration checks if Docker is configured correctly
-func checkDockerConfiguration(ctx context.Context) error {
+func checkDockerConfiguration() error {
 	logger := framework.L
 	logger.Info().Msg("🔍 Checking Docker settings...")
 
@@ -302,14 +411,14 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	// Check if local image exists
 	_, err := dockerClient.ImageInspect(ctx, localImage)
 	if err == nil {
-		logger.Info().Msgf("  ✓ %s image (%s) is available from local build", name, localImage)
+		logger.Info().Msgf("✓ %s image (%s) is available from local build", name, localImage)
 		return true, nil
 	}
 
 	// Check if ECR image exists
 	_, err = dockerClient.ImageInspect(ctx, ecrImage)
 	if err == nil {
-		logger.Info().Msgf("  ✓ %s image (%s) is available", name, ecrImage)
+		logger.Info().Msgf("✓ %s image (%s) is available", name, ecrImage)
 		// Tag ECR image as local image
 		if err := dockerClient.ImageTag(ctx, ecrImage, localImage); err != nil {
 			return false, fmt.Errorf("failed to tag %s image: %w", name, err)
@@ -320,83 +429,6 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	return false, nil
 }
 
-// buildImage builds the Job Distributor image
-func buildImage(ctx context.Context, repo, tag, dockerFile, dir, localImage string) (string, error) {
-	logger := framework.L
-	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
-	name = cases.Title(language.English).String(name)
-	logger.Info().Msgf("Building %s image...", name)
-
-	// Check if repo is a local directory
-	isLocalRepo := false
-	if _, err := os.Stat(repo); err == nil {
-		fileInfo, err := os.Stat(repo)
-		if err == nil && fileInfo.IsDir() {
-			isLocalRepo = true
-			logger.Info().Msgf("Using local repository at %s", repo)
-		}
-	}
-
-	var workingDir string
-
-	if isLocalRepo {
-		// Use the local repo path directly
-		workingDir = repo
-	} else {
-		// Create a temporary directory for cloning the remote repo
-		tempDir, err := os.MkdirTemp("", filepath.Base(repo)+"-*")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-		defer os.RemoveAll(tempDir)
-		workingDir = tempDir
-
-		// Clone the repository
-		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to clone repository: %w", err)
-		}
-	}
-
-	// Save current directory and change to working directory
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	if err := os.Chdir(workingDir); err != nil {
-		return "", fmt.Errorf("failed to change to working directory: %w", err)
-	}
-	defer func() {
-		_ = os.Chdir(currentDir)
-	}()
-
-	// Only checkout specific version if using a git repo and version is specified
-	if !isLocalRepo && tag != "" {
-		logger.Info().Msgf("Checking out version %s", tag)
-		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
-		}
-	}
-
-	// Build Docker image
-	cmd := exec.CommandContext(ctx, "docker", "build", "-t", localImage, "-f", dockerFile, dir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to build Docker image: %w", err)
-	}
-
-	logger.Info().Msgf("  ✓ %s image built successfully", name)
-	return localImage, nil
-}
-
 // pullImage pulls the Job Distributor image from ECR
 func pullImage(ctx context.Context, localImage, ecrImage string) (string, error) {
 	logger := framework.L
@@ -404,14 +436,14 @@ func pullImage(ctx context.Context, localImage, ecrImage string) (string, error)
 	name = cases.Title(language.English).String(name)
 
 	// Check if AWS profile exists
-	cmd := exec.Command("aws", "configure", "list-profiles")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to list AWS profiles: %w", err)
+	configureCmd := exec.Command("aws", "configure", "list-profiles")
+	output, configureCmdErr := configureCmd.Output()
+	if configureCmdErr != nil {
+		return "", errors.Wrap(configureCmdErr, "failed to list AWS profiles")
 	}
 
 	if !strings.Contains(string(output), awsProfile) {
-		return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured", awsProfile)
+		return "", fmt.Errorf("AWS profile '%s' not found. Please ensure you have the correct AWS profile configured. Please see https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", awsProfile)
 	}
 
 	// Get ECR login password
@@ -423,47 +455,194 @@ func pullImage(ctx context.Context, localImage, ecrImage string) (string, error)
 	} else {
 		// No valid session, need to log in
 		logger.Info().Msgf("AWS SSO Login required for profile %s...", awsProfile)
-		cmd = exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		loginCmd := exec.CommandContext(ctx, "aws", "sso", "login", "--profile", awsProfile)
+		loginCmd.Stdout = os.Stdout
+		loginCmd.Stderr = os.Stderr
 
-		password, err := cmd.Output()
-		if err != nil {
-			return "", fmt.Errorf("AWS SSO login failed: %w", err)
+		if err := loginCmd.Run(); err != nil {
+			return "", errors.Wrap(err, "failed to complete AWS SSO login")
 		}
 		logger.Info().Msgf("  ✓ AWS SSO login successful for profile %s", awsProfile)
-
-		// Login to ECR
-		ecrHostname := strings.Split(ecrImage, "/")[0]
-		dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
-		dockerLoginCmd.Stdin = bytes.NewBuffer(password)
-		dockerLoginCmd.Stdout = os.Stdout
-		dockerLoginCmd.Stderr = os.Stderr
-		if err := dockerLoginCmd.Run(); err != nil {
-			return "", fmt.Errorf("docker login to ECR failed: %w", err)
-		}
-		logger.Info().Msg("  ✓ Docker login to ECR successful")
 	}
+
+	// Get ECR login password after successful SSO login
+	ecrHostname := strings.Split(ecrImage, "/")[0]
+	ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
+	password, passErr := ecrLoginCmd.Output()
+	if passErr != nil {
+		return "", errors.Wrap(passErr, "failed to get ECR login password")
+	}
+
+	// Login to ECR
+	dockerLoginCmd := exec.CommandContext(ctx, "docker", "login", "--username", "AWS", "--password-stdin", ecrHostname)
+	dockerLoginCmd.Stdin = bytes.NewBuffer(password)
+	dockerLoginCmd.Stdout = os.Stdout
+	dockerLoginCmd.Stderr = os.Stderr
+	if err := dockerLoginCmd.Run(); err != nil {
+		return "", errors.Wrap(err, "docker login to ECR failed")
+	}
+	logger.Info().Msg("  ✓ Docker login to ECR successful")
 	// Pull image
 	logger.Info().Msgf("🔍 Pulling %s image from ECR...", name)
 
-	cmd = exec.CommandContext(ctx, "docker", "pull", ecrImage)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to pull %s image: %w", name, err)
+	pullCmd := exec.CommandContext(ctx, "docker", "pull", ecrImage)
+	pullCmd.Stdout = os.Stdout
+	pullCmd.Stderr = os.Stderr
+	if err := pullCmd.Run(); err != nil {
+		return "", errors.Wrapf(err, "failed to pull %s image", name)
 	}
 
 	// Tag image
-	cmd = exec.CommandContext(ctx, "docker", "tag", ecrImage, localImage)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	tagCmd := exec.CommandContext(ctx, "docker", "tag", ecrImage, localImage)
+	tagCmd.Stdout = os.Stdout
+	tagCmd.Stderr = os.Stderr
+	if err := tagCmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to tag %s image: %w", name, err)
 	}
 
 	logger.Info().Msgf("  ✓ %s image pulled successfully", name)
 	return localImage, nil
+}
+
+func checkIfGHLIIsInstalled(ctx context.Context) (installed bool, err error) {
+	logger := framework.L
+
+	if isCommandAvailable("gh") {
+		logger.Info().Msg("✓ GitHub CLI is already installed")
+
+		ghVersionCmd := exec.Command("gh", "--version")
+		output, outputErr := ghVersionCmd.Output()
+		if outputErr != nil {
+			logger.Warn().Msgf("failed to get GH CLI version: %s", outputErr.Error())
+			return false, nil
+		}
+
+		re := regexp.MustCompile(`gh version (\d+\.\d+\.\d+)`)
+		matches := re.FindStringSubmatch(string(output))
+		if len(matches) < 2 {
+			logger.Warn().Msgf("failed to parse GH CLI version: %s", string(output))
+			return false, nil
+		}
+
+		version, versionErr := semver.NewVersion(matches[1])
+		if versionErr != nil {
+			logger.Warn().Msgf("failed to parse GH CLI version: %s", versionErr.Error())
+			return false, nil
+		}
+
+		isEnoughVersion := version.Compare(semver.MustParse(minGHCLIVersion)) >= 0
+		if isEnoughVersion {
+			logger.Info().Msgf("  ✓ GitHub CLI is up to date (v%s)", version)
+			return true, nil
+		}
+
+		logger.Info().Msg("  ✗ GitHub CLI is outdated, upgrading to latest via Homebrew")
+		brewInfoCmd := exec.Command("brew", "info", "gh")
+		brewInfoOutput, brewInfoErr := brewInfoCmd.Output()
+		if brewInfoErr != nil {
+			fmt.Fprint(os.Stderr, string(brewInfoOutput))
+			logger.Warn().Msgf("GH CLI wasn't installed via brew, please update it manually to at least %s", minGHCLIVersion)
+			return false, nil
+		}
+
+		brewUpgradeCmd := exec.Command("brew", "upgrade", "gh")
+		brewUpdateOutput, brewUpdateErr := brewUpgradeCmd.Output()
+		if brewUpdateErr != nil {
+			fmt.Fprint(os.Stderr, string(brewUpdateOutput))
+			logger.Warn().Msgf("failed to upgrade GitHub CLI via Homebrew, please update it manually to at least %s", minGHCLIVersion)
+			return false, nil
+		}
+		logger.Info().Msg("  ✓ GitHub CLI upgraded to latest via Homebrew")
+
+		return true, nil
+	}
+
+	logger.Info().Msg("Would you like to download and install the GitHub CLI now? (y/n) [y]")
+
+	var input string
+	_, err = fmt.Scanln(&input)
+	if err != nil {
+		// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
+		if err.Error() != "unexpected newline" {
+			return false, errors.Wrap(err, "failed to read input")
+		}
+		input = "y"
+	}
+
+	if strings.ToLower(input) != "y" {
+		logger.Warn().Msg("  ! You will need to install GitHub CLI manually")
+		return false, nil
+	}
+
+	logger.Info().Msg("Installing GitHub CLI...")
+	installCmd := exec.CommandContext(ctx, "brew", "install", "gh")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return false, errors.Wrap(err, "failed to install GitHub CLI")
+	}
+
+	return true, nil
+}
+
+func checkGHCli(ctx context.Context) (installed bool, err error) {
+	installed, installErr := checkIfGHLIIsInstalled(ctx)
+	if installErr != nil {
+		return false, errors.Wrap(installErr, "failed to check if GitHub CLI is installed")
+	}
+
+	if installed {
+		loginErr := logInToGithubWithGHCLI(ctx)
+		if loginErr != nil {
+			return false, errors.Wrap(loginErr, "failed to login to GitHub CLI")
+		}
+	}
+
+	return installed, nil
+}
+
+func logInToGithubWithGHCLI(ctx context.Context) error {
+	logger := framework.L
+	var outputBuffer bytes.Buffer
+
+	logger.Info().Msg("  Checking GitHub CLI authentication status...")
+
+	ghAuthStatus := exec.CommandContext(ctx, "gh", "auth", "status")
+	ghAuthStatus.Stdout = &outputBuffer
+	ghAuthStatus.Stderr = &outputBuffer
+	statusErr := ghAuthStatus.Run()
+	if statusErr == nil {
+		logger.Info().Msg("  ✓ GitHub CLI is already authenticated")
+		return nil
+	}
+
+	// Get the exit code
+	var exitError *exec.ExitError
+	if !errors.As(statusErr, &exitError) {
+		return errors.Wrap(statusErr, "failed to check GitHub CLI authentication status")
+	}
+
+	exitCode := exitError.ExitCode()
+	logger.Info().Msgf("GitHub CLI authentication status check failed with exit code: %d", exitCode)
+
+	// Exit code 1  means not authenticated
+	if exitCode != 1 {
+		fmt.Fprintf(os.Stderr, "failed to check GitHub CLI authentication status (exit code: %d): %s\n", exitCode, outputBuffer.String())
+		return errors.Wrapf(statusErr, "failed to check GitHub CLI authentication status (exit code: %d)", exitCode)
+	}
+	logger.Info().Msg("GitHub CLI is not authenticated. Starting login process...")
+
+	logger.Info().Msg("Logging in to GitHub CLI...")
+
+	loginCmd := exec.CommandContext(ctx, "gh", "auth", "login")
+	loginCmd.Stdout = os.Stdout
+	loginCmd.Stderr = os.Stderr
+	if err := loginCmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to login to GitHub CLI")
+	}
+
+	logger.Info().Msg("  ✓ GitHub CLI logged in successfully")
+	return nil
 }
 
 // checkCRECLI checks if the CRE CLI is installed
@@ -476,18 +655,22 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 
 	creBinaryName := fmt.Sprintf("cre_v%s_%s_%s", creCLIVersion, osType, archType)
 	if isCommandAvailable(creBinaryName) || isCommandAvailable("cre") {
-		logger.Info().Msg("  ✓ CRE CLI is already installed")
+		logger.Info().Msg("✓ CRE CLI is already installed")
 		return true, nil
 	}
 
 	// CRE CLI not found
-	logger.Info().Msg("  ✗ CRE CLI is not installed")
-	logger.Info().Msg("Would you like to download and install the CRE CLI now? (y/n)")
+	logger.Info().Msg("✗ CRE CLI is not installed")
+	logger.Info().Msg("  Would you like to download and install the CRE CLI now? (y/n) [y]")
 
 	var input string
 	_, err = fmt.Scanln(&input)
 	if err != nil {
-		return false, fmt.Errorf("failed to read input: %w", err)
+		// If error is due to empty input (just pressing Enter), treat as 'n' (no)
+		if err.Error() != "unexpected newline" {
+			return false, errors.Wrap(err, "failed to read input")
+		}
+		input = "y"
 	}
 
 	if strings.ToLower(input) != "y" {
@@ -495,13 +678,8 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 		return false, nil
 	}
 
-	// Check for GitHub CLI
-	if !isCommandAvailable("gh") {
-		return false, fmt.Errorf("GitHub CLI is not installed. Please install GitHub CLI or download CRE CLI manually from https://github.com/smartcontractkit/dev-platform/releases/tag/v%s", creCLIVersion)
-	}
-
 	// Download CRE CLI
-	logger.Info().Msgf("Downloading CRE CLI v%s for %s_%s...", creCLIVersion, osType, archType)
+	logger.Info().Msgf("  Downloading CRE CLI v%s for %s_%s...", creCLIVersion, osType, archType)
 	archivePattern := fmt.Sprintf("*%s_%s.tar.gz", osType, archType)
 	cmd := exec.CommandContext(ctx, "gh", "release", "download", "v"+creCLIVersion, "--repo", "smartcontractkit/dev-platform", "--pattern", archivePattern)
 	cmd.Stdout = os.Stdout
@@ -512,7 +690,7 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 
 	// Extract archive
 	archiveName := fmt.Sprintf("cre_v%s_%s_%s.tar.gz", creCLIVersion, osType, archType)
-	logger.Info().Msg("Extracting CRE CLI...")
+	logger.Info().Msg("  Extracting CRE CLI...")
 	cmd = exec.CommandContext(ctx, "tar", "-xf", archiveName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -551,4 +729,42 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	logger.Info().Msgf("   You can run: export PATH=\"%s:$PATH\"", currentDir)
 
 	return true, nil
+}
+
+// chipVendor changes to the directory specified in the config
+// and executes go mod vendor command
+func chipVendor(ctx context.Context, config BuildConfig) error {
+	logger := framework.L
+
+	// Save current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Change to the target directory
+	logger.Info().Msgf("Changing directory to %s", config.Dir)
+	if err := os.Chdir(config.Dir); err != nil {
+		return fmt.Errorf("failed to change to directory %s: %w", config.Dir, err)
+	}
+
+	// Restore original directory when function completes
+	defer func() {
+		if err := os.Chdir(currentDir); err != nil {
+			logger.Error().Err(err).Msg("Failed to restore original directory")
+		}
+	}()
+
+	// Execute go mod vendor
+	logger.Info().Msg("Running go mod vendor...")
+	cmd := exec.CommandContext(ctx, "go", "mod", "vendor")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go mod vendor failed: %w", err)
+	}
+
+	logger.Info().Msg("Vendor directory successfully created")
+	return nil
 }

@@ -30,6 +30,8 @@ type EngineMetrics struct {
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
+	workflowTriggerEventErrorCounter         metric.Int64Counter
+	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
 	// Deprecated: use the gauge instead
 	engineHeartbeatCounter metric.Int64Counter
@@ -41,6 +43,7 @@ type EngineMetrics struct {
 	workflowTimeoutDurationSeconds   metric.Int64Histogram
 	workflowStepDurationSeconds      metric.Int64Histogram
 	workflowMissingMeteringReport    metric.Int64Counter
+	workflowMeteringMode             metric.Int64Gauge
 
 	getSecretsDuration metric.Int64Histogram
 }
@@ -120,6 +123,16 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
+	em.workflowTriggerEventErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_errors")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow trigger event error counter: %w", err)
+	}
+
+	em.workflowTriggerEventQueueFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_queue_full")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow trigger event queue full counter: %w", err)
+	}
+
 	// Deprecated: use the gauge below
 	em.engineHeartbeatCounter, err = beholder.GetMeter().Int64Counter("platform_engine_heartbeat")
 	if err != nil {
@@ -174,6 +187,13 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering missing counter: %w", err)
+	}
+
+	em.workflowMeteringMode, err = beholder.GetMeter().Int64Gauge(
+		"platform_engine_workflow_metering_mode",
+		metric.WithUnit("active"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow metering mode gauge: %w", err)
 	}
 
 	em.getSecretsDuration, err = beholder.GetMeter().Int64Histogram(
@@ -315,6 +335,16 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationCounter(ctx conte
 	c.em.workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowTriggerEventErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventQueueFullCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowTriggerEventQueueFullCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) UpdateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowCompletedDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
@@ -345,7 +375,18 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowMissingMeteringReport(ctx conte
 	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) UpdateWorkflowMeteringModeGauge(ctx context.Context, on bool) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+
+	var val int64
+	if on {
+		val = 1
+	}
+
+	c.em.workflowMeteringMode.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }

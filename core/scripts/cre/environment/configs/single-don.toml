@@ -16,10 +16,10 @@
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   image = "job-distributor:0.12.7"
 
-[s3provider]
-  # use all defaults
-  port = 9000
-  console_port = 9001
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
 
 [infra]
   # either "docker" or "crib"
@@ -63,6 +63,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -84,6 +85,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -105,6 +107,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -126,6 +129,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """
@@ -147,6 +151,7 @@
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
       """

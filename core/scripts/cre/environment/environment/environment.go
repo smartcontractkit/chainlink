@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,19 +17,14 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
@@ -51,64 +45,31 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
-const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
-
-var (
-	topologyFlag                 string
-	waitOnErrorTimeoutFlag       string
-	extraAllowedGatewayPortsFlag []int
-	withExampleFlag              bool
-	exampleWorkflowTriggerFlag   string
-	exampleWorkflowTimeoutFlag   string
-	withPluginsDockerImageFlag   string
-	rpcURLFlag                   string
-	chainIDFlag                  uint64
-	gatewayURLFlag               string
-)
+const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
+const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
 
 func init() {
-	EnvironmentCmd.AddCommand(startCmd)
+	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd)
-	EnvironmentCmd.AddCommand(deployAndVerifyExampleWorkflowCmd)
-
-	startCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simiplified or full)")
-	startCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
-	startCmd.Flags().IntSliceVarP(&extraAllowedGatewayPortsFlag, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
-	startCmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
-	startCmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
-	startCmd.Flags().StringVarP(&withPluginsDockerImageFlag, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
-	startCmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	deployAndVerifyExampleWorkflowCmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "c", 1337, "Chain ID")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
+	EnvironmentCmd.AddCommand(workflowCmds())
+	EnvironmentCmd.AddCommand(beholderCmds())
 }
 
-var WaitOnErrorTimeoutDurationFn = func(waitOnErrorTimeoutFlag string) {
-	if waitOnErrorTimeoutFlag != "" {
-		waitOnErrorTimeoutDuration, err := time.ParseDuration(waitOnErrorTimeoutFlag)
-		if err != nil {
-			return
-		}
-
-		fmt.Printf("Waiting %s on error before cleanup\n", waitOnErrorTimeoutFlag)
-		time.Sleep(waitOnErrorTimeoutDuration)
-	}
+func waitToCleanUp(d time.Duration) {
+	fmt.Printf("Waiting %s before cleanup\n", d)
+	time.Sleep(d)
 }
 
 var EnvironmentCmd = &cobra.Command{
@@ -126,12 +87,12 @@ const (
 )
 
 type Config struct {
-	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
-	JD                *jd.Input               `toml:"jd" validate:"required"`
-	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input       `toml:"s3provider"`
+	Blockchains       []*cretypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets          []*ns.Input                        `toml:"nodesets" validate:"required"`
+	JD                *jd.Input                          `toml:"jd" validate:"required"`
+	Infra             *libtypes.InfraInput               `toml:"infra" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig            `toml:"extra_capabilities"`
+	S3ProviderInput   *s3provider.Input                  `toml:"s3provider"`
 }
 
 func (c Config) Validate() error {
@@ -157,11 +118,11 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
-	dxTracker = new(tracking.DxTracker)
-	if t, err := tracking.NewDxTracker(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", err)
-	} else {
-		dxTracker = t
+	var trackerErr error
+	dxTracker, trackerErr = tracking.NewDxTracker()
+	if trackerErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		dxTracker = &tracking.NoOpTracker{}
 	}
 
 	// remove all containers before starting the environment, just in case
@@ -176,14 +137,14 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
-			fmt.Fprint(os.Stderr, removeErr, manualCleanupMsg)
+			fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
 		}
 
 		os.Exit(1)
 	}()
 }
 
-var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag string) {
+var StartCmdRecoverHandlerFunc = func(p interface{}, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -210,24 +171,25 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag stri
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
 		}
 
-		WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
+		waitToCleanUp(cleanupWait)
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
-			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
+			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
 		}
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(homeChainOut *cretypes.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
 	for _, bcOut := range output.BlockchainOutput {
 		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
 	}
+
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		homeChainOut.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
@@ -254,114 +216,157 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 		return err
 	}
 
-	fmt.Printf("CRE CLI settings file created: %s\n", targetPath)
+	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
 
 	return nil
 }
 
-var startCmd = &cobra.Command{
-	Use:              "start",
-	Short:            "Start the environment",
-	Long:             `Start the local CRE environment with all supported capabilities`,
-	PersistentPreRun: StartCmdPreRunFunc,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		defer func() {
-			p := recover()
-			StartCmdRecoverHandlerFunc(p, waitOnErrorTimeoutFlag)
-		}()
+func startCmd() *cobra.Command {
+	var (
+		topology                 string
+		extraAllowedGatewayPorts []int
+		withExampleFlag          bool
+		exampleWorkflowTrigger   string
+		exampleWorkflowTimeout   time.Duration
+		withPluginsDockerImage   string
+		doSetup                  bool
+		cleanupWait              time.Duration
+		withBeholder             bool
+		protoConfigs             []string
+	)
 
-		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
-			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
-		}
+	cmd := &cobra.Command{
+		Use:              "start",
+		Short:            "Start the environment",
+		Long:             `Start the local CRE environment with all supported capabilities`,
+		PersistentPreRun: StartCmdPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			defer func() {
+				p := recover()
+				StartCmdRecoverHandlerFunc(p, cleanupWait)
+			}()
 
-		PrintCRELogo()
-
-		if os.Getenv("CTF_CONFIGS") == "" {
-			// use default config
-			if topologyFlag == TopologySimplified {
-				setErr := os.Setenv("CTF_CONFIGS", "configs/single-don.toml")
-				if setErr != nil {
-					return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
-				}
-			} else {
-				setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-don.toml")
-				if setErr != nil {
-					return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			if doSetup {
+				setupErr := RunSetup(cmd.Context(), SetupConfig{})
+				if setupErr != nil {
+					return errors.Wrap(setupErr, "failed to run setup")
 				}
 			}
-			fmt.Printf("Set CTF_CONFIGS environment variable to default value: %s\n", os.Getenv("CTF_CONFIGS"))
-		}
 
-		if os.Getenv("PRIVATE_KEY") == "" {
-			setErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+			if topology != TopologySimplified && topology != TopologyFull {
+				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topology, TopologySimplified, TopologyFull)
+			}
+
+			PrintCRELogo()
+
+			if err := defaultCtfConfigs(topology); err != nil {
+				return errors.Wrap(err, "failed to set default CTF configs")
+			}
+
+			if os.Getenv("PRIVATE_KEY") == "" {
+				setErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+				if setErr != nil {
+					return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
+				}
+				fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+			}
+
+			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
+			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
-				return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
+				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
-			fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
-		}
 
-		// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
-		setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		if setErr != nil {
-			return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
-		}
+			cmdContext := cmd.Context()
+			// Load and validate test configuration
+			in, err := framework.Load[Config](nil)
+			if err != nil {
+				return errors.Wrap(err, "failed to load test configuration")
+			}
+			if err := in.Validate(); err != nil {
+				return errors.Wrap(err, "failed to validate test configuration")
+			}
 
-		cmdContext := cmd.Context()
+			output, startErr := StartCLIEnvironment(cmdContext, in, topology, exampleWorkflowTrigger, withPluginsDockerImage, withExampleFlag, extraAllowedGatewayPorts, nil, nil)
+			if startErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
+				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-		output, startErr := StartCLIEnvironment(cmdContext, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag, nil, nil)
-		if startErr != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImage), in.Infra.InfraType, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				if dxErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
+				}
 
-			dxErr := trackStartup(false, "unknown", ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				waitToCleanUp(cleanupWait)
+				removeErr := framework.RemoveTestContainers()
+				if removeErr != nil {
+					return errors.Wrap(removeErr, manualCtfCleanupMsg)
+				}
+
+				return errors.Wrap(startErr, "failed to start environment")
+			}
+
+			homeChainOut := output.BlockchainOutput[0]
+
+			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
+
+			if sErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
+			}
+
+			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.InfraType, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
 
-			WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
-			removeErr := framework.RemoveTestContainers()
-			if removeErr != nil {
-				return errors.Wrap(removeErr, manualCleanupMsg)
+			if withBeholder {
+				startBeholderErr := startBeholder(
+					cmdContext,
+					cleanupWait,
+					protoConfigs,
+					nil, // extra Docker network is not required, since chip-ingress will connect to default Framework network
+				)
+				if startBeholderErr != nil {
+					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
+						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+						if beholderRemoveErr != nil {
+							fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+						}
+					}
+					return errors.Wrap(startBeholderErr, "failed to start Beholder")
+				}
 			}
 
-			return errors.Wrap(startErr, "failed to start environment")
-		}
+			if withExampleFlag {
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
 
-		homeChainOut := output.BlockchainOutput[0]
-
-		sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
-
-		if sErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-		}
-
-		dxErr := trackStartup(true, output.InfraInput.InfraType, nil, nil)
-		if dxErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
-		}
-
-		if withExampleFlag {
-			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
-			if timeoutErr != nil {
-				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
+				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, homeChainOut.ChainID, exampleWorkflowTimeout, exampleWorkflowTrigger)
+				if deployErr != nil {
+					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
+				}
 			}
+			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
+			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
-			gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
+			return nil
+		},
+	}
 
-			fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-			deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, homeChainOut.ChainID, timeout, exampleWorkflowTriggerFlag)
-			if deployErr != nil {
-				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
-			}
-		}
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
-		fmt.Print("To terminate execute:`go run . env stop`\n\n")
-
-		return nil
-	},
+	cmd.Flags().StringVarP(&topology, "topology", "t", "simplified", "Topology to use for the environment (simplified or full)")
+	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
+	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
+	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
+	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds")
+	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
+	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
+	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
+	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
+	return cmd
 }
 
-func trackStartup(success bool, infraType string, errorMessage *string, panicked *bool) error {
+func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
 	metadata := map[string]any{
 		"success": success,
 		"infra":   infraType,
@@ -382,7 +387,8 @@ func trackStartup(success bool, infraType string, errorMessage *string, panicked
 
 	if success {
 		dxTimeErr := dxTracker.Track("cre.local.startup.time", map[string]any{
-			"duration_seconds": time.Since(provisioningStartTime).Seconds(),
+			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
+			"has_built_docker_image": hasBuiltDockerImage,
 		})
 
 		if dxTimeErr != nil {
@@ -398,9 +404,9 @@ var stopCmd = &cobra.Command{
 	Short: "Stops the environment",
 	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := framework.RemoveTestContainers()
+		removeErr := removeAllContainers()
 		if removeErr != nil {
-			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
+			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 		}
 
 		fmt.Println("Environment stopped successfully")
@@ -408,22 +414,23 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-var deployAndVerifyExampleWorkflowCmd = &cobra.Command{
-	Use:   "deploy-verify-example",
-	Short: "Deploys and verifies example (optionally)",
-	Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
-		if timeoutErr != nil {
-			return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
-		}
+func removeAllContainers() error {
+	ctfRemoveErr := framework.RemoveTestContainers()
+	if ctfRemoveErr != nil {
+		fmt.Fprint(os.Stderr, errors.Wrap(ctfRemoveErr, manualCtfCleanupMsg).Error())
+	}
 
-		return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, chainIDFlag, timeout, exampleWorkflowTriggerFlag)
-	},
+	beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+	if beholderRemoveErr != nil {
+		fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+	}
+
+	return nil
 }
 
 func StartCLIEnvironment(
 	cmdContext context.Context,
+	in *Config,
 	topologyFlag string,
 	workflowTrigger,
 	withPluginsDockerImageFlag string,
@@ -433,15 +440,6 @@ func StartCLIEnvironment(
 	extraJobFactoryFns []cretypes.JobSpecFactoryFn,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[Config](nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load test configuration: %w", err)
-	}
-	if err := in.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate test configuration: %w", err)
-	}
 
 	// make sure that either cron is enabled or withPluginsDockerImageFlag is set, but only if workflowTrigger is cron
 	if withExampleFlag && workflowTrigger == WorkflowTriggerCron && (in.ExtraCapabilities.CronCapabilityBinaryPath == "" && withPluginsDockerImageFlag == "") {
@@ -615,7 +613,10 @@ func StartCLIEnvironment(
 		if chainErr != nil {
 			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 		}
-		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+
+		if !blockchain.ReadOnly {
+			capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		}
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 
@@ -668,230 +669,6 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
-}
-
-type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error
-
-func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error {
-	ticker := 5 * time.Second
-	for {
-		select {
-		case <-time.After(waitTime):
-			fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
-		case <-time.Tick(ticker):
-			triggerErr := trigger.WebAPITriggerValue(gatewayURL, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x9A99f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE", privateKey, 5*time.Minute)
-			if triggerErr == nil {
-				verifyTime := 25 * time.Second
-				verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), workflowData.FeedID, true, verifyTime)
-				if verifyErr == nil {
-					if isBlockscoutRunning(cmdContext) {
-						fmt.Print(libformat.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
-					}
-
-					return nil
-				}
-
-				fmt.Printf("\nTrying to verify workflow again in %.2f seconds...\n\n", ticker.Seconds())
-			}
-		}
-	}
-}
-
-func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, privateKey string, consumerContractAddress common.Address, workflowData *workflowData, waitTime time.Duration, startTime time.Time) error {
-	// we ignore return as if verification failed it will print that info
-	verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), workflowData.FeedID, true, waitTime)
-	if verifyErr != nil {
-		fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
-		return errors.Wrap(verifyErr, "failed to verify example workflow")
-	}
-
-	if isBlockscoutRunning(cmdContext) {
-		fmt.Print(libformat.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
-	}
-
-	return nil
-}
-
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL string, chainID uint64, timeout time.Duration, exampleWorkflowTriggerFlag string) error {
-	totalStart := time.Now()
-	start := time.Now()
-
-	var executableWorkflowFunction executableWorkflowFn
-
-	var workflowData *workflowData
-	var workflowDataErr error
-	if strings.EqualFold(exampleWorkflowTriggerFlag, WorkflowTriggerCron) {
-		workflowData, workflowDataErr = readWorkflowData(WorkflowTriggerCron)
-		executableWorkflowFunction = executeCronBasedWorkflow
-	} else {
-		workflowData, workflowDataErr = readWorkflowData(WorkflowTriggerWebTrigger)
-		executableWorkflowFunction = executeWebTriggerBasedWorkflow
-	}
-
-	if workflowDataErr != nil {
-		return errors.Wrap(workflowDataErr, "failed to read workflow data")
-	}
-
-	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
-	consumerContractAddress, consumerErr := deploy.PermissionlessFeedsConsumer(rpcURL)
-	if consumerErr != nil {
-		return errors.Wrap(consumerErr, "failed to deploy Permissionless Feeds Consumer contract")
-	}
-
-	fmt.Print(libformat.PurpleText("\n[Stage 1/3] Deployed Permissionless Feeds Consumer in %.2f seconds\n", time.Since(start).Seconds()))
-
-	start = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 2/3] Registering example Proof-of-Reserve workflow\n\n"))
-
-	deployErr := deployExampleWorkflow(chainID, *workflowData)
-	if deployErr != nil {
-		return errors.Wrap(deployErr, "failed to deploy example workflow")
-	}
-
-	fmt.Print(libformat.PurpleText("\n[Stage 2/3] Registered workflow in %.2f seconds\n", time.Since(start).Seconds()))
-	fmt.Print(libformat.PurpleText("[Stage 3/3] Waiting for %.2f seconds for workflow to execute successfully\n\n", timeout.Seconds()))
-
-	var pauseWorkflow = func() {
-		fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
-		start = time.Now()
-		fmt.Print(libformat.PurpleText("\n[CLEANUP] Pausing example workflow\n\n"))
-		pauseErr := pauseExampleWorkflow(chainID)
-		if pauseErr != nil {
-			fmt.Printf("Failed to pause example workflow: %s\nPlease pause it manually\n", pauseErr)
-		}
-
-		fmt.Print(libformat.PurpleText("\n[CLEANUP] Paused example workflow in %.2f seconds\n\n", time.Since(start).Seconds()))
-	}
-	defer pauseWorkflow()
-
-	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, os.Getenv("PRIVATE_KEY"), *consumerContractAddress, workflowData, timeout, totalStart)
-}
-
-var creCLI = "cre_v0.2.0_darwin_arm64"
-var exampleWorkflowName = "exampleworkflow"
-
-func prepareCLIInput(chainID uint64) (*cretypes.ManageWorkflowWithCRECLIInput, error) {
-	if !isCRECLIIsAvailable() {
-		if downloadErr := tryToDownloadCRECLI(); downloadErr != nil {
-			return nil, errors.Wrapf(downloadErr, "failed to download %s", creCLI)
-		}
-	}
-
-	if os.Getenv("CRE_GITHUB_API_TOKEN") == "" {
-		// set fake token to satisfy CRE CLI
-		_ = os.Setenv("CRE_GITHUB_API_TOKEN", "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")
-	}
-
-	chainSelector, chainSelectorErr := chainselectors.SelectorFromChainId(chainID)
-	if chainSelectorErr != nil {
-		return nil, errors.Wrapf(chainSelectorErr, "failed to find chain selector for chainID %d", chainID)
-	}
-
-	CRECLIAbsPath, CRECLIAbsPathErr := creCLIAbsPath()
-	if CRECLIAbsPathErr != nil {
-		return nil, errors.Wrapf(CRECLIAbsPathErr, "failed to get absolute path of the %s binary", creCLI)
-	}
-
-	deployerPrivateKey := os.Getenv("PRIVATE_KEY")
-	if deployerPrivateKey == "" {
-		deployerPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	}
-
-	privateKey, pkErr := crypto.HexToECDSA(deployerPrivateKey)
-	if pkErr != nil {
-		return nil, errors.Wrap(pkErr, "failed to parse the private key")
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-
-	deployerAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-	cliSettingsFileName := "cre.yaml"
-	if _, cliFileErr := os.Stat(cliSettingsFileName); os.IsNotExist(cliFileErr) {
-		return nil, errors.Wrap(cliFileErr, "CRE CLI settings file not found")
-	}
-
-	cliSettingsFile, cliSettingsFilhErr := os.OpenFile(cliSettingsFileName, os.O_RDONLY, 0600)
-	if cliSettingsFilhErr != nil {
-		return nil, errors.Wrap(cliSettingsFilhErr, "failed to open the CRE CLI settings file")
-	}
-
-	return &cretypes.ManageWorkflowWithCRECLIInput{
-		ChainSelector:            chainSelector,
-		WorkflowDonID:            1,
-		WorkflowOwnerAddress:     deployerAddress,
-		CRECLIPrivateKey:         deployerPrivateKey,
-		CRECLIAbsPath:            CRECLIAbsPath,
-		CRESettingsFile:          cliSettingsFile,
-		WorkflowName:             exampleWorkflowName,
-		ShouldCompileNewWorkflow: false,
-		CRECLIProfile:            "test",
-	}, nil
-}
-
-func deployExampleWorkflow(chainID uint64, workflowData workflowData) error {
-	registerWorkflowInput, registerWorkflowInputErr := prepareCLIInput(chainID)
-	if registerWorkflowInputErr != nil {
-		return errors.Wrap(registerWorkflowInputErr, "failed to prepare CLI input")
-	}
-
-	registerWorkflowInput.ExistingWorkflow = &cretypes.ExistingWorkflow{
-		BinaryURL: workflowData.BinaryURL,
-		ConfigURL: &workflowData.ConfigURL,
-	}
-
-	registerErr := creworkflow.RegisterWithCRECLI(*registerWorkflowInput)
-	if registerErr != nil {
-		return errors.Wrap(registerErr, "failed to register workflow")
-	}
-
-	return nil
-}
-
-func pauseExampleWorkflow(chainID uint64) error {
-	pauseWorkflowInput, pauseWorkflowInputErr := prepareCLIInput(chainID)
-	if pauseWorkflowInputErr != nil {
-		return errors.Wrap(pauseWorkflowInputErr, "failed to prepare CLI input")
-	}
-
-	pauseErr := creworkflow.PauseWithCRECLI(*pauseWorkflowInput)
-	if pauseErr != nil {
-		return errors.Wrap(pauseErr, "failed to pause workflow")
-	}
-
-	return nil
-}
-
-type workflowData struct {
-	BinaryURL string `json:"binary_url"`
-	ConfigURL string `json:"config_url"`
-	FeedID    string `json:"feed_id"`
-}
-
-func readWorkflowData(workflowTrigger string) (*workflowData, error) {
-	var path string
-	if strings.EqualFold(workflowTrigger, WorkflowTriggerCron) {
-		path = "./examples/workflows/proof-of-reserve/cron-based/workflow_data.json"
-	} else {
-		path = "./examples/workflows/proof-of-reserve/web-trigger-based/workflow_data.json"
-	}
-
-	wdFileContent, wdFileErr := os.ReadFile(path)
-	if wdFileErr != nil {
-		return nil, errors.Wrap(wdFileErr, "failed to open workflow_data.json file")
-	}
-
-	wdData := &workflowData{}
-	unmarshallErr := json.Unmarshal(wdFileContent, wdData)
-	if unmarshallErr != nil {
-		return nil, errors.Wrap(unmarshallErr, "failed to unmarshall workflow data")
-	}
-
-	return wdData, nil
 }
 
 func isCRECLIIsAvailable() bool {
@@ -1002,4 +779,90 @@ func PrintCRELogo() {
 	fmt.Println(blue + "	88booo. `8b  d8' Y8b  d8 88   88 88booo.      Y8b  d8 88 `88. 88." + reset)
 	fmt.Println(blue + "	Y88888P  `Y88P'   `Y88P' YP   YP Y88888P       `Y88P' 88   YD Y88888P" + reset)
 	fmt.Println()
+}
+
+func defaultCtfConfigs(topologyFlag string) error {
+	if os.Getenv("CTF_CONFIGS") == "" {
+		// use default config
+		if topologyFlag == TopologySimplified {
+			setErr := os.Setenv("CTF_CONFIGS", "configs/single-don.toml")
+			if setErr != nil {
+				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			}
+		} else {
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-don.toml")
+			if setErr != nil {
+				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			}
+		}
+		fmt.Printf("Set CTF_CONFIGS environment variable to default value: %s\n", os.Getenv("CTF_CONFIGS"))
+	}
+
+	return nil
+}
+
+func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
+	if withPluginsDockerImageFlag != "" {
+		return false
+	}
+
+	hasBuilt := false
+
+	for _, nodeset := range in.NodeSets {
+		for _, nodeSpec := range nodeset.NodeSpecs {
+			if nodeSpec.Node != nil && nodeSpec.Node.DockerFilePath != "" {
+				hasBuilt = true
+				break
+			}
+		}
+	}
+
+	return hasBuilt
+}
+
+func getCtfDockerNetworks() ([]string, error) {
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create Docker client")
+	}
+	defer dockerClient.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// List all containers with the "ctf" label
+	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("label", "framework=ctf")),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to list containers")
+	}
+
+	// Use a map to store unique network names
+	networkMap := make(map[string]bool)
+	var networkNames []string
+
+	for _, container := range containers {
+		// Get container details to access network settings
+		containerDetails, err := dockerClient.ContainerInspect(ctx, container.ID)
+		if err != nil {
+			// Log the error but continue with other containers
+			fmt.Fprintf(os.Stderr, "failed to inspect container %s: %s\n", container.ID, err)
+			continue
+		}
+
+		// Extract network names from container's network settings
+		for networkName := range containerDetails.NetworkSettings.Networks {
+			if networkName == "bridge" {
+				continue
+			}
+			if !networkMap[networkName] {
+				networkMap[networkName] = true
+				networkNames = append(networkNames, networkName)
+			}
+		}
+	}
+
+	return networkNames, nil
 }

@@ -51,26 +51,22 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*WorkerEVMInput, 0)
 	for chainSelector, bcOut := range input.BlockchainOutput {
-		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return configOverrides, errors.Wrapf(err, "failed to parse chain ID %s", bcOut.ChainID)
-		}
-
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, cID) {
+		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
 			continue
 		}
 
-		c, exists := chain_selectors.ChainByEvmChainID(cID)
+		c, exists := chain_selectors.ChainByEvmChainID(bcOut.ChainID)
 		if !exists {
-			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", cID)
+			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", bcOut.ChainID)
 		}
 		workerEVMInputs = append(workerEVMInputs, &WorkerEVMInput{
-			Name:          fmt.Sprintf("node-%d", chainSelector),
-			ChainID:       bcOut.ChainID,
-			ChainSelector: c.Selector,
-			HTTPRPC:       bcOut.Nodes[0].InternalHTTPUrl,
-			WSRPC:         bcOut.Nodes[0].InternalWSUrl,
+			Name:                 fmt.Sprintf("node-%d", chainSelector),
+			ChainID:              bcOut.ChainID,
+			ChainSelector:        c.Selector,
+			HTTPRPC:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			WSRPC:                bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			HasForwarderContract: !bcOut.ReadOnly,
 		})
 	}
 
@@ -153,12 +149,16 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 
 		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
 		for _, wi := range workerEVMInputs {
+			if !wi.HasForwarderContract {
+				continue
+			}
+
 			addrsForChains, err := input.AddressBook.AddressesForChain(wi.ChainSelector)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get addresses from address book")
 			}
 			for addr, addrValue := range addrsForChains {
-				if addrValue.Type == "KeystoneForwarder" {
+				if addrValue.Type == keystone_changeset.KeystoneForwarder {
 					wi.ForwarderAddress = addr
 					expectedAddressKey := node.AddressKeyFromSelector(wi.ChainSelector)
 					for _, label := range workflowNodeSet[i].Labels {

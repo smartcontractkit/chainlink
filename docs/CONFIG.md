@@ -872,6 +872,20 @@ ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTPS server to
 
+## JobDistributor
+```toml
+[JobDistributor]
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
+```
+Job Distributor stores the configuration for Job Distributor
+
+### DisplayName
+```toml
+DisplayName = "cre-workflow-1-chainlinklabs" # Example
+```
+DisplayName is a friendly, fully qualified name set by the NOP to clearly identify the node in Job Distributor.
+It should uniquely and unambiguously represent the node for clear communication between Job Distributor maintainers/operators ↔ NOPs.
+
 ## JobPipeline
 ```toml
 [JobPipeline]
@@ -2165,6 +2179,7 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
+HeartbeatInterval = '1s' # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2220,6 +2235,12 @@ ChipIngressEndpoint = '' # Default
 ```
 ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 
+### HeartbeatInterval
+```toml
+HeartbeatInterval = '1s' # Default
+```
+HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
+
 ## Telemetry.ResourceAttributes
 ```toml
 [Telemetry.ResourceAttributes]
@@ -2252,6 +2273,19 @@ WsURL is the websockets url for the streams sdk config
 RestURL = "streams.url" # Example
 ```
 RestURL is the REST url for the streams sdk config
+
+## CRE.WorkflowFetcher
+```toml
+[CRE.WorkflowFetcher]
+URL = '' # Default
+```
+
+
+### URL
+```toml
+URL = '' # Default
+```
+URL is override URL for the workflow fetcher service.
 
 ## Billing
 ```toml
@@ -2348,7 +2382,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2809,7 +2843,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4182,7 +4216,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6980,7 +7014,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7095,7 +7129,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -9535,7 +9569,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -9648,7 +9682,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -10818,7 +10852,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -10932,7 +10966,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -11403,7 +11437,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -13034,7 +13068,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -15364,7 +15398,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -15483,7 +15517,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [NodePool]
 PollFailureThreshold = 5

@@ -94,6 +94,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	relayerSet core.RelayerSet,
 	oracleFactory core.OracleFactory,
 	gatewayConnector core.GatewayConnector,
+	keystore core.Keystore,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
 

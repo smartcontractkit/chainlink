@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"os"
 
@@ -10,7 +11,9 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -43,11 +46,12 @@ type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
 
 type WorkflowRegistryInput struct {
-	ChainSelector  uint64                  `toml:"-"`
-	CldEnv         *cldf.Environment       `toml:"-"`
-	AllowedDonIDs  []uint32                `toml:"-"`
-	WorkflowOwners []common.Address        `toml:"-"`
-	Out            *WorkflowRegistryOutput `toml:"out"`
+	ContractAddress common.Address          `toml:"_"`
+	ChainSelector   uint64                  `toml:"-"`
+	CldEnv          *cldf.Environment       `toml:"-"`
+	AllowedDonIDs   []uint32                `toml:"-"`
+	WorkflowOwners  []common.Address        `toml:"-"`
+	Out             *WorkflowRegistryOutput `toml:"out"`
 }
 
 func (w *WorkflowRegistryInput) Validate() error {
@@ -137,6 +141,20 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
+type WrappedBlockchainInput struct {
+	blockchain.Input
+	ReadOnly bool `toml:"read_only"`
+}
+
+type WrappedBlockchainOutput struct {
+	ChainSelector      uint64
+	ChainID            uint64
+	BlockchainOutput   *blockchain.Output
+	SethClient         *seth.Client
+	DeployerPrivateKey string
+	ReadOnly           bool
+}
+
 type CreateJobsInput struct {
 	CldEnv        *cldf.Environment
 	DonTopology   *DonTopology
@@ -205,6 +223,9 @@ type ConfigureKeystoneInput struct {
 	Topology      *Topology
 	CldEnv        *cldf.Environment
 	OCR3Config    keystone_changeset.OracleConfig
+
+	OCR3Address                 *common.Address
+	CapabilitiesRegistryAddress *common.Address
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -219,6 +240,9 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	}
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
+	}
+	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
+		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
 	}
 
 	return nil
@@ -253,7 +277,7 @@ type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverri
 
 type GenerateConfigsInput struct {
 	DonMetadata            *DonMetadata
-	BlockchainOutput       map[uint64]*blockchain.Output
+	BlockchainOutput       map[uint64]*WrappedBlockchainOutput
 	HomeChainSelector      uint64
 	Flags                  []string
 	PeeringData            CapabilitiesPeeringData
@@ -279,7 +303,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {
-		return errors.Wrapf(addrErr, "failed to get addresses for chain %d", g.HomeChainSelector)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
 	return nil
 }
@@ -438,11 +462,13 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutputs map[uint64]*blockchain.Output
+	BlockchainOutputs map[uint64]*WrappedBlockchainOutput
 	SethClients       map[uint64]*seth.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
+	Datastore         datastore.DataStore
 	Topology          *Topology
+	OperationsBundle  operations.Bundle
 }
 
 func (f *FullCLDEnvironmentInput) Validate() error {

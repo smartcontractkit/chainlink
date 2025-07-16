@@ -789,13 +789,26 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+			// commonchangeset.Configure(
+			//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+			//	changeset_solana.TokenPoolConfigWithMCM{
+			//		ChainSelector: selector,
+			//		TokenPubKey:   tokenAddress,
+			//		PoolType:      &bnm,
+			//		Metadata:      shared.CLLMetadata,
+			//	},
+			// ),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-				changeset_solana.TokenPoolConfig{
+				changeset_solana.AddTokenPoolAndLookupTableConfig{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress,
-					PoolType:      &bnm,
-					Metadata:      shared.CLLMetadata,
+					TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+						{
+							TokenPubKey: tokenAddress,
+							PoolType:    &bnm,
+							Metadata:    shared.CLLMetadata,
+						},
+					},
 				},
 			),
 		})
@@ -904,11 +917,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-					changeset_solana.TokenPoolConfig{
+					changeset_solana.AddTokenPoolAndLookupTableConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress,
-						PoolType:      &bnm,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    &bnm,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				),
 			})
@@ -960,13 +977,26 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	for _, selector := range solanaSelectors {
 		for _, tokenAddress := range remoteTokenAddresses {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+				// commonchangeset.Configure(
+				//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+				//	changeset_solana.TokenPoolConfigWithMCM{
+				//		ChainSelector: selector,
+				//		TokenPubKey:   tokenAddress,
+				//		PoolType:      &lr,
+				//		Metadata:      shared.CLLMetadata,
+				//	},
+				// ),
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
-					changeset_solana.TokenPoolConfig{
+					changeset_solana.AddTokenPoolAndLookupTableConfig{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress,
-						PoolType:      &lr,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    &lr,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				),
 			})

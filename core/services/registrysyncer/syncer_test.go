@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -26,14 +27,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -41,15 +43,17 @@ import (
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	captestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
-var writeChainCapability = kcr.CapabilitiesRegistryCapability{
+var writeChainCapability = kcr_v1.CapabilitiesRegistryCapability{
 	LabelledName:   "write-chain",
 	Version:        "1.0.1",
 	CapabilityType: uint8(3),
 }
 
-func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
+func startNewChainWithRegistry(t *testing.T) (*kcr_v1.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
 	owner := evmtestutils.MustNewSimTransactor(t)
 
 	i := &big.Int{}
@@ -61,7 +65,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.
 	}}, simulated.WithBlockGasLimit(gasLimit))
 	simulatedBackend.Commit()
 
-	CapabilitiesRegistryAddress, _, CapabilitiesRegistry, err := kcr.DeployCapabilitiesRegistry(owner, simulatedBackend.Client())
+	CapabilitiesRegistryAddress, _, CapabilitiesRegistry, err := kcr_v1.DeployCapabilitiesRegistry(owner, simulatedBackend.Client())
 	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
 
 	fmt.Println("Deployed CapabilitiesRegistry at", CapabilitiesRegistryAddress.Hex())
@@ -88,11 +92,11 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 		return nil, err
 	}
 
-	return svc, svc.Start(ctx)
+	return svc, nil
 }
 
 func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend) *crFactory {
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 	client := evmclient.NewSimulatedBackendClient(
 		t,
 		simulatedBackend,
@@ -136,7 +140,7 @@ type launcher struct {
 	mu            sync.RWMutex
 }
 
-func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -194,7 +198,7 @@ func TestReader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
-	_, err := reg.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{writeChainCapability})
+	_, err := reg.AddCapabilities(owner, []kcr_v1.CapabilitiesRegistryCapability{writeChainCapability})
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
@@ -203,7 +207,7 @@ func TestReader_Integration(t *testing.T) {
 	hid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
 
-	_, err = reg.AddNodeOperators(owner, []kcr.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []kcr_v1.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP",
@@ -228,7 +232,7 @@ func TestReader_Integration(t *testing.T) {
 	encPubKey2 := randomWord()
 	encPubKey3 := randomWord()
 
-	nodes := []kcr.CapabilitiesRegistryNodeParams{
+	nodes := []kcr_v1.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -275,7 +279,7 @@ func TestReader_Integration(t *testing.T) {
 		panic(err)
 	}
 
-	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
+	cfgs := []kcr_v1.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: hid,
 			Config:       configb,
@@ -295,12 +299,12 @@ func TestReader_Integration(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, sim)
-	syncerORM := registrysyncer.NewORM(db, logger.Test(t))
-	syncer, err := registrysyncer.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncerORM := registrysyncer.NewORM(db, logger.TestLogger(t))
+	syncer, err := registrysyncer.New(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
-	syncer.AddLauncher(l)
+	syncer.AddListener(l)
 
 	err = syncer.Sync(ctx, false) // not looking to load from the DB in this specific test.
 	s := l.localRegistry
@@ -326,7 +330,7 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
-	nodesInfo := []kcr.INodeInfoProviderNodeInfo{
+	nodesInfo := []kcr_v1.INodeInfoProviderNodeInfo{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -363,7 +367,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
 		nodeSet[0]: nodesInfo[0],
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
@@ -374,14 +378,14 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
-	_, err := reg.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{writeChainCapability})
+	_, err := reg.AddCapabilities(owner, []kcr_v1.CapabilitiesRegistryCapability{writeChainCapability})
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
 	cid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
 
-	_, err = reg.AddNodeOperators(owner, []kcr.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []kcr_v1.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP",
@@ -402,7 +406,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 		randomWord(),
 	}
 
-	nodes := []kcr.CapabilitiesRegistryNodeParams{
+	nodes := []kcr_v1.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -446,7 +450,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
 
-	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
+	cfgs := []kcr_v1.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: cid,
 			Config:       configb,
@@ -467,7 +471,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	syncerORM := newORM(t)
 	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
-	syncer, err := newTestSyncer(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 	require.NoError(t, syncer.Start(ctx))
 	t.Cleanup(func() {
@@ -476,7 +480,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	})
 
 	l := &launcher{}
-	syncer.AddLauncher(l)
+	syncer.AddListener(l)
 
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool
 	timeout := time.After(testutils.WaitTimeout(t))
@@ -497,7 +501,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 func TestSyncer_LocalNode(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 
 	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -529,7 +533,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -570,11 +574,66 @@ func TestSyncer_LocalNode(t *testing.T) {
 		AcceptsWorkflows: true,
 	}
 	expectedNode := capabilities.Node{
-		PeerID:         &pid,
-		WorkflowDON:    don,
-		CapabilityDONs: []capabilities.DON{don},
+		PeerID:              &pid,
+		NodeOperatorID:      1,
+		Signer:              localRegistry.IDsToNodes[pid].Signer,
+		EncryptionPublicKey: localRegistry.IDsToNodes[pid].EncryptionPublicKey,
+		WorkflowDON:         don,
+		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
+}
+
+func TestSyncer_V2Unsupported(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DPanicLevel)
+	backendTH := captestutils.NewEVMBackendTH(t)
+
+	// Deploy a test V2 capabilities registry
+	regAddress, _, _, err := kcr_v2.DeployCapabilitiesRegistry(backendTH.ContractsOwner, backendTH.Backend.Client(), kcr_v2.CapabilitiesRegistryConstructorParams{})
+	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
+	backendTH.Backend.Commit()
+	backendTH.Backend.Commit()
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	db := pgtest.NewSqlxDB(t)
+
+	syncerORM := registrysyncer.NewORM(db, lggr)
+	testContractReaderFactory := &testContractReaderFactory{
+		backendTH: backendTH,
+		t:         t,
+	}
+
+	syncer, err := registrysyncer.New(
+		lggr,
+		func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil },
+		testContractReaderFactory,
+		regAddress.Hex(),
+		syncerORM,
+	)
+	require.NoError(t, err)
+
+	// Add a launcher like in TestReader_Integration
+	l := &launcher{}
+	syncer.AddListener(l)
+
+	// Call Sync directly - this should return an error for V2 contracts
+	err = syncer.Sync(ctx, false)
+	require.Error(t, err)
+
+	time.Sleep(500 * time.Millisecond) // Allow some time for the syncer to start
+	require.Contains(t, err.Error(), "unsupported version 2.0.0")
+}
+
+// Add this helper struct to implement the ContractReaderFactory interface
+type testContractReaderFactory struct {
+	backendTH *captestutils.EVMBackendTH
+	t         *testing.T
+}
+
+func (f *testContractReaderFactory) NewContractReader(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+	return f.backendTH.NewContractReader(ctx, f.t, bytes)
 }
 
 func newTestSyncer(

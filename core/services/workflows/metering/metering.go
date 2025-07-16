@@ -82,6 +82,7 @@ type Report struct {
 	balance *balanceStore
 	client  BillingClient
 	lggr    logger.Logger
+	metrics *monitoring.WorkflowsMetricLabeler
 
 	// internal state
 	mu    sync.RWMutex
@@ -95,7 +96,12 @@ type Report struct {
 	steps        map[string]ReportStep
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient) (*Report, error) {
+func NewReport(
+	labels map[string]string,
+	lggr logger.Logger,
+	client BillingClient,
+	metrics *monitoring.WorkflowsMetricLabeler,
+) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -115,6 +121,7 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		balance: balanceStore,
 		client:  client,
 		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
+		metrics: metrics,
 
 		ready:        false,
 		meteringMode: false,
@@ -187,7 +194,7 @@ func (r *Report) ConvertToBalance(fromUnit string, amount decimal.Decimal) (deci
 	bal, err := r.balance.ConvertToBalance(fromUnit, amount)
 	if err != nil {
 		// Fail open, continue optimistically
-		r.switchToMeteringMode(err)
+		r.switchToMeteringMode(fmt.Errorf("failed to convert to balance [%s]: %w", fromUnit, err))
 	}
 
 	return bal, nil
@@ -228,6 +235,9 @@ func (r *Report) CreditToSpendingLimits(
 	config *values.Map,
 	amount decimal.Decimal,
 ) []capabilities.SpendLimit {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.meteringMode {
 		return []capabilities.SpendLimit{}
 	}
@@ -265,7 +275,7 @@ func (r *Report) CreditToSpendingLimits(
 		// use rate card to convert capSpendLimit to native units
 		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
 		if err != nil {
-			r.switchToMeteringMode(err)
+			r.switchToMeteringMode(fmt.Errorf("attempted to create spending limits [%s]: %w", spendType, err))
 
 			return []capabilities.SpendLimit{}
 		}
@@ -350,7 +360,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		for _, detail := range spendDetails {
 			value, err := decimal.NewFromString(detail.SpendValue)
 			if err != nil {
-				r.lggr.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
 			}
@@ -361,7 +371,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		aggregateSpend := medianSpend(deciVals)
 		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
 		if err != nil {
-			r.switchToMeteringMode(err)
+			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
 		}
 
 		spentCredits = spentCredits.Add(bal)
@@ -378,7 +388,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	// Refund the difference between what local balance had been earmarked and the actual spend
 	if err := r.balance.Add(step.Deduction.Sub(spentCredits)); err != nil {
 		// invariant: capability should not let spend exceed reserve
-		r.lggr.Error("invariant: spend exceeded reserve")
+		r.lggr.Info("invariant: spend exceeded reserve")
 	}
 
 	return nil
@@ -420,6 +430,8 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		return ErrNoBillingClient
 	}
 
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.meteringMode)
+
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
@@ -451,6 +463,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 
 func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Errorf("switching to metering mode: %s", err)
+
 	r.meteringMode = true
 	r.ready = true
 }
@@ -498,7 +511,13 @@ type Reports struct {
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler) *Reports {
+func NewReports(
+	client BillingClient,
+	owner, workflowID string,
+	lggr logger.Logger,
+	labels map[string]string,
+	metrics *monitoring.WorkflowsMetricLabeler,
+) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
@@ -534,7 +553,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client)
+	report, err := NewReport(labels, s.lggr, s.client, s.metrics)
 	if err != nil {
 		return nil, err
 	}

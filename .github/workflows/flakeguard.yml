@@ -329,7 +329,7 @@ jobs:
         shell: bash
         run: |
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
-          go install gotest.tools/gotestsum@v1.12.2 # needed for flakeguard output formatting
+          go install gotest.tools/gotestsum@v1.12.3 # needed for flakeguard output formatting
 
       - name: Run tests with flakeguard
         shell: bash
@@ -787,25 +787,3 @@ jobs:
                 }
               ]
             }
-
-  llm-analysis:
-    name: LLM Analysis
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [report, get-tests]
-    steps:
-      - name: Download all test result artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: context
-          pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
-      - name: Analyze
-        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.2.0
-        with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
-      - name: Upload Analysis
-        uses: actions/upload-artifact@v4
-        with:
-          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
-          path: ${{ github.workspace }}/analysis.jsonl
