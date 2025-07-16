@@ -80,12 +80,18 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}
 	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
 
-	resp, err := handleRequest[*vault.GetSecretsResponse](ctx, s, id, r)
+	resp, err := handleRequest(ctx, s, id, r)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	anyproto, err := anypb.New(resp)
+	resppb := &vault.GetSecretsResponse{}
+	err = proto.Unmarshal(resp.Payload, resppb)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal response to GetSecretsResponse: %w", err)
+	}
+
+	anyproto, err := anypb.New(resppb)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not marshal response to anypb: %w", err)
 	}
@@ -95,7 +101,7 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}, nil
 }
 
-func handleRequest[T proto.Message](ctx context.Context, s *Service, id string, request proto.Message) (T, error) {
+func handleRequest(ctx context.Context, s *Service, id string, request proto.Message) (*Response, error) {
 	respCh := make(chan *Response, 1)
 	s.handler.SendRequest(ctx, &Request{
 		Payload:      request,
@@ -107,25 +113,18 @@ func handleRequest[T proto.Message](ctx context.Context, s *Service, id string, 
 
 	select {
 	case <-ctx.Done():
-		var zero T
-		return zero, ctx.Err()
+		return nil, ctx.Err()
 	case resp := <-respCh:
-		var zero T
 		if resp.Error != "" {
-			return zero, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
+			return nil, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
 		}
 
-		_, ok := resp.Payload.(T)
-		if !ok {
-			return zero, fmt.Errorf("unexpected response type: got %T", resp.Payload)
-		}
-
-		return resp.Payload.(T), nil
+		return resp, nil
 	}
 }
 
-func (s *Service) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault.CreateSecretsResponse, error) {
-	return handleRequest[*vault.CreateSecretsResponse](ctx, s, request.RequestId, request)
+func (s *Service) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*Response, error) {
+	return handleRequest(ctx, s, request.RequestId, request)
 }
 
 func NewService(

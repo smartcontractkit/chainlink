@@ -700,16 +700,19 @@ func (d *Delegate) newServicesVaultPlugin(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
-		ContractTransmitter:          vault.NewContractTransmitter(), // TODO
-		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      nil, // TODO
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           oracleEndpoint,
-		OffchainConfigDigester:       provider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+		ContractTransmitter: vault.NewTransmitter(
+			ocrtypes.Account(spec.TransmitterID.String),
+			store,
+		),
+		Database:                ocrDB,
+		KeyValueDatabaseFactory: nil, // TODO
+		LocalConfig:             lc,
+		Logger:                  ocrLogger,
+		MonitoringEndpoint:      oracleEndpoint,
+		OffchainConfigDigester:  provider.OffchainConfigDigester(),
+		OffchainKeyring:         kb,
+		OnchainKeyring:          ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	// TODO: use properly generated keys
 	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr, store, nil, nil)
