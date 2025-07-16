@@ -109,7 +109,7 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 }
 
 func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.WriteReportRequest) (*evmcappb.WriteReportReply, error) {
-	fc.eng.Infow("EVM Chain WriteReport Started")
+	fc.eng.Errorw("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
 	mockKeystoneForwarder, err := NewMockKeystoneForwarder(common.HexToAddress("0x15fC6ae953E024d975e77382eEeC56A9101f9F88"), fc.gethClient)
@@ -117,16 +117,20 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
+	fc.eng.Errorw("EVM Chain Mock Keystone Forwarder Created")
 	// Create authenticated transactor
 	chainID, err := fc.gethClient.ChainID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	fc.eng.Errorw("EVM Chain ChainID", "chainID", chainID)
 	auth, err := bind.NewKeyedTransactorWithChainID(fc.privateKey, chainID)
 	if err != nil {
 		return nil, err
 	}
+
+	fc.eng.Errorw("EVM Chain Auth", "auth", auth)
 
 	reportTx, err := mockKeystoneForwarder.Report(
 		auth,
@@ -139,12 +143,14 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
+	fc.eng.Errorw("EVM Chain ReportTx", "reportTx", reportTx)
 	// TODO: should we wait for the transaction to be mined?
 	receipt, err := bind.WaitMined(ctx, fc.gethClient, reportTx)
 	if err != nil {
 		return nil, err
 	}
 
+	fc.eng.Errorw("EVM Chain Receipt", "receipt", receipt)
 	fc.eng.Debugw("EVM Chain WriteReport Receipt", "status", receipt.Status, "gasUsed", receipt.GasUsed, "txHash", receipt.TxHash.Hex())
 
 	txHash := receipt.TxHash.Bytes()
@@ -153,6 +159,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	transactionFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 
 	if receipt.Status == types.ReceiptStatusSuccessful {
+		fc.eng.Errorw("EVM Chain WriteReport Successful")
 		fc.eng.Infow("EVM Chain WriteReport Successful", "txHash", receipt.TxHash.Hex(), "gasUsed", receipt.GasUsed, "fee", transactionFee.String())
 
 		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
@@ -164,6 +171,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		}, nil
 	}
 
+	fc.eng.Errorw("EVM Chain WriteReport Failed")
 	fc.eng.Infow("EVM Chain WriteReport Failed", "txHash", receipt.TxHash.Hex(), "gasUsed", receipt.GasUsed, "fee", transactionFee.String())
 
 	receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
