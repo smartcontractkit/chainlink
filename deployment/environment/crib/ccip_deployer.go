@@ -658,7 +658,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	mu := sync.Mutex{}
 
 	// Filter lanes to only include Sol <-> EVM combinations
-	solEvmLanes := make([]LaneConfig, 0)
 	evmChainSet := make(map[uint64]bool)
 	solChainSet := make(map[uint64]bool)
 
@@ -669,22 +668,13 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 		solChainSet[solSelector.ChainSelector()] = true
 	}
 
-	for _, lane := range lanes {
-		isSolToEvm := solChainSet[lane.SourceChain] && evmChainSet[lane.DestinationChain]
-		isEvmToSol := evmChainSet[lane.SourceChain] && solChainSet[lane.DestinationChain]
-
-		if isSolToEvm || isEvmToSol {
-			solEvmLanes = append(solEvmLanes, lane)
-		}
-	}
-
-	// Group lanes by Solana chain
 	lanesBySolChain := make(map[uint64][]LaneConfig)
-	for _, lane := range solEvmLanes {
-		if solChainSet[lane.SourceChain] {
+	for _, lane := range lanes {
+		if solChainSet[lane.SourceChain] && evmChainSet[lane.DestinationChain] {
 			lanesBySolChain[lane.SourceChain] = append(lanesBySolChain[lane.SourceChain], lane)
 		}
-		if solChainSet[lane.DestinationChain] {
+
+		if evmChainSet[lane.SourceChain] && solChainSet[lane.DestinationChain] {
 			lanesBySolChain[lane.DestinationChain] = append(lanesBySolChain[lane.DestinationChain], lane)
 		}
 	}

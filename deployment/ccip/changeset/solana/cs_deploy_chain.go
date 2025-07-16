@@ -45,6 +45,9 @@ import (
 // use this changeset to deploy the CCIP contracts on solana
 var _ cldf.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
+// use this changeset to extend the global lookup table in case of emergency
+var _ cldf.ChangeSet[ExtendGlobalLookupTableConfig] = ExtendGlobalLookupTableChangeset
+
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{
 		shared.Router:                  deployment.RouterProgramName,
@@ -1082,5 +1085,33 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
 		}
 	}
+	return cldf.ChangesetOutput{}, nil
+}
+
+// In case of emergency, this changeset can be used to extend the global lookup table
+// by default the LUT is extended by the changesets that perform other operations
+type ExtendGlobalLookupTableConfig struct {
+	ChainSelector   uint64
+	LookupTableKeys []solana.PublicKey
+}
+
+func ExtendGlobalLookupTableChangeset(e cldf.Environment, cfg ExtendGlobalLookupTableConfig) (cldf.ChangesetOutput, error) {
+	chain, ok := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", cfg.ChainSelector)
+	}
+	existingState, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, ok := existingState.SolChains[chain.Selector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain state not found for selector %d", chain.Selector)
+	}
+
+	if err := extendLookupTable(e, chain, chainState.OffRamp, cfg.LookupTableKeys); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
+	}
+
 	return cldf.ChangesetOutput{}, nil
 }

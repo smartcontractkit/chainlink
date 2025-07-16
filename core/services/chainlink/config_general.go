@@ -524,6 +524,10 @@ func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
 }
 
+func (g *generalConfig) JobDistributor() coreconfig.JobDistributor {
+	return jobDistributorConfig{g.c.JobDistributor}
+}
+
 func (g *generalConfig) Password() coreconfig.Password {
 	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
 }

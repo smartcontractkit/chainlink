@@ -151,15 +151,15 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	for _, testCase := range testCases {
 		typePtr := &testCase.poolType
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-				ccipChangesetSolana.TokenPoolConfigWithMCM{
-					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress,
-					PoolType:      typePtr,
-					Metadata:      tokenMetadata,
-				},
-			),
+			// commonchangeset.Configure(
+			//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			//	ccipChangesetSolana.TokenPoolConfigWithMCM{
+			//		ChainSelector: solChain,
+			//		TokenPubKey:   tokenAddress,
+			//		PoolType:      typePtr,
+			//		Metadata:      tokenMetadata,
+			//	},
+			// ),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
 				ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
@@ -506,15 +506,15 @@ func TestAddTokenPoolE2EWitMcms(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
 			ccipChangesetSolana.E2ETokenPoolConfig{
-				InitializeGlobalTokenPoolConfig: []ccipChangesetSolana.TokenPoolConfigWithMCM{
-					{
-						ChainSelector: solChain,
-						PoolType:      &poolType,
-						TokenPubKey:   newTokenAddress,
-						Metadata:      shared.CLLMetadata,
-						MCMS:          mcmsConfig,
-					},
-				},
+				// InitializeGlobalTokenPoolConfig: []ccipChangesetSolana.TokenPoolConfigWithMCM{
+				//	{
+				//		ChainSelector: solChain,
+				//		PoolType:      &poolType,
+				//		TokenPubKey:   newTokenAddress,
+				//		Metadata:      shared.CLLMetadata,
+				//		MCMS:          mcmsConfig,
+				//	},
+				// },
 				AddTokenPoolAndLookupTable: []ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
 					{
 						ChainSelector: solChain,

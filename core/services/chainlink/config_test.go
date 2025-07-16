@@ -583,15 +583,22 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterBatchProcessor: ptr(true),
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
+		HeartbeatInterval:     commoncfg.MustNewDuration(1 * time.Second),
 	}
 	full.CRE = toml.CreConfig{
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
 		},
+		WorkflowFetcher: &toml.WorkflowFetcherConfig{
+			URL: ptr("https://workflow.fetcher.url"),
+		},
 	}
 	full.Billing = toml.Billing{
 		URL: ptr("localhost:4319"),
+	}
+	full.JobDistributor = toml.JobDistributor{
+		DisplayName: ptr("test-node"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
@@ -1055,6 +1062,9 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+`},
+		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
+DisplayName = 'test-node'
 `},
 		{"P2P", Config{Core: toml.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
