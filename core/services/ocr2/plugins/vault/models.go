@@ -53,11 +53,18 @@ func (r *Request) SendTimeout(ctx context.Context) {
 	})
 }
 
+const (
+	FormatProtobuf = "protobuf"
+	FormatJSON     = "json"
+)
+
 type Response struct {
-	ID      string
-	Error   string
-	Payload []byte
-	Format  string
+	ID         string
+	Error      string
+	Payload    []byte
+	Format     string
+	Context    []byte
+	Signatures [][]byte
 }
 
 func (r *Response) RequestID() string {
