@@ -718,8 +718,8 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	// TODO: use properly generated keys
-	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr, store, nil, nil)
+	// TODO: use properly generated config
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr.Named("VaultPluginFactory"), store, &vault.ReportingPluginConfig{})
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
