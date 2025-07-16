@@ -16,6 +16,11 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
+const (
+	DefaultArtifactsDir        = "/home/chainlink/workflows"
+	DefaultWorkflowNodePattern = "workflow-node"
+)
+
 func workflowCmds() *cobra.Command {
 	workflowCmd := &cobra.Command{
 		Use:   "workflow",
@@ -29,7 +34,7 @@ func workflowCmds() *cobra.Command {
 	return workflowCmd
 }
 
-func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress, configFilePathFlag string) error {
+func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string) error {
 	var privateKey string
 	if os.Getenv("PRIVATE_KEY") != "" {
 		privateKey = os.Getenv("PRIVATE_KEY")
@@ -82,8 +87,8 @@ func deployWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
-	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", "/home/chainlink/workflows", "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "n", "workflow-node", "Pattern to match the container name")
+	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "n", DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "o", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")

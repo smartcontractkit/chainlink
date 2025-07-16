@@ -151,7 +151,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, "workflow-node", "/home/chainlink/workflows", configFilePath, rpcURL)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, DefaultWorkflowNodePattern, DefaultArtifactsDir, configFilePath, rpcURL)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
@@ -163,7 +163,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
 		start = time.Now()
 		fmt.Print(libformat.PurpleText("\n[CLEANUP] Deleting example workflow\n\n"))
-		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress, configFilePath)
+		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress)
 		if deleteErr != nil {
 			fmt.Printf("Failed to delete example workflow: %s\nPlease delete it manually\n", deleteErr)
 		}
@@ -190,7 +190,7 @@ func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, feedID, folder string
 	}
 
 	filePath := filepath.Join(folder, "web_trigger_config.yaml")
-	writeErr := os.WriteFile(filePath, yaml, 0600)
+	writeErr := os.WriteFile(filePath, yaml, 0644) //nolint:gosec // G306: we want it to be readable by everyone
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write config to file")
 	}
@@ -218,7 +218,7 @@ func builAndSavePoRCronConfig(dataFeedsCacheAddress, feedID, folder string) (str
 	}
 
 	filePath := filepath.Join(folder, "cron_config.yaml")
-	writeErr := os.WriteFile(filePath, yaml, 0600)
+	writeErr := os.WriteFile(filePath, yaml, 0644) //nolint:gosec // G306: we want it to be readable by everyone
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write config to file")
 	}

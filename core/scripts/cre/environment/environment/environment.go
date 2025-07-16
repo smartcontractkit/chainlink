@@ -343,7 +343,10 @@ func startCmd() *cobra.Command {
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
-				wfRegAddr := libcontracts.MustFindAddressesForChain(output.CldEnvironment.ExistingAddresses, output.BlockchainOutput[0].ChainSelector, keystone_changeset.WorkflowRegistry.String())
+				wfRegAddr := libcontracts.MustFindAddressesForChain(
+					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+					output.BlockchainOutput[0].ChainSelector,
+					keystone_changeset.WorkflowRegistry.String())
 				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
