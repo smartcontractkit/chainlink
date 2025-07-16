@@ -135,6 +135,16 @@ func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expr
 	return convertLPLogs(logs), nil
 }
 
+func (r *Relayer) GetFiltersNames(_ context.Context) ([]string, error) {
+	// TODO PLEX-1465: once code is moved away, remove this GetFiltersNames method
+	filters := r.chain.LogPoller().GetFilters()
+	filterNames := make([]string, 0, len(filters))
+	for name := range filters {
+		filterNames = append(filterNames, name)
+	}
+	return filterNames, nil
+}
+
 func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
 	lpfilter, err := convertLPFilter(filter)
 	if err != nil {

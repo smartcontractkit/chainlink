@@ -188,6 +188,18 @@ func TestEVMService(t *testing.T) {
 		require.Equal(t, transaction.To().Bytes(), tx.To[:])
 	})
 
+	t.Run("GetFiltersNames", func(t *testing.T) {
+		// TODO PLEX-1465: once code is moved away, remove this test
+		mocks, relayer := setupMocksAndRelayer(t)
+		filtersMap := map[string]logpoller.Filter{
+			"filterA": {},
+			"filterB": {},
+		}
+		mocks.Poller.On("GetFilters").Return(filtersMap)
+		names, _ := relayer.GetFiltersNames(ctx)
+		require.ElementsMatch(t, []string{"filterA", "filterB"}, names)
+	})
+
 	submitTxCases := []SubmitTransactionTestCase{
 		{
 			Name: "Executes successfully",
