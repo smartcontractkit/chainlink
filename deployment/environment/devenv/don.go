@@ -53,17 +53,15 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	DONName          string                   // name of the DON to which the node belongs, used to identify the node within JD
-	CLConfig         clclient.ChainlinkConfig // config to connect to chainlink node via API
-	P2PPort          string                   // port for P2P communication
-	IsBootstrap      bool                     // denotes if the node is a bootstrap node
-	Name             string                   // name of the node, used to identify the node, helpful in logs
-	AdminAddr        string                   // admin address to send payments to, applicable only for non-bootstrap nodes
-	MultiAddr        string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
-	Labels           map[string]string        // labels to use when registering the node with job distributor
-	ContainerName    string                   // name of Docker container
-	EnvironmentLabel string                   // environment label to use when registering the node with job distributor
-	ProductLabel     string                   // product label to use when registering the node with job distributor
+	DONName       string                   // name of the DON to which the node belongs, used to identify the node within JD
+	CLConfig      clclient.ChainlinkConfig // config to connect to chainlink node via API
+	P2PPort       string                   // port for P2P communication
+	IsBootstrap   bool                     // denotes if the node is a bootstrap node
+	Name          string                   // name of the node, used to identify the node, helpful in logs
+	AdminAddr     string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr     string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	Labels        map[string]string        // labels to use when registering the node with job distributor
+	ContainerName string                   // name of Docker container
 }
 
 type DON struct {
@@ -166,13 +164,16 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
 				Value: ptr(LabelNodeTypeValuePlugin),
-			}, &ptypes.Label{
-				Key: LabelEnvironmentKey, Value: ptr(info.EnvironmentLabel),
-			}, &ptypes.Label{
-				Key: LabelProductKey, Value: ptr(info.ProductLabel),
-			}, &ptypes.Label{
-				Key: "don-" + info.DONName, Value: ptr("true"),
 			})
+
+			for key, val := range info.Labels {
+				node.labels = append(node.labels, &ptypes.Label{
+					Key:   key,
+					Value: ptr(val),
+				})
+			}
+
+			fmt.Printf("labels for node %s: %v\n", node.Name, node.labels)
 		}
 		// Set up Job distributor in node and register node with the job distributor
 		err = node.SetUpAndLinkJobDistributor(ctx, jd)
