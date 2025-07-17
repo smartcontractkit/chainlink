@@ -708,6 +708,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		ContractTransmitter: vault.NewTransmitter(
+			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
 			store,
 		),

@@ -7,18 +7,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
 )
 
 type Transmitter struct {
+	lggr        logger.Logger
 	store       *requests.Store[*Request]
 	fromAccount types.Account
 }
 
-func NewTransmitter(fromAccount types.Account, store *requests.Store[*Request]) *Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount types.Account, store *requests.Store[*Request]) *Transmitter {
 	return &Transmitter{
+		lggr:        lggr.Named("VaultTransmitter"),
 		store:       store,
 		fromAccount: fromAccount,
 	}
@@ -46,6 +49,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		signatures = append(signatures, s.Signature)
 	}
 
+	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
 	req.SendResponse(ctx, &Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,

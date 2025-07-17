@@ -19,7 +19,7 @@ func ToCanonicalJSON(msg proto.Message) ([]byte, error) {
 	}
 
 	jsond := map[string]any{}
-	err = json.Unmarshal(jsonb, jsond)
+	err = json.Unmarshal(jsonb, &jsond)
 	if err != nil {
 		return nil, err
 	}

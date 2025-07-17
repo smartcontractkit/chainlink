@@ -86,6 +86,8 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 		return capabilities.CapabilityResponse{}, err
 	}
 
+	// Note: we can drop the signatures from the response above here
+	// since only a valid report will be successfully decryptable by the workflow DON.
 	resppb := &vault.GetSecretsResponse{}
 	err = proto.Unmarshal(resp.Payload, resppb)
 	if err != nil {

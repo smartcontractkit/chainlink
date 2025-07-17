@@ -49,7 +49,7 @@ type ReportingPluginConfig struct {
 
 func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], cfg *ReportingPluginConfig) *ReportingPluginFactory {
 	return &ReportingPluginFactory{
-		lggr:  lggr,
+		lggr:  lggr.Named("VaultReportingPlugin"),
 		store: store,
 		cfg:   cfg,
 	}
@@ -818,8 +818,6 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.Reques
 	}, nil
 }
 
-=======
->>>>>>> develop
 func (r *ReportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	return true, nil
 }
