@@ -75,7 +75,7 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 			config.GenHeadTracker,
 			config.GenTxManager,
 			config.GenGasEstimator) {
-			return nil, fmt.Errorf("Gen* overrides are not available in LOOPP Plugin mode: %w", errors.ErrUnsupported)
+			return nil, fmt.Errorf("overrides Gen* are not available in LOOPP Plugin mode: %w", errors.ErrUnsupported)
 		}
 		for _, chain := range config.ChainConfigs {
 			relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ChainID.String()}
