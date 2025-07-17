@@ -29,7 +29,7 @@ type NodeType = string
 
 const (
 	BootstrapNode NodeType = "bootstrap"
-	WorkerNode    NodeType = "worker"
+	WorkerNode    NodeType = "plugin"
 	GatewayNode   NodeType = "gateway"
 )
 

@@ -172,8 +172,6 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 					Value: ptr(val),
 				})
 			}
-
-			fmt.Printf("labels for node %s: %v\n", node.Name, node.labels)
 		}
 		// Set up Job distributor in node and register node with the job distributor
 		err = node.SetUpAndLinkJobDistributor(ctx, jd)
