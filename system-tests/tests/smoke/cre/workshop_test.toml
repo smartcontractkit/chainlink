@@ -45,6 +45,8 @@
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
 
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
