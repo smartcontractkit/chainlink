@@ -89,6 +89,7 @@ install-plugins-local: ## Build & install local plugins
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
+	go install $(GOFLAGS) ./plugins/cmd/dontime
 
 .PHONY: make install-plugins
 install-plugins: install-loopinstall install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
