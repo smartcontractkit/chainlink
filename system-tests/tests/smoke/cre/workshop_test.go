@@ -115,9 +115,9 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainID)
 
 	// TODO: add code that will compile your workflow
-	// Hint: use the creworkflow.CompileWorkflow() function to compile your workflow and get compressedWorkflowWasmPath variable
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow("../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go", "test-workflow")
-	require.NoError(t, compileErr, "failed to compile workflow")
+	testWorkflowPath := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/this_is_not_my_workflow.go"
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(testWorkflowPath, "test-workflow")
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", testWorkflowPath)
 
 	copyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
 	require.NoError(t, copyErr, "failed to copy workflow to docker containers")
@@ -171,11 +171,11 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 	}()
 
 	// TODO: add a variable named expectedUserLog which contains the message you added to your workflow
-	expectedUserLog := "I am an awesome user log XXX"
+	expectedUserLog := "This is not my message"
 
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
-
+	receivedUserLogs := 0
 	// Start message processor goroutine
 	go func() {
 		for {
@@ -192,6 +192,7 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 				case *workflow_events.UserLogs:
 					testLogger.Info().
 						Msg("🎉 Received UserLogs message in test")
+					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
 						if strings.Contains(logLine.Message, expectedUserLog) {
@@ -205,6 +206,11 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 							default: // Channel might already have a value
 							}
 							return // Exit the processor goroutine
+						} else {
+							testLogger.Warn().
+								Str("expected_log", expectedUserLog).
+								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Msg("Received UserLogs message, but it does not match expected log")
 						}
 					}
 				default:
@@ -231,7 +237,13 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 	case <-foundErrorLog:
 		require.Fail(t, "Test completed with error - found engine initialization failure message!")
 	case <-time.After(timeout):
-		require.Fail(t, "Timed out waiting %s for expected user log message: %s", timeout.String(), expectedUserLog)
+		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		if receivedUserLogs > 0 {
+			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
+		} else {
+			testLogger.Warn().Msg("Did not receive any UserLogs messages")
+		}
+		require.Failf(t, "Timed out waiting for expected user log message", "Expected user log message: '%s' not found after %s", expectedUserLog, timeout.String())
 	case err := <-kafkaErrChan:
 		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution")
 		require.Fail(t, "Kafka listener failed: %v", err)
@@ -368,7 +380,7 @@ func listenForKafkaMessages(
 			}
 
 			// Successfully processed the message! Send it back through channel
-			logger.Info().Str("ce_type", ceType).Msg("Successfully deserialized message, sending to channel")
+			logger.Debug().Str("ce_type", ceType).Msg("Successfully deserialized message, sending to channel")
 
 			select {
 			case messageChan <- message:
