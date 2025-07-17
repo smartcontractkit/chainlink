@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -58,7 +59,10 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	genesisData := core.GenesisAlloc{
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
-	chainID := testutils.SimulatedChainID
+	rand.Seed(time.Now().UnixNano())
+
+	randomNumber := rand.Intn(1000) + 1
+	chainID := big.NewInt(int64(randomNumber))
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -91,7 +95,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, th.Lggr),
+		logpoller.NewORM(th.EVMClient.ConfiguredChainID(), db, th.Lggr),
 		th.EVMClient,
 		th.Lggr,
 		ht,
