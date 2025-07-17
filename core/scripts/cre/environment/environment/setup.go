@@ -832,8 +832,15 @@ func checkCRECLI(ctx context.Context, noPrompt bool, purge bool) (installed bool
 	}
 
 	logger.Info().Msgf("  ✓ CRE CLI installed to %s", binDir)
-	logger.Warn().Msgf("  ! Add this directory to your PATH or move the CRE binary to a directory in your PATH")
-	logger.Info().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * Add this directory to your PATH or move the CRE binary to a directory in your PATH  *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
 
 	return true, nil
 }
@@ -950,7 +957,14 @@ func checkCTF(ctx context.Context, requiredVersion string, noPrompt bool, purge 
 	}
 
 	logger.Info().Msgf("  ✓ CTF CLI installed to %s/ctf", binDir)
-	logger.Warn().Msgf("  ! Add this directory to your PATH or move the CTF binary to a directory in your PATH")
-	logger.Info().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * Add this directory to your PATH or move the CTF binary to a directory in your PATH  *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
 	return true, nil
 }
