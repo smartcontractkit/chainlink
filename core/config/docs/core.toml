@@ -401,6 +401,9 @@ DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
+# KeyValueStoreRootDir is the root directory for the key-value store used by OCR3.1.
+# This directory must be writable by the Chainlink node process and should support long-term persistence.
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
 
 # This section applies only if you are running off-chain reporting jobs.
 [OCR]

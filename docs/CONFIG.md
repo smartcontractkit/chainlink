@@ -1011,6 +1011,7 @@ AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
 ```
 
 
@@ -1131,6 +1132,13 @@ SimulateTransactions enables transaction simulation for OCR2.
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### KeyValueStoreRootDir
+```toml
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
+```
+KeyValueStoreRootDir is the root directory for the key-value store used by OCR3.1.
+This directory must be writable by the Chainlink node process and should support long-term persistence.
 
 ## OCR
 ```toml

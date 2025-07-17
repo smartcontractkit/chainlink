@@ -1209,6 +1209,7 @@ type OCR2 struct {
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
+	KeyValueStoreRootDir               *string
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -1253,6 +1254,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.KeyValueStoreRootDir; v != nil {
+		o.KeyValueStoreRootDir = v
 	}
 }
 
