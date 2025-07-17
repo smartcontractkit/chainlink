@@ -70,3 +70,46 @@ var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, Create
 		return CreateJobsWithJdOpOutput{}, nil
 	},
 )
+
+// CreateJobsWithJdOpFactory creates a new operation with user-specified ID and version
+func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps] {
+	return operations.NewOperation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps](
+		id,
+		semver.MustParse(version),
+		"Create Jobs",
+		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
+			createJobsStartTime := time.Now()
+			deps.Logger.Info().Msg("Creating jobs with Job Distributor")
+
+			donToJobSpecs := make(cretypes.DonsToJobSpecs)
+
+			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
+				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cretypes.JobSpecFactoryInput{
+					CldEnvironment:   deps.FullCLDEnvOutput.Environment,
+					BlockchainOutput: deps.HomeChainBlockchainOutput,
+					DonTopology:      deps.FullCLDEnvOutput.DonTopology,
+					AddressBook:      deps.AddressBook,
+				})
+				if jobSpecsErr != nil {
+					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
+				}
+				mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
+			}
+
+			createJobsInput := cretypes.CreateJobsInput{
+				CldEnv:        deps.FullCLDEnvOutput.Environment,
+				DonTopology:   deps.FullCLDEnvOutput.DonTopology,
+				DonToJobSpecs: donToJobSpecs,
+			}
+
+			jobsErr := libdon.CreateJobs(b.GetContext(), deps.Logger, createJobsInput)
+			if jobsErr != nil {
+				return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobsErr, "failed to create jobs")
+			}
+
+			deps.Logger.Info().Msgf("Jobs created in %.2f seconds", time.Since(createJobsStartTime).Seconds())
+
+			return CreateJobsWithJdOpOutput{}, nil
+		},
+	)
+}
