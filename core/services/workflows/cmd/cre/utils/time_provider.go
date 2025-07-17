@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 type LocalTimeProvider struct{}

@@ -559,7 +559,12 @@ func TestSyncer_LocalNode(t *testing.T) {
 				EncryptionPublicKey: randomWord(),
 			},
 		},
-		map[string]registrysyncer.Capability{},
+		map[string]registrysyncer.Capability{
+			"test-target@1.0.0": {
+				CapabilityType: capabilities.CapabilityTypeTarget,
+				ID:             "write-chain@1.0.1",
+			},
+		},
 	)
 
 	node, err := localRegistry.LocalNode(ctx)
