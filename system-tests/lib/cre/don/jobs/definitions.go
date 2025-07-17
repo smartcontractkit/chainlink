@@ -202,14 +202,15 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uin
 	contractID = "%s"
 	relay = "evm"
 	pluginType = "plugin"
-	pluginName = "dontime"
-	providerType = "dontime"
 	onchainSigningStrategy = { }
 
 	[relayConfig]
 	chainID = "%d"
 
 	[pluginConfig]
+	pluginName = "dontime"
+	ocrVersion = 3
+	telemetryType = "plugin"
 `,
 			uuid,
 			ocr3CapabilityAddress, // re-use OCR3Capability contract
