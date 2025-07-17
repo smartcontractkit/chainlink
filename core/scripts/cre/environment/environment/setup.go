@@ -432,7 +432,7 @@ func checkDockerConfiguration() error {
 		}
 
 		if configFile == "" {
-			return errors.New("docker settings file not found at expected macOS locations")
+			logger.Warn().Msgf(" ! Could not find Docker settings files in %s. Your Docker installation may be misconfigured.", strings.Join(configPaths, ", "))
 		}
 
 		logger.Info().Msgf("  Found Docker settings file at %s", configFile)
@@ -461,6 +461,26 @@ func checkDockerConfiguration() error {
 				logger.Error().Msgf("  ✗ %s is set to %s (should be %s)", setting, value, expected)
 				dockerSettingsOK = false
 			}
+		}
+
+		// Check CPU requirements (minimum 4 cores)
+		cpuValue := gjson.GetBytes(settings, "Cpus").Int()
+		if cpuValue >= 4 {
+			logger.Info().Msgf("  ✓ CPU allocation is sufficient (%d cores)", cpuValue)
+		} else if cpuValue == 0 {
+			logger.Warn().Msg("  ! Could not find CPU setting. Manually check Docker settings in the UI (should be at least 4 cores)")
+		} else {
+			logger.Error().Msgf("  ✗ CPU allocation is insufficient (%d cores, should be at least 4)", cpuValue)
+		}
+
+		// Check memory requirements (minimum 10 GB = 10240 MiB)
+		memoryValue := gjson.GetBytes(settings, "MemoryMiB").Int()
+		if memoryValue >= 10240 {
+			logger.Info().Msgf("  ✓ Memory allocation is sufficient (%d MiB / %.1f GB)", memoryValue, float64(memoryValue)/1024)
+		} else if memoryValue == 0 {
+			logger.Warn().Msg("  ! Could not find memory setting. Manually check Docker settings in the UI (should be at least 10 GB)")
+		} else {
+			logger.Error().Msgf("  ✗ Memory allocation is insufficient (%d MiB / %.1f GB, should be at least 10 GB)", memoryValue, float64(memoryValue)/1024)
 		}
 
 	case "linux":
