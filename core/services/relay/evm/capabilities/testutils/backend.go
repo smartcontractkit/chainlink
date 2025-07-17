@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -23,10 +22,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -45,8 +44,6 @@ type EVMBackendTH struct {
 	LogPoller   logpoller.LogPoller
 }
 
-var startID = atomic.NewInt64(1000)
-
 // Test harness to create a simulated backend for testing a LOOPCapability
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	lggr := logger.Test(t)
@@ -61,8 +58,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	genesisData := core.GenesisAlloc{
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
-
-	chainID := big.NewInt(startID.Add(1))
+	chainID := testutils.SimulatedChainID
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -91,12 +87,11 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 
 // Setup core services like log poller and head tracker for the simulated backend
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
-	// db := pgtest.NewSqlxDB(t)
-	_, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
+	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(th.EVMClient.ConfiguredChainID(), db, th.Lggr),
+		logpoller.NewORM(testutils.SimulatedChainID, db, th.Lggr),
 		th.EVMClient,
 		th.Lggr,
 		ht,
@@ -110,8 +105,8 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	)
 	require.NoError(t, ht.Start(testutils.Context(t)))
 	require.NoError(t, lp.Start(testutils.Context(t)))
-	t.Cleanup(func() { lp.Close() })
 	t.Cleanup(func() { ht.Close() })
+	t.Cleanup(func() { lp.Close() })
 	// Sleep 200ms to allow LP to load filters
 	time.Sleep(time.Millisecond * 200)
 	return ht, lp
