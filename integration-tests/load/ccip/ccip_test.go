@@ -225,7 +225,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				finalSeqNrExecChannels)
 		case selectors.FamilyAptos:
 			client := env.BlockChains.AptosChains()[cs].Client
-			var version uint64 = 0 // tx version
+			nodeInfo, err := client.Info()
+			require.NoError(t, err)
+			
+			var version uint64 = nodeInfo.LedgerVersion() // tx version
 			startBlocks[cs] = &version
 			go subscribeAptosTransmitEvents(
 				ctx,
