@@ -145,7 +145,7 @@ func setupLoadTestEnvironment(
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
 		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
-		AddressBook:               universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:all
+		AddressBook:               universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck
 		JobSpecFactoryFunctions:   []keystonetypes.JobSpecFactoryFn{workflowJobsFn},
 		FullCLDEnvOutput: &keystonetypes.FullCLDEnvironmentOutput{
 			Environment: universalSetupOutput.CldEnvironment,
