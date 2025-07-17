@@ -147,8 +147,10 @@ func TestAddTokenPool_Apply(t *testing.T) {
 		require.Equal(t, aptos.AccountAddress{}, pendingAdm, "Pending admin should be empty")
 
 		ttfcfgs1, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector1, tokenAddress)
-		ttfcfgs2, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector2, tokenAddress)
+		require.NoError(t, err)
 		require.Equal(t, fee_quoter.TokenTransferFeeConfig{}, ttfcfgs1)
+		ttfcfgs2, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector2, tokenAddress)
+		require.NoError(t, err)
 		require.Equal(t, testTokenTransferFeeConfig, ttfcfgs2)
 
 	}
