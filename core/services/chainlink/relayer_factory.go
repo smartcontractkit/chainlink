@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -67,8 +68,14 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 	}
 
 	if cmdName := env.EVMPlugin.Cmd.Get(); cmdName != "" {
-		if config.GenEthClient != nil {
-			return nil, errors.New("GenEthClient override is not supported in the loopp mode")
+		if anyNotNil(config.GenChainStore,
+			config.GenEthClient,
+			config.GenLogBroadcaster,
+			config.GenLogPoller,
+			config.GenHeadTracker,
+			config.GenTxManager,
+			config.GenGasEstimator) {
+			return nil, errors.New("Gen* overrides are not supported in the loopp mode")
 		}
 		for _, chain := range config.ChainConfigs {
 			relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ChainID.String()}
@@ -282,4 +289,13 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 
 func (r *RelayerFactory) NewTron(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, ks, ksCSA, chainCfgs)
+}
+
+func anyNotNil(vals ...interface{}) bool {
+	for _, v := range vals {
+		if !reflect.ValueOf(v).IsNil() {
+			return true
+		}
+	}
+	return false
 }
