@@ -187,7 +187,7 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
-func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uint64) *jobv1.ProposeJobRequest {
+func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -203,6 +203,8 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uin
 	relay = "evm"
 	pluginType = "plugin"
 	onchainSigningStrategy = { }
+	ocrKeyBundleID = "%s"
+	transmitterID = "%s"
 
 	[relayConfig]
 	chainID = "%d"
@@ -215,6 +217,8 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uin
 `,
 			uuid,
 			ocr3CapabilityAddress, // re-use OCR3Capability contract
+			ocr2KeyBundleID,
+			nodeEthAddress, // transmitterID (although this shouldn't be used for this plugin?)
 			chainID,
 		),
 	}
