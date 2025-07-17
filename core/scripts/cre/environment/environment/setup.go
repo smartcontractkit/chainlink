@@ -454,6 +454,9 @@ func checkDockerConfiguration() error {
 			value := gjson.GetBytes(settings, setting).String()
 			if value == expected {
 				logger.Info().Msgf("  ✓ %s is correctly set to %s", setting, expected)
+			} else if strings.TrimSpace(value) == "" {
+				// some users may not have this setting at all; warn instead of error
+				logger.Warn().Msgf("  ! Could not find setting for %s (should be %s). Manually check Docker settings in the UI", setting, expected)
 			} else {
 				logger.Error().Msgf("  ✗ %s is set to %s (should be %s)", setting, value, expected)
 				dockerSettingsOK = false
