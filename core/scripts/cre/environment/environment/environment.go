@@ -268,6 +268,7 @@ func startCmd() *cobra.Command {
 		Short:            "Start the environment",
 		Long:             `Start the local CRE environment with all supported capabilities`,
 		PersistentPreRun: StartCmdPreRunFunc,
+		Aliases:          []string{"restart"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			defer func() {
 				p := recover()
