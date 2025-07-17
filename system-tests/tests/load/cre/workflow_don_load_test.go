@@ -609,7 +609,7 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		Outputs:   outputsBytes,
 	}
 
-	err = s.capProxy.SendTrigger(context.Background(), message)
+	err = s.capProxy.SendTrigger(context.Background(), &message)
 	if err != nil {
 		framework.L.Error().Msgf("error sending trigger: %s", err.Error())
 		return &wasp.Response{Failed: true, Error: err.Error()}
