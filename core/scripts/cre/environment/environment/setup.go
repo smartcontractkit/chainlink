@@ -23,6 +23,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 )
 
 // TODO this can move to the toml configuration file
@@ -279,60 +280,90 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, no
 }
 
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool) error {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool) (setupErr error) {
 	logger := framework.L
+	var localDXTracker tracking.Tracker
+	localDXTracker = &tracking.NoOpTracker{}
+
+	defer func() {
+		if setupErr != nil {
+			localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
+		} else {
+			localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "success", "no_prompt": noPrompt})
+		}
+	}()
+
 	logger.Info().Msg("🔍 Checking prerequisites for CRE environment...")
 
 	// Check if Docker is installed
 	if !isCommandAvailable("docker") {
-		return errors.New("docker is not installed. Please install Docker and try again")
+		setupErr = errors.New("docker is not installed. Please install Docker and try again")
+		return
 	}
 	logger.Info().Msg("✓ Docker is installed")
 
 	// Check if Docker is running
-	dockerClient, clientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if clientErr != nil {
-		return errors.Wrap(clientErr, "failed to create Docker client")
+	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		setupErr = errors.Wrap(dockerClientErr, "failed to create Docker client")
+		return
 	}
 
 	_, pingErr := dockerClient.Ping(ctx)
 	if pingErr != nil {
-		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+		setupErr = errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+		return
 	}
 	logger.Info().Msg("✓ Docker is running")
 
 	// Check Docker configuration
 	if dockerConfigErr := checkDockerConfiguration(); dockerConfigErr != nil {
-		return errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
+		setupErr = errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
+		return
 	}
 
 	// Check if AWS CLI is installed
 	if !isCommandAvailable("aws") {
-		return errors.New("AWS CLI is not installed. Please install AWS CLI and try again")
+		setupErr = errors.New("AWS CLI is not installed. Please install AWS CLI and try again")
+		return
 	}
 	logger.Info().Msg("✓ AWS CLI is installed")
 
 	ghCli, ghCliErr := checkGHCli(ctx, noPrompt)
 	if ghCliErr != nil {
-		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
+		setupErr = errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
+		return
+	}
+
+	// once we have GH CLI setup we can try to create the DX tracker
+	if ghCli {
+		var trackerErr error
+		localDXTracker, trackerErr = tracking.NewDxTracker()
+		if trackerErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		}
 	}
 
 	jdLocalImage, jdErr := JDImageConfig.Ensure(ctx, dockerClient, noPrompt, purge)
 	if jdErr != nil {
-		return errors.Wrap(jdErr, "failed to ensure Job Distributor image")
+		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
+		return
 	}
 	chipLocalImage, chipErr := ChipImageConfig.Ensure(ctx, dockerClient, noPrompt, purge)
 	if chipErr != nil {
-		return errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
+		setupErr = errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
+		return
 	}
 
 	creCLI, creCliErr := checkCRECLI(ctx, noPrompt, purge)
 	if creCliErr != nil {
-		return errors.Wrap(creCliErr, "failed to ensure CRE CLI")
+		setupErr = errors.Wrap(creCliErr, "failed to ensure CRE CLI")
+		return
 	}
 	ctfInstalled, ctfErr := checkCTF(ctx, ctfVersion, noPrompt, purge)
 	if ctfErr != nil {
-		return errors.Wrap(ctfErr, "failed to ensure CTF CLI")
+		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
+		return
 	}
 
 	// Print summary

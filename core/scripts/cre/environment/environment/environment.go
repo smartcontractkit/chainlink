@@ -189,7 +189,7 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, cleanupWait time.Duration) 
 			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
 		}
 
-		tracingErr := dxTracker.Track("startup.result", map[string]any{
+		tracingErr := dxTracker.Track("cre.local.startup.result", map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
@@ -824,4 +824,11 @@ func getCtfDockerNetworks() ([]string, error) {
 	}
 
 	return networkNames, nil
+}
+
+func oneLineErrorMessage(errOrPanic any) string {
+	if err, ok := errOrPanic.(error); ok {
+		return strings.SplitN(err.Error(), "\n", 1)[0]
+	}
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
 }
