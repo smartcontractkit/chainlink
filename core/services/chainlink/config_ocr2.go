@@ -74,5 +74,5 @@ func (o *ocr2Config) SimulateTransactions() bool {
 }
 
 func (o *ocr2Config) KeyValueStoreRootDir() string {
-	return o.c.KeyValueStoreRootDir
+	return *o.c.KeyValueStoreRootDir
 }
