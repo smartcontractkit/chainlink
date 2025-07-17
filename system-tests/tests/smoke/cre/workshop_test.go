@@ -116,6 +116,8 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 
 	// TODO: add code that will compile your workflow
 	// Hint: use the creworkflow.CompileWorkflow() function to compile your workflow and get compressedWorkflowWasmPath variable
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow("../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go", "test-workflow")
+	require.NoError(t, compileErr, "failed to compile workflow")
 
 	copyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
 	require.NoError(t, copyErr, "failed to copy workflow to docker containers")
@@ -169,6 +171,7 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 	}()
 
 	// TODO: add a variable named expectedUserLog which contains the message you added to your workflow
+	expectedUserLog := "I am an awesome user log XXX"
 
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
@@ -228,7 +231,7 @@ func Test_V2_Workflow_Workshop(t *testing.T) {
 	case <-foundErrorLog:
 		require.Fail(t, "Test completed with error - found engine initialization failure message!")
 	case <-time.After(timeout):
-		require.Fail(t, "Timed out waiting %s for expected user log message: %s", timeout, expectedUserLog)
+		require.Fail(t, "Timed out waiting %s for expected user log message: %s", timeout.String(), expectedUserLog)
 	case err := <-kafkaErrChan:
 		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution")
 		require.Fail(t, "Kafka listener failed: %v", err)
