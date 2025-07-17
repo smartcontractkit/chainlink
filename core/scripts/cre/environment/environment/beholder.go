@@ -46,7 +46,6 @@ func beholderCmds() *cobra.Command {
 
 func startBeholderCmd() *cobra.Command {
 	var (
-		//		withBeholderFlag2             bool
 		protoConfigs []string
 		timeout      time.Duration
 	)
@@ -61,12 +60,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			dockerNetworks, dockerNetworksErr := getCtfDockerNetworks()
-			if dockerNetworksErr != nil {
-				return errors.Wrap(dockerNetworksErr, "failed to get CTF Docker networks")
-			}
-
-			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs, dockerNetworks)
+			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -99,7 +93,7 @@ var stopBeholderCmd = &cobra.Command{
 
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string, dockerNetworks []string) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -144,11 +138,6 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 		return errors.Wrap(err, "failed to load test configuration")
 	}
 
-	// connect to existing network if provided, that should only be used, when chip-ingress is started for an already running environment
-	if len(dockerNetworks) > 0 {
-		in.ChipIngress.ExtraDockerNetworks = append(in.ChipIngress.ExtraDockerNetworks, dockerNetworks...)
-	}
-
 	out, startErr := chipingressset.New(in.ChipIngress)
 	if startErr != nil {
 		return errors.Wrap(startErr, "failed to create Chip Ingress set")
@@ -180,7 +169,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
-	fmt.Print("To terminate Beholder stack execute: `go run . env stop-beholder`\n\n")
+	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
 	return nil
 }
