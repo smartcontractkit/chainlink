@@ -15,6 +15,7 @@ const (
 	CronCapability          CapabilityFlag = "cron"
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
+	DonTimeCapability       CapabilityFlag = "dontime"
 
 	ReadContractCapability  CapabilityFlag = "read-contract"
 	LogTriggerCapability    CapabilityFlag = "log-trigger"

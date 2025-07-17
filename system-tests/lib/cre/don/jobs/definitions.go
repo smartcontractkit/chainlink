@@ -208,6 +208,7 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, chainID uin
 	chainID = "%d"
 
 	[pluginConfig]
+	command = "/usr/local/bin/dontime"
 	pluginName = "dontime"
 	ocrVersion = 3
 	telemetryType = "plugin"
