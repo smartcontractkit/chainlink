@@ -23,10 +23,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -91,7 +91,8 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 
 // Setup core services like log poller and head tracker for the simulated backend
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
-	db := pgtest.NewSqlxDB(t)
+	// db := pgtest.NewSqlxDB(t)
+	_, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
@@ -109,8 +110,8 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	)
 	require.NoError(t, ht.Start(testutils.Context(t)))
 	require.NoError(t, lp.Start(testutils.Context(t)))
-	t.Cleanup(func() { ht.Close() })
 	t.Cleanup(func() { lp.Close() })
+	t.Cleanup(func() { ht.Close() })
 	// Sleep 200ms to allow LP to load filters
 	time.Sleep(time.Millisecond * 200)
 	return ht, lp
