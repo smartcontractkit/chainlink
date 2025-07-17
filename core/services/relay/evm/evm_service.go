@@ -142,9 +142,9 @@ func (e *evmService) QueryTrackedLogs(ctx context.Context, filterQuery []query.E
 	return convertLPLogs(logs), nil
 }
 
-func (r *Relayer) GetFiltersNames(_ context.Context) ([]string, error) {
+func (e *evmService) GetFiltersNames(_ context.Context) ([]string, error) {
 	// TODO PLEX-1465: once code is moved away, remove this GetFiltersNames method
-	filters := r.chain.LogPoller().GetFilters()
+	filters := e.chain.LogPoller().GetFilters()
 	filterNames := make([]string, 0, len(filters))
 	for name := range filters {
 		filterNames = append(filterNames, name)
@@ -152,7 +152,7 @@ func (r *Relayer) GetFiltersNames(_ context.Context) ([]string, error) {
 	return filterNames, nil
 }
 
-func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
+func (e *evmService) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
 	lpfilter, err := convertLPFilter(filter)
 	if err != nil {
 		return err
