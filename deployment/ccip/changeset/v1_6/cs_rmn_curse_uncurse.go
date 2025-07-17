@@ -89,9 +89,14 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 		globals.GlobalCurseSubject(): {},
 	}
 
+	validAptosSubjects := map[globals.Subject]struct{}{
+		globals.GlobalCurseSubject(): {},
+	}
+
 	for _, selector := range GetAllCursableChainsSelector(e) {
 		validEVMSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilyEVM)] = struct{}{}
 		validSolanaSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilySolana)] = struct{}{}
+		validAptosSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilyAptos)] = struct{}{}
 	}
 
 	for _, curseAction := range c.CurseActions {
@@ -138,6 +143,20 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 				}
 				if err := solanastateview.ValidateOwnershipSolana(&e, targetChain, c.MCMS != nil, targetChainState.RMNRemote, shared.RMNRemote, solana.PublicKey{}); err != nil {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
+				}
+			case chain_selectors.FamilyAptos:
+				if _, ok := validAptosSubjects[action.SubjectToCurse]; !ok {
+					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+				}
+
+				targetChain := e.BlockChains.AptosChains()[action.ChainSelector]
+				_, ok := state.AptosChains[action.ChainSelector]
+				if !ok {
+					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
+				}
+
+				if c.MCMS != nil {
+					return errors.New("mcms configs are required for aptos chains")
 				}
 			}
 		}
@@ -460,7 +479,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	if len(aptosProposals) == 0 {
 		return partialOut, nil
 	}
-	// TODO: can't have Aptos curse/uncurse without MCMS, validate this
+	// can't have Aptos curse/uncurse without MCMS
 	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
 	}
@@ -481,8 +500,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
 	}
 	return cldf.ChangesetOutput{
-		MCMSTimelockProposals:      []mcms.TimelockProposal{*aggProposal},
-		DescribedTimelockProposals: []string{}, // TODO: figure this out
+		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
 	}, nil
 }
 
@@ -595,7 +613,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	if len(aptosProposals) == 0 {
 		return partialOut, nil
 	}
-	// TODO: can't have Aptos curse/uncurse without MCMS, validate this
+	// can't have Aptos curse/uncurse without MCMS
 	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
 	}
@@ -616,8 +634,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
 	}
 	return cldf.ChangesetOutput{
-		MCMSTimelockProposals:      []mcms.TimelockProposal{*aggProposal},
-		DescribedTimelockProposals: []string{}, // TODO: figure this out
+		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
 	}, nil
 }
 
