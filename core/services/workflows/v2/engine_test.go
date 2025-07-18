@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	basictriggermock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger/mock"
 	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
@@ -1093,15 +1092,13 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		},
 	}
 
-	triggerMock := &basictriggermock.BasicCapability{}
-	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
-		// Validate that config is as expected during subscription phase
-		require.Equal(t, giveName, input.Name)
-		require.Equal(t, giveNum, input.Number)
-		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
-	}
+	// Use basictrigger directly with the given config
+	trigger := basictrigger.Trigger(&basictrigger.Config{
+		Name:   giveName,
+		Number: giveNum,
+	})
 	wrappedTriggerMock := &CapabilityWrapper{
-		Capability: triggerMock,
+		Capability: trigger,
 	}
 	beholderObserver := beholdertest.NewObserver(t)
 
@@ -1229,15 +1226,13 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		},
 	}
 
-	triggerMock := &basictriggermock.BasicCapability{}
-	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
-		// Validate that config is as expected during subscription phase
-		require.Equal(t, giveName, input.Name)
-		require.Equal(t, giveNum, input.Number)
-		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
-	}
+	// Use basictrigger directly with the given config
+	trigger := basictrigger.Trigger(&basictrigger.Config{
+		Name:   giveName,
+		Number: giveNum,
+	})
 	wrappedTriggerMock := &CapabilityWrapper{
-		Capability: triggerMock,
+		Capability: trigger,
 	}
 
 	secretsFetcher := v2.NewSecretsFetcher(
@@ -1338,13 +1333,14 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 // setupExpectedCalls mocks single call to trigger and two calls to the basic action
 // mock capability
 func setupExpectedCalls(t *testing.T) (
-	*basictriggermock.BasicCapability,
+	registry.Capability,
 	*basicactionmock.BasicActionCapability,
 ) {
-	triggerMock := &basictriggermock.BasicCapability{}
-	triggerMock.Trigger = func(ctx context.Context, input *basictrigger.Config) (*basictrigger.Outputs, error) {
-		return &basictrigger.Outputs{CoolOutput: "Hello, "}, nil
-	}
+	// Use basictrigger directly
+	trigger := basictrigger.Trigger(&basictrigger.Config{
+		Name:   "trigger",
+		Number: 100,
+	})
 
 	basicAction := &basicactionmock.BasicActionCapability{}
 
@@ -1360,7 +1356,7 @@ func setupExpectedCalls(t *testing.T) (
 		}
 		return &basicaction.Outputs{AdaptedThing: "world"}, nil
 	}
-	return triggerMock, basicAction
+	return trigger, basicAction
 }
 
 func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {

@@ -12,8 +12,6 @@ import (
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/cre-sdk-go/sdk"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
@@ -93,8 +91,8 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 	case "proto", "": // mode-switch (default)
 		mapProto := &valuespb.Map{
 			Fields: map[string]*valuespb.Value{
-				sdk.ConsensusResponseMapKeyMetadata: {Value: &valuespb.Value_StringValue{StringValue: "fake_metadata"}},
-				sdk.ConsensusResponseMapKeyPayload:  {Value: &valuespb.Value_BytesValue{BytesValue: input.EncodedPayload}},
+				"metadata": {Value: &valuespb.Value_StringValue{StringValue: "fake_metadata"}},
+				"payload":  {Value: &valuespb.Value_BytesValue{BytesValue: input.EncodedPayload}},
 			},
 		}
 		rawMap, err := proto.Marshal(mapProto)
