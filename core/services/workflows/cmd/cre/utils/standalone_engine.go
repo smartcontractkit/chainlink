@@ -40,6 +40,10 @@ const (
 	defaultName                      = "myworkflow"
 )
 
+var (
+	defaultTimeout = 10 * time.Minute
+)
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -55,6 +59,7 @@ func NewStandaloneEngine(
 		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
+		Timeout:                 &defaultTimeout,
 	}
 
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
@@ -91,7 +96,7 @@ func NewStandaloneEngine(
 
 	var billingClient billing.WorkflowClient
 	if billingClientAddr != "" {
-		billingClient, _ = billing.NewWorkflowClient(billingClientAddr)
+		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr)
 	}
 
 	if module.IsLegacyDAG() {

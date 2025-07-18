@@ -166,7 +166,7 @@ jobs:
       always() &&
       needs.wait-for-workflows.result != 'failure' && 
       needs.setup-test-parameters.result == 'success'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c82f8c4d2599c4c7d4e5045bcc0a28f0bf34272
     with:
       chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml

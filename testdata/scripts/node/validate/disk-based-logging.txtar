@@ -181,6 +181,9 @@ HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
@@ -477,6 +480,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5

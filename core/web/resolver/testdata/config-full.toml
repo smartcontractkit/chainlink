@@ -131,6 +131,9 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.37'
 
+[JobDistributor]
+DisplayName = 'test-node'
+
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
@@ -447,6 +450,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
