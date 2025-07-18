@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -28,9 +30,14 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
+type evmService struct {
+	chain  legacyevm.Chain
+	logger logger.Logger
+}
+
 // Direct RPC
-func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
-	result, err := r.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, types.CallContractOpts{ConfidenceLevel: request.ConfidenceLevel})
+func (e *evmService) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
+	result, err := e.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, types.CallContractOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +45,8 @@ func (r *Relayer) CallContract(ctx context.Context, request evmtypes.CallContrac
 	return &evmtypes.CallContractReply{Data: result}, nil
 }
 
-func (r *Relayer) FilterLogs(ctx context.Context, request evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
-	rawLogs, err := r.chain.Client().FilterLogsWithOpts(ctx, convertEthFilter(request.FilterQuery), types.FilterLogsOpts{ConfidenceLevel: request.ConfidenceLevel})
+func (e *evmService) FilterLogs(ctx context.Context, request evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
+	rawLogs, err := e.chain.Client().FilterLogsWithOpts(ctx, convertEthFilter(request.FilterQuery), types.FilterLogsOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +59,8 @@ func (r *Relayer) FilterLogs(ctx context.Context, request evmtypes.FilterLogsReq
 	return &evmtypes.FilterLogsReply{Logs: logs}, nil
 }
 
-func (r *Relayer) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
-	balance, err := r.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, types.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
+func (e *evmService) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
+	balance, err := e.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, types.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +68,12 @@ func (r *Relayer) BalanceAt(ctx context.Context, request evmtypes.BalanceAtReque
 	return &evmtypes.BalanceAtReply{Balance: balance}, nil
 }
 
-func (r *Relayer) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
-	return r.chain.Client().EstimateGas(ctx, toEthMsg(call))
+func (e *evmService) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
+	return e.chain.Client().EstimateGas(ctx, toEthMsg(call))
 }
 
-func (r *Relayer) GetTransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
-	tx, err := r.chain.Client().TransactionByHash(ctx, hash)
+func (e *evmService) GetTransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
+	tx, err := e.chain.Client().TransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +81,8 @@ func (r *Relayer) GetTransactionByHash(ctx context.Context, hash evmtypes.Hash) 
 	return convertTransaction(tx), nil
 }
 
-func (r *Relayer) GetTransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
-	receipt, err := r.chain.Client().TransactionReceipt(ctx, txHash)
+func (e *evmService) GetTransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
+	receipt, err := e.chain.Client().TransactionReceipt(ctx, txHash)
 	if err != nil {
 		return nil, err
 	}
@@ -84,26 +91,26 @@ func (r *Relayer) GetTransactionReceipt(ctx context.Context, txHash evmtypes.Has
 }
 
 // ChainService
-func (r *Relayer) GetTransactionFee(ctx context.Context, transactionID commontypes.IdempotencyKey) (*evmtypes.TransactionFee, error) {
-	return r.chain.TxManager().GetTransactionFee(ctx, transactionID)
+func (e *evmService) GetTransactionFee(ctx context.Context, transactionID commontypes.IdempotencyKey) (*evmtypes.TransactionFee, error) {
+	return e.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (r *Relayer) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByNumberRequest) (*evmtypes.HeaderByNumberReply, error) {
+func (e *evmService) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByNumberRequest) (*evmtypes.HeaderByNumberReply, error) {
 	var err error
 	var h *types.Head
 	switch {
 	// latest block
 	case request.Number == nil || request.Number.Int64() == rpc.LatestBlockNumber.Int64():
-		h, _, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+		h, _, err = e.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 		// non-special block or larger that int64
 	case request.Number.Sign() >= 0 || request.Number.IsInt64():
 		var header *types.Header
-		header, err = r.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, types.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
+		header, err = e.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, types.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
 		h = (*types.Head)(header)
 	case request.Number.Int64() == rpc.FinalizedBlockNumber.Int64():
-		_, h, err = r.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
+		_, h, err = e.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 	case request.Number.Int64() == rpc.SafeBlockNumber.Int64():
-		h, err = r.chain.HeadTracker().LatestSafeBlock(ctx)
+		h, err = e.chain.HeadTracker().LatestSafeBlock(ctx)
 	default:
 		return nil, fmt.Errorf("unexpected block number %s: %w", request.Number.String(), ethereum.NotFound)
 	}
@@ -121,13 +128,13 @@ func (r *Relayer) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByN
 }
 
 // TODO introduce parameters validation PLEX-1437
-func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
+func (e *evmService) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel,
 ) ([]*evmtypes.Log, error) {
 	conformations := confidenceToConformations(confidenceLevel)
 	filterQuery = append(filterQuery, logpoller.NewConfirmationsFilter(conformations))
 	queryName := queryNameFromFilter(filterQuery)
-	logs, err := r.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, queryName)
+	logs, err := e.chain.LogPoller().FilteredLogs(ctx, filterQuery, limitAndSort, queryName)
 	if err != nil {
 		return nil, err
 	}
@@ -135,9 +142,9 @@ func (r *Relayer) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expr
 	return convertLPLogs(logs), nil
 }
 
-func (r *Relayer) GetFiltersNames(_ context.Context) ([]string, error) {
+func (e *evmService) GetFiltersNames(_ context.Context) ([]string, error) {
 	// TODO PLEX-1465: once code is moved away, remove this GetFiltersNames method
-	filters := r.chain.LogPoller().GetFilters()
+	filters := e.chain.LogPoller().GetFilters()
 	filterNames := make([]string, 0, len(filters))
 	for name := range filters {
 		filterNames = append(filterNames, name)
@@ -145,31 +152,31 @@ func (r *Relayer) GetFiltersNames(_ context.Context) ([]string, error) {
 	return filterNames, nil
 }
 
-func (r *Relayer) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
+func (e *evmService) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
 	lpfilter, err := convertLPFilter(filter)
 	if err != nil {
 		return err
 	}
-	if r.chain.LogPoller().HasFilter(lpfilter.Name) {
+	if e.chain.LogPoller().HasFilter(lpfilter.Name) {
 		return nil
 	}
 
-	return r.chain.LogPoller().RegisterFilter(ctx, lpfilter)
+	return e.chain.LogPoller().RegisterFilter(ctx, lpfilter)
 }
 
-func (r *Relayer) UnregisterLogTracking(ctx context.Context, filterName string) error {
+func (e *evmService) UnregisterLogTracking(ctx context.Context, filterName string) error {
 	if filterName == "" {
 		return errEmptyFilterName
 	}
-	if !r.chain.LogPoller().HasFilter(filterName) {
+	if !e.chain.LogPoller().HasFilter(filterName) {
 		return nil
 	}
 
-	return r.chain.LogPoller().UnregisterFilter(ctx, filterName)
+	return e.chain.LogPoller().UnregisterFilter(ctx, filterName)
 }
 
-func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID commontypes.IdempotencyKey) (commontypes.TransactionStatus, error) {
-	status, err := r.chain.TxManager().GetTransactionStatus(ctx, transactionID)
+func (e *evmService) GetTransactionStatus(ctx context.Context, transactionID commontypes.IdempotencyKey) (commontypes.TransactionStatus, error) {
+	status, err := e.chain.TxManager().GetTransactionStatus(ctx, transactionID)
 	if err != nil {
 		return commontypes.Unknown, err
 	}
@@ -177,8 +184,8 @@ func (r *Relayer) GetTransactionStatus(ctx context.Context, transactionID common
 	return status, nil
 }
 
-func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.SubmitTransactionRequest) (*evmtypes.TransactionResult, error) {
-	config := r.chain.Config()
+func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.SubmitTransactionRequest) (*evmtypes.TransactionResult, error) {
+	config := e.chain.Config()
 
 	fromAddress := config.EVM().Workflow().FromAddress().Address()
 	var gasLimit uint64
@@ -186,15 +193,11 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
 
-	uuid, err := uuid.NewUUID()
+	id, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}
-	txID := uuid.String()
-
-	// PLEX-1524 - review which transmitter checker we should use
-	var checker evmtxmgr.TransmitCheckerSpec
-	checker.CheckerType = evmtxmgr.TransmitCheckerTypeSimulate
+	txID := id.String()
 	value := big.NewInt(0)
 
 	// PLEX-1524 - Define how we should properly get the workflow execution ID into the meta without making the API CRE specific.
@@ -208,49 +211,56 @@ func (r *Relayer) SubmitTransaction(ctx context.Context, txRequest evmtypes.Subm
 		IdempotencyKey: &txID,
 		// PLEX-1524 - Review strategy to be used.
 		Strategy: txmgr.NewSendEveryStrategy(),
-		Checker:  checker,
 		Value:    *value,
 	}
 
-	_, err = r.chain.TxManager().CreateTransaction(ctx, txmReq)
+	_, err = e.chain.TxManager().CreateTransaction(ctx, txmReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w; failed to create tx", err)
 	}
 
 	maximumWaitTimeForConfirmation := config.EVM().ConfirmationTimeout()
-	start := time.Now()
-StatusCheckingLoop:
-	for {
-		txStatus, txStatusErr := r.chain.TxManager().GetTransactionStatus(ctx, txID)
+
+	retryContext, cancel := context.WithTimeout(ctx, maximumWaitTimeForConfirmation)
+	defer cancel()
+	txStatus, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (evm.TransactionStatus, error) {
+		txStatus, txStatusErr := e.chain.TxManager().GetTransactionStatus(ctx, txID)
 		if txStatusErr != nil {
-			return nil, txStatusErr
+			return evm.TxFatal, txStatusErr
 		}
 		switch txStatus {
 		case commontypes.Fatal, commontypes.Failed:
-			return &evmtypes.TransactionResult{
-				TxStatus: evm.TxFatal,
-				TxHash:   evmtypes.Hash{},
-			}, nil
-
+			return evm.TxFatal, nil
 		case commontypes.Unconfirmed, commontypes.Finalized:
-			break StatusCheckingLoop
+			return evm.TxSuccess, nil
 		case commontypes.Pending, commontypes.Unknown:
+			return evm.TxFatal, fmt.Errorf("tx still in state pending or unknown, tx status is %d for tx with ID %s", txStatus, txID)
 		default:
-			return nil, fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
+			return evm.TxFatal, fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
 		}
-		if time.Since(start) > maximumWaitTimeForConfirmation {
-			return nil, errors.Errorf("Wait time for Tx %s to get confirmed was greater than maximum wait time %d", txID, maximumWaitTimeForConfirmation)
-		}
-		// PLEX-1524 - Use ticker instead of time.Sleep and make the time configurable
-		time.Sleep(100 * time.Millisecond)
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed getting transaction status. %w", err)
 	}
 
-	receipt, err := r.chain.TxManager().GetTransactionReceipt(ctx, txID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get TX receipt for tx with ID %s: %w", txID, err)
+	if txStatus == evm.TxFatal {
+		return &evmtypes.TransactionResult{TxStatus: txStatus}, nil
 	}
-	if receipt == nil {
-		return nil, fmt.Errorf("receipt was nil for TX with ID %s: %w", txID, err)
+
+	receipt, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (*evmtxmgr.ChainReceipt, error) {
+		receipt, receiptErr := e.chain.TxManager().GetTransactionReceipt(ctx, txID)
+		if receiptErr != nil {
+			return nil, fmt.Errorf("failed to get TX receipt for tx with ID %s: %w", txID, receiptErr)
+		}
+		if receipt == nil {
+			return nil, fmt.Errorf("receipt was nil for TX with ID %s", txID)
+		}
+		return receipt, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed getting transaction receipt. %w", err)
 	}
 
 	return &evmtypes.TransactionResult{
@@ -259,8 +269,8 @@ StatusCheckingLoop:
 	}, nil
 }
 
-func (r *Relayer) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {
-	txFee := r.chain.TxManager().CalculateFee(txmgr.FeeParts{
+func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.ReceiptGasInfo) (*evm.TransactionFee, error) {
+	txFee := e.chain.TxManager().CalculateFee(txmgr.FeeParts{
 		GasUsed:           receipt.GasUsed,
 		EffectiveGasPrice: receipt.EffectiveGasPrice,
 	})
