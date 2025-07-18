@@ -55,7 +55,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
-const triggerId = "basic-test-trigger@1.0.0"
+const triggerID = "basic-test-trigger@1.0.0"
 
 func TestEngine_Init(t *testing.T) {
 	t.Parallel()
@@ -1550,7 +1550,7 @@ func (c *TriggerCapabilityWrapper) UnregisterTrigger(_ context.Context, _ capabi
 
 func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		triggerId,
+		triggerID,
 		capabilities.CapabilityTypeTrigger,
 		"Mock of trigger capability for testing",
 	)
