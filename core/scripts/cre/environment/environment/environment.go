@@ -68,6 +68,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd)
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+	EnvironmentCmd.AddCommand(smokeCmd)
 	// add the working directory /bin to the PATH so that installed CLIs can be found
 	var err error
 	rootPath, err = os.Getwd()
@@ -92,6 +93,33 @@ func init() {
 		os.Exit(1)
 	}
 	fmt.Println("Initialized PATH with bin directory:", binDir)
+
+}
+
+// smokeCmd starts and then stops the environment for a quick health check
+var smokeCmd = &cobra.Command{
+	Use:   "smoke",
+	Short: "Start and then stop the environment (smoke test)",
+	Long:  `Starts the environment, waits briefly, then stops it. Useful for quick health checks.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println("Starting environment (smoke test)...")
+		start := startCmd()
+		start.SetArgs(args)
+		if err := start.Execute(); err != nil {
+			return fmt.Errorf("smoke test: failed to start environment: %w", err)
+		}
+		// Wait briefly to allow environment to initialize
+		waitToCleanUp(5 * time.Second)
+		fmt.Println("Stopping environment (smoke test)...")
+		removeErr := framework.RemoveTestContainers()
+		if removeErr != nil {
+			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
+		}
+
+		fmt.Println("Environment stopped successfully")
+		fmt.Println("Smoke test completed.")
+		return nil
+	},
 }
 
 func waitToCleanUp(d time.Duration) {
