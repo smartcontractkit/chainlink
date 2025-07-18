@@ -83,7 +83,7 @@ var (
 
 	ChipBuildConfig = BuildConfig{
 		RepoURL:    "https://github.com/smartcontractkit/atlas",
-		Branch:     "master",
+		Branch:     "cre-workshop",
 		Dockerfile: "chip-ingress/Dockerfile",
 		Dir:        "chip-ingress",
 		LocalImage: "chip-ingress:local-cre",
@@ -150,7 +150,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 
 		// Clone the repository
 		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", repo, tempDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err2 := cmd.Run(); err2 != nil {
