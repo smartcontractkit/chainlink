@@ -135,7 +135,6 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
-	fc.eng.Debugw("EVM Chain WriteReport ChainID", "chainID", chainID)
 	auth, err := bind.NewKeyedTransactorWithChainID(fc.privateKey, chainID)
 	if err != nil {
 		return nil, err
