@@ -995,7 +995,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		require.NoError(t, err)
 
 		capreg.EXPECT().
-			GetTrigger(matches.AnyContext, triggerId).
+			GetTrigger(matches.AnyContext, triggerID).
 			Return(wrappedTriggerMock, nil).
 			Once()
 
@@ -1019,7 +1019,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{triggerId}, <-subscribedToTriggersCh)
+		require.Equal(t, []string{triggerID}, <-subscribedToTriggersCh)
 
 		// Read the result from the hook and assert that the wanted response was
 		// received.
@@ -1104,13 +1104,13 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		require.NoError(t, err)
 
 		capreg.EXPECT().
-			GetTrigger(matches.AnyContext, triggerId).
+			GetTrigger(matches.AnyContext, triggerID).
 			Return(wrappedTriggerMock, nil).
 			Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{triggerId}, <-subscribedToTriggersCh)
+		require.Equal(t, []string{triggerID}, <-subscribedToTriggersCh)
 
 		// Read the result from the hook and assert that the wanted response was
 		// received.
@@ -1248,13 +1248,13 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	capreg.EXPECT().
-		GetTrigger(matches.AnyContext, triggerId).
+		GetTrigger(matches.AnyContext, triggerID).
 		Return(wrappedTriggerMock, nil).
 		Once()
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
-	require.Equal(t, []string{triggerId}, <-subscribedToTriggersCh)
+	require.Equal(t, []string{triggerID}, <-subscribedToTriggersCh)
 
 	// Read the result from the hook and assert that the wanted response was
 	// received.
