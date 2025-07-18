@@ -1130,10 +1130,10 @@ github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.202505281
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
 github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250717171236-d30449588a62 h1:/+gWJQYyFLwKiwyMUb8VxsI0yyEIf+a7KgIkPf6b3Ro=
 github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250717171236-d30449588a62/go.mod h1:XFQ3osQZZHjL4E1Q61WZuBh5JfJcVGRdeyLFvdb85dM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250709203740-9197d929abcd h1:9KU4ITwX+qtJYulFaI/jRmhBeMsuFNTkbfgr7+tlqO0=
-github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.0.0-20250709203740-9197d929abcd/go.mod h1:NRxRNAHc2iwBFCOdM24uk4NPAvMzzcT5UksdqgwSznM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709203740-9197d929abcd h1:jMjLhCJ9hclBUvDg/gk19CvLVxZ8sfWYY/mggr60YLs=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709203740-9197d929abcd/go.mod h1:MQU6mRUsP0CVlt+SVVNblGhsQjOx/DYgS2yS/b4Mcus=
+github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.2.1-0.20250717171236-d30449588a62 h1:WkO2R7B0E7EeWl8m0MJi+fuCqFFlBIMWrZnfNb/HLCE=
+github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.2.1-0.20250717171236-d30449588a62/go.mod h1:LvIf1q1ql/7umDyQ2ndThdjdw56lFGT4L/do9Xw3ick=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.2.1-0.20250717171236-d30449588a62 h1:ptj+SOQ3tYyM9qnxDZ1SSa6ALRYFYcPBKFC7dTAgUgo=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.2.1-0.20250717171236-d30449588a62/go.mod h1:uouVkzSQocqi+uweMf4/xd0m8pkjNPeqf9ZRdqImvss=
 github.com/smartcontractkit/freeport v0.1.1 h1:B5fhEtmgomdIhw03uPVbVTP6oPv27fBhZsoZZMSIS8I=
 github.com/smartcontractkit/freeport v0.1.1/go.mod h1:T4zH9R8R8lVWKfU7tUvYz2o2jMv1OpGCdpY2j2QZXzU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
