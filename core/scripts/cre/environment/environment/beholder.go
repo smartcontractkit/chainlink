@@ -212,7 +212,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	}
 
 	for _, protoSchemaSet := range protoSchemaSets {
-		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.Repository)
+		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
