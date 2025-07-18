@@ -23,7 +23,9 @@ const (
 	timeoutV2 = 240 * time.Second
 )
 
-type WorkflowMetadata map[string]string
+type WorkflowMetadata struct {
+	Workflows map[string]string
+}
 
 // ProposeWFJobsToJDV2Changeset is a Durable Pipeline compatible changeset that reads a feed state file,
 // creates a workflow job spec from it and proposes it to JD.
@@ -117,12 +119,12 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 		env.Logger.Errorf("failed to cast env metadata: %s", err)
 	}
 
-	if metadata == nil {
-		metadata = make(WorkflowMetadata)
+	if metadata.Workflows == nil {
+		metadata.Workflows = make(map[string]string)
 	}
 
 	// upsert the workflow spec in the metadata
-	metadata[workflowSpecConfig.WorkflowName] = workflowSpec
+	metadata.Workflows[workflowSpecConfig.WorkflowName] = workflowSpec
 
 	err = ds.EnvMetadata().Set(
 		datastore.EnvMetadata{
