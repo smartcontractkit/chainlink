@@ -146,10 +146,6 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		signatures[i] = sig.Signature
 	}
 
-	fc.eng.Debugw("EVM Chain WriteReport ReportContext", "reportContext", input.Report.ReportContext)
-	fc.eng.Debugw("EVM Chain WriteReport Receiver", "receiver", input.Receiver)
-	fc.eng.Debugw("EVM Chain WriteReport RawReport", "rawReport", input.Report.RawReport)
-	fc.eng.Debugw("EVM Chain WriteReport ReportContext", "reportContext", input.Report.ReportContext)
 	reportTx, err := fc.mockKeystoneForwarder.Report(
 		auth,
 		common.Address(input.Receiver),
@@ -158,11 +154,9 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		signatures,
 	)
 	if err != nil {
-		fc.eng.Errorw("EVM Chain WriteReport ReportTx Error", "error", err)
 		return nil, err
 	}
 
-	fc.eng.Debugw("EVM Chain WriteReport ReportTx", "reportTx", reportTx)
 	// TODO: should we wait for the transaction to be mined?
 	receipt, err := bind.WaitMined(ctx, fc.gethClient, reportTx)
 	if err != nil {
