@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+	"github.com/smartcontractkit/cre-sdk-go/sdk"
 	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
@@ -980,10 +981,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		},
 	}
 
-	triggerMock, basicActionMock := setupExpectedCalls(t)
-	wrappedTriggerMock := &CapabilityWrapper{
-		Capability: triggerMock,
-	}
+	_, basicActionMock := setupExpectedCalls(t)
 	wrappedActionMock := &CapabilityWrapper{
 		Capability: basicActionMock,
 	}
@@ -992,11 +990,6 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		wantResponse := "Hello, world!"
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
-
-		capreg.EXPECT().
-			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
-			Return(wrappedTriggerMock, nil).
-			Once()
 
 		capreg.EXPECT().
 			GetExecutable(matches.AnyContext, wrappedActionMock.ID()).
@@ -1018,7 +1011,6 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
 
 		// Read the result from the hook and assert that the wanted response was
 		// received.
@@ -1093,27 +1085,14 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	}
 
 	// Use basictrigger directly with the given config
-	trigger := basictrigger.Trigger(&basictrigger.Config{
-		Name:   giveName,
-		Number: giveNum,
-	})
-	wrappedTriggerMock := &CapabilityWrapper{
-		Capability: trigger,
-	}
 	beholderObserver := beholdertest.NewObserver(t)
 
 	t.Run("OK received expected config", func(t *testing.T) {
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 
-		capreg.EXPECT().
-			GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
-			Return(wrappedTriggerMock, nil).
-			Once()
-
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
-		require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
 
 		// Read the result from the hook and assert that the wanted response was
 		// received.
@@ -1226,15 +1205,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		},
 	}
 
-	// Use basictrigger directly with the given config
-	trigger := basictrigger.Trigger(&basictrigger.Config{
-		Name:   giveName,
-		Number: giveNum,
-	})
-	wrappedTriggerMock := &CapabilityWrapper{
-		Capability: trigger,
-	}
-
 	secretsFetcher := v2.NewSecretsFetcher(
 		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
@@ -1254,14 +1224,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
 
-	capreg.EXPECT().
-		GetTrigger(matches.AnyContext, wrappedTriggerMock.ID()).
-		Return(wrappedTriggerMock, nil).
-		Once()
-
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
-	require.Equal(t, []string{wrappedTriggerMock.ID()}, <-subscribedToTriggersCh)
 
 	// Read the result from the hook and assert that the wanted response was
 	// received.
@@ -1333,7 +1297,7 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 // setupExpectedCalls mocks single call to trigger and two calls to the basic action
 // mock capability
 func setupExpectedCalls(t *testing.T) (
-	registry.Capability,
+	sdk.Trigger[*basictrigger.Outputs, *basictrigger.Outputs],
 	*basicactionmock.BasicActionCapability,
 ) {
 	// Use basictrigger directly
@@ -1430,37 +1394,7 @@ type CapabilityWrapper struct {
 	registry.Capability
 }
 
-var _ capabilities.ExecutableAndTriggerCapability = (*CapabilityWrapper)(nil)
-
-func (c *CapabilityWrapper) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
-	ch := make(chan capabilities.TriggerResponse, 1)
-	defer close(ch)
-	trigger, err := c.InvokeTrigger(ctx, &sdkpb.TriggerSubscription{
-		Id:      request.TriggerID,
-		Payload: request.Payload,
-		Method:  request.Method,
-	})
-	if err != nil {
-		ch <- capabilities.TriggerResponse{Err: err}
-	}
-
-	if trigger == nil {
-		return nil, nil
-	}
-
-	ch <- capabilities.TriggerResponse{
-		Event: capabilities.TriggerEvent{
-			TriggerType: request.TriggerID,
-			Payload:     trigger.Payload,
-		},
-	}
-
-	return ch, nil
-}
-
-func (c *CapabilityWrapper) UnregisterTrigger(_ context.Context, _ capabilities.TriggerRegistrationRequest) error {
-	return nil
-}
+var _ capabilities.ExecutableCapability = (*CapabilityWrapper)(nil)
 
 func (c *CapabilityWrapper) RegisterToWorkflow(_ context.Context, _ capabilities.RegisterToWorkflowRequest) error {
 	return nil
