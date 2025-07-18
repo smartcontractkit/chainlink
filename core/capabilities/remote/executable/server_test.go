@@ -242,13 +242,16 @@ func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T)
 
 	report := []byte("report01234")
 	for idx, caller := range callers {
+		if idx < 0 || idx > 4294967295 { // Check bounds for uint32
+			require.Fail(t, "idx out of range for uint32")
+		}
 		payload := &evm.WriteReportRequest{
 			Receiver: []byte("abcdef"),
 			Report: &sdkpb.ReportResponse{
 				RawReport: report,
 				Sigs: []*sdkpb.AttributedSignature{ // non-deterministic set of sigs that we want to ignore when hashing
 					{
-						SignerId:  uint32(idx),
+						SignerId:  uint32(idx), // Now safe after bounds check
 						Signature: []byte("sig" + strconv.Itoa(idx)),
 					},
 				},
