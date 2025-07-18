@@ -11,6 +11,7 @@ import (
 	"time"
 
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -22,8 +23,7 @@ const (
 	timeoutV2 = 240 * time.Second
 )
 
-type NOPWorkflowMetadata struct {
-}
+type WorkflowMetadata map[string]string
 
 // ProposeWFJobsToJDV2Changeset is a Durable Pipeline compatible changeset that reads a feed state file,
 // creates a workflow job spec from it and proposes it to JD.
@@ -36,7 +36,9 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 	chainInfo, _ := cldf_chain_utils.ChainInfo(c.ChainSelector)
 
 	domain := getDomain(c.Domain)
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+
+	root, _ := findWorkspaceRoot()
+	feedStatePath := filepath.Join(root, "domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
 	feedState, _ := readFeedStateFile(feedStatePath)
 
 	// Only get feeds that are part of the workflow
@@ -101,6 +103,38 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose workflow job spec: %w", err)
 	}
 
+	// Save workflow spec in the datastore
+	ds := datastore.NewMemoryDataStore()
+
+	// environment metadata is overwritten with every Set(), so we need to read the existing metadata first
+	record, err := env.DataStore.EnvMetadata().Get()
+	if err != nil {
+		env.Logger.Errorf("failed to get env datastore: %s", err)
+	}
+
+	metadata, err := datastore.As[WorkflowMetadata](record.Metadata)
+	if err != nil {
+		env.Logger.Errorf("failed to cast env metadata: %s", err)
+	}
+
+	if metadata == nil {
+		metadata = make(WorkflowMetadata)
+	}
+
+	// upsert the workflow spec in the metadata
+	metadata[workflowSpecConfig.WorkflowName] = workflowSpec
+
+	err = ds.EnvMetadata().Set(
+		datastore.EnvMetadata{
+			Metadata: metadata,
+		},
+	)
+	if err != nil {
+		env.Logger.Errorf("failed to set workflow spec in datastore: %s", err)
+	}
+
+	out.DataStore = ds
+
 	return out, nil
 }
 
@@ -139,7 +173,12 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+
+	root, err := findWorkspaceRoot()
+	if err != nil {
+		return fmt.Errorf("failed to find workspace root: %w", err)
+	}
+	feedStatePath := filepath.Join(root, "domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
 
 	feedState, err := readFeedStateFile(feedStatePath)
 	if err != nil {
