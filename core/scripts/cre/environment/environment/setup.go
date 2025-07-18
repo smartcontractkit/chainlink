@@ -150,7 +150,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 
 		// Clone the repository
 		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", repo, tempDir)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", tag, "--single-branch", repo, tempDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err2 := cmd.Run(); err2 != nil {
