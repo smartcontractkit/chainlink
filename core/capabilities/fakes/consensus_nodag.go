@@ -8,11 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"google.golang.org/protobuf/proto"
-
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-
-	"github.com/smartcontractkit/cre-sdk-go/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -89,21 +85,34 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 }
 
 func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*sdkpb.ReportResponse, error) {
+	// Prepare EVM metadata that will be prepended to all reports
+	meta := consensustypes.Metadata{
+		Version:          1,
+		ExecutionID:      metadata.WorkflowExecutionID,
+		Timestamp:        100,
+		DONID:            metadata.WorkflowDonID,
+		DONConfigVersion: metadata.WorkflowDonConfigVersion,
+		WorkflowID:       metadata.WorkflowID,
+		WorkflowName:     metadata.WorkflowName,
+		WorkflowOwner:    metadata.WorkflowOwner,
+		ReportID:         "0001",
+	}
+
+	var rawOutput []byte
+	var err error
+
 	switch input.EncoderName {
 	case "proto", "": // mode-switch (default)
-		mapProto := &valuespb.Map{
-			Fields: map[string]*valuespb.Value{
-				sdk.ConsensusResponseMapKeyMetadata: {Value: &valuespb.Value_StringValue{StringValue: "fake_metadata"}},
-				sdk.ConsensusResponseMapKeyPayload:  {Value: &valuespb.Value_BytesValue{BytesValue: input.EncodedPayload}},
-			},
-		}
-		rawMap, err := proto.Marshal(mapProto)
+		// Just use the encoded payload directly, no wrapping in metadata/payload map
+		// Always prepend EVM metadata
+		rawOutput, err = evm.PrependMetadataFields(meta, input.EncodedPayload)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal input value: %w", err)
+			return nil, fmt.Errorf("failed to prepend metadata fields: %w", err)
 		}
+
+		// For proto encoder, we return simplified response without real signatures
 		return &sdkpb.ReportResponse{
-			RawReport: rawMap,
-			// other fields are unused by mode-switch calls, use fake ones
+			RawReport:     rawOutput,
 			ConfigDigest:  []byte("fake_config_digest"),
 			SeqNr:         42,
 			ReportContext: []byte("fake_report_context"),
@@ -114,24 +123,14 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 				},
 			},
 		}, nil
+
 	case "evm": // report-gen for EVM
 		if len(input.EncodedPayload) == 0 {
 			return nil, errors.New("input value for EVM encoder needs to be a byte array and cannot be empty or nil")
 		}
 
-		// prepend metadata
-		meta := consensustypes.Metadata{
-			Version:          1,
-			ExecutionID:      metadata.WorkflowExecutionID,
-			Timestamp:        100,
-			DONID:            metadata.WorkflowDonID,
-			DONConfigVersion: metadata.WorkflowDonConfigVersion,
-			WorkflowID:       metadata.WorkflowID,
-			WorkflowName:     metadata.WorkflowName,
-			WorkflowOwner:    metadata.WorkflowOwner,
-			ReportID:         "0001",
-		}
-		rawOutput, err := evm.PrependMetadataFields(meta, input.EncodedPayload)
+		// Prepend EVM metadata
+		rawOutput, err = evm.PrependMetadataFields(meta, input.EncodedPayload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepend metadata fields: %w", err)
 		}
@@ -158,6 +157,7 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 			ReportContext: reportContext(fc.configDigest[:], fc.seqNr),
 			Sigs:          sigs,
 		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported encoder name: %s", input.EncoderName)
 	}

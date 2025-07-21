@@ -140,12 +140,17 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
+	signatures := make([][]byte, len(input.Report.Sigs))
+	for i, sig := range input.Report.Sigs {
+		signatures[i] = sig.Signature
+	}
+
 	reportTx, err := fc.mockKeystoneForwarder.Report(
 		auth,
 		common.Address(input.Receiver),
 		input.Report.RawReport,
 		input.Report.ReportContext,
-		input.Report.Signatures,
+		signatures,
 	)
 	if err != nil {
 		return nil, err
