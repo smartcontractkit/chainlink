@@ -155,7 +155,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
 				}
 
-				if c.MCMS != nil {
+				if c.MCMS == nil {
 					return errors.New("mcms configs are required for aptos chains")
 				}
 			}
