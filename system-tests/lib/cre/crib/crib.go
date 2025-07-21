@@ -3,9 +3,6 @@ package crib
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,16 +10,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/crib-sdk/crib"
 	anvilv1 "github.com/smartcontractkit/crib-sdk/crib/composite/blockchain/anvil/v1"
 	jdv1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/jd/v1"
+	nodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	telepresencev1 "github.com/smartcontractkit/crib-sdk/crib/composite/cluster-services/telepresence/v1"
 	namespacev1 "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/namespace/v1"
 
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
@@ -159,7 +159,6 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 	componentFuncs := make([]crib.ComponentFunc, 0)
 
 	for j, donMetadata := range input.Topology.DonsMetadata {
-
 		imageName, imageTag, err := imageNameAndTag(input, j)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
@@ -205,7 +204,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 	// Setting outputs based on the Plan Results
 	nodeComponents := planState.ComponentByName(nodev1.ComponentName)
 
-	var nodeResults []nodev1.Result
+	nodeResults := make([]nodev1.Result, 0)
 
 	for component := range nodeComponents {
 		res := crib.ComponentState[nodev1.Result](component)
@@ -286,44 +285,7 @@ func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, 
 	return &tomlString, &secretsString, nil
 }
 
-func writeOverrides(nodeMetadata *types.NodeMetadata, i int, nodeType types.NodeType, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata, cribConfigsDirAbs string) error {
-	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
-	if findErr != nil {
-		return errors.Wrapf(findErr, "failed to find node index for %s node %d in nodeset %s", nodeType, i, donMetadata.Name)
-	}
-
-	nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
-	if convErr != nil {
-		return errors.Wrapf(convErr, "failed to convert node index '%s' to int for %s node %d in nodeset %s", nodeIndexStr, nodeType, i, donMetadata.Name)
-	}
-
-	cleanedToml, tomlErr := cleanToml(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestConfigOverrides)
-	if tomlErr != nil {
-		return errors.Wrap(tomlErr, "failed to clean TOML")
-	}
-
-	configFileMask := "config-override-bt-%d.toml"
-	secretsFileMask := "secrets-override-bt-%d.toml"
-
-	if nodeType != types.BootstrapNode {
-		configFileMask = "config-override-%d.toml"
-		secretsFileMask = "secrets-override-%d.toml"
-	}
-
-	writeErr := os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(configFileMask, i)), cleanedToml, 0600)
-	if writeErr != nil {
-		return errors.Wrapf(writeErr, "failed to write config override for bootstrap node %d to file", i)
-	}
-
-	writeErr = os.WriteFile(filepath.Join(cribConfigsDirAbs, fmt.Sprintf(secretsFileMask, i)), []byte(input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex].Node.TestSecretsOverrides), 0600)
-	if writeErr != nil {
-		return errors.Wrapf(writeErr, "failed to write secrets override for bootstrap node %d to file", i)
-	}
-
-	return nil
-}
-
-// note: for now we don't need to set capabilities (high complexity, low impact) we'll rely on plugins image which contains all required capabilities
+//nolint:unused // for now we don't need to set capabilities (high complexity, low impact) we'll rely on plugins image which contains all required capabilities
 func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes []*types.NodeMetadata) error {
 	// validate capabilities-related configuration and copy capabilities to pods
 	podNamePattern := input.NodeSetInputs[donIndex].Name + `-\\d+`
