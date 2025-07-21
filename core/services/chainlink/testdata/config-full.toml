@@ -131,6 +131,9 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.38'
 
+[JobDistributor]
+DisplayName = 'test-node'
+
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
@@ -334,6 +337,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
+HeartbeatInterval = '1s'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -447,6 +451,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

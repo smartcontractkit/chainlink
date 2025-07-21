@@ -68,8 +68,13 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowExecutionID: c.WorkflowExecutionID,
-			ReferenceID:         strconv.Itoa(int(request.CallbackId)),
+			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowName:             c.cfg.WorkflowName.String(),
+			WorkflowDonID:            c.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			WorkflowExecutionID:      c.WorkflowExecutionID,
+			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 		},
 		Config: values.EmptyMap(),
 	}

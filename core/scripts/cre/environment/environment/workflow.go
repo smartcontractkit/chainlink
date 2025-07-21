@@ -17,6 +17,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
@@ -34,7 +35,7 @@ func workflowCmds() *cobra.Command {
 	}
 
 	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
-	// TODO commands to create and manage workflows
+	workflowCmd.AddCommand(deployWorkflowCmd())
 
 	return workflowCmd
 }
@@ -296,4 +297,97 @@ func readWorkflowData(workflowTrigger string) (*workflowData, error) {
 	}
 
 	return wdData, nil
+}
+
+func deployWorkflowCmd() *cobra.Command {
+	var (
+		workflowFilePathFlag        string
+		configFilePathFlag          string
+		containerTargetDirFlag      string
+		containerNamePatternFlag    string
+		workflowNameFlag            string
+		workflowOwnerAddressFlag    string
+		workflowRegistryAddressFlag string
+		chainIDFlag                 uint64
+		rpcURLFlag                  string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Compiles and uploads a workflow to the environment",
+		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
+
+			compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
+			if compileErr != nil {
+				return errors.Wrap(compileErr, "❌ failed to compile workflow")
+			}
+
+			fmt.Printf("\n✅ Workflow compiled and compressed successfully\n\n")
+
+			copyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, containerNamePatternFlag, containerTargetDirFlag)
+			if copyErr != nil {
+				return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
+			}
+
+			fmt.Printf("\n✅ Workflow copied to Docker containers\n")
+			fmt.Printf("\n⚙️ Creating Seth client\n\n")
+
+			var privateKey string
+			if os.Getenv("PRIVATE_KEY") != "" {
+				privateKey = os.Getenv("PRIVATE_KEY")
+			} else {
+				privateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+			}
+
+			sethClient, scErr := seth.NewClientBuilder().
+				WithRpcUrl(rpcURLFlag).
+				WithPrivateKeys([]string{privateKey}).
+				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
+				Build()
+			if scErr != nil {
+				return errors.Wrap(scErr, "failed to create Seth client")
+			}
+
+			var configURL *string
+			if configFilePathFlag != "" {
+				configURL = &configFilePathFlag
+			}
+
+			fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
+
+			deleteErr := creworkflow.DeleteAllWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag))
+			if deleteErr != nil {
+				return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddressFlag)
+			}
+
+			fmt.Printf("\n⚙️ Registering workflow %s with the workflow registry\n\n", workflowNameFlag)
+
+			registerErr := creworkflow.RegisterWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configURL, nil, &containerTargetDirFlag)
+			if registerErr != nil {
+				return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
+			}
+
+			defer func() {
+				_ = os.Remove(compressedWorkflowWasmPath)
+			}()
+
+			fmt.Printf("\n✅ Workflow registered successfully\n\n")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
+	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
+	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", "/home/chainlink/workflows", "Path to the target directory in the Docker container")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "n", "workflow-node", "Pattern to match the container name")
+	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
+	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "o", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "m", "exampleworkflow", "Workflow name")
+
+	return cmd
 }

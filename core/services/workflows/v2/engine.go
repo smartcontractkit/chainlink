@@ -441,6 +441,10 @@ func (e *Engine) close() error {
 
 	e.cfg.Module.Close()
 	e.cfg.GlobalLimits.Decrement(e.cfg.WorkflowOwner)
+
+	// reset metering mode metric so that a positive value does not persist
+	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
+
 	return nil
 }
 

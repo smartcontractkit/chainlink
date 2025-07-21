@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
-func Download(ctx context.Context, url string) ([]byte, error) {
+func downloadFile(ctx context.Context, url string) ([]byte, error) {
 	requestCtx, cancelFn := context.WithTimeout(ctx, 120*time.Second)
 	defer cancelFn()
 
@@ -34,6 +36,17 @@ func Download(ctx context.Context, url string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func Download(ctx context.Context, url string) ([]byte, error) {
+	switch {
+	case strings.HasPrefix(url, "file://"):
+		return os.ReadFile(url[7:])
+	case strings.HasPrefix(url, "http://"), strings.HasPrefix(url, "https://"):
+		return downloadFile(ctx, url)
+	default:
+		return nil, fmt.Errorf("unsupported URL: %s", url)
+	}
 }
 
 func DownloadAndDecodeBase64(ctx context.Context, url string) ([]byte, error) {

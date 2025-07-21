@@ -120,17 +120,11 @@ func (c *Controller) CreateCapability(ctx context.Context, info *pb2.CapabilityI
 	return nil
 }
 
-func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
+func (c *Controller) SendTrigger(ctx context.Context, message *pb2.SendTriggerEventRequest) error {
 	for _, client := range c.Nodes {
-		data := pb2.SendTriggerEventRequest{
-			ID:      id,
-			EventID: eventID,
-			Payload: payload,
-		}
+		framework.L.Info().Msg(fmt.Sprintf("Sending trigger event %s to subscribers of %s", message.ID, message.TriggerID))
 
-		framework.L.Info().Msg(fmt.Sprintf("Sending trigger event %s to subscribers of %s", eventID, id))
-
-		_, err := client.API.SendTriggerEvent(ctx, &data)
+		_, err := client.API.SendTriggerEvent(ctx, message)
 		if err != nil {
 			return err
 		}

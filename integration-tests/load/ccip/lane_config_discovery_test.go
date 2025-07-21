@@ -16,9 +16,9 @@ import (
 
 // TestLaneDiscovery_AnyToAny tests lane discovery when all chains are connected to each other
 func TestLaneDiscovery_AnyToAny(t *testing.T) {
-	//TODO: ADD Solana lanes
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfChains(3),
+		testhelpers.WithSolChains(1),
 	)
 
 	e := tenv.Env
@@ -39,7 +39,7 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 	// Verify discovered lanes
 	discoveredLanes, err := laneConfig.GetLanes()
 	require.NoError(t, err)
-	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	chains := e.BlockChains.ListChainSelectors()
 
 	// Should have n*(n-1) lanes for n chains (any-to-any)
 	expectedLaneCount := len(chains) * (len(chains) - 1)
@@ -70,28 +70,33 @@ func TestLaneDiscovery_AnyToAny(t *testing.T) {
 	require.Equal(t, len(chains), stats.DestinationChains)
 }
 
-// TODO: ADD Solana lanes
 // TestLaneDiscovery_PartialConnectivity tests lane discovery with limited connectivity
 func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithNumOfChains(4),
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithSolChains(1),
 	)
 
 	e := tenv.Env
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	require.Len(t, chains, 4, "Should have 4 chains")
+	evmChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	require.Len(t, evmChains, 3, "Should have 3 evmChains")
 
-	chainA, chainB, chainC, chainD := chains[0], chains[1], chains[2], chains[3]
+	solChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	require.Len(t, solChains, 1, "Should have 1 solChains")
+
+	chainA, chainB, chainC := evmChains[0], evmChains[1], evmChains[2]
+	chainD := solChains[0]
 
 	// Setup partial connectivity: A->B, A->C,  B->C, C->D, D->A (cycle)
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainB, false))
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainA, chainC, false))
-	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainC, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainB, chainA, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainA, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainC, false))
 	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainC, chainD, false))
-	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, chainD, chainA, false))
 
 	// Reload state after adding lanes
 	state, err = stateview.LoadOnchainState(e)
@@ -105,15 +110,25 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 	// Verify discovered lanes
 	discoveredLanes, err := laneConfig.GetLanes()
 	require.NoError(t, err)
-	require.Equal(t, 5, len(discoveredLanes), "Should discover exactly 5 lanes")
+
+	// Debug: Print discovered lanes
+	t.Logf("Discovered %d lanes:", len(discoveredLanes))
+	for i, lane := range discoveredLanes {
+		t.Logf("  %d: %d -> %d", i, lane.SourceChain, lane.DestinationChain)
+	}
+
+	// The test setup creates bidirectional routing for Solana chains:
+	// Expected lanes: A<->B, A<->C, D<->C
+	require.Len(t, len(discoveredLanes), 6, "Should have 6 connected chains")
 
 	// Verify specific lanes exist
 	expectedLanes := []crib.LaneConfig{
 		{SourceChain: chainA, DestinationChain: chainB},
 		{SourceChain: chainA, DestinationChain: chainC},
-		{SourceChain: chainB, DestinationChain: chainC},
+		{SourceChain: chainB, DestinationChain: chainA},
+		{SourceChain: chainC, DestinationChain: chainA},
+		{SourceChain: chainD, DestinationChain: chainC},
 		{SourceChain: chainC, DestinationChain: chainD},
-		{SourceChain: chainD, DestinationChain: chainA},
 	}
 
 	for _, expectedLane := range expectedLanes {
@@ -131,13 +146,13 @@ func TestLaneDiscovery_PartialConnectivity(t *testing.T) {
 
 	// Verify connectivity patterns
 	require.Equal(t, []uint64{chainB, chainC}, laneConfig.GetDestinationChainsForSource(chainA))
-	require.Equal(t, []uint64{chainC}, laneConfig.GetDestinationChainsForSource(chainB))
-	require.Equal(t, []uint64{chainD}, laneConfig.GetDestinationChainsForSource(chainC))
-	require.Equal(t, []uint64{chainA}, laneConfig.GetDestinationChainsForSource(chainD))
+	require.Equal(t, []uint64{chainA}, laneConfig.GetDestinationChainsForSource(chainB))
+	require.Equal(t, []uint64{chainA, chainD}, laneConfig.GetDestinationChainsForSource(chainC))
+	require.Equal(t, []uint64{chainC}, laneConfig.GetDestinationChainsForSource(chainD))
 
-	require.Equal(t, []uint64{chainD}, laneConfig.GetSourceChainsForDestination(chainA))
+	require.Equal(t, []uint64{chainB, chainC}, laneConfig.GetSourceChainsForDestination(chainA))
 	require.Equal(t, []uint64{chainA}, laneConfig.GetSourceChainsForDestination(chainB))
-	require.Equal(t, []uint64{chainA, chainB}, laneConfig.GetSourceChainsForDestination(chainC))
+	require.Equal(t, []uint64{chainA, chainD}, laneConfig.GetSourceChainsForDestination(chainC))
 	require.Equal(t, []uint64{chainC}, laneConfig.GetSourceChainsForDestination(chainD))
 }
 

@@ -138,6 +138,8 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 	return ocrtypes.ConfigDigest{}, 0, fmt.Errorf("unimplemented for this relayer")
 }
 
+var _ commontypes.EVMService = (*Relayer)(nil)
+
 type Relayer struct {
 	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource
@@ -147,6 +149,7 @@ type Relayer struct {
 	evmKeystore          keys.Store
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
+	evmService
 
 	// Mercury
 	mercuryCfg        MercuryConfig
@@ -225,6 +228,10 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryORM:            mercuryORM,
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
+		evmService: evmService{
+			chain:  chain,
+			logger: sugared,
+		},
 	}, nil
 }
 

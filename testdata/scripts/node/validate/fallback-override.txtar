@@ -83,6 +83,7 @@ SamplingInterval = '1s'
 FinalityTagBypass = false
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
@@ -277,6 +278,9 @@ Host = ''
 HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
+
+[JobDistributor]
+DisplayName = ''
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false
@@ -477,6 +481,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+HeartbeatInterval = '1s'
 
 [Workflows]
 [Workflows.Limits]
@@ -573,6 +578,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
