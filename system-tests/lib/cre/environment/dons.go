@@ -15,7 +15,7 @@ import (
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cretypes.Topology, infraInput libtypes.InfraInput, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet, ) ([]*cretypes.WrappedNodeOutput, error) {
+func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cretypes.Topology, infraInput libtypes.InfraInput, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet) ([]*cretypes.WrappedNodeOutput, error) {
 	startTime := time.Now()
 	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
 

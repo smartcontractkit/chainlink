@@ -56,7 +56,7 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 	return jdOutput, nil
 }
 
-func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cretypes.Topology, infraInput libtypes.InfraInput, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet, ) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
+func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cretypes.Topology, infraInput libtypes.InfraInput, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 
