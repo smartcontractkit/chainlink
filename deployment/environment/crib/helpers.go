@@ -72,7 +72,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 						return err
 					}
 					base58Addr := n.AccountAddr[chainID]
-					lggr.Debugf("Found %v solana transmitter address", base58Addr)
+					lggr.Infof("Found %v solana transmitter address", base58Addr)
 
 					pk, err := solana.PublicKeyFromBase58(base58Addr)
 					if err != nil {
