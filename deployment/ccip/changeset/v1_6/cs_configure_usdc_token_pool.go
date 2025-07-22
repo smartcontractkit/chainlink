@@ -72,7 +72,7 @@ type ConfigUSDCTokenPoolInput struct {
 
 func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState) error {
 	if _, ok := state.USDCTokenPools_v1_6[deployment.Version1_6_0]; !ok {
-		return fmt.Errorf("no USDC token pool with version %s found on %s", deployment.Version1_6_0, chain.Name)
+		return fmt.Errorf("no USDC token pool with version %s found on %s", deployment.Version1_6_0, chain.Name())
 	}
 	for destSelector, update := range i.DestinationUpdates {
 		err := cldf.IsValidChainSelector(destSelector)

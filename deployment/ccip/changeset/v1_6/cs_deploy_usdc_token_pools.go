@@ -171,7 +171,7 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
 					} else {
 						return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-							Err: fmt.Errorf("previous USDC pool address not found on %s", previousPoolAddress, chain),
+							Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress, chain),
 						}
 					}
 				}

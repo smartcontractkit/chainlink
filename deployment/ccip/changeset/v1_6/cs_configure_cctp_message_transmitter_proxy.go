@@ -78,7 +78,7 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 	}
 	for _, allowedCalleUpdate := range i.AllowedCallerUpdates {
 		if allowedCalleUpdate.AllowedCaller == utils.ZeroAddress {
-			return fmt.Errorf("token messenger must be defined for chain %s", chain.Name)
+			return fmt.Errorf("token messenger must be defined for chain %s", chain.Name())
 		}
 
 		// Skip allowed caller validation against USDC token pools when removing callers
