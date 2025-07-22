@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -586,7 +585,6 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 			require.NoError(t, err)
 
 			verifyNoActiveCurseOnAllChains(t, &e)
-			fmt.Println("finished test case:", tc.name)
 		})
 	}
 }
