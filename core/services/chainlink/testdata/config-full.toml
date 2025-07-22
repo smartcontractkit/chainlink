@@ -358,6 +358,7 @@ URL = 'https://workflow.fetcher.url'
 
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
 
 [[EVM]]
 ChainID = '1'

@@ -822,3 +822,5 @@ URL = '' # Default
 [Billing]
 # URL is the locator for the Chainlink billing service.
 URL = "localhost:4319" # Default
+# TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
+TLSEnabled = true # Default

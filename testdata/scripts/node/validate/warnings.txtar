@@ -379,6 +379,7 @@ URL = ''
 
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
 
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'

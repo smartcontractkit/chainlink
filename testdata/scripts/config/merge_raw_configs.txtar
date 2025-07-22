@@ -491,6 +491,7 @@ URL = ''
 
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
 
 [[Aptos]]
 ChainID = '1'

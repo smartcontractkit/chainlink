@@ -2291,6 +2291,7 @@ URL is override URL for the workflow fetcher service.
 ```toml
 [Billing]
 URL = "localhost:4319" # Default
+TLSEnabled = true # Default
 ```
 Billing holds settings for connecting to the billing service.
 
@@ -2299,6 +2300,12 @@ Billing holds settings for connecting to the billing service.
 URL = "localhost:4319" # Default
 ```
 URL is the locator for the Chainlink billing service.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
 
 ## EVM
 EVM defaults depend on ChainID:

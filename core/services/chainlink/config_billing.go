@@ -14,3 +14,7 @@ type billingConfig struct {
 func (c *billingConfig) URL() string {
 	return *c.t.URL
 }
+
+func (c *billingConfig) TLSEnabled() bool {
+	return *c.t.TLSEnabled
+}

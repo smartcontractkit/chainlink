@@ -595,7 +595,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Billing = toml.Billing{
-		URL: ptr("localhost:4319"),
+		URL:        ptr("localhost:4319"),
+		TLSEnabled: ptr(true),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
