@@ -104,3 +104,4 @@ URL = 'http://solana.web' # Example
 SendOnly = false # Default
 # Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
 Order = 100 # Default
+IsLoadBalancedRPC = false
