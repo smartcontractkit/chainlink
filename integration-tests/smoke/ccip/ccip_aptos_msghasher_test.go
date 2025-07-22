@@ -29,9 +29,9 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
-// Test_CCIP_MessageHasher_OnChainVerification compares off-chain aptos msghasher.go implementation
+// Test_CCIP_AptosMessageHasher_OnChainVerification compares off-chain aptos msghasher.go implementation
 // with on-chain Aptos Move offramp::calculate_message_hash()
-func Test_CCIP_MessageHasher_OnChainVerification(t *testing.T) {
+func Test_CCIP_AptosMessageHasher_OnChainVerification(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testhelpers.Context(t)
 
