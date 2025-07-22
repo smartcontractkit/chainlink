@@ -196,6 +196,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 type DeductOpt func(string, *Report) ([]capabilities.SpendLimit, error)
 
+// ByResource returns a DeductOpt that earmarks a specified amount of local universal credit balance for a given spend
+// type.
 func ByResource(
 	spendType string,
 	amount decimal.Decimal,
@@ -221,6 +223,8 @@ func ByResource(
 	}
 }
 
+// ByDerivedAvailability returns a DeductOpt that derives the maximum spend limit based on the user spend limit and
+// the number of open concurrent call slots.
 func ByDerivedAvailability(
 	userSpendLimit decimal.NullDecimal,
 	openConcurrentCallSlots int,
