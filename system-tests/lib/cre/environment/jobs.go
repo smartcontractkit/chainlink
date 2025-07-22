@@ -21,7 +21,7 @@ import (
 
 func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput libtypes.InfraInput) (*jd.Output, error) {
 	startTime := time.Now()
-	lggr.Info().Msg("Starting Jod Distributor")
+	lggr.Info().Msg("Starting Job Distributor")
 
 	var jdOutput *jd.Output
 	if infraInput.InfraType == libtypes.CRIB {

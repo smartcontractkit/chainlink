@@ -87,7 +87,8 @@ func Bootstrap(infraInput *libtypes.InfraInput) error {
 		crib.ComponentSet(
 			namespacev1.Component(infraInput.CRIB.Namespace),
 			telepresencev1.Component(&telepresencev1.Props{
-				Namespace: infraInput.CRIB.Namespace,
+				Namespace:         infraInput.CRIB.Namespace,
+				QuitBeforeRunning: true,
 			}),
 		),
 	)

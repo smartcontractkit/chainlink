@@ -9,6 +9,9 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-tests/lib
 
+// Uncomment to work with local version of crib-sdk
+// replace github.com/smartcontractkit/crib-sdk => ../../../crib-sdk
+
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
