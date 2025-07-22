@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -270,6 +271,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
 	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+	nonHomeSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{homeChainSel}))
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -278,12 +280,27 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 
+	typedNonHomeSelectors := make([]cciptypes.ChainSelector, 0, len(nonHomeSelectors))
+	for _, sel := range nonHomeSelectors {
+		typedNonHomeSelectors = append(typedNonHomeSelectors, cciptypes.ChainSelector(sel))
+	}
+	fChainValues := getFChainValuesFromTiers(nonHomeSelectors, uint8(len(nodeInfo.NonBootstraps().PeerIDs())/3))
+	distributedTopology := cciptesthelpertypes.NewDistributedTopology(cciptesthelpertypes.DistributedTopologyArgs{FValues: fChainValues})
+	readersPerChain, err := distributedTopology.ChainToNodeMapping(
+		nodeInfo.NonBootstraps().PeerIDs(),
+		typedNonHomeSelectors,
+		cciptypes.ChainSelector(homeChainSel),
+	)
+	if err != nil {
+		return *e, fmt.Errorf("failed to get chain to node mapping: %w", err)
+	}
+
 	for _, chain := range evmChainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			Readers: readersPerChain[cciptypes.ChainSelector(chain)],
 			// Number of nodes is 3f+1
 			//nolint:gosec // this should always be less than max uint8
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),

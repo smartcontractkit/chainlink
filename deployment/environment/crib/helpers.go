@@ -2,6 +2,7 @@ package crib
 
 import (
 	"context"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -149,4 +150,14 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 		nonce++
 	}
 	return nil
+}
+
+// temporary function that temporarily just sets all fChain values to be the same as they were before
+// eventually will be replaced by setting fchain based on tiers
+func getFChainValuesFromTiers(selectors []uint64, fValue uint8) map[cciptypes.ChainSelector]uint8 {
+	fChainValues := make(map[cciptypes.ChainSelector]uint8)
+	for _, sel := range selectors {
+		fChainValues[cciptypes.ChainSelector(sel)] = fValue
+	}
+	return fChainValues
 }
