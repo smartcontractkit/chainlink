@@ -39,8 +39,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 
 	domain := getDomain(c.Domain)
 
-	root, _ := findWorkspaceRoot()
-	feedStatePath := filepath.Join(root, "domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
 	feedState, _ := readFeedStateFile(feedStatePath)
 
 	// Only get feeds that are part of the workflow
@@ -176,11 +175,7 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
 
-	root, err := findWorkspaceRoot()
-	if err != nil {
-		return fmt.Errorf("failed to find workspace root: %w", err)
-	}
-	feedStatePath := filepath.Join(root, "domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
 
 	feedState, err := readFeedStateFile(feedStatePath)
 	if err != nil {

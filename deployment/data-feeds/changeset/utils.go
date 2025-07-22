@@ -3,11 +3,8 @@ package changeset
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
@@ -138,29 +135,4 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRe
 	}
 
 	return dataFeedsCacheAddress
-}
-
-func findWorkspaceRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// Walk up directories looking for the root go.mod
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			// Check if this looks like the workspace root by looking for domains/
-			if _, err := os.Stat(filepath.Join(dir, "domains")); err == nil {
-				return dir, nil
-			}
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break // reached root directory
-		}
-		dir = parent
-	}
-
-	return "", errors.New("could not find workspace root (directory with go.mod and domains/)")
 }
