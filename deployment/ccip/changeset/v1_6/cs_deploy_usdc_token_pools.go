@@ -161,17 +161,17 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 					previousPoolAddress = utils.ZeroAddress
 				} else if previousPoolAddress == utils.ZeroAddress {
 					// If the previous pool address is not set, we try to find the latest deployed pool address
-					if _, ok := chainState.USDCTokenPools[deployment.Version1_5_0]; !ok {
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
-					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_1]; !ok {
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
+					if _, ok := chainState.USDCTokenPools_v1_6[deployment.Version1_6_1]; !ok {
+						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
 					} else if _, ok := chainState.USDCTokenPools_v1_6[deployment.Version1_6_0]; !ok {
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_0].Address()
-					} else if _, ok := chainState.USDCTokenPools_v1_6[deployment.Version1_6_1]; !ok {
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
+					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_1]; !ok {
+						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
+					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_0]; !ok {
+						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
 					} else {
 						return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-							Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress, chain),
+							Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chain.Name()),
 						}
 					}
 				}
