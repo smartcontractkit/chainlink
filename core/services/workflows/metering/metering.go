@@ -194,6 +194,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 	return nil
 }
 
+// DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
+// in the v2 engine mucked up the metering interface and the Deduct input params. This approach allows specific behavior
+// based on the desired deduct operation.
 type DeductOpt func(string, *Report) ([]capabilities.SpendLimit, error)
 
 // ByResource returns a DeductOpt that earmarks a specified amount of local universal credit balance for a given spend
