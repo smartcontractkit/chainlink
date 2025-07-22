@@ -487,7 +487,7 @@ targets:
 				capabilities.CapabilityTypeTarget,
 				"a simple write capability",
 				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 			),
 			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 				assertion(t, req)
@@ -503,7 +503,7 @@ targets:
 							},
 							{
 								Peer2PeerID: "local",
-								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_NETWORK.String(),
 								SpendValue:  "1000",
 							},
 						},
@@ -551,10 +551,10 @@ targets:
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: 10_000}, nil)
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+			}, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -617,7 +617,7 @@ targets:
 					Limit: "399999.600",
 				},
 				{
-					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 					// 60% of remaining units divided by 0.01 is the following
 					// 99.9999 * 0.6 / 0.01
 					Limit: "5999.994",
@@ -639,7 +639,7 @@ targets:
 		setConfig(t, reg, map[string]any{
 			metering.RatiosKey: map[string]any{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				billing.ResourceType_RESOURCE_TYPE_NETWORK.String(): "0.6",
 			},
 		})
 
@@ -647,10 +647,10 @@ targets:
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: 10_000}, nil)
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+			}, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -724,7 +724,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""

@@ -36,31 +36,31 @@ const (
 var (
 	successReserveResponse = billing.ReserveCreditsResponse{
 		Success: true,
-		Credits: 10_000,
+		Credits: "10000",
 	}
 	successReserveResponseWithRates = billing.ReserveCreditsResponse{
 		Success: true,
-		Entries: []*billing.RateCardEntry{
+		RateCards: []*billing.RateCard{
 			{
 				ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 				MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 				UnitsPerCredit:  "2",
 			},
 		},
-		Credits: 10_000,
+		Credits: "10000",
 	}
-	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 		{
 			ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 			UnitsPerCredit:  "2",
 		},
 		{
-			ResourceType:    billing.ResourceType_RESOURCE_TYPE_GAS,
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
 			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
 			UnitsPerCredit:  "3",
 		},
-	}, Credits: 10_000}
+	}, Credits: "10000"}
 	failureReserveResponse = billing.ReserveCreditsResponse{
 		Success: false,
 	}
@@ -71,7 +71,7 @@ var (
 	}
 	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
-	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_GAS)]
+	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_NETWORK)]
 	validConfig, _ = values.NewMap(map[string]any{
 		RatiosKey: map[string]string{
 			testUnitA: "0.4",
@@ -128,9 +128,9 @@ func Test_Report_MeteringMode(t *testing.T) {
 			report := newTestReport(t, lggr, billingClient)
 
 			billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-				Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+				Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, UnitsPerCredit: "invalid"},
-				}, Credits: 10_000}, nil)
+				}, Credits: "10000"}, nil)
 			require.NoError(t, report.Reserve(t.Context()))
 			require.True(t, report.meteringMode)
 			assert.Len(t, logs.All(), 1)

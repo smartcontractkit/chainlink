@@ -46,10 +46,10 @@ var (
 )
 
 type BillingClient interface {
-	GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)
-	ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
+	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
+	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
+	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
 }
 
 type SpendTuple struct {
@@ -151,7 +151,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
 		WorkflowId:          r.labels[platform.KeyWorkflowID],
 		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             0,
+		Credits:             nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -167,14 +167,21 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetEntries())
+	rateCard, err := toRateCard(resp.GetRateCards())
 	if err != nil {
 		r.switchToMeteringMode(err)
 
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(decimal.NewFromFloat32(resp.Credits), rateCard)
+	credits, err := decimal.NewFromString(resp.GetCredits())
+	if err != nil {
+		r.switchToMeteringMode(err)
+
+		return nil
+	}
+
+	balanceStore, err := NewBalanceStore(credits, rateCard)
 	if err != nil {
 		r.switchToMeteringMode(err)
 
@@ -508,7 +515,7 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.RateCardEntry) (map[string]decimal.Decimal, error) {
+func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
