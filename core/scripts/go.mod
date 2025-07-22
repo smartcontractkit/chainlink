@@ -145,7 +145,7 @@ require (
 	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 // indirect
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2 // indirect
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -473,7 +473,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250708220600-853616d583f4 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250701132001-f8be142155b6 // indirect
-	github.com/smartcontractkit/crib-sdk v0.1.1-0.20250718222656-11e009265e26 // indirect
+	github.com/smartcontractkit/crib-sdk v0.3.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.20.2 // indirect
@@ -493,7 +493,6 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/testcontainers/testcontainers-go v0.37.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/compose v0.37.0 // indirect
-	github.com/theckman/yacspin v0.13.12 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/theupdateframework/notary v0.7.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

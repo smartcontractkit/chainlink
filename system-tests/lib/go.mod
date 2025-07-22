@@ -35,7 +35,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250718211650-37ca415e72a0
-	github.com/smartcontractkit/crib-sdk v0.1.1-0.20250718222656-11e009265e26
+	github.com/smartcontractkit/crib-sdk v0.3.0
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.72.1
@@ -114,7 +114,7 @@ require (
 	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 // indirect
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2 // indirect
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -417,7 +417,6 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/testcontainers/testcontainers-go v0.37.0 // indirect
-	github.com/theckman/yacspin v0.13.12 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

@@ -252,8 +252,8 @@ github.com/bytedance/sonic v1.12.3/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKz
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
 github.com/bytedance/sonic/loader v0.2.0 h1:zNprn+lsIP06C/IqCHs3gPQIvnvpKbbxyXQP1iU4kWM=
 github.com/bytedance/sonic/loader v0.2.0/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 h1:3p3ygjYCNZ9wqPbbQ7oeDZEhY7xX8UPJs/pOuhxBP+E=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2 h1:6khni3TG7XJsyXgg5gdbY/IZCiBnpAi8XVZZUBizGUc=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 h1:vtT/G9hb1fstaeS52wcSYDKmZY0qExoroP5lhiFQe8U=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8/go.mod h1:7uUKWwq8GOkVQFkVH9ymTajphRFJM6HeHhIQ3S/tFJw=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
@@ -1334,8 +1334,8 @@ github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.202504221
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
 github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250717171236-d30449588a62 h1:/+gWJQYyFLwKiwyMUb8VxsI0yyEIf+a7KgIkPf6b3Ro=
 github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250717171236-d30449588a62/go.mod h1:XFQ3osQZZHjL4E1Q61WZuBh5JfJcVGRdeyLFvdb85dM=
-github.com/smartcontractkit/crib-sdk v0.1.1-0.20250718222656-11e009265e26 h1:EiR535ZzJ8GpWH7ZI4v55mGgJFS05JhLxMBIcI7pHx8=
-github.com/smartcontractkit/crib-sdk v0.1.1-0.20250718222656-11e009265e26/go.mod h1:ZIiufiewpxifpGNvAEvMQX87FC9ImdVVtSS8fab4QXU=
+github.com/smartcontractkit/crib-sdk v0.3.0 h1:JkLFOFOHXSfM9bvjdvdmE3LvN0KP+GrldgBWmoUBBtU=
+github.com/smartcontractkit/crib-sdk v0.3.0/go.mod h1:OivLdEg6CRlC2aDJVOnAoS+4+QKIDL33tCY2siHsuVc=
 github.com/smartcontractkit/freeport v0.1.1 h1:B5fhEtmgomdIhw03uPVbVTP6oPv27fBhZsoZZMSIS8I=
 github.com/smartcontractkit/freeport v0.1.1/go.mod h1:T4zH9R8R8lVWKfU7tUvYz2o2jMv1OpGCdpY2j2QZXzU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
@@ -1413,8 +1413,6 @@ github.com/test-go/testify v1.1.4 h1:Tf9lntrKUMHiXQ07qBScBTSA0dhYQlu83hswqelv1iE
 github.com/test-go/testify v1.1.4/go.mod h1:rH7cfJo/47vWGdi4GPj16x3/t1xGOj2YxzmNQzk2ghU=
 github.com/testcontainers/testcontainers-go v0.37.0 h1:L2Qc0vkTw2EHWQ08djon0D2uw7Z/PtHS/QzZZ5Ra/hg=
 github.com/testcontainers/testcontainers-go v0.37.0/go.mod h1:QPzbxZhQ6Bclip9igjLFj6z0hs01bU8lrl2dHQmgFGM=
-github.com/theckman/yacspin v0.13.12 h1:CdZ57+n0U6JMuh2xqjnjRq5Haj6v1ner2djtLQRzJr4=
-github.com/theckman/yacspin v0.13.12/go.mod h1:Rd2+oG2LmQi5f3zC3yeZAOl245z8QOvrH4OPOJNZxLg=
 github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a h1:YuO+afVc3eqrjiCUizNCxI53bl/BnPiVwXqLzqYTqgU=
 github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a/go.mod h1:/sfW47zCZp9FrtGcWyo1VjbgDaodxX9ovZvgLb/MxaA=
 github.com/tidwall/btree v1.7.0 h1:L1fkJH/AuEh5zBnnBbmTwQ5Lt+bRJ5A8EWecslvo9iI=
