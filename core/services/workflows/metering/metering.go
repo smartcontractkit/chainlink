@@ -248,7 +248,6 @@ func ByDerivedAvailability(
 		}
 
 		return r.creditToSpendingLimits(info, config, limit.Decimal), r.balance.Minus(limit.Decimal)
-
 	}
 }
 
