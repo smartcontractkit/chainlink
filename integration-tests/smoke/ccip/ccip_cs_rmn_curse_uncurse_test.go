@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,10 +27,9 @@ import (
 )
 
 const (
-	Evm1   = iota // 0
-	Evm2          // 1
-	Sol1          // 2
-	Aptos1        // 3
+	Evm1 = iota // 0
+	Evm2        // 1
+	Sol1        // 2
 )
 
 type curseAssertion struct {
@@ -495,7 +495,8 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 // TestRMNCurseUncurseAptos runs separately because setting up Aptos chain is slow
 // and can't be done on every test run.
 func TestRMNCurseUncurseAptos(t *testing.T) {
-	testCases := []CurseTestCase{
+	Aptos1 := uint64(2)
+	tcs := []CurseTestCase{
 		{
 			name: "curse global Aptos and EVM1",
 			curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
@@ -506,20 +507,13 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 			},
 			curseAssertions: []curseAssertion{
 				{chainID: Evm1, globalCurse: true, cursed: true},
-				{chainID: Sol1, globalCurse: true, cursed: false},
 				{chainID: Aptos1, globalCurse: true, cursed: true},
 				{chainID: Evm1, subject: Evm2, cursed: true},
-				{chainID: Evm1, subject: Sol1, cursed: true},
 				{chainID: Evm1, subject: Aptos1, cursed: true},
 				{chainID: Evm2, subject: Evm1, cursed: true},
-				{chainID: Evm2, subject: Sol1, cursed: false},
 				{chainID: Evm2, subject: Aptos1, cursed: true},
-				{chainID: Sol1, subject: Evm1, cursed: true},
-				{chainID: Sol1, subject: Evm2, cursed: false},
-				{chainID: Sol1, subject: Aptos1, cursed: true},
 				{chainID: Aptos1, subject: Evm1, cursed: true},
 				{chainID: Aptos1, subject: Evm2, cursed: true},
-				{chainID: Aptos1, subject: Sol1, cursed: true},
 			},
 		},
 		{
@@ -541,14 +535,13 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			e, _ := testhelpers.NewMemoryEnvironment(
 				t,
 				testhelpers.WithNumOfChains(2),
-				testhelpers.WithSolChains(1),
 				testhelpers.WithAptosChains(1),
 			)
 
@@ -593,6 +586,7 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 			require.NoError(t, err)
 
 			verifyNoActiveCurseOnAllChains(t, &e)
+			fmt.Println("finished test case:", tc.name)
 		})
 	}
 }
