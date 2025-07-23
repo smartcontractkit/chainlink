@@ -2,6 +2,7 @@ package crib
 
 import (
 	"fmt"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 

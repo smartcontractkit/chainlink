@@ -178,11 +178,11 @@ func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]ui
 	}
 
 	// the remaining chains are evm and count up
-	evmChainId := 90000001
+	evmChainID := 90000001
 	for len(orderedSelectors) < len(allSelectors) {
-		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", evmChainId), chainsel.FamilyEVM)
+		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", evmChainID), chainsel.FamilyEVM)
 		orderedSelectors = append(orderedSelectors, details.ChainSelector)
-		evmChainId++
+		evmChainID++
 	}
 
 	tieredSelectors := make([][]uint64, len(chainTiers.Tiers))
@@ -190,7 +190,7 @@ func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]ui
 	for ind, tier := range chainTiers.Tiers {
 		tieredSelectors[ind] = make([]uint64, 0)
 		startIndex = endIndex
-		endIndex = endIndex + tier.NumChains
+		endIndex += tier.NumChains
 		tieredSelectors[ind] = orderedSelectors[startIndex:endIndex]
 	}
 	return tieredSelectors
