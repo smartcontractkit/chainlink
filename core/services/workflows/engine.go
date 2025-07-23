@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
@@ -105,7 +105,7 @@ type Engine struct {
 	services.StateMachine
 	cma                  custmsg.MessageEmitter
 	metrics              *monitoring.WorkflowsMetricLabeler
-	logger               logger.Logger
+	logger               logger.SugaredLogger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
 	secretsFetcher       SecretsFor
@@ -1450,13 +1450,13 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
-	lggr := cfg.Lggr.With("workflowID", cfg.WorkflowID)
+	lggr := logger.With(cfg.Lggr, "workflowID", cfg.WorkflowID)
 
 	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
 
 	engine = &Engine{
 		cma:            cma,
-		logger:         lggr.Named("WorkflowEngine"),
+		logger:         logger.Sugared(lggr).Named("WorkflowEngine"),
 		metrics:        metrics,
 		registry:       cfg.Registry,
 		workflow:       workflow,
