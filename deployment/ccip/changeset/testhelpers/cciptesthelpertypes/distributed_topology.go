@@ -1,8 +1,10 @@
 package cciptesthelpertypes
 
 import (
+	"errors"
 	"fmt"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // NewDistributedTopology creates a new rotating topology with the given arguments.
@@ -23,7 +25,7 @@ type DistributedTopology struct {
 // check if every chain selector has a defined 'f' value
 func (t *DistributedTopologyArgs) validate(nonHomeChainSelectors []cciptypes.ChainSelector) error {
 	if len(t.FValues) == 0 {
-		return fmt.Errorf("the topology must have at least one f value defined")
+		return errors.New("the topology must have at least one f value defined")
 	}
 
 	for _, chainSelector := range nonHomeChainSelectors {

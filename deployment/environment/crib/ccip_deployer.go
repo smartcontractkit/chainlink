@@ -284,6 +284,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 	for _, sel := range nonHomeSelectors {
 		typedNonHomeSelectors = append(typedNonHomeSelectors, cciptypes.ChainSelector(sel))
 	}
+
+	//nolint:gosec // this should always be less than max uint8
 	fChainValues := getFChainValuesFromTiers(nonHomeSelectors, uint8(len(nodeInfo.NonBootstraps().PeerIDs())/3))
 	distributedTopology := cciptesthelpertypes.NewDistributedTopology(cciptesthelpertypes.DistributedTopologyArgs{FValues: fChainValues})
 	readersPerChain, err := distributedTopology.ChainToNodeMapping(
@@ -302,7 +304,6 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: readersPerChain[cciptypes.ChainSelector(chain)],
 			// Number of nodes is 3f+1
-			//nolint:gosec // this should always be less than max uint8
 			FChain: fChainValues[cciptypes.ChainSelector(chain)],
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},

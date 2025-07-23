@@ -3,8 +3,9 @@ package cciptesthelpertypes
 import (
 	"testing"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func TestDistributedTopologyArgs_validate(t *testing.T) {
@@ -42,9 +43,9 @@ func TestDistributedTopologyArgs_validate(t *testing.T) {
 			args := &DistributedTopologyArgs{FValues: tc.fVals}
 			err := args.validate(tc.selectors)
 			if tc.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -120,13 +121,13 @@ func TestDistributedTopologyArgs_ChainToNodeMapping(t *testing.T) {
 			args := &DistributedTopologyArgs{FValues: tc.fVals}
 			mapping, err := args.ChainToNodeMapping(tc.nodeIDs, tc.selectors, tc.home)
 			if tc.expectErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, mapping)
-				assert.ElementsMatch(t, tc.expectedOutput[tc.home], mapping[tc.home])
+				require.NoError(t, err)
+				require.NotNil(t, mapping)
+				require.ElementsMatch(t, tc.expectedOutput[tc.home], mapping[tc.home])
 				for _, selector := range tc.selectors {
-					assert.ElementsMatch(t, tc.expectedOutput[selector], mapping[selector],
+					require.ElementsMatch(t, tc.expectedOutput[selector], mapping[selector],
 						"unexpected mapping for selector %s", selector)
 				}
 			}
