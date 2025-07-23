@@ -2,9 +2,9 @@ package crib
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"slices"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -180,7 +180,7 @@ func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]ui
 	// the remaining chains are evm and count up
 	evmChainID := 90000001
 	for len(orderedSelectors) < len(allSelectors) {
-		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", evmChainID), chainsel.FamilyEVM)
+		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(evmChainID), chainsel.FamilyEVM)
 		orderedSelectors = append(orderedSelectors, details.ChainSelector)
 		evmChainID++
 	}
