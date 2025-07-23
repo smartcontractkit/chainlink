@@ -20,7 +20,7 @@ func (f fakeBillingClient) GetOrganizationCreditsByWorkflow(ctx context.Context,
 	return &billing.GetOrganizationCreditsByWorkflowResponse{OrganizationId: "", Credits: &billing.OrganizationCredits{CreditsReserved: "", Credits: ""}}, nil
 }
 
-func (f fakeBillingClient) GetWorkflowExecutionRates(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
+func (f fakeBillingClient) GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
 	return &billing.GetWorkflowExecutionRatesResponse{RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}}, nil
 }
 

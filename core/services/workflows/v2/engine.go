@@ -492,17 +492,13 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
 	compMs := decimal.NewFromInt(int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs) + ctxCancelPadding)
-	computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
-	computeAmount, mrErr := meteringReport.ConvertToBalance(computeUnit, compMs)
-	if mrErr != nil {
-		e.lggr.Errorw("could not determine compute amount to meter", "err", mrErr)
-	}
+	computeUnit := billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()
 
-	if mrErr = meteringReport.Deduct(
+	if _, err := meteringReport.Deduct(
 		computeUnit,
-		computeAmount,
-	); mrErr != nil {
-		e.lggr.Errorw("could not meter compute", "err", mrErr)
+		metering.ByResource(computeUnit, compMs),
+	); err != nil {
+		e.lggr.Errorw("could not deduct balance for capability request", "capReq", "standard-deduction-compute", "err", err)
 	}
 }
 

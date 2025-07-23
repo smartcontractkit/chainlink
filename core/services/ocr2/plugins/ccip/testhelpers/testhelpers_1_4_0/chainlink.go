@@ -454,6 +454,7 @@ func setupNodeCCIP(
 		Config:   config,
 		DS:       db,
 		KeyStore: keyStore,
+		// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {

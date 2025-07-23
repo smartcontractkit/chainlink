@@ -65,6 +65,10 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 }
 
 func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (capabilities.Node, error) {
+	err := l.ensureNotEmpty()
+	if err != nil {
+		return capabilities.Node{}, err
+	}
 	nodeInfo, ok := l.IDsToNodes[peerID]
 	if !ok {
 		return capabilities.Node{}, errors.New("could not find peerID " + peerID.String())
@@ -102,6 +106,10 @@ func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (
 }
 
 func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (CapabilityConfiguration, error) {
+	err := l.ensureNotEmpty()
+	if err != nil {
+		return CapabilityConfiguration{}, err
+	}
 	d, ok := l.IDsToDONs[DonID(donID)]
 	if !ok {
 		return CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
@@ -113,4 +121,17 @@ func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID st
 	}
 
 	return cc, nil
+}
+
+func (l *LocalRegistry) ensureNotEmpty() error {
+	if len(l.IDsToDONs) == 0 {
+		return errors.New("empty local registry. no DONs registered in the local registry")
+	}
+	if len(l.IDsToNodes) == 0 {
+		return errors.New("empty local registry. no nodes registered in the local registry")
+	}
+	if len(l.IDsToCapabilities) == 0 {
+		return errors.New("empty local registry. no capabilities registered in the local registry")
+	}
+	return nil
 }
