@@ -82,7 +82,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					solanaAddrs = append(solanaAddrs, pk)
 				}
 
-				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client, lggr)
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
