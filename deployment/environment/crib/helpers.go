@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	solFundingLamports = 100000
+	solFunds = 1000
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment, evmFundingEth uint64) error {
@@ -83,7 +83,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					solanaAddrs = append(solanaAddrs, pk)
 				}
 
-				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client, lggr)
+				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFunds, chain.Client, lggr)
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
@@ -91,9 +91,9 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 				for _, addr := range solanaAddrs {
 					res, err := chain.Client.GetBalance(env.GetContext(), addr, rpc.CommitmentFinalized)
 					if err != nil {
-						lggr.Errorw("failed to fetch node balance", "node", addr, "err", err)
+						lggr.Errorw("failed to fetch transmitter balance", "transmitter", addr, "err", err)
 					} else if res != nil {
-						lggr.Infow("got balance for node", "node", addr, "balance", res.Value)
+						lggr.Infow("got balance for transmitter", "transmitter", addr, "balance", res.Value)
 					}
 				}
 				return nil
