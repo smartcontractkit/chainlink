@@ -355,7 +355,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	state, err := stateview.LoadOnchainState(env)
 	require.NoError(t, err)
 	for _, selector := range selectors {
-		usdcTokenPools := state.Chains[selector].USDCTokenPools_v1_6
+		usdcTokenPools := state.Chains[selector].USDCTokenPoolsV1_6
 		require.Len(t, usdcTokenPools, 1, selector)
 
 		owner, err := usdcTokenPools[deployment.Version1_6_0].Owner(nil)

@@ -71,7 +71,7 @@ type ConfigUSDCTokenPoolInput struct {
 }
 
 func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState) error {
-	if _, ok := state.USDCTokenPools_v1_6[deployment.Version1_6_0]; !ok {
+	if _, ok := state.USDCTokenPoolsV1_6[deployment.Version1_6_0]; !ok {
 		return fmt.Errorf("no USDC token pool with version %s found on %s", deployment.Version1_6_0, chain.Name())
 	}
 	for destSelector, update := range i.DestinationUpdates {
@@ -152,7 +152,7 @@ func configUSDCTokenPoolLogic(env cldf.Environment, c ConfigUSDCTokenPoolConfig)
 		input[sourceChainSelector] = opsutil.EVMCallInput[[]utp.USDCTokenPoolDomainUpdate]{
 			ChainSelector: sourceChainSelector,
 			NoSend:        false, // TODO: MCMS?
-			Address:       chainState.USDCTokenPools_v1_6[deployment.Version1_6_0].Address(),
+			Address:       chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0].Address(),
 			CallInput:     domainUpdates,
 		}
 	}

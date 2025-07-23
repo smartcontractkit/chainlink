@@ -161,9 +161,9 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 					previousPoolAddress = utils.ZeroAddress
 				} else if previousPoolAddress == utils.ZeroAddress {
 					// If the previous pool address is not set, we try to find the latest deployed pool address
-					if _, ok := chainState.USDCTokenPools_v1_6[deployment.Version1_6_1]; !ok {
+					if _, ok := chainState.USDCTokenPoolsV1_6[deployment.Version1_6_1]; !ok {
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
-					} else if _, ok := chainState.USDCTokenPools_v1_6[deployment.Version1_6_0]; !ok {
+					} else if _, ok := chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0]; !ok {
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_0].Address()
 					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_1]; !ok {
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()

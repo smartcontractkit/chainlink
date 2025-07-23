@@ -87,7 +87,7 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 		}
 
 		matchedPool := false
-		for _, usdcTokenPool := range state.USDCTokenPools_v1_6 {
+		for _, usdcTokenPool := range state.USDCTokenPoolsV1_6 {
 			if usdcTokenPool.Address().Cmp(allowedCalleUpdate.AllowedCaller) == 0 {
 				matchedPool = true
 			}

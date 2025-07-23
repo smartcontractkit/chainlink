@@ -182,7 +182,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 		}
 
 		var sourcePoolAddress common.Address
-		if pool, ok := onchainState.USDCTokenPools_v1_6[deployment.Version1_6_0]; ok {
+		if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_0]; ok {
 			sourcePoolAddress = pool.Address()
 		} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
 			sourcePoolAddress = pool.Address()
@@ -312,7 +312,6 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 				state.Chains[p.HomeChainSelector].CCIPHome,
 				chainSelector,
 			)
-
 			if err != nil {
 				return nil, fmt.Errorf("fetch don id for chain: %w", err)
 			}
@@ -1161,7 +1160,7 @@ func ValidateCCIPHomeConfigSetUp(
 
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		//Pending: true,
+		// Pending: true,
 	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get all commit configs: %w", err)

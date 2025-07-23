@@ -722,6 +722,7 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 	}
 	return nil
 }
+
 func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector uint64) (cldf_evm.Chain, evm.CCIPChainState, error) {
 	err := cldf.IsValidChainSelector(chainSelector)
 	if err != nil {
@@ -955,10 +956,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			if state.USDCTokenPools_v1_6 == nil {
-				state.USDCTokenPools_v1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
+			if state.USDCTokenPoolsV1_6 == nil {
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
 			}
-			state.USDCTokenPools_v1_6[deployment.Version1_6_0] = utp
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_0] = utp
 		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -974,10 +975,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			if state.USDCTokenPools_v1_6 == nil {
-				state.USDCTokenPools_v1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
+			if state.USDCTokenPoolsV1_6 == nil {
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
 			}
-			state.USDCTokenPools_v1_6[deployment.Version1_6_0] = utp
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_0] = utp
 			state.ABIByAddress[address] = usdc_token_pool_v1_6_0.USDCTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
@@ -1262,7 +1263,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	if err != nil {
 		return fmt.Errorf("failed to find family for chain selector %d: %w", chainSel, err)
 	}
-	switch family{
+	switch family {
 	case chain_selectors.FamilyEVM:
 		chain, ok := env.BlockChains.EVMChains()[chainSel]
 		if !ok {

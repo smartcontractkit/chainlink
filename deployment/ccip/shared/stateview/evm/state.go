@@ -112,7 +112,7 @@ type CCIPChainState struct {
 	// Newer versions of the USDCTokenPool use a message transmitter proxy
 	CCTPMessageTransmitterProxies map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
 	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool
-	USDCTokenPools_v1_6           map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool
+	USDCTokenPoolsV1_6            map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool
 	LockReleaseTokenPools         map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
