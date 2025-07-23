@@ -146,7 +146,7 @@ func FundSolanaAccountsWithLogging(
 
 	// Adaptive timeout based on batch size - each airdrop can take several seconds
 	// Base timeout of 30s + 5s per account for larger batches
-	baseTimeout := 30 * time.Second
+	baseTimeout := 60 * time.Second
 	if len(accounts) > 5 {
 		baseTimeout += time.Duration(len(accounts)) * 5 * time.Second
 	}
