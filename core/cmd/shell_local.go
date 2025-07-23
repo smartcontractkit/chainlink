@@ -206,7 +206,12 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Usage:  "Migrate the database to the latest version.",
 					Action: s.MigrateDatabase,
 					Before: s.validateDB,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "allow-missing",
+							Usage: "Allow missing migrations to be applied out of order",
+						},
+					},
 				},
 				{
 					Name:   "rollback",
@@ -842,7 +847,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 }
 
 // MigrateDatabase migrates the database
-func (s *Shell) MigrateDatabase(_ *cli.Context) error {
+func (s *Shell) MigrateDatabase(c *cli.Context) error {
 	ctx := s.ctx()
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -855,8 +860,12 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return err
 	}
 
+	allowMissing := c.Bool("allow-missing")
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg); err != nil {
+	if allowMissing {
+		s.Logger.Info("Allow missing migrations enabled - migrations may be applied out of order")
+	}
+	if err := migrateDBWithOptions(ctx, cfg, allowMissing); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -998,12 +1007,16 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 }
 
 func migrateDB(ctx context.Context, config store.Config) error {
+	return migrateDBWithOptions(ctx, config, false)
+}
+
+func migrateDBWithOptions(ctx context.Context, config store.Config, allowMissing bool) error {
 	db, err := store.NewConnection(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
-	if err = migrate.Migrate(ctx, db.DB); err != nil {
+	if err = migrate.MigrateWithOptions(ctx, db.DB, allowMissing); err != nil {
 		return fmt.Errorf("migrateDB failed: %w", err)
 	}
 	return db.Close()

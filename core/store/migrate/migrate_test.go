@@ -71,7 +71,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
-	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
+	p, err := migrate.NewProvider(testutils.Context(t), db.DB, false)
 	require.NoError(t, err)
 	results, err := p.UpTo(testutils.Context(t), 99)
 	require.NoError(t, err)
@@ -343,7 +343,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 func TestMigrate_101_GenericOCR2(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	ctx := testutils.Context(t)
-	p, err := migrate.NewProvider(ctx, db.DB)
+	p, err := migrate.NewProvider(ctx, db.DB, false)
 	require.NoError(t, err)
 	results, err := p.UpTo(ctx, 100)
 	require.NoError(t, err)
@@ -397,7 +397,7 @@ func TestMigrate(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
-	p, err := migrate.NewProvider(ctx, db.DB)
+	p, err := migrate.NewProvider(ctx, db.DB, false)
 	require.NoError(t, err)
 	results, err := p.UpTo(ctx, 100)
 	require.NoError(t, err)
@@ -467,7 +467,7 @@ func TestNoTriggers(t *testing.T) {
 
 	// version prior to removal of all triggers
 	v := int64(217)
-	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
+	p, err := migrate.NewProvider(testutils.Context(t), db.DB, false)
 	require.NoError(t, err)
 	_, err = p.UpTo(testutils.Context(t), v)
 	require.NoError(t, err)
@@ -485,7 +485,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	goose.SetLogger(goose.NopLogger())
 	_, db := heavyweight.FullTestDBEmptyV2(b, nil)
 
-	p, err := migrate.NewProvider(ctx, db.DB)
+	p, err := migrate.NewProvider(ctx, db.DB, false)
 	require.NoError(b, err)
 	results, err := p.UpTo(ctx, previousMigration)
 	require.NoError(b, err)
@@ -545,10 +545,203 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	p, err := migrate.NewProvider(ctx, db.DB)
+	p, err := migrate.NewProvider(ctx, db.DB, false)
 	require.NoError(t, err)
 	_, err = p.DownTo(ctx, 54)
 	require.NoError(t, err)
 	_, err = p.UpTo(ctx, 247)
 	require.NoError(t, err)
+}
+
+func TestMigrateWithAllowMissing_OutOfOrder(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	// Test that with allowMissing=true, we can apply migrations out of order
+	t.Run("WithAllowMissing_ShouldSucceedOnMissingMigrations", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		p, err := migrate.NewProvider(ctx, db.DB, true) // allowMissing = true
+		require.NoError(t, err)
+		
+		// Apply migrations 1-50
+		results, err := p.UpTo(ctx, 50)
+		require.NoError(t, err)
+		assert.Len(t, results, 50)
+		
+		// Verify current version
+		ver, err := p.GetDBVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(50), ver)
+		
+		// Manually insert a record showing that migration 55 was applied, but 51-54 were not
+		// This simulates the scenario where migrations were applied out of order
+		_, err = db.DB.ExecContext(ctx, "INSERT INTO goose_migrations (version_id, is_applied) VALUES (55, true)")
+		require.NoError(t, err)
+		
+		// Now when we try to apply up to 60, it should apply the missing 51-54 and new 56-60
+		results, err = p.UpTo(ctx, 60)
+		require.NoError(t, err)
+		// We should get migrations 51, 52, 53, 54, 56, 57, 58, 59, 60 (9 migrations)
+		// Migration 55 is already applied, so it should be skipped
+		assert.True(t, len(results) >= 5, "Should apply at least the missing migrations 51-54 and some new ones")
+		
+		// Verify current version is now 60
+		ver, err = p.GetDBVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(60), ver)
+		
+		// Verify that all migrations from 51-60 are applied
+		status, err := p.Status(ctx)
+		require.NoError(t, err)
+		
+		// Check that migrations 51-60 are marked as applied
+		appliedVersions := make(map[int64]bool)
+		for _, migration := range status {
+			if migration.State != "pending" { // Applied migrations are not in pending state
+				appliedVersions[migration.Source.Version] = true
+			}
+		}
+		
+		for i := int64(51); i <= 60; i++ {
+			require.True(t, appliedVersions[i], "Migration %d should be applied", i)
+		}
+	})
+
+	// Test the normal flow without allowMissing to ensure it still works
+	t.Run("WithoutAllowMissing_NormalFlow", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		p, err := migrate.NewProvider(ctx, db.DB, false) // allowMissing = false
+		require.NoError(t, err)
+		
+		// Apply migrations normally - this should work fine
+		results, err := p.UpTo(ctx, 50)
+		require.NoError(t, err)
+		assert.Len(t, results, 50)
+		
+		// Continue applying more migrations - this should also work
+		results, err = p.UpTo(ctx, 60)
+		require.NoError(t, err)
+		assert.Len(t, results, 10) // migrations 51-60
+		
+		// Verify current version
+		ver, err := p.GetDBVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(60), ver)
+	})
+	
+	// Test a more complex out-of-order scenario
+	t.Run("ComplexOutOfOrderScenario", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		p, err := migrate.NewProvider(ctx, db.DB, true) // allowMissing = true
+		require.NoError(t, err)
+		
+		// Apply migrations 1-30
+		results, err := p.UpTo(ctx, 30)
+		require.NoError(t, err)
+		assert.Len(t, results, 30)
+		
+		p.ApplyVersion(ctx, 35, true) // Manually apply migration 35
+		p.ApplyVersion(ctx, 40, true) // Manually apply migration 40
+		results, err = p.UpTo(ctx, 45)
+		require.NoError(t, err)
+		// Should apply at least the missing migrations: 31,32,33,34,36,37,38,39,41,42,43,44,45
+		assert.True(t, len(results) >= 10, "Should apply missing and new migrations")
+		
+		// Verify current version is 45
+		ver, err := p.GetDBVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(45), ver)
+		
+		// Verify that all migrations from 31-45 are applied
+		status, err := p.Status(ctx)
+		require.NoError(t, err)
+		
+		appliedVersions := make(map[int64]bool)
+		for _, migration := range status {
+			if migration.State != "pending" { // Applied migrations are not in pending state
+				appliedVersions[migration.Source.Version] = true
+			}
+		}
+		
+		for i := int64(31); i <= 45; i++ {
+			require.True(t, appliedVersions[i], "Migration %d should be applied", i)
+		}
+	})
+}
+
+func TestMigrateWithOptionsFunction(t *testing.T) {
+	ctx := testutils.Context(t)
+	
+	// Test MigrateWithOptions function with allowMissing=false
+	t.Run("MigrateWithOptions_AllowMissingFalse", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		// This should work normally
+		err := migrate.MigrateWithOptions(ctx, db.DB, false)
+		require.NoError(t, err)
+		
+		// Verify that migrations were applied
+		ver, err := migrate.Current(ctx, db.DB)
+		require.NoError(t, err)
+		require.Greater(t, ver, int64(0))
+	})
+	
+	// Test MigrateWithOptions function with allowMissing=true
+	t.Run("MigrateWithOptions_AllowMissingTrue", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		// This should also work and apply all migrations
+		err := migrate.MigrateWithOptions(ctx, db.DB, true)
+		require.NoError(t, err)
+		
+		// Verify that migrations were applied
+		ver, err := migrate.Current(ctx, db.DB)
+		require.NoError(t, err)
+		require.Greater(t, ver, int64(0))
+	})
+	
+	// Test that regular Migrate function still works (backward compatibility)
+	t.Run("BackwardCompatibility_Migrate", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		err := migrate.Migrate(ctx, db.DB)
+		require.NoError(t, err)
+		
+		// Verify that migrations were applied
+		ver, err := migrate.Current(ctx, db.DB)
+		require.NoError(t, err)
+		require.Greater(t, ver, int64(0))
+	})
+	
+	// Test that providers created with different allowMissing settings work correctly
+	t.Run("ProviderCreationWithAllowMissing", func(t *testing.T) {
+		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+		
+		// Create provider with allowMissing=false
+		p1, err := migrate.NewProvider(ctx, db.DB, false)
+		require.NoError(t, err)
+		require.NotNil(t, p1)
+		
+		// Apply some migrations
+		results, err := p1.UpTo(ctx, 10)
+		require.NoError(t, err)
+		assert.Len(t, results, 10)
+		
+		// Create provider with allowMissing=true
+		p2, err := migrate.NewProvider(ctx, db.DB, true)
+		require.NoError(t, err)
+		require.NotNil(t, p2)
+		
+		// Continue applying migrations
+		results, err = p2.UpTo(ctx, 20)
+		require.NoError(t, err)
+		assert.Len(t, results, 10)
+		
+		// Verify final version
+		ver, err := p2.GetDBVersion(ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(20), ver)
+	})
 }

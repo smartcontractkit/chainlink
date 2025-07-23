@@ -27,7 +27,7 @@ var embedMigrations embed.FS
 
 const MIGRATIONS_DIR string = "migrations"
 
-func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
+func NewProvider(ctx context.Context, db *sql.DB, allowMissing bool) (*goose.Provider, error) {
 	store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
 	if err != nil {
 		return nil, err
@@ -50,10 +50,15 @@ func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
 	// hack to work around global go migrations
 	// https: //github.com/pressly/goose/issues/782
 	goose.ResetGlobalMigrations()
-	p, err := goose.NewProvider("", db, fys,
+	
+	providerOptions := []goose.ProviderOption{
 		goose.WithStore(store),
 		goose.WithGoMigrations(goMigrations...),
-		goose.WithVerbose(verbose))
+		goose.WithVerbose(verbose),
+		goose.WithAllowOutofOrder(allowMissing),
+	}
+	
+	p, err := goose.NewProvider("", db, fys, providerOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create goose provider: %w", err)
 	}
@@ -136,7 +141,11 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 }
 
 func Migrate(ctx context.Context, db *sql.DB) error {
-	provider, err := NewProvider(ctx, db)
+	return MigrateWithOptions(ctx, db, false)
+}
+
+func MigrateWithOptions(ctx context.Context, db *sql.DB, allowMissing bool) error {
+	provider, err := NewProvider(ctx, db, allowMissing)
 	if err != nil {
 		return err
 	}
@@ -145,7 +154,7 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 }
 
 func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
-	provider, err := NewProvider(ctx, db)
+	provider, err := NewProvider(ctx, db, false)
 	if err != nil {
 		return err
 	}
@@ -158,7 +167,7 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 }
 
 func Current(ctx context.Context, db *sql.DB) (int64, error) {
-	provider, err := NewProvider(ctx, db)
+	provider, err := NewProvider(ctx, db, false)
 	if err != nil {
 		return -1, err
 	}
@@ -166,7 +175,7 @@ func Current(ctx context.Context, db *sql.DB) (int64, error) {
 }
 
 func Status(ctx context.Context, db *sql.DB) error {
-	provider, err := NewProvider(ctx, db)
+	provider, err := NewProvider(ctx, db, false)
 	if err != nil {
 		return err
 	}
