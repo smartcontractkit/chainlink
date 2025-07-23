@@ -84,28 +84,28 @@ func (_c *BillingClient_GetOrganizationCreditsByWorkflow_Call) RunAndReturn(run 
 	return _c
 }
 
-// GetRateCard provides a mock function with given fields: ctx, req
-func (_m *BillingClient) GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error) {
+// GetWorkflowExecutionRates provides a mock function with given fields: ctx, req
+func (_m *BillingClient) GetWorkflowExecutionRates(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetRateCard")
+		panic("no return value specified for GetWorkflowExecutionRates")
 	}
 
-	var r0 *billing.GetRateCardResponse
+	var r0 *billing.GetWorkflowExecutionRatesResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)); ok {
 		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetRateCardRequest) *billing.GetRateCardResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) *billing.GetWorkflowExecutionRatesResponse); ok {
 		r0 = rf(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*billing.GetRateCardResponse)
+			r0 = ret.Get(0).(*billing.GetWorkflowExecutionRatesResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *billing.GetRateCardRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) error); ok {
 		r1 = rf(ctx, req)
 	} else {
 		r1 = ret.Error(1)
@@ -114,31 +114,31 @@ func (_m *BillingClient) GetRateCard(ctx context.Context, req *billing.GetRateCa
 	return r0, r1
 }
 
-// BillingClient_GetRateCard_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRateCard'
-type BillingClient_GetRateCard_Call struct {
+// BillingClient_GetWorkflowExecutionRates_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowExecutionRates'
+type BillingClient_GetWorkflowExecutionRates_Call struct {
 	*mock.Call
 }
 
-// GetRateCard is a helper method to define mock.On call
+// GetWorkflowExecutionRates is a helper method to define mock.On call
 //   - ctx context.Context
-//   - req *billing.GetRateCardRequest
-func (_e *BillingClient_Expecter) GetRateCard(ctx interface{}, req interface{}) *BillingClient_GetRateCard_Call {
-	return &BillingClient_GetRateCard_Call{Call: _e.mock.On("GetRateCard", ctx, req)}
+//   - req *billing.GetWorkflowExecutionRatesRequest
+func (_e *BillingClient_Expecter) GetWorkflowExecutionRates(ctx interface{}, req interface{}) *BillingClient_GetWorkflowExecutionRates_Call {
+	return &BillingClient_GetWorkflowExecutionRates_Call{Call: _e.mock.On("GetWorkflowExecutionRates", ctx, req)}
 }
 
-func (_c *BillingClient_GetRateCard_Call) Run(run func(ctx context.Context, req *billing.GetRateCardRequest)) *BillingClient_GetRateCard_Call {
+func (_c *BillingClient_GetWorkflowExecutionRates_Call) Run(run func(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest)) *BillingClient_GetWorkflowExecutionRates_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*billing.GetRateCardRequest))
+		run(args[0].(context.Context), args[1].(*billing.GetWorkflowExecutionRatesRequest))
 	})
 	return _c
 }
 
-func (_c *BillingClient_GetRateCard_Call) Return(_a0 *billing.GetRateCardResponse, _a1 error) *BillingClient_GetRateCard_Call {
+func (_c *BillingClient_GetWorkflowExecutionRates_Call) Return(_a0 *billing.GetWorkflowExecutionRatesResponse, _a1 error) *BillingClient_GetWorkflowExecutionRates_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *BillingClient_GetRateCard_Call) RunAndReturn(run func(context.Context, *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)) *BillingClient_GetRateCard_Call {
+func (_c *BillingClient_GetWorkflowExecutionRates_Call) RunAndReturn(run func(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)) *BillingClient_GetWorkflowExecutionRates_Call {
 	_c.Call.Return(run)
 	return _c
 }

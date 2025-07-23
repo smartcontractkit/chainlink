@@ -357,3 +357,8 @@ func (fc *FakeEVMChain) Execute(ctx context.Context, request commonCap.Capabilit
 func (fc *FakeEVMChain) Description() string {
 	return "EVM Chain"
 }
+
+func (fc *FakeEVMChain) ChainSelector() uint64 {
+	// Return a default chain selector for testing
+	return 11155111 // Ethereum Sepolia
+}

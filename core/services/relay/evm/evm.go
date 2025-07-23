@@ -1010,6 +1010,11 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 	return r, nil
 }
 
+func (r *Relayer) GetFiltersNames(ctx context.Context) ([]string, error) {
+	// TODO: Implement when needed
+	return []string{}, nil
+}
+
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named(rargs.ExternalJobID.String()).Named("MedianProvider")
 	relayOpts := types.NewRelayOpts(rargs)

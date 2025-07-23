@@ -49,7 +49,7 @@ var (
 
 type BillingClient interface {
 	GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)
+	GetWorkflowExecutionRates(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
 	ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
 	SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
 }
@@ -151,26 +151,17 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
-	chainSelector, err := strconv.ParseUint(r.workflowRegistryChainSelector, 10, 64)
+	selector, err := r.parseChainSelector()
 	if err != nil {
-		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
-		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
-		return nil
-	}
-
-	selector, err := chainselectors.SelectorFromChainId(chainSelector)
-	if err != nil {
-		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
-		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
 		return nil
 	}
 
 	req := billing.ReserveCreditsRequest{
-		WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:              r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId:     r.labels[platform.KeyWorkflowExecutionID],
-		WorkflowRegistryAddress: r.workflowRegistryAddress,
-		RegistryChainSelector:   selector,
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: selector,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -186,17 +177,22 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetEntries())
+	rateCard, err := toRateCard(resp.GetRateCards())
 	if err != nil {
 		r.switchToMeteringMode(err)
 
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(decimal.NewFromFloat32(resp.Credits), rateCard)
+	credits, err := decimal.NewFromString(resp.Credits)
 	if err != nil {
 		r.switchToMeteringMode(err)
+		return nil
+	}
 
+	balanceStore, err := NewBalanceStore(credits, rateCard)
+	if err != nil {
+		r.switchToMeteringMode(err)
 		return nil
 	}
 
@@ -455,27 +451,22 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
-	chainSelector, err := strconv.ParseUint(r.workflowRegistryChainSelector, 10, 64)
+	var selector uint64
+	selector, err := r.parseChainSelector()
 	if err != nil {
 		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
 		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
-		return nil
-	}
-
-	selector, err := chainselectors.SelectorFromChainId(chainSelector)
-	if err != nil {
-		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
-		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
-		return nil
+		// Use a default chain selector (0) for metering mode when parsing fails
+		selector = 0
 	}
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:              r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId:     r.labels[platform.KeyWorkflowExecutionID],
-		WorkflowRegistryAddress: r.workflowRegistryAddress,
-		RegistryChainSelector:   selector,
-		Metering:                r.FormatReport(),
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: selector,
+		Metering:                      r.FormatReport(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
@@ -498,6 +489,26 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
 }
 
+// parseChainSelector parses the workflow registry chain selector string and returns the chain selector ID.
+// If parsing fails, it logs a warning and switches to metering mode.
+func (r *Report) parseChainSelector() (uint64, error) {
+	chainSelector, err := strconv.ParseUint(r.workflowRegistryChainSelector, 10, 64)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return 0, err
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(chainSelector)
+	if err != nil {
+		r.lggr.Warnw("failed to parse workflow registry chain selector, switching to metering mode", "chainSelector", r.workflowRegistryChainSelector, "error", err)
+		r.switchToMeteringMode(fmt.Errorf("failed to parse workflow registry chain selector: %w", err))
+		return 0, err
+	}
+
+	return selector, nil
+}
+
 func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Errorf("switching to metering mode: %s", err)
 
@@ -505,7 +516,7 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.RateCardEntry) (map[string]decimal.Decimal, error) {
+func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]

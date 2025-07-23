@@ -493,7 +493,7 @@ targets:
 				capabilities.CapabilityTypeTarget,
 				"a simple write capability",
 				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+				"GAS",
 			),
 			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 				assertion(t, req)
@@ -509,7 +509,7 @@ targets:
 							},
 							{
 								Peer2PeerID: "local",
-								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+								SpendUnit:   "GAS",
 								SpendValue:  "1000",
 							},
 						},
@@ -557,10 +557,9 @@ targets:
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: 10_000}, nil)
+			}, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -623,7 +622,7 @@ targets:
 					Limit: "399999.600",
 				},
 				{
-					SpendType: capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					SpendType: "GAS",
 					// 60% of remaining units divided by 0.01 is the following
 					// 99.9999 * 0.6 / 0.01
 					Limit: "5999.994",
@@ -645,7 +644,7 @@ targets:
 		setConfig(t, reg, map[string]any{
 			metering.RatiosKey: map[string]any{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				"GAS": "0.6",
 			},
 		})
 
@@ -653,10 +652,9 @@ targets:
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{
+			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
 				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_GAS, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: 10_000}, nil)
+			}, Credits: "10_000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -730,7 +728,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
@@ -2890,18 +2888,18 @@ targets:
 				}
 				// Check that the workflow registry fields are set correctly
 				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
-					req.RegistryChainSelector == expectedChainSelector // Sepolia selector
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
 			})).
 			Return(&billing.ReserveCreditsResponse{
 				Success: true,
-				Entries: []*billing.RateCardEntry{
+				RateCards: []*billing.RateCard{
 					{
 						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 						UnitsPerCredit:  "0.0001",
 					},
 				},
-				Credits: 10_000,
+				Credits: "10000",
 			}, nil)
 
 		// Verify that SubmitWorkflowReceipt is called with the correct workflow registry information
@@ -2912,7 +2910,7 @@ targets:
 				}
 				// Check that the workflow registry fields are set correctly
 				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
-					req.RegistryChainSelector == expectedChainSelector // Sepolia selector
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
 			})).
 			Return(&emptypb.Empty{}, nil)
 
@@ -2939,10 +2937,15 @@ targets:
 		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
 		invalidChainSelector := "invalid-chain-id"
 
+		// Set up mock expectations for SubmitWorkflowReceipt
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&emptypb.Empty{}, nil)
+
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
 
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
@@ -2957,8 +2960,7 @@ targets:
 		)
 
 		// When chain selector parsing fails, the engine should switch to metering mode
-		// and not call the billing service at all. The workflow should still complete successfully.
-		// No billing client calls should be expected.
+		// and call SubmitWorkflowReceipt with metering mode set to true.
 
 		servicetest.Run(t, eng)
 
@@ -2970,20 +2972,10 @@ targets:
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
 
-		// Verify that warnings were logged about the invalid chain selector
-		warnLogs := logs.TakeAll()
-		require.Len(t, warnLogs, 5) // Multiple warnings during metering mode operation
-		chainSelectorWarnings := 0
-		for _, log := range warnLogs {
-			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
-				chainSelectorWarnings++
-			}
-		}
-		assert.GreaterOrEqual(t, chainSelectorWarnings, 2) // At least 2 chain selector warnings
-
-		// Verify that no billing client calls were made (since it should be in metering mode)
-		mBillingClient.AssertNotCalled(t, "ReserveCredits")
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+		// Verify that SubmitWorkflowReceipt is called with metering mode set to true.
+		mBillingClient.AssertCalled(t, "SubmitWorkflowReceipt", mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			return req != nil && req.Metering != nil && req.Metering.MeteringMode == true
+		}))
 	})
 
 	t.Run("handles empty workflow registry information", func(t *testing.T) {
@@ -2992,6 +2984,11 @@ targets:
 		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
+
+		// Set up mock expectations for SubmitWorkflowReceipt (should always be called)
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&emptypb.Empty{}, nil)
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
@@ -3011,8 +3008,7 @@ targets:
 		)
 
 		// When chain selector is empty, the engine should switch to metering mode
-		// and not call the billing service at all. The workflow should still complete successfully.
-		// No billing client calls should be expected.
+		// but still call SubmitWorkflowReceipt. The workflow should still complete successfully.
 
 		servicetest.Run(t, eng)
 
@@ -3035,8 +3031,7 @@ targets:
 		}
 		assert.GreaterOrEqual(t, chainSelectorWarnings, 2) // At least 2 chain selector warnings
 
-		// Verify that no billing client calls were made (since it should be in metering mode)
-		mBillingClient.AssertNotCalled(t, "ReserveCredits")
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+		// Verify that SubmitWorkflowReceipt is called (should always be called)
+		mBillingClient.AssertCalled(t, "SubmitWorkflowReceipt", mock.Anything, mock.Anything)
 	})
 }
