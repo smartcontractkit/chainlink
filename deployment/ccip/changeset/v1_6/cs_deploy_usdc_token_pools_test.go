@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
@@ -48,7 +47,7 @@ func setupUSDCTokenPoolsEnvironment(t *testing.T, withPrereqs bool) (cldf.Enviro
 		}
 
 		env, err = commoncs.Apply(t, env,
-			commonchangeset.Configure(
+			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 				changeset.DeployPrerequisiteConfig{
 					Configs: prereqCfg,
@@ -214,7 +213,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err = commoncs.Apply(t, env,
-		commonchangeset.Configure(
+		commoncs.Configure(
 			v1_6.DeployCCTPMessageTransmitterProxyNew,
 			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput{
@@ -333,7 +332,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	}
 
 	env, err := commoncs.Apply(t, env,
-		commonchangeset.Configure(
+		commoncs.Configure(
 			v1_6.DeployCCTPMessageTransmitterProxyNew,
 			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: newUSDCMsgProxies,
@@ -343,7 +342,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	require.NoError(t, err)
 
 	env, err = commoncs.Apply(t, env,
-		commonchangeset.Configure(
+		commoncs.Configure(
 			v1_6.DeployUSDCTokenPoolNew,
 			v1_6.DeployUSDCTokenPoolContractsConfig{
 				USDCPools: newUSDCTokenPools,
