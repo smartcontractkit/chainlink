@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -86,6 +87,14 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
+				}
+				for _, addr := range solanaAddrs {
+					res, err := chain.Client.GetBalance(env.GetContext(), addr, rpc.CommitmentFinalized)
+					if err != nil {
+						lggr.Errorw("failed to fetch node balance", "node", addr, "err", err)
+					} else if res != nil {
+						lggr.Infow("got balance for node", "node", addr, "balance", res.Value)
+					}
 				}
 				return nil
 			})
