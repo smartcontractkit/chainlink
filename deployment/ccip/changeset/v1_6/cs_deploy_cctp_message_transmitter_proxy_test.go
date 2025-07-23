@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
@@ -47,7 +46,7 @@ func setupCCTPMsgTransmitterProxyEnvironment(t *testing.T, withPrereqs bool) (cl
 		}
 
 		env, err = commoncs.Apply(t, env,
-			commonchangeset.Configure(
+			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 				changeset.DeployPrerequisiteConfig{
 					Configs: prereqCfg,
@@ -172,7 +171,7 @@ func TestDeployCCTPMessageTransmitterProxy(t *testing.T) {
 	}
 
 	env, err := commoncs.Apply(t, env,
-		commonchangeset.Configure(
+		commoncs.Configure(
 			v1_6.DeployCCTPMessageTransmitterProxyNew,
 			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: newProxies,
