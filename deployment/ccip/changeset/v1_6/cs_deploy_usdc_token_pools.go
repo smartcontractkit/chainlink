@@ -154,22 +154,25 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				previousPoolAddress := poolConfig.PreviousPoolAddress
 
-				if previousPoolAddress == USDCTokenPoolSentinelAddress {
+				switch previousPoolAddress {
+				case USDCTokenPoolSentinelAddress:
 					// If the previous pool address is USDCTokenPoolSentinelAddress, this is the first usdc token
 					// pool and the address should be set to the ZeroAddress.
 					// set the previous address to zero address.
 					previousPoolAddress = utils.ZeroAddress
-				} else if previousPoolAddress == utils.ZeroAddress {
+
+				case utils.ZeroAddress:
 					// If the previous pool address is not set, we try to find the latest deployed pool address
-					if _, ok := chainState.USDCTokenPoolsV1_6[deployment.Version1_6_1]; !ok {
+					switch {
+					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_1] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
-					} else if _, ok := chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0]; !ok {
+					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_0].Address()
-					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_1]; !ok {
+					case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
-					} else if _, ok := chainState.USDCTokenPools[deployment.Version1_5_0]; !ok {
+					case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
-					} else {
+					default:
 						return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 							Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chain.Name()),
 						}
