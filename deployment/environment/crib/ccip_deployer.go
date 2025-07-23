@@ -303,7 +303,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			Readers: readersPerChain[cciptypes.ChainSelector(chain)],
 			// Number of nodes is 3f+1
 			//nolint:gosec // this should always be less than max uint8
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain: fChainValues[cciptypes.ChainSelector(chain)],
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
@@ -322,9 +322,9 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
 		for _, chain := range solChainSelectors {
 			chainConfigs[chain] = v1_6.ChainConfig{
-				Readers: nodeInfo.NonBootstraps().PeerIDs(),
+				Readers: readersPerChain[cciptypes.ChainSelector(chain)],
 				// #nosec G115 - Overflow is not a concern in this test scenario
-				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+				FChain: fChainValues[cciptypes.ChainSelector(chain)],
 				EncodableChainConfig: chainconfig.ChainConfig{
 					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
 					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
