@@ -261,7 +261,7 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 			require.NoError(t, err,
 				"Lane configuration validation should not fail")
 
-			lanes := tt.lc.GenerateLanes(tt.chains)
+			lanes := tt.lc.GenerateLanes(tt.chains, nil)
 
 			require.Len(t, lanes, tt.expected)
 

@@ -2,7 +2,9 @@ package crib
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -160,4 +162,36 @@ func getFChainValuesFromTiers(selectors []uint64, fValue uint8) map[cciptypes.Ch
 		fChainValues[cciptypes.ChainSelector(sel)] = fValue
 	}
 	return fChainValues
+}
+
+func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]uint64 {
+	if len(chainTiers.Tiers) == 0 {
+		return [][]uint64{}
+	}
+	// we prioritize home selector, simulated solana, and evm feed selectors
+	prioritySelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
+	orderedSelectors := make([]uint64, 0, len(allSelectors))
+	for _, sel := range prioritySelectors {
+		if slices.Contains(allSelectors, sel) {
+			orderedSelectors = append(orderedSelectors, sel)
+		}
+	}
+
+	// the remaining chains are evm and count up
+	evmChainId := 90000001
+	for len(orderedSelectors) < len(allSelectors) {
+		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", evmChainId), chainsel.FamilyEVM)
+		orderedSelectors = append(orderedSelectors, details.ChainSelector)
+		evmChainId++
+	}
+
+	tieredSelectors := make([][]uint64, len(chainTiers.Tiers))
+	startIndex, endIndex := 0, 0
+	for ind, tier := range chainTiers.Tiers {
+		tieredSelectors[ind] = make([]uint64, 0)
+		startIndex = endIndex
+		endIndex = endIndex + tier.NumChains
+		tieredSelectors[ind] = orderedSelectors[startIndex:endIndex]
+	}
+	return tieredSelectors
 }

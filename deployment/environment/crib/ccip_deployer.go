@@ -141,7 +141,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig,
 	homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool,
-	evmFundingEth uint64, laneConfig *LaneConfiguration,
+	evmFundingEth uint64, laneConfig *LaneConfiguration, chainTiers *ChainTiers,
 ) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -169,7 +169,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 
 	allChains := e.BlockChains.ListChainSelectors()
-	laneConfig.GenerateLanes(allChains)
+	laneConfig.GenerateLanes(allChains, chainTiers)
 	laneConfig.LogLaneConfigInfo(lggr)
 
 	// Set up lanes

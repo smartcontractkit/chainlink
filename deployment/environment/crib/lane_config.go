@@ -37,6 +37,7 @@ type LaneConfiguration struct {
 	// Mode determines how lanes are configured
 	// "any-to-any" - traditional full mesh (default)
 	// "random-lanes" - generate random lanes based on count
+	// "tiered-lanes" - generate lanes with priority to higher tiered chains
 	Mode *string `toml:",omitempty"`
 
 	// NumLanes - number of random lanes to generate when Mode is "random-lanes"
@@ -49,6 +50,7 @@ type LaneConfiguration struct {
 const (
 	LaneModeAnyToAny    = "any-to-any"
 	LaneModeRandomLanes = "random-lanes"
+	LaneModeChainTiers  = "tiered-lanes"
 )
 
 // Validate checks the lane configuration for correctness, ensuring that
@@ -67,7 +69,8 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 	case LaneModeAnyToAny:
 		// No additional validation needed
 		return nil
-
+	case LaneModeChainTiers:
+		return nil
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil || *lc.NumLanes <= 0 {
 			return errors.New("NumLanes must be provided and greater than 0 when Mode is 'random-lanes'")
@@ -88,8 +91,8 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 		}
 
 	default:
-		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s",
-			mode, LaneModeAnyToAny, LaneModeRandomLanes)
+		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s, %s",
+			mode, LaneModeAnyToAny, LaneModeRandomLanes, LaneModeChainTiers)
 	}
 
 	return nil
@@ -110,7 +113,7 @@ func (lc *LaneConfiguration) GetLanes() ([]LaneConfig, error) {
 }
 
 // GenerateLanes creates the list of lanes based on the configuration
-func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
+func (lc *LaneConfiguration) GenerateLanes(chains []uint64, chainTiers *ChainTiers) []LaneConfig {
 	mode := pointer.GetString(lc.Mode)
 	if mode == "" {
 		panic("LaneConfiguration mode is not set, cannot generate lanes")
@@ -125,7 +128,9 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 	case LaneModeAnyToAny:
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
-
+	case LaneModeChainTiers:
+		lc.generatedLanes = generateChainTierLanes(chains, chainTiers)
+		return lc.generatedLanes
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil {
 			return []LaneConfig{}
@@ -140,6 +145,26 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
 	}
+}
+
+func generateChainTierLanes(chains []uint64, chainTiers *ChainTiers) []LaneConfig {
+	if len(chainTiers.Tiers) == 0 {
+		// If no tiers are defined, fallback to any-to-any
+		return generateAnyToAnyLanes(chains)
+	}
+	var lanes []LaneConfig
+	tieredSelectors := getTierChainSelectors(chains, chainTiers)
+	for _, src := range tieredSelectors[0] {
+		for _, dst := range chains {
+			if src != dst {
+				lanes = append(lanes, LaneConfig{
+					SourceChain:      src,
+					DestinationChain: dst,
+				})
+			}
+		}
+	}
+	return lanes
 }
 
 // Helper functions for lane generation
