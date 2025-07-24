@@ -11,7 +11,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -36,7 +36,7 @@ func doTestGenericOps(t *testing.T, mcms bool) {
 
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,

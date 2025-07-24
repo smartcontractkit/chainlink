@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -212,7 +212,7 @@ func TestUpgrade(t *testing.T) {
 		},
 	}
 
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true,
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,
@@ -394,7 +394,7 @@ func TestIDL(t *testing.T) {
 	require.NoError(t, err)
 
 	// deploy timelock
-	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,

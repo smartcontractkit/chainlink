@@ -13,8 +13,8 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
@@ -26,7 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 
@@ -106,7 +106,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	rebalancer := deployerKey
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
-		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -238,7 +238,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 			e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
 			switch testCase.poolType {
 			case solTestTokenPool.BurnAndMint_PoolType:
-				_, _ = testhelpers.TransferOwnershipSolana(
+				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						BurnMintTokenPools: map[string][]solana.PublicKey{
@@ -246,7 +246,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 						},
 					})
 			case solTestTokenPool.LockAndRelease_PoolType:
-				_, _ = testhelpers.TransferOwnershipSolana(
+				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						LockReleaseTokenPools: map[string][]solana.PublicKey{
@@ -489,7 +489,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
 	require.NoError(t, err)
-	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,
@@ -639,7 +639,7 @@ func TestAddTokenPoolE2EWithMcmsv2(t *testing.T) {
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
 	require.NoError(t, err)
-	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,

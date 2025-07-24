@@ -24,17 +24,17 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
+	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -286,24 +286,24 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	lnr := test_token_pool.LockAndRelease_PoolType
 	bnm := test_token_pool.BurnAndMint_PoolType
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-		// commonchangeset.Configure(
-		//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-		//	ccipChangesetSolana.TokenPoolConfigWithMCM{
-		//		ChainSelector: solChain1,
-		//		TokenPubKey:   tokenAddressLockRelease,
-		//		PoolType:      &lnr,
-		//		Metadata:      shared.CLLMetadata,
-		//	},
-		// ),
-		// commonchangeset.Configure(
-		//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-		//	ccipChangesetSolana.TokenPoolConfigWithMCM{
-		//		ChainSelector: solChain1,
-		//		TokenPubKey:   tokenAddressBurnMint,
-		//		PoolType:      &bnm,
-		//		Metadata:      shared.CLLMetadata,
-		//	},
-		// ),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddressLockRelease,
+				PoolType:      &lnr,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddressBurnMint,
+				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
 			solanachangesets.AddTokenPoolAndLookupTableConfig{
@@ -345,7 +345,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
 	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(
 		t,
 		&e,
 		solChain1,
@@ -434,7 +434,7 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 
 	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
 	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(
 		t,
 		&e,
 		solChain1,

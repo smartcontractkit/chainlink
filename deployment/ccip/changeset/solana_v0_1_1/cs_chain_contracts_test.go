@@ -15,11 +15,11 @@ import (
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -98,7 +98,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -334,7 +334,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	var mcmsConfig *proposalutils.TimelockConfig
 	testPriceUpdater := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				FeeQuoter: true,
 				Router:    true,
@@ -635,7 +635,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router: true,
 			})
@@ -769,7 +769,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	var mcmsConfig *proposalutils.TimelockConfig
 	newAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -889,7 +889,7 @@ func TestSetOcr3Active(t *testing.T) {
 	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			OffRamp: true,
 		})
@@ -916,7 +916,7 @@ func TestSetOcr3Candidate(t *testing.T) {
 	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			OffRamp: true,
 		})
