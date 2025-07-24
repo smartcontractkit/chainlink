@@ -74,7 +74,7 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 				verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), feedID, true, verifyTime)
 				if verifyErr == nil {
 					if isBlockscoutRunning(cmdContext) {
-						fmt.Print(libformat.PurpleText("Open http://localhost/address/%s?tab=internal_txns to check consumer contract's transaction history\n"), consumerContractAddress.Hex())
+						fmt.Print(libformat.PurpleText("Open http://localhost/address/%s?tab=internal_txns to check consumer contract's transaction history\n", consumerContractAddress.Hex()))
 					}
 
 					return nil

@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -61,11 +60,27 @@ import (
 const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
 
+var (
+	binDir string
+)
+
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd)
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+
+	rootPath, rootPathErr := os.Getwd()
+	if rootPathErr != nil {
+		fmt.Fprintf(os.Stderr, "Error getting working directory: %v\n", rootPathErr)
+		os.Exit(1)
+	}
+	binDir = filepath.Join(rootPath, "bin")
+	if _, err := os.Stat(binDir); os.IsNotExist(err) {
+		if err := os.Mkdir(binDir, 0755); err != nil {
+			panic(fmt.Errorf("failed to create bin directory: %w", err))
+		}
+	}
 }
 
 func waitToCleanUp(d time.Duration) {
@@ -240,6 +255,7 @@ func startCmd() *cobra.Command {
 		Use:              "start",
 		Short:            "Start the environment",
 		Long:             `Start the local CRE environment with all supported capabilities`,
+		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			defer func() {
@@ -248,7 +264,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{})
+				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}
@@ -325,7 +341,6 @@ func startCmd() *cobra.Command {
 					cmdContext,
 					cleanupWait,
 					protoConfigs,
-					nil, // extra Docker network is not required, since chip-ingress will connect to default Framework network
 				)
 				if startBeholderErr != nil {
 					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -410,7 +425,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stops the environment",
 	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := removeAllContainers()
+		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
 			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 		}
@@ -418,20 +433,6 @@ var stopCmd = &cobra.Command{
 		fmt.Println("Environment stopped successfully")
 		return nil
 	},
-}
-
-func removeAllContainers() error {
-	ctfRemoveErr := framework.RemoveTestContainers()
-	if ctfRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(ctfRemoveErr, manualCtfCleanupMsg).Error())
-	}
-
-	beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-	if beholderRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
-	}
-
-	return nil
 }
 
 func StartCLIEnvironment(
@@ -752,49 +753,10 @@ func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
 	return hasBuilt
 }
 
-func getCtfDockerNetworks() ([]string, error) {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create Docker client")
-	}
-	defer dockerClient.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// List all containers with the "ctf" label
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", "framework=ctf")),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list containers")
+func oneLineErrorMessage(errOrPanic any) string {
+	if err, ok := errOrPanic.(error); ok {
+		return strings.SplitN(err.Error(), "\n", 1)[0]
 	}
 
-	// Use a map to store unique network names
-	networkMap := make(map[string]bool)
-	var networkNames []string
-
-	for _, container := range containers {
-		// Get container details to access network settings
-		containerDetails, err := dockerClient.ContainerInspect(ctx, container.ID)
-		if err != nil {
-			// Log the error but continue with other containers
-			fmt.Fprintf(os.Stderr, "failed to inspect container %s: %s\n", container.ID, err)
-			continue
-		}
-
-		// Extract network names from container's network settings
-		for networkName := range containerDetails.NetworkSettings.Networks {
-			if networkName == "bridge" {
-				continue
-			}
-			if !networkMap[networkName] {
-				networkMap[networkName] = true
-				networkNames = append(networkNames, networkName)
-			}
-		}
-	}
-
-	return networkNames, nil
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
 }
