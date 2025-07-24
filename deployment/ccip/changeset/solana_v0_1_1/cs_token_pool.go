@@ -198,7 +198,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		var configPDA solana.PublicKey
 		// Global Configuration
-		configPDA, err = tokens.TokenPoolGlobalConfigPDA(tokenPool)
+		configPDA, err = tokenPoolGlobalConfigPDA(tokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 		}
@@ -451,7 +451,7 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 
 	var configPDA solana.PublicKey
 	// Global Configuration
-	configPDA, err = tokens.TokenPoolGlobalConfigPDA(tokenPool)
+	configPDA, err = tokenPoolGlobalConfigPDA(tokenPool)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 	}
@@ -1897,4 +1897,9 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 	}
 
 	return cldf.ChangesetOutput{}, nil
+}
+
+func tokenPoolGlobalConfigPDA(programID solana.PublicKey) (solana.PublicKey, error) {
+	addr, _, err := solana.FindProgramAddress([][]byte{[]byte("config")}, programID)
+	return addr, err
 }
