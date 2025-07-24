@@ -334,11 +334,10 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			require.NoError(t, err)
 
 			expectedDomain := newUSDCConfigs[evmSelector].DestinationUpdates[solSelector]
-			require.Equal(t, expectedDomain.AllowedCaller.Bytes()[:], actualDomain.AllowedCaller[:])
-			require.Equal(t, expectedDomain.MintRecipient.Bytes()[:], actualDomain.MintRecipient[:])
+			require.Equal(t, expectedDomain.AllowedCaller.Bytes(), actualDomain.AllowedCaller[:])
+			require.Equal(t, expectedDomain.MintRecipient.Bytes(), actualDomain.MintRecipient[:])
 			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
 			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
-
 		}
 	}
 }
