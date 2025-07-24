@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -296,7 +295,7 @@ func (s *service) runFeeder(ctx context.Context) {
 func CheckFromAddressesExist(jb job.Job, enabled []common.Address) (err error) {
 	for _, a := range jb.BlockHeaderFeederSpec.FromAddresses {
 		if !slices.Contains(enabled, a.Address()) {
-			err = multierr.Append(err, fmt.Errorf("address not enabled: %s", a.Hex()))
+			err = stderrors.Join(err, fmt.Errorf("address not enabled: %s", a.Hex()))
 		}
 	}
 	return
