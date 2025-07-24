@@ -2975,7 +2975,7 @@ targets:
 		assert.Equal(t, store.StatusCompleted, state.Status)
 
 		// Verify that SubmitWorkflowReceipt is called with metering mode set to true.
-		mBillingClient.AssertCalled(t, "SubmitWorkflowReceipt", mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+		mBillingClient.AssertCalled(t, "SubmitWorkflowReceipt", mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.Metering != nil && req.Metering.MeteringMode
 		}))
 	})
@@ -3024,7 +3024,7 @@ targets:
 
 		// Verify that warnings were logged about the empty chain selector
 		warnLogs := logs.TakeAll()
-		require.Len(t, warnLogs, 5) // Multiple warnings during metering mode operation
+		require.Len(t, warnLogs, 7) // Multiple warnings during metering mode operation
 		chainSelectorWarnings := 0
 		for _, log := range warnLogs {
 			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
