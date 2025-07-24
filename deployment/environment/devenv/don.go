@@ -53,7 +53,6 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	DONName       string                   // name of the DON to which the node belongs, used to identify the node within JD
 	CLConfig      clclient.ChainlinkConfig // config to connect to chainlink node via API
 	P2PPort       string                   // port for P2P communication
 	IsBootstrap   bool                     // denotes if the node is a bootstrap node

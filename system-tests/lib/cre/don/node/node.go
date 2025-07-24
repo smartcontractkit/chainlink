@@ -25,6 +25,7 @@ const (
 	DONIDKey               = "don_id"
 	EnvironmentKey         = "environment"
 	ProductKey             = "product"
+	DONNameKey             = "don_name"
 )
 
 func AddressKeyFromSelector(chainSelector uint64) string {
@@ -70,7 +71,6 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeC
 		}
 
 		info := devenv.NodeInfo{
-			DONName: prefix,
 			P2PPort: p2pURL.Port(),
 			CLConfig: nodeclient.ChainlinkConfig{
 				URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
@@ -83,6 +83,7 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeC
 				ProductKey:      "keystone",
 				EnvironmentKey:  "local",
 				DONIDKey:        strconv.FormatUint(donID, 10),
+				DONNameKey:      prefix,
 			},
 		}
 
