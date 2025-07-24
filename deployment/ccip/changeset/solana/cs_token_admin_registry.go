@@ -60,10 +60,21 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSt
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
+	ccipAdmin := GetAuthorityForIxn(
+		&e,
+		chain,
+		chainState,
+		shared.Router,
+		solana.PublicKey{},
+		"")
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
 
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		if registerTokenConfig.RegisterType != ViaGetCcipAdminInstruction && registerTokenConfig.RegisterType != ViaOwnerInstruction {
-			return fmt.Errorf("invalid register type, valid types are %d and %d", ViaGetCcipAdminInstruction, ViaOwnerInstruction)
+			return fmt.Errorf("invalid register type, valid types are %d", ViaGetCcipAdminInstruction)
 		}
 		if registerTokenConfig.TokenAdminRegistryAdmin.IsZero() {
 			return errors.New("token admin registry admin is required")
@@ -82,11 +93,17 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSt
 				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), routerProgramAddress.String())
 			}
 		}
+		if registerTokenConfig.RegisterType == ViaGetCcipAdminInstruction && ccipAdmin.Equals(timelockSignerPDA) && cfg.MCMS == nil {
+			return errors.New("ccip admin is the timelock signer, but no mcms config is provided, hence this changeset cannot sign for the registration")
+		}
 	}
 
 	return nil
 }
 
+// RegisterTokenAdminRegistry registers a token admin registry for a given token
+// you can register using the ccipAdminRole which can be the deployer key or timelock signer
+// you can register using the token mint authority which can be the deployer key only
 func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("RegisterTokenAdminRegistry", "cfg", cfg)
 	state, err := stateview.LoadOnchainState(e)
@@ -103,20 +120,21 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
-	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
+
+	deployerKey := chain.DeployerKey.PublicKey()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
+	ccipAdmin := GetAuthorityForIxn(
 		&e,
 		chain,
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
+
 	mcmsTxs := []mcmsTypes.Transaction{}
 
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
@@ -124,16 +142,17 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		tokenAdminRegistryAdmin := registerTokenConfig.TokenAdminRegistryAdmin
 		var instruction *solRouter.Instruction
+
 		switch registerTokenConfig.RegisterType {
-		// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 		case ViaGetCcipAdminInstruction:
+			// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 			if registerTokenConfig.Override {
 				instruction, err = solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
 					tokenPubKey,
-					authority,
+					ccipAdmin,
 					solana.SystemProgramID,
 				).ValidateAndBuild()
 				if err != nil {
@@ -145,7 +164,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
 					tokenPubKey,
-					authority,
+					ccipAdmin,
 					solana.SystemProgramID,
 				).ValidateAndBuild()
 				if err != nil {
@@ -153,13 +172,14 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 				}
 			}
 		case ViaOwnerInstruction:
+			// only works if the token mint authority is the deployer key
 			if registerTokenConfig.Override {
 				instruction, err = solRouter.NewOwnerOverridePendingAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
 					tokenPubKey,
-					authority,
+					deployerKey,
 					solana.SystemProgramID,
 				).ValidateAndBuild()
 				if err != nil {
@@ -172,7 +192,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
 					tokenPubKey,
-					authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
+					deployerKey, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
 					solana.SystemProgramID,
 				).ValidateAndBuild()
 				if err != nil {
@@ -181,18 +201,18 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 			}
 		}
 
-		// if mcms build the transaction
+		// as ccip admin is proposing the admin role, it needs to sign the transaction
+		// if the ccip admin is timelock, build mcms transaction
 		// else just confirm it
-		if routerUsingMCMS {
+		if registerTokenConfig.RegisterType == ViaGetCcipAdminInstruction && ccipAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			mcmsTxs = append(mcmsTxs, *tx)
-
 		} else {
 			// if we want to have a different authority, we will need to add the corresponding signer here
-			// for now we are assuming both token owner and ccip admin will always be deployer key if done without mcms
+			// the ccip admin will always be deployer key if done without mcms
 			instructions := []solana.Instruction{instruction}
 			if err := chain.Confirm(instructions); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
@@ -236,6 +256,12 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 		return err
 	}
 
+	deployerKey := chain.DeployerKey.PublicKey()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
 	for _, transferTokenAdminConfig := range cfg.TransferTokenAdminConfigs {
 		tokenPubKey := transferTokenAdminConfig.TokenPubKey
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
@@ -251,6 +277,22 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot transfer admin role", tokenPubKey.String(), routerProgramAddress.String())
 		}
 		currentAdmin := tokenAdminRegistryAccount.Administrator
+		// if current admin is not the deployer key or timelock signer, we cannot transfer the admin role
+		if !currentAdmin.Equals(deployerKey) && !currentAdmin.Equals(timelockSignerPDA) {
+			return fmt.Errorf("current registry admin public key (%s) is not the deployer key (%s) or timelock signer (%s) for token %s, hence this changeset cannot sign for the transfer",
+				currentAdmin.String(),
+				deployerKey.String(),
+				timelockSignerPDA.String(),
+				tokenPubKey.String(),
+			)
+		}
+		if currentAdmin.Equals(timelockSignerPDA) && cfg.MCMS == nil {
+			return fmt.Errorf("current registry admin public key (%s) is the timelock signer (%s) for token %s, but no mcms config is provided, hence this changeset cannot sign for the transfer",
+				currentAdmin.String(),
+				timelockSignerPDA.String(),
+				tokenPubKey.String(),
+			)
+		}
 		if currentAdmin.Equals(newRegistryAdminPubKey) {
 			return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
 				newRegistryAdminPubKey.String(),
@@ -280,20 +322,10 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 
-	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
 
 	mcmsTxs := []mcmsTypes.Transaction{}
 
@@ -301,23 +333,31 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 		tokenPubKey := transferTokenAdminConfig.TokenPubKey
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		newRegistryAdminPubKey := transferTokenAdminConfig.NewRegistryAdminPublicKey
+
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token admin registry account: %w", err)
+		}
+		currentAdmin := tokenAdminRegistryAccount.Administrator
+
 		instruction, err := solRouter.NewTransferAdminRoleTokenAdminRegistryInstruction(
 			newRegistryAdminPubKey,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,
-			authority,
+			currentAdmin,
 		).ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
-		if routerUsingMCMS {
+		// when transferring admin role away from timelock, we will need to build mcms transaction
+		if currentAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			mcmsTxs = append(mcmsTxs, *tx)
-		} else {
+		} else { // already confirmed that admin is either deployer key or timelock signer
 			instructions := []solana.Instruction{instruction}
 			if err := chain.Confirm(instructions); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
@@ -325,7 +365,8 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 		}
 	}
 
-	if routerUsingMCMS {
+	// when transferring admin role away from timelock, we will need to build mcms transaction
+	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to TransferAdminRoleTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {
@@ -361,40 +402,38 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, 
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
-
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	deployerKey := chain.DeployerKey.PublicKey()
 	for _, acceptAdminRoleTokenConfig := range cfg.AcceptAdminRoleTokenConfigs {
 		tokenPubKey := acceptAdminRoleTokenConfig.TokenPubKey
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 			return err
 		}
-		// can only be deployer key or timelock signer
-		newAdmin := chain.DeployerKey.PublicKey()
-		if cfg.MCMS != nil {
-			timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-			if err != nil {
-				return fmt.Errorf("failed to fetch timelock signer: %w", err)
-			}
-			newAdmin = timelockSignerPDA
+		if acceptAdminRoleTokenConfig.SkipRegistryCheck {
+			continue
 		}
-		if !acceptAdminRoleTokenConfig.SkipRegistryCheck {
-			tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-			if err != nil {
-				return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
-			}
-			var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-			if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-				return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
-			}
-			// this will be hit if
-			// you register with timelock but accept without mcms config
-			// register with deployer key but accept with mcms config
-			if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newAdmin) {
-				return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
-					newAdmin.String(),
-					tokenAdminRegistryAccount.PendingAdministrator.String(),
-					tokenPubKey.String(),
-				)
-			}
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
+		}
+		// if pending admin is not the deployer key or timelock signer, we cannot accept the admin role
+		if !tokenAdminRegistryAccount.PendingAdministrator.Equals(deployerKey) && !tokenAdminRegistryAccount.PendingAdministrator.Equals(timelockSignerPDA) {
+			return fmt.Errorf("pending registry admin role is not the deployer key (%s) or timelock signer (%s) for token %s, pending admin is %s",
+				deployerKey.String(),
+				timelockSignerPDA.String(),
+				tokenPubKey.String(),
+				tokenAdminRegistryAccount.PendingAdministrator.String(),
+			)
+		}
+		if tokenAdminRegistryAccount.PendingAdministrator.Equals(timelockSignerPDA) && cfg.MCMS == nil {
+			return errors.New("pending registry admin role is the timelock signer, but no mcms config is provided, hence this changeset cannot sign for the acceptance")
 		}
 	}
 
@@ -415,20 +454,10 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
-	authority := chain.DeployerKey.PublicKey()
-	if cfg.MCMS != nil {
-		timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-		authority = timelockSignerPDA
+
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 	}
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
@@ -437,23 +466,34 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	for _, acceptAdminRoleTokenConfig := range cfg.AcceptAdminRoleTokenConfigs {
 		tokenPubKey := acceptAdminRoleTokenConfig.TokenPubKey
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		var pendingAdmin solana.PublicKey
+		// if skip registry check is true, then we are registering and accepting in the same batch, so while generating the instruction, we will use the timelock signer as the pending admin
+		if acceptAdminRoleTokenConfig.SkipRegistryCheck {
+			pendingAdmin = timelockSignerPDA
+		} else {
+			var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+			if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), routerProgramAddress.String())
+			}
+			pendingAdmin = tokenAdminRegistryAccount.PendingAdministrator
+		}
+
 		instruction, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,
-			authority,
+			pendingAdmin,
 		).ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
-		if routerUsingMCMS {
+		if pendingAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			mcmsTxs = append(mcmsTxs, *tx)
-		} else {
-			// pending admin is deployer key
+		} else { // already confirmed that pending admin is either deployer key or timelock signer
 			instructions := []solana.Instruction{instruction}
 			if err := chain.Confirm(instructions); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
@@ -461,7 +501,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 		}
 	}
 
-	if routerUsingMCMS {
+	if len(mcmsTxs) > 0 {
 		// We will only be able to accept the admin role if the pending admin is the timelock signer
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to AcceptAdminRoleTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, mcmsTxs)
@@ -501,6 +541,11 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview
 		return err
 	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
+	deployerKey := chain.DeployerKey.PublicKey()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
 	for _, tokenConfig := range cfg.SetPoolTokenConfigs {
 		tokenPubKey := tokenConfig.TokenPubKey
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
@@ -516,15 +561,27 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview
 		if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][*tokenConfig.PoolType][tokenConfig.Metadata]; !ok || lut.IsZero() {
 			return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
 		}
-		if !tokenConfig.SkipRegistryCheck {
-			tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-			if err != nil {
-				return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
-			}
-			var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-			if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-				return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
-			}
+		if tokenConfig.SkipRegistryCheck {
+			continue
+		}
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
+		}
+		if !tokenAdminRegistryAccount.Administrator.Equals(deployerKey) && !tokenAdminRegistryAccount.Administrator.Equals(timelockSignerPDA) {
+			return fmt.Errorf("token admin registry admin public key (%s) is not the deployer key (%s) or timelock signer (%s) for token %s, cannot set pool",
+				tokenAdminRegistryAccount.Administrator.String(),
+				deployerKey.String(),
+				timelockSignerPDA.String(),
+				tokenPubKey.String(),
+			)
+		}
+		if tokenAdminRegistryAccount.Administrator.Equals(timelockSignerPDA) && cfg.MCMS == nil {
+			return errors.New("registry admin role is the timelock signer, but no mcms config is provided, hence this changeset cannot sign for the set pool")
 		}
 	}
 
@@ -548,33 +605,35 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	routerUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"",
-	)
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.Router,
-		solana.PublicKey{},
-		"")
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
 	mcmsTxs := []mcmsTypes.Transaction{}
 	for _, tokenConfig := range cfg.SetPoolTokenConfigs {
 		tokenPubKey := tokenConfig.TokenPubKey
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][*tokenConfig.PoolType][tokenConfig.Metadata]
+
+		var currentAdmin solana.PublicKey
+		// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin
+		if tokenConfig.SkipRegistryCheck {
+			currentAdmin = timelockSignerPDA
+		} else {
+			var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+			if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
+			}
+			currentAdmin = tokenAdminRegistryAccount.Administrator
+		}
 		base := solRouter.NewSetPoolInstruction(
 			cfg.WritableIndexes,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,
 			lookupTablePubKey,
-			authority,
+			currentAdmin,
 		)
 		base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
 		instruction, err := base.ValidateAndBuild()
@@ -582,20 +641,20 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			return cldf.ChangesetOutput{}, err
 		}
 
-		if routerUsingMCMS {
+		if currentAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			mcmsTxs = append(mcmsTxs, *tx)
-		} else {
+		} else { // already confirmed that admin is either deployer key or timelock signer
 			if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
 		}
 	}
 
-	if routerUsingMCMS {
+	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {

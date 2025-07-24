@@ -17,6 +17,7 @@ import (
 
 	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
+	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
 	processor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 
@@ -28,7 +29,6 @@ import (
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 

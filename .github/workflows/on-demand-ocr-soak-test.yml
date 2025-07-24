@@ -1,10 +1,5 @@
 name: On Demand OCR Soak Test
 on:
-  push:
-    tags:
-      # Run on release tags
-      - 'v*'
-
   workflow_dispatch:
     inputs:
       testToRun:
@@ -47,35 +42,6 @@ on:
         default: U01A2B2C3D4
 
 jobs:
-  # When running on a tag, wait for the image to be published to a registry
-  wait-for-workflows:
-    name: Wait for Release Image Build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4.2.2
-        with:
-          ref: ${{ github.ref_name || github.sha }}
-
-      - name: Wait for Image Build
-        uses: smartcontractkit/.github/actions/wait-for-workflows@wait-for-workflows/1.0.0
-        with:
-          max-timeout: '900'
-          polling-interval: '30'
-          exclude-workflow-names: |
-            Automation Nightly Tests
-            Client Compatibility Tests
-            Integration In-Memory Tests
-            Integration Tests
-          exclude-workflow-ids: ''
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          DEBUG: 'true'
-  
   # Based on the `inputs.chainlink_version` define whether to:
   # - use a private or public ECR registry
   # - skip image build if public ECR registry is used
@@ -166,7 +132,7 @@ jobs:
       always() &&
       needs.wait-for-workflows.result != 'failure' && 
       needs.setup-test-parameters.result == 'success'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c82f8c4d2599c4c7d4e5045bcc0a28f0bf34272
     with:
       chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml

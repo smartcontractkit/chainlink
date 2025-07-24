@@ -3,10 +3,13 @@ package registrysyncer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,6 +20,7 @@ import (
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -49,7 +53,7 @@ type registrySyncer struct {
 	stopCh               services.StopChan
 	listeners            []Listener
 	reader               types.ContractReader
-	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
+	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract, capabilitiesRegistryVersion semver.Version) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
 	getPeerID            func() (p2ptypes.PeerID, error)
@@ -58,10 +62,14 @@ type registrySyncer struct {
 
 	updateChan chan *LocalRegistry
 
+	capabilitiesRegistryVersion semver.Version
+
 	wg   sync.WaitGroup
 	lggr logger.Logger
 	mu   sync.RWMutex
 }
+
+const capabilitiesRegistryContractName = "CapabilitiesRegistry"
 
 var _ services.Service = &registrySyncer{}
 
@@ -101,8 +109,32 @@ func New(
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
-func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error) {
-	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract, capabilitiesRegistryVersion semver.Version) (types.ContractReader, error) {
+	var contractReaderConfig evmrelaytypes.ChainReaderConfig
+	switch capabilitiesRegistryVersion.Major() {
+	case 1:
+		contractReaderConfig = buildV1ContractReaderConfig()
+	default:
+		return nil, errors.New("unsupported version " + capabilitiesRegistryVersion.String())
+	}
+
+	contractReaderConfigEncoded, err := json.Marshal(contractReaderConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cr.Bind(ctx, []types.BoundContract{capabilitiesContract})
+
+	return cr, err
+}
+
+func buildV1ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
+	return evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			"CapabilitiesRegistry": {
 				ContractABI: kcr.CapabilitiesRegistryABI,
@@ -120,20 +152,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 			},
 		},
 	}
-
-	contractReaderConfigEncoded, err := json.Marshal(contractReaderConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cr.Bind(ctx, []types.BoundContract{capabilitiesContract})
-
-	return cr, err
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
@@ -202,6 +220,15 @@ func (s *registrySyncer) updateStateLoop() {
 			}
 		}
 	}
+}
+
+func (s *registrySyncer) getContractTypeAndVersion(ctx context.Context) error {
+	version, err := versioning.VerifyTypeAndVersion(ctx, s.capabilitiesContract.Address, s.relayer.NewContractReader, versioning.ContractType(capabilitiesRegistryContractName))
+	if err != nil {
+		return err
+	}
+	s.capabilitiesRegistryVersion = version
+	return nil
 }
 
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
@@ -282,7 +309,13 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	if s.reader == nil {
-		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract)
+		err := s.getContractTypeAndVersion(ctx)
+		if err != nil {
+			s.lggr.Errorf("unable to get CapabilitiesRegistry contract version: %s", err)
+			return err
+		}
+
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract, s.capabilitiesRegistryVersion)
 		if err != nil {
 			return err
 		}
