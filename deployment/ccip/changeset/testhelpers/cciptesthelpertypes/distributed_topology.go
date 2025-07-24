@@ -8,6 +8,7 @@ import (
 )
 
 // NewDistributedTopology creates a new rotating topology with the given arguments.
+// It ensures each node will be assigned to the same number of chains +/- 1
 func NewDistributedTopology(args DistributedTopologyArgs) RoleDONTopology {
 	return &topology{
 		impl: &DistributedTopology{DistributedTopologyArgs: args},
@@ -37,6 +38,7 @@ func (t *DistributedTopologyArgs) validate(nonHomeChainSelectors []cciptypes.Cha
 	return nil
 }
 
+// ChainToNodeMapping implements RoleDONTopology. It ensures that each node is assigned to the same number of chains +/- 1
 func (t *DistributedTopologyArgs) ChainToNodeMapping(nonBootstrapP2pIDs [][32]byte, chainSelectors []cciptypes.ChainSelector, homeChainSelector cciptypes.ChainSelector) (map[cciptypes.ChainSelector][][32]byte, error) {
 	if len(nonBootstrapP2pIDs) < MinRoleDONSize {
 		return nil, fmt.Errorf("the number of non-bootstrap ccip nodes must be at least %d, got %d",

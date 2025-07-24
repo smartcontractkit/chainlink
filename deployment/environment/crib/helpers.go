@@ -164,6 +164,10 @@ func getFChainValuesFromTiers(selectors []uint64, fValue uint8) map[cciptypes.Ch
 	return fChainValues
 }
 
+// getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied ChainTiers
+// We need this because chainselectors are unsorted and nondeterministic in crib, but evmChainID is deterministic
+// In order to have a deterministic order of the first 'n' chains organized into tiers, we need to sort chainIDs into tiers and then convert them to selectors
+// We also 'prioritize' home,feed selectors and aptos assuming they will always be 'high' value chains
 func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]uint64 {
 	if len(chainTiers.Tiers) == 0 {
 		return [][]uint64{}

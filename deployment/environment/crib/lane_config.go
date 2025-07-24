@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	mapset "github.com/deckarep/golang-set/v2"
 	"math/rand"
 	"sort"
 
@@ -147,24 +148,32 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64, chainTiers *ChainTie
 	}
 }
 
+// generateChainTierLanes generates lanes where chains of a 'high' tier are connected to all chains
+// chains of a 'low' tier are only connected to chains of a 'high' tier.
 func generateChainTierLanes(chains []uint64, chainTiers *ChainTiers) []LaneConfig {
 	if len(chainTiers.Tiers) == 0 {
 		// If no tiers are defined, fallback to any-to-any
 		return generateAnyToAnyLanes(chains)
 	}
-	var lanes []LaneConfig
+
+	uniqueLanes := mapset.NewSet[LaneConfig]()
 	tieredSelectors := getTierChainSelectors(chains, chainTiers)
 	for _, src := range tieredSelectors[0] {
 		for _, dst := range chains {
 			if src != dst {
-				lanes = append(lanes, LaneConfig{
+				// make lanes bidirectional
+				uniqueLanes.Add(LaneConfig{
 					SourceChain:      src,
 					DestinationChain: dst,
+				})
+				uniqueLanes.Add(LaneConfig{
+					SourceChain:      dst,
+					DestinationChain: src,
 				})
 			}
 		}
 	}
-	return lanes
+	return uniqueLanes.ToSlice()
 }
 
 // Helper functions for lane generation
