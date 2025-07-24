@@ -278,7 +278,7 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 			expectedCallers[i] = cfg.AllowedCaller
 		}
 
-		actualCallers, err := proxies[deployment.Version1_6_0].CCTPMessageTransmitterProxyCaller.GetAllowedCallers(nil)
+		actualCallers, err := proxies[deployment.Version1_6_0].GetAllowedCallers(nil)
 		require.NoError(t, err)
 
 		require.ElementsMatch(t,
