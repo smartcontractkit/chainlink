@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func setupCCTPMsgTransmitterProxyEnvironment(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
+func setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
 	env := memory.NewMemoryEnvironment(t,
 		logger.Test(t),
 		zapcore.InfoLevel,
@@ -59,7 +59,7 @@ func setupCCTPMsgTransmitterProxyEnvironment(t *testing.T, withPrereqs bool) (cl
 	return env, selectors
 }
 
-func deployMockTokenMessenger(
+func setupCCTPMsgTransmitterProxyContractsForDeploy(
 	t *testing.T,
 	logger logger.Logger,
 	chain cldf_evm.Chain,
@@ -120,7 +120,7 @@ func deployMockTokenMessenger(
 func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupCCTPMsgTransmitterProxyEnvironment(t, false)
+	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, false)
 
 	require.GreaterOrEqual(t, len(selectors), 1)
 	chain := env.BlockChains.EVMChains()[selectors[0]]
@@ -158,13 +158,13 @@ func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 func TestDeployCCTPMessageTransmitterProxy(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupCCTPMsgTransmitterProxyEnvironment(t, true)
+	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, true)
 
 	newProxies := make(map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput, len(selectors))
 	addressBook := cldf.NewMemoryAddressBook()
 	for _, selector := range selectors {
 		blockchain := env.BlockChains.EVMChains()[selector]
-		tokenMsngr := deployMockTokenMessenger(t, env.Logger, blockchain, addressBook)
+		tokenMsngr := setupCCTPMsgTransmitterProxyContractsForDeploy(t, env.Logger, blockchain, addressBook)
 		newProxies[selector] = v1_6.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMsngr.Address,
 		}

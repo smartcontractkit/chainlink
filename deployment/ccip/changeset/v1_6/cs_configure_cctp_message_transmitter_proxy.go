@@ -78,7 +78,7 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 	}
 	for _, allowedCalleUpdate := range i.AllowedCallerUpdates {
 		if allowedCalleUpdate.AllowedCaller == utils.ZeroAddress {
-			return fmt.Errorf("token messenger must be defined for chain %s", chain.Name())
+			return fmt.Errorf("allowed caller must be defined for chain %s", chain.Name())
 		}
 
 		// Skip allowed caller validation against USDC token pools when removing callers
@@ -93,7 +93,7 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 			}
 		}
 		if !matchedPool {
-			return fmt.Errorf("allowed caller %s does not match any existing 1.6 USDC token pools", allowedCalleUpdate.AllowedCaller.Hex())
+			return fmt.Errorf("allowed caller does not match any existing 1.6 USDC token pools (%s)", allowedCalleUpdate.AllowedCaller.Hex())
 		}
 	}
 

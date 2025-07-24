@@ -1,10 +1,12 @@
 package v1_6_test
 
 import (
-	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -12,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -28,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func setupUSDCTokenPoolsEnvironmentForDeploy(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
+func setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
 	env := memory.NewMemoryEnvironment(t,
 		logger.Test(t),
 		zapcore.InfoLevel,
@@ -60,7 +63,7 @@ func setupUSDCTokenPoolsEnvironmentForDeploy(t *testing.T, withPrereqs bool) (cl
 	return env, selectors
 }
 
-func setupUSDCTokenPoolsContractsForDeploy(
+func setupCCTPMsgTransmitterProxyContractsForConfigure(
 	t *testing.T,
 	logger logger.Logger,
 	chain cldf_evm.Chain,
@@ -121,104 +124,23 @@ func setupUSDCTokenPoolsContractsForDeploy(
 	return usdcToken, messenger
 }
 
-func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
+func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
-
+	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	require.GreaterOrEqual(t, len(selectors), 1)
-	selector := selectors[0]
+	chain := env.BlockChains.EVMChains()[selectors[0]]
 
-	tests := []struct {
-		Msg    string
-		Input  v1_6.DeployUSDCTokenPoolContractsConfig
-		ErrStr string
-	}{
-		{
-			Msg: "Chain selector is not valid",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
-					0: {},
-				},
-			},
-			ErrStr: "failed to validate chain selector 0",
-		},
-		{
-			Msg: "Chain selector doesn't exist in environment",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
-					5009297550715157269: {},
-				},
-			},
-			ErrStr: "does not exist in environment",
-		},
-		{
-			Msg: "No proxy",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
-					selector: {
-						PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
-						TokenMessenger:      utils.RandomAddress(),
-						TokenAddress:        utils.RandomAddress(),
-					},
-				},
-			},
-			ErrStr: fmt.Sprintf(
-				"CCTP message transmitter proxy for version %s not found",
-				deployment.Version1_6_0,
-			),
-		},
-	}
+	addressBook := cldf.NewMemoryAddressBook()
+	_, tokenMsngr := setupCCTPMsgTransmitterProxyContractsForConfigure(t, env.Logger, chain, addressBook)
 
-	for _, test := range tests {
-		t.Run(test.Msg, func(t *testing.T) {
-			err := v1_6.DeployUSDCTokenPoolNew.VerifyPreconditions(env, test.Input)
-			require.Contains(t, err.Error(), test.ErrStr)
-		})
-	}
-}
-
-func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
-	t.Parallel()
-
-	env, selectors := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
-	blockchain := env.BlockChains.EVMChains()[selectors[0]]
-	addrBook := cldf.NewMemoryAddressBook()
-
-	usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForDeploy(t,
-		env.Logger,
-		blockchain,
-		addrBook,
-	)
-
-	nonUsdcToken, err := cldf.DeployContract(env.Logger, blockchain, addrBook,
-		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-				chain.DeployerKey,
-				chain.Client,
-				"NOTUSDC",
-				"NOTUSDC",
-				6,
-				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-			)
-			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				Address:  tokenAddress,
-				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_0),
-				Tx:       tx,
-				Err:      err,
-			}
-		},
-	)
-	require.NoError(t, err)
-
-	env, err = commoncs.Apply(t, env,
+	env, err := commoncs.Apply(t, env,
 		commoncs.Configure(
 			v1_6.DeployCCTPMessageTransmitterProxyNew,
 			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput{
-					blockchain.Selector: {
-						TokenMessenger: tokenMessenger.Address,
+					chain.Selector: {
+						TokenMessenger: tokenMsngr.Address,
 					},
 				},
 			},
@@ -231,94 +153,57 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 
 	tests := []struct {
 		Msg    string
-		Input  v1_6.DeployUSDCTokenPoolInput
+		Input  v1_6.ConfigureCCTPMessageTransmitterProxyInput
 		ErrStr string
 	}{
 		{
-			Msg: "Token address is not defined",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				TokenAddress: utils.ZeroAddress,
+			Msg: "Allowed caller cannot be zero address",
+			Input: v1_6.ConfigureCCTPMessageTransmitterProxyInput{
+				AllowedCallerUpdates: []v1_6.AllowedCallerUpdate{
+					{
+						AllowedCaller: utils.ZeroAddress,
+						Enabled:       true,
+					},
+				},
 			},
-			ErrStr: "token address must be defined",
+			ErrStr: "allowed caller must be defined for chain",
 		},
 		{
-			Msg: "Token messenger address is not defined",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				TokenMessenger: utils.ZeroAddress,
-				TokenAddress:   utils.RandomAddress(),
+			Msg: "Invalid allowed caller",
+			Input: v1_6.ConfigureCCTPMessageTransmitterProxyInput{
+				AllowedCallerUpdates: []v1_6.AllowedCallerUpdate{
+					{
+						AllowedCaller: utils.RandomAddress(),
+						Enabled:       true,
+					},
+				},
 			},
-			ErrStr: "token messenger must be defined",
-		},
-		{
-			Msg: "No previous pool",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: utils.ZeroAddress,
-				TokenMessenger:      utils.RandomAddress(),
-				TokenAddress:        utils.RandomAddress(),
-			},
-			ErrStr: "unable to find a previous pool",
-		},
-		{
-			Msg: "Can't reach token",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
-				TokenAddress:        utils.RandomAddress(),
-				TokenMessenger:      utils.RandomAddress(),
-			},
-			ErrStr: "failed to fetch symbol from token",
-		},
-		{
-			Msg: "Symbol is wrong",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
-				TokenAddress:        nonUsdcToken.Address,
-				TokenMessenger:      utils.RandomAddress(),
-			},
-			ErrStr: "is not USDC",
-		},
-		{
-			Msg: "Can't reach token messenger",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
-				TokenAddress:        usdcToken.Address,
-				TokenMessenger:      utils.RandomAddress(),
-			},
-			ErrStr: "failed to fetch local message transmitter from address",
-		},
-		{
-			Msg: "No error",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
-				TokenAddress:        usdcToken.Address,
-				TokenMessenger:      tokenMessenger.Address,
-			},
-			ErrStr: "",
+			ErrStr: "allowed caller does not match any existing 1.6 USDC token pools",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.Input.Validate(env.GetContext(), blockchain, state.Chains[blockchain.Selector])
-			if test.ErrStr != "" {
-				require.Contains(t, err.Error(), test.ErrStr)
-			} else {
-				require.NoError(t, err)
-			}
+			err := test.Input.Validate(env.GetContext(), chain, state.Chains[chain.Selector])
+			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
 }
 
-func TestDeployUSDCTokenPool(t *testing.T) {
+func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
+	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	addrBook := cldf.NewMemoryAddressBook()
 
 	newUSDCMsgProxies := make(map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput, len(selectors))
 	newUSDCTokenPools := make(map[uint64]v1_6.DeployUSDCTokenPoolInput, len(selectors))
 	for _, selector := range selectors {
-		blockchain := env.BlockChains.EVMChains()[selector]
-		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForDeploy(t, env.Logger, blockchain, addrBook)
+		usdcToken, tokenMessenger := setupCCTPMsgTransmitterProxyContractsForConfigure(t,
+			env.Logger,
+			env.BlockChains.EVMChains()[selector],
+			addrBook,
+		)
 
 		newUSDCMsgProxies[selector] = v1_6.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
@@ -351,16 +236,54 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(env)
+	startState, err := stateview.LoadOnchainState(env)
+	require.NoError(t, err)
+
+	newUSDCProxyCnfgs := make(map[uint64]v1_6.ConfigureCCTPMessageTransmitterProxyInput, len(selectors))
+	for _, selector := range selectors {
+		pools := startState.Chains[selector].USDCTokenPoolsV1_6
+		input := make([]v1_6.AllowedCallerUpdate, len(pools))
+
+		for i, pool := range slices.AppendSeq([]*usdc_token_pool.USDCTokenPool{}, maps.Values(pools)) {
+			input[i] = v1_6.AllowedCallerUpdate{
+				AllowedCaller: pool.Address(),
+				Enabled:       true,
+			}
+		}
+
+		newUSDCProxyCnfgs[selector] = v1_6.ConfigureCCTPMessageTransmitterProxyInput{
+			AllowedCallerUpdates: input,
+		}
+	}
+
+	env, err = commoncs.Apply(t, env,
+		commoncs.Configure(
+			v1_6.ConfigureCCTPMessageTransmitterProxy,
+			v1_6.ConfigureCCTPMessageTransmitterProxyContractConfig{
+				CCTPProxies: newUSDCProxyCnfgs,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	finalState, err := stateview.LoadOnchainState(env)
 	require.NoError(t, err)
 	for _, selector := range selectors {
-		usdcTokenPools := state.Chains[selector].USDCTokenPoolsV1_6
-		require.Len(t, usdcTokenPools, 1, selector)
+		proxies := finalState.Chains[selector].CCTPMessageTransmitterProxies
+		updates := newUSDCProxyCnfgs[selector].AllowedCallerUpdates
+		require.Len(t, proxies, 1)
 
-		owner, err := usdcTokenPools[deployment.Version1_6_0].Owner(nil)
+		expectedCallers := make([]common.Address, len(updates))
+		for i, cfg := range updates {
+			expectedCallers[i] = cfg.AllowedCaller
+		}
+
+		actualCallers, err := proxies[deployment.Version1_6_0].CCTPMessageTransmitterProxyCaller.GetAllowedCallers(nil)
 		require.NoError(t, err)
 
-		deployer := env.BlockChains.EVMChains()[selector].DeployerKey.From
-		require.Equal(t, deployer, owner)
+		require.ElementsMatch(t,
+			expectedCallers,
+			actualCallers,
+		)
 	}
 }
