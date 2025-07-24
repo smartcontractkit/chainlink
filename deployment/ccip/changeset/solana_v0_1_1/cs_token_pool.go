@@ -883,7 +883,15 @@ func getInstructionsForBurnMint(
 			ixns = append(ixns, ixConfigure)
 		} else {
 			// diff between [existing remote pool addresses on solana chain] vs [what was just derived from evm chain]
-			diff := poolDiff(remoteChainConfigAccount.Base.Remote.PoolAddresses, onChainEVMPoolConfig.PoolAddresses)
+			poolAddresses := remoteChainConfigAccount.Base.Remote.PoolAddresses
+			// translate to base
+			baseAddresses := make([]solBaseTokenPool.RemoteAddress, len(poolAddresses))
+			for i, cfg := range poolAddresses {
+				baseAddresses[i] = solBaseTokenPool.RemoteAddress{
+					Address: cfg.Address,
+				}
+			}
+			diff := poolDiff(baseAddresses, onChainEVMPoolConfig.PoolAddresses)
 			if len(diff) > 0 {
 				e.Logger.Infof("adding new pool addresses for chain %d", evmChainSelector)
 				ixAppend, err := solBurnMintTokenPool.NewAppendRemotePoolAddressesInstruction(
@@ -1072,8 +1080,16 @@ func getInstructionsForLockRelease(
 			}
 			ixns = append(ixns, ixConfigure)
 		} else {
+			poolAddresses := remoteChainConfigAccount.Base.Remote.PoolAddresses
+			// translate to base
+			baseAddresses := make([]solBaseTokenPool.RemoteAddress, len(poolAddresses))
+			for i, cfg := range poolAddresses {
+				baseAddresses[i] = solBaseTokenPool.RemoteAddress{
+					Address: cfg.Address,
+				}
+			}
 			// diff between [existing remote pool addresses on solana chain] vs [what was just derived from evm chain]
-			diff := poolDiff(remoteChainConfigAccount.Base.Remote.PoolAddresses, onChainEVMPoolConfig.PoolAddresses)
+			diff := poolDiff(baseAddresses, onChainEVMPoolConfig.PoolAddresses)
 			if len(diff) > 0 {
 				e.Logger.Infof("adding new pool addresses for chain %d", evmChainSelector)
 				ixAppend, err := solLockReleaseTokenPool.NewAppendRemotePoolAddressesInstruction(
