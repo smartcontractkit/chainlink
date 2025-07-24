@@ -16,7 +16,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-    "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -96,9 +96,9 @@ type Report struct {
 	// In meteringMode, no accounting wrt universal credits is required;
 	// only gathering resource types and spends from capabilities.
 	// note: meteringMode == true allows negative balances.
-	meteringMode bool
+	meteringMode    bool
 	meteringModeErr error
-	steps        map[string]ReportStep
+	steps           map[string]ReportStep
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -164,7 +164,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
 		WorkflowRegistryAddress:       r.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: selector,
-		Credits: 					   nil,
+		Credits:                       nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -466,6 +466,7 @@ func (r *Report) parseChainSelector() (uint64, error) {
 
 	return selector, nil
 }
+
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
 // provided info. Amount should be specified in universal credits and will be converted to spend type credits within
 // this function.

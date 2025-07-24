@@ -315,7 +315,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowOwner: e.workflow.owner,
-			ReferenceID:   step.Vertex.Ref,
+			ReferenceID:   step.Ref,
 		},
 		Config: stepConfig,
 	}
@@ -617,7 +617,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range step.Vertex.Dependencies {
+	for _, dr := range step.Dependencies {
 		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
@@ -1246,7 +1246,7 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID:    e.workflow.id,
 					WorkflowOwner: e.workflow.owner,
-					ReferenceID:   s.Vertex.Ref,
+					ReferenceID:   s.Ref,
 				},
 				Config: stepConfig,
 			}

@@ -2976,7 +2976,7 @@ targets:
 
 		// Verify that SubmitWorkflowReceipt is called with metering mode set to true.
 		mBillingClient.AssertCalled(t, "SubmitWorkflowReceipt", mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
-			return req != nil && req.Metering != nil && req.Metering.MeteringMode == true
+			return req != nil && req.Metering != nil && req.Metering.MeteringMode
 		}))
 	})
 
