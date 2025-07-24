@@ -224,6 +224,12 @@ flowchart LR
 	chainlink-evm --> chainlink-protos/svr
 	chainlink-evm --> chainlink-tron/relayer
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
+	chainlink-evm/pkg/bindings --> chainlink-common
+	chainlink-evm/pkg/bindings --> chainlink-evm/pkg/bindings/abigen
+	chainlink-evm/pkg/bindings --> cre-sdk-go/capabilities/blockchain/evm
+	click chainlink-evm/pkg/bindings href "https://github.com/smartcontractkit/chainlink-evm"
+	chainlink-evm/pkg/bindings/abigen
+	click chainlink-evm/pkg/bindings/abigen href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/capabilities --> chainlink-common
@@ -307,6 +313,8 @@ flowchart LR
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
+	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
+	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/networking/http --> cre-sdk-go
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/scheduler/cron --> cre-sdk-go
@@ -357,6 +365,13 @@ flowchart LR
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
+	subgraph chainlink-evm-repo[chainlink-evm]
+		 chainlink-evm
+		 chainlink-evm/pkg/bindings
+		 chainlink-evm/pkg/bindings/abigen
+	end
+	click chainlink-evm-repo href "https://github.com/smartcontractkit/chainlink-evm"
+
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/capabilities
 		 chainlink-framework/chains
@@ -390,6 +405,7 @@ flowchart LR
 
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
+		 cre-sdk-go/capabilities/blockchain/evm
 		 cre-sdk-go/capabilities/networking/http
 		 cre-sdk-go/capabilities/scheduler/cron
 	end
@@ -402,5 +418,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
 ```

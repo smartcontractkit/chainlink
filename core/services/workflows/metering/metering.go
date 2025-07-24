@@ -16,7 +16,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+    "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -49,17 +49,10 @@ var (
 )
 
 type BillingClient interface {
-<<<<<<< HEAD
-	GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetWorkflowExecutionRates(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
-	ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
-=======
 	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
 	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
 	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
 	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
->>>>>>> develop
 }
 
 type SpendTuple struct {
@@ -103,19 +96,14 @@ type Report struct {
 	// In meteringMode, no accounting wrt universal credits is required;
 	// only gathering resource types and spends from capabilities.
 	// note: meteringMode == true allows negative balances.
-<<<<<<< HEAD
 	meteringMode bool
+	meteringModeErr error
 	steps        map[string]ReportStep
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	workflowRegistryChainSelector string
-=======
-	meteringMode    bool
-	meteringModeErr error
-	steps           map[string]ReportStep
->>>>>>> develop
 }
 
 func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainSelector string) (*Report, error) {
@@ -171,18 +159,12 @@ func (r *Report) Reserve(ctx context.Context) error {
 	}
 
 	req := billing.ReserveCreditsRequest{
-<<<<<<< HEAD
 		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
 		WorkflowId:                    r.labels[platform.KeyWorkflowID],
 		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
 		WorkflowRegistryAddress:       r.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: selector,
-=======
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             nil,
->>>>>>> develop
+		Credits: 					   nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -205,20 +187,10 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-<<<<<<< HEAD
-	credits, err := decimal.NewFromString(resp.Credits)
-=======
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
 		r.switchToMeteringMode(err)
 
-		return nil
-	}
-
-	balanceStore, err := NewBalanceStore(credits, rateCard)
->>>>>>> develop
-	if err != nil {
-		r.switchToMeteringMode(err)
 		return nil
 	}
 
@@ -475,7 +447,6 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
 }
 
-<<<<<<< HEAD
 // parseChainSelector parses the workflow registry chain selector string and returns the chain selector ID.
 // If parsing fails, it logs a warning and switches to metering mode.
 func (r *Report) parseChainSelector() (uint64, error) {
@@ -494,7 +465,7 @@ func (r *Report) parseChainSelector() (uint64, error) {
 	}
 
 	return selector, nil
-=======
+}
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
 // provided info. Amount should be specified in universal credits and will be converted to spend type credits within
 // this function.
@@ -582,7 +553,6 @@ func (r *Report) getMaxSpendForInvocation(
 	}
 
 	return decimal.NewNullDecimal(spendLimit), nil
->>>>>>> develop
 }
 
 func (r *Report) switchToMeteringMode(err error) {

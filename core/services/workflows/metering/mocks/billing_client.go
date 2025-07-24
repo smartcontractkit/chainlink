@@ -84,15 +84,9 @@ func (_c *BillingClient_GetOrganizationCreditsByWorkflow_Call) RunAndReturn(run 
 	return _c
 }
 
-<<<<<<< HEAD
-// GetWorkflowExecutionRates provides a mock function with given fields: ctx, req
-func (_m *BillingClient) GetWorkflowExecutionRates(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
-	ret := _m.Called(ctx, req)
-=======
 // GetWorkflowExecutionRates provides a mock function with given fields: _a0, _a1
 func (_m *BillingClient) GetWorkflowExecutionRates(_a0 context.Context, _a1 *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
 	ret := _m.Called(_a0, _a1)
->>>>>>> develop
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetWorkflowExecutionRates")
@@ -101,17 +95,10 @@ func (_m *BillingClient) GetWorkflowExecutionRates(_a0 context.Context, _a1 *bil
 	var r0 *billing.GetWorkflowExecutionRatesResponse
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)); ok {
-<<<<<<< HEAD
-		return rf(ctx, req)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) *billing.GetWorkflowExecutionRatesResponse); ok {
-		r0 = rf(ctx, req)
-=======
 		return rf(_a0, _a1)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) *billing.GetWorkflowExecutionRatesResponse); ok {
 		r0 = rf(_a0, _a1)
->>>>>>> develop
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*billing.GetWorkflowExecutionRatesResponse)
@@ -119,11 +106,7 @@ func (_m *BillingClient) GetWorkflowExecutionRates(_a0 context.Context, _a1 *bil
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *billing.GetWorkflowExecutionRatesRequest) error); ok {
-<<<<<<< HEAD
-		r1 = rf(ctx, req)
-=======
 		r1 = rf(_a0, _a1)
->>>>>>> develop
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -137,15 +120,6 @@ type BillingClient_GetWorkflowExecutionRates_Call struct {
 }
 
 // GetWorkflowExecutionRates is a helper method to define mock.On call
-<<<<<<< HEAD
-//   - ctx context.Context
-//   - req *billing.GetWorkflowExecutionRatesRequest
-func (_e *BillingClient_Expecter) GetWorkflowExecutionRates(ctx interface{}, req interface{}) *BillingClient_GetWorkflowExecutionRates_Call {
-	return &BillingClient_GetWorkflowExecutionRates_Call{Call: _e.mock.On("GetWorkflowExecutionRates", ctx, req)}
-}
-
-func (_c *BillingClient_GetWorkflowExecutionRates_Call) Run(run func(ctx context.Context, req *billing.GetWorkflowExecutionRatesRequest)) *BillingClient_GetWorkflowExecutionRates_Call {
-=======
 //   - _a0 context.Context
 //   - _a1 *billing.GetWorkflowExecutionRatesRequest
 func (_e *BillingClient_Expecter) GetWorkflowExecutionRates(_a0 interface{}, _a1 interface{}) *BillingClient_GetWorkflowExecutionRates_Call {
@@ -153,7 +127,6 @@ func (_e *BillingClient_Expecter) GetWorkflowExecutionRates(_a0 interface{}, _a1
 }
 
 func (_c *BillingClient_GetWorkflowExecutionRates_Call) Run(run func(_a0 context.Context, _a1 *billing.GetWorkflowExecutionRatesRequest)) *BillingClient_GetWorkflowExecutionRates_Call {
->>>>>>> develop
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(*billing.GetWorkflowExecutionRatesRequest))
 	})
