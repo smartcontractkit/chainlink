@@ -59,7 +59,6 @@ func CreateBlockchains(
 
 			deployCribBlockchainInput := &cretypes.DeployCribBlockchainInput{
 				BlockchainInput: &bi.Input,
-				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
 				Namespace:       input.infra.CRIB.Namespace,
 			}

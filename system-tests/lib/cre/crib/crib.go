@@ -3,9 +3,7 @@ package crib
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
@@ -284,74 +281,6 @@ func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, 
 	tomlString := string(finalToml)
 	secretsString := string(secretsFileBytes)
 	return &tomlString, &secretsString, nil
-}
-
-//nolint:unused // for now we don't need to set capabilities (high complexity, low impact) we'll rely on plugins image which contains all required capabilities
-func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes []*types.NodeMetadata) error {
-	// validate capabilities-related configuration and copy capabilities to pods
-	podNamePattern := input.NodeSetInputs[donIndex].Name + `-\\d+`
-	_, regErr := regexp.Compile(podNamePattern)
-	if regErr != nil {
-		return errors.Wrapf(regErr, "failed to compile regex for pod name pattern %s", podNamePattern)
-	}
-
-	capabilitiesFound := map[string]int{}
-	capabilitiesDirs := []string{}
-	capabilitiesDirsFound := map[string]int{}
-
-	// make sure all worker nodes in DON have the same set of capabilities
-	// in the future we might want to allow different capabilities for different nodes
-	// but for now we require all worker nodes in the same DON to have the same capabilities
-	for _, nodeSpec := range input.NodeSetInputs[donIndex].NodeSpecs {
-		for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
-			capabilitiesFound[capabilityBinaryPath]++
-		}
-
-		if nodeSpec.Node.CapabilityContainerDir != "" {
-			capabilitiesDirs = append(capabilitiesDirs, nodeSpec.Node.CapabilityContainerDir)
-			capabilitiesDirsFound[nodeSpec.Node.CapabilityContainerDir]++
-		}
-	}
-
-	for capability, count := range capabilitiesFound {
-		// we only care about worker nodes, because bootstrap nodes cannot execute any workflows, so they don't need capabilities
-		if count != len(workerNodes) {
-			return fmt.Errorf("capability %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capabilities", capability, input.NodeSetInputs[donIndex].Name)
-		}
-	}
-
-	destinationDir, err := crecaps.DefaultContainerDirectory(libtypes.CRIB)
-	if err != nil {
-		return errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
-	}
-
-	// all of them need to use the same capabilities directory inside the container
-	if len(capabilitiesDirs) > 1 {
-		for capabilityDir, count := range capabilitiesDirsFound {
-			if count != len(workerNodes) {
-				return fmt.Errorf("the same capability container dir %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capability container dir", capabilityDir, input.NodeSetInputs[donIndex].Name)
-			}
-		}
-		destinationDir = capabilitiesDirs[0]
-	}
-
-	for capability := range capabilitiesFound {
-		absSource, pathErr := filepath.Abs(capability)
-		if pathErr != nil {
-			return errors.Wrapf(pathErr, "failed to get absolute path to capability %s", capability)
-		}
-		// ensure +x chmod in capability binary before copying to pods
-		err := os.Chmod(capability, 0755)
-		if err != nil {
-			return errors.Wrapf(err, "failed to chmod capability %s", capability)
-		}
-		destination := filepath.Join(destinationDir, filepath.Base(capability))
-		_, copyErr := input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
-		if copyErr != nil {
-			return errors.Wrap(copyErr, "failed to copy capability to pods")
-		}
-	}
-	return nil
 }
 
 func imageNameAndTag(input *types.DeployCribDonsInput, j int) (string, string, error) {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -504,10 +503,8 @@ type FullCLDEnvironmentOutput struct {
 }
 
 type DeployCribDonsInput struct {
-	Topology      *Topology
-	NodeSetInputs []*CapabilitiesAwareNodeSet
-	// todo cleanup this
-	NixShell       *nix.Shell
+	Topology       *Topology
+	NodeSetInputs  []*CapabilitiesAwareNodeSet
 	CribConfigsDir string
 	Namespace      string
 }
@@ -519,9 +516,6 @@ func (d *DeployCribDonsInput) Validate() error {
 	if len(d.Topology.DonsMetadata) == 0 {
 		return errors.New("metadata not set")
 	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
-	}
 	if len(d.NodeSetInputs) == 0 {
 		return errors.New("node set inputs not set")
 	}
@@ -532,9 +526,7 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput *jd.Input
-	// todo:  cleanup this
-	NixShell       *nix.Shell
+	JDInput        *jd.Input
 	CribConfigsDir string
 	Namespace      string
 }
@@ -542,9 +534,6 @@ type DeployCribJdInput struct {
 func (d *DeployCribJdInput) Validate() error {
 	if d.JDInput == nil {
 		return errors.New("jd input not set")
-	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
 	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
@@ -554,18 +543,13 @@ func (d *DeployCribJdInput) Validate() error {
 
 type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
-	// todo:  cleanup this
-	NixShell       *nix.Shell
-	CribConfigsDir string
-	Namespace      string
+	CribConfigsDir  string
+	Namespace       string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
 	if d.BlockchainInput == nil {
 		return errors.New("blockchain input not set")
-	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
 	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")

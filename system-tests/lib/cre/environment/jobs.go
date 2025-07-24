@@ -27,7 +27,6 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 	if infraInput.InfraType == libtypes.CRIB {
 		deployCribJdInput := &cretypes.DeployCribJdInput{
 			JDInput:        &jdInput,
-			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}

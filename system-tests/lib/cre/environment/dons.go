@@ -24,7 +24,6 @@ func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cretypes.Topo
 		deployCribDonsInput := &cretypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
