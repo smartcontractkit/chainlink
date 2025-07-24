@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	mapset "github.com/deckarep/golang-set/v2"
 	"math/rand"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/AlekSi/pointer"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
@@ -19,6 +17,7 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
