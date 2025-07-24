@@ -84,8 +84,13 @@ func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		if err != nil {
 			return fmt.Errorf("failed to get selector family for destination chain selector %d: %w", destSelector, err)
 		}
-		if fam == chain_selectors.FamilySolana && update.MintRecipient.IsZero() {
-			return fmt.Errorf("mint recipient must be defined for Solana destination chain selector %d", destSelector)
+		if fam == chain_selectors.FamilySolana {
+			if update.MintRecipient.IsZero() {
+				return fmt.Errorf("mint recipient must be defined for Solana destination chain selector %d", destSelector)
+			}
+			if update.AllowedCaller.IsZero() {
+				return fmt.Errorf("allowed caller must be defined for Solana destination chain selector %d", destSelector)
+			}
 		}
 
 		// TODO: Other validations? Domain's are defined in chainlink-deployments so they can't be verified here...
