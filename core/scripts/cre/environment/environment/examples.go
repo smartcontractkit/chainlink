@@ -64,13 +64,17 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 
 			return fmt.Errorf("example workflow failed to execute successfully within %s", waitTime)
 		case <-time.Tick(ticker):
-			triggerErr := trigger.WebAPITriggerValue(gatewayURL, "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x9A99f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE", privateKey, 5*time.Minute)
+			triggerErr := trigger.WebAPITriggerValue(
+				gatewayURL,
+				privateKey,
+				5*time.Minute,
+			)
 			if triggerErr == nil {
 				verifyTime := 25 * time.Second
 				verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), feedID, true, verifyTime)
 				if verifyErr == nil {
 					if isBlockscoutRunning(cmdContext) {
-						fmt.Print(libformat.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
+						fmt.Print(libformat.PurpleText("Open http://localhost/address/%s?tab=internal_txns to check consumer contract's transaction history\n"), consumerContractAddress.Hex())
 					}
 
 					return nil
@@ -93,7 +97,7 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, privateKey 
 	}
 
 	if isBlockscoutRunning(cmdContext) {
-		fmt.Print(libformat.PurpleText("Open http://localhost/address/0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE?tab=internal_txns to check consumer contract's transaction history\n"))
+		fmt.Print(libformat.PurpleText("Open http://localhost/address/%s?tab=internal_txns to check consumer contract's transaction history\n", consumerContractAddress.Hex()))
 	}
 
 	return nil
@@ -104,6 +108,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	start := time.Now()
 
 	if os.Getenv("PRIVATE_KEY") == "" {
+		// use Anvil developer key if none is set
 		pkSetErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 		if pkSetErr != nil {
 			return errors.Wrap(pkSetErr, "failed to set PRIVATE_KEY environment variable")
