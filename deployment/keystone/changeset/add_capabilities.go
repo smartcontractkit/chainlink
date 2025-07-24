@@ -63,7 +63,7 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			continue
 		}
 		matches := writeCapNameRegex.FindStringSubmatch(c.LabelledName)
-		if matches == nil || len(matches) < 2 {
+		if len(matches) < 2 {
 			capNameErr = errors.Join(ErrInvalidWriteCapName, capNameErr)
 			continue
 		}
