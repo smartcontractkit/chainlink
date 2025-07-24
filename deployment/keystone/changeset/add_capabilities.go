@@ -3,8 +3,8 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
-	"strings"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
@@ -20,15 +20,17 @@ import (
 )
 
 const (
-	CapabilityTypeTarget           = uint8(3) // See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
-	CapabilityTypeTargetNamePrefix = "write_"
+	CapabilityTypeTarget            = uint8(3) // See: https://github.com/smartcontractkit/chainlink/blob/3684365e78ef911d7668e724aa782d3b3f3e8801/deployment/keystone/changeset/internal/capability_definitions.go#L15
+	CapabilityTypeTargetNamePrefix1 = "write_"
+	CapabilityTypeTargetNamePrefix2 = "write-"
 )
 
 var (
 	ErrEmptyWriteCapName         = errors.New("capability labelled name must not be empty")
-	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with " + CapabilityTypeTargetNamePrefix)
-	ErrEmptyTrimmedWriteCapName  = errors.New("capability labelled name must not be empty after removing prefix " + CapabilityTypeTargetNamePrefix)
+	ErrInvalidWriteCapName       = errors.New("capability labelled name must start with 'write_' or 'write-' and contain a valid chain name or chain ID")
 	ErrInvalidWriteCapNameFormat = errors.New("capability labelled name is not a valid chain name or chain ID")
+
+	writeCapNameRegex = regexp.MustCompile(`^write[_-](.+)$`)
 )
 
 // AddCapabilitiesRequest is a request to add capabilities
@@ -60,15 +62,12 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 			capNameErr = errors.Join(ErrEmptyWriteCapName, capNameErr)
 			continue
 		}
-		if !strings.HasPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix) {
+		matches := writeCapNameRegex.FindStringSubmatch(c.LabelledName)
+		if matches == nil || len(matches) < 2 {
 			capNameErr = errors.Join(ErrInvalidWriteCapName, capNameErr)
 			continue
 		}
-		extracted := strings.TrimPrefix(c.LabelledName, CapabilityTypeTargetNamePrefix)
-		if extracted == "" {
-			capNameErr = errors.Join(ErrEmptyTrimmedWriteCapName, capNameErr)
-			continue
-		}
+		extracted := matches[1]
 		_, err := chainselectors.ChainIdFromName(extracted)
 		if err != nil {
 			// Validate if the extracted value is the chain ID instead, since the labelled name can contain

@@ -88,7 +88,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 		expectedError error
 	}{
 		{
-			name: "valid request with chain ID on capability name",
+			name: "valid request with chain ID on capability name and `writer_` prefix",
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				chainID, err := chainselectors.GetChainIDFromSelector(chainselectors.TEST_90000001.Selector)
 				if err != nil {
@@ -96,7 +96,22 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 				}
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix, chainID), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix1, chainID), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
+					RegistryRef:      te.CapabilityRegistryAddressRef(),
+				}, nil
+			},
+			expectedError: nil,
+		},
+		{
+			name: "valid request with chain ID on capability name and `writer-` prefix",
+			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
+				chainID, err := chainselectors.GetChainIDFromSelector(chainselectors.TEST_90000001.Selector)
+				if err != nil {
+					return nil, err
+				}
+				return &changeset.AddCapabilitiesRequest{
+					RegistryChainSel: te.RegistrySelector,
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix2, chainID), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
@@ -110,7 +125,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 		//		chain := te.Env.BlockChains.EVMChains()[chainselectors.TEST_90000001.Selector]
 		//		return &changeset.AddCapabilitiesRequest{
 		//			RegistryChainSel: te.RegistrySelector,
-		//			Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix, chain.Name()), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
+		//			Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix1, chain.Name()), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
 		//			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		//		}, nil
 		//	},
@@ -132,11 +147,11 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix, Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix1, Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
-			expectedError: changeset.ErrEmptyTrimmedWriteCapName,
+			expectedError: changeset.ErrInvalidWriteCapName,
 		},
 		{
 			name: "missing prefix on capability name",
@@ -154,7 +169,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix + "test-cap", Version: "1.0.0", CapabilityType: 3}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix1 + "test-cap", Version: "1.0.0", CapabilityType: 3}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
@@ -165,7 +180,7 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
 				return &changeset.AddCapabilitiesRequest{
 					RegistryChainSel: te.RegistrySelector,
-					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix + "12345", Version: "1.0.0", CapabilityType: 3}},
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix1 + "12345", Version: "1.0.0", CapabilityType: 3}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
