@@ -3,11 +3,10 @@ package solana
 import (
 	"context"
 	"fmt"
-	"math"
-	"strconv"
-
 	"github.com/gagliardetto/solana-go"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"math"
+	"strconv"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"

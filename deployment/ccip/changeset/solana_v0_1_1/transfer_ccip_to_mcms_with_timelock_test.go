@@ -2,6 +2,7 @@ package solana_test
 
 import (
 	"context"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"math/big"
 	"testing"
 	"time"
@@ -33,7 +34,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -287,8 +287,8 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	bnm := test_token_pool.BurnAndMint_PoolType
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
+			cldf.CreateLegacyChangeSet(solanachangesets.InitGlobalConfigTokenPoolProgram),
+			solanachangesets.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressLockRelease,
 				PoolType:      &lnr,
@@ -296,8 +296,8 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
+			cldf.CreateLegacyChangeSet(solanachangesets.InitGlobalConfigTokenPoolProgram),
+			solanachangesets.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressBurnMint,
 				PoolType:      &bnm,

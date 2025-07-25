@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"fmt"
-
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"

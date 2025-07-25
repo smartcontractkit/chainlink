@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	solBinary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go/rpc"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -1039,7 +1038,7 @@ func generateCloseBufferIxn(
 
 // HELPER FUNCTIONS
 func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (int, error) {
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
 		Commitment: cldf_solana.SolDefaultCommitment,
 	})
 	if err != nil {
