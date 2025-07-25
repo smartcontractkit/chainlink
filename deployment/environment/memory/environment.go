@@ -73,8 +73,8 @@ func NewMemoryChainsEVMWithChainIDs(
 	return generateChainsEVMWithIDs(t, chainIDs, numUsers)
 }
 
-func NewMemoryChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
-	return generateChainsSol(t, numChains)
+func NewMemoryChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {
+	return generateChainsSol(t, numChains, commitSha)
 }
 
 func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
@@ -168,7 +168,7 @@ func NewMemoryEnvironment(
 	config MemoryEnvironmentConfig,
 ) cldf.Environment {
 	evmChains := NewMemoryChainsEVM(t, config.Chains, config.NumOfUsersPerChain)
-	solChains := NewMemoryChainsSol(t, config.SolChains)
+	solChains := NewMemoryChainsSol(t, config.SolChains, "")
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
 	tonChains := NewMemoryChainsTon(t, config.TonChains)

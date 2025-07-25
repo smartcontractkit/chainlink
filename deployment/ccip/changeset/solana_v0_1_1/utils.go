@@ -21,6 +21,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
+type CCIPSolanaContractVersion string
+
+const (
+	SolanaContractV0_1_0 CCIPSolanaContractVersion = "v0.1.0"
+	SolanaContractV0_1_1 CCIPSolanaContractVersion = "v0.1.1"
+)
+
+var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
+	SolanaContractV0_1_0: "0ee732e80586",
+	SolanaContractV0_1_1: "ee587a6c0562",
+}
+
 func ValidateMCMSConfigSolana(
 	e cldf.Environment,
 	mcms *proposalutils.TimelockConfig,

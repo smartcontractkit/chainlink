@@ -35,8 +35,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "cb02e90f9d6d1dd65f534c60a77bb1e3384a42cb"
-	NewSha = "ee587a6c056204009310019b790ed6d474825316"
+	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
+	ShaV0_1_1 = "ee587a6c056204009310019b790ed6d474825316"
 )
 
 func verifyProgramSizes(t *testing.T, e cldf.Environment) {
@@ -187,7 +187,7 @@ func TestUpgrade(t *testing.T) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   OldSha,
+			GitCommitSha:   ShaV0_1_0,
 			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
@@ -267,7 +267,7 @@ func TestUpgrade(t *testing.T) {
 				},
 				// build the contracts for upgrades
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					GitCommitSha:   NewSha,
+					GitCommitSha:   ShaV0_1_1,
 					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally:        true,
@@ -322,7 +322,7 @@ func TestUpgrade(t *testing.T) {
 					},
 				},
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					GitCommitSha:   NewSha,
+					GitCommitSha:   ShaV0_1_1,
 					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,

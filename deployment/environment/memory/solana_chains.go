@@ -29,7 +29,7 @@ import (
 
 var (
 	// Instead of a relative path, use runtime.Caller or go-bindata
-	programsPath = getProgramsPath()
+	ProgramsPath = getProgramsPath()
 )
 
 func getProgramsPath() string {
@@ -101,11 +101,11 @@ func FundSolanaAccounts(
 	return nil
 }
 
-func generateChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
+func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {
 	t.Helper()
 
 	once.Do(func() {
-		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), programsPath, logger.Test(t), "")
+		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), commitSha)
 		require.NoError(t, err)
 	})
 
@@ -122,7 +122,7 @@ func generateChainsSol(t *testing.T, numChains int) []cldf_chain.BlockChain {
 			cldf_solana_provider.CTFChainProviderConfig{
 				Once:                         once,
 				DeployerKeyGen:               cldf_solana_provider.PrivateKeyRandom(),
-				ProgramsPath:                 programsPath,
+				ProgramsPath:                 ProgramsPath,
 				ProgramIDs:                   SolanaProgramIDs,
 				WaitDelayAfterContainerStart: 15 * time.Second, // we have slot errors that force retries if the chain is not given enough time to boot
 			},
