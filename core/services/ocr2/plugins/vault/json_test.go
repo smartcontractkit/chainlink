@@ -1,0 +1,36 @@
+package vault
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
+)
+
+func TestToCanonicalJSON(t *testing.T) {
+	testData, err := structpb.NewValue(map[string]any{
+		"field1": "value1",
+		"field2": 42,
+	})
+	require.NoError(t, err)
+
+	canonicalJSON, err := ToCanonicalJSON(testData)
+	require.NoError(t, err)
+
+	expectedJSON := `{"field1":"value1","field2":42}`
+	assert.Equal(t, expectedJSON, string(canonicalJSON))
+
+	// same data, different order
+	testData, err = structpb.NewValue(map[string]any{
+		"field2": 42,
+		"field1": "value1",
+	})
+	require.NoError(t, err)
+
+	canonicalJSON, err = ToCanonicalJSON(testData)
+	require.NoError(t, err)
+
+	expectedJSON = `{"field1":"value1","field2":42}`
+	assert.Equal(t, expectedJSON, string(canonicalJSON))
+}

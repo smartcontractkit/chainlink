@@ -39,6 +39,10 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		return fmt.Errorf("request with ID %s not found", info.Id)
 	}
 
+	// Convert the sequence number to the epoch + round number.
+	// We convert as follows:
+	// - epoch = seqNr
+	// - round number = 0
 	seqToEpoch := make([]byte, 32)
 	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], uint32(seqNr))
 	zeros := make([]byte, 32)

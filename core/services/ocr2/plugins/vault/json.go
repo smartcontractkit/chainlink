@@ -8,6 +8,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ToCanonicalJSON converts a protobuf message to a stable, deterministic
+// representation, including consistent sorting of keys and fields, and
+// consistent spacing.
 func ToCanonicalJSON(msg proto.Message) ([]byte, error) {
 	jsonb, err := protojson.MarshalOptions{
 		UseProtoNames:   false,
