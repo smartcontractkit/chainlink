@@ -10,9 +10,9 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -46,7 +46,7 @@ func Test_Simple_EVMEncoder(t *testing.T) {
 		EncodedPayload: []byte("test_observation_value"),
 		EncoderName:    "evm",
 	}
-	fakeConsensusNoDAG := NewFakeConsensusNoDAG(signers, logger.TestLogger(t))
+	fakeConsensusNoDAG := NewFakeConsensusNoDAG(signers, logger.Test(t))
 	outputs, err := fakeConsensusNoDAG.Report(t.Context(), metadata, input)
 
 	require.NoError(t, err)

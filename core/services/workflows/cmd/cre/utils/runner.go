@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
@@ -49,7 +49,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 
 	srvcs := []services.Service{}
 	if cfg.EnableBilling {
-		bs := NewBillingService(cfg.Lggr.Named("Fake_Billing_Client"))
+		bs := NewBillingService(logger.Named(cfg.Lggr, "Fake_Billing_Client"))
 		err := bs.Start(ctx)
 		if err != nil {
 			fmt.Printf("Failed to start billing service: %v\n", err)
@@ -92,7 +92,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	}
 
 	if cfg.EnableBeholder {
-		_ = SetupBeholder(cfg.Lggr.Named("Fake_Stdlog_Beholder"))
+		_ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
 	}
 
 	return registry, srvcs
