@@ -13,13 +13,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
 
@@ -34,8 +33,7 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) {
 	ctx := t.Context()
 
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.InfoLevel)
+	lggr := logger.Test(t)
 
 	workflowDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Workflow", NumNodes: 7, F: 2, AcceptsWorkflows: true})
 	require.NoError(t, err)

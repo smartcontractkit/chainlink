@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -23,7 +24,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -245,7 +245,7 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlying commoncap.ExecutableCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
 	method func(ctx context.Context, caller commoncap.ExecutableCapability), waitForExecuteCalls bool) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -344,7 +344,7 @@ func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMes
 	b.Service, b.eng = services.Config{
 		Name:  "testAsyncMessageBroker",
 		Start: b.start,
-	}.NewServiceEngine(logger.TestLogger(t))
+	}.NewServiceEngine(logger.Test(t))
 	return b
 }
 

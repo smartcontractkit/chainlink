@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
@@ -74,7 +74,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 func TestLauncher(t *testing.T) {
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -204,7 +204,7 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_trigger_capability", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -313,7 +313,7 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -448,7 +448,7 @@ func newTriggerEventMsg(t *testing.T,
 
 func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -658,7 +658,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -768,7 +768,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -937,7 +937,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -1099,7 +1099,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 }
 
 func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -1162,7 +1162,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 }
 
 func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
