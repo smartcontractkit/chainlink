@@ -83,7 +83,8 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					solanaAddrs = append(solanaAddrs, pk)
 				}
 
-				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFunds, chain.Client, lggr)
+				//err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFunds, chain.Client, lggr)
+				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFunds, chain.Client)
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
@@ -92,6 +93,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					res, err := chain.Client.GetBalance(env.GetContext(), addr, rpc.CommitmentFinalized)
 					if err != nil {
 						lggr.Errorw("failed to fetch transmitter balance", "transmitter", addr, "err", err)
+						return err
 					} else if res != nil {
 						lggr.Infow("got balance for transmitter", "transmitter", addr, "balance", res.Value)
 					}
