@@ -9,57 +9,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
-
-func ReadBlockchainURL(cribConfigsDir, chainType, chainID string) (*blockchain.Output, error) {
-	fileName := filepath.Join(cribConfigsDir, fmt.Sprintf("chain-%s-urls.json", chainID))
-	chainURLs := types.ChainURLs{}
-	err := readAndUnmarshalJSON(fileName, &chainURLs)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read and unmarshal chain URLs JSON")
-	}
-
-	out := &blockchain.Output{}
-	out.UseCache = true
-	out.ChainID = chainID
-	out.Family = chainType
-	out.Nodes = []*blockchain.Node{
-		{
-			ExternalWSUrl:   chainURLs.WSExternalURL,
-			ExternalHTTPUrl: chainURLs.HTTPExternalURL,
-			InternalWSUrl:   chainURLs.WSInternalURL,
-			InternalHTTPUrl: chainURLs.HTTPInternalURL,
-		},
-	}
-
-	return out, nil
-}
-
-func ReadJdURL(cribConfigsDir string) (*jd.Output, error) {
-	fileName := filepath.Join(cribConfigsDir, "jd-urls.json")
-
-	jdURLs := types.JdURLs{}
-	err := readAndUnmarshalJSON(fileName, &jdURLs)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read and unmarshal JD URLs JSON")
-	}
-
-	out := &jd.Output{}
-	out.UseCache = true
-	out.ExternalGRPCUrl = jdURLs.GRPCExternalURL
-	out.ExternalWSRPCUrl = jdURLs.WSExternalURL
-	out.InternalGRPCUrl = jdURLs.GRCPInternalURL
-	out.InternalWSRPCUrl = jdURLs.WSInternalURL
-
-	return out, nil
-}
 
 func ReadNodeSetURL(cribConfigsDir string, donMetadata *cretypes.DonMetadata) (*ns.Output, error) {
 	// read DON URLs

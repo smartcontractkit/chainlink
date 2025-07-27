@@ -1152,6 +1152,7 @@ func (d *Delegate) newServicesLLO(
 		llotypes.ReportFormatEVMPremiumLegacy,
 		llotypes.ReportFormatRetirement,
 		llotypes.ReportFormatEVMABIEncodeUnpacked,
+		llotypes.ReportFormatEVMABIEncodeUnpackedExpr,
 		llotypes.ReportFormatCapabilityTrigger,
 		llotypes.ReportFormatEVMStreamlined,
 	}

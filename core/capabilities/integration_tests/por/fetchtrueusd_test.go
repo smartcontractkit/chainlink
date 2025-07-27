@@ -14,11 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -29,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -57,8 +55,7 @@ type fetchTrueUSDConfig struct {
 func Test_FetchTrueUSDWorkflow(t *testing.T) {
 	ctx := t.Context()
 
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.InfoLevel)
+	lggr := logger.Test(t)
 
 	fetchTrueUSDPath, err := filepath.Abs("./workflows/fetchtrueusd")
 	require.NoError(t, err)
@@ -68,7 +65,7 @@ func Test_FetchTrueUSDWorkflow(t *testing.T) {
 	framework.CreateWasmBinary(t, mainFile, wasmFile)
 
 	triggerSink := framework.NewTriggerSink(t, "cron-trigger", "1.0.0")
-	dataFeedsCacheContract, thenCallback := setupDons(ctx, t, lggr, wasmFile, "*/5 * * * * *", "*/4 * * * * *", triggerSink)
+	dataFeedsCacheContract, thenCallback := setupDons(ctx, t, logger.Sugared(lggr), wasmFile, "*/5 * * * * *", "*/4 * * * * *", triggerSink)
 
 	bundleReceived := make(chan *data_feeds_cache.DataFeedsCacheBundleReportUpdated, 1000)
 	bundleSub, err := dataFeedsCacheContract.WatchBundleReportUpdated(&bind.WatchOpts{}, bundleReceived, nil, nil)
@@ -157,7 +154,7 @@ func generateRandomReservesResponse() string {
 
 type ComputeFetcherFactory struct{}
 
-func (n ComputeFetcherFactory) NewFetcher(log commonlogger.Logger, emitter custmsg.MessageEmitter) compute.FetcherFn {
+func (n ComputeFetcherFactory) NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) compute.FetcherFn {
 	return func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error) {
 		if req.URL == "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD" {
 			return &host.FetchResponse{

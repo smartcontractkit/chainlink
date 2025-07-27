@@ -15,30 +15,24 @@ import (
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func StartDONs(
-	lggr zerolog.Logger,
-	nixShell *nix.Shell,
-	topology *cretypes.Topology,
-	infraType libtypes.InfraType,
-	registryChainBlockchainOutput *blockchain.Output,
-	capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet,
-) ([]*cretypes.WrappedNodeOutput, error) {
+func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cretypes.Topology, infraInput libtypes.InfraInput, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet) ([]*cretypes.WrappedNodeOutput, error) {
 	startTime := time.Now()
 	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
 
-	if infraType == libtypes.CRIB {
+	if infraInput.InfraType == libtypes.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
 		deployCribDonsInput := &cretypes.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
+			Namespace:      infraInput.CRIB.Namespace,
 		}
 
 		var devspaceErr error
 		capabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		if devspaceErr != nil {
-			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
+			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
 	}
 

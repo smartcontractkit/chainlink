@@ -501,7 +501,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -564,7 +564,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		ratios, _ := values.NewMap(map[string]any{
 			metering.RatiosKey: map[string]string{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				billing.ResourceType_RESOURCE_TYPE_NETWORK.String(): "0.6",
 			},
 		})
 
@@ -581,7 +581,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -602,7 +602,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 						},
 						{
 							Peer2PeerID: "local",
-							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_NETWORK.String(),
 							SpendValue:  "1000",
 						},
 					},
@@ -739,7 +739,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		ratios, _ := values.NewMap(map[string]any{
 			metering.RatiosKey: map[string]string{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				billing.ResourceType_RESOURCE_TYPE_NETWORK.String(): "0.6",
 			},
 		})
 
@@ -756,7 +756,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -778,7 +778,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 						},
 						{
 							Peer2PeerID: "local",
-							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_NETWORK.String(),
 							SpendValue:  "1000",
 						},
 					},
@@ -1301,19 +1301,19 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		})).
 		Return(&billing.ReserveCreditsResponse{
 			Success: true,
-			Entries: []*billing.RateCardEntry{
+			RateCards: []*billing.RateCard{
 				{
 					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 					UnitsPerCredit:  "0.0001",
 				},
 				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_GAS,
+					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
 					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
 					UnitsPerCredit:  "0.01",
 				},
 			},
-			Credits: 10000,
+			Credits: "10000",
 		}, nil).Maybe()
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
