@@ -19,6 +19,7 @@ import (
 )
 
 func TestGenericOpsWithMcms(t *testing.T) {
+	skipInCI(t) // takes too long in CI
 	doTestGenericOps(t, true)
 }
 
