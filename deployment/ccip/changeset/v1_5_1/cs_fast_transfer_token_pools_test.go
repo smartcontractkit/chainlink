@@ -1108,7 +1108,7 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 				require.NoError(t, err)
 
 				expectedDestPoolPadded := common.LeftPadBytes(expectedDestPool.Address().Bytes(), 32)
-				require.Equal(t, expectedDestPoolPadded, result.DestinationPool[:])
+				require.Equal(t, expectedDestPoolPadded, result.DestinationPool)
 			}
 		})
 	}
