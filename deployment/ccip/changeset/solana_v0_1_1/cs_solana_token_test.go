@@ -28,7 +28,6 @@ import (
 )
 
 func TestSolanaTokenOps(t *testing.T) {
-
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
