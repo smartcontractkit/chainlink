@@ -14,13 +14,13 @@ import (
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -40,6 +40,10 @@ const (
 	defaultName                      = "myworkflow"
 )
 
+var (
+	defaultTimeout = 10 * time.Minute
+)
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -55,6 +59,7 @@ func NewStandaloneEngine(
 		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
+		Timeout:                 &defaultTimeout,
 	}
 
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())

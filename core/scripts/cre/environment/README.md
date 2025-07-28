@@ -33,6 +33,10 @@ The CLI manages CRE test environments. It is located in `core/scripts/cre/enviro
 >  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
 
 
+## Prerequisites For CRIB ###
+1. telepresence installed: `brew install telepresenceio/telepresence/telepresence-oss`
+2. Telepresence will update the /etc/resolver configs and will require to enter sudo password the first time you run it
+
 # QUICKSTART
 ```
 # e.g. AWS_ECR=<PROD_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com

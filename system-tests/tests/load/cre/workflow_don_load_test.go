@@ -49,6 +49,7 @@ import (
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -592,17 +593,23 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	payload, err := event.ToMap()
+	outputs, err := event.ToMap()
 	if err != nil {
 		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	payloadBytes, err := mock_capability.MapToBytes(payload)
+	outputsBytes, err := mock_capability.MapToBytes(outputs)
 	if err != nil {
 		return &wasp.Response{Failed: true, Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(context.Background(), s.triggerID, eventID, payloadBytes)
+	message := pb.SendTriggerEventRequest{
+		TriggerID: s.triggerID,
+		ID:        eventID,
+		Outputs:   outputsBytes,
+	}
+
+	err = s.capProxy.SendTrigger(context.Background(), &message)
 	if err != nil {
 		framework.L.Error().Msgf("error sending trigger: %s", err.Error())
 		return &wasp.Response{Failed: true, Error: err.Error()}

@@ -17,14 +17,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestIntegration_Launcher(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	uni := it.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap
 	var arr []int64
@@ -52,7 +52,7 @@ func TestIntegration_Launcher(t *testing.T) {
 	launcher := New(
 		it.CapabilityID,
 		p2pIDs[0],
-		logger.TestLogger(t),
+		logger.Test(t),
 		uni.HomeChainReader,
 		1*time.Second,
 		oracleCreator,

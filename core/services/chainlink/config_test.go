@@ -709,6 +709,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
 					PersistenceEnabled:      ptr(false),
+					PersistenceBatchSize:    ptr[int64](100),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -1213,6 +1214,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

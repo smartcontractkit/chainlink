@@ -198,9 +198,9 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 				bt.ResponseError = new(string)
 				*bt.ResponseError = err.Error()
 			}
-			if t.StreamID.Valid {
-				bt.StreamID = &t.StreamID.Uint32
-			}
+
+			bt.resolveStreamID(t, vars, lggr)
+
 			select {
 			case telemetryCh <- bt:
 			default:
@@ -287,6 +287,22 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"cached", cachedResponse,
 	)
 	return result, runInfo
+}
+
+func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger.Logger) {
+	if t.StreamID.Valid {
+		bt.StreamID = &t.StreamID.Uint32
+	} else {
+		if streamID, sErr := vars.Get("jb.streamID"); sErr == nil {
+			if streamIDptr, ok := streamID.(*uint32); !ok {
+				lggr.Debugw("Bridge task: streamID from vars is not a *uint32", "streamID", streamID)
+			} else {
+				bt.StreamID = streamIDptr
+			}
+		} else {
+			lggr.Debugw("Bridge task: failed to get streamID from vars", "err", sErr)
+		}
+	}
 }
 
 func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {

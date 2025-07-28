@@ -407,6 +407,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
+	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 	if cfg.EVMEnabled() {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)

@@ -42,13 +42,14 @@ var (
 	ErrReportExists          = errors.New("report already exists")
 	ErrRatiosAndTypesNoMatch = errors.New("spending types and ratios do not match")
 	ErrInvalidRatios         = errors.New("invalid spending type ratios")
+	ErrDeductOptionRequired  = errors.New("deduct option required")
 )
 
 type BillingClient interface {
-	GetOrganizationCreditsByWorkflow(ctx context.Context, req *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error)
-	ReserveCredits(ctx context.Context, req *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SubmitWorkflowReceipt(ctx context.Context, req *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
+	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
+	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
+	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
 }
 
 type SpendTuple struct {
@@ -92,8 +93,9 @@ type Report struct {
 	// In meteringMode, no accounting wrt universal credits is required;
 	// only gathering resource types and spends from capabilities.
 	// note: meteringMode == true allows negative balances.
-	meteringMode bool
-	steps        map[string]ReportStep
+	meteringMode    bool
+	meteringModeErr error
+	steps           map[string]ReportStep
 }
 
 func NewReport(
@@ -149,7 +151,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
 		WorkflowId:          r.labels[platform.KeyWorkflowID],
 		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             0,
+		Credits:             nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -165,14 +167,21 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetEntries())
+	rateCard, err := toRateCard(resp.GetRateCards())
 	if err != nil {
 		r.switchToMeteringMode(err)
 
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(decimal.NewFromFloat32(resp.Credits), rateCard)
+	credits, err := decimal.NewFromString(resp.GetCredits())
+	if err != nil {
+		r.switchToMeteringMode(err)
+
+		return nil
+	}
+
+	balanceStore, err := NewBalanceStore(credits, rateCard)
 	if err != nil {
 		r.switchToMeteringMode(err)
 
@@ -185,141 +194,90 @@ func (r *Report) Reserve(ctx context.Context) error {
 	return nil
 }
 
-// ConvertToBalance converts a resource dimensions amount to a credit amount.
-func (r *Report) ConvertToBalance(fromUnit string, amount decimal.Decimal) (decimal.Decimal, error) {
-	if !r.ready {
-		return decimal.Zero, ErrNoReserve
-	}
+// DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
+// in the v2 engine mucked up the metering interface and the Deduct input params. This approach allows specific behavior
+// based on the desired deduct operation.
+type DeductOpt func(string, *Report) ([]capabilities.SpendLimit, error)
 
-	bal, err := r.balance.ConvertToBalance(fromUnit, amount)
-	if err != nil {
-		// Fail open, continue optimistically
-		r.switchToMeteringMode(fmt.Errorf("failed to convert to balance [%s]: %w", fromUnit, err))
-	}
+// ByResource returns a DeductOpt that earmarks a specified amount of local universal credit balance for a given spend
+// type.
+func ByResource(
+	spendType string,
+	amount decimal.Decimal,
+) func(string, *Report) ([]capabilities.SpendLimit, error) {
+	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
+		bal, err := r.balance.ConvertToBalance(spendType, amount)
+		if err != nil {
+			// Fail open, continue optimistically
+			r.switchToMeteringMode(fmt.Errorf("failed to convert to balance [%s]: %w", spendType, err))
+		}
 
-	return bal, nil
+		r.steps[ref] = ReportStep{
+			Deduction: bal,
+			Spends:    nil,
+		}
+
+		// if in metering mode, exit early without modifying local balance
+		if r.meteringMode {
+			return []capabilities.SpendLimit{}, nil
+		}
+
+		return []capabilities.SpendLimit{}, r.balance.Minus(bal)
+	}
 }
 
-// Deduct earmarks an amount of local universal credit balance. We expect to only set this value once - an error is
-// returned if a step would be overwritten.
-func (r *Report) Deduct(ref string, amount decimal.Decimal) error {
+// ByDerivedAvailability returns a DeductOpt that derives the maximum spend limit based on the user spend limit and
+// the number of open concurrent call slots.
+func ByDerivedAvailability(
+	userSpendLimit decimal.NullDecimal,
+	openConcurrentCallSlots int,
+	info capabilities.CapabilityInfo,
+	config *values.Map,
+) func(string, *Report) ([]capabilities.SpendLimit, error) {
+	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
+		limit, err := r.getMaxSpendForInvocation(userSpendLimit, openConcurrentCallSlots)
+		if err != nil {
+			return nil, err
+		}
+
+		if !limit.Valid {
+			return []capabilities.SpendLimit{}, nil
+		}
+
+		r.steps[ref] = ReportStep{
+			Deduction: limit.Decimal,
+			Spends:    nil,
+		}
+
+		// if in metering mode, exit early without modifying local balance
+		if r.meteringMode {
+			return []capabilities.SpendLimit{}, nil
+		}
+
+		return r.creditToSpendingLimits(info, config, limit.Decimal), r.balance.Minus(limit.Decimal)
+	}
+}
+
+// Deduct earmarks an amount of local universal credit balance. The amount provided is expected to be in native units.
+// An option of 0 indicates a max spend should be derived from user limits and concurrent call slots. We expect to only
+// set this value once - an error is returned if a step would be overwritten.
+func (r *Report) Deduct(ref string, opt DeductOpt) ([]capabilities.SpendLimit, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if opt == nil {
+		return nil, ErrDeductOptionRequired
+	}
+
 	if !r.ready {
-		return ErrNoReserve
+		return nil, ErrNoReserve
 	}
 
 	if _, ok := r.steps[ref]; ok {
-		return ErrStepDeductExists
+		return nil, ErrStepDeductExists
 	}
 
-	r.steps[ref] = ReportStep{
-		Deduction: amount,
-		Spends:    nil,
-	}
-
-	// if in metering mode, exit early without modifying local balance
-	if r.meteringMode {
-		return nil
-	}
-
-	return r.balance.Minus(amount)
-}
-
-// CreditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
-// provided info. Amount should be specified in universal credits and will be converted to spend type credits within
-// this function.
-func (r *Report) CreditToSpendingLimits(
-	info capabilities.CapabilityInfo,
-	config *values.Map,
-	amount decimal.Decimal,
-) []capabilities.SpendLimit {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.meteringMode {
-		return []capabilities.SpendLimit{}
-	}
-
-	// no spend types results in no limits and is not a failure case
-	if len(info.SpendTypes) == 0 {
-		return []capabilities.SpendLimit{}
-	}
-
-	ratios, err := ratiosFromConfig(info, config)
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return []capabilities.SpendLimit{}
-	}
-
-	// spend types do not have matching ratios; this is a bad configuration
-	if len(info.SpendTypes) != len(ratios) {
-		r.switchToMeteringMode(fmt.Errorf("%w: %d spend types and %d ratios", ErrRatiosAndTypesNoMatch, len(info.SpendTypes), len(ratios)))
-
-		return []capabilities.SpendLimit{}
-	}
-
-	limits := []capabilities.SpendLimit{}
-
-	for _, spendType := range info.SpendTypes {
-		ratio, hasRatio := ratios[spendType]
-		if !hasRatio {
-			// the spend type does not exist in the ratios mapping; this is a bad configuration
-			r.switchToMeteringMode(fmt.Errorf("%w: ratios missing %s spend type", ErrRatiosAndTypesNoMatch, spendType))
-
-			return []capabilities.SpendLimit{}
-		}
-
-		// use rate card to convert capSpendLimit to native units
-		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
-		if err != nil {
-			r.switchToMeteringMode(fmt.Errorf("attempted to create spending limits [%s]: %w", spendType, err))
-
-			return []capabilities.SpendLimit{}
-		}
-
-		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
-	}
-
-	return limits
-}
-
-// GetMaxSpendForInvocation returns the amount of credits that can be used based on the minimum between an optionally
-// provided max spend by the user or the available credit balance. The available credit balance is determined by
-// dividing unearmarked local credit balance by the number of potential concurrent calls.
-func (r *Report) GetMaxSpendForInvocation(
-	userSpendLimit decimal.NullDecimal,
-	openConcurrentCallSlots int,
-) (decimal.NullDecimal, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	nullCapSpendLimit := decimal.NewNullDecimal(decimal.Zero)
-	nullCapSpendLimit.Valid = false
-
-	if openConcurrentCallSlots == 0 {
-		// invariant: this should be managed by the consumer (engine)
-		return nullCapSpendLimit, ErrNoOpenCalls
-	}
-
-	if !r.ready {
-		return nullCapSpendLimit, ErrNoReserve
-	}
-
-	if r.meteringMode {
-		return nullCapSpendLimit, nil
-	}
-
-	// Split the available local balance between the number of concurrent calls that can still be made
-	spendLimit := r.balance.Get().Div(decimal.NewFromInt(int64(openConcurrentCallSlots)))
-
-	if userSpendLimit.Valid {
-		spendLimit = decimal.Min(spendLimit, userSpendLimit.Decimal)
-	}
-
-	return decimal.NewNullDecimal(spendLimit), nil
+	return opt(ref, r)
 }
 
 // Settle handles the actual spends that each node used for a given capability invocation in the engine,
@@ -396,8 +354,13 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 
 func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	protoReport := &protoEvents.MeteringReport{
-		Steps:    map[string]*protoEvents.MeteringReportStep{},
-		Metadata: &protoEvents.WorkflowMetadata{},
+		Steps:        map[string]*protoEvents.MeteringReportStep{},
+		Metadata:     &protoEvents.WorkflowMetadata{},
+		MeteringMode: r.meteringMode,
+	}
+
+	if r.meteringModeErr != nil {
+		protoReport.Message = r.meteringModeErr.Error()
 	}
 
 	for ref, step := range r.steps {
@@ -461,14 +424,104 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
 }
 
+// creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
+// provided info. Amount should be specified in universal credits and will be converted to spend type credits within
+// this function.
+func (r *Report) creditToSpendingLimits(
+	info capabilities.CapabilityInfo,
+	capConfig *values.Map,
+	amount decimal.Decimal,
+) []capabilities.SpendLimit {
+	if r.meteringMode {
+		return []capabilities.SpendLimit{}
+	}
+
+	// no spend types results in no limits and is not a failure case
+	if len(info.SpendTypes) == 0 {
+		return []capabilities.SpendLimit{}
+	}
+
+	ratios, err := ratiosFromConfig(info, capConfig)
+	if err != nil {
+		r.switchToMeteringMode(err)
+
+		return []capabilities.SpendLimit{}
+	}
+
+	// spend types do not have matching ratios; this is a bad configuration
+	if len(info.SpendTypes) != len(ratios) {
+		r.switchToMeteringMode(fmt.Errorf("%w: %d spend types and %d ratios", ErrRatiosAndTypesNoMatch, len(info.SpendTypes), len(ratios)))
+
+		return []capabilities.SpendLimit{}
+	}
+
+	limits := []capabilities.SpendLimit{}
+
+	for _, spendType := range info.SpendTypes {
+		ratio, hasRatio := ratios[spendType]
+		if !hasRatio {
+			// the spend type does not exist in the ratios mapping; this is a bad configuration
+			r.switchToMeteringMode(fmt.Errorf("%w: ratios missing %s spend type", ErrRatiosAndTypesNoMatch, spendType))
+
+			return []capabilities.SpendLimit{}
+		}
+
+		// use rate card to convert capSpendLimit to native units
+		spendLimit, err := r.balance.ConvertFromBalance(string(spendType), amount.Mul(ratio))
+		if err != nil {
+			r.switchToMeteringMode(fmt.Errorf("attempted to create spending limits [%s]: %w", spendType, err))
+
+			return []capabilities.SpendLimit{}
+		}
+
+		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
+	}
+
+	return limits
+}
+
+// getMaxSpendForInvocation returns the amount of credits that can be used based on the minimum between an optionally
+// provided max spend by the user or the available credit balance. The available credit balance is determined by
+// dividing unearmarked local credit balance by the number of potential concurrent calls.
+func (r *Report) getMaxSpendForInvocation(
+	userSpendLimit decimal.NullDecimal,
+	openConcurrentCallSlots int,
+) (decimal.NullDecimal, error) {
+	nullCapSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+	nullCapSpendLimit.Valid = false
+
+	if openConcurrentCallSlots == 0 {
+		// invariant: this should be managed by the consumer (engine)
+		return nullCapSpendLimit, ErrNoOpenCalls
+	}
+
+	if !r.ready {
+		return nullCapSpendLimit, ErrNoReserve
+	}
+
+	if r.meteringMode {
+		return nullCapSpendLimit, nil
+	}
+
+	// Split the available local balance between the number of concurrent calls that can still be made
+	spendLimit := r.balance.Get().Div(decimal.NewFromInt(int64(openConcurrentCallSlots)))
+
+	if userSpendLimit.Valid {
+		spendLimit = decimal.Min(spendLimit, userSpendLimit.Decimal)
+	}
+
+	return decimal.NewNullDecimal(spendLimit), nil
+}
+
 func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Errorf("switching to metering mode: %s", err)
 
 	r.meteringMode = true
+	r.meteringModeErr = err
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.RateCardEntry) (map[string]decimal.Decimal, error) {
+func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
@@ -612,7 +665,7 @@ func (s *Reports) Len() int {
 // is mutable enough for this purpose while the capability info.
 func ratiosFromConfig(
 	info capabilities.CapabilityInfo,
-	config *values.Map,
+	capConfig *values.Map,
 ) (map[capabilities.CapabilitySpendType]decimal.Decimal, error) {
 	ratios := make(map[capabilities.CapabilitySpendType]decimal.Decimal)
 
@@ -623,11 +676,11 @@ func ratiosFromConfig(
 		return ratios, nil
 	}
 
-	if config == nil {
+	if capConfig == nil {
 		return ratios, fmt.Errorf("%w: spending ratios not set; config is nil", ErrInvalidRatios)
 	}
 
-	rawRatiosValue, hasRatios := config.Underlying[RatiosKey]
+	rawRatiosValue, hasRatios := capConfig.Underlying[RatiosKey]
 	if !hasRatios {
 		return ratios, fmt.Errorf("%w: spending ratios not set", ErrInvalidRatios)
 	}
