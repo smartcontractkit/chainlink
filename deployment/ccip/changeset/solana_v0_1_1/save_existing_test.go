@@ -22,7 +22,7 @@ import (
 )
 
 func TestSaveExistingCCIP(t *testing.T) {
-	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -59,7 +59,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 }
 
 func TestSaveExisting(t *testing.T) {
-	t.Parallel()
+
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),

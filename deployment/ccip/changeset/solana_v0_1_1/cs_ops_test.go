@@ -19,12 +19,12 @@ import (
 )
 
 func TestGenericOpsWithMcms(t *testing.T) {
-	t.Parallel()
+
 	doTestGenericOps(t, true)
 }
 
 func TestGenericOpsWithoutMcms(t *testing.T) {
-	t.Parallel()
+
 	skipInCI(t)
 	doTestGenericOps(t, false)
 }

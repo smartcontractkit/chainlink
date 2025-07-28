@@ -140,7 +140,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
-	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -174,7 +174,7 @@ func skipInCI(t *testing.T) {
 // Doing this in CI is expensive, so we skip it for now.
 func TestUpgrade(t *testing.T) {
 	skipInCI(t)
-	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
