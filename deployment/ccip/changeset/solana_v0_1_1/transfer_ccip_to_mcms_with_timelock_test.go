@@ -2,10 +2,11 @@ package solana_test
 
 import (
 	"context"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"math/big"
 	"testing"
 	"time"
+
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 
 	solBinary "github.com/gagliardetto/binary"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
