@@ -53,6 +53,9 @@ type WorkflowSpecsDS interface {
 	// DeleteWorkflowSpec deletes the workflow spec for the given owner and name.
 	DeleteWorkflowSpec(ctx context.Context, owner, name string) error
 
+	// DeleteWorkflowSpec deletes the workflow spec for the given workflow ID.
+	DeleteWorkflowSpecByID(ctx context.Context, id string) error
+
 	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
 	GetWorkflowSpecByID(ctx context.Context, id string) (*job.WorkflowSpec, error)
 }
@@ -412,6 +415,29 @@ func (orm *orm) DeleteWorkflowSpec(ctx context.Context, owner, name string) erro
 	`
 
 	result, err := orm.ds.ExecContext(ctx, query, owner, name)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows // No spec deleted
+	}
+
+	return nil
+}
+
+func (orm *orm) DeleteWorkflowSpecByID(ctx context.Context, id string) error {
+	query := `
+		DELETE FROM workflow_specs
+		WHERE workflow_id = $1
+	`
+
+	result, err := orm.ds.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}

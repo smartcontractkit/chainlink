@@ -75,6 +75,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -87,7 +88,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -901,77 +903,151 @@ func newCREServices(
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
 			if capCfg.WorkflowRegistry().Address() != "" {
+				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				var fetcherFunc artifacts.FetcherFunc
-				if opts.FetcherFunc == nil {
-					if gatewayConnectorWrapper == nil {
-						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
-					}
-					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
-					fetcherFunc = fetcher.Fetch
-					srvcs = append(srvcs, fetcher)
-				} else {
-					fetcherFunc = opts.FetcherFunc
-				}
 
 				key, err := keystore.GetDefault(ctx, keyStore.Workflow())
 				if err != nil {
 					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
 				}
 
-				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
-					fetcherFunc,
-					clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
-						artifacts.ArtifactConfig{
-							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
-							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
-							MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
-						},
-					))
-
-				engineRegistry := syncer.NewEngineRegistry()
-
-				eventHandler, err := syncer.NewEventHandler(
-					lggr,
-					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-					opts.CapabilitiesRegistry,
-					engineRegistry,
-					custmsg.NewLabeler(),
-					workflowRateLimiter,
-					workflowLimits,
-					artifactsStore,
-					syncer.WithBillingClient(billingClient),
-					syncer.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
-				)
-				if err != nil {
-					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
-				}
-
-				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfRegRid := capCfg.WorkflowRegistry().RelayID()
 				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
 				if err != nil {
 					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
 				}
-				wfSyncer, err := syncer.NewWorkflowRegistry(
-					lggr,
-					func(ctx context.Context, bytes []byte) (commontypes.ContractReader, error) {
-						return wfRegRelayer.NewContractReader(ctx, bytes)
-					},
-					capCfg.WorkflowRegistry().Address(),
-					syncer.Config{
-						QueryCount:   100,
-						SyncStrategy: syncer.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
-					},
-					eventHandler,
-					workflowDonNotifier,
-					engineRegistry,
-				)
-				if err != nil {
-					return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
+
+				crFactory := func(ctx context.Context, bytes []byte) (commontypes.ContractReader, error) {
+					return wfRegRelayer.NewContractReader(ctx, bytes)
 				}
 
-				srvcs = append(srvcs, wfSyncer)
+				wrVersion, err := versioning.VerifyTypeAndVersion(ctx, capCfg.WorkflowRegistry().Address(), crFactory, versioning.ContractType("WorkflowRegistry"))
+				if err != nil {
+					return nil, err
+				}
+
+				switch wrVersion.Major() {
+				case 1:
+					var fetcherFunc artifacts.FetcherFunc
+					if opts.FetcherFunc == nil {
+						if gatewayConnectorWrapper == nil {
+							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+						}
+						fetcher := syncerV1.NewFetcherService(lggr, gatewayConnectorWrapper)
+						fetcherFunc = fetcher.Fetch
+						srvcs = append(srvcs, fetcher)
+					} else {
+						fetcherFunc = opts.FetcherFunc
+					}
+
+					artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
+						fetcherFunc,
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+							artifacts.ArtifactConfig{
+								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
+								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
+								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
+							},
+						))
+
+					engineRegistry := syncerV1.NewEngineRegistry()
+
+					eventHandler, err := syncerV1.NewEventHandler(
+						lggr,
+						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+						opts.CapabilitiesRegistry,
+						engineRegistry,
+						custmsg.NewLabeler(),
+						workflowRateLimiter,
+						workflowLimits,
+						artifactsStore,
+						syncerV1.WithBillingClient(billingClient),
+						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+					)
+					if err != nil {
+						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+					}
+
+					wfSyncer, err := syncerV1.NewWorkflowRegistry(
+						lggr,
+						crFactory,
+						capCfg.WorkflowRegistry().Address(),
+						syncerV1.Config{
+							QueryCount:   100,
+							SyncStrategy: syncerV1.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+						},
+						eventHandler,
+						workflowDonNotifier,
+						engineRegistry,
+					)
+					if err != nil {
+						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
+					}
+
+					srvcs = append(srvcs, wfSyncer)
+
+				case 2:
+					var fetcherFunc artifacts.FetcherFunc
+					if opts.FetcherFunc == nil {
+						if gatewayConnectorWrapper == nil {
+							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+						}
+						fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper)
+						fetcherFunc = fetcher.Fetch
+						srvcs = append(srvcs, fetcher)
+					} else {
+						fetcherFunc = opts.FetcherFunc
+					}
+
+					artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
+						fetcherFunc,
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+							artifacts.ArtifactConfig{
+								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
+								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
+								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
+							},
+						))
+
+					engineRegistry := syncerV2.NewEngineRegistry()
+
+					eventHandler, err := syncerV2.NewEventHandler(
+						lggr,
+						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+						opts.CapabilitiesRegistry,
+						engineRegistry,
+						custmsg.NewLabeler(),
+						workflowRateLimiter,
+						workflowLimits,
+						artifactsStore,
+						syncerV2.WithBillingClient(billingClient),
+						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+					)
+					if err != nil {
+						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+					}
+
+					wfSyncer, err := syncerV2.NewWorkflowRegistry(
+						lggr,
+						crFactory,
+						capCfg.WorkflowRegistry().Address(),
+						syncerV2.Config{
+							QueryCount:   100,
+							SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+						},
+						eventHandler,
+						workflowDonNotifier,
+						engineRegistry,
+					)
+					if err != nil {
+						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
+					}
+
+					srvcs = append(srvcs, wfSyncer)
+
+				default:
+					return nil, fmt.Errorf("unsupported WorkflowRegistry contract version %s", wrVersion)
+				}
 			}
 		}
 	} else {

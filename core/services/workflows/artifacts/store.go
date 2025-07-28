@@ -380,6 +380,20 @@ func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowOwner strin
 	return nil
 }
 
+// DeleteWorkflowArtifacts removes the workflow spec from the database. If not found, returns nil.
+func (h *Store) DeleteWorkflowArtifactsByID(ctx context.Context, workflowID string) error {
+	err := h.orm.DeleteWorkflowSpecByID(ctx, workflowID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
+			return nil
+		}
+		return fmt.Errorf("failed to delete workflow spec: %w", err)
+	}
+
+	return nil
+}
+
 func (h *Store) GetWasmBinary(ctx context.Context, workflowID string) ([]byte, error) {
 	spec, err := h.orm.GetWorkflowSpecByID(ctx, workflowID)
 	if err != nil {

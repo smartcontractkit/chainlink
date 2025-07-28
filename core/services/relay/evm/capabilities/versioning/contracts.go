@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -61,7 +62,7 @@ func TypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFa
 		return "", semver.Version{}, err
 	}
 
-	reader, err := crFactory(ctx, marshalledCfg)
+	reader, err := RunWithRetries(ctx, time.Second, 3, crFactory, marshalledCfg)
 	if err != nil {
 		return "", semver.Version{}, err
 	}
@@ -118,4 +119,44 @@ func ParseTypeAndVersion(tvStr string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid type and version %s", tvStr)
 	}
 	return typeAndVersionValues[0], typeAndVersionValues[1], nil
+}
+
+// RunWithRetries is a helper function that retries a function until it succeeds.
+//
+// It will call it immediately and then retry on failure every `retryInterval`, up to `maxRetries` times.
+// If `maxRetries` is 0, it will retry indefinitely.
+//
+// RunWithRetries will return an error in the following conditions:
+//   - the context is cancelled
+//   - the retry limit has been hit
+func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries int, fn ContractReaderFactory, config []byte) (commontypes.ContractReader, error) {
+	ticker := time.NewTicker(retryInterval)
+	defer ticker.Stop()
+
+	// immediately try once
+	cr, err := fn(ctx, config)
+	if err == nil {
+		return cr, nil
+	}
+	retries := 0
+
+	for {
+		// if maxRetries is 0, we'll retry indefinitely
+		if maxRetries > 0 && retries >= maxRetries {
+			msg := fmt.Sprintf("max retries (%d) reached, aborting", maxRetries)
+			return nil, errors.New(msg)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			cr, err = fn(ctx, config)
+			if err == nil {
+				return cr, nil
+			}
+		}
+
+		retries++
+	}
 }
