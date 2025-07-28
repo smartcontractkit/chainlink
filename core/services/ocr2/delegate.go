@@ -559,8 +559,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.VaultPlugin:
 		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper)
 
+	/* TODO: Don't start this here?
 	case types.DonTimePlugin:
-		return d.newDonTimePlugin(ctx, lggr, jb)
+		return d.StartDonTimePlugin(ctx, lggr, jb)
+
+	*/
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -739,23 +742,59 @@ func (d *Delegate) newServicesVaultPlugin(
 	return srvs, nil
 }
 
-func (d *Delegate) newDonTimePlugin(
+func (d *Delegate) StartDonTimePlugin(
 	_ context.Context,
 	lggr logger.SugaredLogger,
-	jb job.Job,
-) (srvs []job.ServiceCtx, err error) {
+	jb *job.Job,
+) (err error) {
 	spec := jb.OCR2OracleSpec
 
+	fmt.Println("START DON TIME PLUGIN")
+
+	// TODO: Do we need a job spec at all? Or just contract address?
+	// TODO: Can add contract address to CRE config. However, where can we get this?
+
+	// TODO: How do we actually find contract address? Do we add this to CRE config??
+	/*
+			ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()) //nolint:staticcheck // won't migrate now
+
+			oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+				BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
+				V2Bootstrappers:              bootstrapPeers,
+				ContractConfigTracker:        provider.ContractConfigTracker(), // TODO: We need to track OCR3Config ;P
+				ContractTransmitter:          nil,                              // TODO need our custom transmitter
+				Database:                     ocrDB,
+				KeyValueDatabaseFactory:      nil, // TODO
+				LocalConfig:                  lc,
+				Logger:                       ocrLogger,
+				MonitoringEndpoint:           oracleEndpoint,
+				OffchainConfigDigester:       provider.OffchainConfigDigester(),
+				OffchainKeyring:              kb,
+				OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+				MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+			}
+			oracleArgs.ReportingPluginFactory = dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
+
+
+		oracle, err := libocr2.NewOracle(oracleArgs)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: Can't we just start the service ourselves?
+		// TODO: It's overcomplicated to pass the service to something else to start for us.
+		// TODO: I guess we pass it to be closed though which is fine.
+		srvs = append(srvs, job.NewServiceAdapter(oracle))
+	*/
 	cfg := &dontimeCfg.Config{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate workflowLib plugin: failed to unmarshal plugin config: %w", err)
+		return fmt.Errorf("failed to instantiate DONTime plugin: failed to unmarshal plugin config: %w", err)
 	}
 
 	var factory *dontime.Factory
 	factory, err = dontime.NewFactory(d.dontimeStore, lggr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore)
@@ -764,8 +803,9 @@ func (d *Delegate) newDonTimePlugin(
 		Factory:     factory,
 		Transmitter: transmitter,
 	}
+	_ = provider
 
-	return []job.ServiceCtx{provider}, nil
+	return nil //[]job.ServiceCtx{provider}, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(
