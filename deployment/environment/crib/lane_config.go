@@ -113,7 +113,7 @@ func (lc *LaneConfiguration) GetLanes() ([]LaneConfig, error) {
 }
 
 // GenerateLanes creates the list of lanes based on the configuration
-func (lc *LaneConfiguration) GenerateLanes(chains []uint64, chainTiers *ChainTiers) []LaneConfig {
+func (lc *LaneConfiguration) GenerateLanes(chains []uint64, tierConfigs *[]TierConfigs) []LaneConfig {
 	mode := pointer.GetString(lc.Mode)
 	if mode == "" {
 		panic("LaneConfiguration mode is not set, cannot generate lanes")
@@ -129,7 +129,7 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64, chainTiers *ChainTie
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
 	case LaneModeChainTiers:
-		lc.generatedLanes = generateChainTierLanes(chains, chainTiers)
+		lc.generatedLanes = generateChainTierLanes(chains, tierConfigs)
 		return lc.generatedLanes
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil {
@@ -149,14 +149,14 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64, chainTiers *ChainTie
 
 // generateChainTierLanes generates lanes where chains of a 'high' tier are connected to all chains
 // chains of a 'low' tier are only connected to chains of a 'high' tier.
-func generateChainTierLanes(chains []uint64, chainTiers *ChainTiers) []LaneConfig {
-	if len(chainTiers.Tiers) == 0 {
+func generateChainTierLanes(chains []uint64, tierConfigs *[]TierConfigs) []LaneConfig {
+	if len(*tierConfigs) == 0 {
 		// If no tiers are defined, fallback to any-to-any
 		return generateAnyToAnyLanes(chains)
 	}
 
 	uniqueLanes := mapset.NewSet[LaneConfig]()
-	tieredSelectors := getTierChainSelectors(chains, chainTiers)
+	tieredSelectors := getTierChainSelectors(chains, tierConfigs)
 	for _, src := range tieredSelectors[0] {
 		for _, dst := range chains {
 			if src != dst {

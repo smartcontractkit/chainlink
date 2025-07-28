@@ -2,32 +2,28 @@ package crib
 
 import (
 	"fmt"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type TierConfigs struct {
-	NumChains int
-	NumNodes  int
-	NumLanes  int
+	NumChains int `json:"NumChains"`
+	NumNodes  int `json:"NumNodes"`
 }
 
 type ChainTiers struct {
-	Tiers []TierConfigs
+	Tiers []TierConfigs `json:"tiers"`
 }
 
-func (ct *ChainTiers) Validate(e *deployment.Environment) error {
+func (ct *ChainTiers) Validate(numChains int) error {
 	sumChainsInTiers := 0
 	for _, tier := range ct.Tiers {
-		if tier.NumChains <= 0 || tier.NumNodes <= 0 || tier.NumLanes <= 0 {
-			return fmt.Errorf("each tier must have positive values for NumChains, NumNodes, and NumLanes, got: %v", tier)
+		if tier.NumChains <= 0 || tier.NumNodes <= 0 {
+			return fmt.Errorf("each tier must have positive values for NumChains, NumNodes got: %v", tier)
 		}
 		sumChainsInTiers += tier.NumChains
 	}
 
-	allSelectors := e.BlockChains.ListChainSelectors()
-	if sumChainsInTiers != len(allSelectors) {
-		return fmt.Errorf("the sum of chains in all tiers (%d) must match the number of chains in the environment (%d)", sumChainsInTiers, len(allSelectors))
+	if sumChainsInTiers != numChains {
+		return fmt.Errorf("the number of chains in all tiers (%d) must match the number of chains (%d)", sumChainsInTiers, numChains)
 	}
 	return nil
 }

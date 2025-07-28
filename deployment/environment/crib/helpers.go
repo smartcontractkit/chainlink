@@ -156,10 +156,14 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 
 // temporary function that temporarily just sets all fChain values to be the same as they were before
 // eventually will be replaced by setting fchain based on tiers
-func getFChainValuesFromTiers(selectors []uint64, fValue uint8) map[cciptypes.ChainSelector]uint8 {
+func getFChainValuesFromTiers(selectors []uint64, tierConfigs *[]TierConfigs) map[cciptypes.ChainSelector]uint8 {
+	tieredSelectors := getTierChainSelectors(selectors, tierConfigs)
 	fChainValues := make(map[cciptypes.ChainSelector]uint8)
-	for _, sel := range selectors {
-		fChainValues[cciptypes.ChainSelector(sel)] = fValue
+	for ind, tier := range tieredSelectors {
+		fVal := uint8((*tierConfigs)[ind].NumNodes / 3)
+		for _, sel := range tier {
+			fChainValues[cciptypes.ChainSelector(sel)] = fVal
+		}
 	}
 	return fChainValues
 }
@@ -168,8 +172,8 @@ func getFChainValuesFromTiers(selectors []uint64, fValue uint8) map[cciptypes.Ch
 // We need this because chainselectors are unsorted and nondeterministic in crib, but evmChainID is deterministic
 // In order to have a deterministic order of the first 'n' chains organized into tiers, we need to sort chainIDs into tiers and then convert them to selectors
 // We also 'prioritize' home,feed selectors and aptos assuming they will always be 'high' value chains
-func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]uint64 {
-	if len(chainTiers.Tiers) == 0 {
+func getTierChainSelectors(allSelectors []uint64, tierConfigs *[]TierConfigs) [][]uint64 {
+	if len(*tierConfigs) == 0 {
 		return [][]uint64{}
 	}
 	// we prioritize home selector, simulated solana, and evm feed selectors
@@ -189,9 +193,9 @@ func getTierChainSelectors(allSelectors []uint64, chainTiers *ChainTiers) [][]ui
 		evmChainID++
 	}
 
-	tieredSelectors := make([][]uint64, len(chainTiers.Tiers))
+	tieredSelectors := make([][]uint64, len(*tierConfigs))
 	startIndex, endIndex := 0, 0
-	for ind, tier := range chainTiers.Tiers {
+	for ind, tier := range *tierConfigs {
 		tieredSelectors[ind] = make([]uint64, 0)
 		startIndex = endIndex
 		endIndex += tier.NumChains

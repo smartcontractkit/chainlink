@@ -141,7 +141,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig,
 	homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool,
-	evmFundingEth uint64, laneConfig *LaneConfiguration, chainTiers *ChainTiers,
+	evmFundingEth uint64, laneConfig *LaneConfiguration, tierConfigs *[]TierConfigs,
 ) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -152,7 +152,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
 	lggr.Infow("setting up chains...")
-	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel, tierConfigs)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply setting up chain changesets: %w", err)
 	}
@@ -169,7 +169,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 
 	allChains := e.BlockChains.ListChainSelectors()
-	laneConfig.GenerateLanes(allChains, chainTiers)
+	laneConfig.GenerateLanes(allChains, tierConfigs)
 	laneConfig.LogLaneConfigInfo(lggr)
 
 	// Set up lanes
@@ -268,7 +268,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
+func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64, tierConfigs *[]TierConfigs) (cldf.Environment, error) {
 	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	nonHomeSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{homeChainSel}))
@@ -286,7 +286,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 	}
 
 	//nolint:gosec // this should always be less than max uint8
-	fChainValues := getFChainValuesFromTiers(nonHomeSelectors, uint8(len(nodeInfo.NonBootstraps().PeerIDs())/3))
+	fChainValues := getFChainValuesFromTiers(e.BlockChains.ListChainSelectors(), tierConfigs)
 	distributedTopology := cciptesthelpertypes.NewDistributedTopology(cciptesthelpertypes.DistributedTopologyArgs{FValues: fChainValues})
 	readersPerChain, err := distributedTopology.ChainToNodeMapping(
 		nodeInfo.NonBootstraps().PeerIDs(),

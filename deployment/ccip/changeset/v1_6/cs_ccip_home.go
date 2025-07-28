@@ -1114,7 +1114,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 			BatchSize:          4, // Conservative batch size to avoid exceeding gas limits (TODO: Make this configurable)
 		},
 	)
-	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
+	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %+v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Update chain configs on CCIPHome")
 }
 
