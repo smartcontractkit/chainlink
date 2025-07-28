@@ -199,9 +199,6 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	solChain1 := solChainSelectors[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
-	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
-	selectors = append(selectors, evmSelectors...)
-	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	// Fund account for fees

@@ -413,7 +413,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -497,7 +497,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -599,7 +599,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
