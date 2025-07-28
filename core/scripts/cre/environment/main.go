@@ -6,12 +6,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/minio"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/root"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/workflow"
 )
 
 func init() {
 	root.RootCmd.AddCommand(environment.EnvironmentCmd)
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
+	root.RootCmd.AddCommand(minio.MinioCommand)
+	root.RootCmd.AddCommand(workflow.WorkflowCmd)
 }
 
 func main() {

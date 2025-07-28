@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cobra"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
+	mock2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/mock"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -81,6 +83,7 @@ var EnvironmentCmd = &cobra.Command{
 const (
 	TopologySimplified = "simplified"
 	TopologyFull       = "full"
+	TopologyMock       = "mock"
 
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
@@ -253,7 +256,7 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if topology != TopologySimplified && topology != TopologyFull {
+			if topology != TopologySimplified && topology != TopologyFull && topology != TopologyMock {
 				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topology, TopologySimplified, TopologyFull)
 			}
 
@@ -449,7 +452,8 @@ func StartCLIEnvironment(
 	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet
 
-	if topologyFlag == TopologySimplified {
+	switch topologyFlag {
+	case TopologySimplified:
 		if len(in.NodeSets) != 1 {
 			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
 		}
@@ -486,7 +490,7 @@ func StartCLIEnvironment(
 				GatewayNodeIndex:   0,
 			},
 		}
-	} else {
+	case TopologyFull:
 		if len(in.NodeSets) != 3 {
 			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
 		}
@@ -537,6 +541,46 @@ func StartCLIEnvironment(
 				GatewayNodeIndex:   0,
 			},
 		}
+	case TopologyMock:
+		if len(in.NodeSets) != 3 {
+			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
+		}
+
+		// add support for more binaries if needed
+		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
+
+		capabilitiesDONCapabilities := make([]string, 0)
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
+		}
+		capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cretypes.MockCapability)
+
+		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              in.NodeSets[0],
+				Capabilities:       workflowDONCapabilities,
+				DONTypes:           []string{cretypes.WorkflowDON},
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              in.NodeSets[1],
+				Capabilities:       capabilitiesDONCapabilities,
+				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,
+			},
+			{
+				Input:              in.NodeSets[2],
+				Capabilities:       []string{},
+				DONTypes:           []string{cretypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
+				GatewayNodeIndex:   0,
+			},
+		}
+	default:
+		return nil, fmt.Errorf("invalid topology flag: %s", topologyFlag)
 	}
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
@@ -569,6 +613,7 @@ func StartCLIEnvironment(
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
+		mock.MockCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
@@ -604,6 +649,7 @@ func StartCLIEnvironment(
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
 		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
+		mock2.MockJobSpecFactoryFn(7777),
 	}
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
