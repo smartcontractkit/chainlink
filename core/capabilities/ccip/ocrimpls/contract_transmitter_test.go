@@ -13,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/require"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -49,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	kschaintype "github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -413,7 +414,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		for i := 0; i < 4; i++ {
 			kb, err2 := ocr2key.New(kschaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
-			kr := ocrimpls.NewOnchainKeyring[[]byte](kb, logger.TestLogger(t))
+			kr := ocrimpls.NewOnchainKeyring[[]byte](kb, logger.Test(t))
 			signers = append(signers, common.BytesToAddress(kr.PublicKey()))
 			keyrings = append(keyrings, kr)
 		}
@@ -470,7 +471,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
 	chainWriter, err := evm.NewChainWriterService(
-		logger.TestLogger(t),
+		logger.Test(t),
 		simClient,
 		txm,
 		gasEstimator,
@@ -479,7 +480,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		lggr,
 		chainWriter,
@@ -582,10 +583,10 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore keys.ChainStore) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
+	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err, "failed to create gas estimator")
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
@@ -596,30 +597,30 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 
 	chainID := big.NewInt(1337)
 	headSaver := heads.NewSaver(
-		logger.NullLogger,
-		heads.NewORM(*chainID, db),
+		logger.Nop(),
+		heads.NewORM(*chainID, db, 0),
 		evmConfig,
 		evmConfig.HeadTrackerConfig,
 	)
 
-	broadcaster := heads.NewBroadcaster(logger.NullLogger)
+	broadcaster := heads.NewBroadcaster(logger.Nop())
 	require.NoError(t, broadcaster.Start(testutils.Context(t)), "failed to start head broadcaster")
 	t.Cleanup(func() { require.NoError(t, broadcaster.Close()) })
 
 	ht := heads.NewTracker(
-		logger.NullLogger,
+		logger.Nop(),
 		ethClient,
 		evmConfig,
 		evmConfig.HeadTrackerConfig,
 		broadcaster,
 		headSaver,
-		mailbox.NewMonitor("contract_transmitter_test", logger.NullLogger),
+		mailbox.NewMonitor("contract_transmitter_test", logger.Nop()),
 	)
 	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
 
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, logger.NullLogger),
-		ethClient, logger.NullLogger, ht, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, logger.Nop()),
+		ethClient, logger.Nop(), ht, lpOpts)
 	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
@@ -713,6 +714,10 @@ func (t *TestHeadTrackerConfig) SamplingInterval() time.Duration {
 
 func (t *TestHeadTrackerConfig) PersistenceEnabled() bool {
 	return true
+}
+
+func (t *TestHeadTrackerConfig) PersistenceBatchSize() int64 {
+	return 0
 }
 
 var _ evmconfig.HeadTracker = (*TestHeadTrackerConfig)(nil)

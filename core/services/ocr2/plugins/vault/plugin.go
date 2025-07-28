@@ -770,7 +770,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 
 func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
-		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("invalid report: response cannot be nil")
+		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
 	rpb, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
@@ -795,7 +795,7 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.Reque
 
 func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
-		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("invalid report: response cannot be nil")
+		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
 	jsonb, err := ToCanonicalJSON(msg)

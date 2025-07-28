@@ -34,11 +34,12 @@ func TestTransmitter(t *testing.T) {
 	}
 
 	ch := make(chan *Response, 1)
-	store.Add(&Request{
+	err := store.Add(&Request{
 		Payload:      req1,
 		ResponseChan: ch,
 		id:           keyFor(id1),
 	})
+	require.NoError(t, err)
 
 	value := "encrypted-value"
 	resp1 := &vault.GetSecretsResponse{

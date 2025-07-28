@@ -5,12 +5,13 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type Transmitter struct {
@@ -44,13 +45,13 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	// - epoch = seqNr
 	// - round number = 0
 	seqToEpoch := make([]byte, 32)
-	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], uint32(seqNr))
+	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], uint32(seqNr)) //nolint:gosec // the unsafe cast mirrors the OCR3OnchainKeyringAdapter implementation
 	zeros := make([]byte, 32)
-	responseCtx := append(append(cd[:], seqToEpoch[:]...), zeros...)
+	responseCtx := append(append(cd[:], seqToEpoch...), zeros...)
 
-	var signatures [][]byte
-	for _, s := range sigs {
-		signatures = append(signatures, s.Signature)
+	signatures := make([][]byte, len(sigs))
+	for i, s := range sigs {
+		signatures[i] = s.Signature
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())

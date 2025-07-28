@@ -19,7 +19,7 @@ func TestToCanonicalJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedJSON := `{"field1":"value1","field2":42}`
-	assert.Equal(t, expectedJSON, string(canonicalJSON))
+	assert.Equal(t, expectedJSON, string(canonicalJSON)) //nolint:testifylint // testifylint requires use of assert.JSONEq which doesn't do a string match of the JSON, but does a structural match.
 
 	// same data, different order
 	testData, err = structpb.NewValue(map[string]any{
@@ -31,6 +31,5 @@ func TestToCanonicalJSON(t *testing.T) {
 	canonicalJSON, err = ToCanonicalJSON(testData)
 	require.NoError(t, err)
 
-	expectedJSON = `{"field1":"value1","field2":42}`
-	assert.Equal(t, expectedJSON, string(canonicalJSON))
+	assert.Equal(t, expectedJSON, string(canonicalJSON)) //nolint:testifylint // testifylint requires use of assert.JSONEq which doesn't do a string match of the JSON, but does a structural match.
 }
