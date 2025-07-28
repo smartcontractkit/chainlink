@@ -68,7 +68,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, len(bootstrapNodes))
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, uint64(input.Topology.DonsMetadata[idx].ID), len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}

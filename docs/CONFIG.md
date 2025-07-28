@@ -1011,6 +1011,7 @@ AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
 ```
 
 
@@ -1131,6 +1132,13 @@ SimulateTransactions enables transaction simulation for OCR2.
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### KeyValueStoreRootDir
+```toml
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
+```
+KeyValueStoreRootDir is the root directory for the key-value store used by OCR3.1.
+This directory must be writable by the Chainlink node process and should support long-term persistence.
 
 ## OCR
 ```toml
@@ -2291,6 +2299,7 @@ URL is override URL for the workflow fetcher service.
 ```toml
 [Billing]
 URL = "localhost:4319" # Default
+TLSEnabled = true # Default
 ```
 Billing holds settings for connecting to the billing service.
 
@@ -2299,6 +2308,12 @@ Billing holds settings for connecting to the billing service.
 URL = "localhost:4319" # Default
 ```
 URL is the locator for the Chainlink billing service.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
 
 ## EVM
 EVM defaults depend on ChainID:

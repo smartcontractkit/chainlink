@@ -1209,6 +1209,7 @@ type OCR2 struct {
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
+	KeyValueStoreRootDir               *string
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -1253,6 +1254,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.KeyValueStoreRootDir; v != nil {
+		o.KeyValueStoreRootDir = v
 	}
 }
 
@@ -2247,18 +2251,24 @@ func isValidFilePath(path string) bool {
 }
 
 type Billing struct {
-	URL *string
+	URL        *string
+	TLSEnabled *bool
 }
 
 func (b *Billing) setFrom(f *Billing) {
 	if f.URL != nil {
 		b.URL = f.URL
+		b.TLSEnabled = f.TLSEnabled
 	}
 }
 
 func (b *Billing) ValidateConfig() error {
 	if b.URL == nil || *b.URL == "" {
 		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
+	}
+
+	if b.TLSEnabled == nil {
+		return configutils.ErrInvalid{Name: "TLSEnabled", Value: "", Msg: "billing service TLS option must be set"}
 	}
 
 	return nil

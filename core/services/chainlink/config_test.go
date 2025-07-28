@@ -435,6 +435,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
+		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
@@ -595,7 +596,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Billing = toml.Billing{
-		URL: ptr("localhost:4319"),
+		URL:        ptr("localhost:4319"),
+		TLSEnabled: ptr(true),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
@@ -1063,6 +1065,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
 DisplayName = 'test-node'
