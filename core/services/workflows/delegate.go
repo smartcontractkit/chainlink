@@ -26,10 +26,10 @@ func WithBillingClient(client metering.BillingClient) func(*Delegate) {
 	}
 }
 
-func WithWorkflowRegistry(address, chainSelector string) func(*Delegate) {
+func WithWorkflowRegistry(address, chainID string) func(*Delegate) {
 	return func(e *Delegate) {
 		e.workflowRegistryAddress = address
-		e.workflowRegistryChainSelector = chainSelector
+		e.workflowRegistryChainID = chainID
 	}
 }
 
@@ -44,8 +44,8 @@ type Delegate struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
-	workflowRegistryChainSelector string
+	// WorkflowRegistryChainID is the chain ID for the workflow registry
+	workflowRegistryChainID string
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -98,7 +98,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		WorkflowLimits:                d.workflowLimits,
 		BillingClient:                 d.billingClient,
 		WorkflowRegistryAddress:       d.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: d.workflowRegistryChainSelector,
+		WorkflowRegistryChainID: d.workflowRegistryChainID,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {

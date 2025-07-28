@@ -1021,11 +1021,13 @@ func (e *Engine) executeStep(
 	userMaxSpend.Valid = false
 
 	// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
-	if tr.Metadata.SpendLimits, err = meteringReport.Deduct(
-		curStep.Ref,
-		metering.ByDerivedAvailability(userMaxSpend, e.maxWorkerLimit, info, config),
-	); err != nil {
-		e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+	if meteringReport != nil {
+		if tr.Metadata.SpendLimits, err = meteringReport.Deduct(
+			curStep.Ref,
+			metering.ByDerivedAvailability(userMaxSpend, e.maxWorkerLimit, info, config),
+		); err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
 	}
 
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
@@ -1308,8 +1310,8 @@ type Config struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	WorkflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
-	WorkflowRegistryChainSelector string
+	// WorkflowRegistryChainID is the chain ID for the workflow registry
+	WorkflowRegistryChainID string
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1488,7 +1490,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID),
 	}
 
 	return engine, nil
