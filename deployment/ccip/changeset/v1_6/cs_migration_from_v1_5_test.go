@@ -382,8 +382,8 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 				// #nosec G115 - Overflow is not a concern in this test scenario
 				FChain: uint8(len(readers) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
-					GasPriceDeviationPPB:      ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-					DAGasPriceDeviationPPB:    ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					GasPriceDeviationPPB:      ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},   //nolint:gosec // disable G115
+					DAGasPriceDeviationPPB:    ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)}, //nolint:gosec // disable G115
 					OptimisticConfirmations:   globals.OptimisticConfirmations,
 					ChainFeeDeviationDisabled: true,
 				},
