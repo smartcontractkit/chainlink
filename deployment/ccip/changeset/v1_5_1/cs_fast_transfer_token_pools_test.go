@@ -987,6 +987,7 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	// Deploy different types of pools on different chains
+	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
 	externalMinterB, _ := testhelpers.DeployTokenGovernor(t, e, selectorB, tokens[selectorB].Address)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -994,9 +995,19 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
 			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterA,
 		},
 		selectorB: {
 			Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterB,
+		},
+	}, false)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorB: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
 			TokenAddress:       tokens[selectorB].Address,
 			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 			ExternalMinter:     externalMinterB,
@@ -1019,7 +1030,7 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 			sourceChain:   selectorA,
 			destChain:     selectorB,
 			sourceType:    shared.HybridWithExternalMinterFastTransferTokenPool,
-			sourceVersion: shared.FastTransferTokenPoolVersion,
+			sourceVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 			// No destination type/version specified - should use default
 			expectError: false,
 		},
@@ -1028,19 +1039,19 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 			sourceChain:                selectorA,
 			destChain:                  selectorB,
 			sourceType:                 shared.HybridWithExternalMinterFastTransferTokenPool,
-			sourceVersion:              shared.FastTransferTokenPoolVersion,
+			sourceVersion:              shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 			destinationContractType:    &shared.BurnMintWithExternalMinterFastTransferTokenPool,
 			destinationContractVersion: &shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
 			expectError:                false,
 		},
 		{
 			name:                       "Invalid_NonExistentDestinationType",
-			sourceChain:                selectorA,
-			destChain:                  selectorB,
+			sourceChain:                selectorB,
+			destChain:                  selectorA,
 			sourceType:                 shared.HybridWithExternalMinterFastTransferTokenPool,
-			sourceVersion:              shared.FastTransferTokenPoolVersion,
-			destinationContractType:    &shared.HybridWithExternalMinterFastTransferTokenPool, // This type doesn't exist on selectorB
-			destinationContractVersion: &shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			sourceVersion:              shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			destinationContractType:    &shared.BurnMintWithExternalMinterFastTransferTokenPool, // This type doesn't exist on selectorA
+			destinationContractVersion: &shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
 			expectError:                true,
 			expectedErrorMsg:           "destination pool validation failed",
 		},
@@ -1049,10 +1060,10 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 			sourceChain:             selectorA,
 			destChain:               99999, // Non-existent chain
 			sourceType:              shared.HybridWithExternalMinterFastTransferTokenPool,
-			sourceVersion:           shared.FastTransferTokenPoolVersion,
+			sourceVersion:           shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 			destinationContractType: &shared.BurnMintWithExternalMinterFastTransferTokenPool,
 			expectError:             true,
-			expectedErrorMsg:        "destination chain with selector 99999 does not exist in environment",
+			expectedErrorMsg:        "unknown chain selector 99999",
 		},
 	}
 
