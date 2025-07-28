@@ -154,7 +154,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolanaV0_1_1
 	if chainState.Router.IsZero() {
 		if c.MCMSWithTimelockConfig == nil {
-			return fmt.Errorf("Router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
+			return fmt.Errorf("router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
 		}
 	}
 	return nil
@@ -409,25 +409,25 @@ func deployChainContractsSolana(
 
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
-	if chainState.RMNRemote.IsZero() {
+	switch {
+	case chainState.RMNRemote.IsZero():
 		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
-	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
+	case config.UpgradeConfig.NewRMNRemoteVersion != nil:
 		rmnRemoteAddress = chainState.RMNRemote
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, shared.RMNRemote)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		// create proposals for txns
 		if len(newTxns) > 0 {
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
 				Transactions:  newTxns,
 			})
 		}
-	} else {
+	default:
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
 	}

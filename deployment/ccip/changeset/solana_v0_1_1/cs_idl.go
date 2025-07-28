@@ -344,7 +344,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}

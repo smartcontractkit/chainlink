@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/gagliardetto/solana-go"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"math"
 	"strconv"
 
@@ -17,6 +16,7 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
