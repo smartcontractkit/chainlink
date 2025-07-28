@@ -78,6 +78,7 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 				"id": jb.PipelineSpecID,
 			},
 			"jb": map[string]interface{}{
+				"streamID":      jb.StreamID,
 				"databaseID":    jb.ID,
 				"externalJobID": jb.ExternalJobID,
 				"name":          jb.Name.ValueOrZero(),

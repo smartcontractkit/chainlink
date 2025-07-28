@@ -49,7 +49,7 @@ type ReportingPluginConfig struct {
 
 func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], cfg *ReportingPluginConfig) *ReportingPluginFactory {
 	return &ReportingPluginFactory{
-		lggr:  lggr,
+		lggr:  lggr.Named("VaultReportingPlugin"),
 		store: store,
 		cfg:   cfg,
 	}
@@ -739,20 +739,83 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 
 	reports := []ocr3types.ReportPlus[[]byte]{}
 	for _, o := range outcomes.Outcomes {
-		rpb, err := proto.MarshalOptions{Deterministic: true}.Marshal(o)
-		if err != nil {
-			r.lggr.Errorw("failed to marshal outcome", "error", err, "id", o.Id)
-		}
+		switch o.RequestType {
+		case vault.RequestType_GET_SECRETS:
+			rep, err := r.generateProtoReport(o.Id, o.RequestType, o.GetGetSecretsResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate Proto report", "error", err, "id", o.Id)
+				continue
+			}
 
-		reports = append(reports, ocr3types.ReportPlus[[]byte]{
-			ReportWithInfo: ocr3types.ReportWithInfo[[]byte]{
-				Report: rpb,
-			},
-		})
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
+		case vault.RequestType_CREATE_SECRETS:
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetCreateSecretsResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				continue
+			}
+
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
+		default:
+		}
 	}
 
 	r.lggr.Debugw("Reports complete", "count", len(reports))
 	return reports, nil
+}
+
+func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+	if msg == nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
+	}
+
+	rpb, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	if err != nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal response to proto: %w", err)
+	}
+
+	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vault.ReportInfo{
+		Id:          id,
+		RequestType: requestType,
+		Format:      vault.ReportFormat_REPORT_FORMAT_PROTOBUF,
+	})
+	if err != nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal report info: %w", err)
+	}
+
+	return ocr3types.ReportWithInfo[[]byte]{
+		Report: rpb,
+		Info:   rip,
+	}, nil
+}
+
+func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+	if msg == nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
+	}
+
+	jsonb, err := ToCanonicalJSON(msg)
+	if err != nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
+	}
+
+	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vault.ReportInfo{
+		Id:          id,
+		RequestType: requestType,
+		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
+	})
+	if err != nil {
+		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal report info: %w", err)
+	}
+
+	return ocr3types.ReportWithInfo[[]byte]{
+		Report: jsonb,
+		Info:   rip,
+	}, nil
 }
 
 func (r *ReportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[[]byte]) (bool, error) {

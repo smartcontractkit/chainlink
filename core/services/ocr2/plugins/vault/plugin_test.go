@@ -1868,29 +1868,7 @@ func TestPlugin_Reports(t *testing.T) {
 		Responses: []*vault.CreateSecretResponse{
 			{
 				Id:      id,
-				Success: false,
-				Error:   "",
-			},
-		},
-	}
-	id2 := &vault.SecretIdentifier{
-		Owner:     "owner",
-		Namespace: "main",
-		Key:       "secret2",
-	}
-	req2 := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
-			{
-				Id:             id2,
-				EncryptedValue: value,
-			},
-		},
-	}
-	resp2 := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
-			{
-				Id:      id2,
-				Success: false,
+				Success: true,
 				Error:   "",
 			},
 		},
@@ -1906,14 +1884,34 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 
+	id2 := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret2",
+	}
+	req2 := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: id2,
+			},
+		},
+	}
+	resp2 := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id:     id2,
+				Result: &vault.SecretResponse_Data{Data: &vault.SecretData{EncryptedValue: value}},
+			},
+		},
+	}
 	expectedOutcome2 := &vault.Outcome{
 		Id:          keyFor(id2),
-		RequestType: vault.RequestType_CREATE_SECRETS,
-		Request: &vault.Outcome_CreateSecretsRequest{
-			CreateSecretsRequest: req2,
+		RequestType: vault.RequestType_GET_SECRETS,
+		Request: &vault.Outcome_GetSecretsRequest{
+			GetSecretsRequest: req2,
 		},
-		Response: &vault.Outcome_CreateSecretsResponse{
-			CreateSecretsResponse: resp2,
+		Response: &vault.Outcome_GetSecretsResponse{
+			GetSecretsResponse: resp2,
 		},
 	}
 	os := &vault.Outcomes{
@@ -1954,15 +1952,32 @@ func TestPlugin_Reports(t *testing.T) {
 
 	assert.Len(t, rs, 2)
 
-	o1b := rs[0]
-	o1 := &vault.Outcome{}
-	err = proto.Unmarshal(o1b.ReportWithInfo.Report, o1)
+	o1 := rs[0]
+	info1 := &vault.ReportInfo{}
+	err = proto.Unmarshal(o1.ReportWithInfo.Info, info1)
 	require.NoError(t, err)
-	assert.True(t, proto.Equal(o1, expectedOutcome1))
+	assert.True(t, proto.Equal(&vault.ReportInfo{
+		Id:          keyFor(id),
+		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vault.RequestType_CREATE_SECRETS,
+	}, info1))
 
-	o2b := rs[1]
-	o2 := &vault.Outcome{}
-	err = proto.Unmarshal(o2b.ReportWithInfo.Report, o2)
+	expectedBytes, err := ToCanonicalJSON(resp)
 	require.NoError(t, err)
-	assert.True(t, proto.Equal(o2, expectedOutcome2))
+	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
+
+	o2 := rs[1]
+	info2 := &vault.ReportInfo{}
+	err = proto.Unmarshal(o2.ReportWithInfo.Info, info2)
+	require.NoError(t, err)
+	assert.True(t, proto.Equal(&vault.ReportInfo{
+		Id:          keyFor(id2),
+		Format:      vault.ReportFormat_REPORT_FORMAT_PROTOBUF,
+		RequestType: vault.RequestType_GET_SECRETS,
+	}, info2))
+
+	o2r := &vault.GetSecretsResponse{}
+	err = proto.Unmarshal(o2.ReportWithInfo.Report, o2r)
+	require.NoError(t, err)
+	assert.True(t, proto.Equal(resp2, o2r))
 }

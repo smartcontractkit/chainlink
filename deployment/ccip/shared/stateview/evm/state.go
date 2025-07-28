@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
@@ -98,6 +99,7 @@ type CCIPChainState struct {
 	FactoryBurnMintERC20Token *factory_burn_mint_erc20.FactoryBurnMintERC20
 	ERC677Tokens              map[shared.TokenSymbol]*erc677.ERC677
 	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20             map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
 	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
 
 	// Pools

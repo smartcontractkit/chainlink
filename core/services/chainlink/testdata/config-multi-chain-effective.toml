@@ -424,6 +424,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -544,6 +545,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -658,6 +660,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5

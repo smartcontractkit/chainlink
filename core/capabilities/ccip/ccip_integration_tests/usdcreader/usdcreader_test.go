@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 
@@ -36,10 +35,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_reader_tester"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -75,7 +74,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		}).Maybe()
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
-		logger.TestLogger(t),
+		logger.Test(t),
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
@@ -275,7 +274,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 			usdcReader, err := reader.NewUSDCMessageReader(
 				ctx,
-				logger.TestLogger(b),
+				logger.Test(b),
 				map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 					sourceChain: {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
@@ -428,8 +427,7 @@ func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSel
 	contract, err := usdc_reader_tester.NewUSDCReaderTester(address, simulatedBackend.Client())
 	require.NoError(t, err)
 
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr := logger.Test(t)
 
 	// Parameterize database selection
 	var db *sqlx.DB

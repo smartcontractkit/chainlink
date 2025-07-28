@@ -300,6 +300,8 @@ Before using CRIB, ensure the following:
 
 7. **Connect VPN** (for AWS provider only)
 
+8. **Install `telepresence`**.  CRIB requires telepresence for connecting to the services deployed within a cluster. You can install it with `brew install telepresenceio/telepresence/telepresence-oss` or with [other methods listed here](https://telepresence.io/docs/install/client#install-with-brew)
+
 ---
 
 ## 5. Setting Docker Images for CRIB Execution
@@ -339,19 +341,29 @@ docker build -t localhost:5001/chainlink:<your-tag>> --build-arg CHAINLINK_USER=
 - You must specify an image tag explicitly (e.g., `:v1.2.3`).
 
 ### Job Distributor (JD) Image in CRIB
-
-CRIB extracts only the image **tag** from your TOML:
+#### AWS Provider
+If you're working with AWS you will need to set the JD image URL in the `overrides.toml`
 
 ```toml
 [jd]
-  image = "jd-test-1:my-awesome-tag"
+  image = "<PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7"
 ```
 
-If you leave off the tag, CRIB will fail:
+Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
 
+#### Kind Provider
+When working with kind provider, it will require pulling and pushing an image to local registry, similar as with CL node explained before.
+
+```shell
+docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7
+docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7 localhost:5001/job-distributor:0.12.7
+docker push localhost:5001/job-distributor:0.12.7
+```
+
+Now, you can set:
 ```toml
 [jd]
-  image = "jd-test-1"  # ❌ This will fail
+  image = "localhost:5001/job-distributor:0.12.7"
 ```
 
 ---
