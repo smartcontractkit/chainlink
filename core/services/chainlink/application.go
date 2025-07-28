@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -69,7 +68,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -1029,30 +1027,6 @@ func newCREServices(
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
-	// enable hack unless it's specifically disabled on the environment (e.g. for tests)
-	secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
-	if !ok || secureMintTransmitterHackDisabled != "true" {
-		globalLogger.Infow("HACK: initializing Secure Mint transmitter for sending mock secure mint trigger events")
-		transmitterConfig := securemint.TransmitterConfig{
-			Logger:                       globalLogger,
-			CapabilitiesRegistry:         opts.CapabilitiesRegistry,
-			DonID:                        1,
-			TriggerCapabilityName:        "securemint-trigger",
-			TriggerCapabilityVersion:     "1.0.0",
-			TriggerTickerMinResolutionMs: 1000,
-			TriggerSendChannelBufferSize: 1000,
-		}
-		transmitter, err := transmitterConfig.NewTransmitter("securemint-transmitter")
-		if err != nil {
-			globalLogger.Errorw("could not create Secure Mint transmitter, skipping", "error", err)
-		} else {
-			srvcs = append(srvcs, transmitter)
-			globalLogger.Infow("HACK: successfully created Secure Mint transmitter")
-		}
-	} else {
-		globalLogger.Infow("HACK: Secure Mint transmitter hack disabled, skipping")
-	}
-
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
@@ -1298,7 +1272,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()}, // requestID
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

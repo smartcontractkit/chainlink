@@ -3,9 +3,7 @@ package securemint
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -116,37 +114,8 @@ func (t *transmitter) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to add transmitter to registry: %w", err)
 	}
-	secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
-	if !ok || secureMintTransmitterHackDisabled != "true" {
-		go t.sendTriggerEvents(ctx)
-	}
 	t.eng.Infow("SecureMintTransmitter registered", "triggerCapabilityInfo", t.CapabilityInfo)
 	return nil
-}
-
-func (t *transmitter) sendTriggerEvents(ctx context.Context) {
-	t.eng.Infow("Sending mock trigger events in a loop", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Second):
-			t.eng.Infow("Sending trigger event", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-			outputs, err := values.NewMap(map[string]any{
-				"report": "test",
-			})
-			if err != nil {
-				t.eng.Errorw("failed to create outputs map", "error", err)
-				continue
-			}
-			t.processNewEvent(ctx, &capabilities.TriggerEvent{
-				TriggerType: t.CapabilityInfo.ID,
-				ID:          "securemint-trigger",
-				Outputs:     outputs,
-			})
-			t.eng.Infow("Trigger event sent", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-		}
-	}
 }
 
 func (t *transmitter) close() error {
