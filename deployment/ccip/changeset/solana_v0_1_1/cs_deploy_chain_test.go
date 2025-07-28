@@ -140,7 +140,6 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
-
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,

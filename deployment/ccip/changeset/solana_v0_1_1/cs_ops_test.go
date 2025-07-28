@@ -19,12 +19,10 @@ import (
 )
 
 func TestGenericOpsWithMcms(t *testing.T) {
-
 	doTestGenericOps(t, true)
 }
 
 func TestGenericOpsWithoutMcms(t *testing.T) {
-
 	skipInCI(t)
 	doTestGenericOps(t, false)
 }
