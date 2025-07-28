@@ -51,6 +51,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
@@ -773,6 +774,78 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
+func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangesetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	if preload {
+		// Pre load default programs
+		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+			Proposer: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			TimelockMinDelay: big.NewInt(1),
+		}
+	}
+	state, err := stateview.LoadOnchainState(e.Env)
+	if err != nil {
+		return nil, err
+	}
+	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
+	return []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolanaV0_1_1.DeployChainContractsChangeset),
+			ccipChangesetSolanaV0_1_1.DeployChainContractsConfig{
+				HomeChainSelector: e.HomeChainSel,
+				ChainSelector:     solChainSelector,
+				ContractParamsPerChain: ccipChangesetSolanaV0_1_1.ChainContractParams{
+					FeeQuoterParams: ccipChangesetSolanaV0_1_1.FeeQuoterParams{
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
+							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
+						},
+						BillingConfig: []solFeeQuoterV0_1_1.BillingTokenConfig{
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].LinkToken,
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: time.Now().Unix(),
+								},
+								PremiumMultiplierWeiPerEth: 9e17,
+							},
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].WSOL,
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: time.Now().Unix(),
+								},
+								PremiumMultiplierWeiPerEth: 1e18,
+							},
+						},
+					},
+					OffRampParams: ccipChangesetSolanaV0_1_1.OffRampParams{
+						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+					},
+				},
+				BuildConfig:            buildSolConfig,
+				MCMSWithTimelockConfig: mcmsCfg,
+			},
+		)}, nil
+}
+
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
@@ -907,18 +980,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		var buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig = nil
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangesetSolanaV0_1_1.SolanaContractV0_1_1 {
-			buildSolConfig = &ccipChangeSetSolana.BuildSolanaConfig{
+			var buildSolConfig = &ccipChangesetSolanaV0_1_1.BuildSolanaConfig{
 				GitCommitSha:   ccipChangesetSolanaV0_1_1.ContractVersionShortSha[ccipChangesetSolanaV0_1_1.SolanaContractV0_1_1],
 				DestinationDir: memory.ProgramsPath,
 			}
-		}
-		// If no version is specified, we will use the default one
-		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, buildSolConfig)
+			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
 
-		require.NoError(t, err)
-		apps = append(apps, solCs...)
+			require.NoError(t, err)
+			apps = append(apps, solCs...)
+		} else {
+			// If no version is specified, we will use the default one
+			solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
+			require.NoError(t, err)
+			apps = append(apps, solCs...)
+		}
 	}
 	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
