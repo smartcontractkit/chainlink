@@ -29,8 +29,11 @@ type NodeType = string
 
 const (
 	BootstrapNode NodeType = "bootstrap"
-	WorkerNode    NodeType = "worker"
 	GatewayNode   NodeType = "gateway"
+
+	// WorkerNode The value here is `plugin` to match the filtering performed by JD to get non-bootstrap nodes.
+	// See: https://github.com/smartcontractkit/chainlink/blob/develop/deployment/data-feeds/offchain/jd.go#L57
+	WorkerNode NodeType = "plugin"
 )
 
 type ConfigDescription struct {
@@ -504,10 +507,12 @@ type FullCLDEnvironmentOutput struct {
 }
 
 type DeployCribDonsInput struct {
-	Topology       *Topology
-	NodeSetInputs  []*CapabilitiesAwareNodeSet
+	Topology      *Topology
+	NodeSetInputs []*CapabilitiesAwareNodeSet
+	// todo cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribDonsInput) Validate() error {
@@ -530,9 +535,11 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput        *jd.Input
+	JDInput *jd.Input
+	// todo:  cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribJdInput) Validate() error {
@@ -550,8 +557,10 @@ func (d *DeployCribJdInput) Validate() error {
 
 type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
-	NixShell        *nix.Shell
-	CribConfigsDir  string
+	// todo:  cleanup this
+	NixShell       *nix.Shell
+	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
@@ -563,6 +572,9 @@ func (d *DeployCribBlockchainInput) Validate() error {
 	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
+	}
+	if d.Namespace == "" {
+		return errors.New("namespace not set")
 	}
 	return nil
 }

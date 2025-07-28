@@ -46,14 +46,14 @@ func (s *BillingService) ReserveCredits(
 
 	return &billing.ReserveCreditsResponse{
 		Success: true,
-		Entries: []*billing.RateCardEntry{
+		RateCards: []*billing.RateCard{
 			{
 				ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 				MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 				UnitsPerCredit:  "0.0001",
 			},
 		},
-		Credits: 10000,
+		Credits: "10000",
 	}, nil
 }
 

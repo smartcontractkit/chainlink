@@ -22,6 +22,10 @@ const (
 	NodeIDKey              = "node_id"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
+	DONIDKey               = "don_id"
+	EnvironmentKey         = "environment"
+	ProductKey             = "product"
+	DONNameKey             = "don_name"
 )
 
 func AddressKeyFromSelector(chainSelector uint64) string {
@@ -58,44 +62,42 @@ func ToP2PID(node *types.NodeMetadata, transformFn stringTransformer) (string, e
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
 // TODO: remove this once the PR is merged and import his function
 // IMPORTANT ADDITION: prefix to differentiate between the different DONs
-func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
+func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
 		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.InternalP2PUrl)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
 		}
-		if i <= bootstrapNodeCount {
-			nodeInfo = append(nodeInfo, devenv.NodeInfo{
-				IsBootstrap: true,
-				Name:        fmt.Sprintf("%s_bootstrap-%d", prefix, i),
-				P2PPort:     p2pURL.Port(),
-				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
-					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
-					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
-					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
-				},
-				Labels: map[string]string{
-					NodeTypeKey: types.BootstrapNode,
-				},
-			})
-		} else {
-			nodeInfo = append(nodeInfo, devenv.NodeInfo{
-				IsBootstrap: false,
-				Name:        fmt.Sprintf("%s_node-%d", prefix, i),
-				P2PPort:     p2pURL.Port(),
-				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
-					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
-					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
-					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
-				},
-				Labels: map[string]string{
-					NodeTypeKey: types.WorkerNode,
-				},
-			})
+
+		info := devenv.NodeInfo{
+			P2PPort: p2pURL.Port(),
+			CLConfig: nodeclient.ChainlinkConfig{
+				URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
+				Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
+				Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
+				InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
+			},
+			Labels: map[string]string{
+				"don-" + prefix: "true",
+				ProductKey:      "keystone",
+				EnvironmentKey:  "local",
+				DONIDKey:        strconv.FormatUint(donID, 10),
+				DONNameKey:      prefix,
+			},
 		}
+
+		if i <= bootstrapNodeCount {
+			info.IsBootstrap = true
+			info.Name = fmt.Sprintf("%s_bootstrap-%d", prefix, i)
+			info.Labels[NodeTypeKey] = types.BootstrapNode
+		} else {
+			info.IsBootstrap = false
+			info.Name = fmt.Sprintf("%s_node-%d", prefix, i)
+			info.Labels[NodeTypeKey] = types.WorkerNode
+		}
+
+		nodeInfo = append(nodeInfo, info)
 	}
 	return nodeInfo, nil
 }
