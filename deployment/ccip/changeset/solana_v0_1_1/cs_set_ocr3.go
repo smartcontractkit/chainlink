@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/mcms"
