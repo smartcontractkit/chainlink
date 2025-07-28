@@ -3,9 +3,10 @@ package solana
 import (
 	"context"
 	"fmt"
-	"github.com/gagliardetto/solana-go"
 	"math"
 	"strconv"
+
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
