@@ -37,20 +37,6 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cretypes.C
 }
 
 func ValidateTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput) error {
-	if infraInput.InfraType == types.CRIB {
-		if len(nodeSetInput) == 1 && slices.Contains(nodeSetInput[0].DONTypes, cretypes.GatewayDON) {
-			if len(nodeSetInput[0].Capabilities) > 1 {
-				return errors.New("you must use at least 2 nodeSets when using CRIB and gateway DON. Gateway DON must be in a separate nodeSet and it must be named 'gateway'. Try using 'full' topology by passing '-t full' to the CLI")
-			}
-		}
-
-		for _, nodeSet := range nodeSetInput {
-			if infraInput.InfraType == types.CRIB && slices.Contains(nodeSetInput[0].DONTypes, cretypes.GatewayDON) && nodeSet.Name != "gateway" {
-				return errors.New("when using CRIB gateway nodeSet with the Gateway DON must be named 'gateway', but got " + nodeSet.Name)
-			}
-		}
-	}
-
 	hasAtLeastOneBootstrapNode := false
 	for _, nodeSet := range nodeSetInput {
 		if nodeSet.BootstrapNodeIndex != -1 {
