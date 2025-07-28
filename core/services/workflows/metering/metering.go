@@ -600,7 +600,7 @@ func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logg
 		workflowID: workflowID,
 		labelMap:   labels,
 
-		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryAddress: workflowRegistryAddress,
 		workflowRegistryChainID: workflowRegistryChainID,
 	}
 }
