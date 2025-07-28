@@ -367,7 +367,7 @@ func TestUpgrade(t *testing.T) {
 
 func TestIDL(t *testing.T) {
 	skipInCI(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(

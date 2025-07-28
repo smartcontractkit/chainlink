@@ -30,7 +30,7 @@ func TestGenericOpsWithoutMcms(t *testing.T) {
 }
 
 func doTestGenericOps(t *testing.T, mcms bool) {
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e := tenv.Env
 

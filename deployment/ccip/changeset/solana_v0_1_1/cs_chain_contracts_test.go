@@ -90,7 +90,7 @@ func TestAddRemoteChainWithoutMcms(t *testing.T) {
 }
 
 func doTestAddRemoteChain(t *testing.T, mcms bool) {
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	_, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
@@ -317,7 +317,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 
 // billing test
 func doTestBilling(t *testing.T, mcms bool) {
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
@@ -588,7 +588,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 
 func TestSetTokenAuthority(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
@@ -622,7 +622,7 @@ func TestSetTokenAuthority(t *testing.T) {
 // token admin registry test
 func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
@@ -862,14 +862,14 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
 }
 
@@ -884,7 +884,7 @@ func TestSetOcr3Active(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
 		testhelpers.WithNumOfBootstrapNodes(3),
-		testhelpers.WithSolChains(1))
+		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error
 	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
@@ -911,7 +911,7 @@ func TestSetOcr3Active(t *testing.T) {
 func TestSetOcr3Candidate(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
-		testhelpers.WithSolChains(1))
+		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error
 	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
