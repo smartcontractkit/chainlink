@@ -3,13 +3,13 @@ package pricegetter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
@@ -238,7 +238,7 @@ func (d *DynamicPriceGetter) performBatchCall(
 		for _, read := range offchainAggregatorRespSlice {
 			val, readErr := read.GetResult()
 			if readErr != nil {
-				respErr = multierr.Append(respErr, fmt.Errorf("error with contract reader readName %v: %w", read.ReadName, readErr))
+				respErr = errors.Join(respErr, fmt.Errorf("error with contract reader readName %v: %w", read.ReadName, readErr))
 				continue
 			}
 			if read.ReadName == DecimalsMethodName {

@@ -61,12 +61,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			dockerNetworks, dockerNetworksErr := getCtfDockerNetworks()
-			if dockerNetworksErr != nil {
-				return errors.Wrap(dockerNetworksErr, "failed to get CTF Docker networks")
-			}
-
-			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs, dockerNetworks)
+			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -99,7 +94,7 @@ var stopBeholderCmd = &cobra.Command{
 
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string, dockerNetworks []string) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -142,11 +137,6 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	in, err := framework.Load[ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load test configuration")
-	}
-
-	// connect to existing network if provided, that should only be used, when chip-ingress is started for an already running environment
-	if len(dockerNetworks) > 0 {
-		in.ChipIngress.ExtraDockerNetworks = append(in.ChipIngress.ExtraDockerNetworks, dockerNetworks...)
 	}
 
 	out, startErr := chipingressset.New(in.ChipIngress)
@@ -212,7 +202,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	}
 
 	for _, protoSchemaSet := range protoSchemaSets {
-		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.Repository)
+		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 

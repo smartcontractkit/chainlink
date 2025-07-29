@@ -1,6 +1,7 @@
 package utils
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -8,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // FileExists returns true if a file at the passed string exists.
@@ -58,7 +58,7 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err err
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, f.Close()) }()
+	defer func() { err = stderrors.Join(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return
@@ -87,7 +87,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, dst.Close()) }()
+	defer func() { err = stderrors.Join(err, dst.Close()) }()
 	return EnsureFileMaxPerms(dst, perms)
 }
 

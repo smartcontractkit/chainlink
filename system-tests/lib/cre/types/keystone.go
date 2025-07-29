@@ -29,8 +29,11 @@ type NodeType = string
 
 const (
 	BootstrapNode NodeType = "bootstrap"
-	WorkerNode    NodeType = "worker"
 	GatewayNode   NodeType = "gateway"
+
+	// WorkerNode The value here is `plugin` to match the filtering performed by JD to get non-bootstrap nodes.
+	// See: https://github.com/smartcontractkit/chainlink/blob/develop/deployment/data-feeds/offchain/jd.go#L57
+	WorkerNode NodeType = "plugin"
 )
 
 type ConfigDescription struct {

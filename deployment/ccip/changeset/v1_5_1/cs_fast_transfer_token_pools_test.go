@@ -982,3 +982,226 @@ func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExt
 		})
 	}
 }
+
+func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *testing.T) {
+	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
+
+	// Deploy different types of pools on different chains
+	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
+	externalMinterB, _ := testhelpers.DeployTokenGovernor(t, e, selectorB, tokens[selectorB].Address)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterA,
+		},
+		selectorB: {
+			Type:               shared.BurnMintWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterB,
+		},
+	}, false)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorB: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterB,
+		},
+	}, false)
+
+	testCases := []struct {
+		name                       string
+		sourceChain                uint64
+		destChain                  uint64
+		sourceType                 cldf.ContractType
+		sourceVersion              semver.Version
+		destinationContractType    *cldf.ContractType
+		destinationContractVersion *semver.Version
+		expectError                bool
+		expectedErrorMsg           string
+	}{
+		{
+			name:          "Valid_SameTypeAndVersion",
+			sourceChain:   selectorA,
+			destChain:     selectorB,
+			sourceType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+			sourceVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			// No destination type/version specified - should use default
+			expectError: false,
+		},
+		{
+			name:                       "Valid_DifferentType",
+			sourceChain:                selectorA,
+			destChain:                  selectorB,
+			sourceType:                 shared.HybridWithExternalMinterFastTransferTokenPool,
+			sourceVersion:              shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			destinationContractType:    &shared.BurnMintWithExternalMinterFastTransferTokenPool,
+			destinationContractVersion: &shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
+			expectError:                false,
+		},
+		{
+			name:                       "Invalid_NonExistentDestinationType",
+			sourceChain:                selectorB,
+			destChain:                  selectorA,
+			sourceType:                 shared.HybridWithExternalMinterFastTransferTokenPool,
+			sourceVersion:              shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			destinationContractType:    &shared.BurnMintWithExternalMinterFastTransferTokenPool, // This type doesn't exist on selectorA
+			destinationContractVersion: &shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
+			expectError:                true,
+			expectedErrorMsg:           "destination pool validation failed",
+		},
+		{
+			name:                    "Invalid_NonExistentDestinationChain",
+			sourceChain:             selectorA,
+			destChain:               99999, // Non-existent chain
+			sourceType:              shared.HybridWithExternalMinterFastTransferTokenPool,
+			sourceVersion:           shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+			destinationContractType: &shared.BurnMintWithExternalMinterFastTransferTokenPool,
+			expectError:             true,
+			expectedErrorMsg:        "unknown chain selector 99999",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			update := v1_5_1.UpdateLaneConfig{
+				FastTransferFillerFeeBps:   100,
+				FastTransferPoolFeeBps:     50,
+				FillAmountMaxRequest:       big.NewInt(1000),
+				FillerAllowlistEnabled:     false,
+				DestinationContractType:    tc.destinationContractType,
+				DestinationContractVersion: tc.destinationContractVersion,
+			}
+
+			config := v1_5_1.FastTransferUpdateLaneConfigConfig{
+				TokenSymbol:     testhelpers.TestTokenSymbol,
+				ContractType:    tc.sourceType,
+				ContractVersion: tc.sourceVersion,
+				Updates: map[uint64]map[uint64]v1_5_1.UpdateLaneConfig{
+					tc.sourceChain: {tc.destChain: update},
+				},
+			}
+
+			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.FastTransferUpdateLaneConfigChangeset, config))
+			if tc.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErrorMsg)
+			} else {
+				require.NoError(t, err)
+
+				// Verify the configuration was applied correctly
+				pool, err := bindings.GetFastTransferTokenPoolContract(e, testhelpers.TestTokenSymbol, tc.sourceType, tc.sourceVersion, tc.sourceChain)
+				require.NoError(t, err)
+
+				result, _, err := pool.GetDestChainConfig(nil, tc.destChain)
+				require.NoError(t, err)
+				require.Equal(t, update.FastTransferFillerFeeBps, result.FastTransferFillerFeeBps)
+				require.Equal(t, update.FastTransferPoolFeeBps, result.FastTransferPoolFeeBps)
+				require.Equal(t, update.FillAmountMaxRequest, result.MaxFillAmountPerRequest)
+
+				// Verify the destination pool address is correctly set
+				expectedDestType := tc.sourceType
+				expectedDestVersion := tc.sourceVersion
+				if tc.destinationContractType != nil {
+					expectedDestType = *tc.destinationContractType
+				}
+				if tc.destinationContractVersion != nil {
+					expectedDestVersion = *tc.destinationContractVersion
+				}
+
+				expectedDestPool, err := bindings.GetFastTransferTokenPoolContract(e, testhelpers.TestTokenSymbol, expectedDestType, expectedDestVersion, tc.destChain)
+				require.NoError(t, err)
+
+				expectedDestPoolPadded := common.LeftPadBytes(expectedDestPool.Address().Bytes(), 32)
+				require.Equal(t, expectedDestPoolPadded, result.DestinationPool)
+			}
+		})
+	}
+}
+
+func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors_DestinationFields(t *testing.T) {
+	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.BurnMintFastTransferTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+		selectorB: {
+			Type:               shared.BurnMintFastTransferTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+	}, false)
+
+	testCases := []struct {
+		name             string
+		update           v1_5_1.UpdateLaneConfig
+		expectedErrorMsg string
+	}{
+		{
+			name: "Invalid_DestinationPoolType_NonExistent",
+			update: v1_5_1.UpdateLaneConfig{
+				FastTransferFillerFeeBps:   100,
+				FastTransferPoolFeeBps:     50,
+				FillAmountMaxRequest:       big.NewInt(1000),
+				FillerAllowlistEnabled:     false,
+				DestinationContractType:    &shared.BurnMintWithExternalMinterFastTransferTokenPool, // This type doesn't exist on selectorB
+				DestinationContractVersion: &shared.BurnMintWithExternalMinterFastTransferTokenPoolVersion,
+			},
+			expectedErrorMsg: "destination pool validation failed",
+		},
+		{
+			name: "Invalid_DestinationPoolVersion_NonExistent",
+			update: v1_5_1.UpdateLaneConfig{
+				FastTransferFillerFeeBps:   100,
+				FastTransferPoolFeeBps:     50,
+				FillAmountMaxRequest:       big.NewInt(1000),
+				FillerAllowlistEnabled:     false,
+				DestinationContractVersion: func() *semver.Version { v, _ := semver.NewVersion("9.9.9"); return v }(), // Non-existent version
+			},
+			expectedErrorMsg: "destination pool validation failed",
+		},
+		{
+			name: "Valid_OnlyDestinationContractType",
+			update: v1_5_1.UpdateLaneConfig{
+				FastTransferFillerFeeBps: 100,
+				FastTransferPoolFeeBps:   50,
+				FillAmountMaxRequest:     big.NewInt(1000),
+				FillerAllowlistEnabled:   false,
+				DestinationContractType:  &shared.BurnMintFastTransferTokenPool, // Same type as deployed on selectorB
+				// Version will default to root config version
+			},
+			expectedErrorMsg: "", // Should not error
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			config := v1_5_1.FastTransferUpdateLaneConfigConfig{
+				TokenSymbol:     testhelpers.TestTokenSymbol,
+				ContractType:    shared.BurnMintFastTransferTokenPool,
+				ContractVersion: shared.FastTransferTokenPoolVersion,
+				Updates: map[uint64]map[uint64]v1_5_1.UpdateLaneConfig{
+					selectorA: {selectorB: tc.update},
+				},
+			}
+
+			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.FastTransferUpdateLaneConfigChangeset, config))
+			if tc.expectedErrorMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErrorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

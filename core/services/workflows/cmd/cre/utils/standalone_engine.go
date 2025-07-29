@@ -3,10 +3,12 @@ package utils
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -96,7 +98,12 @@ func NewStandaloneEngine(
 
 	var billingClient billing.WorkflowClient
 	if billingClientAddr != "" {
-		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr)
+		clientOpts := []billing.WorkflowClientOpt{}
+		if strings.HasPrefix(billingClientAddr, "https") {
+			clientOpts = append(clientOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
+		}
+
+		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr, clientOpts...)
 	}
 
 	if module.IsLegacyDAG() {

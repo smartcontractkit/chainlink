@@ -2,6 +2,7 @@ package testsetups
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -22,7 +23,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -174,7 +174,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	var inputNetworks []string
 	c.SelectedNetworks, inputNetworks, err = c.EnvInput.EVMNetworks()
 	if err != nil {
-		allError = multierr.Append(allError, fmt.Errorf("failed to get networks: %w", err))
+		allError = stderrors.Join(allError, fmt.Errorf("failed to get networks: %w", err))
 		return allError
 	}
 
@@ -189,16 +189,16 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		for _, pair := range networkPairs {
 			networkNames := strings.Split(pair, ",")
 			if len(networkNames) != 2 {
-				allError = multierr.Append(allError, fmt.Errorf("invalid network pair"))
+				allError = stderrors.Join(allError, errors.New("invalid network pair"))
 			}
 			// check if the network names are valid
 			network1, ok := networkByChainName[networkNames[0]]
 			if !ok {
-				allError = multierr.Append(allError, fmt.Errorf("network %s not found in network config", networkNames[0]))
+				allError = stderrors.Join(allError, fmt.Errorf("network %s not found in network config", networkNames[0]))
 			}
 			network2, ok := networkByChainName[networkNames[1]]
 			if !ok {
-				allError = multierr.Append(allError, fmt.Errorf("network %s not found in network config", networkNames[1]))
+				allError = stderrors.Join(allError, fmt.Errorf("network %s not found in network config", networkNames[1]))
 			}
 			c.AddPairToNetworkList(network1, network2)
 		}
@@ -225,7 +225,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	// if the networks are not simulated use the first p.NoOfNetworks networks from the selected networks
 	if !simulated && len(c.SelectedNetworks) != c.TestGroupInput.NoOfNetworks {
 		if len(c.SelectedNetworks) < c.TestGroupInput.NoOfNetworks {
-			allError = multierr.Append(allError, fmt.Errorf("not enough networks provided"))
+			allError = stderrors.Join(allError, errors.New("not enough networks provided"))
 		} else {
 			c.SelectedNetworks = c.SelectedNetworks[:c.TestGroupInput.NoOfNetworks]
 		}
@@ -285,7 +285,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 			chainConfig := &ctf_config.EthereumChainConfig{}
 			err := chainConfig.Default()
 			if err != nil {
-				allError = multierr.Append(allError, fmt.Errorf("failed to get default chain config: %w", err))
+				allError = stderrors.Join(allError, fmt.Errorf("failed to get default chain config: %w", err))
 			} else {
 				chainConfig.ChainID = int(chainID)
 				eth1 := ctf_config_types.EthereumVersion_Eth1
@@ -793,18 +793,18 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			o.Cfg.TestGroupInput, o.BootstrapAdded, o.JobAddGrp,
 		)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
+			allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkA.Name, ccipLaneA2B.SrcNetworkLaneCfg)
 		if err != nil {
 			lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkA.Name, networkB.Name)
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
+			allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkB.Name, ccipLaneA2B.DstNetworkLaneCfg)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
+			allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
 			return err
 		}
 
@@ -813,7 +813,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		// The reverse lane will have the same pools as the forward lane but in reverse order of source and destination
 		err = ccipLaneA2B.SetRemoteChainsOnPool()
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("error setting remote chains; err - %w", errors.WithStack(err))))
+			allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("error setting remote chains; err - %w", errors.WithStack(err))))
 			return err
 		}
 		lggr.Info().Msgf("done setting up lane %s to %s", networkA.Name, networkB.Name)
@@ -833,19 +833,19 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
-				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %w", networkB.Name, networkA.Name, errors.WithStack(err))))
+				allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %w", networkB.Name, networkA.Name, errors.WithStack(err))))
 				return err
 			}
 
 			err = o.LaneConfig.WriteLaneConfig(networkB.Name, ccipLaneB2A.SrcNetworkLaneCfg)
 			if err != nil {
-				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
+				allErrors.Store(stderrors.Join(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
 				return err
 			}
 			err = o.LaneConfig.WriteLaneConfig(networkA.Name, ccipLaneB2A.DstNetworkLaneCfg)
 			if err != nil {
 				allErrors.Store(
-					multierr.Append(
+					stderrors.Join(
 						allErrors.Load(),
 						fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err)),
 					),
@@ -1250,13 +1250,13 @@ func CCIPDefaultTestSetUp(
 			// if existing deployment is true, don't attempt to pay ccip fees
 			err := lanes.ForwardLane.CleanUp(configureCLNode)
 			if err != nil {
-				errs = multierr.Append(errs, err)
+				errs = stderrors.Join(errs, err)
 			}
 			if lanes.ReverseLane != nil {
 				// if existing deployment is true, don't attempt to pay ccip fees
 				err := lanes.ReverseLane.CleanUp(configureCLNode)
 				if err != nil {
-					errs = multierr.Append(errs, err)
+					errs = stderrors.Join(errs, err)
 				}
 			}
 		}

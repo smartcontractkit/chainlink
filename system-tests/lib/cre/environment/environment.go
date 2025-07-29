@@ -127,21 +127,20 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	stageGen := NewStageGen(8, "STAGE")
-
-	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
+	stageGen := NewStageGen(7, "STAGE")
 
 	var s3ProviderOutput *s3provider.Output
 	if input.S3ProviderInput != nil {
+		stageGen = NewStageGen(8, "STAGE")
+		fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 		var s3ProviderErr error
 		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
 		if s3ProviderErr != nil {
 			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
 		}
+		testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
 	}
-	testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
-
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	bi := BlockchainsInput{
 		infra:    &input.InfraInput,
@@ -494,7 +493,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
 
-	err = DumpArtifact(
+	artifactPath, artifactErr := DumpArtifact(
 		memoryDatastore.AddressRefStore,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		*jdOutput,
@@ -502,10 +501,11 @@ func SetupTestEnvironment(
 		fullCldOutput.Environment.Offchain,
 		input.CapabilitiesContractFactoryFunctions,
 	)
-	if err != nil {
-		testLogger.Error().Err(err).Msg("failed to generate artifact")
+	if artifactErr != nil {
+		testLogger.Error().Err(artifactErr).Msg("failed to generate artifact")
 		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Failed to write bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
 	} else {
+		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
 		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Wrote bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
 	}
 

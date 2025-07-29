@@ -158,7 +158,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	var configErr error
 	configURLToUse := ""
 	if configURL != nil {
-		configData, configErr = libnet.Download(ctx, configURLToUse)
+		configData, configErr = libnet.Download(ctx, *configURL)
 		if configErr != nil {
 			return errors.Wrap(configErr, "failed to download workflow config")
 		}

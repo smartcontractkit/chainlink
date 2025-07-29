@@ -315,7 +315,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID:    e.workflow.id,
 			WorkflowOwner: e.workflow.owner,
-			ReferenceID:   step.Vertex.Ref,
+			ReferenceID:   step.Ref,
 		},
 		Config: stepConfig,
 	}
@@ -617,7 +617,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range step.Vertex.Dependencies {
+	for _, dr := range step.Dependencies {
 		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
@@ -1021,11 +1021,13 @@ func (e *Engine) executeStep(
 	userMaxSpend.Valid = false
 
 	// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
-	if tr.Metadata.SpendLimits, err = meteringReport.Deduct(
-		curStep.Ref,
-		metering.ByDerivedAvailability(userMaxSpend, e.maxWorkerLimit, info, config),
-	); err != nil {
-		e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+	if meteringReport != nil {
+		if tr.Metadata.SpendLimits, err = meteringReport.Deduct(
+			curStep.Ref,
+			metering.ByDerivedAvailability(userMaxSpend, e.maxWorkerLimit, info, config),
+		); err != nil {
+			e.logger.Error(fmt.Sprintf("could not deduct balance for capability request %s: %s", curStep.Ref, err))
+		}
 	}
 
 	stepCtx, cancel := context.WithTimeout(ctx, stepTimeoutDuration)
@@ -1246,7 +1248,7 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID:    e.workflow.id,
 					WorkflowOwner: e.workflow.owner,
-					ReferenceID:   s.Vertex.Ref,
+					ReferenceID:   s.Ref,
 				},
 				Config: stepConfig,
 			}
@@ -1305,6 +1307,11 @@ type Config struct {
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
 	BillingClient        metering.BillingClient
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	WorkflowRegistryAddress string
+	// WorkflowRegistryChainID is the chain ID for the workflow registry
+	WorkflowRegistryChainID string
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1483,7 +1490,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID),
 	}
 
 	return engine, nil

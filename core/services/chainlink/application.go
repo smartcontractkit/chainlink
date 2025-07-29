@@ -21,8 +21,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -306,7 +306,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
-		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL())
+		workflowOpts := []billing.WorkflowClientOpt{}
+
+		if opts.Config.Billing().TLSEnabled() {
+			workflowOpts = append(workflowOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
+		}
+
+		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL(), workflowOpts...)
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
 		}
@@ -524,6 +530,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.workflowRateLimiter,
 		creServices.workflowLimits,
 		workflows.WithBillingClient(billingClient),
+		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -933,6 +940,7 @@ func newCREServices(
 					workflowLimits,
 					artifactsStore,
 					syncer.WithBillingClient(billingClient),
+					syncer.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
 				)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -1014,7 +1022,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	for _, service := range app.srvcs {
 		if ctx.Err() != nil {
 			err := errors.Wrap(ctx.Err(), "aborting start")
-			return multierr.Combine(err, ms.Close())
+			return stderrors.Join(err, ms.Close())
 		}
 
 		app.logger.Infow("Starting service...", "name", service.Name())
@@ -1070,7 +1078,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 				return
 			}
 			if lerr := app.closeLogger(); lerr != nil {
-				err = multierr.Append(err, lerr)
+				err = stderrors.Join(err, lerr)
 			}
 		}()
 		app.logger.Info("Gracefully exiting...")
@@ -1079,20 +1087,20 @@ func (app *ChainlinkApplication) stop() (err error) {
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
 			app.logger.Debugw("Closing service...", "name", service.Name())
-			err = multierr.Append(err, service.Close())
+			err = stderrors.Join(err, service.Close())
 		}
 
 		app.logger.Debug("Stopping SessionReaper...")
-		err = multierr.Append(err, app.SessionReaper.Stop())
+		err = stderrors.Join(err, app.SessionReaper.Stop())
 		app.logger.Debug("Closing HealthChecker...")
-		err = multierr.Append(err, app.HealthChecker.Close())
+		err = stderrors.Join(err, app.HealthChecker.Close())
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
-			err = multierr.Append(err, app.FeedsService.Close())
+			err = stderrors.Join(err, app.FeedsService.Close())
 		}
 
 		if app.profiler != nil {
-			err = multierr.Append(err, app.profiler.Stop())
+			err = stderrors.Join(err, app.profiler.Stop())
 		}
 
 		app.logger.Debugf("Closed application in %v", time.Since(shutdownStart))

@@ -67,6 +67,8 @@ func TestService_CapabilityCall(t *testing.T) {
 			},
 		},
 	}
+	data, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -82,7 +84,7 @@ func TestService_CapabilityCall(t *testing.T) {
 					req := reqs[0]
 					req.SendResponse(t.Context(), &Response{
 						ID:      requestID,
-						Payload: expectedResponse,
+						Payload: data,
 					})
 					return
 				}
@@ -155,6 +157,8 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 			},
 		},
 	}
+	data, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -170,7 +174,7 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 					req := reqs[0]
 					req.SendResponse(t.Context(), &Response{
 						ID:      requestID,
-						Payload: expectedResponse,
+						Payload: data,
 					})
 					return
 				}
@@ -241,9 +245,8 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 				if len(reqs) == 1 {
 					req := reqs[0]
 					req.SendResponse(t.Context(), &Response{
-						ID: requestID,
-						// We return the incorrect type intentionally
-						Payload: &vault.CreateSecretsResponse{},
+						ID:      requestID,
+						Payload: []byte("invalid data"),
 					})
 					return
 				}
@@ -263,7 +266,7 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	})
 
 	wg.Wait()
-	assert.ErrorContains(t, err, "unexpected response type: got *vault.CreateSecretsResponse")
+	assert.ErrorContains(t, err, "cannot parse invalid wire-format data")
 }
 
 func TestService_CapabilityCall_TimeOut(t *testing.T) {
@@ -343,37 +346,17 @@ func TestService_CRUD(t *testing.T) {
 	testCases := []struct {
 		name     string
 		error    string
-		response proto.Message
-		call     func(t *testing.T, service *Service) (proto.Message, error)
+		response *Response
+		call     func(t *testing.T, service *Service) (*Response, error)
 	}{
 		{
 			name: "CreateSecrets",
-			response: &vault.CreateSecretsResponse{
-				Responses: []*vault.CreateSecretResponse{
-					{
-						Id:      sid,
-						Success: true,
-					},
-				},
+			response: &Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
 			},
-			call: func(t *testing.T, service *Service) (proto.Message, error) {
-				req := &vault.CreateSecretsRequest{
-					RequestId: requestID,
-					EncryptedSecrets: []*vault.EncryptedSecret{
-						{
-							Id:             sid,
-							EncryptedValue: "encrypted-value",
-						},
-					},
-				}
-				return service.CreateSecrets(t.Context(), req)
-			},
-		},
-		{
-			name:     "CreateSecrets_IncorrectResponseType",
-			response: &vault.UpdateSecretsResponse{},
-			error:    "unexpected response type: got *vault.UpdateSecretsResponse",
-			call: func(t *testing.T, service *Service) (proto.Message, error) {
+			call: func(t *testing.T, service *Service) (*Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -407,10 +390,7 @@ func TestService_CRUD(t *testing.T) {
 						reqs := store.GetByIDs([]string{requestID})
 						if len(reqs) == 1 {
 							req := reqs[0]
-							req.SendResponse(t.Context(), &Response{
-								ID:      requestID,
-								Payload: tc.response,
-							})
+							req.SendResponse(t.Context(), tc.response)
 							return
 						}
 					}
@@ -424,7 +404,7 @@ func TestService_CRUD(t *testing.T) {
 				assert.ErrorContains(t, err, tc.error)
 			} else {
 				require.NoError(t, err)
-				assert.True(t, proto.Equal(tc.response, resp))
+				assert.Equal(t, tc.response, resp)
 			}
 		})
 	}

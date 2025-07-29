@@ -62,18 +62,20 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 	require.NoError(t, err)
 
 	return &v2.EngineConfig{
-		Lggr:                 lggr,
-		Module:               modulemocks.NewModuleV2(t),
-		CapRegistry:          regmocks.NewCapabilitiesRegistry(t),
-		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		WorkflowID:           testWorkflowID,
-		WorkflowOwner:        testWorkflowOwnerA,
-		WorkflowName:         name,
-		LocalLimits:          v2.EngineLimits{},
-		GlobalLimits:         sLimiter,
-		ExecutionRateLimiter: rateLimiter,
-		BeholderEmitter:      &noopBeholderEmitter{},
-		BillingClient:        metmocks.NewBillingClient(t),
+		Lggr:                          lggr,
+		Module:                        modulemocks.NewModuleV2(t),
+		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
+		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		WorkflowID:                    testWorkflowID,
+		WorkflowOwner:                 testWorkflowOwnerA,
+		WorkflowName:                  name,
+		LocalLimits:                   v2.EngineLimits{},
+		GlobalLimits:                  sLimiter,
+		ExecutionRateLimiter:          rateLimiter,
+		BeholderEmitter:               &noopBeholderEmitter{},
+		BillingClient:                 metmocks.NewBillingClient(t),
+		WorkflowRegistryAddress:       "0x123",
+		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}
 }
 
