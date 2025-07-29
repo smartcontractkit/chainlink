@@ -44,7 +44,7 @@ func TestWorkflowLimits(t *testing.T) {
 
 	err = wsl.Use(ctx1, 1)
 	require.Error(t, err)
-	var errLimited limits.ErrorResourceLimited[int32]
+	var errLimited limits.ErrorResourceLimited[int]
 	if assert.ErrorAs(t, err, &errLimited) {
 		require.Equal(t, settings.ScopeOwner, errLimited.Scope)
 	}

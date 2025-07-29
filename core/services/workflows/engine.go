@@ -143,7 +143,7 @@ type Engine struct {
 
 	clock          clockwork.Clock
 	ratelimiter    limits.RateLimiter
-	workflowLimits limits.ResourceLimiter[int32]
+	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
 }
 
@@ -152,7 +152,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
 		if err := e.workflowLimits.Use(ctx, 1); err != nil {
-			var errLimited limits.ErrorResourceLimited[int32]
+			var errLimited limits.ErrorResourceLimited[int]
 			if errors.As(err, &errLimited) {
 				switch errLimited.Scope {
 				case settings.ScopeOwner:
@@ -1333,7 +1333,7 @@ type Config struct {
 
 	// WorkflowLimits specifies an upper limit on the count of workflows that can be
 	// running globally and per workflow owner.
-	WorkflowLimits limits.ResourceLimiter[int32]
+	WorkflowLimits limits.ResourceLimiter[int]
 
 	// For testing purposes only
 	maxRetries          int

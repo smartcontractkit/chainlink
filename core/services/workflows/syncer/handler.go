@@ -120,7 +120,7 @@ type eventHandler struct {
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
 	ratelimiter            limits.RateLimiter
-	workflowLimits         limits.ResourceLimiter[int32]
+	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	billingClient          metering.BillingClient
 
@@ -193,7 +193,7 @@ func NewEventHandler(
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	ratelimiter limits.RateLimiter,
-	workflowLimits limits.ResourceLimiter[int32],
+	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {

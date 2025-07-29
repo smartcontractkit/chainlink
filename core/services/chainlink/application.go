@@ -782,7 +782,7 @@ type CREServices struct {
 
 	// workflowLimits is the syncer limiter for workflows
 	// it will specify the amount of global and per owner workflows that can be registered
-	workflowLimits limits.ResourceLimiter[int32]
+	workflowLimits limits.ResourceLimiter[int]
 
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
@@ -831,7 +831,7 @@ func newCREServices(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: globalLogger.Name() + ".WorkflowLimiter", Closer: workflowLimits})
+	srvcs = append(srvcs, closerService{name: "WorkflowLimiter", Closer: workflowLimits})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if capCfg.GatewayConnector().DonID() != "" {

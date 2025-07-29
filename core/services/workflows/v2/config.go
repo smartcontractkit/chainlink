@@ -32,9 +32,9 @@ type EngineConfig struct {
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
 	WorkflowName  types.WorkflowName
 
-	LocalLimits          EngineLimits                  // local to a single workflow
-	GlobalLimits         limits.ResourceLimiter[int32] // global to all workflows
-	ExecutionRateLimiter limits.RateLimiter            // global + per owner
+	LocalLimits          EngineLimits                // local to a single workflow
+	GlobalLimits         limits.ResourceLimiter[int] // global to all workflows
+	ExecutionRateLimiter limits.RateLimiter          // global + per owner
 
 	BeholderEmitter custmsg.MessageEmitter
 

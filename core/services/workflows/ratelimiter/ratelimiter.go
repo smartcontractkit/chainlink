@@ -24,6 +24,7 @@ func NewRateLimiter(config Config, f limits.Factory) (limits.RateLimiter, error)
 	if config.GlobalBurst <= 0 || config.PerSenderBurst <= 0 {
 		return nil, errors.New("burst values must be positive")
 	}
+
 	// TODO cresettings
 	globalRate := settings.Rate(rate.Limit(config.GlobalRPS), config.GlobalBurst)
 	globalRate.Scope = settings.ScopeGlobal

@@ -165,7 +165,7 @@ func (e *Engine) init(ctx context.Context) {
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalLimits.Use(ctx, 1)
 	if err != nil {
-		var errLimited limits.ErrorResourceLimited[int32]
+		var errLimited limits.ErrorResourceLimited[int]
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:

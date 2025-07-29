@@ -38,7 +38,7 @@ type Delegate struct {
 	logger         logger.Logger
 	store          store.Store
 	ratelimiter    limits.RateLimiter
-	workflowLimits limits.ResourceLimiter[int32]
+	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -112,7 +112,7 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter limits.RateLimiter,
-	workflowLimits limits.ResourceLimiter[int32],
+	workflowLimits limits.ResourceLimiter[int],
 	opts ...func(*Delegate),
 ) *Delegate {
 	d := &Delegate{

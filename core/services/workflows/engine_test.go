@@ -1207,7 +1207,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		err = eng.Start(ctx)
-		if limitErr := new(limits.ErrorResourceLimited[int32]); assert.ErrorAs(t, err, limitErr) {
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
 			assert.Equal(t, settings.ScopeGlobal, limitErr.Scope)
 		} else if err == nil {
 			assert.NoError(t, eng.Close())
@@ -1261,7 +1261,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		err = eng.Start(ctx)
-		if limitErr := new(limits.ErrorResourceLimited[int32]); assert.ErrorAs(t, err, limitErr) {
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
 			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
 		} else if err == nil {
 			assert.NoError(t, eng.Close())
@@ -1330,7 +1330,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		err = eng.Start(ctx)
-		if limitErr := new(limits.ErrorResourceLimited[int32]); assert.ErrorAs(t, err, limitErr) {
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
 			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
 		} else if err == nil {
 			assert.NoError(t, eng.Close())

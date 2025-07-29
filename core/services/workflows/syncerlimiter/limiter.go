@@ -9,12 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-)
-
-const (
-	defaultGlobal   = 200
-	defaultPerOwner = 200
 )
 
 type Config struct {
@@ -42,20 +38,14 @@ func (k keyedOwnerSettings) GetScoped(ctx context.Context, scope settings.Scope,
 	return k.vals[contexts.CREValue(ctx).Owner], nil
 }
 
-func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limits.ResourceLimiter[int32], error) {
+func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limits.ResourceLimiter[int], error) {
 	lggr = logger.Named(lggr, "WorkflowLimiter")
-	if cfg.Global == 0 {
-		cfg.Global = defaultGlobal
-	}
-	if cfg.PerOwner == 0 {
-		cfg.PerOwner = defaultPerOwner
-	}
 	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
-	// TODO cresettings
-	ownerLimit := settings.Int32(cfg.PerOwner)
-	ownerLimit.Key = "PerOwner.WorkflowLimit"
-	ownerLimit.Scope = settings.ScopeOwner
+	ownerLimit := cresettings.Config.PerOwner.ExecutionConcurrencyLimit
+	if cfg.PerOwner > 0 {
+		ownerLimit.DefaultValue = int(cfg.PerOwner)
+	}
 	perOwner := make(map[string]string, len(cfg.PerOwnerOverrides))
 	for k, v := range cfg.PerOwnerOverrides {
 		perOwner[k] = strconv.Itoa(int(v))
@@ -65,9 +55,10 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	if err != nil {
 		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
 	}
-	globalLimit := settings.Int32(cfg.Global)
-	globalLimit.Key = "WorkflowLimit"
-	globalLimit.Scope = settings.ScopeGlobal
+	globalLimit := cresettings.Config.WorkflowLimit
+	if cfg.Global > 0 {
+		globalLimit.DefaultValue = int(cfg.Global)
+	}
 	global, err := limits.NewResourcePoolLimiter(lf, globalLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global resource limiter: %w", err)
@@ -75,7 +66,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 
 	lggr.Debugw("workflow limits set", "perOwner", cfg.PerOwner, "global", cfg.Global, "overrides", cfg.PerOwnerOverrides)
 
-	return limits.MultiResourcePoolLimiter[int32]{owner, global}, nil
+	return limits.MultiResourcePoolLimiter[int]{owner, global}, nil
 }
 
 // normalizeOverrides ensures all incoming keys are normalized
