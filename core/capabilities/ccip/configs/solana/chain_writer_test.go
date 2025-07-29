@@ -41,7 +41,7 @@ func TestChainWriterConfigRaw(t *testing.T) {
 				var result chainwriter.ChainWriterConfig
 				err = json.Unmarshal(raw, &result)
 				require.NoError(t, err)
-				require.EqualValues(t, config, result)
+				require.Equal(t, config, result)
 			}
 		})
 	}

@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
-	ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
-	ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
+	ccipOffRampIDL       = idl.FetchCCIPOfframpIDL()
+	ccipFeeQuoterIDL     = idl.FetchFeeQuoterIDL()
+	ccipRmnRemoteIDL     = idl.FetchRMNRemoteIDL()
 	ccipCCTPTokenPoolIDL = idl.FetchCctpTokenPoolIDL()
 
 	// defaultCCIPLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
@@ -95,7 +95,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
-								Retention: &defaultCCIPLogsRetention,
+								Retention:       &defaultCCIPLogsRetention,
 								IncludeReverted: &trueVal,
 							},
 							IndexedField0: &config.IndexedField{
@@ -448,7 +448,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 				Reads: map[string]config.ReadDefinition{
 					consts.EventNameCCTPMessageSent: {
 						ChainSpecificName: "CcipCctpMessageSentEvent",
-						ReadType: config.Event,
+						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
 								Retention: &defaultCCIPLogsRetention,
@@ -704,7 +704,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 				Reads: map[string]config.ReadDefinition{
 					consts.EventNameCCTPMessageSent: {
 						ChainSpecificName: "CcipCctpMessageSentEvent",
-						ReadType: config.Event,
+						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
 								Retention: &defaultCCIPLogsRetention,
