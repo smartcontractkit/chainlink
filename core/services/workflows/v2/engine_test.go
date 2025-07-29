@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -1190,7 +1192,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 							Data: &vault.SecretData{
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
-										Shares: req.Requests[0].GetEncryptionKeys(),
+										Shares:        req.Requests[0].GetEncryptionKeys(),
+										EncryptionKey: base64.StdEncoding.EncodeToString(localNode.EncryptionPublicKey[:]),
 									},
 								},
 							},
@@ -1247,13 +1250,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
-		func(shares []string) (string, error) {
-			var result string
-			for _, share := range shares {
-				result = result + share + ", "
-			}
-			return result, nil
-		},
+		cfg.WorkflowKey,
+		&tdh2easy.PublicKey{},
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)

@@ -2,8 +2,6 @@ package v2
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
@@ -12,7 +10,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"golang.org/x/crypto/nacl/box"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -126,46 +123,8 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
-			func(shares []string, publicKeyBytes *[32]byte) (string, error) {
-				var decryptionShares []*tdh2easy.DecryptionShare
-				ct := &tdh2easy.Ciphertext{}
-				for _, share := range shares {
-					shareB, err := base64.StdEncoding.DecodeString(share)
-					if err != nil {
-						return "", errors.New("Failed to base64 decode share" + err.Error())
-					}
-					decryptedBytes, ok := box.OpenAnonymous(nil, shareB, publicKeyBytes, privateKeyShare)
-					if ok == false {
-						return "", errors.New("failed to decrypt the box")
-					}
-					var decryptionShare tdh2easy.DecryptionShare
-
-					var publicKey tdh2easy.PublicKey
-					err = publicKey.Unmarshal(publicKeyBytes[:])
-					if err != nil {
-						return "", errors.New("failed to unmarshal public key: " + err.Error())
-					}
-					err = ct.UnmarshalVerify(decryptedBytes, &publicKey)
-					if err != nil {
-						return "", fmt.Errorf("failed to unmarshal ciphertext: %w", err)
-					}
-					err = decryptionShare.Unmarshal(decryptedBytes)
-					if err != nil {
-						return "", errors.New("Failed to unmarshal DecryptionShare" + err.Error())
-					}
-					err = tdh2easy.VerifyShare(ct, &publicKey, &decryptionShare)
-					if err != nil {
-						return "", errors.New("failed to verifyshare the decryptionshare" + err.Error())
-					}
-					decryptionShares = append(decryptionShares, &decryptionShare)
-				}
-				decryptedSecret, err := tdh2easy.Aggregate(ct, decryptionShares, len(shares))
-				if err != nil {
-					return "", errors.New("failed to aggregate decryption shares: " + err.Error())
-				}
-				return string(decryptedSecret), nil
-			},
-		)
+			cfg.WorkflowKey,
+			&tdh2easy.PublicKey{})
 	}
 
 	engine := &Engine{

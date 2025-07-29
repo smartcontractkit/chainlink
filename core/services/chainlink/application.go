@@ -932,6 +932,7 @@ func newCREServices(
 					workflowRateLimiter,
 					workflowLimits,
 					artifactsStore,
+					key,
 					syncer.WithBillingClient(billingClient),
 				)
 				if err != nil {
