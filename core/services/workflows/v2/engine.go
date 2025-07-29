@@ -137,7 +137,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{

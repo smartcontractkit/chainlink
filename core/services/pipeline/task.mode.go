@@ -3,12 +3,12 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -38,7 +38,7 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
+	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)

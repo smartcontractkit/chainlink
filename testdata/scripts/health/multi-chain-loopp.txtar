@@ -72,6 +72,7 @@ Name = 'primary'
 URL = 'http://stark.node'
 
 -- out.txt --
+ok BridgeStatusReporter
 ok Cosmos.Foo.RelayerService
 ok Cosmos.Foo.RelayerService.PluginRelayerClient
 ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
@@ -132,6 +133,15 @@ ok WorkflowStore
 -- out.json --
 {
   "data": [
+    {
+      "type": "checks",
+      "id": "BridgeStatusReporter",
+      "attributes": {
+        "name": "BridgeStatusReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
     {
       "type": "checks",
       "id": "Cosmos.Foo.RelayerService",

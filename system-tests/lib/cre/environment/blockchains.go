@@ -19,16 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	libinfra "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 type BlockchainsInput struct {
-	blockchainsInput []*cretypes.WrappedBlockchainInput
-	infra            *libtypes.InfraInput
+	blockchainsInput []*cre.WrappedBlockchainInput
+	infra            *infra.Input
 	nixShell         *libnix.Shell
 }
 
@@ -43,21 +42,21 @@ type BlockchainOutput struct {
 func CreateBlockchains(
 	testLogger zerolog.Logger,
 	input BlockchainsInput,
-) ([]*cretypes.WrappedBlockchainOutput, error) {
+) ([]*cre.WrappedBlockchainOutput, error) {
 	if len(input.blockchainsInput) == 0 {
 		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
-	blockchainOutput := make([]*cretypes.WrappedBlockchainOutput, 0)
+	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
 	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
 		var bcErr error
-		if input.infra.InfraType == libtypes.CRIB {
+		if input.infra.Type == infra.CRIB {
 			if input.nixShell == nil {
 				return nil, pkgerrors.New("nix shell is nil")
 			}
 
-			deployCribBlockchainInput := &cretypes.DeployCribBlockchainInput{
+			deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
 				BlockchainInput: &bi.Input,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
@@ -67,7 +66,7 @@ func CreateBlockchains(
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
-			err := libinfra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+			err := infra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
@@ -102,7 +101,7 @@ func CreateBlockchains(
 			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
 		}
 
-		blockchainOutput = append(blockchainOutput, &cretypes.WrappedBlockchainOutput{
+		blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
 			ChainSelector:      chainSelector,
 			ChainID:            chainID,
 			BlockchainOutput:   bcOut,
@@ -121,7 +120,7 @@ type BlockchainLoggers struct {
 }
 
 type StartBlockchainsOutput struct {
-	BlockChainOutputs []*cretypes.WrappedBlockchainOutput
+	BlockChainOutputs []*cre.WrappedBlockchainOutput
 	BlockChains       map[uint64]chain.BlockChain
 }
 

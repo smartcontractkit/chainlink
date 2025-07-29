@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -15,7 +16,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -1494,7 +1494,7 @@ func (o *orm) loadAllJobsTypes(ctx context.Context, jobs []Job) error {
 }
 
 func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
-	return multierr.Combine(
+	return stderrors.Join(
 		o.loadJobPipelineSpec(ctx, job, &job.PipelineSpecID),
 		o.loadJobType(ctx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		o.loadJobType(ctx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),

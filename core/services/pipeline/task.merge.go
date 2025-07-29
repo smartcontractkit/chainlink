@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -34,7 +34,7 @@ func (t *MergeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 		lMap MapParam
 		rMap MapParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&lMap, From(VarExpr(t.Left, vars), JSONWithVarExprs(t.Left, vars, false), Input(inputs, 0))), "left-side"),
 		errors.Wrap(ResolveParam(&rMap, From(VarExpr(t.Right, vars), JSONWithVarExprs(t.Right, vars, false))), "right-side"),
 	)

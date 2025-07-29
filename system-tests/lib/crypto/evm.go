@@ -1,12 +1,20 @@
 package crypto
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func GenerateEVMKeys(password string, n int) (*types.EVMKeys, error) {
-	result := &types.EVMKeys{
+type EVMKeys struct {
+	EncryptedJSONs  [][]byte
+	PublicAddresses []common.Address
+	Password        string
+	ChainID         int
+}
+
+func GenerateEVMKeys(password string, n int) (*EVMKeys, error) {
+	result := &EVMKeys{
 		Password: password,
 	}
 	for range n {

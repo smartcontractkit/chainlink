@@ -26,6 +26,13 @@ func WithBillingClient(client metering.BillingClient) func(*Delegate) {
 	}
 }
 
+func WithWorkflowRegistry(address, chainID string) func(*Delegate) {
+	return func(e *Delegate) {
+		e.workflowRegistryAddress = address
+		e.workflowRegistryChainID = chainID
+	}
+}
+
 type Delegate struct {
 	registry       core.CapabilitiesRegistry
 	secretsFetcher SecretsFor
@@ -34,6 +41,11 @@ type Delegate struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
 	billingClient  metering.BillingClient
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainID is the chain ID for the workflow registry
+	workflowRegistryChainID string
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -72,18 +84,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:           d.logger,
-		Workflow:       sdkSpec,
-		WorkflowID:     spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:   NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
-		Registry:       d.registry,
-		Store:          d.store,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: d.secretsFetcher,
-		RateLimiter:    d.ratelimiter,
-		WorkflowLimits: d.workflowLimits,
+		Lggr:                    d.logger,
+		Workflow:                sdkSpec,
+		WorkflowID:              spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:           spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:            NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
+		Registry:                d.registry,
+		Store:                   d.store,
+		Config:                  config,
+		Binary:                  binary,
+		SecretsFetcher:          d.secretsFetcher,
+		RateLimiter:             d.ratelimiter,
+		WorkflowLimits:          d.workflowLimits,
+		BillingClient:           d.billingClient,
+		WorkflowRegistryAddress: d.workflowRegistryAddress,
+		WorkflowRegistryChainID: d.workflowRegistryChainID,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -101,7 +116,7 @@ func NewDelegate(
 	workflowLimits *syncerlimiter.Limits,
 	opts ...func(*Delegate),
 ) *Delegate {
-	return &Delegate{
+	d := &Delegate{
 		logger:   logger,
 		registry: registry,
 		secretsFetcher: func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
@@ -111,6 +126,12 @@ func NewDelegate(
 		ratelimiter:    ratelimiter,
 		workflowLimits: workflowLimits,
 	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d
 }
 
 func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {

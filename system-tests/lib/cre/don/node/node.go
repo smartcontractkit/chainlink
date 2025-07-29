@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
@@ -46,7 +46,7 @@ func KeyExtractingTransformFn(value string) string {
 	return value
 }
 
-func ToP2PID(node *types.NodeMetadata, transformFn stringTransformer) (string, error) {
+func ToP2PID(node *cre.NodeMetadata, transformFn stringTransformer) (string, error) {
 	for _, label := range node.Labels {
 		if label.Key == NodeP2PIDKey {
 			if label.Value == "" {
@@ -90,11 +90,11 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeC
 		if i <= bootstrapNodeCount {
 			info.IsBootstrap = true
 			info.Name = fmt.Sprintf("%s_bootstrap-%d", prefix, i)
-			info.Labels[NodeTypeKey] = types.BootstrapNode
+			info.Labels[NodeTypeKey] = cre.BootstrapNode
 		} else {
 			info.IsBootstrap = false
 			info.Name = fmt.Sprintf("%s_node-%d", prefix, i)
-			info.Labels[NodeTypeKey] = types.WorkerNode
+			info.Labels[NodeTypeKey] = cre.WorkerNode
 		}
 
 		nodeInfo = append(nodeInfo, info)
@@ -102,7 +102,7 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeC
 	return nodeInfo, nil
 }
 
-func FindOneWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, labelMatcherFn labelMatcherFn) (*types.NodeMetadata, error) {
+func FindOneWithLabel(nodes []*cre.NodeMetadata, wantedLabel *cre.Label, labelMatcherFn labelMatcherFn) (*cre.NodeMetadata, error) {
 	if wantedLabel == nil {
 		return nil, errors.New("label is nil")
 	}
@@ -116,12 +116,12 @@ func FindOneWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, lab
 	return nil, fmt.Errorf("node with label %s=%s not found", wantedLabel.Key, wantedLabel.Value)
 }
 
-func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, labelMatcherFn labelMatcherFn) ([]*types.NodeMetadata, error) {
+func FindManyWithLabel(nodes []*cre.NodeMetadata, wantedLabel *cre.Label, labelMatcherFn labelMatcherFn) ([]*cre.NodeMetadata, error) {
 	if wantedLabel == nil {
 		return nil, errors.New("label is nil")
 	}
 
-	var foundNodes []*types.NodeMetadata
+	var foundNodes []*cre.NodeMetadata
 
 	for _, node := range nodes {
 		for _, label := range node.Labels {
@@ -134,7 +134,7 @@ func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, la
 	return foundNodes, nil
 }
 
-func FindLabelValue(node *types.NodeMetadata, labelKey string) (string, error) {
+func FindLabelValue(node *cre.NodeMetadata, labelKey string) (string, error) {
 	for _, label := range node.Labels {
 		if label.Key == labelKey {
 			if label.Value == "" {
