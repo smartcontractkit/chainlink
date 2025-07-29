@@ -435,7 +435,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	// fund user WSOL (transfer SOL + syncNative)
 	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
-	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
+	ixTransfer, err := soltokens.NativeTransfer(transferAmount, deployer.PublicKey(), deployerWSOL)
 	require.NoError(t, err)
 	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
 	require.NoError(t, err)
