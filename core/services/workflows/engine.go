@@ -823,7 +823,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if meteringOK {
-		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
+		err := meteringReport.Settle(ctx, stepState.Ref, response.Metadata.Metering)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
@@ -1023,6 +1023,7 @@ func (e *Engine) executeStep(
 	// NOTE: e.maxWorkerLimit is a static number leading to the availability always being undercut.
 	if meteringReport != nil {
 		if tr.Metadata.SpendLimits, err = meteringReport.Deduct(
+			ctx,
 			curStep.Ref,
 			metering.ByDerivedAvailability(userMaxSpend, e.maxWorkerLimit, info, config),
 		); err != nil {
@@ -1490,7 +1491,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, logger.ConvertV1ToV2(lggr), cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID),
 	}
 
 	return engine, nil

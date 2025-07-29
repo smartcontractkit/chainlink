@@ -92,6 +92,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	userSpendLimit.Valid = false
 
 	if capReq.Metadata.SpendLimits, err = meterReport.Deduct(
+		ctx,
 		meteringRef,
 		metering.ByDerivedAvailability(
 			userSpendLimit,
@@ -122,7 +123,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted)
 
-	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
+	err = meterReport.Settle(ctx, meteringRef, capResp.Metadata.Metering)
 	if err != nil {
 		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}

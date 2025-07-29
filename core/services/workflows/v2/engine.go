@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	v2 "github.com/smartcontractkit/chainlink-common/pkg/logger/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -128,6 +129,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		)
 	}
 
+	lggr := v2.Config{
+		Emitter: cfg.BeholderEmitter,
+	}.New()
+
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
@@ -137,7 +142,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, lggr, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -354,7 +359,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			return
 		}
 
-		e.deductStandardBalances(meteringReport)
+		e.deductStandardBalances(ctx, meteringReport)
 	}
 
 	execCtx, execCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
@@ -394,7 +399,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
-		mrErr := meteringReport.Settle(computeUnit,
+		mrErr := meteringReport.Settle(ctx, computeUnit,
 			[]capabilities.MeteringNodeDetail{{
 				Peer2PeerID: e.localNode.PeerID.String(),
 				SpendUnit:   computeUnit,
@@ -487,7 +492,7 @@ func (e *Engine) heartbeatLoop(ctx context.Context) {
 	}
 }
 
-func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
+func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *metering.Report) {
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
@@ -495,6 +500,7 @@ func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
 	computeUnit := billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()
 
 	if _, err := meteringReport.Deduct(
+		ctx,
 		computeUnit,
 		metering.ByResource(computeUnit, compMs),
 	); err != nil {
