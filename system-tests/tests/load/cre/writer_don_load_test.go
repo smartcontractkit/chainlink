@@ -45,6 +45,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -53,8 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
-	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -66,22 +66,22 @@ type WriterTest struct {
 	WorkflowID    string `toml:"workflow_id"`
 }
 type TestConfigLoadTestWriter struct {
-	Blockchains                   []*keystonetypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets                      []*ns.Input                             `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                               `toml:"jd" validate:"required"`
-	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
-	Infra                         *libtypes.InfraInput                    `toml:"infra" validate:"required"`
-	MockCapabilities              []*MockCapabilities                     `toml:"mock_capabilities"`
-	WriterTest                    *WriterTest                             `toml:"writer_test"`
+	Blockchains                   []*cretypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                        `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                          `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
+	Infra                         *infra.Input                       `toml:"infra" validate:"required"`
+	MockCapabilities              []*MockCapabilities                `toml:"mock_capabilities"`
+	WriterTest                    *WriterTest                        `toml:"writer_test"`
 }
 
 func setupLoadTestWriterEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTestWriter,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
-	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
+	jobSpecFactoryFns []cretypes.JobSpecFactoryFn,
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
@@ -97,7 +97,7 @@ func setupLoadTestWriterEnvironment(
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	// Set inputs in the test config, so that they can be saved
-	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
+	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
@@ -119,7 +119,7 @@ func setupLoadTestWriterEnvironment(
 	dfCacheAddress, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 	// Config
-	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &keystonetypes.ConfigureDataFeedsCacheInput{
+	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
 		CldEnv:                universalSetupOutput.CldEnvironment,
 		ChainSelector:         universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		FeedIDs:               feedIDs,
@@ -150,23 +150,23 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	require.Len(t, in.NodeSets, 1, "expected 1 node sets in the test config")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
+		return []*cretypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       []string{keystonetypes.WriteEVMCapability, keystonetypes.MockCapability, keystonetypes.OCR3Capability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON, keystonetypes.WorkflowDON},
+				Capabilities:       []string{cretypes.WriteEVMCapability, cretypes.MockCapability, cretypes.OCR3Capability},
+				DONTypes:           []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 		}
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecFactoryInput) (cretypes.DonsToJobSpecs, error) {
+		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
 
 		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
-			jobSpecs := make(keystonetypes.DonJobs, 0)
-			workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
+			jobSpecs := make(cretypes.DonJobs, 0)
+			workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
 			if err2 != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(err2, "failed to find worker nodes")
@@ -177,7 +177,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
+				if flags.HasFlag(donWithMetadata.Flags, cretypes.MockCapability) && in.MockCapabilities != nil {
 					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 				}
 			}
@@ -191,7 +191,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		if flags.HasFlag(donFlags, keystonetypes.MockCapability) {
+		if flags.HasFlag(donFlags, cretypes.MockCapability) {
 			for _, m := range in.MockCapabilities {
 				capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 					Capability: kcr.CapabilitiesRegistryCapability{
@@ -204,7 +204,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			}
 		}
 
-		if flags.HasFlag(donFlags, keystonetypes.OCR3Capability) {
+		if flags.HasFlag(donFlags, cretypes.OCR3Capability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "offchain_reporting",
@@ -236,7 +236,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		mustSetCapabilitiesFn,
 		//nolint:gosec // disable G115
 		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
-		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
+		[]cretypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
 		feedIDs,
 		[]string{in.WriterTest.WorkflowName},
 	)
@@ -261,20 +261,20 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				return
 			}
 
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			debugDons := make([]*cretypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
 			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
 				for _, output := range setupOutput.nodeOutput[i].CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
+				debugDons = append(debugDons, &cretypes.DebugDon{
 					NodesMetadata:  donWithMetadata.NodesMetadata,
 					Flags:          donWithMetadata.Flags,
 					ContainerNames: containerNames,
 				})
 			}
 
-			debugInput := keystonetypes.DebugInput{
+			debugInput := cretypes.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
 				InfraInput:       in.Infra,
@@ -286,7 +286,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
-		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
+		if flags.HasFlag(don.Flags, cretypes.MockCapability) {
 			for i, n := range don.DON.Nodes {
 				if i == 0 {
 					continue // Skip bootstrap nodes
@@ -308,10 +308,10 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	f := 0
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
 	for _, donMetadata := range setupOutput.donTopology.DonsWithMetadata {
-		if flags.HasFlag(donMetadata.Flags, keystonetypes.OCR3Capability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
+		if flags.HasFlag(donMetadata.Flags, cretypes.OCR3Capability) {
+			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{
 				Key:   node.NodeTypeKey,
-				Value: keystonetypes.WorkerNode,
+				Value: cretypes.WorkerNode,
 			}, node.EqualLabels)
 			require.NoError(t, workerNodesErr, "could not find any worker nodes for ocr3")
 
@@ -341,7 +341,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
-	if in.Infra.InfraType == "docker" {
+	if in.Infra.Type == infra.Docker {
 		for _, nodeSet := range in.NodeSets {
 			if nodeSet.Name == "writer" {
 				for i, n := range nodeSet.NodeSpecs {
@@ -368,7 +368,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
 	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
-	useInsecure := in.Infra.InfraType == "docker"
+	useInsecure := in.Infra.Type == infra.Docker
 
 	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
 

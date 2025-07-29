@@ -17,13 +17,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, input types.DebugInput) {
+func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, input cre.DebugInput) {
 	l.Info().Msg("🔍 Debug information from Chainlink Node logs:")
 
 	if err := input.Validate(); err != nil {
@@ -31,7 +31,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 		return
 	}
 
-	if input.InfraInput.InfraType == libtypes.CRIB {
+	if input.InfraInput.Type == infra.CRIB {
 		l.Error().Msg("❌ Debug information is not supported for CRIB")
 		return
 	}
@@ -54,7 +54,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 		}
 
 		allLogFiles = append(allLogFiles, logFiles...)
-		workflowNodeSet, err := node.FindManyWithLabel(debugDon.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+		workflowNodeSet, err := node.FindManyWithLabel(debugDon.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
 		if err != nil {
 			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 			l.Error().Err(err).Msg("Failed to find worker nodes. No debug information will be printed")
@@ -63,7 +63,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 
 		workflowNodeCount := len(workflowNodeSet)
 
-		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
+		if flags.HasFlag(debugDon.Flags, cre.WorkflowDON) {
 			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "handled event.*WorkflowRegisteredV1"); detectedCount != workflowNodeCount {
 				l.Error().Msgf("❌ Workflow registration was not detected by all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
@@ -71,7 +71,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 			l.Info().Msg("✅ Workflow registration was detected")
 		}
 
-		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
+		if flags.HasFlag(debugDon.Flags, cre.WorkflowDON) {
 			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "step request enqueued"); detectedCount != workflowNodeCount {
 				l.Error().Msgf("❌ Workflow was not executing on all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
@@ -79,7 +79,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 			l.Info().Msg("✅ Workflow was executing")
 		}
 
-		if flags.HasFlag(debugDon.Flags, types.OCR3Capability) {
+		if flags.HasFlag(debugDon.Flags, cre.OCR3Capability) {
 			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome"); detectedCount != workflowNodeCount {
 				l.Error().Msgf("❌ OCR was not executing on all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
@@ -89,7 +89,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 
 		// TODO think how to make it handle better a situation when different DONs have writeEVM capability, but for different chains
 		// or when they run multple workflows and we care which one sent the report and which didn't
-		if flags.HasFlag(debugDon.Flags, types.WriteEVMCapability) {
+		if flags.HasFlag(debugDon.Flags, cre.WriteEVMCapability) {
 			if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Reports were not sent")
 				return
@@ -192,7 +192,7 @@ func ReportTransmissions(ctx context.Context, logFiles []*os.File, l zerolog.Log
 	}
 }
 
-func getLogFileHandles(testName string, l zerolog.Logger, debugDon *types.DebugDon) ([]*os.File, error) {
+func getLogFileHandles(testName string, l zerolog.Logger, debugDon *cre.DebugDon) ([]*os.File, error) {
 	var logFiles []*os.File
 
 	var belongsToCurrentEnv = func(filePath string) bool {

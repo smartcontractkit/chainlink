@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -73,7 +71,7 @@ func NewLegacyChains(
 		opts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := legacyevm.NewTOMLChain(enabled[i], opts, clientsByChainID)
 		if err2 != nil {
-			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
+			err = errors.Join(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 

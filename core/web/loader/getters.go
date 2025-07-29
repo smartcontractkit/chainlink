@@ -2,10 +2,10 @@ package loader
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -104,7 +104,7 @@ func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	thunk := ldr.JobRunsByIDLoader.LoadMany(ctx, dataloader.NewKeysFromStrings(strIDs))
 	results, errs := thunk()
 	if errs != nil {
-		merr := multierr.Combine(errs...)
+		merr := stderrors.Join(errs...)
 
 		return nil, errors.Wrap(merr, "errors fetching runs")
 	}

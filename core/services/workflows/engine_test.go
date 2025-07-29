@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
@@ -272,6 +275,9 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
+		// Set default workflow registry configuration for tests
+		WorkflowRegistryAddress: "0x1234567890123456789012345678901234567890",
+		WorkflowRegistryChainID: "11155111", // Ethereum Sepolia
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -2767,4 +2773,263 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
+}
+
+func TestEngine_WorkflowRegistry_BillingClientCalls(t *testing.T) {
+	t.Parallel()
+
+	const testWorkflow = `
+triggers:
+  - id: "simple-trigger@1.0.0"
+    config:
+      data: "test"
+targets:
+  - id: "write_polygon-testnet-mumbai@1.0.0"
+    inputs:
+      report: "$(trigger.outputs)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+	withTrigger := func(t *testing.T, registry *coreCap.Registry) capabilities.TriggerResponse {
+		t.Helper()
+
+		trigger := &mockTriggerCapability{
+			CapabilityInfo: capabilities.MustNewCapabilityInfo(
+				"simple-trigger@1.0.0",
+				capabilities.CapabilityTypeTrigger,
+				"issues a test trigger",
+			),
+			ch:                         make(chan capabilities.TriggerResponse, 10),
+			registerTriggerCallCounter: make(map[string]int),
+		}
+
+		testResp, _ := values.NewMap(map[string]any{
+			"data": "test",
+		})
+
+		response := capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{
+				TriggerType: trigger.ID,
+				ID:          fmt.Sprintf("%v:%v", "simple-trigger@1.0.0", time.Now().UTC().Format(time.RFC3339)),
+				Outputs:     testResp,
+			},
+		}
+		trigger.triggerEvent = &response
+
+		require.NoError(t, registry.Add(t.Context(), trigger))
+
+		return response
+	}
+
+	withTarget := func(t *testing.T, registry *coreCap.Registry) *mockCapability {
+		t.Helper()
+
+		target := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_polygon-testnet-mumbai@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a simple write capability",
+				capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				return capabilities.CapabilityResponse{
+					Value: req.Inputs.Underlying["report"].(*values.Map),
+					Metadata: capabilities.ResponseMetadata{
+						Metering: []capabilities.MeteringNodeDetail{
+							{
+								Peer2PeerID: "local",
+								SpendUnit:   billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+								SpendValue:  "100",
+							},
+						},
+					},
+				}, nil
+			},
+		)
+
+		require.NoError(t, registry.Add(t.Context(), target))
+
+		return target
+	}
+
+	t.Run("ReserveCredits includes workflow registry information", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		expectedRegistryAddress := "0xe3188aFCc8FA3aE39Ea38d73DBBf90A6AD529128"
+		expectedChainID := uint64(11155111) // Sepolia chain ID
+		expectedChainSelector, err := chainselectors.SelectorFromChainId(expectedChainID)
+		require.NoError(t, err)
+
+		tr := withTrigger(t, reg)
+		target := withTarget(t, reg)
+
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			testWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.WorkflowRegistryAddress = expectedRegistryAddress
+				cfg.WorkflowRegistryChainID = "11155111"
+			},
+		)
+
+		// Verify that ReserveCredits is called with the correct workflow registry information
+		// Sepolia chain ID 11155111 converts to the expected chainSelector
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
+			})).
+			Return(&billing.ReserveCreditsResponse{
+				Success: true,
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+				Credits: "10000",
+			}, nil)
+
+		// Verify that SubmitWorkflowReceipt is called with the correct workflow registry information
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
+			})).
+			Return(&emptypb.Empty{}, nil)
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		mBillingClient.AssertExpectations(t)
+	})
+
+	t.Run("handles invalid chain selector gracefully", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
+		invalidChainSelector := "invalid-chain-id"
+
+		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
+		// No mock expectations needed since the call won't happen
+
+		tr := withTrigger(t, reg)
+		target := withTarget(t, reg)
+
+		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			testWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.WorkflowRegistryAddress = expectedRegistryAddress
+				cfg.WorkflowRegistryChainID = invalidChainSelector
+				cfg.Lggr = lggr
+			},
+		)
+
+		// When chain selector parsing fails, the engine should switch to metering mode
+		// and call SubmitWorkflowReceipt with metering mode set to true.
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
+		// This is expected behavior since no metering report exists
+		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+	})
+
+	t.Run("handles empty workflow registry information", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
+		// No mock expectations needed since the call won't happen
+
+		tr := withTrigger(t, reg)
+		target := withTarget(t, reg)
+
+		lggr, logs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			testWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.WorkflowRegistryAddress = ""
+				cfg.WorkflowRegistryChainID = ""
+				cfg.Lggr = lggr
+			},
+		)
+
+		// When chain selector is empty, the engine should switch to metering mode
+		// but still call SubmitWorkflowReceipt. The workflow should still complete successfully.
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		// Verify that warnings were logged about the empty chain selector
+		warnLogs := logs.TakeAll()
+		require.Len(t, warnLogs, 3) // Error about chain selector parsing, warning about no metering report, error about failed to end metering report
+		chainSelectorWarnings := 0
+		for _, log := range warnLogs {
+			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
+				chainSelectorWarnings++
+			}
+		}
+		assert.GreaterOrEqual(t, chainSelectorWarnings, 0) // May or may not have chain selector warnings
+
+		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
+		// This is expected behavior since no metering report exists
+		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+	})
 }

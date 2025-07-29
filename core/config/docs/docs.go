@@ -2,11 +2,10 @@ package docs
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
-
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
@@ -251,12 +250,12 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 				kv.name = currentTable.name + "." + kv.name
 			}
 			if len(kv.desc) == 0 {
-				err = multierr.Append(err, fmt.Errorf("%s: missing description", kv.name))
+				err = errors.Join(err, fmt.Errorf("%s: missing description", kv.name))
 			} else if !strings.HasPrefix(kv.desc[0], shortName) {
-				err = multierr.Append(err, fmt.Errorf("%s: description does not begin with %q", kv.name, shortName))
+				err = errors.Join(err, fmt.Errorf("%s: description does not begin with %q", kv.name, shortName))
 			}
 			if !strings.HasSuffix(line, fieldDefault) && !strings.HasSuffix(line, fieldExample) {
-				err = multierr.Append(err, fmt.Errorf(`%s: is not one of %v`, kv.name, []string{fieldDefault, fieldExample}))
+				err = errors.Join(err, fmt.Errorf(`%s: is not one of %v`, kv.name, []string{fieldDefault, fieldExample}))
 			}
 
 			items = append(items, kv)

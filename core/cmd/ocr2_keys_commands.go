@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -133,7 +133,7 @@ func (s *Shell) ListOCR2KeyBundles(_ *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -155,7 +155,7 @@ func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -188,7 +188,7 @@ func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -224,7 +224,7 @@ func (s *Shell) ImportOCR2Key(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -261,7 +261,7 @@ func (s *Shell) ExportOCR2Key(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 

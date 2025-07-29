@@ -253,7 +253,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		registry         Registry
 		packer           encoding.Packer
 		expectsErr       bool
-		wantErr          error
+		wantErrMsg       string
 	}{
 		{
 			name: "an error is returned when fetching indexed logs for IAutomationV21PlusCommonUpkeepUnpaused errors",
@@ -276,7 +276,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			expectsErr: true,
-			wantErr:    errors.New("indexed logs boom"),
+			wantErrMsg: "indexed logs boom",
 		},
 		{
 			name: "an error is returned when fetching indexed logs for IAutomationV21PlusCommonUpkeepTriggerConfigSet errors",
@@ -301,7 +301,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			expectsErr: true,
-			wantErr:    errors.New("indexed logs boom"),
+			wantErrMsg: "indexed logs boom",
 		},
 		{
 			name: "an error is returned when parsing the logs using the registry errors",
@@ -330,7 +330,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			expectsErr: true,
-			wantErr:    errors.New("parse log boom"),
+			wantErrMsg: "parse log boom",
 		},
 		{
 			name: "an error is returned when registering the filter errors",
@@ -383,7 +383,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			expectsErr: true,
-			wantErr:    errors.New("failed to update trigger config for upkeep id 452312848583266388373324160190187140521564213162920931037143039228013182976: failed to register log filter: register filter boom"),
+			wantErrMsg: "failed to update trigger config for upkeep id 452312848583266388373324160190187140521564213162920931037143039228013182976: failed to register log filter: register filter boom",
 		},
 		{
 			name: "log trigger upkeeps are refreshed without error",
@@ -566,7 +566,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			err := registry.refreshLogTriggerUpkeeps(ctx, tc.ids)
 			if tc.expectsErr {
 				assert.Error(t, err)
-				assert.Equal(t, err.Error(), tc.wantErr.Error())
+				assert.ErrorContains(t, err, tc.wantErrMsg)
 			} else {
 				assert.NoError(t, err)
 			}

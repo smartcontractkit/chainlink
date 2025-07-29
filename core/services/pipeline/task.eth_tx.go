@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -10,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -99,7 +99,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		transmitCheckerMap    MapParam
 		failOnRevert          BoolParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),

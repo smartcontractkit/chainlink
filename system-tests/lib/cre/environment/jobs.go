@@ -13,19 +13,19 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput libtypes.InfraInput) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
 	var jdOutput *jd.Output
-	if infraInput.InfraType == libtypes.CRIB {
-		deployCribJdInput := &cretypes.DeployCribJdInput{
+	if infraInput.Type == infra.CRIB {
+		deployCribJdInput := &cre.DeployCribJdInput{
 			JDInput:        &jdInput,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
@@ -56,7 +56,7 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 	return jdOutput, nil
 }
 
-func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cretypes.Topology, infraInput libtypes.InfraInput, capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
+func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 
@@ -70,7 +70,7 @@ func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, regis
 		return nil
 	})
 
-	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startDonsErr error
