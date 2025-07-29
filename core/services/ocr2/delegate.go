@@ -467,6 +467,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		if err2 != nil {
 			return nil, fmt.Errorf("could not get EVM Relayer for chain ID %s: %w", rid.ChainID, err2)
 		}
+		if r == nil {
+			return nil, fmt.Errorf("EVM Relayer is nil for chain ID %s", rid.ChainID)
+		}
 		evm, err2 := r.EVM()
 		if err2 != nil {
 			return nil, fmt.Errorf("could not get EVMService for chain %s: %w", rid.ChainID, err2)
@@ -672,6 +675,9 @@ func (d *Delegate) newServicesVaultPlugin(
 	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+	}
+	if relayer == nil {
+		return nil, ErrRelayNotEnabled{Err: fmt.Errorf("relayer is nil for relay ID %s", rid), Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
