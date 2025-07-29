@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-
 	solBinary "github.com/gagliardetto/binary"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -191,10 +190,11 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		SolChains:  1,
-		Nodes:      4,
+		Bootstraps:                1,
+		Chains:                    2,
+		SolChains:                 1,
+		Nodes:                     4,
+		CCIPSolanaContractVersion: memory.SolanaContractV0_1_1,
 	})
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
@@ -335,7 +335,6 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 }
 
 func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
-	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
@@ -424,7 +423,6 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 }
 
 func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
-	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
@@ -456,7 +454,7 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 				CurrentOwner:  timelockSignerPDA,
 				ProposedOwner: solChain.DeployerKey.PublicKey(),
 				ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-					solChain1: ccipChangesetSolana.CCIPContractsToTransfer{
+					solChain1: {
 						Router:                true,
 						FeeQuoter:             true,
 						OffRamp:               true,
