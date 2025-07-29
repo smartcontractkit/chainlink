@@ -183,12 +183,11 @@ func FundSolanaAccountsWithLogging(
 				"total", len(sigs),
 				"timeout", timeout,
 				"unfinalizedSigs", unfinalizedSigs)
-			errMsg := fmt.Sprintf("timeout waiting for %d out of %d transactions to confirm after %v",
-				remaining, len(sigs), timeout)
-			if len(unfinalizedSigs) > 0 {
-				errMsg += fmt.Sprintf("\nUnconfirmed transactions: %v", unfinalizedSigs)
-			}
-			return fmt.Errorf(errMsg)
+
+			return fmt.Errorf("timeout waiting for transaction confirmations,"+
+				"remaining: %d, total: %d, timeout: %s"+
+				"unfinalizedSigs: %v",
+				remaining, len(sigs), timeout, unfinalizedSigs)
 		case <-ticker.C:
 			pollCount++
 			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(timeoutCtx, true, sigs...)
