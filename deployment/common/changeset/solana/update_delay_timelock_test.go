@@ -64,7 +64,6 @@ func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
 }
 
 func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
-	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
