@@ -194,6 +194,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	r.lggr.Errorf("etb/setting-rate-card: %+v", resp.GetRateCards())
 	r.lggr.Errorf("etb/credits-available%+v", resp.GetCredits())
+	r.lggr.Error("etb/useless change")
 
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
