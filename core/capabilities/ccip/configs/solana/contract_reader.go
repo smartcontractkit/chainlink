@@ -3,6 +3,7 @@ package solana
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -13,10 +14,22 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 )
 
-var ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
-var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
-var ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
-var ccipCCTPTokenPoolIDL = idl.FetchCctpTokenPoolIDL()
+var (
+	ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
+	ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
+	ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
+	ccipCCTPTokenPoolIDL = idl.FetchCctpTokenPoolIDL()
+
+	// defaultCCIPLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
+	// Although Exec relies on permissionlessExecThreshold which is lower than 24hours for picking eligible CommitRoots,
+	// Commit still can reach to older logs because it filters them by sequence numbers. For instance, in case of RMN curse on chain,
+	// we might have logs waiting in OnRamp to be committed first. When outage takes days we still would
+	// be able to bring back processing without replaying any logs from chain. You can read that param as
+	// "how long CCIP can be down and still be able to process all the messages after getting back to life".
+	// Breaching this threshold would require replaying chain using LogPoller from the beginning of the outage.
+	// Using same default retention as v1.5 https://github.com/smartcontractkit/ccip/pull/530/files
+	defaultCCIPLogsRetention = 30 * 24 * time.Hour // 30 days
+)
 
 func DestContractReaderConfig() (config.ContractReader, error) {
 	var offRampIDL solanacodec.IDL
@@ -82,6 +95,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
 								IncludeReverted: &trueVal,
 							},
 							IndexedField0: &config.IndexedField{
@@ -102,7 +116,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CommitReportAccepted",
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"MerkleRoot": "UnblessedMerkleRoots"}},
@@ -434,7 +450,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CcipCctpMessageSentEvent",
 						ReadType: config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeCCTPNonce,
 								OnChainPath:  "CctpNonce",
@@ -515,7 +533,9 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,
 								OnChainPath:  "Message.Header.SourceChainSelector",
@@ -686,7 +706,9 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CcipCctpMessageSentEvent",
 						ReadType: config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeCCTPNonce,
 								OnChainPath:  "CctpNonce",
