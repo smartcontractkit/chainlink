@@ -30,7 +30,7 @@ const (
 
 // WebAPITriggerValue triggers a workflow with web API trigger with random value (0 - 1000000) and topic "sendValue"
 // It will keep retrying until the workflow is triggered successfully or the timeout is reached
-func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout time.Duration) error {
+func WebAPITriggerValue(gatewayURL, privateKey string, timeout time.Duration) error {
 	valueInt, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
 		return errors.Wrap(err, "error generating random value")
@@ -39,13 +39,20 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 	value := valueInt.String()
 	fmt.Print(libformat.DarkYellowText("🚀 Triggering workflow with value %s\n\n", value))
 
+	key, err := crypto.HexToECDSA(privateKey)
+	if err != nil {
+		return errors.Wrap(err, "error parsing private key")
+	}
+
+	publicAddress := crypto.PubkeyToAddress(key.PublicKey)
+
 	payload := webapicap.TriggerRequestPayload{
 		Timestamp: time.Now().Unix(),
 		Topics:    []string{Topic},
 		Params: webapicap.TriggerRequestPayloadParams{
 			"paymentId": uuid.New().String(),
-			"sender":    sender,
-			"receiver":  receiver,
+			"sender":    publicAddress.Hex(),
+			"receiver":  "0x9A99f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE", // random receiver address, value does not matter
 			"value":     value,
 		},
 		TriggerEventId: uuid.New().String(),
@@ -55,13 +62,6 @@ func WebAPITriggerValue(gatewayURL, sender, receiver, privateKey string, timeout
 	if err != nil {
 		return errors.Wrap(err, "error marshalling json payload")
 	}
-
-	key, err := crypto.HexToECDSA(privateKey)
-	if err != nil {
-		return errors.Wrap(err, "error parsing private key")
-	}
-
-	publicAddress := crypto.PubkeyToAddress(key.PublicKey)
 
 	msg := &api.Message{
 		Body: api.MessageBody{

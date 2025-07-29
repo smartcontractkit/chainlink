@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -25,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // ETHKeysController manages account keys
@@ -290,7 +290,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	if abandon {
 		var resetErr error
 		err = chain.TxManager().Reset(address, abandon)
-		err = multierr.Combine(err, resetErr)
+		err = stderrors.Join(err, resetErr)
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {
 				jsonAPIError(c, http.StatusNotFound, err)

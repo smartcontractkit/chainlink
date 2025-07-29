@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -32,7 +32,7 @@ func (t *LengthTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 
 	var input BytesParam
 
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err != nil {

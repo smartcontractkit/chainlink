@@ -10,7 +10,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -333,7 +332,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 	// Send original request to all nodes
 	for _, member := range h.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

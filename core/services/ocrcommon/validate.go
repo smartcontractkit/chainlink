@@ -1,9 +1,10 @@
 package ocrcommon
 
 import (
+	stderrors "errors"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // CloneSet returns a copy of the input map.
@@ -22,12 +23,12 @@ func ValidateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, no
 	// top level keys only
 	for _, k := range tree.Keys() {
 		if _, ok := notExpected[k]; ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
+			err = stderrors.Join(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
 		}
 		delete(expected, k)
 	}
 	for missing := range expected {
-		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
+		err = stderrors.Join(err, errors.Errorf("missing required key %s", missing))
 	}
 	return err
 }

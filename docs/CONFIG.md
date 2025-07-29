@@ -1011,6 +1011,7 @@ AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
 ```
 
 
@@ -1131,6 +1132,13 @@ SimulateTransactions enables transaction simulation for OCR2.
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### KeyValueStoreRootDir
+```toml
+KeyValueStoreRootDir = '~/.chainlink-data' # Default
+```
+KeyValueStoreRootDir is the root directory for the key-value store used by OCR3.1.
+This directory must be writable by the Chainlink node process and should support long-term persistence.
 
 ## OCR
 ```toml
@@ -2291,6 +2299,7 @@ URL is override URL for the workflow fetcher service.
 ```toml
 [Billing]
 URL = "localhost:4319" # Default
+TLSEnabled = true # Default
 ```
 Billing holds settings for connecting to the billing service.
 
@@ -2299,6 +2308,53 @@ Billing holds settings for connecting to the billing service.
 URL = "localhost:4319" # Default
 ```
 URL is the locator for the Chainlink billing service.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
+
+## BridgeStatusReporter
+```toml
+[BridgeStatusReporter]
+Enabled = false # Default
+StatusPath = "/status" # Default
+PollingInterval = "5m" # Default
+IgnoreInvalidBridges = true # Default
+IgnoreJoblessBridges = false # Default
+```
+BridgeStatusReporter holds settings for the Bridge Status Reporter service.
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enables the Bridge Status Reporter service that polls bridge status endpoints.
+
+### StatusPath
+```toml
+StatusPath = "/status" # Default
+```
+StatusPath is the path to append to bridge URLs for status polling.
+
+### PollingInterval
+```toml
+PollingInterval = "5m" # Default
+```
+PollingInterval is how often to poll bridge status endpoints for status.
+
+### IgnoreInvalidBridges
+```toml
+IgnoreInvalidBridges = true # Default
+```
+IgnoreInvalidBridges skips bridges that return HTTP errors or invalid responses.
+
+### IgnoreJoblessBridges
+```toml
+IgnoreJoblessBridges = false # Default
+```
+IgnoreJoblessBridges skips bridges that have no associated jobs.
 
 ## EVM
 EVM defaults depend on ChainID:

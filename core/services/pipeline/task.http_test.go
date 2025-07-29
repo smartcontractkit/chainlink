@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -188,9 +187,9 @@ func TestHTTPTask_Variables(t *testing.T) {
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
-				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+				require.ErrorIs(t, result.Error, test.expectedErrorCause)
 				if test.expectedErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+					require.ErrorContains(t, result.Error, test.expectedErrorContains)
 				}
 			} else {
 				require.NoError(t, result.Error)

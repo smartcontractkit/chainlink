@@ -3,6 +3,7 @@ package environment
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	pkgerrors "github.com/pkg/errors"
 
@@ -87,14 +88,18 @@ func DumpArtifact(
 	donTopology types.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
 	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
-) error {
+) (string, error) {
 	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to generate environment artifact")
+		return "", pkgerrors.Wrap(err, "failed to generate environment artifact")
 	}
 
 	// Let's save the artifact to disk
-	return persistArtifact(artifact)
+	artifactPath, err := persistArtifact(artifact)
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "failed to persist environment artifact")
+	}
+	return artifactPath, nil
 }
 
 func GenerateArtifact(
@@ -205,23 +210,23 @@ func GenerateArtifact(
 		artifact.DONs = append(artifact.DONs, donArtifact)
 	}
 
-	// Let's save the artifact to disk
-	if err = persistArtifact(&artifact); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to persist environment artifact")
-	}
-
 	return &artifact, nil
 }
 
-func persistArtifact(artifact *EnvArtifact) error {
+func persistArtifact(artifact *EnvArtifact) (string, error) {
 	err := os.MkdirAll(artifactDirName, 0755)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
+		return "", pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
 	}
 	err = WriteJSONFile(artifactDirName+"/env_artifact.json", artifact)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to write environment artifact to file")
+		return "", pkgerrors.Wrap(err, "failed to write environment artifact to file")
 	}
 
-	return nil
+	absPath, absPathErr := filepath.Abs(artifactDirName + "/env_artifact.json")
+	if absPathErr != nil {
+		return "", pkgerrors.Wrap(absPathErr, "failed to get absolute path for the environment artifact")
+	}
+
+	return absPath, nil
 }

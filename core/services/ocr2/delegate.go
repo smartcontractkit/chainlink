@@ -7,6 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -80,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -185,6 +189,7 @@ type ocr2Config interface {
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
+	KeyValueStoreRootDir() string
 }
 
 type insecureConfig interface {
@@ -698,6 +703,13 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
+	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
+
 	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
@@ -708,7 +720,7 @@ func (d *Delegate) newServicesVaultPlugin(
 			store,
 		),
 		Database:                ocrDB,
-		KeyValueDatabaseFactory: nil, // TODO
+		KeyValueDatabaseFactory: kvFactory,
 		LocalConfig:             lc,
 		Logger:                  ocrLogger,
 		MonitoringEndpoint:      oracleEndpoint,

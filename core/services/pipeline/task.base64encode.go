@@ -3,9 +3,9 @@ package pipeline
 import (
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -31,7 +31,7 @@ func (t *Base64EncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	}
 
 	var stringInput StringParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
@@ -40,7 +40,7 @@ func (t *Base64EncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	}
 
 	var bytesInput BytesParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {

@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	goerrors "errors"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -16,8 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/patrickmn/go-cache"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -327,7 +325,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ctx context.Context, ids []*big.I
 		idBatch := ids[i:end]
 
 		if batchErr := r.refreshLogTriggerUpkeepsBatch(ctx, idBatch); batchErr != nil {
-			multierr.AppendInto(&err, batchErr)
+			err = errors.Join(err, batchErr)
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -397,7 +395,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ctx context.Context, logTrig
 			logBlock = unpausedBlockNumbers[id.String()]
 		}
 		if err := r.updateTriggerConfig(ctx, id, config, logBlock); err != nil {
-			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
+			merr = errors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
 
@@ -595,7 +593,7 @@ func (r *EvmRegistry) updateTriggerConfig(ctx context.Context, id *big.Int, cfg 
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(ctx, id)
 			if err != nil {
-				return errors.Wrap(err, "failed to fetch log upkeep config")
+				return fmt.Errorf("failed to fetch log upkeep config: %w", err)
 			}
 			cfg = fetched
 		}
@@ -610,7 +608,7 @@ func (r *EvmRegistry) updateTriggerConfig(ctx context.Context, id *big.Int, cfg 
 			UpkeepID:      id,
 			UpdateBlock:   logBlock,
 		}); err != nil {
-			return errors.Wrap(err, "failed to register log filter")
+			return fmt.Errorf("failed to register log filter: %w", err)
 		}
 		r.lggr.Debugw("registered log filter", "upkeepID", id.String(), "cfg", parsed)
 	default:

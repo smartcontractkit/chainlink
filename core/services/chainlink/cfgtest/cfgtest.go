@@ -2,13 +2,13 @@ package cfgtest
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
@@ -34,7 +34,7 @@ func assertFieldsNotNil(t *testing.T, prefix string, s reflect.Value) (err error
 			}
 			key += tf.Name
 		}
-		err = multierr.Combine(err, assertValNotNil(t, key, f))
+		err = errors.Join(err, assertValNotNil(t, key, f))
 	}
 	return
 }
@@ -50,7 +50,7 @@ func assertValuesNotNil(t *testing.T, prefix string, m reflect.Value) (err error
 	mi := m.MapRange()
 	for mi.Next() {
 		key := prefix + mi.Key().String()
-		err = multierr.Combine(err, assertValNotNil(t, key, mi.Value()))
+		err = errors.Join(err, assertValNotNil(t, key, mi.Value()))
 	}
 	return
 }
@@ -61,7 +61,7 @@ func assertElementsNotNil(t *testing.T, prefix string, s reflect.Value) (err err
 	require.Equal(t, reflect.Slice, s.Kind())
 
 	for i := 0; i < s.Len(); i++ {
-		err = multierr.Combine(err, assertValNotNil(t, prefix, s.Index(i)))
+		err = errors.Join(err, assertValNotNil(t, prefix, s.Index(i)))
 	}
 	return
 }
