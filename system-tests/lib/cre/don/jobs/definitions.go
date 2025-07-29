@@ -187,6 +187,8 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
+// TODO: Why can't this job spec deploymnet work?
+// TODO: Fix this so it starts the DON Time Plugin
 func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
@@ -208,9 +210,10 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddr
 
 	[relayConfig]
 	chainID = "%d"
+	providerType = "dontime"
 
 	[pluginConfig]
-	command = "/usr/local/bin/dontime"
+	command = "/usr/local/bin/dontime" // TODO: THIS STARTS IN RELAYER WHICH WAS THE PROBLEM
 	pluginName = "dontime"
 	ocrVersion = 3
 	telemetryType = "plugin"

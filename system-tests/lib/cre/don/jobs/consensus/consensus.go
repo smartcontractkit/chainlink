@@ -93,6 +93,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, addressBook cldf.AddressBo
 			}
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
 
+			// TODO: When this gets deployed it runs in relayer?
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, chainID))
 		}
 	}

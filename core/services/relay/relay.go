@@ -65,6 +65,9 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+	case types.DonTimePlugin:
+		// TODO: Can we initialize here and use the OCR3Capability contract tracker?
+		// TODO: How can we pass the dontime store?
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
 }
