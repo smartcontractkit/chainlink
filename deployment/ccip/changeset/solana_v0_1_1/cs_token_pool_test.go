@@ -167,6 +167,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					TokenPubKey:   tokenAddress,
 					PoolType:      typePtr,
 					Metadata:      tokenMetadata,
+					MCMS:          mcmsConfig,
 				},
 			),
 			commonchangeset.Configure(
