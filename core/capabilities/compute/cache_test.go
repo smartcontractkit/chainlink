@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -39,7 +39,7 @@ func TestCache(t *testing.T) {
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
-		Logger:         logger.TestLogger(t),
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binary)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
-		Logger:         logger.TestLogger(t),
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binary)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 
 	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
 	shmod, err := host.NewModule(&host.ModuleConfig{
-		Logger:         logger.TestLogger(t),
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, simpleBinary)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	// Adding a different module but with the same id should not overwrite the existing module
 	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, false, t)
 	fhmod, err := host.NewModule(&host.ModuleConfig{
-		Logger:         logger.TestLogger(t),
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, fetchBinary)
 	require.NoError(t, err)

@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 
@@ -75,7 +75,7 @@ func (c testConfig) RateLimit() config.DispatcherRateLimit {
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	peer := mocks.NewPeer(t)
 	recvCh := make(<-chan p2ptypes.Message)
@@ -102,7 +102,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 }
 
 func TestDispatcher_Receive(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
@@ -155,7 +155,7 @@ func TestDispatcher_Receive(t *testing.T) {
 }
 
 func TestDispatcher_RespondWithError(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)

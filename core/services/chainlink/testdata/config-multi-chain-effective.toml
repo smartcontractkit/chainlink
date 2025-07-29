@@ -160,6 +160,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = true
@@ -344,6 +345,7 @@ URL = ''
 
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
 
 [[EVM]]
 ChainID = '1'
@@ -424,6 +426,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -544,6 +547,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -658,6 +662,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5

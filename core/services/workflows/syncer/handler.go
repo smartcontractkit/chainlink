@@ -126,6 +126,11 @@ type eventHandler struct {
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowKey            workflowkey.Key
 	billingClient          metering.BillingClient
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
 type Event struct {
@@ -156,6 +161,13 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.workflowRegistryAddress = address
+		e.workflowRegistryChainSelector = chainSelector
 	}
 }
 
@@ -553,6 +565,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 	}
 	return v2.NewEngine(cfg)
 }

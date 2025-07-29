@@ -435,6 +435,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
+		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
@@ -595,7 +596,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Billing = toml.Billing{
-		URL: ptr("localhost:4319"),
+		URL:        ptr("localhost:4319"),
+		TLSEnabled: ptr(true),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
@@ -708,6 +710,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
 					PersistenceEnabled:      ptr(false),
+					PersistenceBatchSize:    ptr[int64](100),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -1062,6 +1065,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
 DisplayName = 'test-node'
@@ -1211,6 +1215,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

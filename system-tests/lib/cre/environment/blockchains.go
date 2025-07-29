@@ -61,6 +61,7 @@ func CreateBlockchains(
 				BlockchainInput: &bi.Input,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
+				Namespace:       input.infra.CRIB.Namespace,
 			}
 			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
 			if bcErr != nil {
