@@ -192,6 +192,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
+	r.lggr.Debugf("etb/setting-rate-card: %+v", resp.GetRateCards())
+	r.lggr.Debugf("etb/credits-available%+v", resp.GetCredits())
+
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
 		r.switchToMeteringMode(err)
@@ -543,16 +546,14 @@ func (r *Report) switchToMeteringMode(err error) {
 func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
-		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
-		if !ok {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not find index %s in MeasurementUnit enum", rate.ResourceType)
-		}
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
 		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", unit, rate.UnitsPerCredit)
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
 		}
-		rateCard[unit] = conversionDeci
+
+		rateCard[rate.ResourceType.String()] = conversionDeci
 	}
+
 	return rateCard, nil
 }
 
