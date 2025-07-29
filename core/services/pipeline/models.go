@@ -3,6 +3,7 @@ package pipeline
 import (
 	"database/sql/driver"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
@@ -243,7 +243,7 @@ func (re RunErrors) ToError() error {
 	for _, e := range re {
 		errs = append(errs, toErr(e))
 	}
-	return multierr.Combine(errs...)
+	return stderrors.Join(errs...)
 }
 
 type ResumeRequest struct {

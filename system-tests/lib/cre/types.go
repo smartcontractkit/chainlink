@@ -1,4 +1,4 @@
-package types
+package cre
 
 import (
 	"fmt"
@@ -16,8 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -25,12 +26,44 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
+type CapabilityFlag = string
+
+// DON types
+const (
+	WorkflowDON     CapabilityFlag = "workflow"
+	CapabilitiesDON CapabilityFlag = "capabilities"
+	GatewayDON      CapabilityFlag = "gateway"
+)
+
+// Capabilities
+const (
+	OCR3Capability          CapabilityFlag = "ocr3"
+	CronCapability          CapabilityFlag = "cron"
+	CustomComputeCapability CapabilityFlag = "custom-compute"
+	WriteEVMCapability      CapabilityFlag = "write-evm"
+
+	ReadContractCapability  CapabilityFlag = "read-contract"
+	LogTriggerCapability    CapabilityFlag = "log-trigger"
+	WebAPITargetCapability  CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
+	MockCapability          CapabilityFlag = "mock"
+	// Add more capabilities as needed
+)
+
+// Job names for which there are no specific capabilities
+const (
+	GatewayJobName = "gateway"
+)
+
 type NodeType = string
 
 const (
 	BootstrapNode NodeType = "bootstrap"
-	WorkerNode    NodeType = "worker"
 	GatewayNode   NodeType = "gateway"
+
+	// WorkerNode The value here is `plugin` to match the filtering performed by JD to get non-bootstrap nodes.
+	// See: https://github.com/smartcontractkit/chainlink/blob/develop/deployment/data-feeds/offchain/jd.go#L57
+	WorkerNode NodeType = "plugin"
 )
 
 type ConfigDescription struct {
@@ -180,7 +213,7 @@ func (c *CreateJobsInput) Validate() error {
 type DebugInput struct {
 	DebugDons        []*DebugDon
 	BlockchainOutput *blockchain.Output
-	InfraInput       *types.InfraInput
+	InfraInput       *infra.Input
 }
 
 type DebugDon struct {
@@ -402,13 +435,13 @@ func (g *GenerateKeysInput) Validate() error {
 }
 
 // chainID -> EVMKeys
-type ChainIDToEVMKeys = map[int]*types.EVMKeys
+type ChainIDToEVMKeys = map[int]*crypto.EVMKeys
 
 // donID -> chainID -> EVMKeys
 type DonsToEVMKeys = map[uint32]ChainIDToEVMKeys
 
 // donID -> P2PKeys
-type DonsToP2PKeys = map[uint32]*types.P2PKeys
+type DonsToP2PKeys = map[uint32]*crypto.P2PKeys
 
 type GenerateKeysOutput struct {
 	EVMKeys DonsToEVMKeys
@@ -418,7 +451,7 @@ type GenerateKeysOutput struct {
 type GenerateSecretsInput struct {
 	DonMetadata *DonMetadata
 	EVMKeys     ChainIDToEVMKeys
-	P2PKeys     *types.P2PKeys
+	P2PKeys     *crypto.P2PKeys
 }
 
 func (g *GenerateSecretsInput) Validate() error {
@@ -504,10 +537,12 @@ type FullCLDEnvironmentOutput struct {
 }
 
 type DeployCribDonsInput struct {
-	Topology       *Topology
-	NodeSetInputs  []*CapabilitiesAwareNodeSet
+	Topology      *Topology
+	NodeSetInputs []*CapabilitiesAwareNodeSet
+	// todo cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribDonsInput) Validate() error {
@@ -530,9 +565,11 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput        *jd.Input
+	JDInput *jd.Input
+	// todo:  cleanup this
 	NixShell       *nix.Shell
 	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribJdInput) Validate() error {
@@ -550,8 +587,10 @@ func (d *DeployCribJdInput) Validate() error {
 
 type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
-	NixShell        *nix.Shell
-	CribConfigsDir  string
+	// todo:  cleanup this
+	NixShell       *nix.Shell
+	CribConfigsDir string
+	Namespace      string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
@@ -564,11 +603,14 @@ func (d *DeployCribBlockchainInput) Validate() error {
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
 	}
+	if d.Namespace == "" {
+		return errors.New("namespace not set")
+	}
 	return nil
 }
 
 type StartNixShellInput struct {
-	InfraInput     *types.InfraInput
+	InfraInput     *infra.Input
 	CribConfigsDir string
 	ExtraEnvVars   map[string]string
 	PurgeNamespace bool

@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -35,7 +35,7 @@ func (t *MeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
+	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 		errors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),

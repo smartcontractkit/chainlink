@@ -15,6 +15,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -264,6 +265,14 @@ func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]
 		mcmsStateByChain[chainSelector] = *mcmState
 	}
 	return mcmsStateByChain
+}
+
+func (c CCIPOnChainState) AptosMCMSStateByChain() map[uint64]aptos.AccountAddress {
+	mcmsByChain := make(map[uint64]aptos.AccountAddress)
+	for chainSelector, state := range c.AptosChains {
+		mcmsByChain[chainSelector] = state.MCMSAddress
+	}
+	return mcmsByChain
 }
 
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
@@ -1083,6 +1092,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.FactoryBurnMintERC20Token = tok
 			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintERC20Token, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc20.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintERC20 == nil {
+				state.BurnMintERC20 = make(map[ccipshared.TokenSymbol]*burn_mint_erc20.BurnMintERC20)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintERC20[ccipshared.TokenSymbol(symbol)] = tok
+			state.ABIByAddress[address] = burn_mint_erc20.BurnMintERC20ABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC677Token, deployment.Version1_0_0).String():
 			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

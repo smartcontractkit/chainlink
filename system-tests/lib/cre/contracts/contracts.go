@@ -26,8 +26,8 @@ import (
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
@@ -36,7 +36,7 @@ import (
 var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.CronCapability) {
+	if flags.HasFlag(donFlags, cre.CronCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "cron-trigger",
@@ -47,7 +47,7 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 		})
 	}
 
-	if flags.HasFlag(donFlags, types.CustomComputeCapability) {
+	if flags.HasFlag(donFlags, cre.CustomComputeCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "custom-compute",
@@ -58,7 +58,7 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 		})
 	}
 
-	if flags.HasFlag(donFlags, types.OCR3Capability) {
+	if flags.HasFlag(donFlags, cre.OCR3Capability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "offchain_reporting",
@@ -77,7 +77,7 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.WebAPITriggerCapability) {
+	if flags.HasFlag(donFlags, cre.WebAPITriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "web-api-trigger",
@@ -88,7 +88,7 @@ var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DON
 		})
 	}
 
-	if flags.HasFlag(donFlags, types.WebAPITargetCapability) {
+	if flags.HasFlag(donFlags, cre.WebAPITargetCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "web-api-target",
@@ -111,7 +111,7 @@ var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) 
 		fullName := corevm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
-		if flags.HasFlag(donFlags, types.WriteEVMCapability) {
+		if flags.HasFlag(donFlags, cre.WriteEVMCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   splitName[0],
@@ -132,7 +132,7 @@ var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		if flags.HasFlag(donFlags, types.LogTriggerCapability) {
+		if flags.HasFlag(donFlags, cre.LogTriggerCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("log-event-trigger-%s-%d", chainFamily, chainID),
@@ -144,7 +144,7 @@ var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func
 			})
 		}
 
-		if flags.HasFlag(donFlags, types.ReadContractCapability) {
+		if flags.HasFlag(donFlags, cre.ReadContractCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
@@ -159,7 +159,7 @@ var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func
 	}
 }
 
-func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn) error {
+func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
@@ -169,7 +169,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	for _, donMetadata := range input.Topology.DonsMetadata {
 		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
 		// since it doesn't have any capabilities
-		if flags.HasOnlyOneFlag(donMetadata.Flags, types.GatewayDON) {
+		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
 			continue
 		}
 
@@ -180,9 +180,9 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 			capabilities = append(capabilities, factoryFn(donMetadata.Flags)...)
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
 			Key:   crenode.NodeTypeKey,
-			Value: types.WorkerNode,
+			Value: cre.WorkerNode,
 		}, crenode.EqualLabels)
 
 		if workerNodesErr != nil {
@@ -209,7 +209,7 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 		forwarderF := (len(workerNodes) - 1) / 3
 
 		if forwarderF == 0 {
-			if flags.HasFlag(donMetadata.Flags, types.OCR3Capability) {
+			if flags.HasFlag(donMetadata.Flags, cre.OCR3Capability) {
 				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) = 0", len(workerNodes))
 			}
 			// for other capabilities, we can use 1 as F
@@ -228,10 +228,10 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 	var transmissionSchedule []int
 
 	for _, metaDon := range input.Topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+		if flags.HasFlag(metaDon.Flags, cre.OCR3Capability) {
+			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
 				Key:   crenode.NodeTypeKey,
-				Value: types.WorkerNode,
+				Value: cre.WorkerNode,
 			}, crenode.EqualLabels)
 
 			if workerNodesErr != nil {
@@ -365,14 +365,14 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 }
 
 // values supplied by Alexandr Yepishev as the expected values for OCR3 config
-func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConfig, error) {
+func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
 	var transmissionSchedule []int
 
 	for _, metaDon := range topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
+		if flags.HasFlag(metaDon.Flags, cre.OCR3Capability) {
+			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
 				Key:   crenode.NodeTypeKey,
-				Value: types.WorkerNode,
+				Value: cre.WorkerNode,
 			}, crenode.EqualLabels)
 
 			if workerNodesErr != nil {
@@ -438,7 +438,7 @@ func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint6
 	return addr
 }
 
-func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {
+func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowRegistryInput) (*cre.WorkflowRegistryOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -467,7 +467,7 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 		return nil, errors.Wrap(err, "failed to configure workflow registry")
 	}
 
-	input.Out = &types.WorkflowRegistryOutput{
+	input.Out = &cre.WorkflowRegistryOutput{
 		ChainSelector:  report.Output.RegistryChainSelector,
 		AllowedDonIDs:  report.Output.AllowedDonIDs,
 		WorkflowOwners: report.Output.WorkflowOwners,
@@ -475,7 +475,7 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 	return input.Out, nil
 }
 
-func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {
+func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -527,7 +527,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 		return nil, errors.Wrap(setFeedConfigErr, "failed to set feed config")
 	}
 
-	out := &types.ConfigureDataFeedsCacheOutput{
+	out := &cre.ConfigureDataFeedsCacheOutput{
 		DataFeedsCacheAddress: input.DataFeedsCacheAddress,
 		FeedIDs:               input.FeedIDs,
 		AllowedSenders:        input.AllowedSenders,

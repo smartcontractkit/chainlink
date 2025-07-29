@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
+	"github.com/smartcontractkit/cre-sdk-go/cre/testutils"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
 func main() {

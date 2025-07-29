@@ -18,13 +18,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap
 	var arr []int64

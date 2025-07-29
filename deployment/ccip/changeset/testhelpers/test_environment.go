@@ -1140,8 +1140,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			MinDelay: 0,
 		}
 	}
-	apps = []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
+	apps = []commonchangeset.ConfiguredChangeSet{}
+	if !tc.SkipDONConfiguration {
+		apps = append(apps, commonchangeset.Configure(
 			// Add the chain configs for the new chains.
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
@@ -1149,9 +1150,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				RemoteChainAdds:   chainConfigs,
 				MCMS:              mcmsConfig,
 			},
-		),
-	}
-	if !tc.SkipDONConfiguration {
+		))
 		apps = append(apps, commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain.
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
