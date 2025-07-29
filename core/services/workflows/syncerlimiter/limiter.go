@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (
@@ -40,7 +40,7 @@ type Config struct {
 }
 
 func NewWorkflowLimits(lggr logger.Logger, config Config) (*Limits, error) {
-	lggr = lggr.Named("WorkflowLimiter")
+	lggr = logger.Named(lggr, "WorkflowLimiter")
 	cfg := Config{
 		Global:            config.Global,
 		PerOwner:          config.PerOwner,

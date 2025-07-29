@@ -7,11 +7,14 @@ import (
 	"log"
 	"maps"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -96,14 +99,14 @@ type Report struct {
 	meteringMode    bool
 	meteringModeErr error
 	steps           map[string]ReportStep
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector uint64
 }
 
-func NewReport(
-	labels map[string]string,
-	lggr logger.Logger,
-	client BillingClient,
-	metrics *monitoring.WorkflowsMetricLabeler,
-) (*Report, error) {
+func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -113,6 +116,16 @@ func NewReport(
 	}
 
 	balanceStore, err := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+	if err != nil {
+		return nil, err
+	}
+
+	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +141,9 @@ func NewReport(
 		ready:        false,
 		meteringMode: false,
 		steps:        make(map[string]ReportStep),
+
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: selector,
 	}, nil
 }
 
@@ -147,11 +163,14 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
+
 	req := billing.ReserveCreditsRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             nil,
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
+		Credits:                       nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -184,7 +203,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 	balanceStore, err := NewBalanceStore(credits, rateCard)
 	if err != nil {
 		r.switchToMeteringMode(err)
-
 		return nil
 	}
 
@@ -398,10 +416,12 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Metering:            r.FormatReport(),
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
+		Metering:                      r.FormatReport(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
@@ -561,16 +581,15 @@ type Reports struct {
 	owner      string
 	workflowID string
 	labelMap   map[string]string
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
+	workflowRegistryChainID string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(
-	client BillingClient,
-	owner, workflowID string,
-	lggr logger.Logger,
-	labels map[string]string,
-	metrics *monitoring.WorkflowsMetricLabeler,
-) *Reports {
+func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) *Reports {
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
@@ -580,6 +599,9 @@ func NewReports(
 		owner:      owner,
 		workflowID: workflowID,
 		labelMap:   labels,
+
+		workflowRegistryAddress: workflowRegistryAddress,
+		workflowRegistryChainID: workflowRegistryChainID,
 	}
 }
 
@@ -606,7 +628,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client, s.metrics)
+	report, err := NewReport(labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
 	if err != nil {
 		return nil, err
 	}

@@ -22,4 +22,5 @@ type OCR2 interface {
 	SimulateTransactions() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
+	KeyValueStoreRootDir() string
 }
