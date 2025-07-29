@@ -2268,7 +2268,8 @@ func (b *Billing) ValidateConfig() error {
 	}
 
 	if b.TLSEnabled == nil {
-		return configutils.ErrInvalid{Name: "TLSEnabled", Value: "", Msg: "billing service TLS option must be set"}
+		val := true
+		b.TLSEnabled = &val
 	}
 
 	return nil
