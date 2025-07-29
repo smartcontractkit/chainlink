@@ -88,10 +88,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
 			Status:        status,
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
 		}
 		require.Equal(t, expectedRegisteredEvent, events[0].Data)
 	})
@@ -156,16 +159,18 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID2,
 			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
+			Status:        status,
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL2,
 			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
 		}
 		require.Equal(t, expectedRegisteredEvent, events[0].Data)
 		require.Equal(t, WorkflowDeleted, events[1].Name)
 		expectedDeletedEvent := WorkflowDeletedEvent{
-			WorkflowID:    wfID,
-			WorkflowOwner: owner,
-			WorkflowName:  wfName,
+			WorkflowID: wfID,
 		}
 		require.Equal(t, expectedDeletedEvent, events[1].Data)
 	})
@@ -177,8 +182,6 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
-		owner := []byte{}
-		wfName := "wf name 1"
 		err := er.Add(wfID, &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
@@ -207,12 +210,10 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// The only event is WorkflowDeletedEvent
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
-		expectedUpdatedEvent := WorkflowDeletedEvent{
-			WorkflowID:    wfID,
-			WorkflowOwner: owner,
-			WorkflowName:  wfName,
+		expectedDeletedEvent := WorkflowDeletedEvent{
+			WorkflowID: wfID,
 		}
-		require.Equal(t, expectedUpdatedEvent, events[0].Data)
+		require.Equal(t, expectedDeletedEvent, events[0].Data)
 	})
 
 	t.Run("No change", func(t *testing.T) {
@@ -272,10 +273,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
 			Status:        status,
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
 		}
 		require.Equal(t, expectedRegisteredEvent, events[0].Data)
 
@@ -400,12 +404,10 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// The only event is WorkflowDeletedEvent
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
-		expectedUpdatedEvent := WorkflowDeletedEvent{
-			WorkflowID:    wfID,
-			WorkflowOwner: owner,
-			WorkflowName:  wfName,
+		expectedDeletedEvent := WorkflowDeletedEvent{
+			WorkflowID: wfID,
 		}
-		require.Equal(t, expectedUpdatedEvent, events[0].Data)
+		require.Equal(t, expectedDeletedEvent, events[0].Data)
 	})
 
 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
@@ -460,8 +462,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		event := WorkflowRegisteredEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
 			Status:        WorkflowStatusActive,
 			WorkflowName:  wfName,
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
 		}
 		signature := fmt.Sprintf("%s-%s-%s", WorkflowRegistered, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
 		retryCount := 2
@@ -492,7 +499,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, nextRetryAt, events[0].nextRetryAt)
 	})
 
-	t.Run("removes pending event if the workflow ID changed", func(t *testing.T) {
+	t.Run("a paused workflow clears a pending created event", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -531,7 +538,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				WorkflowID:   wfID,
 				Owner:        owner,
 				CreatedAt:    createdAt,
-				Status:       WorkflowStatusActive,
+				Status:       WorkflowStatusPaused,
 				WorkflowName: wfName,
 				BinaryURL:    binaryURL,
 				ConfigURL:    configURL,
@@ -540,14 +547,18 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				DonFamily:    donFamily,
 			},
 		}
-		// Now let's emit an event that changes the signature; this should remove the event
+		// Now let's emit an event with the same signature; this should remove the event
 		// from the pending queue.
-		wfID = [32]byte{2}
 		event := WorkflowRegisteredEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
 			Status:        WorkflowStatusActive,
 			WorkflowName:  wfName,
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
 		}
 		signature := fmt.Sprintf("%s-%s-%s", WorkflowRegistered, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
 		retryCount := 2
@@ -568,18 +579,6 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Empty(t, pendingEvents)
-		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
-		wfID = [32]byte{1}
-		expectedEvent := WorkflowRegisteredEvent{
-			WorkflowID:    wfID,
-			WorkflowOwner: owner,
-			Status:        WorkflowStatusActive,
-			WorkflowName:  wfName,
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-		}
-		require.Equal(t, expectedEvent, events[0].Data)
-		require.Equal(t, 0, events[0].retryCount)
+		require.Empty(t, events)
 	})
 }

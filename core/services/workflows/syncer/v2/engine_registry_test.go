@@ -22,11 +22,11 @@ func TestEngineRegistry(t *testing.T) {
 
 	e, ok := er.Get(workflowID1)
 	require.False(t, ok)
-	require.Nil(t, e)
+	require.Nil(t, e.Service)
 
 	e, err := er.Pop(workflowID1)
 	require.ErrorIs(t, err, ErrNotFound)
-	require.Nil(t, e)
+	require.Nil(t, e.Service)
 
 	// add
 	require.NoError(t, er.Add(workflowID1, srv))
@@ -42,7 +42,7 @@ func TestEngineRegistry(t *testing.T) {
 	// get
 	e, ok = er.Get(workflowID1)
 	require.True(t, ok)
-	require.Equal(t, srv, e)
+	require.Equal(t, srv, e.Service)
 
 	// get all
 	es := er.GetAll()
@@ -51,7 +51,7 @@ func TestEngineRegistry(t *testing.T) {
 	// remove
 	e, err = er.Pop(workflowID1)
 	require.NoError(t, err)
-	require.Equal(t, srv, e)
+	require.Equal(t, srv, e.Service)
 	ok = er.Contains(workflowID1)
 	require.False(t, ok)
 

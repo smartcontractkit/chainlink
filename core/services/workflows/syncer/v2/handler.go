@@ -183,12 +183,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
-		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
-			platform.KeyWorkflowName, payload.WorkflowName,
-			platform.KeyWorkflowOwner, wfOwner,
 		)
 
 		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
@@ -200,7 +197,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "type", event.Name, "workflowName", payload.WorkflowName, "workflowOwner", wfOwner)
+		h.lggr.Debugw("handled event", "workflowID", wfID, "type", event.Name)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)

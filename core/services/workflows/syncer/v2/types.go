@@ -87,7 +87,5 @@ type WorkflowRegisteredEvent struct {
 }
 
 type WorkflowDeletedEvent struct {
-	WorkflowID    types.WorkflowID
-	WorkflowOwner []byte
-	WorkflowName  string
+	WorkflowID types.WorkflowID
 }
