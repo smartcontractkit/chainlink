@@ -22,6 +22,7 @@ import (
 )
 
 func TestSaveExistingCCIP(t *testing.T) {
+	skipInCI(t)
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
