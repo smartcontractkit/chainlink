@@ -31,7 +31,6 @@ require (
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/gkampitakis/go-snaps v0.5.13
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-github/v72 v72.0.0
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
@@ -52,7 +51,7 @@ require (
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.2
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250717140849-58bcb2816c08
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.5
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.5
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.6
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
@@ -67,7 +66,6 @@ require (
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.16
 	go.uber.org/zap v1.27.0
-	golang.org/x/oauth2 v0.30.0
 	golang.org/x/text v0.27.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
@@ -289,6 +287,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
+	github.com/google/go-github/v72 v72.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -577,6 +576,7 @@ require (
 	golang.org/x/lint v0.0.0-20241112194109-818c5a804067 // indirect
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
