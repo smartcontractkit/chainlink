@@ -105,18 +105,13 @@ type Report struct {
 	workflowRegistryChainSelector uint64
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
+func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
 		if !ok {
 			return nil, ErrMissingLabels
 		}
-	}
-
-	balanceStore, err := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-	if err != nil {
-		return nil, err
 	}
 
 	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
@@ -129,6 +124,29 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		return nil, err
 	}
 
+	resp, err := client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+		WorkflowOwner:           labels[platform.KeyWorkflowOwner],
+		WorkflowRegistryAddress: workflowRegistryAddress,
+		ChainSelector:           selector,
+	})
+	if err != nil {
+		lggr.Error(err)
+	}
+
+	var meteringMode bool
+
+	rateCard, err := toRateCard(resp.GetRateCards())
+	if err != nil {
+		meteringMode = true
+	}
+
+	balanceStore, err := NewBalanceStore(decimal.Zero, rateCard)
+	if err != nil {
+		return nil, err
+	}
+
+	lggr.Errorf("etb/setting-rate-card: %+v", resp.GetRateCards())
+
 	return &Report{
 		labels: labels,
 
@@ -138,7 +156,7 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		metrics: metrics,
 
 		ready:        false,
-		meteringMode: false,
+		meteringMode: meteringMode,
 		steps:        make(map[string]ReportStep),
 
 		workflowRegistryAddress:       workflowRegistryAddress,
@@ -185,17 +203,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetRateCards())
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return nil
-	}
-
-	r.lggr.Errorf("etb/setting-rate-card: %+v", resp.GetRateCards())
-	r.lggr.Errorf("etb/credits-available%+v", resp.GetCredits())
-	r.lggr.Error("etb/useless change")
-
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
 		r.switchToMeteringMode(err)
@@ -203,14 +210,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(credits, rateCard)
-	if err != nil {
-		r.switchToMeteringMode(err)
-		return nil
-	}
-
 	r.ready = true
-	r.balance = balanceStore
+	r.balance.Add(credits)
 
 	return nil
 }
@@ -629,7 +630,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
 	if err != nil {
 		return nil, err
 	}

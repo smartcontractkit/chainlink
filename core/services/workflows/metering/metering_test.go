@@ -90,7 +90,7 @@ func Test_Report(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		_, err := NewReport(map[string]string{}, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+		_, err := NewReport(t.Context(), map[string]string{}, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
 		require.ErrorIs(t, err, ErrMissingLabels)
 	})
 }
@@ -1195,13 +1195,13 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 	t.Helper()
 
 	if client == nil {
-		meteringReport, err := NewReport(defaultLabels, lggr, nil, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+		meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, nil, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
 		require.NoError(t, err)
 
 		return meteringReport
 	}
 
-	meteringReport, err := NewReport(defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
 	require.NoError(t, err)
 
 	return meteringReport
