@@ -3,13 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"strconv"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -72,7 +72,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := solanaGo.PublicKeyFromBase58(unparsedFromAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(stderrors.Join(
 			errors.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -80,7 +80,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := solanaGo.PublicKeyFromBase58(unparsedDestinationAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(stderrors.Join(
 			errors.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
@@ -111,7 +111,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 

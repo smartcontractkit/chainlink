@@ -1,0 +1,63 @@
+{
+	"adapter": {
+		"name": "test-adapter",
+		"version": "1.0.0",
+		"uptimeSeconds": 3600
+	},
+	"endpoints": [
+		{
+			"name": "price",
+			"aliases": ["crypto", "market"],
+			"transports": ["rest", "websocket"]
+		},
+		{
+			"name": "volume",
+			"aliases": ["trading"],
+			"transports": ["rest"]
+		}
+	],
+	"defaultEndpoint": "price",
+	"configuration": [
+		{
+			"name": "API_KEY",
+			"value": "***REDACTED***",
+			"type": "string",
+			"description": "API key for external service",
+			"required": true,
+			"default": null,
+			"customSetting": true,
+			"envDefaultOverride": null
+		},
+		{
+			"name": "TIMEOUT",
+			"value": 30000,
+			"type": "number",
+			"description": "Request timeout in milliseconds",
+			"required": false,
+			"default": 30000,
+			"customSetting": false,
+			"envDefaultOverride": 45000
+		},
+		{
+			"name": "CACHE_ENABLED",
+			"value": true,
+			"type": "boolean",
+			"description": "Enable response caching",
+			"required": false,
+			"default": true,
+			"customSetting": false,
+			"envDefaultOverride": null
+		}
+	],
+	"runtime": {
+		"nodeVersion": "18.17.0",
+		"platform": "linux",
+		"architecture": "x64",
+		"hostname": "ea-adapter-01"
+	},
+	"metrics": {
+		"enabled": true,
+		"port": 9090,
+		"endpoint": "/metrics"
+	}
+} 

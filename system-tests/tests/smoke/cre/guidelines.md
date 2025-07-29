@@ -656,11 +656,11 @@ func AptosCapabilityFactoryFn() keystonetypes.DONCapabilityWithConfigFactoryFn {
 Update DON assignment with the new capability:
 
 ```go
-dons := []*cretypes.CapabilitiesAwareNodeSet{
+dons := []*cre.CapabilitiesAwareNodeSet{
   {
     Input:              in.NodeSets[0],
-    Capabilities:       []string{cretypes.OCR3Capability, cretypes.WriteAptosCapability},
-    DONTypes:           []string{cretypes.WorkflowDON},
+    Capabilities:       []string{cre.OCR3Capability, cre.WriteAptosCapability},
+    DONTypes:           []string{cre.WorkflowDON},
     BootstrapNodeIndex: 0,
   },
 }
@@ -987,23 +987,23 @@ You can only have **one** `workflow` and **one** `gateway` DON. You can define m
 ### Go Code (DON Assignment Example)
 
 ```go
-[]*cretypes.CapabilitiesAwareNodeSet{
+[]*cre.CapabilitiesAwareNodeSet{
   {
     Input:              in.NodeSets[0],
-    Capabilities:       []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability},
-    DONTypes:           []string{cretypes.WorkflowDON},
+    Capabilities:       []string{cre.OCR3Capability, cre.CustomComputeCapability},
+    DONTypes:           []string{cre.WorkflowDON},
     BootstrapNodeIndex: 0,
   },
   {
     Input:              in.NodeSets[1],
-    Capabilities:       []string{cretypes.WriteEVMCapability},
-    DONTypes:           []string{cretypes.CapabilitiesDON},
+    Capabilities:       []string{cre.WriteEVMCapability},
+    DONTypes:           []string{cre.CapabilitiesDON},
     BootstrapNodeIndex: 0,
   },
   {
     Input:              in.NodeSets[2],
     Capabilities:       []string{},
-    DONTypes:           []string{cretypes.GatewayDON},
+    DONTypes:           []string{cre.GatewayDON},
     BootstrapNodeIndex: -1,
     GatewayNodeIndex:   0,
   },
