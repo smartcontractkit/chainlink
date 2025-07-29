@@ -42,8 +42,6 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
-
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -559,11 +557,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.VaultPlugin:
 		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper)
 
-	/* TODO: Don't start this here?
 	case types.DonTimePlugin:
-		return d.StartDonTimePlugin(ctx, lggr, jb)
-
-	*/
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -741,71 +736,168 @@ func (d *Delegate) newServicesVaultPlugin(
 	return srvs, nil
 }
 
-func (d *Delegate) StartDonTimePlugin(
-	_ context.Context,
+// TODO: If we call this directly, how do we get the relayID??
+func (d *Delegate) newDonTimePlugin(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
-	jb *job.Job,
-) (err error) {
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	fmt.Println("START DON TIME PLUGIN")
-
-	// TODO: Do we need a job spec at all? Or just contract address?
-	// TODO: Can add contract address to CRE config. However, where can we get this?
-
-	// TODO: How do we actually find contract address? Do we add this to CRE config??
-	/*
-			ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()) //nolint:staticcheck // won't migrate now
-
-			oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
-				BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
-				V2Bootstrappers:              bootstrapPeers,
-				ContractConfigTracker:        provider.ContractConfigTracker(), // TODO: We need to track OCR3Config ;P
-				ContractTransmitter:          nil,                              // TODO need our custom transmitter
-				Database:                     ocrDB,
-				KeyValueDatabaseFactory:      nil, // TODO
-				LocalConfig:                  lc,
-				Logger:                       ocrLogger,
-				MonitoringEndpoint:           oracleEndpoint,
-				OffchainConfigDigester:       provider.OffchainConfigDigester(),
-				OffchainKeyring:              kb,
-				OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
-				MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
-			}
-			oracleArgs.ReportingPluginFactory = dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
-
-
-		oracle, err := libocr2.NewOracle(oracleArgs)
-		if err != nil {
-			return nil, err
-		}
-		// TODO: Can't we just start the service ourselves?
-		// TODO: It's overcomplicated to pass the service to something else to start for us.
-		// TODO: I guess we pass it to be closed though which is fine.
-		srvs = append(srvs, job.NewServiceAdapter(oracle))
-	*/
-	cfg := &dontimeCfg.Config{}
-	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	rid, err := spec.RelayID()
 	if err != nil {
-		return fmt.Errorf("failed to instantiate DONTime plugin: failed to unmarshal plugin config: %w", err)
+		return nil, ErrJobSpecNoRelayer{PluginName: "dontime", Err: err}
 	}
 
-	var factory *dontime.Factory
-	factory, err = dontime.NewFactory(d.dontimeStore, lggr)
+	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return err
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "dontime"}
 	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.DonTimePlugin),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String, // TODO: Do we need this since we're using custom transmitter?
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.DonTimePlugin),
+	)
 
 	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore)
 
-	provider := &dontime.Provider{
-		Factory:     factory,
-		Transmitter: transmitter,
-	}
-	_ = provider
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
 
-	return nil //[]job.ServiceCtx{provider}, nil
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          transmitter,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory, err = dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
 }
+
+/* TODO Remove
+func (d *Delegate) StartDonTimePlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
+	//spec := jb.OCR2OracleSpec
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: "dontime", Err: err}
+	}
+
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "dontime"}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: uuid.New(), //jb.ExternalJobID,
+		JobID:         1,
+		OracleSpecID:  spec.ID,
+		ContractID:    nil, //spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   nil, //spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.DonTimePlugin),
+	}, types.PluginArgs{
+		TransmitterID: "",  // TODO: Do we need this since we're using custom transmitter?
+		PluginConfig:  nil, // Use defaults?
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.DonTimePlugin),
+	)
+
+	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore)
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          transmitter,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory, err = dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
+}
+*/
 
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
