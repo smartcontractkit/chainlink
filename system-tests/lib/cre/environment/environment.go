@@ -2,7 +2,6 @@ package environment
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/big"
 	"os"
@@ -18,7 +17,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -116,6 +114,11 @@ func SetupTestEnvironment(
 		if nixErr != nil {
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
+		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
+		err := crib.Bootstrap(&input.InfraInput)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to create namespace")
+		}
 	}
 
 	defer func() {
@@ -207,7 +210,8 @@ func SetupTestEnvironment(
 
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
-	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String())         //nolint:staticcheck // won't migrate now
+	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()) //nolint:staticcheck // won't migrate now
+	fmt.Printf("OCR3ADDR = 0x%x", ocr3Addr)
 	wfRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())      //nolint:staticcheck // won't migrate now
 	capRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()) //nolint:staticcheck // won't migrate now
 
@@ -327,7 +331,7 @@ func SetupTestEnvironment(
 		nixShell,
 		homeChainOutput.BlockchainOutput,
 		topology,
-		input.InfraInput.InfraType,
+		input.InfraInput,
 		updatedNodeSets,
 	)
 	if jobsSeqErr != nil {
@@ -347,17 +351,7 @@ func SetupTestEnvironment(
 		OperationsBundle:  allChainsCLDEnvironment.OperationsBundle,
 	}
 
-	// We need to use TLS for CRIB, because it exposes HTTPS endpoints
-	var creds credentials.TransportCredentials
-	if input.InfraInput.InfraType == libtypes.CRIB {
-		creds = credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-		})
-	} else {
-		creds = insecure.NewCredentials()
-	}
-
-	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, creds)
+	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, insecure.NewCredentials())
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}

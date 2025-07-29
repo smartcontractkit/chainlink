@@ -5,6 +5,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -24,7 +25,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -562,6 +562,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, errors.New("P2P stack required for OCR or OCR2")
 	}
 
+	// TODO: DO I need this peerWrapper or anything to start DonTime Plugin?
+
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
 		globalLogger,
@@ -602,7 +604,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
 
-		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
+		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
@@ -625,6 +627,17 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
+		delegates[job.OffchainReporting2] = ocr2Delegate
+
+		// TODO: Run Local CRE Environment and ensure plugin is running
+		// TODO: In Application let's hard code the contract Addr for now and use OCR3Capability addr.
+		/*
+			err := ocr2Delegate.StartDonTimePlugin(ctx, globalLogger, nil)
+			if err != nil {
+				return nil, err
+			}
+		*/
+
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,

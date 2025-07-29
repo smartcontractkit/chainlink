@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/report"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -618,11 +618,7 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	// Create report context from sequence number and config digest
-	repContext, err := s.createReportContext()
-	if err != nil {
-		framework.L.Error().Err(err)
-		return &wasp.Response{Error: err.Error()}
-	}
+	repContext := report.GenerateReportContext(uint64(s.seqNr), [32]byte{1})
 
 	// Create and encode report data
 	encodedReport, err := s.createEncodedReport(metadata)
@@ -672,14 +668,6 @@ func (s *WriterGun) createWorkflowMetadata() (*pb2.Metadata, error) {
 		ReferenceID:              "write_geth-testnet@1.0.0",
 		DecodedWorkflowName:      s.testParams.workflowName,
 	}, nil
-}
-
-func (s *WriterGun) createReportContext() ([]byte, error) {
-	seqToEpoch := make([]byte, 32)
-	binary.BigEndian.PutUint32(seqToEpoch[32-5:32-1], s.seqNr)
-	zeros := make([]byte, 32)
-	configDigest := [32]byte{1}
-	return append(append(configDigest[:], seqToEpoch...), zeros...), nil
 }
 
 func (s *WriterGun) createEncodedReport(metadata *pb2.Metadata) ([]byte, error) {

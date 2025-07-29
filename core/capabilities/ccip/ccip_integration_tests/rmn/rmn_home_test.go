@@ -18,14 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)
 	zeroBytes := [32]byte{0}
 
