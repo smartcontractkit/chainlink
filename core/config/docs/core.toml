@@ -526,6 +526,8 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# ContractVersion identifies semantic version of the CapabilitiesRegistry contract.
+ContractVersion = '1.0.0' # Default
 
 [Capabilities.Dispatcher]
 # SupportedVersion is the version of the version of message schema.

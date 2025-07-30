@@ -121,6 +121,10 @@ func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
 }
 
+func (c *capabilitiesExternalRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
+}
+
 type capabilitiesWorkflowRegistry struct {
 	c toml.WorkflowRegistry
 }

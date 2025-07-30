@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -49,6 +50,7 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	capabilities_v2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -74,7 +76,8 @@ import (
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	registrysyncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -880,36 +883,74 @@ func newCREServices(
 			if err != nil {
 				return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 			}
-			registrySyncer, err := registrysyncer.New(
-				globalLogger,
-				func() (p2ptypes.PeerID, error) {
-					p := externalPeerWrapper.GetPeer()
-					if p == nil {
-						return p2ptypes.PeerID{}, errors.New("could not get peer")
-					}
 
-					return p.ID(), nil
-				},
-				relayer,
-				registryAddress,
-				registrysyncer.NewORM(ds, globalLogger),
-			)
+			externalRegistryVersion, err := semver.NewVersion(capCfg.ExternalRegistry().ContractVersion())
 			if err != nil {
-				return nil, fmt.Errorf("could not configure syncer: %w", err)
+				return nil, err
 			}
 
 			workflowDonNotifier := capabilities.NewDonNotifier()
+			switch externalRegistryVersion.Major() {
+			case 1:
+				registrySyncer, err := registrysyncerV1.New(
+					globalLogger,
+					func() (p2ptypes.PeerID, error) {
+						p := externalPeerWrapper.GetPeer()
+						if p == nil {
+							return p2ptypes.PeerID{}, errors.New("could not get peer")
+						}
 
-			wfLauncher := capabilities.NewLauncher(
-				globalLogger,
-				externalPeerWrapper,
-				dispatcher,
-				opts.CapabilitiesRegistry,
-				workflowDonNotifier,
-			)
-			registrySyncer.AddListener(wfLauncher)
+						return p.ID(), nil
+					},
+					relayer,
+					registryAddress,
+					registrysyncerV1.NewORM(ds, globalLogger),
+				)
+				if err != nil {
+					return nil, fmt.Errorf("could not configure syncer: %w", err)
+				}
 
-			srvcs = append(srvcs, wfLauncher, registrySyncer)
+				wfLauncher := capabilities.NewLauncher(
+					globalLogger,
+					externalPeerWrapper,
+					dispatcher,
+					opts.CapabilitiesRegistry,
+					workflowDonNotifier,
+				)
+				registrySyncer.AddListener(wfLauncher)
+
+				srvcs = append(srvcs, wfLauncher, registrySyncer)
+			case 2:
+				registrySyncer, err := registrysyncerV2.New(
+					globalLogger,
+					func() (p2ptypes.PeerID, error) {
+						p := externalPeerWrapper.GetPeer()
+						if p == nil {
+							return p2ptypes.PeerID{}, errors.New("could not get peer")
+						}
+
+						return p.ID(), nil
+					},
+					relayer,
+					registryAddress,
+					registrysyncerV2.NewORM(ds, globalLogger),
+				)
+				if err != nil {
+					return nil, fmt.Errorf("could not configure syncer: %w", err)
+				}
+
+				capabilitiesRegistryV2 := capabilities_v2.NewRegistry(globalLogger)
+				wfLauncher := capabilities_v2.NewLauncher(
+					globalLogger,
+					externalPeerWrapper,
+					dispatcher,
+					capabilitiesRegistryV2,
+					workflowDonNotifier,
+				)
+				registrySyncer.AddListener(wfLauncher)
+
+				srvcs = append(srvcs, wfLauncher, registrySyncer)
+			}
 
 			if capCfg.WorkflowRegistry().Address() != "" {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
