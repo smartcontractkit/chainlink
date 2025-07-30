@@ -845,10 +845,15 @@ func SendRequestSol(
 
 	base.SetTokenIndexes(tokenIndexes)
 
-	ix, err := base.ValidateAndBuild()
+	tempIx, err := base.ValidateAndBuild()
 	if err != nil {
 		return nil, err
 	}
+	ixData, err := tempIx.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data payload from router ccip send instruction: %w", err)
+	}
+	ix := solana.NewInstruction(s.Router, tempIx.Accounts(), ixData)
 
 	// for some reason onchain doesn't see extraAccounts
 

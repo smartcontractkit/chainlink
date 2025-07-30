@@ -119,7 +119,6 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
 
 	deployerKey := chain.DeployerKey.PublicKey()
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
@@ -141,13 +140,13 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 		tokenPubKey := registerTokenConfig.TokenPubKey
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		tokenAdminRegistryAdmin := registerTokenConfig.TokenAdminRegistryAdmin
-		var instruction *solRouter.Instruction
+		var instruction solana.Instruction
 
 		switch registerTokenConfig.RegisterType {
 		case ViaGetCcipAdminInstruction:
 			// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 			if registerTokenConfig.Override {
-				instruction, err = solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
+				tempIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
@@ -158,8 +157,13 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 				}
+				ixData, err := tempIx.Data()
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
+				}
+				instruction = solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 			} else {
-				instruction, err = solRouter.NewCcipAdminProposeAdministratorInstruction(
+				tempIx, err := solRouter.NewCcipAdminProposeAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
@@ -170,11 +174,16 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 				}
+				ixData, err := tempIx.Data()
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from ccip admin propose admin instruction: %w", err)
+				}
+				instruction = solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 			}
 		case ViaOwnerInstruction:
 			// only works if the token mint authority is the deployer key
 			if registerTokenConfig.Override {
-				instruction, err = solRouter.NewOwnerOverridePendingAdministratorInstruction(
+				tempIx, err := solRouter.NewOwnerOverridePendingAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
@@ -185,9 +194,14 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 				}
+				ixData, err := tempIx.Data()
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from owner override pending admin instruction: %w", err)
+				}
+				instruction = solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 			} else {
 				// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
-				instruction, err = solRouter.NewOwnerProposeAdministratorInstruction(
+				tempIx, err := solRouter.NewOwnerProposeAdministratorInstruction(
 					tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
 					routerConfigPDA,
 					tokenAdminRegistryPDA, // this gets created
@@ -198,6 +212,11 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 				}
+				ixData, err := tempIx.Data()
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from owner propose admin instruction: %w", err)
+				}
+				instruction = solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 			}
 		}
 
