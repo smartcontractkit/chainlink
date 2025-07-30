@@ -23,14 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
+func StartNixShell(input *cre.StartNixShellInput) (*nix.Shell, error) {
 	if input == nil {
 		return nil, errors.New("StartNixShellInput is nil")
 	}
@@ -48,7 +48,7 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 		globalEnvVars[key] = value
 	}
 
-	if strings.EqualFold(input.InfraInput.CRIB.Provider, libtypes.AWS) {
+	if strings.EqualFold(input.InfraInput.CRIB.Provider, infra.AWS) {
 		globalEnvVars["CHAINLINK_TEAM"] = input.InfraInput.CRIB.TeamInput.Team
 		globalEnvVars["CHAINLINK_PRODUCT"] = input.InfraInput.CRIB.TeamInput.Product
 		globalEnvVars["CHAINLINK_COST_CENTER"] = input.InfraInput.CRIB.TeamInput.CostCenter
@@ -80,7 +80,7 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 	return nixShell, nil
 }
 
-func Bootstrap(infraInput *libtypes.InfraInput) error {
+func Bootstrap(infraInput *infra.Input) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),
@@ -100,7 +100,7 @@ func Bootstrap(infraInput *libtypes.InfraInput) error {
 	return nil
 }
 
-func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Output, error) {
+func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output, error) {
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid input for deploying blockchain")
@@ -148,7 +148,7 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 
 	return nil, errors.New("failed to find a valid component")
 }
-func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
+func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
 	}
@@ -243,7 +243,7 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 	return input.NodeSetInputs, nil
 }
 
-func getNodeSpecForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*clnode.Input, error) {
+func getNodeSpecForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*clnode.Input, error) {
 	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
 	if findErr != nil {
 		return nil, errors.Wrapf(findErr, "failed to find node index in nodeset %s", donMetadata.Name)
@@ -258,7 +258,7 @@ func getNodeSpecForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *t
 	return nodeSpec, nil
 }
 
-func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, input *types.DeployCribDonsInput, donMetadata *types.DonMetadata) (*string, *string, error) {
+func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
 	nodeSpec, err := getNodeSpecForNode(nodeMetadata, donIndex, input, donMetadata)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get node spec")
@@ -287,7 +287,7 @@ func getConfigAndSecretsForNode(nodeMetadata *types.NodeMetadata, donIndex int, 
 }
 
 //nolint:unused // for now we don't need to set capabilities (high complexity, low impact) we'll rely on plugins image which contains all required capabilities
-func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes []*types.NodeMetadata) error {
+func setCapabilities(input *cre.DeployCribDonsInput, donIndex int, workerNodes []*cre.NodeMetadata) error {
 	// validate capabilities-related configuration and copy capabilities to pods
 	podNamePattern := input.NodeSetInputs[donIndex].Name + `-\\d+`
 	_, regErr := regexp.Compile(podNamePattern)
@@ -320,7 +320,7 @@ func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes
 		}
 	}
 
-	destinationDir, err := crecaps.DefaultContainerDirectory(libtypes.CRIB)
+	destinationDir, err := crecaps.DefaultContainerDirectory(infra.CRIB)
 	if err != nil {
 		return errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
 	}
@@ -354,7 +354,7 @@ func setCapabilities(input *types.DeployCribDonsInput, donIndex int, workerNodes
 	return nil
 }
 
-func imageNameAndTag(input *types.DeployCribDonsInput, j int) (string, string, error) {
+func imageNameAndTag(input *cre.DeployCribDonsInput, j int) (string, string, error) {
 	// validate that all nodes in the same node set use the same Docker image
 	dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSetInputs[j])
 	if dockerImagesErr != nil {
@@ -432,7 +432,7 @@ func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
 	return result, nil
 }
 
-func DeployJd(input *types.DeployCribJdInput) (*jd.Output, error) {
+func DeployJd(input *cre.DeployCribJdInput) (*jd.Output, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribJdInput is nil")
 	}
@@ -478,7 +478,7 @@ func DeployJd(input *types.DeployCribJdInput) (*jd.Output, error) {
 	return nil, errors.New("failed to find a valid jd component in results")
 }
 
-func nodesetDockerImage(nodeSet *types.CapabilitiesAwareNodeSet) (string, error) {
+func nodesetDockerImage(nodeSet *cre.CapabilitiesAwareNodeSet) (string, error) {
 	dockerImages := []string{}
 	for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
 		if nodeSpec.Node.DockerContext != "" {

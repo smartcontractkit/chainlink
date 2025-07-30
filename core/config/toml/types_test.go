@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
@@ -636,3 +637,166 @@ func TestEthKeys_SetFrom(t *testing.T) {
 
 // ptr is a utility function for converting a value to a pointer to the value.
 func ptr[T any](t T) *T { return &t }
+
+func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
+	testCases := []struct {
+		name        string
+		config      *BridgeStatusReporter
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "disabled with nil fields",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(false),
+				StatusPath:           nil,
+				PollingInterval:      nil,
+				IgnoreInvalidBridges: nil,
+				IgnoreJoblessBridges: nil,
+			},
+			expectError: false,
+		},
+		{
+			name: "disabled with empty fields",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(false),
+				StatusPath:           ptr(""),
+				PollingInterval:      durationPtr(0),
+				IgnoreInvalidBridges: ptr(false),
+				IgnoreJoblessBridges: ptr(true),
+			},
+			expectError: false,
+		},
+		{
+			name: "disabled with valid fields",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(false),
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(5 * time.Minute),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: false,
+		},
+		{
+			name: "nil enabled (defaults to disabled)",
+			config: &BridgeStatusReporter{
+				Enabled:              nil,
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(5 * time.Minute),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: false,
+		},
+		// Enabled valid cases with auto-defaulting
+		{
+			name: "enabled with valid config",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(5 * time.Minute),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: false,
+		},
+		{
+			name: "enabled with nil fields - should fail validation",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           nil,
+				PollingInterval:      nil,
+				IgnoreInvalidBridges: nil,
+				IgnoreJoblessBridges: nil,
+			},
+			expectError: true,
+			errorMsg:    "must be set",
+		},
+		{
+			name: "enabled with empty status path - should auto-default",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr(""),
+				PollingInterval:      durationPtr(5 * time.Minute),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: false,
+		},
+		{
+			name: "enabled with zero polling interval - should fail validation",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(0),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: true,
+			errorMsg:    "must be greater than or equal to: 1m",
+		},
+		{
+			name: "enabled with polling interval less than 1 minute - should fail validation",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(30 * time.Second),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: true,
+			errorMsg:    "must be greater than or equal to: 1m",
+		},
+		{
+			name: "enabled with polling interval exactly 1 minute",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
+				PollingInterval:      durationPtr(1 * time.Minute),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
+			},
+			expectError: false,
+		},
+		{
+			name: "enabled with all fields missing - should fail validation",
+			config: &BridgeStatusReporter{
+				Enabled:              ptr(true),
+				StatusPath:           ptr(""),
+				PollingInterval:      durationPtr(0),
+				IgnoreInvalidBridges: nil,
+				IgnoreJoblessBridges: nil,
+			},
+			expectError: true,
+			errorMsg:    "must be greater than or equal to: 1m",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.config.ValidateConfig()
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errorMsg)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify defaults are set when enabled
+				if tc.config.Enabled != nil && *tc.config.Enabled {
+					assert.NotNil(t, tc.config.StatusPath)
+					assert.NotEmpty(t, *tc.config.StatusPath)
+					assert.NotNil(t, tc.config.PollingInterval)
+					assert.GreaterOrEqual(t, tc.config.PollingInterval.Duration(), time.Minute)
+					assert.NotNil(t, tc.config.IgnoreInvalidBridges)
+					assert.NotNil(t, tc.config.IgnoreJoblessBridges)
+				}
+			}
+		})
+	}
+}
+
+func durationPtr(d time.Duration) *commonconfig.Duration {
+	cd := *commonconfig.MustNewDuration(d)
+	return &cd
+}

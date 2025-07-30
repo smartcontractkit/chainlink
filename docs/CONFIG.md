@@ -2315,6 +2315,47 @@ TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
 
+## BridgeStatusReporter
+```toml
+[BridgeStatusReporter]
+Enabled = false # Default
+StatusPath = "/status" # Default
+PollingInterval = "5m" # Default
+IgnoreInvalidBridges = true # Default
+IgnoreJoblessBridges = false # Default
+```
+BridgeStatusReporter holds settings for the Bridge Status Reporter service.
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enables the Bridge Status Reporter service that polls bridge status endpoints.
+
+### StatusPath
+```toml
+StatusPath = "/status" # Default
+```
+StatusPath is the path to append to bridge URLs for status polling.
+
+### PollingInterval
+```toml
+PollingInterval = "5m" # Default
+```
+PollingInterval is how often to poll bridge status endpoints for status.
+
+### IgnoreInvalidBridges
+```toml
+IgnoreInvalidBridges = true # Default
+```
+IgnoreInvalidBridges skips bridges that return HTTP errors or invalid responses.
+
+### IgnoreJoblessBridges
+```toml
+IgnoreJoblessBridges = false # Default
+```
+IgnoreJoblessBridges skips bridges that have no associated jobs.
+
 ## EVM
 EVM defaults depend on ChainID:
 

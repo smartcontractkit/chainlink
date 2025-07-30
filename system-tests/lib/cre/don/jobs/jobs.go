@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
+func Create(ctx context.Context, offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}

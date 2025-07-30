@@ -3,8 +3,8 @@ package writeevm
 import (
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -21,7 +21,7 @@ var WriteEVMCapabilityFactory = func(chainID uint64) func(donFlags []string) []k
 		fullName := corevm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
-		if flags.HasFlag(donFlags, types.WriteEVMCapability) {
+		if flags.HasFlag(donFlags, cre.WriteEVMCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   splitName[0],

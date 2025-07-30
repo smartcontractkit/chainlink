@@ -267,6 +267,14 @@ func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]
 	return mcmsStateByChain
 }
 
+func (c CCIPOnChainState) AptosMCMSStateByChain() map[uint64]aptos.AccountAddress {
+	mcmsByChain := make(map[uint64]aptos.AccountAddress)
+	for chainSelector, state := range c.AptosChains {
+		mcmsByChain[chainSelector] = state.MCMSAddress
+	}
+	return mcmsByChain
+}
+
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
