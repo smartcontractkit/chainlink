@@ -147,8 +147,6 @@ func doAddRemoteChainToRouter(
 		"",
 	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	// router setup
-	solRouter.SetProgramID(ccipRouterID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -164,7 +162,7 @@ func doAddRemoteChainToRouter(
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
 		if update.IsUpdate {
-			routerIx, err := solRouter.NewUpdateDestChainConfigInstruction(
+			ix, err := solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
 				// right now, the user will have to send the final version of the config.
@@ -177,6 +175,11 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate update router config instructions: %w", err)
 			}
+			routerIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			routerIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerIxData)
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
 				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
