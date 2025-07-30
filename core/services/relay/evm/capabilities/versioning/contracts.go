@@ -62,7 +62,7 @@ func TypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFa
 		return "", semver.Version{}, err
 	}
 
-	reader, err := RunWithRetries(ctx, time.Second, 3, crFactory, marshalledCfg)
+	reader, err := RunWithRetries(ctx, 10*time.Second, 3, crFactory, marshalledCfg)
 	if err != nil {
 		return "", semver.Version{}, err
 	}
