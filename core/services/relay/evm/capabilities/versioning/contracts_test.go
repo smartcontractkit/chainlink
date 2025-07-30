@@ -2,7 +2,9 @@ package versioning_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
@@ -143,5 +145,36 @@ func TestContracts_ParseTypeAndVersion(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, versioning.Unknown, versioning.ContractType(contractType))
 		require.Equal(t, "1.0.0", version)
+	})
+}
+
+func TestContracts_RunWithRetries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns an error if max retries are exceeded", func(t *testing.T) {
+		t.Parallel()
+		tries := 0
+		fn := func() (versioning.ContractType, semver.Version, error) {
+			tries++
+			return "", semver.Version{}, errors.New("some error")
+		}
+		_, _, err := versioning.RunWithRetries(t.Context(), 10*time.Millisecond, 3, fn)
+		require.ErrorContains(t, err, "max retries (3) reached, aborting")
+		require.Equal(t, 4, tries)
+	})
+
+	t.Run("fails and then succeeds", func(t *testing.T) {
+		t.Parallel()
+		tries := 0
+		fn := func() (versioning.ContractType, semver.Version, error) {
+			if tries < 2 {
+				tries++
+				return "", semver.Version{}, errors.New("some error")
+			}
+			return "", semver.Version{}, nil
+		}
+		_, _, err := versioning.RunWithRetries(t.Context(), 10*time.Millisecond, 3, fn)
+		require.NoError(t, err)
+		require.Equal(t, 2, tries)
 	})
 }

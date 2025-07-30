@@ -33,7 +33,14 @@ var (
 type ContractReaderFactory func(context.Context, []byte) (commontypes.ContractReader, error)
 
 func VerifyTypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFactory, expectedType ContractType) (semver.Version, error) {
-	contractType, version, err := TypeAndVersion(ctx, addr, crFactory)
+	contractType, version, err := RunWithRetries(
+		ctx,
+		3*time.Second,
+		5,
+		func() (ContractType, semver.Version, error) {
+			return TypeAndVersion(ctx, addr, crFactory)
+		},
+	)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("failed getting type and version %w", err)
 	}
@@ -62,7 +69,7 @@ func TypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFa
 		return "", semver.Version{}, err
 	}
 
-	reader, err := RunWithRetries(ctx, 10*time.Second, 3, crFactory, marshalledCfg)
+	reader, err := crFactory(ctx, marshalledCfg)
 	if err != nil {
 		return "", semver.Version{}, err
 	}
@@ -129,31 +136,34 @@ func ParseTypeAndVersion(tvStr string) (string, string, error) {
 // RunWithRetries will return an error in the following conditions:
 //   - the context is cancelled
 //   - the retry limit has been hit
-func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries int, fn ContractReaderFactory, config []byte) (commontypes.ContractReader, error) {
+func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries int, fn func() (ContractType, semver.Version, error)) (ContractType, semver.Version, error) {
 	ticker := time.NewTicker(retryInterval)
 	defer ticker.Stop()
 
+	fmt.Println("Trying once...")
+
 	// immediately try once
-	cr, err := fn(ctx, config)
+	typeAndVersion, version, err := fn()
 	if err == nil {
-		return cr, nil
+		return typeAndVersion, version, nil
 	}
 	retries := 0
 
 	for {
+		fmt.Println("Retrying... ", retries+1, " of ", maxRetries)
 		// if maxRetries is 0, we'll retry indefinitely
 		if maxRetries > 0 && retries >= maxRetries {
 			msg := fmt.Sprintf("max retries (%d) reached, aborting", maxRetries)
-			return nil, errors.New(msg)
+			return "", semver.Version{}, errors.New(msg)
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return "", semver.Version{}, ctx.Err()
 		case <-ticker.C:
-			cr, err = fn(ctx, config)
+			typeAndVersion, version, err = fn()
 			if err == nil {
-				return cr, nil
+				return typeAndVersion, version, nil
 			}
 		}
 
