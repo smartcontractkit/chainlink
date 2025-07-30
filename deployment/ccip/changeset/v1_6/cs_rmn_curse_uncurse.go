@@ -810,7 +810,6 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 	}
 
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	deployer, err := deployerGroup.GetDeployerForSVM(c.selector)
 	if err != nil {
@@ -831,7 +830,12 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
+			ixData, err := ix.Data()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to extract data payload from rmn remote uncurse instruction: %w", err)
+			}
+			uncurseIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), ixData)
+			return uncurseIx, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build uncurse instruction for subject %x on chain %d: %w", subject, c.selector, err)

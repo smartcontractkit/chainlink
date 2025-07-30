@@ -377,8 +377,6 @@ func doAddRemoteChainToFeeQuoter(
 		solana.PublicKey{},
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	// fee quoter setup
-	solFeeQuoter.SetProgramID(feeQuoterID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -393,7 +391,7 @@ func doAddRemoteChainToFeeQuoter(
 		var feeQuoterIx solana.Instruction
 		var err error
 		if update.IsUpdate {
-			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
+			ix, err := solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
 				// right now, the user will have to send the final version of the config.
@@ -402,12 +400,20 @@ func doAddRemoteChainToFeeQuoter(
 				fqRemoteChainPDA,
 				authority,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from fee quoter update dest chain config instruction: %w", err)
+			}
+			feeQuoterIx = solana.NewInstruction(feeQuoterID, ix.Accounts(), ixData)
 			e.Logger.Infow("update fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			lookUpTableEntries = append(lookUpTableEntries,
 				fqRemoteChainPDA,
 			)
-			feeQuoterIx, err = solFeeQuoter.NewAddDestChainInstruction(
+			ix, err := solFeeQuoter.NewAddDestChainInstruction(
 				remoteChainSel,
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
@@ -415,10 +421,15 @@ func doAddRemoteChainToFeeQuoter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from fee quoter add dest chain config instruction: %w", err)
+			}
+			feeQuoterIx = solana.NewInstruction(feeQuoterID, ix.Accounts(), ixData)
 			e.Logger.Infow("add fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
-		}
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
 			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
