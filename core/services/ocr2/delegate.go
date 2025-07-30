@@ -781,7 +781,6 @@ func (d *Delegate) newDonTimePlugin(
 		synchronization.TelemetryType(types.DonTimePlugin),
 	)
 
-	// TODO: Should fromAccount be the transmitterID? Or what?
 	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore, ocrtypes.Account(spec.TransmitterID.String))
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
