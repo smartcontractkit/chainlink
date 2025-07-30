@@ -179,6 +179,8 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
 			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
 			routerIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerIxData)
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
@@ -199,7 +201,7 @@ func doAddRemoteChainToRouter(
 				routerRemoteStatePDA,
 			)
 			// generate instructions
-			routerIx, err := solRouter.NewAddChainSelectorInstruction(
+			ix, err := solRouter.NewAddChainSelectorInstruction(
 				remoteChainSel,
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
@@ -210,8 +212,15 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate add router config instructions: %w", err)
 			}
+			routerIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			routerIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerIxData)
 			e.Logger.Infow("add router config for remote chain", "remoteChainSel", remoteChainSel)
-			routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
+			ix, err = solRouter.NewAddOfframpInstruction(
 				remoteChainSel,
 				offRampID,
 				allowedOffRampRemotePDA,
@@ -222,6 +231,13 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			routerOfframpIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			routerOfframpIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerOfframpIxData)
 			e.Logger.Infow("add offramp to router for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
 				// build transactions if mcms
@@ -530,7 +546,6 @@ func doAddRemoteChainToOffRamp(
 		solana.PublicKey{},
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	solOffRamp.SetProgramID(offRampID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -551,7 +566,7 @@ func doAddRemoteChainToOffRamp(
 
 		var offRampIx solana.Instruction
 		if update.IsUpdate {
-			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
+			ix, err := solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
 				offRampRemoteStatePDA,
@@ -561,12 +576,19 @@ func doAddRemoteChainToOffRamp(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			data, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from offramp update source chain config instruction: %w")
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			offRampIx = solana.NewInstruction(offRampID, ix.Accounts(), data)
 			e.Logger.Infow("update offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			lookUpTableEntries = append(lookUpTableEntries,
 				offRampRemoteStatePDA,
 			)
-			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
+			ix, err := solOffRamp.NewAddSourceChainInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
 				offRampRemoteStatePDA,
@@ -577,6 +599,13 @@ func doAddRemoteChainToOffRamp(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			data, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from offramp add source chain config instruction: %w")
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			offRampIx = solana.NewInstruction(offRampID, ix.Accounts(), data)
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv := cldf.NewTypeAndVersion(shared.RemoteSource, deployment.Version1_0_0)

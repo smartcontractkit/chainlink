@@ -695,7 +695,6 @@ func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool
 		Value: subject,
 	}
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	ix, err := solRmnRemote.NewVerifyNotCursedInstruction(
 		curseSubject,
@@ -705,7 +704,14 @@ func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	data, err := ix.Data()
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to extract data payload from verify not cursed instruction: %w", err)
+	}
+	// Manually create instruction rather than directly using the ix above
+	// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+	verifyIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), data)
+	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{verifyIx}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
 	if txErr == nil {
 		// If no error return then it's not cursed
 		return false, 0, nil

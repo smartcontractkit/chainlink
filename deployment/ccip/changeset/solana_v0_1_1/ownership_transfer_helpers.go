@@ -111,22 +111,25 @@ func transferOwnershipRouter(
 
 	// Build specialized closures
 	buildTransfer := func(newOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		ccip_router.SetProgramID(routerProgramID)
 		ix, err := ccip_router.NewTransferOwnershipInstruction(
 			newOwner, config, authority,
 		).ValidateAndBuild()
 		if err != nil {
 			return nil, err
 		}
-		for _, acc := range ix.Accounts() {
+		ixData, err := ix.Data()
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract data payload from router transfer ownership instruction: %w", err)
+		}
+		transferOwnershipIx := solana.NewInstruction(routerProgramID, ix.Accounts(), ixData)
+		for _, acc := range transferOwnershipIx.Accounts() {
 			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
 			}
 		}
-		return ix, nil
+		return transferOwnershipIx, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		ccip_router.SetProgramID(routerProgramID)
 		// If the router has its own accept function, use that
 		ix, err := ccip_router.NewAcceptOwnershipInstruction(
 			config, newOwnerAuthority,
@@ -134,12 +137,17 @@ func transferOwnershipRouter(
 		if err != nil {
 			return nil, err
 		}
-		for _, acc := range ix.Accounts() {
+		ixData, err := ix.Data()
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract data payload from router transfer ownership instruction: %w", err)
+		}
+		acceptOwnershipIx := solana.NewInstruction(routerProgramID, ix.Accounts(), ixData)
+		for _, acc := range acceptOwnershipIx.Accounts() {
 			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
 			}
 		}
-		return ix, nil
+		return acceptOwnershipIx, nil
 	}
 
 	tx, err := transferAndWrapAcceptOwnership(
