@@ -50,7 +50,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solFeeQuoterV0_1_0 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -60,7 +60,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -887,11 +887,11 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
 							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
 						},
-						BillingConfig: []solFeeQuoter.BillingTokenConfig{
+						BillingConfig: []solFeeQuoterV0_1_0.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
-								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV0_1_0.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -900,7 +900,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
-								UsdPerToken: solFeeQuoter.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV0_1_0.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
