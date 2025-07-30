@@ -626,7 +626,6 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		return cldf.ChangesetOutput{}, err
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
 	if err != nil {
@@ -659,10 +658,15 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			currentAdmin,
 		)
 		base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
-		instruction, err := base.ValidateAndBuild()
+		tempIx, err := base.ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
+		ixData, err := tempIx.Data()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from router set pool instruction: %w", err)
+		}
+		instruction := solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 
 		if currentAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
