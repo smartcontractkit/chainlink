@@ -416,7 +416,9 @@ func Test_Report_Reserve(t *testing.T) {
 		lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
 
 		report := newTestReport(t, lggr, billingClient)
 
@@ -435,7 +437,9 @@ func Test_Report_Reserve(t *testing.T) {
 		lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
 
 		report := newTestReport(t, lggr, billingClient)
 
@@ -622,7 +626,9 @@ func Test_Report_Deduct(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -653,7 +659,9 @@ func Test_Report_Deduct(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).

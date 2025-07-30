@@ -146,6 +146,12 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		meteringMode = true
 	}
 
+	if len(rateCard) == 0 && !meteringMode {
+		lggr.Error("empty rate card, switching to metering mode")
+
+		meteringMode = true
+	}
+
 	balanceStore, err := NewBalanceStore(decimal.Zero, rateCard)
 	if err != nil {
 		return nil, err
