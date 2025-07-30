@@ -8714,7 +8714,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '100 wei'
-PriceMax = '800 kwei'
+PriceMax = '50 mwei'
 PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
@@ -8725,7 +8725,7 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = true
-FeeCapDefault = '800 kwei'
+FeeCapDefault = '50 mwei'
 TipCapDefault = '0'
 TipCapMin = '0'
 
@@ -17467,6 +17467,7 @@ HTTPURL = 'https://foo.web' # Example
 HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 Order = 100 # Default
+IsLoadBalancedRPC = false # Default
 ```
 
 
@@ -17505,6 +17506,14 @@ SendOnly limits usage to sending transaction broadcasts only. With this enabled,
 Order = 100 # Default
 ```
 Order of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
+
+### IsLoadBalancedRPC
+```toml
+IsLoadBalancedRPC = false # Default
+```
+IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's behind it.
+If true, we should try reconnecting to the node even when its the only node in the Nodes list.
+If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
 
 ## EVM.OCR2.Automation
 ```toml
@@ -18011,6 +18020,7 @@ Name = 'primary' # Example
 URL = 'http://solana.web' # Example
 SendOnly = false # Default
 Order = 100 # Default
+IsLoadBalancedRPC = false # Default
 ```
 
 
@@ -18037,6 +18047,14 @@ SendOnly is a multinode config that only sends transactions to a node and does n
 Order = 100 # Default
 ```
 Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
+
+### IsLoadBalancedRPC
+```toml
+IsLoadBalancedRPC = false # Default
+```
+IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's behind it.
+If true, we should try reconnecting to the node even when its the only node in the Nodes list.
+If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
 
 ## Starknet
 ```toml

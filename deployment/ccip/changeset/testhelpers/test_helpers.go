@@ -1913,7 +1913,7 @@ func DeployTransferableTokenSolana(
 	)
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
-	// // Setup global config
+	// // Setup global config when using Solana Contracts V0.1.1 or above
 	// e, err = commoncs.Apply(nil, e,
 	//	commoncs.Configure(
 	//		cldf.CreateLegacyChangeSet(ccipChangeSetSolana.InitGlobalConfigTokenPoolProgram),
