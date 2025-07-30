@@ -23,6 +23,7 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -196,11 +197,16 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
 	})
 
+	var timeProvider TimeProvider = &utils.LocalTimeProvider{}
+	if e.cfg.DonTimeEnabled {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	}
+
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr), e.cfg.SecretsFetcher))
+	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.cfg.SecretsFetcher))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -378,6 +384,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
+	var timeProvider TimeProvider = &utils.LocalTimeProvider{}
+	if e.cfg.DonTimeEnabled {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr)
+	}
+
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -388,7 +399,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr), SecretsFetcher: e.cfg.SecretsFetcher})
+		TimeProvider: timeProvider, SecretsFetcher: e.cfg.SecretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)

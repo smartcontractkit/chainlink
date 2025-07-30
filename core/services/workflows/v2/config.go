@@ -26,10 +26,12 @@ type EngineConfig struct {
 	Module          host.ModuleV2
 	WorkflowConfig  []byte // workflow author provided config
 	CapRegistry     core.CapabilitiesRegistry
-	DonTimeStore    *dontime.Store
 	ExecutionsStore store.Store
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
+
+	DonTimeEnabled bool
+	DonTimeStore   *dontime.Store
 
 	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
@@ -111,7 +113,7 @@ func (c *EngineConfig) Validate() error {
 	if c.CapRegistry == nil {
 		return errors.New("capabilities registry not set")
 	}
-	if c.DonTimeStore == nil {
+	if c.DonTimeStore == nil && c.DonTimeEnabled {
 		return errors.New("dontime store not set")
 	}
 	if c.ExecutionsStore == nil {
