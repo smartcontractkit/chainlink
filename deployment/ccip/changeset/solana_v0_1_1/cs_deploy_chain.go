@@ -1119,10 +1119,9 @@ func initializeTokenPoolGlobalConfig(
 		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
 	var instruction solana.Instruction
-	var ixErr error
 	switch poolType {
 	case solTestTokenPool.BurnAndMint_PoolType.String():
-		instruction, ixErr = solBurnMintTokenPool.NewInitGlobalConfigInstruction(
+		tempIx, ixErr := solBurnMintTokenPool.NewInitGlobalConfigInstruction(
 			routerAddress,
 			rmnAddress,
 			config,
@@ -1131,8 +1130,16 @@ func initializeTokenPoolGlobalConfig(
 			tokenPoolProgram,
 			programData.Address,
 		).ValidateAndBuild()
+		if ixErr != nil {
+			return fmt.Errorf("failed to build instruction: %w", err)
+		}
+		ixData, ixErr := tempIx.Data()
+		if ixErr != nil {
+			return fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
+		}
+		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
 	case solTestTokenPool.LockAndRelease_PoolType.String():
-		instruction, ixErr = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(
+		tempIx, ixErr := solLockReleaseTokenPool.NewInitGlobalConfigInstruction(
 			routerAddress,
 			rmnAddress,
 			config,
@@ -1141,9 +1148,14 @@ func initializeTokenPoolGlobalConfig(
 			tokenPoolProgram,
 			programData.Address,
 		).ValidateAndBuild()
-	}
-	if ixErr != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
+		if ixErr != nil {
+			return fmt.Errorf("failed to build instruction: %w", err)
+		}
+		ixData, ixErr := tempIx.Data()
+		if ixErr != nil {
+			return fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
+		}
+		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
 	}
 	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return fmt.Errorf("failed to confirm initializeTokenPoolGlobalConfig: %w", err)

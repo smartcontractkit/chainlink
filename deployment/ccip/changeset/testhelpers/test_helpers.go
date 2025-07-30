@@ -1913,27 +1913,20 @@ func DeployTransferableTokenSolana(
 	)
 	bnm := solTestTokenPool.BurnAndMint_PoolType
 
-	// // Setup global config when using Solana Contracts V0.1.1 or above
-	// e, err = commoncs.Apply(nil, e,
-	//	commoncs.Configure(
-	//		cldf.CreateLegacyChangeSet(ccipChangeSetSolana.InitGlobalConfigTokenPoolProgram),
-	//		ccipChangeSetSolana.TokenPoolConfigWithMCM{
-	//			ChainSelector: solChainSel,
-	//			TokenPubKey:   solTokenAddress,
-	//			PoolType:      &bnm,
-	//			Metadata:      shared.CLLMetadata,
-	//		}),
-	// )
-	// if err != nil {
-	//	return nil, nil, solana.PublicKey{}, err
-	// }
-
 	// deploy and configure solana token pool
 	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.E2ETokenPool),
 			ccipChangeSetSolana.E2ETokenPoolConfig{
+				InitializeGlobalTokenPoolConfig: []ccipChangeSetSolana.TokenPoolConfigWithMCM{
+					{
+						ChainSelector: solChainSel,
+						TokenPubKey:   solTokenAddress,
+						PoolType:      &bnm,
+						Metadata:      shared.CLLMetadata,
+					},
+				},
 				AddTokenPoolAndLookupTable: []ccipChangeSetSolana.AddTokenPoolAndLookupTableConfig{
 					{
 						ChainSelector: solChainSel,
