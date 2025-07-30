@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -39,7 +40,7 @@ func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress str
 	if os.Getenv("PRIVATE_KEY") != "" {
 		privateKey = os.Getenv("PRIVATE_KEY")
 	} else {
-		privateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+		privateKey = blockchain.DefaultAnvilPrivateKey
 	}
 
 	sethClient, scErr := seth.NewClientBuilder().
@@ -120,7 +121,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	if os.Getenv("PRIVATE_KEY") != "" {
 		privateKey = os.Getenv("PRIVATE_KEY")
 	} else {
-		privateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+		privateKey = blockchain.DefaultAnvilPrivateKey
 	}
 
 	sethClient, scErr := seth.NewClientBuilder().

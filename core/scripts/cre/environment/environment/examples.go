@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
@@ -109,7 +110,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 
 	if os.Getenv("PRIVATE_KEY") == "" {
 		// use Anvil developer key if none is set
-		pkSetErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+		pkSetErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
 		if pkSetErr != nil {
 			return errors.Wrap(pkSetErr, "failed to set PRIVATE_KEY environment variable")
 		}
