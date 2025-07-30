@@ -562,8 +562,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, errors.New("P2P stack required for OCR or OCR2")
 	}
 
-	// TODO: DO I need this peerWrapper or anything to start DonTime Plugin?
-
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
 		globalLogger,
