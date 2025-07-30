@@ -578,7 +578,7 @@ func doAddRemoteChainToOffRamp(
 			}
 			data, err := ix.Data()
 			if err != nil {
-				return txns, fmt.Errorf("failed to extract data payload from offramp update source chain config instruction: %w")
+				return txns, fmt.Errorf("failed to extract data payload from offramp update source chain config instruction: %w", err)
 			}
 			// Manually create instruction rather than directly using the ix above
 			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
@@ -601,7 +601,7 @@ func doAddRemoteChainToOffRamp(
 			}
 			data, err := ix.Data()
 			if err != nil {
-				return txns, fmt.Errorf("failed to extract data payload from offramp add source chain config instruction: %w")
+				return txns, fmt.Errorf("failed to extract data payload from offramp add source chain config instruction: %w", err)
 			}
 			// Manually create instruction rather than directly using the ix above
 			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
