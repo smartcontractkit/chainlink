@@ -385,7 +385,7 @@ func setupPoRTestEnvironment(
 }
 
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-one-don-multichain-ci.toml")
+	configErr := setConfigurationIfMissing("environment-one-don-multichain.toml")
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
@@ -448,7 +448,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 }
 
 func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-gateway-don-ci.toml")
+	configErr := setConfigurationIfMissing("environment-gateway-don.toml")
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
@@ -502,7 +502,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 }
 
 func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-capabilities-don-ci.toml")
+	configErr := setConfigurationIfMissing("environment-capabilities-don.toml")
 	require.NoError(t, configErr, "failed to set CTF config")
 	testLogger := framework.L
 
