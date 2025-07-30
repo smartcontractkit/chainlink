@@ -24,7 +24,7 @@ func Test_SeqDeploySolTokens(t *testing.T) {
 
 	// Boots up a Solana testing chain in a container. This is done outside of the tests to
 	// avoid booting up the container for each test.
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsSol(t, 1)).SolanaChains()
+	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsSol(t, 1, "")).SolanaChains()
 
 	tests := []struct {
 		name               string

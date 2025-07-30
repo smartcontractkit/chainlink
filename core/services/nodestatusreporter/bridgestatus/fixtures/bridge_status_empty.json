@@ -1,0 +1,19 @@
+{
+	"adapter": {
+		"name": "",
+		"version": "",
+		"uptimeSeconds": 0
+	},
+	"endpoints": [],
+	"defaultEndpoint": "",
+	"configuration": [],
+	"runtime": {
+		"nodeVersion": "",
+		"platform": "",
+		"architecture": "",
+		"hostname": ""
+	},
+	"metrics": {
+		"enabled": false
+	}
+}

@@ -541,6 +541,10 @@ HTTPURLExtraWrite = 'https://foo.web/extra' # Example
 SendOnly = false # Default
 # Order of the node in the pool, will takes effect if `SelectionMode` is `PriorityLevel` or will be used as a tie-breaker for `HighestHead` and `TotalDifficulty`
 Order = 100 # Default
+# IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's behind it.
+# If true, we should try reconnecting to the node even when its the only node in the Nodes list.
+# If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
+IsLoadBalancedRPC = false # Default
 
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.

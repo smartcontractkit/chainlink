@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,9 +15,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
+
+type FundsToSend struct {
+	ToAddress  common.Address
+	Amount     *big.Int
+	PrivateKey *ecdsa.PrivateKey
+	GasLimit   *int64
+	GasPrice   *big.Int
+	GasFeeCap  *big.Int
+	GasTipCap  *big.Int
+	TxTimeout  *time.Duration
+	Nonce      *uint64
+}
 
 func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
@@ -27,7 +38,7 @@ func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
 
-func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, payload libtypes.FundsToSend) (*types.Receipt, error) {
+func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, payload FundsToSend) (*types.Receipt, error) {
 	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err

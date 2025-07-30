@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -29,7 +30,6 @@ import (
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -405,7 +405,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
+			err = stderrors.Join(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
@@ -738,7 +738,7 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
+		return nil, stderrors.Join(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))

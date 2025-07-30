@@ -3,10 +3,10 @@
 package main
 
 import (
-	cron "github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
-	sdk "github.com/smartcontractkit/cre-sdk-go/sdk"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
 type None struct{}

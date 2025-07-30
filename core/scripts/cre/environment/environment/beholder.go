@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/google/go-github/v72/github"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -61,12 +59,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			dockerNetworks, dockerNetworksErr := getCtfDockerNetworks()
-			if dockerNetworksErr != nil {
-				return errors.Wrap(dockerNetworksErr, "failed to get CTF Docker networks")
-			}
-
-			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs, dockerNetworks)
+			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -99,7 +92,7 @@ var stopBeholderCmd = &cobra.Command{
 
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string, dockerNetworks []string) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -144,11 +137,6 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 		return errors.Wrap(err, "failed to load test configuration")
 	}
 
-	// connect to existing network if provided, that should only be used, when chip-ingress is started for an already running environment
-	if len(dockerNetworks) > 0 {
-		in.ChipIngress.ExtraDockerNetworks = append(in.ChipIngress.ExtraDockerNetworks, dockerNetworks...)
-	}
-
 	out, startErr := chipingressset.New(in.ChipIngress)
 	if startErr != nil {
 		return errors.Wrap(startErr, "failed to create Chip Ingress set")
@@ -190,7 +178,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	for _, protoConfig := range protoConfigsFlag {
 		file, fileErr := os.ReadFile(protoConfig)
 		if fileErr != nil {
-			return errors.Wrap(fileErr, protoRegistrationErrMsg+"failed to read proto config file: "+protoConfig)
+			return errors.Wrap(fileErr, protoRegistrationErrMsg+": failed to read proto config file: "+protoConfig)
 		}
 
 		type wrappedProtoSchemaSets struct {
@@ -212,21 +200,16 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	}
 
 	for _, protoSchemaSet := range protoSchemaSets {
-		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.Repository)
+		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
-	var client *github.Client
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-		tc := oauth2.NewClient(ctx, ts)
-		client = github.NewClient(tc)
-	} else {
-		framework.L.Warn().Msg("GITHUB_TOKEN is not set, using unauthenticated GitHub client. This may cause rate limiting issues when downloading proto files")
-		client = github.NewClient(nil)
-	}
-
-	reposErr := chipingressset.DefaultRegisterAndFetchProtos(ctx, client, protoSchemaSets, schemaRegistryExternalURL)
+	reposErr := chipingressset.DefaultRegisterAndFetchProtos(
+		ctx,
+		nil, // GH client will be created dynamically, if needed
+		protoSchemaSets,
+		schemaRegistryExternalURL,
+	)
 	if reposErr != nil {
 		return errors.Wrap(reposErr, protoRegistrationErrMsg+"failed to fetch and register protos")
 	}
