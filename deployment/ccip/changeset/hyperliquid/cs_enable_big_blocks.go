@@ -232,7 +232,7 @@ func actionHash(action any, vaultAddress string, nonce int64, expiresAfter *int6
 
 	err := enc.Encode(action)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal action: %v", err)
+		return nil, fmt.Errorf("failed to marshal action: %w", err)
 	}
 	data := buf.Bytes()
 
@@ -271,9 +271,7 @@ func actionHash(action any, vaultAddress string, nonce int64, expiresAfter *int6
 
 // addressToBytes converts a hex address to bytes
 func addressToBytes(address string) []byte {
-	if strings.HasPrefix(address, "0x") {
-		address = address[2:]
-	}
+	address = strings.TrimPrefix(address, "0x")
 	bytes, _ := hex.DecodeString(address)
 	return bytes
 }
