@@ -22,9 +22,9 @@ const (
 	RemoteGasPriceBatchWriteFrequency = 20 * time.Minute
 	TokenPriceBatchWriteFrequency     = 2 * time.Hour
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
-	BatchGasLimit               = 6_500_000
+	BatchGasLimit               = 60_500_000
 	InflightCacheExpiry         = 1 * time.Minute
-	RootSnoozeTime              = 5 * time.Minute
+	RootSnoozeTime              = 1 * time.Minute
 	BatchingStrategyID          = 0
 	OptimisticConfirmations     = 1
 	TransmissionDelayMultiplier = 15 * time.Second
