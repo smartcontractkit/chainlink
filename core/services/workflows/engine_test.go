@@ -2897,6 +2897,17 @@ targets:
 			},
 		)
 
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
 		// Verify that ReserveCredits is called with the correct workflow registry information
 		// Sepolia chain ID 11155111 converts to the expected chainSelector
 		mBillingClient.EXPECT().
@@ -2910,13 +2921,6 @@ targets:
 			})).
 			Return(&billing.ReserveCreditsResponse{
 				Success: true,
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
 				Credits: "10000",
 			}, nil)
 
