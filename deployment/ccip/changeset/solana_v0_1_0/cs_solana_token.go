@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -157,7 +158,7 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	newAddresses := cldf.NewMemoryAddressBook()
-	tv := cldf.NewTypeAndVersion(cldf.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
+	tv := cldf.NewTypeAndVersion(cfg.TokenProgramName, deployment.Version1_0_0)
 	tv.AddLabel(cfg.TokenSymbol)
 	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
 	if err != nil {

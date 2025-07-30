@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -29,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	solBinary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go/rpc"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
@@ -1060,8 +1059,8 @@ func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID so
 		DataType uint32
 		Address  solana.PublicKey
 	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
 		return programData, fmt.Errorf("failed to deploy program: %w", err)

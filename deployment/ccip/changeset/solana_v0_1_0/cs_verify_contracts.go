@@ -9,10 +9,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
 
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
