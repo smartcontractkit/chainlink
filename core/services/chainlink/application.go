@@ -604,7 +604,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
 
-		ocr2Delegate := ocr2.NewDelegate(
+		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			ocr2.DelegateOpts{
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
@@ -627,17 +627,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
-		delegates[job.OffchainReporting2] = ocr2Delegate
-
-		// TODO: Run Local CRE Environment and ensure plugin is running
-		// TODO: In Application let's hard code the contract Addr for now and use OCR3Capability addr.
-		/*
-			err := ocr2Delegate.StartDonTimePlugin(ctx, globalLogger, nil)
-			if err != nil {
-				return nil, err
-			}
-		*/
-
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,

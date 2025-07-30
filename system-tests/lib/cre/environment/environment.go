@@ -210,8 +210,7 @@ func SetupTestEnvironment(
 
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
-	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String()) //nolint:staticcheck // won't migrate now
-	fmt.Printf("OCR3ADDR = 0x%x", ocr3Addr)
+	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String())         //nolint:staticcheck // won't migrate now
 	wfRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())      //nolint:staticcheck // won't migrate now
 	capRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()) //nolint:staticcheck // won't migrate now
 

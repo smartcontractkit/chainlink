@@ -3,8 +3,6 @@
 package main
 
 import (
-	"time"
-
 	cron "github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/sdk"
 
@@ -30,7 +28,5 @@ func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], erro
 }
 
 func onTrigger(wcx *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
-	donTime := "donTime=" + time.Now().Format("2006-01-02 15:04:05")
-	wcx.Logger.Info(donTime)
-	return donTime, nil
+	return "such a lovely disaster", nil
 }
