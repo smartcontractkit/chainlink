@@ -150,7 +150,7 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64, tierConfigs *[]TierC
 // generateChainTierLanes generates lanes where chains of a 'high' tier are connected to all chains
 // chains of a 'low' tier are only connected to chains of a 'high' tier.
 func generateChainTierLanes(chains []uint64, tierConfigs *[]TierConfigs) []LaneConfig {
-	if len(*tierConfigs) == 0 {
+	if tierConfigs == nil || len(*tierConfigs) == 0 {
 		// If no tiers are defined, fallback to any-to-any
 		return generateAnyToAnyLanes(chains)
 	}
