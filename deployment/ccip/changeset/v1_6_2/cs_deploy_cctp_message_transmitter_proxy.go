@@ -86,7 +86,7 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 					Address:  proxyAddress,
 					Contract: proxy,
 					// TODO: make this a constant.
-					Tv:  cldf.NewTypeAndVersion(shared.CCTPMessageTransmitterProxy, deployment.Version1_6_0),
+					Tv:  cldf.NewTypeAndVersion(shared.CCTPMessageTransmitterProxy, deployment.Version1_6_2),
 					Tx:  tx,
 					Err: err,
 				}

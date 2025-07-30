@@ -85,7 +85,7 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -99,7 +99,7 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitter,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -113,7 +113,7 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messenger,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -278,7 +278,7 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 			expectedCallers[i] = cfg.AllowedCaller
 		}
 
-		actualCallers, err := proxies[deployment.Version1_6_0].GetAllowedCallers(nil)
+		actualCallers, err := proxies[deployment.Version1_6_2].GetAllowedCallers(nil)
 		require.NoError(t, err)
 
 		require.ElementsMatch(t,

@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	utp "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_token_pool"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -28,7 +29,7 @@ var (
 
 	USDCTokenPoolConfigOp = opsutil.NewEVMCallOperation(
 		"USDCTokenPoolConfigOp",
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.6.2"),
 		"Setting USDC Token Pool config",
 		utp.USDCTokenPoolABI,
 		shared.USDCTokenPool,
@@ -39,7 +40,7 @@ var (
 
 	USDCTokenPoolConfigSequence = operations.NewSequence(
 		"USDCTokenPoolConfigSequence",
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.6.2"),
 		"Setting USDC Token Pool config across multiple EVM chains",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsutil.EVMCallInput[[]utp.USDCTokenPoolDomainUpdate]) (map[uint64][]opsutil.EVMCallOutput, error) {
 			out := make(map[uint64][]opsutil.EVMCallOutput, len(inputs))
@@ -71,8 +72,8 @@ type ConfigUSDCTokenPoolInput struct {
 }
 
 func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState) error {
-	if _, ok := state.USDCTokenPoolsV1_6[deployment.Version1_6_0]; !ok {
-		return fmt.Errorf("no USDC token pool with version %s found on %s", deployment.Version1_6_0, chain.Name())
+	if _, ok := state.USDCTokenPoolsV1_6[deployment.Version1_6_2]; !ok {
+		return fmt.Errorf("no USDC token pool with version %s found on %s", deployment.Version1_6_2, chain.Name())
 	}
 	for destSelector, update := range i.DestinationUpdates {
 		err := cldf.IsValidChainSelector(destSelector)
@@ -100,6 +101,9 @@ func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 
 type ConfigUSDCTokenPoolConfig struct {
 	USDCPools map[uint64]ConfigUSDCTokenPoolInput
+
+	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
+	MCMS *proposalutils.TimelockConfig
 }
 
 func configUSDCTokenPoolPrecondition(env cldf.Environment, c ConfigUSDCTokenPoolConfig) error {
@@ -153,8 +157,8 @@ func configUSDCTokenPoolLogic(env cldf.Environment, c ConfigUSDCTokenPoolConfig)
 
 		input[sourceChainSelector] = opsutil.EVMCallInput[[]utp.USDCTokenPoolDomainUpdate]{
 			ChainSelector: sourceChainSelector,
-			NoSend:        false, // TODO: MCMS?
-			Address:       chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0].Address(),
+			NoSend:        c.MCMS != nil, // TODO: MCMS?
+			Address:       chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2].Address(),
 			CallInput:     domainUpdates,
 		}
 	}
@@ -172,7 +176,7 @@ func configUSDCTokenPoolLogic(env cldf.Environment, c ConfigUSDCTokenPoolConfig)
 		seqReport,
 		err,
 		state.EVMMCMSStateByChain(),
-		nil, // TODO: MCMS?
+		c.MCMS,
 		USDCTokenPoolConfigSequence.Description(),
 	)
 }

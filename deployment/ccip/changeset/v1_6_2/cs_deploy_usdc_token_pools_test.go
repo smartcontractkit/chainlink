@@ -82,7 +82,7 @@ func setupUSDCTokenPoolsContractsForDeploy(
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -96,7 +96,7 @@ func setupUSDCTokenPoolsContractsForDeploy(
 			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitter,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -110,7 +110,7 @@ func setupUSDCTokenPoolsContractsForDeploy(
 			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messenger,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -165,7 +165,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 			},
 			ErrStr: fmt.Sprintf(
 				"CCTP message transmitter proxy for version %s not found",
-				deployment.Version1_6_0,
+				deployment.Version1_6_2,
 			),
 		},
 	}
@@ -204,7 +204,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -357,7 +357,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 		usdcTokenPools := state.Chains[selector].USDCTokenPoolsV1_6
 		require.Len(t, usdcTokenPools, 1, selector)
 
-		owner, err := usdcTokenPools[deployment.Version1_6_0].Owner(nil)
+		owner, err := usdcTokenPools[deployment.Version1_6_2].Owner(nil)
 		require.NoError(t, err)
 
 		deployer := env.BlockChains.EVMChains()[selector].DeployerKey.From

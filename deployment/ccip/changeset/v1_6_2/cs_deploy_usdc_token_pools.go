@@ -51,9 +51,9 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 	if i.TokenMessenger == utils.ZeroAddress {
 		return errors.New("token messenger must be defined")
 	}
-	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_0]; !ok {
+	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_2]; !ok {
 		// TODO: Could this be deployed automatically if it doesn't exist?
-		return fmt.Errorf("CCTP message transmitter proxy for version %s not found on %s", deployment.Version1_6_0, chain)
+		return fmt.Errorf("CCTP message transmitter proxy for version %s not found on %s", deployment.Version1_6_2, chain)
 	}
 	if i.PreviousPoolAddress == utils.ZeroAddress {
 		if len(state.USDCTokenPools) == 0 {
@@ -75,8 +75,8 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 	}
 
 	// Check if a USDC token pool with the given version already exists
-	if _, ok := state.USDCTokenPools[deployment.Version1_6_0]; ok {
-		return fmt.Errorf("USDC token pool with version %s already exists on %s", deployment.Version1_6_0, chain)
+	if _, ok := state.USDCTokenPools[deployment.Version1_6_2]; ok {
+		return fmt.Errorf("USDC token pool with version %s already exists on %s", deployment.Version1_6_2, chain)
 	}
 
 	// Perform USDC checks (i.e. make sure we can call the required functions)
@@ -164,6 +164,8 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 				case utils.ZeroAddress:
 					// If the previous pool address is not set, we try to find the latest deployed pool address
 					switch {
+					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
+						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
 					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_1] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
 					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0] == nil:
@@ -181,13 +183,13 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(chain.DeployerKey,
 					chain.Client, poolConfig.TokenMessenger,
-					chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_0].Address(),
+					chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
 					poolConfig.TokenAddress, poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),
 					previousPoolAddress)
 				return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 					Address:  poolAddress,
 					Contract: usdcTokenPool,
-					Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_0),
+					Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2),
 					Tx:       tx,
 					Err:      err,
 				}

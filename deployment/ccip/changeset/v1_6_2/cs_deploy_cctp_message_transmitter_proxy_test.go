@@ -78,7 +78,7 @@ func setupCCTPMsgTransmitterProxyContractsForDeploy(
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: token,
-				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -92,7 +92,7 @@ func setupCCTPMsgTransmitterProxyContractsForDeploy(
 			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitter,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -106,7 +106,7 @@ func setupCCTPMsgTransmitterProxyContractsForDeploy(
 			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messenger,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_0),
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
@@ -186,7 +186,7 @@ func TestDeployCCTPMessageTransmitterProxy(t *testing.T) {
 		proxies := state.Chains[selector].CCTPMessageTransmitterProxies
 		require.Len(t, proxies, 1)
 
-		owner, err := proxies[deployment.Version1_6_0].Owner(nil)
+		owner, err := proxies[deployment.Version1_6_2].Owner(nil)
 		require.NoError(t, err)
 
 		deployer := env.BlockChains.EVMChains()[selector].DeployerKey.From

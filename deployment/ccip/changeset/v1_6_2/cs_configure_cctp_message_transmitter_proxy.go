@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -29,7 +30,7 @@ var (
 
 	CCTPMessageTransmitterProxyConfigOp = opsutil.NewEVMCallOperation(
 		"CCTPMessageTransmitterProxyConfigOp",
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.6.2"),
 		"Setting CCTP message transmitter proxy config",
 		cmtp.CCTPMessageTransmitterProxyABI,
 		shared.CCTPMessageTransmitterProxy,
@@ -40,7 +41,7 @@ var (
 
 	CCTPMessageTransmitterProxyConfigSequence = operations.NewSequence(
 		"CCTPMessageTransmitterProxyConfigSequence",
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.6.2"),
 		"Setting CCTP message transmitter proxy config across multiple EVM chains",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsutil.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]) (map[uint64][]opsutil.EVMCallOutput, error) {
 			out := make(map[uint64][]opsutil.EVMCallOutput, len(inputs))
@@ -73,8 +74,8 @@ type ConfigureCCTPMessageTransmitterProxyInput struct {
 }
 
 func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState) error {
-	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_0]; !ok {
-		return fmt.Errorf("no CCTP proxy with version %s found on %s", deployment.Version1_6_0, chain.Name())
+	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_2]; !ok {
+		return fmt.Errorf("no CCTP proxy with version %s found on %s", deployment.Version1_6_2, chain.Name())
 	}
 	for _, allowedCalleUpdate := range i.AllowedCallerUpdates {
 		if allowedCalleUpdate.AllowedCaller == utils.ZeroAddress {
@@ -103,6 +104,9 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 // ConfigureCCTPMessageTransmitterProxyContractConfig defines the configuration for configuring the CCTP message transmitter proxy contracts.
 type ConfigureCCTPMessageTransmitterProxyContractConfig struct {
 	CCTPProxies map[uint64]ConfigureCCTPMessageTransmitterProxyInput
+
+	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
+	MCMS *proposalutils.TimelockConfig
 }
 
 func configureCCTPMessageTransmitterProxyContractPrecondition(env cldf.Environment, c ConfigureCCTPMessageTransmitterProxyContractConfig) error {
@@ -152,8 +156,8 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 
 		input[chainSelector] = opsutil.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]{
 			ChainSelector: chainSelector,
-			NoSend:        false, // TODO: MCMS?
-			Address:       chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_0].Address(),
+			NoSend:        c.MCMS != nil,
+			Address:       chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
 			CallInput:     allowedCallerInputs,
 		}
 	}
@@ -171,7 +175,7 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 		seqReport,
 		err,
 		state.EVMMCMSStateByChain(),
-		nil, // TODO: MCMS?
+		c.MCMS,
 		CCTPMessageTransmitterProxyConfigSequence.Description(),
 	)
 }
