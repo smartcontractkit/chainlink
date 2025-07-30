@@ -34,7 +34,6 @@ runs:
       env:
         DOWNLOAD_PATH: ${{ github.workspace }}/system-tests/binaries-deps
         EXPECTED_PATH: ${{ github.workspace }}/system-tests/tests/smoke/cre
-        CRE_CLI_VERSION: ${{ inputs.cre-cli-version }}
         CAPABILITY_NAMES: ${{ inputs.capability-names }}
         CAPABILITY_VERSION: ${{ inputs.capability-version }}
       run: |
@@ -44,10 +43,10 @@ runs:
         echo "expected-path=${EXPECTED_PATH}" | tee -a "${GITHUB_OUTPUT}"
 
         capability_hash=$(echo "${CAPABILITY_NAMES}" | tr ',' '\n' | sort | sha256sum | cut -d ' ' -f 1)
-        cache_key="${CRE_CLI_VERSION}-${CAPABILITY_VERSION}-${capability_hash}"
+        cache_key="${CAPABILITY_VERSION}-${capability_hash}"
         echo "cache-key=${cache_key}" | tee -a "${GITHUB_OUTPUT}"
 
-    - name: Restore Cache CRE CLI
+    - name: Restore Cache
       id: cache-restore
       uses: actions/cache/restore@v4
       with:
@@ -71,14 +70,12 @@ runs:
       env:
         GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token }}
         MAX_RETRIES: 3
-        CRE_CLI_VERSION: ${{ inputs.cre-cli-version }}
         CAPABILITY_NAMES: ${{ inputs.capability-names }}
         CAPABILITY_VERSION: ${{ inputs.capability-version }}
         DOWNLOAD_PATH: ${{ steps.setup-cache-dir-key.outputs.download-path }}
       run: |
         ./download_cre_ci_deps.sh \
           ${MAX_RETRIES} \
-          ${CRE_CLI_VERSION} \
           ${CAPABILITY_NAMES} \
           ${CAPABILITY_VERSION} \
           ${DOWNLOAD_PATH}
