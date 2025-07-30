@@ -109,12 +109,12 @@ func TestVault_E2E(t *testing.T) {
 
 	registrySel := cldEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := changeset.DeployOCR3V2(*cldEnv, &changeset.DeployRequestV2{
+	ocrDeploymentOutput, err := changeset.DeployOCR3V2(*cldEnv, &changeset.DeployRequestV2{
 		ChainSel: registrySel,
 	})
 	require.NoError(t, err)
 
-	addrs, err := resp.DataStore.Addresses().Fetch()
+	addrs, err := ocrDeploymentOutput.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 	ocr3Addr := addrs[0].Address
@@ -126,8 +126,8 @@ func TestVault_E2E(t *testing.T) {
 
 	bootstrapNodeSetClients, err := clclient.New(bootstrapNodeSet.CLNodes)
 	require.NoError(t, err)
+	bootstrapNodeClient := bootstrapNodeSetClients[0]
 
-	// Add bootstrap job spec to the bootstrap node
 	bootstrapJobSpec := fmt.Sprintf(`
 		type = "bootstrap"
 		schemaVersion = 1
@@ -140,19 +140,19 @@ func TestVault_E2E(t *testing.T) {
 		chainID = "%s"
 		providerType = "ocr3-capability"
 	`, ocr3Addr, c.Blockchain.ChainID)
-	var bootstrapP2PKeyID string
 
-	for _, client := range bootstrapNodeSetClients {
-		job, resp, err := client.CreateJobRaw(bootstrapJobSpec)
-		require.NoError(t, err, "Bootstrap job creation request must not error")
-		require.Empty(t, job.Errors, "Bootstrap job creation response must not return any errors")
-		require.NotEmpty(t, job.Data.ID, "Bootstrap job creation response must return a job ID: %v.", job)
-		require.Equal(t, http.StatusOK, resp.StatusCode, "Bootstrap job creation request must return 200 OK")
+	job, resp, err := bootstrapNodeClient.CreateJobRaw(bootstrapJobSpec)
+	require.NoError(t, err, "Bootstrap job creation request must not error")
+	require.Empty(t, job.Errors, "Bootstrap job creation response must not return any errors")
+	require.NotEmpty(t, job.Data.ID, "Bootstrap job creation response must return a job ID: %v.", job)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Bootstrap job creation request must return 200 OK")
 
-		keys, err := client.MustReadP2PKeys()
-		require.NoError(t, err)
-		bootstrapP2PKeyID = keys.Data[0].Attributes.PeerID
-	}
+	keys, err := bootstrapNodeClient.MustReadP2PKeys()
+	require.NoError(t, err)
+
+	parsedBootstrapURL, err := url.Parse(bootstrapNodeSet.CLNodes[0].Node.InternalP2PUrl)
+	require.NoError(t, err)
+	bootstrapP2PLocator := fmt.Sprintf("%s@%s", keys.Data[0].Attributes.PeerID, parsedBootstrapURL.Host)
 
 	gatewayNodeSet, err := simple_node_set.NewSharedDBNodeSet(gatewayNodeSetConfig, bc)
 	require.NoError(t, err)
@@ -290,11 +290,6 @@ func TestVault_E2E(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway job creation request must return 200 OK")
 	}
 	fmt.Println("✅ Gateway jobs created successfully.")
-
-	// Create bootstrap P2P locator in format: {peerID}@{host}:{port}
-	parsedBootstrapURL, err := url.Parse(bootstrapNodeSet.CLNodes[0].Node.InternalP2PUrl)
-	require.NoError(t, err)
-	bootstrapP2PLocator := fmt.Sprintf("%s@%s", bootstrapP2PKeyID, parsedBootstrapURL.Host)
 
 	// Add the vault job to each node in the second nodeset
 	for _, client := range vaultNodeSetClients {
