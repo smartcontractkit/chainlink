@@ -30,6 +30,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+	github.com/minio/minio-go/v7 v7.0.68
 	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pelletier/go-toml/v2 v2.2.3
@@ -50,6 +51,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.0.0-20250709203740-9197d929abcd
 	github.com/smartcontractkit/libocr v0.0.0-20250703184212-d054fa589c01
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.19.0
@@ -364,7 +366,6 @@ require (
 	github.com/miekg/dns v1.1.65 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.68 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -465,6 +466,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250708220600-853616d583f4 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250701132001-f8be142155b6 // indirect
+	github.com/smartcontractkit/cre-sdk-go v0.0.0-20250709203740-9197d929abcd // indirect
 	github.com/smartcontractkit/freeport v0.1.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.20.2 // indirect

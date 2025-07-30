@@ -43,7 +43,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, port int) (types.DonsToJob
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			jobSpec := libjobs.WorkerStandardCapability(nodeID, "mock-cap", "mock", fmt.Sprintf(`port=%d`, port))
+			jobSpec := libjobs.WorkerStandardCapability(nodeID, "mock-cap", "mock", fmt.Sprintf(`"""port=%d"""`, port))
 
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 				donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)

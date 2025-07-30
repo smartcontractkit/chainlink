@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
@@ -133,6 +134,7 @@ func SetupTestEnvironment(
 		var s3ProviderErr error
 		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
 		if s3ProviderErr != nil {
+			spew.Dump(input.S3ProviderInput)
 			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
 		}
 	}
