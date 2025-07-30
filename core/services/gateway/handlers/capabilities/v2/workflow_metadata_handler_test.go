@@ -212,11 +212,11 @@ func TestOnMetadataPush(t *testing.T) {
 		AuthorizedKeys: []gateway_common.AuthorizedKey{
 			{
 				KeyType:   gateway_common.KeyTypeECDSA,
-				PublicKey: "key1",
+				PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 			},
 			{
 				KeyType:   gateway_common.KeyTypeECDSA,
-				PublicKey: "key2",
+				PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 			},
 		},
 	}
@@ -262,15 +262,15 @@ func TestOnMetadataPullResponse(t *testing.T) {
 
 	key1 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSA,
-		PublicKey: "key1",
+		PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 	}
 	key2 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSA,
-		PublicKey: "key2",
+		PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 	}
 	key3 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSA,
-		PublicKey: "key3",
+		PublicKey: "0xabcdef1234567890abcdef1234567890abcdefab",
 	}
 	metadata := []gateway_common.WorkflowMetadata{
 		{
@@ -378,4 +378,436 @@ func TestStartAndClose(t *testing.T) {
 	require.Error(t, handler.Ready())
 	err = handler.Close() // Should error on second close
 	require.Error(t, err)
+}
+
+func TestValidateAuthMetadata(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+
+	tests := []struct {
+		name        string
+		metadata    gateway_common.WorkflowMetadata
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid metadata",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty workflow ID",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow metadata",
+		},
+		{
+			name: "empty workflow name",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow metadata",
+		},
+		{
+			name: "empty workflow owner",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow metadata",
+		},
+		{
+			name: "empty workflow tag",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow metadata",
+		},
+		{
+			name: "no authorized keys",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{},
+			},
+			expectError: true,
+			errorMsg:    "no authorized keys",
+		},
+		{
+			name: "invalid key type",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   "invalid",
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid key type",
+		},
+		{
+			name: "empty public key",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid public key:",
+		},
+		{
+			name: "public key without 0x prefix",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid public key:",
+		},
+		{
+			name: "public key too short",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x123456789",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid public key:",
+		},
+		{
+			name: "public key too long",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef123456789",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid public key:",
+		},
+		{
+			name: "public key not lowercase",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890ABCDEF1234567890abcdef12345678",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid public key: must be all lowercase",
+		},
+		{
+			name: "multiple valid keys",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID",
+					WorkflowName:  "workflowName",
+					WorkflowOwner: "workflowOwner",
+					WorkflowTag:   "workflowTag",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+					},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handler.validateAuthMetadata(tt.metadata)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestOnMetadataPushWithValidation(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+	ctx := testutils.Context(t)
+
+	err := handler.agg.Start(ctx)
+	require.NoError(t, err)
+	defer handler.agg.Close()
+
+	t.Run("valid metadata passes validation", func(t *testing.T) {
+		metadata := gateway_common.WorkflowMetadata{
+			WorkflowSelector: gateway_common.WorkflowSelector{
+				WorkflowID:    "workflowID",
+				WorkflowName:  "workflowName",
+				WorkflowOwner: "workflowOwner",
+				WorkflowTag:   "workflowTag",
+			},
+			AuthorizedKeys: []gateway_common.AuthorizedKey{
+				{
+					KeyType:   gateway_common.KeyTypeECDSA,
+					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+				},
+			},
+		}
+
+		result, err := json.Marshal(metadata)
+		require.NoError(t, err)
+
+		rawResult := json.RawMessage(result)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			Result: &rawResult,
+		}
+
+		err = handler.OnMetadataPush(ctx, resp, "node1")
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid metadata fails validation", func(t *testing.T) {
+		metadata := gateway_common.WorkflowMetadata{
+			WorkflowSelector: gateway_common.WorkflowSelector{
+				WorkflowID:    "", // Invalid: empty workflow ID
+				WorkflowName:  "workflowName",
+				WorkflowOwner: "workflowOwner",
+				WorkflowTag:   "workflowTag",
+			},
+			AuthorizedKeys: []gateway_common.AuthorizedKey{
+				{
+					KeyType:   gateway_common.KeyTypeECDSA,
+					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+				},
+			},
+		}
+
+		result, err := json.Marshal(metadata)
+		require.NoError(t, err)
+
+		rawResult := json.RawMessage(result)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			Result: &rawResult,
+		}
+
+		err = handler.OnMetadataPush(ctx, resp, "node1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid workflow metadata")
+	})
+}
+
+func TestOnMetadataPullResponseWithValidation(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+	ctx := testutils.Context(t)
+
+	err := handler.agg.Start(ctx)
+	require.NoError(t, err)
+	defer handler.agg.Close()
+
+	t.Run("valid metadata array passes validation", func(t *testing.T) {
+		metadata := []gateway_common.WorkflowMetadata{
+			{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID1",
+					WorkflowName:  "workflowName1",
+					WorkflowOwner: "workflowOwner1",
+					WorkflowTag:   "workflowTag1",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID2",
+					WorkflowName:  "workflowName2",
+					WorkflowOwner: "workflowOwner2",
+					WorkflowTag:   "workflowTag2",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+					},
+				},
+			},
+		}
+
+		result, err := json.Marshal(metadata)
+		require.NoError(t, err)
+
+		rawResult := json.RawMessage(result)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			Result: &rawResult,
+		}
+
+		err = handler.OnMetadataPullResponse(ctx, resp, "node1")
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid metadata in array fails validation", func(t *testing.T) {
+		metadata := []gateway_common.WorkflowMetadata{
+			{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "workflowID1",
+					WorkflowName:  "workflowName1",
+					WorkflowOwner: "workflowOwner1",
+					WorkflowTag:   "workflowTag1",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					},
+				},
+			},
+			{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "", // Invalid: empty workflow ID
+					WorkflowName:  "workflowName2",
+					WorkflowOwner: "workflowOwner2",
+					WorkflowTag:   "workflowTag2",
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSA,
+						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+					},
+				},
+			},
+		}
+
+		result, err := json.Marshal(metadata)
+		require.NoError(t, err)
+
+		rawResult := json.RawMessage(result)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			Result: &rawResult,
+		}
+
+		err = handler.OnMetadataPullResponse(ctx, resp, "node1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid workflow metadata")
+	})
 }

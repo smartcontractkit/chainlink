@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 )
+
+const ecdsaPubKeyHexLen = 42 // 2 (0x prefix) + 40 (hex digits)
 
 type workflowReference struct {
 	workflowOwner string
@@ -127,8 +130,12 @@ func (h *WorkflowMetadataHandler) OnMetadataPush(ctx context.Context, resp *json
 		return fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 	h.lggr.Debugw("Received metadata push", "workflowID", metadata.WorkflowSelector.WorkflowID, "nodeAddr", nodeAddr)
+	err := h.validateAuthMetadata(metadata)
+	if err != nil {
+		return err
+	}
 	var combinedErr error
-	err := h.agg.Collect(&metadata, nodeAddr)
+	err = h.agg.Collect(&metadata, nodeAddr)
 	if err != nil {
 		combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to collect observation: %w", err))
 	}
@@ -142,6 +149,12 @@ func (h *WorkflowMetadataHandler) OnMetadataPullResponse(ctx context.Context, re
 		return fmt.Errorf("failed to unmarshal metadata pull response: %w", err)
 	}
 	h.lggr.Debugw("Received metadata pull response", "nodeAddr", nodeAddr)
+	for _, data := range metadata {
+		err := h.validateAuthMetadata(data)
+		if err != nil {
+			return err
+		}
+	}
 	var combinedErr error
 	for _, data := range metadata {
 		err := h.agg.Collect(&data, nodeAddr)
@@ -182,6 +195,27 @@ func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
 			}
 		}
 	}()
+}
+
+func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.WorkflowMetadata) error {
+	if metadata.WorkflowSelector.WorkflowID == "" || metadata.WorkflowSelector.WorkflowOwner == "" || metadata.WorkflowSelector.WorkflowName == "" || metadata.WorkflowSelector.WorkflowTag == "" {
+		return errors.New("invalid workflow metadata")
+	}
+	if len(metadata.AuthorizedKeys) == 0 {
+		return errors.New("no authorized keys")
+	}
+	for _, key := range metadata.AuthorizedKeys {
+		if key.KeyType != gateway.KeyTypeECDSA {
+			return errors.New("invalid key type")
+		}
+		if key.PublicKey == "" || !strings.HasPrefix(key.PublicKey, "0x") || len(key.PublicKey) != ecdsaPubKeyHexLen {
+			return fmt.Errorf("invalid public key: %s", key.PublicKey)
+		}
+		if key.PublicKey != strings.ToLower(key.PublicKey) {
+			return errors.New("invalid public key: must be all lowercase")
+		}
+	}
+	return nil
 }
 
 func (h *WorkflowMetadataHandler) Close() error {
