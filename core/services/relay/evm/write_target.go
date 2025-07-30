@@ -17,7 +17,6 @@ import (
 
 	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
 	processor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 
@@ -131,12 +130,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			PollPeriod:        config.PollPeriod(),
 			AcceptanceTimeout: config.AcceptanceTimeout(),
 		},
-		ChainInfo: monitor.ChainInfo{
-			FamilyName:      chainInfo.FamilyName,
-			ChainID:         chainInfo.ChainID,
-			NetworkName:     chainInfo.NetworkName,
-			NetworkNameFull: chainInfo.NetworkNameFull,
-		},
+		ChainInfo: 	chainInfo,
 		Beholder:             beholder,
 		ChainService:         chain,
 		ConfigValidateFn:     evaluate,
