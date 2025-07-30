@@ -60,6 +60,9 @@
       URL = "file:///home/chainlink/workflows"
       """
 
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
+
 [[nodesets]]
   nodes = 2
   override_mode = "all"
@@ -86,6 +89,9 @@
       URL = "file:///home/chainlink/workflows"
       """
 
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
+
 [[nodesets]]
   nodes = 1
   override_mode = "all"
@@ -111,3 +117,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
+
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
