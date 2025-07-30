@@ -25,7 +25,6 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -210,7 +209,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
 	})
 
-	var timeProvider TimeProvider = &utils.LocalTimeProvider{}
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if e.cfg.DonTimeEnabled {
 		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
 	}
@@ -397,7 +396,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
-	var timeProvider TimeProvider = &utils.LocalTimeProvider{}
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if e.cfg.DonTimeEnabled {
 		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr)
 	}
