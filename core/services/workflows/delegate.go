@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
@@ -15,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 func WithBillingClient(client metering.BillingClient) func(*Delegate) {
@@ -38,8 +37,8 @@ type Delegate struct {
 	secretsFetcher SecretsFor
 	logger         logger.Logger
 	store          store.Store
-	ratelimiter    *ratelimiter.RateLimiter
-	workflowLimits *syncerlimiter.Limits
+	ratelimiter    limits.RateLimiter
+	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
 	dontimeStore   *dontime.Store
 
@@ -114,8 +113,8 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	dontimeStore *dontime.Store,
 	store store.Store,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	opts ...func(*Delegate),
 ) *Delegate {
 	d := &Delegate{

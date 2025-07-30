@@ -35,6 +35,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
@@ -264,6 +265,10 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:              mercuryPool,
 		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		LimitsFactory: limits.Factory{
+			Meter:  beholder.GetMeter(),
+			Logger: appLggr.Named("Limits"),
+		},
 	})
 }
 

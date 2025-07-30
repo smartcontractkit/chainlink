@@ -7,6 +7,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -15,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -37,9 +36,9 @@ type EngineConfig struct {
 	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
 	WorkflowName  types.WorkflowName
 
-	LocalLimits          EngineLimits             // local to a single workflow
-	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
-	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
+	LocalLimits          EngineLimits                // local to a single workflow
+	GlobalLimits         limits.ResourceLimiter[int] // global to all workflows
+	ExecutionRateLimiter limits.RateLimiter          // global + per owner
 
 	BeholderEmitter custmsg.MessageEmitter
 

@@ -37,6 +37,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -465,6 +466,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 		EVMFactoryConfigFn:       evmFactoryConfigFn,
 		DonTimeStore:             dontime.NewStore(dontime.DefaultRequestTimeout),
+		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 
 	require.NoError(t, err)

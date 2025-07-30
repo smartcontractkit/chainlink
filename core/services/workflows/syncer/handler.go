@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -22,9 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -122,8 +121,8 @@ type eventHandler struct {
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         *syncerlimiter.Limits
+	ratelimiter            limits.RateLimiter
+	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	billingClient          metering.BillingClient
 
@@ -196,8 +195,8 @@ func NewEventHandler(
 	dontimeStore *dontime.Store,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
