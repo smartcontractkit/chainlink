@@ -256,6 +256,11 @@ func FundSolanaAccountsWithLogging(
 func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {
 	t.Helper()
 
+	if numChains == 0 {
+		// Avoid downloading Solana program artifacts
+		return nil
+	}
+
 	once.Do(func() {
 		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), commitSha)
 		require.NoError(t, err)
