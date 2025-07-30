@@ -1,3 +1,4 @@
+ok BridgeStatusReporter
 ok EVM.0
 ok EVM.0.BalanceMonitor
 ok EVM.0.HeadBroadcaster
@@ -28,4 +29,5 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
+ok WorkflowLimiter
 ok WorkflowStore

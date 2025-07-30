@@ -31,6 +31,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
+ok BridgeStatusReporter
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
@@ -43,11 +44,21 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok TelemetryManager
+ok WorkflowLimiter
 ok WorkflowStore
 
 -- out.json --
 {
   "data": [
+    {
+      "type": "checks",
+      "id": "BridgeStatusReporter",
+      "attributes": {
+        "name": "BridgeStatusReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
     {
       "type": "checks",
       "id": "HeadReporter",
@@ -152,6 +163,15 @@ ok WorkflowStore
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowLimiter",
+      "attributes": {
+        "name": "WorkflowLimiter",
         "status": "passing",
         "output": ""
       }

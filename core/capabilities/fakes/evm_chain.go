@@ -15,11 +15,10 @@ import (
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	evmserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type FakeEVMChain struct {
@@ -140,12 +139,17 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		return nil, err
 	}
 
+	signatures := make([][]byte, len(input.Report.Sigs))
+	for i, sig := range input.Report.Sigs {
+		signatures[i] = sig.Signature
+	}
+
 	reportTx, err := fc.mockKeystoneForwarder.Report(
 		auth,
 		common.Address(input.Receiver),
 		input.Report.RawReport,
 		input.Report.ReportContext,
-		input.Report.Signatures,
+		signatures,
 	)
 	if err != nil {
 		return nil, err

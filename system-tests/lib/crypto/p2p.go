@@ -1,13 +1,18 @@
 package crypto
 
 import (
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func GenerateP2PKeys(password string, n int) (*types.P2PKeys, error) {
-	result := &types.P2PKeys{
+type P2PKeys struct {
+	EncryptedJSONs [][]byte
+	PeerIDs        []string
+	Password       string
+}
+
+func GenerateP2PKeys(password string, n int) (*P2PKeys, error) {
+	result := &P2PKeys{
 		Password: password,
 	}
 	for i := 0; i < n; i++ {

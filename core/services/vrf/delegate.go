@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -288,7 +287,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.VRFSpec.FromAddresses {
 		_, err2 := gethks.Get(ctx, a.Hex())
-		err = multierr.Append(err, err2)
+		err = stderrors.Join(err, err2)
 	}
 	return
 }
@@ -301,7 +300,7 @@ func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGa
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
 			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
-				err = multierr.Append(err,
+				err = stderrors.Join(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
 						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))

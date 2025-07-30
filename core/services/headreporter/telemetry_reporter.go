@@ -119,6 +119,10 @@ func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoi
 		return fmt.Errorf("failed getting Solana head for chainID %s: %w", chainID, err)
 	}
 
+	if head.Height == "" {
+		return fmt.Errorf("latest block height returned by relayer is empty for chainID %s", chainID)
+	}
+
 	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse Solana block height %s: %w", head.Height, err)

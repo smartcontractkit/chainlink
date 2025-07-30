@@ -49,6 +49,7 @@ Config:   Name = 'Blue'
 WSURL = 'wss://primaryfoo.bar/ws'
 HTTPURL = 'https://primaryfoo.bar'
 Order = 100
+IsLoadBalancedRPC = false
 
 -----------------------------------
 Name:     Yellow
@@ -59,5 +60,6 @@ WSURL = 'wss://sendonlyfoo.bar/ws'
 HTTPURL = 'https://sendonlyfoo.bar'
 SendOnly = true
 Order = 100
+IsLoadBalancedRPC = false
 
 -----------------------------------

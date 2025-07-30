@@ -3,12 +3,12 @@
 package main
 
 import (
-	"github.com/smartcontractkit/cre-sdk-go/sdk"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-func RunEmptyWorkflow(_ *sdk.Environment[struct{}]) (sdk.Workflow[struct{}], error) {
-	return sdk.Workflow[struct{}]{}, nil
+func RunEmptyWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}], error) {
+	return cre.Workflow[struct{}]{}, nil
 }
 
 func main() {

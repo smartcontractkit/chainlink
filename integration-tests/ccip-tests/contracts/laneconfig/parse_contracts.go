@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/multierr"
 )
 
 var (
@@ -60,35 +59,35 @@ func (l *LaneConfig) Validate() error {
 	var laneConfigError error
 
 	if l.ARM == "" || !common.IsHexAddress(l.ARM) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for arm"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for arm"))
 	}
 
 	if l.FeeToken != "" && !common.IsHexAddress(l.FeeToken) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for fee_token"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for fee_token"))
 	}
 
 	for _, token := range l.BridgeTokens {
 		if token != "" && !common.IsHexAddress(token) {
-			laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for bridge_tokens"))
+			laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for bridge_tokens"))
 		}
 	}
 
 	for _, pool := range l.BridgeTokenPools {
 		if pool != "" && !common.IsHexAddress(pool) {
-			laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for bridge_tokens_pools"))
+			laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for bridge_tokens_pools"))
 		}
 	}
 	if l.Router == "" || !common.IsHexAddress(l.Router) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for router"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for router"))
 	}
 	if l.PriceRegistry == "" || !common.IsHexAddress(l.PriceRegistry) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for price_registry"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for price_registry"))
 	}
 	if l.WrappedNative == "" || !common.IsHexAddress(l.WrappedNative) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for wrapped_native"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for wrapped_native"))
 	}
 	if l.Multicall == "" || !common.IsHexAddress(l.Multicall) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for multicall"))
+		laneConfigError = errors.Join(laneConfigError, errors.New("must set proper address for multicall"))
 	}
 	return laneConfigError
 }

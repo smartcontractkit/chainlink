@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	_ "embed"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -227,7 +227,7 @@ func (g *generalConfig) Validate() error {
 }
 
 func (g *generalConfig) validate(secretsValidationFn func() error) error {
-	err := multierr.Combine(
+	err := stderrors.Join(
 		validateEnv(),
 		g.c.Validate(),
 		secretsValidationFn(),
@@ -263,7 +263,7 @@ func validateEnv() (err error) {
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)
 		if ok {
-			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
+			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
 	return
@@ -564,6 +564,10 @@ func (g *generalConfig) CRE() coreconfig.CRE {
 
 func (g *generalConfig) Billing() coreconfig.Billing {
 	return &billingConfig{t: g.c.Billing}
+}
+
+func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
+	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}
