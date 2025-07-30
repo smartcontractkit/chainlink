@@ -55,19 +55,16 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewMercuryProvider(ctx, rargs, pargs)
 	case types.OCR2Keeper:
 		return r.NewAutomationProvider(ctx, rargs, pargs)
-	case types.OCR3Capability:
+	case types.OCR3Capability, types.DonTimePlugin:
 		return r.NewOCR3CapabilityProvider(ctx, rargs, pargs)
 	case types.CCIPCommit:
 		return r.NewCCIPCommitProvider(ctx, rargs, pargs)
 	case types.CCIPExecution:
 		return r.NewCCIPExecProvider(ctx, rargs, pargs)
-	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.VaultPlugin:
+	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.VaultPlugin: //, types.DonTimePlugin:
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
-	case types.DonTimePlugin:
-		// TODO: Can we initialize here and use the OCR3Capability contract tracker?
-		// TODO: How can we pass the dontime store?
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
 }
