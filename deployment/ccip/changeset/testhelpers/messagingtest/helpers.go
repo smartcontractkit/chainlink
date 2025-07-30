@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 
@@ -131,7 +131,7 @@ func getLatestNonce(tc TestCase) uint64 {
 		var nonceCounterAccount ccip_router.Nonce
 		// we ignore the error because the account might not exist yet
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
-		latestNonce = nonceCounterAccount.OrderedNonce
+		latestNonce = nonceCounterAccount.Counter
 	case chain_selectors.FamilyTon:
 		// TODO investigate TON nonce management, return +1 for now
 		return *tc.Nonce + 1
