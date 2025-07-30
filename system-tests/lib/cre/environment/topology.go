@@ -187,6 +187,9 @@ func BuildTopology(
 			image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
 			for j := range localNodeSets[i].NodeSpecs {
 				localNodeSets[i].NodeSpecs[j].Node.Image = image
+				// unset docker context and file path, so that we can use the image from the registry
+				localNodeSets[i].NodeSpecs[j].Node.DockerContext = ""
+				localNodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
 			}
 		}
 	}
