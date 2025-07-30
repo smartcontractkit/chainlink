@@ -156,14 +156,10 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 
 // temporary function that temporarily just sets all fChain values to be the same as they were before
 // eventually will be replaced by setting fchain based on tiers
-func getFChainValuesFromTiers(selectors []uint64, tierConfigs *[]TierConfigs) map[cciptypes.ChainSelector]uint8 {
-	tieredSelectors := getTierChainSelectors(selectors, tierConfigs)
+func getFChainValuesFromTiers(selectors []uint64, fChain uint8) map[cciptypes.ChainSelector]uint8 {
 	fChainValues := make(map[cciptypes.ChainSelector]uint8)
-	for ind, tier := range tieredSelectors {
-		fVal := uint8((*tierConfigs)[ind].NumNodes / 3)
-		for _, sel := range tier {
-			fChainValues[cciptypes.ChainSelector(sel)] = fVal
-		}
+	for _, sel := range selectors {
+		fChainValues[cciptypes.ChainSelector(sel)] = fChain
 	}
 	return fChainValues
 }

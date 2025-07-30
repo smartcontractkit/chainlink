@@ -286,7 +286,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 	}
 
 	//nolint:gosec // this should always be less than max uint8
-	fChainValues := getFChainValuesFromTiers(e.BlockChains.ListChainSelectors(), tierConfigs)
+	fChainValues := getFChainValuesFromTiers(e.BlockChains.ListChainSelectors(), uint8(len(nodeInfo.NonBootstraps().PeerIDs())/3))
 	distributedTopology := cciptesthelpertypes.NewDistributedTopology(cciptesthelpertypes.DistributedTopologyArgs{FValues: fChainValues})
 	readersPerChain, err := distributedTopology.ChainToNodeMapping(
 		nodeInfo.NonBootstraps().PeerIDs(),
