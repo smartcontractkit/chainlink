@@ -140,6 +140,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -172,6 +173,7 @@ func skipInCI(t *testing.T) {
 // so we need to do a local build again. We cannot do a remote fetch because those artifacts will not have the same keys as step 1.
 // Doing this in CI is expensive, so we skip it for now.
 func TestUpgrade(t *testing.T) {
+	t.Parallel()
 	skipInCI(t)
 
 	lggr := logger.TestLogger(t)

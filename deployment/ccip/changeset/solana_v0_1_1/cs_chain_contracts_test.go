@@ -79,10 +79,12 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
+	t.Parallel()
 	doTestAddRemoteChain(t, true)
 }
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
+	t.Parallel()
 	skipInCI(t)
 	doTestAddRemoteChain(t, false)
 }
@@ -574,15 +576,18 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
+	t.Parallel()
 	doTestBilling(t, true)
 }
 
 func TestBillingWithoutMcms(t *testing.T) {
+	t.Parallel()
 	skipInCI(t)
 	doTestBilling(t, false)
 }
 
 func TestSetTokenAuthority(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
@@ -745,10 +750,12 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
+	t.Parallel()
 	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
 }
@@ -854,11 +861,13 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
 }
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
+	t.Parallel()
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
@@ -866,12 +875,14 @@ func TestPoolLookupTableWithoutMcms(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
+	t.Parallel()
 	skipInCI(t)
 	testhelpers.DeployCCIPContractsTest(t, 1)
 }
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
 		testhelpers.WithNumOfBootstrapNodes(3),
@@ -900,6 +911,7 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error
