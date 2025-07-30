@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"math"
 	"math/big"
 	"os"
@@ -982,14 +983,26 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
+	//overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
 
 	tokenConfig := shared.NewTestTokenConfig(state.Chains[feedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 
 	for _, selector := range evmSelectors {
-		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
-		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders, nil)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
+				params.OCRParameters.DeltaRound = 500 * time.Millisecond
+				return params
+			})
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,
+			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+				params.ExecuteOffChainConfig.BatchGasLimit = 60_500_000
+				params.ExecuteOffChainConfig.RootSnoozeTime = *config.MustNewDuration(2 * time.Second)
+				params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(2 * time.Second)
+				params.OCRParameters.DeltaRound = 500 * time.Millisecond
+				return params
+			})
 	}
 
 	for _, selector := range solSelectors {
