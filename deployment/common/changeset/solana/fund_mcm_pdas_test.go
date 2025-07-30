@@ -62,6 +62,7 @@ func setupFundingTestEnv(t *testing.T) cldf.Environment {
 }
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
@@ -234,6 +235,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
+	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := commonSolana.AmountsToTransfer{
 		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,

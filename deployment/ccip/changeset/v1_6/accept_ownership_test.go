@@ -14,6 +14,7 @@ import (
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
