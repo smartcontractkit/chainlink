@@ -15,7 +15,6 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -160,7 +159,7 @@ func (m *connectionManager) Start(ctx context.Context) error {
 func (m *connectionManager) Close() error {
 	return m.StopOnce("ConnectionManager", func() (err error) {
 		m.lggr.Info("closing connection manager")
-		err = multierr.Combine(err, m.wsServer.Close())
+		err = errors.Join(err, m.wsServer.Close())
 		for _, donConnMgr := range m.dons {
 			close(donConnMgr.shutdownCh)
 			for _, nodeState := range donConnMgr.nodes {
@@ -178,7 +177,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
-		return "", nil, multierr.Append(network.ErrAuthHeaderParse, err)
+		return "", nil, errors.Join(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
 	donConnMgr, ok := m.dons[authHeaderElems.DonId]

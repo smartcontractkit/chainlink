@@ -42,6 +42,11 @@ type EngineConfig struct {
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
 
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	WorkflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	WorkflowRegistryChainSelector string
+
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
 }

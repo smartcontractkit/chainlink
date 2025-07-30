@@ -20,7 +20,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/lib/pq"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -126,7 +125,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	}
 	defer func() {
 		if cerr := db.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 	if force {
@@ -212,7 +211,7 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	}
 	defer func() {
 		if cerr := db.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -261,7 +260,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	wg.Wait()
 	close(errCh)
 	for gerr := range errCh {
-		err = multierr.Append(err, gerr)
+		err = errors.Join(err, gerr)
 	}
 	return
 }

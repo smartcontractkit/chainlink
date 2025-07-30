@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"math/big"
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
@@ -51,7 +51,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		data BytesParam
 		lax  BoolParam
 	)
-	err = multierr.Combine(err,
+	err = stderrors.Join(err,
 		errors.Wrap(ResolveParam(&path, From(VarExpr(t.Path, vars), t.Path)), "path"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
 		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
@@ -112,7 +112,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	decoded, err = jsonserializable.ReinterpretJSONNumbers(decoded)
 	if err != nil {
-		return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
+		return Result{Error: stderrors.Join(ErrBadInput, err)}, runInfo
 	}
 
 	return Result{Value: decoded}, runInfo

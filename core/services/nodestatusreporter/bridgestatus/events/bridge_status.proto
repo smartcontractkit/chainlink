@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus/events";
+
+package bridge_status.v1;
+
+// JobInfo represents job information associated with a bridge
+message JobInfo {
+  string external_job_id = 1;
+  string job_name = 2;
+}
+
+// BridgeStatusEvent represents the status data from an External Adapter
+message BridgeStatusEvent {
+  // Bridge and adapter identification
+  string bridge_name = 1;
+  string adapter_name = 2;
+  string adapter_version = 3;
+  double adapter_uptime_seconds = 4;
+  string default_endpoint = 5;
+  
+  // Runtime information
+  RuntimeInfo runtime = 6;
+  
+  // Metrics configuration
+  MetricsInfo metrics = 7;
+  
+  // Available endpoints as structured data  
+  repeated EndpointInfo endpoints = 8;
+  
+  // Configuration items
+  repeated ConfigurationItem configuration = 9;
+  
+  // Jobs associated with this bridge
+  repeated JobInfo jobs = 10;
+  
+  // Event metadata
+  string timestamp = 11;
+}
+
+message RuntimeInfo {
+  string node_version = 1;
+  string platform = 2;
+  string architecture = 3;
+  string hostname = 4;
+}
+
+message MetricsInfo {
+  bool enabled = 1;
+}
+
+message EndpointInfo {
+  string name = 1;
+  repeated string aliases = 2;
+  repeated string transports = 3;
+}
+
+message ConfigurationItem {
+  string name = 1;
+  string value = 2;
+  string type = 3;
+  string description = 4;
+  bool required = 5;
+  string default_value = 6;
+  bool custom_setting = 7;
+  string env_default_override = 8;
+} 

@@ -3,6 +3,7 @@ package environment
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	pkgerrors "github.com/pkg/errors"
 
@@ -14,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 const (
@@ -84,26 +85,30 @@ func DumpArtifact(
 	datastore datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
-	donTopology types.DonTopology,
+	donTopology cre.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
-	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
-) error {
+	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
+) (string, error) {
 	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to generate environment artifact")
+		return "", pkgerrors.Wrap(err, "failed to generate environment artifact")
 	}
 
 	// Let's save the artifact to disk
-	return persistArtifact(artifact)
+	artifactPath, err := persistArtifact(artifact)
+	if err != nil {
+		return "", pkgerrors.Wrap(err, "failed to persist environment artifact")
+	}
+	return artifactPath, nil
 }
 
 func GenerateArtifact(
 	ds datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
-	donTopology types.DonTopology,
+	donTopology cre.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
-	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
+	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
 ) (*EnvArtifact, error) {
 	var err error
 
@@ -139,9 +144,9 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &types.Label{
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{
 			Key:   crenode.NodeTypeKey,
-			Value: types.WorkerNode,
+			Value: cre.WorkerNode,
 		}, crenode.EqualLabels)
 		if workerNodesErr != nil {
 			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
@@ -205,23 +210,23 @@ func GenerateArtifact(
 		artifact.DONs = append(artifact.DONs, donArtifact)
 	}
 
-	// Let's save the artifact to disk
-	if err = persistArtifact(&artifact); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to persist environment artifact")
-	}
-
 	return &artifact, nil
 }
 
-func persistArtifact(artifact *EnvArtifact) error {
+func persistArtifact(artifact *EnvArtifact) (string, error) {
 	err := os.MkdirAll(artifactDirName, 0755)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
+		return "", pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
 	}
 	err = WriteJSONFile(artifactDirName+"/env_artifact.json", artifact)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to write environment artifact to file")
+		return "", pkgerrors.Wrap(err, "failed to write environment artifact to file")
 	}
 
-	return nil
+	absPath, absPathErr := filepath.Abs(artifactDirName + "/env_artifact.json")
+	if absPathErr != nil {
+		return "", pkgerrors.Wrap(absPathErr, "failed to get absolute path for the environment artifact")
+	}
+
+	return absPath, nil
 }

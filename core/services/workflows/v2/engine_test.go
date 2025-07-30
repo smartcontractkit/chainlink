@@ -47,10 +47,10 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
+	"github.com/smartcontractkit/cre-sdk-go/cre/testutils/registry"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 

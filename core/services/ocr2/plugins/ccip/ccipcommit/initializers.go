@@ -13,9 +13,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"go.uber.org/multierr"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -361,7 +361,7 @@ func UnregisterCommitPluginLpFilters(srcProvider commontypes.CCIPCommitProvider,
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(); err != nil {
-			multiErr = multierr.Append(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 	return multiErr

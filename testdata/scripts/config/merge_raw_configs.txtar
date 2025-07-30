@@ -307,6 +307,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = false
@@ -491,6 +492,14 @@ URL = ''
 
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
 
 [[Aptos]]
 ChainID = '1'

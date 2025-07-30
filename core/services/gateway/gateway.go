@@ -3,10 +3,9 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
-
-	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -120,10 +119,10 @@ func (g *gateway) Start(ctx context.Context) error {
 func (g *gateway) Close() error {
 	return g.StopOnce("Gateway", func() (err error) {
 		g.lggr.Info("closing gateway")
-		err = multierr.Combine(err, g.httpServer.Close())
-		err = multierr.Combine(err, g.connMgr.Close())
+		err = errors.Join(err, g.httpServer.Close())
+		err = errors.Join(err, g.connMgr.Close())
 		for _, handler := range g.handlers {
-			err = multierr.Combine(err, handler.Close())
+			err = errors.Join(err, handler.Close())
 		}
 		return
 	})

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 )
 
 // TODO this can move to the toml configuration file
@@ -29,7 +31,32 @@ const (
 	awsProfile      = "sdlc"
 	creCLIVersion   = "0.2.1"
 	minGHCLIVersion = "v2.50.0"
+	ctfVersion      = "0.10.3"
 )
+
+var SetupCmd *cobra.Command
+
+func init() {
+	var (
+		config   SetupConfig
+		noPrompt bool
+		purge    bool
+	)
+	SetupCmd = &cobra.Command{
+		Use:   "setup",
+		Short: "Setup the CRE environment prerequisites",
+		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunSetup(cmd.Context(), config, noPrompt, purge)
+		},
+	}
+
+	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "", "Path to the TOML configuration file")
+	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
+	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+
+	EnvironmentCmd.AddCommand(SetupCmd)
+}
 
 // TODO these can move to the toml configuration file
 var (
@@ -56,7 +83,7 @@ var (
 
 	ChipBuildConfig = BuildConfig{
 		RepoURL:    "https://github.com/smartcontractkit/atlas",
-		Branch:     "master",
+		Branch:     "cre-workshop",
 		Dockerfile: "chip-ingress/Dockerfile",
 		Dir:        "chip-ingress",
 		LocalImage: "chip-ingress:local-cre",
@@ -93,7 +120,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		tag  = c.Branch
 	)
 	logger := framework.L
-	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
+	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 	logger.Info().Msgf("Building %s image...", name)
 
@@ -123,7 +150,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 
 		// Clone the repository
 		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", repo, tempDir)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", tag, "--single-branch", repo, tempDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err2 := cmd.Run(); err2 != nil {
@@ -191,7 +218,29 @@ type ImageConfig struct {
 	PullConfig  PullConfig
 }
 
-func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client) (localImage string, err error) {
+func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, noPrompt bool, purge bool) (localImage string, err error) {
+	// If purge flag is set, remove existing images first
+	if purge {
+		logger := framework.L
+		name := strings.ReplaceAll(strings.Split(c.BuildConfig.LocalImage, ":")[0], "-", " ")
+		name = cases.Title(language.English).String(name)
+		logger.Info().Msgf("🗑️  Purging existing %s images...", name)
+
+		// Remove local image if it exists
+		_, err = dockerClient.ImageRemove(ctx, c.BuildConfig.LocalImage, image.RemoveOptions{Force: true})
+		if err != nil {
+			logger.Warn().Msgf("Failed to remove local image %s: %v", c.BuildConfig.LocalImage, err)
+		}
+
+		// Remove ECR image if it exists
+		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, image.RemoveOptions{Force: true})
+		if err != nil {
+			logger.Warn().Msgf("Failed to remove ECR image %s: %v", c.PullConfig.EcrImage, err)
+		}
+
+		logger.Info().Msgf("  ✓ %s images purged", name)
+	}
+
 	exist, err := localImageExists(ctx, dockerClient, c.BuildConfig.LocalImage, c.PullConfig.EcrImage)
 	if err != nil {
 		return "", fmt.Errorf("failed to check if image exists: %w", err)
@@ -204,15 +253,21 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client) (l
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
 
-		var input string
-		_, err := fmt.Scanln(&input)
-		if err != nil {
-			// If error is due to empty input (just pressing Enter), use default
-			if err.Error() != "unexpected newline" {
-				return "", errors.Wrap(err, "failed to read input")
+		var input = "b" // Default to Build; TODO default to Pull when AWS access is sorted
+		if !noPrompt {
+			_, err := fmt.Scanln(&input)
+			if err != nil {
+				// If error is due to empty input (just pressing Enter), use default
+				if err.Error() != "unexpected newline" {
+					return "", errors.Wrap(err, "failed to read input")
+				}
 			}
-
-			input = "p" // Default to Pull
+		}
+		// check that input is valid
+		input = strings.TrimSpace(strings.ToLower(input))
+		if input != "p" && input != "b" {
+			logger.Warn().Msg("Invalid input. Please enter 'p' or 'b'.")
+			return "", fmt.Errorf("invalid input: %s", input)
 		}
 
 		if strings.ToLower(input) == "b" {
@@ -224,76 +279,97 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client) (l
 	return c.BuildConfig.LocalImage, nil
 }
 
-var SetupCmd *cobra.Command
-
-func init() {
-	var config SetupConfig
-	SetupCmd = &cobra.Command{
-		Use:   "setup",
-		Short: "Setup the CRE environment prerequisites",
-		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunSetup(cmd.Context(), config)
-		},
-	}
-
-	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "", "Path to the TOML configuration file")
-	// _ = SetupCmd.MarkFlagRequired("config")
-
-	EnvironmentCmd.AddCommand(SetupCmd)
-}
-
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig) error {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool) (setupErr error) {
 	logger := framework.L
+	var localDXTracker tracking.Tracker
+	localDXTracker = &tracking.NoOpTracker{}
+
+	defer func() {
+		var trackingErr error
+		if setupErr != nil {
+			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
+		} else {
+			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "success", "no_prompt": noPrompt})
+		}
+		if trackingErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to track setup: %s\n", trackingErr)
+		}
+	}()
+
 	logger.Info().Msg("🔍 Checking prerequisites for CRE environment...")
 
 	// Check if Docker is installed
 	if !isCommandAvailable("docker") {
-		return errors.New("docker is not installed. Please install Docker and try again")
+		setupErr = errors.New("docker is not installed. Please install Docker and try again")
+		return
 	}
 	logger.Info().Msg("✓ Docker is installed")
 
 	// Check if Docker is running
-	dockerClient, clientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if clientErr != nil {
-		return errors.Wrap(clientErr, "failed to create Docker client")
+	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		setupErr = errors.Wrap(dockerClientErr, "failed to create Docker client")
+		return
 	}
 
 	_, pingErr := dockerClient.Ping(ctx)
 	if pingErr != nil {
-		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+		setupErr = errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+		return
 	}
 	logger.Info().Msg("✓ Docker is running")
 
 	// Check Docker configuration
 	if dockerConfigErr := checkDockerConfiguration(); dockerConfigErr != nil {
-		return errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
+		setupErr = errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
+		return
 	}
 
 	// Check if AWS CLI is installed
-	if !isCommandAvailable("aws") {
-		return errors.New("AWS CLI is not installed. Please install AWS CLI and try again")
+	if !noPrompt {
+		if !isCommandAvailable("aws") {
+			setupErr = errors.New("AWS CLI is not installed. Please install AWS CLI and try again")
+			return
+		}
+		logger.Info().Msg("✓ AWS CLI is installed")
 	}
-	logger.Info().Msg("✓ AWS CLI is installed")
 
-	ghCli, ghCliErr := checkGHCli(ctx)
+	ghCli, ghCliErr := checkGHCli(ctx, noPrompt)
 	if ghCliErr != nil {
-		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
+		setupErr = errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
+		return
 	}
 
-	jdLocalImage, jdErr := JDImageConfig.Ensure(ctx, dockerClient)
+	// once we have GH CLI setup we can try to create the DX tracker
+	if ghCli {
+		var trackerErr error
+		localDXTracker, trackerErr = tracking.NewDxTracker()
+		if trackerErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		}
+	}
+
+	jdLocalImage, jdErr := JDImageConfig.Ensure(ctx, dockerClient, noPrompt, purge)
 	if jdErr != nil {
-		return errors.Wrap(jdErr, "failed to ensure Job Distributor image")
+		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
+		return
 	}
-	chipLocalImage, chipErr := ChipImageConfig.Ensure(ctx, dockerClient)
+	chipLocalImage, chipErr := ChipImageConfig.Ensure(ctx, dockerClient, noPrompt, purge)
 	if chipErr != nil {
-		return errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
+		setupErr = errors.Wrap(chipErr, "failed to ensure Atlas Chip Ingress image")
+		return
 	}
 
-	creCLI, creCliErr := checkCRECLI(ctx)
+	creCLI, creCliErr := checkCRECLI(ctx, noPrompt, purge)
 	if creCliErr != nil {
-		return errors.Wrap(creCliErr, "failed to ensure CRE CLI")
+		setupErr = errors.Wrap(creCliErr, "failed to ensure CRE CLI")
+		return
+	}
+	ctfInstalled, ctfErr := checkCTF(ctx, ctfVersion, noPrompt, purge)
+	if ctfErr != nil {
+		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
+		return
 	}
 
 	// Print summary
@@ -311,6 +387,11 @@ func RunSetup(ctx context.Context, config SetupConfig) error {
 		logger.Info().Msg("   ✓ CRE CLI is installed")
 	} else {
 		logger.Warn().Msg("   ✗ CRE CLI is not installed")
+	}
+	if ctfInstalled {
+		logger.Info().Msg("   ✓ CTF CLI is installed")
+	} else {
+		logger.Warn().Msg("   ✗ CTF CLI is not installed")
 	}
 
 	fmt.Println()
@@ -357,7 +438,7 @@ func checkDockerConfiguration() error {
 		}
 
 		if configFile == "" {
-			return errors.New("docker settings file not found at expected macOS locations")
+			logger.Warn().Msgf(" ! Could not find Docker settings files in %s. Your Docker installation may be misconfigured.", strings.Join(configPaths, ", "))
 		}
 
 		logger.Info().Msgf("  Found Docker settings file at %s", configFile)
@@ -377,12 +458,38 @@ func checkDockerConfiguration() error {
 
 		for setting, expected := range settingsChecks {
 			value := gjson.GetBytes(settings, setting).String()
-			if value == expected {
+			switch {
+			case value == expected:
 				logger.Info().Msgf("  ✓ %s is correctly set to %s", setting, expected)
-			} else {
+			case strings.TrimSpace(value) == "":
+				// some users may not have this setting at all; warn instead of error
+				logger.Warn().Msgf("  ! Could not find setting for %s (should be %s). Manually check Docker settings in the UI", setting, expected)
+			default:
 				logger.Error().Msgf("  ✗ %s is set to %s (should be %s)", setting, value, expected)
 				dockerSettingsOK = false
 			}
+		}
+
+		// Check CPU requirements (minimum 4 cores)
+		cpuValue := gjson.GetBytes(settings, "Cpus").Int()
+		switch {
+		case cpuValue >= 4:
+			logger.Info().Msgf("  ✓ CPU allocation is sufficient (%d cores)", cpuValue)
+		case cpuValue == 0:
+			logger.Warn().Msg("  ! Could not find CPU setting. Manually check Docker settings in the UI (should be at least 4 cores)")
+		default:
+			logger.Error().Msgf("  ✗ CPU allocation is insufficient (%d cores, should be at least 4)", cpuValue)
+		}
+
+		// Check memory requirements (minimum 10 GB = 10240 MiB)
+		memoryValue := gjson.GetBytes(settings, "MemoryMiB").Int()
+		switch {
+		case memoryValue >= 10240:
+			logger.Info().Msgf("  ✓ Memory allocation is sufficient (%d MiB / %.1f GB)", memoryValue, float64(memoryValue)/1024)
+		case memoryValue == 0:
+			logger.Warn().Msg("  ! Could not find memory setting. Manually check Docker settings in the UI (should be at least 10 GB)")
+		default:
+			logger.Error().Msgf("  ✗ Memory allocation is insufficient (%d MiB / %.1f GB, should be at least 10 GB)", memoryValue, float64(memoryValue)/1024)
 		}
 
 	case "linux":
@@ -504,7 +611,7 @@ func pullImage(ctx context.Context, localImage, ecrImage string) (string, error)
 	return localImage, nil
 }
 
-func checkIfGHLIIsInstalled(ctx context.Context) (installed bool, err error) {
+func checkIfGHLIIsInstalled(ctx context.Context, noPrompt bool) (installed bool, err error) {
 	logger := framework.L
 
 	if isCommandAvailable("gh") {
@@ -559,14 +666,21 @@ func checkIfGHLIIsInstalled(ctx context.Context) (installed bool, err error) {
 
 	logger.Info().Msg("Would you like to download and install the GitHub CLI now? (y/n) [y]")
 
-	var input string
-	_, err = fmt.Scanln(&input)
-	if err != nil {
-		// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
-		if err.Error() != "unexpected newline" {
-			return false, errors.Wrap(err, "failed to read input")
+	var input = "y" // Default to yes
+	if !noPrompt {
+		_, err = fmt.Scanln(&input)
+		if err != nil {
+			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
+			if err.Error() != "unexpected newline" {
+				return false, errors.Wrap(err, "failed to read input")
+			}
 		}
-		input = "y"
+	}
+	// check that input is valid
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input != "y" && input != "n" {
+		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
+		return false, fmt.Errorf("invalid input: %s", input)
 	}
 
 	if strings.ToLower(input) != "y" {
@@ -585,8 +699,8 @@ func checkIfGHLIIsInstalled(ctx context.Context) (installed bool, err error) {
 	return true, nil
 }
 
-func checkGHCli(ctx context.Context) (installed bool, err error) {
-	installed, installErr := checkIfGHLIIsInstalled(ctx)
+func checkGHCli(ctx context.Context, noPrompt bool) (installed bool, err error) {
+	installed, installErr := checkIfGHLIIsInstalled(ctx, noPrompt)
 	if installErr != nil {
 		return false, errors.Wrap(installErr, "failed to check if GitHub CLI is installed")
 	}
@@ -646,7 +760,7 @@ func logInToGithubWithGHCLI(ctx context.Context) error {
 }
 
 // checkCRECLI checks if the CRE CLI is installed
-func checkCRECLI(ctx context.Context) (installed bool, err error) {
+func checkCRECLI(ctx context.Context, noPrompt bool, purge bool) (installed bool, err error) {
 	logger := framework.L
 
 	// Check for CRE CLI
@@ -654,6 +768,9 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	archType := runtime.GOARCH
 
 	creBinaryName := fmt.Sprintf("cre_v%s_%s_%s", creCLIVersion, osType, archType)
+	if purge {
+		_ = os.Remove(filepath.Join(binDir, creBinaryName))
+	}
 	if isCommandAvailable(creBinaryName) || isCommandAvailable("cre") {
 		logger.Info().Msg("✓ CRE CLI is already installed")
 		return true, nil
@@ -663,14 +780,20 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	logger.Info().Msg("✗ CRE CLI is not installed")
 	logger.Info().Msg("  Would you like to download and install the CRE CLI now? (y/n) [y]")
 
-	var input string
-	_, err = fmt.Scanln(&input)
-	if err != nil {
-		// If error is due to empty input (just pressing Enter), treat as 'n' (no)
-		if err.Error() != "unexpected newline" {
-			return false, errors.Wrap(err, "failed to read input")
+	var input = "y" // Default to yes
+	if !noPrompt {
+		_, err = fmt.Scanln(&input)
+		if err != nil {
+			// If error is due to empty input (just pressing Enter), treat as 'n' (no)
+			if err.Error() != "unexpected newline" {
+				return false, errors.Wrap(err, "failed to read input")
+			}
 		}
-		input = "y"
+	}
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input != "y" && input != "n" {
+		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
+		return false, fmt.Errorf("invalid input: %s", input)
 	}
 
 	if strings.ToLower(input) != "y" {
@@ -679,6 +802,17 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	}
 
 	// Download CRE CLI
+	// Download archive in temp directory
+	tempDir, err := os.MkdirTemp("", "cre-download")
+	if err != nil {
+		return false, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+	wd, _ := os.Getwd()
+	if err := os.Chdir(tempDir); err != nil {
+		return false, fmt.Errorf("failed to change to temp directory: %w", err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
 	logger.Info().Msgf("  Downloading CRE CLI v%s for %s_%s...", creCLIVersion, osType, archType)
 	archivePattern := fmt.Sprintf("*%s_%s.tar.gz", osType, archType)
 	cmd := exec.CommandContext(ctx, "gh", "release", "download", "v"+creCLIVersion, "--repo", "smartcontractkit/dev-platform", "--pattern", archivePattern)
@@ -691,13 +825,16 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 	// Extract archive
 	archiveName := fmt.Sprintf("cre_v%s_%s_%s.tar.gz", creCLIVersion, osType, archType)
 	logger.Info().Msg("  Extracting CRE CLI...")
-	cmd = exec.CommandContext(ctx, "tar", "-xf", archiveName)
+	cmd = exec.CommandContext(ctx, "tar", "-C", binDir, "-xf", archiveName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err2 := cmd.Run(); err2 != nil {
 		return false, fmt.Errorf("failed to extract CRE CLI: %w", err2)
 	}
-
+	creBinaryPath := filepath.Join(binDir, creBinaryName)
+	if _, err2 := os.Stat(creBinaryPath); os.IsNotExist(err2) {
+		return false, fmt.Errorf("extracted CRE binary not found at expected path: %s", creBinaryPath)
+	}
 	// Remove archive
 	if err2 := os.Remove(archiveName); err2 != nil {
 		logger.Warn().Msgf("Failed to remove %s. Please remove it manually.", archiveName)
@@ -705,28 +842,32 @@ func checkCRECLI(ctx context.Context) (installed bool, err error) {
 
 	// Remove quarantine attribute on macOS
 	if osType == "darwin" {
-		cmd = exec.CommandContext(ctx, "xattr", "-d", "com.apple.quarantine", creBinaryName)
+		cmd = exec.CommandContext(ctx, "xattr", "-d", "com.apple.quarantine", creBinaryPath)
 		_ = cmd.Run() // Ignore errors
 	}
 
 	// Make executable
-	if err2 := os.Chmod(creBinaryName, 0755); err2 != nil {
+	if err2 := os.Chmod(creBinaryPath, 0755); err2 != nil {
 		return false, fmt.Errorf("failed to make CRE CLI executable: %w", err2)
 	}
-
-	// Create symlink
-	if err2 := os.Symlink(creBinaryName, "cre"); err2 != nil && !os.IsExist(err2) {
-		return false, fmt.Errorf("failed to create symlink: %w", err2)
+	// add symlink to bin/cre if not exists
+	l := filepath.Join(binDir, "cre")
+	if _, err2 := os.Lstat(l); os.IsNotExist(err2) {
+		if err2 := os.Symlink(creBinaryPath, l); err2 != nil {
+			return false, fmt.Errorf("failed to create symlink for CRE CLI: %w", err2)
+		}
 	}
 
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return false, fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	logger.Info().Msgf("  ✓ CRE CLI installed to %s/cre", currentDir)
-	logger.Warn().Msgf("  ! Add this directory to your PATH or move the CRE binary to a directory in your PATH")
-	logger.Info().Msgf("   You can run: export PATH=\"%s:$PATH\"", currentDir)
+	logger.Info().Msgf("  ✓ CRE CLI installed to %s", binDir)
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * Add this directory to your PATH or move the CRE binary to a directory in your PATH  *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
 
 	return true, nil
 }
@@ -767,4 +908,92 @@ func chipVendor(ctx context.Context, config BuildConfig) error {
 
 	logger.Info().Msg("Vendor directory successfully created")
 	return nil
+}
+
+// checkCTF checks if the CTF CLI is installed prompts to install if not
+func checkCTF(ctx context.Context, requiredVersion string, noPrompt bool, purge bool) (installed bool, err error) {
+	logger := framework.L
+
+	if purge {
+		_ = os.Remove(filepath.Join(binDir, "ctf"))
+	}
+	// Check for CTF CLI is in binDir
+	if _, statErr := os.Stat(filepath.Join(binDir, "ctf")); statErr == nil {
+		logger.Info().Msg("✓ CTF CLI is already installed")
+		return true, nil
+	}
+
+	logger.Info().Msg("✗ CTF CLI is not installed")
+	logger.Info().Msg("  Would you like to download and install the CTF CLI now? (y/n) [y]")
+
+	var input = "y" // Default to yes
+	if !noPrompt {
+		_, err = fmt.Scanln(&input)
+		if err != nil {
+			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
+			if err.Error() != "unexpected newline" {
+				return false, errors.Wrap(err, "failed to read input")
+			}
+		}
+	}
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input != "y" && input != "n" {
+		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
+		return false, fmt.Errorf("invalid input: %s", input)
+	}
+
+	if strings.ToLower(input) != "y" {
+		logger.Warn().Msg("  ! You will need to install CTF CLI manually")
+		return false, nil
+	}
+
+	logger.Info().Msgf("Installing CTF CLI v%s...", requiredVersion)
+	// change to temp directory and download and extract; change back to original directory on exit
+	tempDir, err := os.MkdirTemp("", "ctf-download")
+	if err != nil {
+		return false, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+	wd, _ := os.Getwd()
+	if err := os.Chdir(tempDir); err != nil {
+		return false, fmt.Errorf("failed to change directory: %w", err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	// install ctf by pulling from GitHub releases https://github.com/smartcontractkit/chainlink-testing-framework/releases/tag/framework%2Fv0.10.3
+	// for MacOS users, it will be framework-vX.X.X-darwin-arm64.tar.gz
+	// for Linux users, it will be framework-vX.X.X-linux-amd64.tar.gz or framework-vX.X.X-linux-arm64.tar.gz
+	osType := runtime.GOOS
+	archType := runtime.GOARCH
+	archiveName := fmt.Sprintf("framework-v%s-%s-%s.tar.gz", requiredVersion, osType, archType)
+	// gh release download framework/v0.10.3 --repo smartcontractkit/chainlink-testing-framework --pattern framework-v0.10.3-darwin-arm64.tar.gz
+	cmd := exec.CommandContext(ctx, "gh", "release", "download", "framework/v"+requiredVersion, "--repo", "smartcontractkit/chainlink-testing-framework", "--pattern", archiveName) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err2 := cmd.Run(); err2 != nil {
+		return false, fmt.Errorf("failed to download CTF CLI: %w", err2)
+	}
+
+	logger.Info().Msg("Extracting CTF CLI...")
+	cmd = exec.CommandContext(ctx, "tar", "-C", binDir, "-xf", archiveName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err2 := cmd.Run(); err2 != nil {
+		return false, fmt.Errorf("failed to extract CTF CLI: %w", err2)
+	}
+	// Remove archive
+	if err2 := os.Remove(archiveName); err2 != nil {
+		logger.Warn().Msgf("Failed to remove %s. Please remove it manually.", archiveName)
+	}
+
+	logger.Info().Msgf("  ✓ CTF CLI installed to %s/ctf", binDir)
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * Add this directory to your PATH or move the CTF binary to a directory in your PATH  *")
+	logger.Warn().Msgf("   *                                                                                     *")
+	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
+	logger.Warn().Msg("")
+	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
+	logger.Warn().Msg("")
+	return true, nil
 }

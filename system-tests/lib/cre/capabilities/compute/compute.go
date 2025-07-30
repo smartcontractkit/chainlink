@@ -1,8 +1,8 @@
 package compute
 
 import (
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -13,7 +13,7 @@ import (
 var ComputeCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-	if flags.HasFlag(donFlags, types.CustomComputeCapability) {
+	if flags.HasFlag(donFlags, cre.CustomComputeCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "custom-compute",

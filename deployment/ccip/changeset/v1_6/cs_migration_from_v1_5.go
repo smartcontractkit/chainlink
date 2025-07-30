@@ -50,6 +50,8 @@ type DONConfig struct {
 	CommitOCRParams CCIPOCRParams
 	// ExecOCRParams defines the OCR parameters for the exec plugin.
 	ExecOCRParams CCIPOCRParams
+	// ChainConfig defines the reader configuration for the chain on CCIPHome.
+	ChainConfig ChainConfig
 }
 
 // SourceChainConfig defines the configuration for a source chain.
@@ -173,18 +175,6 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 		}
 	}
 
-	for chainSel := range c.DONConfigs {
-		// FeeQuoter and NonceManager are owned by MCMS on both source and destination chains.
-		err := commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].FeeQuoter)
-		if err != nil {
-			return fmt.Errorf("failed to validate ownership of FeeQuoter on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
-		}
-		err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].NonceManager)
-		if err != nil {
-			return fmt.Errorf("failed to validate ownership of NonceManager on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
-		}
-	}
-
 	return nil
 }
 
@@ -211,6 +201,17 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 	}
 
 	for chainSel, chainUpgradeCfg := range c.DONConfigs {
+		// Ensure that FeeQuoter & NonceManager are owned by the timelock contract on all chains.
+		out, err := ensureTimelockOwnership(e, chainSel, []commoncs.Ownable{
+			state.Chains[chainSel].FeeQuoter,
+			state.Chains[chainSel].NonceManager,
+		}, *c.MCMSConfig)
+		allReports = append(allReports, out.Reports...)
+		if err != nil {
+			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to ensure timelock ownership of FeeQuoter and NonceManager on %d: %w", chainSel, err)
+		}
+		allProposals = append(allProposals, out.MCMSTimelockProposals...)
+
 		chain := e.BlockChains.EVMChains()[chainSel]
 		setCandidateBase := SetCandidateConfigBase{
 			HomeChainSelector: c.HomeChainSelector,
@@ -232,14 +233,29 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 			continue
 		}
 
+		// Add reader config for chain on CCIPHome.
+		out, err = UpdateChainConfigChangeset(e, UpdateChainConfigConfig{
+			HomeChainSelector: c.HomeChainSelector,
+			RemoteChainAdds: map[uint64]ChainConfig{
+				chainSel: chainUpgradeCfg.ChainConfig,
+			},
+			MCMS: c.MCMSConfig,
+		})
+		allReports = append(allReports, out.Reports...)
+		if err != nil {
+			return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run UpdateChainConfigChangeset for %s: %w", chain, err)
+		}
+		allProposals = append(allProposals, out.MCMSTimelockProposals...)
+
 		// Add DON and set candidate for commit plugin.
-		out, err := AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
+		out, err = AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
 			SetCandidateConfigBase: setCandidateBase,
 			PluginInfo: SetCandidatePluginInfo{
 				PluginType: types.PluginTypeCCIPCommit,
 				OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 					chainSel: chainUpgradeCfg.CommitOCRParams,
 				},
+				SkipChainConfigValidation: true,
 			},
 			DonIDOverride: nextDonID,
 		})
@@ -258,6 +274,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 						chainSel: chainUpgradeCfg.ExecOCRParams,
 					},
+					SkipChainConfigValidation: true,
 				},
 			},
 			DonIDOverrides: map[uint64]uint32{chainSel: nextDonID},
@@ -330,7 +347,8 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 			// OverrideExisting is set to true because previous a remote chain can show up twice for a given local chain (as a source or dest).
 			// We don't want applyPreviousRampsUpdates to fail when it is called for the second time for a given remote chain selector.
 			out, err = UpdateNonceManagersChangeset(e, UpdateNonceManagerConfig{
-				MCMS: c.MCMSConfig,
+				MCMS:               c.MCMSConfig,
+				SkipOwnershipCheck: true,
 				UpdatesByChain: map[uint64]NonceManagerUpdate{
 					destChainSel: {
 						PreviousRampsArgs: []PreviousRampCfg{
@@ -381,6 +399,21 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 			allReports = append(allReports, out.Reports...)
 			if err != nil {
 				return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run UpdateOnRampsDestsChangeset on %s: %w", sourceChain, err)
+			}
+			allProposals = append(allProposals, out.MCMSTimelockProposals...)
+			// Also, add the Timelock as the fee aggregator.
+			// We can always update this address later, just setting it as the Timelock for now for protections.
+			out, err = UpdateOnRampDynamicConfigChangeset(e, UpdateOnRampDynamicConfig{
+				UpdatesByChain: map[uint64]OnRampDynamicConfigUpdate{
+					sourceChainSel: {
+						FeeAggregator: state.Chains[sourceChainSel].Timelock.Address(),
+					},
+				},
+				MCMS: mcmsConfig,
+			})
+			allReports = append(allReports, out.Reports...)
+			if err != nil {
+				return cldf.ChangesetOutput{Reports: allReports}, fmt.Errorf("failed to run UpdateOnRampDynamicConfigChangeset on %s: %w", sourceChain, err)
 			}
 			allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
