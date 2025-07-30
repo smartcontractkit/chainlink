@@ -424,9 +424,6 @@ func SetupTestEnvironment(
 		}
 	}
 
-	//TODO remove this
-	time.Sleep(40 * time.Second)
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
