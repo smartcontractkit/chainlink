@@ -734,10 +734,17 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 
 	mBillingClient.EXPECT().
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: []*billing.RateCard{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+			},
+		}, nil)
+	mBillingClient.EXPECT().
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
