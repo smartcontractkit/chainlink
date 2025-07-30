@@ -1,4 +1,4 @@
-package v1_6_test
+package v1_6_2_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -131,13 +131,13 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 
 	tests := []struct {
 		Msg    string
-		Input  v1_6.DeployUSDCTokenPoolContractsConfig
+		Input  v1_6_2.DeployUSDCTokenPoolContractsConfig
 		ErrStr string
 	}{
 		{
 			Msg: "Chain selector is not valid",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolContractsConfig{
+				USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
 					0: {},
 				},
 			},
@@ -145,8 +145,8 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 		},
 		{
 			Msg: "Chain selector doesn't exist in environment",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolContractsConfig{
+				USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
 					5009297550715157269: {},
 				},
 			},
@@ -154,10 +154,10 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 		},
 		{
 			Msg: "No proxy",
-			Input: v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolContractsConfig{
+				USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
 					selector: {
-						PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+						PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 						TokenMessenger:      utils.RandomAddress(),
 						TokenAddress:        utils.RandomAddress(),
 					},
@@ -172,7 +172,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := v1_6.DeployUSDCTokenPoolNew.VerifyPreconditions(env, test.Input)
+			err := v1_6_2.DeployUSDCTokenPoolNew.VerifyPreconditions(env, test.Input)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -214,9 +214,9 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 
 	env, err = commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployCCTPMessageTransmitterProxyNew,
-			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput{
+			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
+			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+				USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 					blockchain.Selector: {
 						TokenMessenger: tokenMessenger.Address,
 					},
@@ -231,19 +231,19 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 
 	tests := []struct {
 		Msg    string
-		Input  v1_6.DeployUSDCTokenPoolInput
+		Input  v1_6_2.DeployUSDCTokenPoolInput
 		ErrStr string
 	}{
 		{
 			Msg: "Token address is not defined",
-			Input: v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
 				TokenAddress: utils.ZeroAddress,
 			},
 			ErrStr: "token address must be defined",
 		},
 		{
 			Msg: "Token messenger address is not defined",
-			Input: v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
 				TokenMessenger: utils.ZeroAddress,
 				TokenAddress:   utils.RandomAddress(),
 			},
@@ -251,7 +251,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "No previous pool",
-			Input: v1_6.DeployUSDCTokenPoolInput{
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
 				PreviousPoolAddress: utils.ZeroAddress,
 				TokenMessenger:      utils.RandomAddress(),
 				TokenAddress:        utils.RandomAddress(),
@@ -260,8 +260,8 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "Can't reach token",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
+				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        utils.RandomAddress(),
 				TokenMessenger:      utils.RandomAddress(),
 			},
@@ -269,8 +269,8 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "Symbol is wrong",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
+				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        nonUsdcToken.Address,
 				TokenMessenger:      utils.RandomAddress(),
 			},
@@ -278,8 +278,8 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "Can't reach token messenger",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
+				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        usdcToken.Address,
 				TokenMessenger:      utils.RandomAddress(),
 			},
@@ -287,8 +287,8 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "No error",
-			Input: v1_6.DeployUSDCTokenPoolInput{
-				PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
+				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        usdcToken.Address,
 				TokenMessenger:      tokenMessenger.Address,
 			},
@@ -314,18 +314,18 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	env, selectors := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
 	addrBook := cldf.NewMemoryAddressBook()
 
-	newUSDCMsgProxies := make(map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput, len(selectors))
-	newUSDCTokenPools := make(map[uint64]v1_6.DeployUSDCTokenPoolInput, len(selectors))
+	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
+	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
 	for _, selector := range selectors {
 		blockchain := env.BlockChains.EVMChains()[selector]
 		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForDeploy(t, env.Logger, blockchain, addrBook)
 
-		newUSDCMsgProxies[selector] = v1_6.DeployCCTPMessageTransmitterProxyInput{
+		newUSDCMsgProxies[selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
 		}
 
-		newUSDCTokenPools[selector] = v1_6.DeployUSDCTokenPoolInput{
-			PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+		newUSDCTokenPools[selector] = v1_6_2.DeployUSDCTokenPoolInput{
+			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
 		}
@@ -333,8 +333,8 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 
 	env, err := commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployCCTPMessageTransmitterProxyNew,
-			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
+			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
+			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: newUSDCMsgProxies,
 			},
 		),
@@ -343,8 +343,8 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 
 	env, err = commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployUSDCTokenPoolNew,
-			v1_6.DeployUSDCTokenPoolContractsConfig{
+			v1_6_2.DeployUSDCTokenPoolNew,
+			v1_6_2.DeployUSDCTokenPoolContractsConfig{
 				USDCPools: newUSDCTokenPools,
 			},
 		),

@@ -1,4 +1,4 @@
-package v1_6_test
+package v1_6_2_test
 
 import (
 	"math/big"
@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -143,9 +143,9 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 
 	env, err := commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployCCTPMessageTransmitterProxyNew,
-			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput{
+			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
+			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+				USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 					evmChain.Selector: {
 						TokenMessenger: tokenMsngr.Address,
 					},
@@ -157,11 +157,11 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 
 	env, err = commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployUSDCTokenPoolNew,
-			v1_6.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6.DeployUSDCTokenPoolInput{
+			v1_6_2.DeployUSDCTokenPoolNew,
+			v1_6_2.DeployUSDCTokenPoolContractsConfig{
+				USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
 					evmChain.Selector: {
-						PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+						PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 						TokenMessenger:      tokenMsngr.Address,
 						TokenAddress:        usdcToken.Address,
 					},
@@ -183,13 +183,13 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 	dummyDomainID := uint32(0)
 	tests := []struct {
 		Msg    string
-		Input  v1_6.ConfigUSDCTokenPoolInput
+		Input  v1_6_2.ConfigUSDCTokenPoolInput
 		ErrStr string
 	}{
 		{
 			Msg: "Invalid chain selector",
-			Input: v1_6.ConfigUSDCTokenPoolInput{
-				DestinationUpdates: map[uint64]v1_6.DomainUpdateInput{
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					0: {
 						MintRecipient:    solana.PublicKey{},
 						AllowedCaller:    solana.PublicKey{},
@@ -202,8 +202,8 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "Solana mint recipient cannot be zero address",
-			Input: v1_6.ConfigUSDCTokenPoolInput{
-				DestinationUpdates: map[uint64]v1_6.DomainUpdateInput{
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
 						MintRecipient:    solana.PublicKey{},
 						AllowedCaller:    callerPrivKey.PublicKey(),
@@ -216,8 +216,8 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 		},
 		{
 			Msg: "Solana allowed caller cannot be zero address",
-			Input: v1_6.ConfigUSDCTokenPoolInput{
-				DestinationUpdates: map[uint64]v1_6.DomainUpdateInput{
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
 						MintRecipient:    minterPrivKey.PublicKey(),
 						AllowedCaller:    solana.PublicKey{},
@@ -250,9 +250,9 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 	evmChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	require.GreaterOrEqual(t, len(evmChainSelectors), 1)
 
-	newUSDCMsgProxies := make(map[uint64]v1_6.DeployCCTPMessageTransmitterProxyInput, len(selectors))
-	newUSDCTokenPools := make(map[uint64]v1_6.DeployUSDCTokenPoolInput, len(selectors))
-	newUSDCConfigs := make(map[uint64]v1_6.ConfigUSDCTokenPoolInput, len(selectors))
+	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
+	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
+	newUSDCConfigs := make(map[uint64]v1_6_2.ConfigUSDCTokenPoolInput, len(selectors))
 	addrBook := cldf.NewMemoryAddressBook()
 	dummyDomainID := uint32(0)
 	for _, evmSelector := range evmChainSelectors {
@@ -262,17 +262,17 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			addrBook,
 		)
 
-		newUSDCMsgProxies[evmSelector] = v1_6.DeployCCTPMessageTransmitterProxyInput{
+		newUSDCMsgProxies[evmSelector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
 		}
 
-		newUSDCTokenPools[evmSelector] = v1_6.DeployUSDCTokenPoolInput{
-			PreviousPoolAddress: v1_6.USDCTokenPoolSentinelAddress,
+		newUSDCTokenPools[evmSelector] = v1_6_2.DeployUSDCTokenPoolInput{
+			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
 		}
 
-		destUpdates := map[uint64]v1_6.DomainUpdateInput{}
+		destUpdates := map[uint64]v1_6_2.DomainUpdateInput{}
 		for _, solSelector := range solChainSelectors {
 			minterPrivKey, err := solana.NewRandomPrivateKey()
 			require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			callerPrivKey, err := solana.NewRandomPrivateKey()
 			require.NoError(t, err)
 
-			destUpdates[solSelector] = v1_6.DomainUpdateInput{
+			destUpdates[solSelector] = v1_6_2.DomainUpdateInput{
 				MintRecipient:    minterPrivKey.PublicKey(),
 				AllowedCaller:    callerPrivKey.PublicKey(),
 				DomainIdentifier: dummyDomainID,
@@ -288,15 +288,15 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			}
 		}
 
-		newUSDCConfigs[evmSelector] = v1_6.ConfigUSDCTokenPoolInput{
+		newUSDCConfigs[evmSelector] = v1_6_2.ConfigUSDCTokenPoolInput{
 			DestinationUpdates: destUpdates,
 		}
 	}
 
 	env, err := commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployCCTPMessageTransmitterProxyNew,
-			v1_6.DeployCCTPMessageTransmitterProxyContractConfig{
+			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
+			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
 				USDCProxies: newUSDCMsgProxies,
 			},
 		),
@@ -305,8 +305,8 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 
 	env, err = commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.DeployUSDCTokenPoolNew,
-			v1_6.DeployUSDCTokenPoolContractsConfig{
+			v1_6_2.DeployUSDCTokenPoolNew,
+			v1_6_2.DeployUSDCTokenPoolContractsConfig{
 				USDCPools: newUSDCTokenPools,
 			},
 		),
@@ -315,8 +315,8 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 
 	env, err = commoncs.Apply(t, env,
 		commoncs.Configure(
-			v1_6.ConfigUSDCTokenPoolChangeSet,
-			v1_6.ConfigUSDCTokenPoolConfig{
+			v1_6_2.ConfigUSDCTokenPoolChangeSet,
+			v1_6_2.ConfigUSDCTokenPoolConfig{
 				USDCPools: newUSDCConfigs,
 			},
 		),
