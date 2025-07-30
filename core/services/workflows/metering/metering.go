@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -653,13 +652,13 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 	emitErr := report.EmitReceipt(ctx)
 	if emitErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = multierr.Combine(multiErr, emitErr)
+		multiErr = errors.Join(multiErr, emitErr)
 	}
 
 	sendErr := report.SendReceipt(ctx)
 	if sendErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = multierr.Combine(multiErr, sendErr)
+		multiErr = errors.Join(multiErr, sendErr)
 	}
 
 	delete(s.reports, workflowExecutionID)

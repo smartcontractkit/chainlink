@@ -78,8 +78,7 @@ func TestRunErrors_ToError(t *testing.T) {
 	runErrors = append(runErrors, null.NewString("bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("pretty bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("", false))
-	expected := errors.New("bad thing happened; pretty bad thing happened")
-	require.Equal(t, expected.Error(), runErrors.ToError().Error())
+	require.ErrorContains(t, runErrors.ToError(), "bad thing happened\npretty bad thing happened")
 }
 
 func TestRun_StringOutputs(t *testing.T) {

@@ -827,3 +827,16 @@ URL = '' # Default
 URL = "localhost:4319" # Default
 # TLSEnabled enables TLS to be used to secure communication with the billing service. This is enabled by default.
 TLSEnabled = true # Default
+
+# BridgeStatusReporter holds settings for the Bridge Status Reporter service.
+[BridgeStatusReporter]
+# Enabled enables the Bridge Status Reporter service that polls bridge status endpoints.
+Enabled = false # Default
+# StatusPath is the path to append to bridge URLs for status polling.
+StatusPath = "/status" # Default
+# PollingInterval is how often to poll bridge status endpoints for status.
+PollingInterval = "5m" # Default
+# IgnoreInvalidBridges skips bridges that return HTTP errors or invalid responses.
+IgnoreInvalidBridges = true # Default
+# IgnoreJoblessBridges skips bridges that have no associated jobs.
+IgnoreJoblessBridges = false # Default

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -24,7 +25,7 @@ import (
 )
 
 const (
-	solFundingLamports = 100000
+	solFunds = 1000
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment, evmFundingEth uint64) error {
@@ -72,7 +73,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 						return err
 					}
 					base58Addr := n.AccountAddr[chainID]
-					lggr.Debugf("Found %v solana transmitter address", base58Addr)
+					lggr.Infof("Found %v solana transmitter address", base58Addr)
 
 					pk, err := solana.PublicKeyFromBase58(base58Addr)
 					if err != nil {
@@ -82,10 +83,19 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					solanaAddrs = append(solanaAddrs, pk)
 				}
 
-				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFunds, chain.Client, lggr)
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
+				}
+				for _, addr := range solanaAddrs {
+					res, err := chain.Client.GetBalance(env.GetContext(), addr, rpc.CommitmentFinalized)
+					if err != nil {
+						lggr.Errorw("failed to fetch transmitter balance", "transmitter", addr, "err", err)
+						return err
+					} else if res != nil {
+						lggr.Infow("got balance for transmitter", "transmitter", addr, "balance", res.Value)
+					}
 				}
 				return nil
 			})
