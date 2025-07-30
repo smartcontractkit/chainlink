@@ -1,4 +1,3 @@
-//nolint:gosec // disable G115
 package evm
 
 import (
@@ -130,7 +129,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			PollPeriod:        config.PollPeriod(),
 			AcceptanceTimeout: config.AcceptanceTimeout(),
 		},
-		ChainInfo: 	chainInfo,
+		ChainInfo:            chainInfo,
 		Beholder:             beholder,
 		ChainService:         chain,
 		ConfigValidateFn:     evaluate,
