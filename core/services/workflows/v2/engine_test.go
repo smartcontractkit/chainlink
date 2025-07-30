@@ -1297,11 +1297,8 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
 
 	billingClient.EXPECT().
-		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
-			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-		})).
-		Return(&billing.ReserveCreditsResponse{
-			Success: true,
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
 			RateCards: []*billing.RateCard{
 				{
 					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
@@ -1314,6 +1311,13 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 					UnitsPerCredit:  "0.01",
 				},
 			},
+		}, nil)
+	billingClient.EXPECT().
+		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
+		})).
+		Return(&billing.ReserveCreditsResponse{
+			Success: true,
 			Credits: "10000",
 		}, nil).Maybe()
 	billingClient.EXPECT().
