@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -76,7 +77,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -935,9 +935,9 @@ func newCREServices(
 					return wfRegRelayer.NewContractReader(ctx, bytes)
 				}
 
-				wrVersion, err := versioning.VerifyTypeAndVersion(ctx, capCfg.WorkflowRegistry().Address(), crFactory, versioning.ContractType("WorkflowRegistry"))
-				if err != nil {
-					return nil, err
+				wrVersion, vErr := semver.NewVersion(capCfg.WorkflowRegistry().ContractVersion())
+				if vErr != nil {
+					return nil, vErr
 				}
 
 				switch wrVersion.Major() {

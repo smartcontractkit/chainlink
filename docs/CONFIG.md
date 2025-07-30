@@ -1405,6 +1405,12 @@ ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
 
+### ContractVersion
+```toml
+ChainID = '1.0.0' # Default
+```
+ContractVersion identifies semantic version of the WorkflowRegistry contract.
+
 ### MaxBinarySize
 ```toml
 MaxBinarySize = '20.00mb' # Default

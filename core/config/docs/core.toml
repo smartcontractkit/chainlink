@@ -502,6 +502,8 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# ContractVersion identifies semantic version of the WorkflowRegistry contract.
+ContractVersion = '1.0.0' # Default
 # MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
 MaxBinarySize = '20.00mb' # Default
 # MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.

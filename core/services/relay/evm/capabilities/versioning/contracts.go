@@ -140,8 +140,6 @@ func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries
 	ticker := time.NewTicker(retryInterval)
 	defer ticker.Stop()
 
-	fmt.Println("Trying once...")
-
 	// immediately try once
 	typeAndVersion, version, err := fn()
 	if err == nil {
@@ -150,7 +148,6 @@ func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries
 	retries := 0
 
 	for {
-		fmt.Println("Retrying... ", retries+1, " of ", maxRetries)
 		// if maxRetries is 0, we'll retry indefinitely
 		if maxRetries > 0 && retries >= maxRetries {
 			msg := fmt.Sprintf("max retries (%d) reached, aborting", maxRetries)
