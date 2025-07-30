@@ -284,19 +284,17 @@ func Test_generateChainTierLanes(t *testing.T) {
 	chains := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123, 5548718428018410741}
 
 	t.Run("no tiers falls back to any-to-any", func(t *testing.T) {
-		lanes := generateChainTierLanes(chains, &ChainTiers{Tiers: nil})
+		lanes := generateChainTierLanes(chains, nil)
 		expected := generateAnyToAnyLanes(chains)
 		require.ElementsMatch(t, expected, lanes)
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		tiers := &ChainTiers{
-			Tiers: []TierConfigs{
-				{NumChains: 2}, // high tier
-				{NumChains: 3}, // low tier
-			},
+		tiers := []TierConfigs{
+			{NumChains: 2}, // high tier
+			{NumChains: 3}, // low tier
 		}
-		lanes := generateChainTierLanes(chains, tiers)
+		lanes := generateChainTierLanes(chains, &tiers)
 		// Only 3379446385462418246 and 2 are sources, all are destinations except self
 		expected := []LaneConfig{
 			// chain 3379446385462418246 should have bidirectional lanes to all other chains
@@ -323,7 +321,7 @@ func Test_generateChainTierLanes(t *testing.T) {
 	})
 
 	t.Run("empty chains returns empty", func(t *testing.T) {
-		lanes := generateChainTierLanes([]uint64{}, &ChainTiers{Tiers: []TierConfigs{}})
+		lanes := generateChainTierLanes([]uint64{}, nil)
 		require.Empty(t, lanes)
 	})
 }
