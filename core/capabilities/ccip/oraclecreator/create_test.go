@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	ocrcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 // TestPluginOracleCreatorCreate_InvalidSelector ensures that Create returns an error when an
@@ -101,6 +101,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		1,
 		cfg,
 		types.NewRelayID(chainsel.FamilyEVM, "1"),
+		map[cciptypes.ChainSelector]cciptypes.ChainAccessor{},
 		map[cciptypes.ChainSelector]types.ContractReader{},
 		map[cciptypes.ChainSelector]types.ContractWriter{},
 		/* destChainWriter */ nil,
@@ -134,6 +135,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	// Common arguments for both plugin types
 	donID := uint32(1)
 	relayID := types.NewRelayID(chainsel.FamilyEVM, "1")
+	chainAccessors := map[cciptypes.ChainSelector]cciptypes.ChainAccessor{}
 	contractReaders := map[cciptypes.ChainSelector]types.ContractReader{}
 	chainWriters := map[cciptypes.ChainSelector]types.ContractWriter{}
 	fakeTransmitAccount := ocrtypes.Account("blahblah")
@@ -182,6 +184,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				donID,
 				cfg,
 				relayID,
+				chainAccessors,
 				contractReaders,
 				chainWriters,
 				nil, // Key: destChainWriter is nil

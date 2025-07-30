@@ -13,8 +13,8 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
@@ -26,7 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 
@@ -39,16 +39,17 @@ import (
 )
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	doTestTokenPool(t, tenv.Env, false, shared.CLLMetadata)
+	skipInCI(t)
+
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
+	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: false, TokenMetadata: shared.CLLMetadata})
 }
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	doTestTokenPool(t, tenv.Env, true, shared.CLLMetadata)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
+	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: true, TokenMetadata: shared.CLLMetadata})
 }
 
 func deployEVMTokenPool(t *testing.T, e cldf.Environment, evmChain uint64) (cldf.Environment, common.Address, error) {
@@ -83,7 +84,15 @@ func deployEVMTokenPool(t *testing.T, e cldf.Environment, evmChain uint64) (cldf
 	return e, evmToken.Address, nil
 }
 
-func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata string) {
+type TokenPoolTestConfig struct {
+	MCMS          bool
+	TokenMetadata string
+}
+
+func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfig) {
+	mcms := config.MCMS
+	tokenMetadata := config.TokenMetadata
+
 	ctx := testcontext.Get(t)
 	evmChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	solChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
@@ -106,7 +115,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 	rebalancer := deployerKey
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
-		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -148,18 +157,21 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 
 	tokenAddress := newTokenAddress
 
+	// svm deployment
 	for _, testCase := range testCases {
 		typePtr := &testCase.poolType
+
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			// commonchangeset.Configure(
-			//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			//	ccipChangesetSolana.TokenPoolConfigWithMCM{
-			//		ChainSelector: solChain,
-			//		TokenPubKey:   tokenAddress,
-			//		PoolType:      typePtr,
-			//		Metadata:      tokenMetadata,
-			//	},
-			// ),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+				ccipChangesetSolana.TokenPoolConfigWithMCM{
+					ChainSelector: solChain,
+					TokenPubKey:   tokenAddress,
+					PoolType:      typePtr,
+					Metadata:      tokenMetadata,
+					MCMS:          mcmsConfig,
+				},
+			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
 				ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
@@ -238,7 +250,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 			e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
 			switch testCase.poolType {
 			case solTestTokenPool.BurnAndMint_PoolType:
-				_, _ = testhelpers.TransferOwnershipSolana(
+				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						BurnMintTokenPools: map[string][]solana.PublicKey{
@@ -246,7 +258,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 						},
 					})
 			case solTestTokenPool.LockAndRelease_PoolType:
-				_, _ = testhelpers.TransferOwnershipSolana(
+				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						LockReleaseTokenPools: map[string][]solana.PublicKey{
@@ -416,7 +428,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata 
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
 										LockReleaseTokenPools: map[string][]solana.PublicKey{
 											tokenMetadata: {tokenAddress},
 										},
@@ -479,155 +491,7 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 
 func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
-	poolType := solTestTokenPool.BurnAndMint_PoolType
-	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()}, "TEST_TOKEN")
-	require.NoError(t, err)
-	// evm deployment
-	e, _, err = deployEVMTokenPool(t, e, evmChain)
-	require.NoError(t, err)
-	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
-		ccipChangesetSolana.CCIPContractsToTransfer{
-			Router:    true,
-			FeeQuoter: true,
-			OffRamp:   true,
-		})
-	mcmsConfig := &proposalutils.TimelockConfig{
-		MinDelay: 1 * time.Second,
-	}
-	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
-	require.NoError(t, err)
-	newAdmin := timelockSignerPDA
-
-	_, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.E2ETokenPool),
-			ccipChangesetSolana.E2ETokenPoolConfig{
-				// InitializeGlobalTokenPoolConfig: []ccipChangesetSolana.TokenPoolConfigWithMCM{
-				//	{
-				//		ChainSelector: solChain,
-				//		PoolType:      &poolType,
-				//		TokenPubKey:   newTokenAddress,
-				//		Metadata:      shared.CLLMetadata,
-				//		MCMS:          mcmsConfig,
-				//	},
-				// },
-				AddTokenPoolAndLookupTable: []ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
-					{
-						ChainSelector: solChain,
-						TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
-							{
-								TokenPubKey: newTokenAddress,
-								PoolType:    &poolType,
-								Metadata:    shared.CLLMetadata,
-							},
-						},
-					},
-				},
-				RegisterTokenAdminRegistry: []ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-					{
-						ChainSelector: solChain,
-						RegisterTokenConfigs: []ccipChangesetSolana.RegisterTokenConfig{
-							{
-								TokenPubKey:             newTokenAddress,
-								TokenAdminRegistryAdmin: newAdmin,
-								RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-							},
-						},
-						MCMS: mcmsConfig,
-					},
-				},
-				AcceptAdminRoleTokenAdminRegistry: []ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-					{
-						ChainSelector: solChain,
-						AcceptAdminRoleTokenConfigs: []ccipChangesetSolana.AcceptAdminRoleTokenConfig{
-							{
-								TokenPubKey:       newTokenAddress,
-								SkipRegistryCheck: true,
-							},
-						},
-						MCMS: mcmsConfig,
-					},
-				},
-				SetPool: []ccipChangesetSolana.SetPoolConfig{
-					{
-						ChainSelector: solChain,
-						SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
-							{
-								TokenPubKey:       newTokenAddress,
-								PoolType:          &poolType,
-								Metadata:          shared.CLLMetadata,
-								SkipRegistryCheck: true,
-							},
-						},
-						WritableIndexes: []uint8{3, 4, 7},
-						MCMS:            mcmsConfig,
-					},
-				},
-				RemoteChainTokenPool: []ccipChangesetSolana.SetupTokenPoolForRemoteChainConfig{
-					{
-						SolChainSelector: solChain,
-						RemoteTokenPoolConfigs: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
-							{
-								SolTokenPubKey: newTokenAddress,
-								SolPoolType:    &poolType,
-								Metadata:       shared.CLLMetadata,
-								EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
-									evmChain: {
-										TokenSymbol:       testhelpers.TestTokenSymbol,
-										PoolType:          shared.BurnMintTokenPool,
-										PoolVersion:       shared.CurrentTokenPoolVersion,
-										RateLimiterConfig: zeroRateLimitConfig,
-									},
-								},
-							},
-						},
-					},
-				},
-				ConfigureTokenPoolContractsChangesets: []v1_5_1.ConfigureTokenPoolContractsConfig{
-					{
-						TokenSymbol: testhelpers.TestTokenSymbol,
-						MCMS:        mcmsConfig,
-						PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-							evmChain: {
-								Type:    shared.BurnMintTokenPool,
-								Version: shared.CurrentTokenPoolVersion,
-								SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
-									solChain: {
-										RateLimiterConfig: v1_5_1.RateLimiterConfig{
-											Inbound: token_pool.RateLimiterConfig{
-												IsEnabled: false,
-												Capacity:  big.NewInt(0),
-												Rate:      big.NewInt(0),
-											},
-											Outbound: token_pool.RateLimiterConfig{
-												IsEnabled: false,
-												Capacity:  big.NewInt(0),
-												Rate:      big.NewInt(0),
-											},
-										},
-										TokenAddress: newTokenAddress.String(),
-										Type:         shared.BurnMintTokenPool,
-										Metadata:     shared.CLLMetadata,
-									},
-								},
-							},
-						},
-					},
-				},
-				// MCMS: mcmsConfig, // test mcms config inference
-			},
-		),
-	})
-	require.NoError(t, err)
-}
-
-func TestAddTokenPoolE2EWithMcmsv2(t *testing.T) {
-	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
@@ -639,7 +503,7 @@ func TestAddTokenPoolE2EWithMcmsv2(t *testing.T) {
 	// evm deployment
 	e, _, err = deployEVMTokenPool(t, e, evmChain)
 	require.NoError(t, err)
-	_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,
@@ -719,7 +583,7 @@ func TestAddTokenPoolE2EWithMcmsv2(t *testing.T) {
 
 func TestPartnerTokenPools(t *testing.T) {
 	skipInCI(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	metadata := "partner_testing"
@@ -729,7 +593,7 @@ func TestPartnerTokenPools(t *testing.T) {
 			HomeChainSelector: e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0],
 			ChainSelector:     solChainSelectors[0],
 			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-				GitCommitSha:   NewSha,
+				GitCommitSha:   ShaV0_1_1,
 				DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 					BuildLocally: true,
@@ -742,7 +606,7 @@ func TestPartnerTokenPools(t *testing.T) {
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
-	doTestTokenPool(t, e, false, metadata)
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: false, TokenMetadata: metadata})
 	doTestPoolLookupTable(t, e, false, metadata)
-	doTestTokenPool(t, e, true, metadata)
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: metadata})
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -207,6 +209,7 @@ type ApplicationOpts struct {
 	LLOTransmissionReaper    services.ServiceCtx
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
+	LimitsFactory            limits.Factory
 }
 
 // NewApplication initializes a new store if one is not already
@@ -320,7 +323,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient)
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -786,11 +789,11 @@ type creServiceConfig struct {
 type CREServices struct {
 	// workflowRateLimiter is the rate limiter for workflows
 	// it is exposed because there are contingent services in the application
-	workflowRateLimiter *ratelimiter.RateLimiter
+	workflowRateLimiter limits.RateLimiter
 
 	// workflowLimits is the syncer limiter for workflows
-	// it will specify the amount of global an per owner workflows that can be registered
-	workflowLimits *syncerlimiter.Limits
+	// it will specify the amount of global and per owner workflows that can be registered
+	workflowLimits limits.ResourceLimiter[int]
 
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
@@ -814,6 +817,7 @@ func newCREServices(
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
 	billingClient metering.BillingClient,
+	lf limits.Factory,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
@@ -821,7 +825,7 @@ func newCREServices(
 		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
 		PerSenderRPS:   capCfg.RateLimit().PerSenderRPS(),
 		PerSenderBurst: capCfg.RateLimit().PerSenderBurst(),
-	})
+	}, lf)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
@@ -834,10 +838,11 @@ func newCREServices(
 		Global:            wCfg.Limits().Global(),
 		PerOwner:          wCfg.Limits().PerOwner(),
 		PerOwnerOverrides: wCfg.Limits().PerOwnerOverrides(),
-	})
+	}, lf)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
+	srvcs = append(srvcs, closerService{name: "WorkflowLimiter", Closer: workflowLimits})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if capCfg.GatewayConnector().DonID() != "" {
@@ -1388,3 +1393,19 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 
 	return nil
 }
+
+var _ services.ServiceCtx = closerService{}
+
+// closerService extends an io.Closer to implement [services.ServiceCtx]
+type closerService struct {
+	name string
+	io.Closer
+}
+
+func (c closerService) Start(ctx context.Context) error { return nil }
+
+func (c closerService) Ready() error { return nil }
+
+func (c closerService) HealthReport() map[string]error { return map[string]error{c.Name(): nil} }
+
+func (c closerService) Name() string { return c.name }

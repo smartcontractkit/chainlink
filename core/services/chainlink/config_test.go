@@ -1427,6 +1427,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
 				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
 			}
+			if got.EVM[c].Nodes[n].IsLoadBalancedRPC == nil {
+				got.EVM[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
+			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
@@ -1458,6 +1461,14 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].GasEstimator.SenderAddress == nil {
 			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
+		}
+	}
+
+	for c := range got.Solana {
+		for n := range got.Solana[c].Nodes {
+			if got.Solana[c].Nodes[n].IsLoadBalancedRPC == nil {
+				got.Solana[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
+			}
 		}
 	}
 

@@ -21,8 +21,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -52,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -235,7 +237,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		GlobalBurst:    1000,
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
@@ -243,7 +245,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	sl, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   200,
 		PerOwner: 200,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	reg.SetLocalRegistry(&testConfigProvider{})
@@ -1082,7 +1084,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1000,
 				PerSenderRPS:   1.0,
 				PerSenderBurst: 1,
-			})
+			}, limits.Factory{})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1095,9 +1097,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as owner, so next execution gets blocked by per user limit
-		senderAllow, globalAllow := eng.ratelimiter.Allow(testWorkflowOwner)
-		require.True(t, senderAllow)
-		require.True(t, globalAllow)
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: testWorkflowOwner})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -1138,7 +1138,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1,
 				PerSenderRPS:   100.0,
 				PerSenderBurst: 100,
-			})
+			}, limits.Factory{})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1151,9 +1151,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as other owner, so next execution gets blocked by global limit
-		senderAllow, globalAllow := eng.ratelimiter.Allow("some other owner")
-		require.True(t, senderAllow)
-		require.True(t, globalAllow)
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "some other owner"})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -1191,7 +1189,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		setWorkflowLimits := func(c *Config) {
@@ -1199,9 +1197,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// we allow one owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		require.NoError(t, workflowLimits.Use(contexts.WithCRE(ctx, contexts.CRE{Owner: "some-previous-owner"}), 1))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1210,9 +1206,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrGlobalWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeGlobal, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -1243,7 +1242,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		setWorkflowLimits := func(c *Config) {
@@ -1251,9 +1250,8 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// we allow one workflow for this particular owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: testWorkflowOwner})
+		require.NoError(t, workflowLimits.Use(ctx, 1))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1262,9 +1260,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 
 	// Verify that overriding the perOwner limit enables an external workflow
@@ -1304,7 +1305,7 @@ func TestEngine_RateLimit(t *testing.T) {
 			Global:            10,
 			PerOwner:          1,
 			PerOwnerOverrides: overrides,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		// define functional options
@@ -1317,13 +1318,8 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// allow two workflows for the external owner, so the third one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow(externalWFOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
-
-		ownerAllow, globalAllow = workflowLimits.Allow(externalWFOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		ctxOwner := contexts.WithCRE(ctx, contexts.CRE{Owner: externalWFOwner})
+		require.NoError(t, workflowLimits.Use(ctxOwner, 2))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1333,9 +1329,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowOwner,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 }
 
