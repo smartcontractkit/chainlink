@@ -417,10 +417,10 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			if ccipChainState.TokenPoolLookupTable[tokenPubKey] == nil {
 				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[string]map[string]solana.PublicKey)
 			}
-			if ccipChainState.TokenPoolLookupTable[tokenPubKey][(*poolType).String()] == nil {
-				ccipChainState.TokenPoolLookupTable[tokenPubKey][(*poolType).String()] = make(map[string]solana.PublicKey)
+			if ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] == nil {
+				ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] = make(map[string]solana.PublicKey)
 			}
-			ccipChainState.TokenPoolLookupTable[tokenPubKey][(*poolType).String()][poolMetadata] = lookupTablePubKey
+			ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()][poolMetadata] = lookupTablePubKey
 		case shared.FeeQuoter:
 			pub := solana.MustPublicKeyFromBase58(address)
 			ccipChainState.FeeQuoter = pub
