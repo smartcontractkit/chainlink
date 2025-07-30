@@ -39,7 +39,7 @@ type WorkflowMetadataHandler struct {
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
 func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig) *WorkflowMetadataHandler {
-	// f+1 identical responses from workflow are needed for a authorization key to be registered
+	// f+1 identical responses from workflow are needed for workflow metadata to be registered
 	threshold := donConfig.F + 1
 	return &WorkflowMetadataHandler{
 		lggr:            logger.Named(lggr, "HTTPTriggerWorkflowMetadataHandler"),
@@ -59,10 +59,10 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID, payload, signature strin
 	return true
 }
 
-// syncAuthorizedKeys aggregates the authorized keys from the WorkflowMetadataAggregator and updates the local cache.
+// syncMetadata aggregates the authorized keys and workflow selectors from the WorkflowMetadataAggregator and updates the local cache.
 // Should be called periodically to keep the authorized keys up to date.
-func (h *WorkflowMetadataHandler) syncAuthorizedKeys() {
-	authData, err := h.agg.Aggregate()
+func (h *WorkflowMetadataHandler) syncMetadata() {
+	metadata, err := h.agg.Aggregate()
 	if err != nil {
 		h.lggr.Errorw("Failed to aggregate auth data", "error", err)
 		return
@@ -70,7 +70,7 @@ func (h *WorkflowMetadataHandler) syncAuthorizedKeys() {
 	authorizedKeys := make(map[string]map[gateway.AuthorizedKey]struct{})
 	workflowRefToID := make(map[workflowReference]string)
 	workflowIDToRef := make(map[string]workflowReference)
-	for _, data := range authData {
+	for _, data := range metadata {
 		workflowRef := workflowReference{
 			workflowOwner: data.WorkflowSelector.WorkflowOwner,
 			workflowName:  data.WorkflowSelector.WorkflowName,
@@ -102,9 +102,9 @@ func (h *WorkflowMetadataHandler) syncAuthorizedKeys() {
 	h.workflowIDToRef = workflowIDToRef
 }
 
-// sendAuthPullRequest sends a request to all nodes in the DON to pull the latest auth metadata.
+// sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
 // no retries are performed, as the caller is expected to poll periodically.
-func (h *WorkflowMetadataHandler) sendAuthPullRequest(ctx context.Context) error {
+func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) error {
 	req := &jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      gateway.GetRequestID(gateway.MethodPullWorkflowMetadata),
@@ -114,34 +114,34 @@ func (h *WorkflowMetadataHandler) sendAuthPullRequest(ctx context.Context) error
 	for _, member := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
-			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send auth pull request to node %s: %w", member.Address, err))
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
 		}
 	}
 	return combinedErr
 }
 
-// OnAuthMetadataPush handles the push of auth metadata from a node when a new workflow is registered
-func (h *WorkflowMetadataHandler) OnAuthMetadataPush(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
+// OnMetadataPush handles the push of metadata from a node when a new workflow is registered
+func (h *WorkflowMetadataHandler) OnMetadataPush(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	var metadata gateway.WorkflowMetadata
 	if err := json.Unmarshal(*resp.Result, &metadata); err != nil {
-		return fmt.Errorf("failed to unmarshal auth metadata: %w", err)
+		return fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
-	h.lggr.Debugw("Received auth metadata push", "workflowID", metadata.WorkflowSelector.WorkflowID, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("Received metadata push", "workflowID", metadata.WorkflowSelector.WorkflowID, "nodeAddr", nodeAddr)
 	var combinedErr error
 	err := h.agg.Collect(&metadata, nodeAddr)
 	if err != nil {
-		combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to collect auth observation: %w", err))
+		combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to collect observation: %w", err))
 	}
 	return combinedErr
 }
 
-// OnAuthMetadataPullResponse handles the response to the auth metadata pull request.
-func (h *WorkflowMetadataHandler) OnAuthMetadataPullResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
+// OnMetadataPullResponse handles the response to the metadata pull request.
+func (h *WorkflowMetadataHandler) OnMetadataPullResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	var metadata []gateway.WorkflowMetadata
 	if err := json.Unmarshal(*resp.Result, &metadata); err != nil {
-		return fmt.Errorf("failed to unmarshal auth metadata pull response: %w", err)
+		return fmt.Errorf("failed to unmarshal metadata pull response: %w", err)
 	}
-	h.lggr.Debugw("Received auth metadata pull response", "nodeAddr", nodeAddr)
+	h.lggr.Debugw("Received metadata pull response", "nodeAddr", nodeAddr)
 	var combinedErr error
 	for _, data := range metadata {
 		err := h.agg.Collect(&data, nodeAddr)
@@ -153,18 +153,18 @@ func (h *WorkflowMetadataHandler) OnAuthMetadataPullResponse(ctx context.Context
 // Start begins the periodic pull loop.
 func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 	return h.StartOnce("WorkflowMetadataHandler", func() error {
-		h.lggr.Info("Starting HTTP Trigger Authorizer")
+		h.lggr.Info("Starting HTTP Trigger Metadata Handler")
 		err := h.agg.Start(ctx)
 		if err != nil {
 			return err
 		}
-		h.runTicker(time.Duration(h.config.AuthPullIntervalMs)*time.Millisecond, func() {
-			err2 := h.sendAuthPullRequest(ctx)
+		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func() {
+			err2 := h.sendMetadataPullRequest(ctx)
 			if err2 != nil {
-				h.lggr.Errorw("Failed to send auth pull request", "error", err2)
+				h.lggr.Errorw("Failed to send pull request", "error", err2)
 			}
 		})
-		h.runTicker(time.Duration(h.config.AuthAggregationIntervalMs)*time.Millisecond, h.syncAuthorizedKeys)
+		h.runTicker(time.Duration(h.config.MetadataAggregationIntervalMs)*time.Millisecond, h.syncMetadata)
 		return nil
 	})
 }
@@ -186,7 +186,7 @@ func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
 
 func (h *WorkflowMetadataHandler) Close() error {
 	return h.StopOnce("WorkflowMetadataHandler", func() error {
-		h.lggr.Info("Stopping HTTP Trigger Authorizer")
+		h.lggr.Info("Stopping HTTP Trigger Metadata Handler")
 		if err := h.agg.Close(); err != nil {
 			h.lggr.Errorw("Failed to close WorkflowMetadataAggregator", "error", err)
 		}

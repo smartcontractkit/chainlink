@@ -23,15 +23,15 @@ import (
 var _ handlers.Handler = (*gatewayHandler)(nil)
 
 const (
-	handlerName                        = "HTTPCapabilityHandler"
-	defaultCleanUpPeriodMs             = 1000 * 60 * 10 // 10 minutes
-	defaultMaxTriggerRequestDurationMs = 1000 * 60      // 1 minute
-	defaultInitialIntervalMs           = 100
-	defaultMaxIntervalTimeMs           = 1000 * 30 // 30 seconds
-	defaultMultiplier                  = 2.0
-	defaultAuthPullIntervalMs          = 1000 * 60 // 1 minute
-	defaultAuthAggregationIntervalMs   = 1000 * 60 // 1 minute
-	internalErrorMessage               = "Internal server error occurred while processing the request"
+	handlerName                          = "HTTPCapabilityHandler"
+	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
+	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
+	defaultInitialIntervalMs             = 100
+	defaultMaxIntervalTimeMs             = 1000 * 30 // 30 seconds
+	defaultMultiplier                    = 2.0
+	defaultMetadataPullIntervalMs        = 1000 * 60 // 1 minute
+	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
+	internalErrorMessage                 = "Internal server error occurred while processing the request"
 )
 
 type gatewayHandler struct {
@@ -57,13 +57,13 @@ type ResponseCache interface {
 }
 
 type ServiceConfig struct {
-	NodeRateLimiter             ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	UserRateLimiter             ratelimit.RateLimiterConfig `json:"userRateLimiter"`
-	MaxTriggerRequestDurationMs int                         `json:"maxTriggerRequestDurationMs"`
-	RetryConfig                 RetryConfig                 `json:"retryConfig"`
-	CleanUpPeriodMs             int                         `json:"cleanUpPeriodMs"`
-	AuthPullIntervalMs          int                         `json:"authPullIntervalMs"`
-	AuthAggregationIntervalMs   int                         `json:"authAggregationIntervalMs"`
+	NodeRateLimiter               ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	UserRateLimiter               ratelimit.RateLimiterConfig `json:"userRateLimiter"`
+	MaxTriggerRequestDurationMs   int                         `json:"maxTriggerRequestDurationMs"`
+	RetryConfig                   RetryConfig                 `json:"retryConfig"`
+	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
+	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
+	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
 }
 
 type RetryConfig struct {
@@ -111,11 +111,11 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	if cfg.MaxTriggerRequestDurationMs == 0 {
 		cfg.MaxTriggerRequestDurationMs = defaultMaxTriggerRequestDurationMs
 	}
-	if cfg.AuthPullIntervalMs == 0 {
-		cfg.AuthPullIntervalMs = defaultAuthPullIntervalMs
+	if cfg.MetadataPullIntervalMs == 0 {
+		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
 	}
-	if cfg.AuthAggregationIntervalMs == 0 {
-		cfg.AuthAggregationIntervalMs = defaultAuthPullIntervalMs
+	if cfg.MetadataAggregationIntervalMs == 0 {
+		cfg.MetadataAggregationIntervalMs = defaultMetadataPullIntervalMs
 	}
 	if cfg.RetryConfig.InitialIntervalMs == 0 {
 		cfg.RetryConfig.InitialIntervalMs = defaultInitialIntervalMs
@@ -133,24 +133,24 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 	if resp.ID == "" {
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
-	if resp.Result == nil {
-		return fmt.Errorf("received response with nil result from node %s, error: %w", nodeAddr, resp.Error)
-	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
 	// Node messages follow the format "<methodName>/<workflowID>/<uuid>" or
 	// "<methodName>/<workflowID>/<workflowExecutionID>/<uuid>". Messages are routed
 	// based on the method in the ID.
 	// Any messages without "/" is assumed to be a trigger response to a prior user request.
 	if strings.Contains(resp.ID, "/") {
+		if resp.Result == nil {
+			return fmt.Errorf("received response with empty result from node %s. Error: %+v", nodeAddr, resp.Error)
+		}
 		parts := strings.Split(resp.ID, "/")
 		methodName := parts[0]
 		switch methodName {
 		case gateway_common.MethodHTTPAction:
 			return h.makeOutgoingRequest(ctx, resp, nodeAddr)
 		case gateway_common.MethodPushWorkflowMetadata:
-			return h.metadataHandler.OnAuthMetadataPush(ctx, resp, nodeAddr)
+			return h.metadataHandler.OnMetadataPush(ctx, resp, nodeAddr)
 		case gateway_common.MethodPullWorkflowMetadata:
-			return h.metadataHandler.OnAuthMetadataPullResponse(ctx, resp, nodeAddr)
+			return h.metadataHandler.OnMetadataPullResponse(ctx, resp, nodeAddr)
 		default:
 			return fmt.Errorf("unsupported method %s in node message ID %s", methodName, resp.ID)
 		}

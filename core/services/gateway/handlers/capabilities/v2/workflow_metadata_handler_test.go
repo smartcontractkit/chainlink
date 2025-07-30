@@ -34,11 +34,11 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	return handler, mockDon, donConfig
 }
 
-func TestSyncAuthorizedKeys(t *testing.T) {
+func TestSyncMetadata(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	// Test when aggregator has no data
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 	require.Empty(t, handler.authorizedKeys)
 
 	// Start the aggregator to enable data collection
@@ -67,7 +67,7 @@ func TestSyncAuthorizedKeys(t *testing.T) {
 	require.NoError(t, err)
 	err = handler.agg.Collect(&observation, "node2")
 	require.NoError(t, err)
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 
 	workflowKeys, exists := handler.authorizedKeys["workflowID"]
 	require.True(t, exists)
@@ -87,7 +87,7 @@ func TestSyncAuthorizedKeys(t *testing.T) {
 	require.Equal(t, "workflowID", workflowID)
 }
 
-func TestSyncAuthorizedKeysMultipleWorkflows(t *testing.T) {
+func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	ctx := testutils.Context(t)
@@ -121,7 +121,7 @@ func TestSyncAuthorizedKeysMultipleWorkflows(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 
 	expectedRef := workflowReference{
 		workflowName:  "workflowName",
@@ -139,19 +139,19 @@ func TestSyncAuthorizedKeysMultipleWorkflows(t *testing.T) {
 	}
 }
 
-func TestSendAuthPullRequest(t *testing.T) {
+func TestSendMetadataPullRequest(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 	for _, member := range donConfig.Members {
 		mockDon.EXPECT().SendToNode(ctx, member.Address, mock.Anything).Return(nil).Once()
 	}
 
-	err := handler.sendAuthPullRequest(ctx)
+	err := handler.sendMetadataPullRequest(ctx)
 	require.NoError(t, err)
 	mockDon.AssertExpectations(t)
 }
 
-func TestSendAuthPullRequestWithErrors(t *testing.T) {
+func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -166,7 +166,7 @@ func TestSendAuthPullRequestWithErrors(t *testing.T) {
 		mockDon.EXPECT().SendToNode(ctx, member.Address, mock.Anything).Return(expectedErrors[i]).Once()
 	}
 
-	err := handler.sendAuthPullRequest(ctx)
+	err := handler.sendMetadataPullRequest(ctx)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "connection failed")
 	require.Contains(t, err.Error(), "timeout")
@@ -174,7 +174,7 @@ func TestSendAuthPullRequestWithErrors(t *testing.T) {
 	mockDon.AssertExpectations(t)
 }
 
-func TestSendAuthPullRequestVerifyPayload(t *testing.T) {
+func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 	// Capture the request payload
@@ -184,7 +184,7 @@ func TestSendAuthPullRequestVerifyPayload(t *testing.T) {
 			capturedReq = args.Get(2).(*jsonrpc.Request[json.RawMessage])
 		}).Return(nil)
 
-	err := handler.sendAuthPullRequest(ctx)
+	err := handler.sendMetadataPullRequest(ctx)
 	require.NoError(t, err)
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, capturedReq.Version)
@@ -194,7 +194,7 @@ func TestSendAuthPullRequestVerifyPayload(t *testing.T) {
 	mockDon.AssertNumberOfCalls(t, "SendToNode", len(donConfig.Members))
 }
 
-func TestOnAuthMetadataPush(t *testing.T) {
+func TestOnMetadataPush(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -202,7 +202,7 @@ func TestOnAuthMetadataPush(t *testing.T) {
 	require.NoError(t, err)
 	defer handler.agg.Close()
 
-	authData := gateway_common.WorkflowMetadata{
+	metadata := gateway_common.WorkflowMetadata{
 		WorkflowSelector: gateway_common.WorkflowSelector{
 			WorkflowID:    "workflowID",
 			WorkflowName:  "workflowName",
@@ -221,7 +221,7 @@ func TestOnAuthMetadataPush(t *testing.T) {
 		},
 	}
 
-	result, err := json.Marshal(authData)
+	result, err := json.Marshal(metadata)
 	require.NoError(t, err)
 
 	rawResult := json.RawMessage(result)
@@ -229,16 +229,16 @@ func TestOnAuthMetadataPush(t *testing.T) {
 		Result: &rawResult,
 	}
 
-	err = handler.OnAuthMetadataPush(ctx, resp, "node1")
+	err = handler.OnMetadataPush(ctx, resp, "node1")
 	require.NoError(t, err)
 
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 	require.Len(t, handler.authorizedKeys, 0)
 	require.Len(t, handler.workflowIDToRef, 0)
 	require.Len(t, handler.workflowRefToID, 0)
 }
 
-func TestOnAuthMetadataPushInvalidJSON(t *testing.T) {
+func TestOnMetadataPushInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -247,12 +247,12 @@ func TestOnAuthMetadataPushInvalidJSON(t *testing.T) {
 		Result: &invalidJSON,
 	}
 
-	err := handler.OnAuthMetadataPush(ctx, resp, "node1")
+	err := handler.OnMetadataPush(ctx, resp, "node1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to unmarshal auth metadata")
+	require.Contains(t, err.Error(), "failed to unmarshal metadata")
 }
 
-func TestOnAuthMetadataPullResponse(t *testing.T) {
+func TestOnMetadataPullResponse(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -272,7 +272,7 @@ func TestOnAuthMetadataPullResponse(t *testing.T) {
 		KeyType:   gateway_common.KeyTypeECDSA,
 		PublicKey: "key3",
 	}
-	authData := []gateway_common.WorkflowMetadata{
+	metadata := []gateway_common.WorkflowMetadata{
 		{
 			WorkflowSelector: gateway_common.WorkflowSelector{
 				WorkflowID:    "workflowID1",
@@ -293,7 +293,7 @@ func TestOnAuthMetadataPullResponse(t *testing.T) {
 		},
 	}
 
-	result, err := json.Marshal(authData)
+	result, err := json.Marshal(metadata)
 	require.NoError(t, err)
 
 	rawResult := json.RawMessage(result)
@@ -301,17 +301,17 @@ func TestOnAuthMetadataPullResponse(t *testing.T) {
 		Result: &rawResult,
 	}
 
-	err = handler.OnAuthMetadataPullResponse(ctx, resp, "node1")
+	err = handler.OnMetadataPullResponse(ctx, resp, "node1")
 	require.NoError(t, err)
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 	require.Len(t, handler.authorizedKeys, 0)
 	require.Len(t, handler.workflowIDToRef, 0)
 	require.Len(t, handler.workflowRefToID, 0)
 
 	// node2 responds with the same payload so observations should be aggregated because f=1
-	err = handler.OnAuthMetadataPullResponse(ctx, resp, "node2")
+	err = handler.OnMetadataPullResponse(ctx, resp, "node2")
 	require.NoError(t, err)
-	handler.syncAuthorizedKeys()
+	handler.syncMetadata()
 	require.Len(t, handler.authorizedKeys, 2)
 	keys, exists := handler.authorizedKeys["workflowID1"]
 	require.True(t, exists)
@@ -349,7 +349,7 @@ func TestOnAuthMetadataPullResponse(t *testing.T) {
 	require.Equal(t, ref2, r2)
 }
 
-func TestOnAuthMetadataPullResponseInvalidJSON(t *testing.T) {
+func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -358,9 +358,9 @@ func TestOnAuthMetadataPullResponseInvalidJSON(t *testing.T) {
 		Result: &invalidJSON,
 	}
 
-	err := handler.OnAuthMetadataPullResponse(ctx, resp, "node1")
+	err := handler.OnMetadataPullResponse(ctx, resp, "node1")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to unmarshal auth metadata pull response")
+	require.Contains(t, err.Error(), "failed to unmarshal metadata pull response")
 }
 
 func TestStartAndClose(t *testing.T) {
