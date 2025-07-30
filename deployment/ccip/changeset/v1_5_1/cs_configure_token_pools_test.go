@@ -17,14 +17,14 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -789,15 +789,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			// commonchangeset.Configure(
-			//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
-			//	changeset_solana.TokenPoolConfigWithMCM{
-			//		ChainSelector: selector,
-			//		TokenPubKey:   tokenAddress,
-			//		PoolType:      &bnm,
-			//		Metadata:      shared.CLLMetadata,
-			//	},
-			// ),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+				changeset_solana.TokenPoolConfigWithMCM{
+					ChainSelector: selector,
+					TokenPubKey:   tokenAddress,
+					PoolType:      &bnm,
+					Metadata:      shared.CLLMetadata,
+				},
+			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.AddTokenPoolAndLookupTableConfig{

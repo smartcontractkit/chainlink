@@ -480,7 +480,6 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	}
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
 	mcmsTxs := []mcmsTypes.Transaction{}
 	for _, acceptAdminRoleTokenConfig := range cfg.AcceptAdminRoleTokenConfigs {
 		tokenPubKey := acceptAdminRoleTokenConfig.TokenPubKey
@@ -497,7 +496,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 			pendingAdmin = tokenAdminRegistryAccount.PendingAdministrator
 		}
 
-		instruction, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
+		tempIx, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,
@@ -506,6 +505,11 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
+		ixData, err := tempIx.Data()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload router accept admin role token admin registry instruction: %w", err)
+		}
+		instruction := solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
 		if pendingAdmin.Equals(timelockSignerPDA) {
 			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
 			if err != nil {
