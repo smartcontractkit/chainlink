@@ -996,6 +996,7 @@ func newCREServices(
 					}
 
 					srvcs = append(srvcs, wfSyncer)
+					globalLogger.Debugw("Created WorkflowRegistrySyncer V1")
 
 				case 2:
 					var fetcherFunc artifacts.FetcherFunc
@@ -1055,6 +1056,7 @@ func newCREServices(
 					}
 
 					srvcs = append(srvcs, wfSyncer)
+					globalLogger.Debugw("Created WorkflowRegistrySyncer V2")
 
 				default:
 					return nil, fmt.Errorf("unsupported WorkflowRegistry contract version %s", wrVersion)
