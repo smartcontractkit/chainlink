@@ -31,12 +31,16 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solTokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
@@ -529,16 +533,17 @@ func deployChainContractsSolana(
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 	}
 
-	//	poolType := solTestTokenPool.BurnAndMint_PoolType
-	//	_, err = InitGlobalConfigTokenPoolProgram(e, TokenPoolConfigWithMCM{
-	//		ChainSelector: chain.Selector,
-	//		PoolType:      &poolType,
-	//		TokenPubKey:   burnMintTokenPool,
-	//		Metadata:      metadata,
-	//	})
-	//	if err != nil {
-	//		return batches, fmt.Errorf("failed to initialize global config token pool program: %w", err)
-	//	}
+	// BnM token pool global config initialization
+	var bnmTokenPoolConfig solBurnMintTokenPool.PoolConfig
+	bnmConfigPDA, _ := solTokens.TokenPoolGlobalConfigPDA(burnMintTokenPool)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), bnmConfigPDA, &bnmTokenPoolConfig)
+	if err != nil {
+		if err2 := initializeTokenPoolGlobalConfig(e, chain, solTestTokenPool.BurnAndMint_PoolType.String(), burnMintTokenPool, ccipRouterProgram, rmnRemoteAddress); err2 != nil {
+			return batches, err2
+		}
+	} else {
+		e.Logger.Infow("CCTP token pool global config already initialized, skipping initialization", "chain", chain.String())
+	}
 
 	var lockReleaseTokenPool solana.PublicKey
 	metadata = shared.CLLMetadata
@@ -569,16 +574,17 @@ func deployChainContractsSolana(
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 	}
 
-	//	lockReleasePoolType := solTestTokenPool.LockAndRelease_PoolType
-	//	_, err = InitGlobalConfigTokenPoolProgram(e, TokenPoolConfigWithMCM{
-	//		ChainSelector: chain.Selector,
-	//		PoolType:      &lockReleasePoolType,
-	//		TokenPubKey:   lockReleaseTokenPool,
-	//		Metadata:      metadata,
-	//	})
-	//	if err != nil {
-	//		return batches, fmt.Errorf("failed to initialize global config token pool program: %w", err)
-	//	}
+	// LnR token pool global config initialization
+	var lnrTokenPoolConfig solLockReleaseTokenPool.PoolConfig
+	lnrConfigPDA, _ := solTokens.TokenPoolGlobalConfigPDA(lockReleaseTokenPool)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), lnrConfigPDA, &lnrTokenPoolConfig)
+	if err != nil {
+		if err2 := initializeTokenPoolGlobalConfig(e, chain, solTestTokenPool.LockAndRelease_PoolType.String(), lockReleaseTokenPool, ccipRouterProgram, rmnRemoteAddress); err2 != nil {
+			return batches, err2
+		}
+	} else {
+		e.Logger.Infow("CCTP token pool global config already initialized, skipping initialization", "chain", chain.String())
+	}
 
 	// MCMS
 	// this should selectively deploy and initialise anything if required
@@ -1093,6 +1099,57 @@ func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID so
 		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 	return programData, nil
+}
+
+func initializeTokenPoolGlobalConfig(
+	e cldf.Environment,
+	chain cldf_solana.Chain,
+	poolType string,
+	tokenPoolProgram solana.PublicKey,
+	routerAddress solana.PublicKey,
+	rmnAddress solana.PublicKey,
+) error {
+	e.Logger.Debugw("Initializing token pool global config", "chain", chain.String(), "tokenPoolProgram", tokenPoolProgram.String(), "poolType", poolType)
+	programData, err := getSolProgramData(e, chain, tokenPoolProgram)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	config, err := solTokens.TokenPoolGlobalConfigPDA(tokenPoolProgram)
+	if err != nil {
+		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
+	}
+	var instruction solana.Instruction
+	var ixErr error
+	switch poolType {
+	case solTestTokenPool.BurnAndMint_PoolType.String():
+		instruction, ixErr = solBurnMintTokenPool.NewInitGlobalConfigInstruction(
+			routerAddress,
+			rmnAddress,
+			config,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+			tokenPoolProgram,
+			programData.Address,
+		).ValidateAndBuild()
+	case solTestTokenPool.LockAndRelease_PoolType.String():
+		instruction, ixErr = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(
+			routerAddress,
+			rmnAddress,
+			config,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+			tokenPoolProgram,
+			programData.Address,
+		).ValidateAndBuild()
+	}
+	if ixErr != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return fmt.Errorf("failed to confirm initializeTokenPoolGlobalConfig: %w", err)
+	}
+	e.Logger.Infow("Initialized token pool's global config", "chain", chain.String(), "poolType", poolType)
+	return nil
 }
 
 type CloseBuffersConfig struct {
