@@ -141,7 +141,7 @@ func TestValidatedWebJobSpec(t *testing.T) {
 				eim.On("FindExternalInitiatorByName", mock.Anything, "baz").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
-				require.EqualError(t, err, "unable to find external initiator named bar: something exploded; unable to find external initiator named baz: something exploded")
+				require.EqualError(t, err, "unable to find external initiator named bar: something exploded\nunable to find external initiator named baz: something exploded")
 			},
 		},
 	}

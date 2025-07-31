@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -26,7 +24,9 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
@@ -35,6 +35,7 @@ import (
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
+	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -44,12 +45,12 @@ import (
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -60,11 +61,27 @@ import (
 const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
 
+var (
+	binDir string
+)
+
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd)
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+
+	rootPath, rootPathErr := os.Getwd()
+	if rootPathErr != nil {
+		fmt.Fprintf(os.Stderr, "Error getting working directory: %v\n", rootPathErr)
+		os.Exit(1)
+	}
+	binDir = filepath.Join(rootPath, "bin")
+	if _, err := os.Stat(binDir); os.IsNotExist(err) {
+		if err := os.Mkdir(binDir, 0755); err != nil {
+			panic(fmt.Errorf("failed to create bin directory: %w", err))
+		}
+	}
 }
 
 func waitToCleanUp(d time.Duration) {
@@ -87,12 +104,12 @@ const (
 )
 
 type Config struct {
-	Blockchains       []*cretypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input                        `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                          `toml:"jd" validate:"required"`
-	Infra             *libtypes.InfraInput               `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig            `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input                  `toml:"s3provider"`
+	Blockchains       []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets          []*ns.Input                   `toml:"nodesets" validate:"required"`
+	JD                *jd.Input                     `toml:"jd" validate:"required"`
+	Infra             *infra.Input                  `toml:"infra" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
+	S3ProviderInput   *s3provider.Input             `toml:"s3provider"`
 }
 
 func (c Config) Validate() error {
@@ -180,7 +197,7 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, cleanupWait time.Duration) 
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(homeChainOut *cretypes.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
 	for _, bcOut := range output.BlockchainOutput {
 		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
@@ -239,6 +256,7 @@ func startCmd() *cobra.Command {
 		Use:              "start",
 		Short:            "Start the environment",
 		Long:             `Start the local CRE environment with all supported capabilities`,
+		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			defer func() {
@@ -247,7 +265,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{})
+				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}
@@ -264,7 +282,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if os.Getenv("PRIVATE_KEY") == "" {
-				setErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+				setErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
 				if setErr != nil {
 					return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
 				}
@@ -292,7 +310,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImage), in.Infra.InfraType, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImage), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -314,7 +332,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.InfraType, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.Type, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -324,7 +342,6 @@ func startCmd() *cobra.Command {
 					cmdContext,
 					cleanupWait,
 					protoConfigs,
-					nil, // extra Docker network is not required, since chip-ingress will connect to default Framework network
 				)
 				if startBeholderErr != nil {
 					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -341,7 +358,12 @@ func startCmd() *cobra.Command {
 				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, homeChainOut.ChainID, exampleWorkflowTimeout, exampleWorkflowTrigger)
+
+				wfRegAddr := libcontracts.MustFindAddressesForChain(
+					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+					output.BlockchainOutput[0].ChainSelector,
+					keystone_changeset.WorkflowRegistry.String())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -404,7 +426,7 @@ var stopCmd = &cobra.Command{
 	Short: "Stops the environment",
 	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := removeAllContainers()
+		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
 			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 		}
@@ -412,20 +434,6 @@ var stopCmd = &cobra.Command{
 		fmt.Println("Environment stopped successfully")
 		return nil
 	},
-}
-
-func removeAllContainers() error {
-	ctfRemoveErr := framework.RemoveTestContainers()
-	if ctfRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(ctfRemoveErr, manualCtfCleanupMsg).Error())
-	}
-
-	beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-	if beholderRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
-	}
-
-	return nil
 }
 
 func StartCLIEnvironment(
@@ -437,7 +445,7 @@ func StartCLIEnvironment(
 	withExampleFlag bool,
 	extraAllowedGatewayPorts []int,
 	extraBinaries map[string]string,
-	extraJobFactoryFns []cretypes.JobSpecFactoryFn,
+	extraJobFactoryFns []cre.JobSpecFactoryFn,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -446,28 +454,28 @@ func StartCLIEnvironment(
 		return nil, fmt.Errorf("either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag", os.Getenv("CTF_CONFIGS"))
 	}
 
-	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
-	var capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet
+	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
+	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 
 	if topologyFlag == TopologySimplified {
 		if len(in.NodeSets) != 1 {
 			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
 		}
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WriteEVMCapability, cretypes.WebAPITriggerCapability, cretypes.WebAPITargetCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
-			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
+			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
-			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
+			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.ReadContractCapability)
-			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
+			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -477,11 +485,11 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
 				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cretypes.WorkflowDON, cretypes.GatewayDON},
+				DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
 				BootstrapNodeIndex: 0,
 				GatewayNodeIndex:   0,
 			},
@@ -492,15 +500,15 @@ func StartCLIEnvironment(
 		}
 
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WebAPITriggerCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
-			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
+			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
-			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
+			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -510,30 +518,30 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
+		capabiliitesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.ReadContractCapability)
-			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cre.ReadContractCapability)
+			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
-		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
 				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cretypes.WorkflowDON},
+				DONTypes:           []string{cre.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 			{
 				Input:              in.NodeSets[1],
 				Capabilities:       capabiliitesDONCapabilities,
-				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
 			},
 			{
 				Input:              in.NodeSets[2],
 				Capabilities:       []string{},
-				DONTypes:           []string{cretypes.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
 				GatewayNodeIndex:   0,
 			},
 		}
@@ -563,7 +571,7 @@ func StartCLIEnvironment(
 	}
 
 	// add support for more capabilities if needed
-	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
+	capabilityFactoryFns := []cre.DONCapabilityWithConfigFactoryFn{
 		webapicap.WebAPITriggerCapabilityFactoryFn,
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
@@ -571,7 +579,7 @@ func StartCLIEnvironment(
 		croncap.CronCapabilityFactoryFn,
 	}
 
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
 	if pathErr != nil {
 		return nil, fmt.Errorf("failed to get default container directory: %w", pathErr)
 	}
@@ -596,7 +604,7 @@ func StartCLIEnvironment(
 		readContractBinaryName = "readcontract"
 	}
 
-	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
+	jobSpecFactoryFunctions := []cre.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
 		webapi.WebAPITriggerJobSpecFactoryFn,
 		webapi.WebAPITargetJobSpecFactoryFn,
@@ -651,7 +659,7 @@ func StartCLIEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
-		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
+		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
 		},
 		S3ProviderInput: in.S3ProviderInput,
@@ -669,80 +677,6 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
-}
-
-func isCRECLIIsAvailable() bool {
-	if _, statErr := os.Stat(creCLI); statErr == nil {
-		return true
-	}
-
-	pathCmd := exec.Command("which", creCLI)
-	if err := pathCmd.Run(); err == nil {
-		return true
-	}
-
-	return false
-}
-
-func tryToDownloadCRECLI() error {
-	start := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n"))
-	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*", "--skip-existing"}
-
-	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
-	ghCmd.Stdout = os.Stdout
-	ghCmd.Stderr = os.Stderr
-	if startErr := ghCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start gh cli command")
-	}
-
-	if waitErr := ghCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for gh cli command")
-	}
-
-	archiveName := "cre_v0.2.0_darwin_arm64.tar.gz"
-	tarArgs := []string{"-xf", archiveName}
-	tarCmd := exec.Command("tar", tarArgs...)
-
-	tarCmd.Stdout = os.Stdout
-	tarCmd.Stderr = os.Stderr
-	if startErr := tarCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start tar command")
-	}
-
-	if waitErr := tarCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for tar command")
-	}
-
-	removeErr := os.Remove(archiveName)
-	if removeErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to remove %s. Please remove it manually.\n", archiveName)
-	}
-
-	fmt.Print(libformat.PurpleText("[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
-
-	return nil
-}
-
-func creCLIAbsPath() (string, error) {
-	var CRECLIAbsPath string
-
-	_, statErr := os.Stat(creCLI)
-	if statErr != nil {
-		path, lookErr := exec.LookPath(creCLI)
-		if lookErr != nil {
-			return "", errors.Wrap(lookErr, "failed to find absolute path of the CRE CLI binary in PATH")
-		}
-		CRECLIAbsPath = path
-	} else {
-		var CRECLIAbsPathErr error
-		CRECLIAbsPath, CRECLIAbsPathErr = filepath.Abs(creCLI)
-		if CRECLIAbsPathErr != nil {
-			return "", errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary in current directory")
-		}
-	}
-
-	return CRECLIAbsPath, nil
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {
@@ -820,49 +754,10 @@ func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
 	return hasBuilt
 }
 
-func getCtfDockerNetworks() ([]string, error) {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create Docker client")
-	}
-	defer dockerClient.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// List all containers with the "ctf" label
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", "framework=ctf")),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list containers")
+func oneLineErrorMessage(errOrPanic any) string {
+	if err, ok := errOrPanic.(error); ok {
+		return strings.SplitN(err.Error(), "\n", 1)[0]
 	}
 
-	// Use a map to store unique network names
-	networkMap := make(map[string]bool)
-	var networkNames []string
-
-	for _, container := range containers {
-		// Get container details to access network settings
-		containerDetails, err := dockerClient.ContainerInspect(ctx, container.ID)
-		if err != nil {
-			// Log the error but continue with other containers
-			fmt.Fprintf(os.Stderr, "failed to inspect container %s: %s\n", container.ID, err)
-			continue
-		}
-
-		// Extract network names from container's network settings
-		for networkName := range containerDetails.NetworkSettings.Networks {
-			if networkName == "bridge" {
-				continue
-			}
-			if !networkMap[networkName] {
-				networkMap[networkName] = true
-				networkNames = append(networkNames, networkName)
-			}
-		}
-	}
-
-	return networkNames, nil
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
 }

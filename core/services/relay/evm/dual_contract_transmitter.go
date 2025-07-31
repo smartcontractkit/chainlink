@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	errors2 "errors"
+	stderrors "errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -13,7 +13,6 @@ import (
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -141,7 +140,7 @@ func (oc *dualContractTransmitter) Transmit(ctx context.Context, reportCtx ocrty
 
 	err = errors.Wrap(oc.transmitter.CreateSecondaryEthTransaction(ctx, secondaryPayload, txMeta), "failed to send secondary Eth transaction")
 	oc.lggr.Debugw("Created secondary transaction", "error", err)
-	return errors2.Join(transactionErr, err)
+	return stderrors.Join(transactionErr, err)
 }
 
 // LatestConfigDigestAndEpoch retrieves the latest config digest and epoch from the OCR2 contract.
@@ -184,13 +183,13 @@ func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
 	}
 	err = oc.lockSecondary(ctx)
 	if err != nil {
-		return multierr.Append(err, oc.unlockPrimary(ctx))
+		return stderrors.Join(err, oc.unlockPrimary(ctx))
 	}
 	return nil
 }
 
 func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error {
-	return multierr.Append(oc.unlockPrimary(ctx), oc.unlockSecondary(ctx))
+	return stderrors.Join(oc.unlockPrimary(ctx), oc.unlockSecondary(ctx))
 }
 
 func (oc *dualContractTransmitter) unlockPrimary(ctx context.Context) error {

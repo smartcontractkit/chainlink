@@ -28,6 +28,7 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -47,10 +48,10 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
+	"github.com/smartcontractkit/cre-sdk-go/cre/testutils/registry"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
@@ -92,7 +93,7 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.TestLogger(t), syncerlimiter.Config{
 		Global:   2,
 		PerOwner: 1,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	module := modulemocks.NewModuleV2(t)
@@ -501,7 +502,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -564,7 +565,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		ratios, _ := values.NewMap(map[string]any{
 			metering.RatiosKey: map[string]string{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				billing.ResourceType_RESOURCE_TYPE_NETWORK.String(): "0.6",
 			},
 		})
 
@@ -581,7 +582,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -602,7 +603,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 						},
 						{
 							Peer2PeerID: "local",
-							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_NETWORK.String(),
 							SpendValue:  "1000",
 						},
 					},
@@ -739,7 +740,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		ratios, _ := values.NewMap(map[string]any{
 			metering.RatiosKey: map[string]string{
 				billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(): "0.4",
-				billing.ResourceType_RESOURCE_TYPE_GAS.String():     "0.6",
+				billing.ResourceType_RESOURCE_TYPE_NETWORK.String(): "0.6",
 			},
 		})
 
@@ -756,7 +757,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 				},
 				SpendTypes: []capabilities.CapabilitySpendType{
 					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()),
-					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_GAS.String()),
+					capabilities.CapabilitySpendType(billing.ResourceType_RESOURCE_TYPE_NETWORK.String()),
 				},
 			}, nil).Once()
 
@@ -778,7 +779,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 						},
 						{
 							Peer2PeerID: "local",
-							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_GAS.String(),
+							SpendUnit:   billing.ResourceType_RESOURCE_TYPE_NETWORK.String(),
 							SpendValue:  "1000",
 						},
 					},
@@ -1301,19 +1302,19 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		})).
 		Return(&billing.ReserveCreditsResponse{
 			Success: true,
-			Entries: []*billing.RateCardEntry{
+			RateCards: []*billing.RateCard{
 				{
 					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
 					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
 					UnitsPerCredit:  "0.0001",
 				},
 				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_GAS,
+					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
 					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
 					UnitsPerCredit:  "0.01",
 				},
 			},
-			Credits: 10000,
+			Credits: "10000",
 		}, nil).Maybe()
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {

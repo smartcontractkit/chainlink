@@ -4,6 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
 
 func TestRateLimiter(t *testing.T) {
@@ -15,16 +19,12 @@ func TestRateLimiter(t *testing.T) {
 		PerSenderRPS:   1.0,
 		PerSenderBurst: 2,
 	}
-	rl, err := NewRateLimiter(config)
+	rl, err := NewRateLimiter(config, limits.Factory{Logger: logger.Test(t)})
 	require.NoError(t, err)
-	allowUserSender, allowUserGlobal := rl.Allow("user1")
-	require.True(t, allowUserSender && allowUserGlobal)
-	allowUserSender, allowUserGlobal = rl.Allow("user2")
-	require.True(t, allowUserSender && allowUserGlobal)
-	allowUserSender, allowUserGlobal = rl.Allow("user1")
-	require.True(t, allowUserSender && allowUserGlobal)
-	allowUserSender, allowUserGlobal = rl.Allow("user1")
-	require.False(t, allowUserSender && allowUserGlobal)
-	allowUserSender, allowUserGlobal = rl.Allow("user3")
-	require.False(t, allowUserSender && allowUserGlobal)
+	ctx1 := contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user1"})
+	require.True(t, rl.Allow(ctx1))
+	require.True(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user2"})))
+	require.True(t, rl.Allow(ctx1))
+	require.False(t, rl.Allow(ctx1))
+	require.False(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user3"})))
 }

@@ -3,8 +3,8 @@ package logevent
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -16,7 +16,7 @@ var LogEventTriggerCapabilityFactory = func(chainID uint64, chainFamily string) 
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		if flags.HasFlag(donFlags, types.LogTriggerCapability) {
+		if flags.HasFlag(donFlags, cre.LogTriggerCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("log-event-trigger-%s-%d", chainFamily, chainID),

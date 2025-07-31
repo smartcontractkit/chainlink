@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	Evm1 = uint64(0)
-	Evm2 = uint64(1)
-	Sol1 = uint64(2)
+	Evm1 = iota // 0
+	Evm2        // 1
+	Sol1        // 2
 )
 
 type curseAssertion struct {
@@ -179,7 +179,14 @@ var testCases = []CurseTestCase{
 				v1_6.CurseChain(mapIDToSelector(Sol1)),
 			}
 		},
-		curseAssertions: []curseAssertion{},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+		},
 	},
 }
 
@@ -482,6 +489,104 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 			{chainID: Sol1, subject: Evm2, cursed: false},
 		},
 	}, mapIDToSelector)
+}
+
+// TestRMNCurseUncurseAptos runs separately because setting up Aptos chain is slow
+// and can't be done on every test run.
+func TestRMNCurseUncurseAptos(t *testing.T) {
+	Aptos1 := uint64(2)
+	tcs := []CurseTestCase{
+		{
+			name: "curse global Aptos and EVM1",
+			curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+				return []v1_6.CurseAction{
+					v1_6.CurseChain(mapIDToSelector(Evm1)),
+					v1_6.CurseChain(mapIDToSelector(Aptos1)),
+				}
+			},
+			curseAssertions: []curseAssertion{
+				{chainID: Evm1, globalCurse: true, cursed: true},
+				{chainID: Aptos1, globalCurse: true, cursed: true},
+				{chainID: Evm1, subject: Evm2, cursed: true},
+				{chainID: Evm1, subject: Aptos1, cursed: true},
+				{chainID: Evm2, subject: Evm1, cursed: true},
+				{chainID: Evm2, subject: Aptos1, cursed: true},
+				{chainID: Aptos1, subject: Evm1, cursed: true},
+				{chainID: Aptos1, subject: Evm2, cursed: true},
+			},
+		},
+		{
+			name: "Curse Aptos <> EVM1",
+			curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+				return []v1_6.CurseAction{
+					v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Aptos1)),
+				}
+			},
+			curseAssertions: []curseAssertion{
+				{chainID: Evm1, globalCurse: true, cursed: false},
+				{chainID: Aptos1, globalCurse: true, cursed: false},
+				{chainID: Evm1, subject: Evm2, cursed: false},
+				{chainID: Evm1, subject: Aptos1, cursed: true},
+				{chainID: Evm2, subject: Aptos1, cursed: false},
+				{chainID: Aptos1, subject: Evm1, cursed: true},
+				{chainID: Aptos1, subject: Evm2, cursed: false},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			e, _ := testhelpers.NewMemoryEnvironment(
+				t,
+				testhelpers.WithNumOfChains(2),
+				testhelpers.WithAptosChains(1),
+			)
+
+			mapIDToSelector := func(id uint64) uint64 {
+				return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+			}
+
+			config := v1_6.RMNCurseConfig{
+				CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+				Reason:                   "test curse",
+				IncludeNotConnectedLanes: true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:   1 * time.Second,
+					MCMSAction: types.TimelockActionSchedule,
+				},
+			}
+
+			verifyNoActiveCurseOnAllChains(t, &e)
+
+			state, err := stateview.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+			transferRMNContractToMCMS(t, &e, state)
+
+			_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+
+			_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			verifyNoActiveCurseOnAllChains(t, &e)
+		})
+	}
 }
 
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {

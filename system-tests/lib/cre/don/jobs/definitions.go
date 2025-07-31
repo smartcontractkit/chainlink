@@ -9,7 +9,7 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 var (
@@ -35,13 +35,13 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	providerType = "ocr3-capability"
 `,
 			uuid,
-			types.OCR3Capability,
+			cre.OCR3Capability,
 			ocr3CapabilityAddress.Hex(),
 			chainID),
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConnectorData.Dons {
@@ -111,7 +111,7 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	MaxResponseBytes = 100_000_000
 `,
 		uuid,
-		types.GatewayJobName,
+		cre.GatewayJobName,
 		gatewayDons,
 		gatewayConnectorData.Outgoing.Path,
 		gatewayConnectorData.Outgoing.Port,
@@ -187,7 +187,7 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
-func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -219,7 +219,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddr
 	evm = "%s"
 `,
 			uuid,
-			types.OCR3Capability,
+			cre.OCR3Capability,
 			ocr3CapabilityAddress,
 			ocr2KeyBundleID,
 			ocrPeeringData.OCRBootstraperPeerID,

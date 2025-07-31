@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/client"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (string, error) {
@@ -36,12 +36,12 @@ func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (stri
 	return absPath, nil
 }
 
-func DefaultContainerDirectory(infraType types.InfraType) (string, error) {
+func DefaultContainerDirectory(infraType infra.Type) (string, error) {
 	switch infraType {
-	case types.CRIB:
+	case infra.CRIB:
 		// chainlink user will always have access to this directory
 		return "/home/chainlink", nil
-	case types.Docker:
+	case infra.Docker:
 		// needs to match what CTFv2 uses by default, we should define a constant there and import it here
 		return clnode.DefaultCapabilitiesDir, nil
 	default:

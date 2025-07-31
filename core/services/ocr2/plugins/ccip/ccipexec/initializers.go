@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/Masterminds/semver/v3"
-	"go.uber.org/multierr"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
@@ -238,7 +237,7 @@ func UnregisterExecPluginLpFilters(srcProvider types.CCIPExecProvider, dstProvid
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(); err != nil {
-			multiErr = multierr.Append(multiErr, err)
+			multiErr = errors.Join(multiErr, err)
 		}
 	}
 	return multiErr

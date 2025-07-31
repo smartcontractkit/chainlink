@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/multierr"
-
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -62,7 +60,7 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 		Params:  &rawParams,
 	}
 	for _, member := range d.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

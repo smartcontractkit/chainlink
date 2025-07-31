@@ -5,14 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-var ReadContractJobSpecFactoryFn = func(chainID int, networkFamily, readContractBinaryPath string) types.JobSpecFactoryFn {
-	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+var ReadContractJobSpecFactoryFn = func(chainID int, networkFamily, readContractBinaryPath string) cre.JobSpecFactoryFn {
+	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(input.DonTopology, chainID, networkFamily, readContractBinaryPath)
 	}
 }
@@ -21,18 +21,18 @@ var ReadContractJobName = func(chainID int) string {
 	return fmt.Sprintf("read-contract-%d", chainID)
 }
 
-func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily, readContractBinaryPath string) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(donTopology *cre.DonTopology, chainID int, networkFamily, readContractBinaryPath string) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
-	donToJobSpecs := make(types.DonsToJobSpecs)
+	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(donWithMetadata.Flags, types.ReadContractCapability) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.ReadContractCapability) {
 			continue
 		}
 
-		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
+		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.WorkerNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
@@ -50,7 +50,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 			jobSpec := libjobs.WorkerStandardCapability(nodeID, ReadContractJobName(chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
 
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-				donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
+				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
 			}
 
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)

@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -324,7 +324,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
-	defer func() { err = multierr.Combine(err, rows.Close()) }()
+	defer func() { err = stderrors.Join(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -332,13 +332,13 @@ LIMIT 1
 		var err2 error
 
 		err2 = rows.Scan(&rr.Requester, &configDigest, &rr.Epoch, &rr.Round, &rawLog)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to scan row"))
+		err = stderrors.Join(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to scan row"))
 
 		rr.ConfigDigest, err2 = ocrtypes.BytesToConfigDigest(configDigest)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest"))
+		err = stderrors.Join(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest"))
 
 		err2 = json.Unmarshal(rawLog, &rr.Raw)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
+		err = stderrors.Join(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
 	}
 
 	if err = rows.Err(); err != nil {

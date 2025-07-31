@@ -9,11 +9,11 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,7 +30,7 @@ var (
 
 func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
 	awaitRegistrationMessageCh := make(chan struct{})
@@ -77,7 +77,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 
 func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	awaitRegistrationMessageCh := make(chan struct{})
 	dispatcher := remoteMocks.NewDispatcher(t)

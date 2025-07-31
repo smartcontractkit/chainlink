@@ -6,20 +6,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
@@ -38,18 +49,112 @@ const GatewayPortForNodes = "18080"
 const GatewayPortForUsers = "5002"
 const NodeRequestPath = "/node"
 
+// This key is taken from https://smartcontractkit.github.io/chainlink-testing-framework/framework/components/blockchains/evm.html#test-private-keys
+// It couldn't find a way to read keys from the blockchain node output.
+const DefaultAnvilPrivateKey = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+
 func TestVault_E2E(t *testing.T) {
-	t.Skip("Skipping vault because it is flaky")
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
 	configErr := setDefaultConfig("environment-gateway-vault-don.toml")
 	require.NoError(t, configErr, "failed to set default CTF config")
 
 	c, err := framework.Load[Config](t)
 	require.NoError(t, err)
 
+	bootstrapNodeSetConfig := c.NodeSets[0]
+	gatewayNodeSetConfig := c.NodeSets[1]
+	vaultNodeSetConfig := c.NodeSets[2]
+
+	// BLOCKCHAIN SETUP - start
 	bc, err := blockchain.NewBlockchainNetwork(c.Blockchain)
 	require.NoError(t, err)
 
-	gatewayNodeSet, err := simple_node_set.NewSharedDBNodeSet(c.NodeSets[0], bc)
+	// Create seth client for deployments
+	sethClient, err := seth.NewClientBuilder().
+		WithRpcUrl(bc.Nodes[0].ExternalWSUrl).
+		WithPrivateKeys([]string{DefaultAnvilPrivateKey}).
+		// do not check if there's a pending nonce nor check node's health
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+	require.NoError(t, err)
+
+	chainsConfigs := make([]devenv.ChainConfig, 0)
+	chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
+		ChainID:   c.Blockchain.ChainID,
+		ChainName: sethClient.Cfg.Network.Name,
+		ChainType: strings.ToUpper(bc.Family),
+		WSRPCs: []devenv.CribRPCs{{
+			External: bc.Nodes[0].ExternalWSUrl,
+			Internal: bc.Nodes[0].InternalWSUrl,
+		}},
+		HTTPRPCs: []devenv.CribRPCs{{
+			External: bc.Nodes[0].ExternalHTTPUrl,
+			Internal: bc.Nodes[0].InternalHTTPUrl,
+		}},
+		DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+	})
+	blockChains, err := devenv.NewChains(lggr, chainsConfigs)
+	require.NoError(t, err)
+
+	// Create CLDF environment
+	cldEnv := &cldf.Environment{
+		Logger:            lggr,
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		DataStore:         datastore.NewMemoryDataStore().Seal(),
+		GetContext:        func() context.Context { return t.Context() },
+		BlockChains:       cldf_chain.NewBlockChains(maps.Collect(blockChains.All())),
+	}
+
+	registrySel := cldEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+
+	ocrDeploymentOutput, err := changeset.DeployOCR3V2(*cldEnv, &changeset.DeployRequestV2{
+		ChainSel: registrySel,
+	})
+	require.NoError(t, err)
+
+	addrs, err := ocrDeploymentOutput.DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrs, 1)
+	ocr3Addr := addrs[0].Address
+
+	// BLOCKCHAIN SETUP - end
+
+	bootstrapNodeSet, err := simple_node_set.NewSharedDBNodeSet(bootstrapNodeSetConfig, bc)
+	require.NoError(t, err)
+
+	bootstrapNodeSetClients, err := clclient.New(bootstrapNodeSet.CLNodes)
+	require.NoError(t, err)
+	bootstrapNodeClient := bootstrapNodeSetClients[0]
+
+	bootstrapJobSpec := fmt.Sprintf(`
+		type = "bootstrap"
+		schemaVersion = 1
+		name = "Bootstrap"
+		forwardingAllowed = false
+		contractID = "%s"
+		relay = "evm"
+
+		[relayConfig]
+		chainID = "%s"
+		providerType = "ocr3-capability"
+	`, ocr3Addr, c.Blockchain.ChainID)
+
+	job, resp, err := bootstrapNodeClient.CreateJobRaw(bootstrapJobSpec)
+	require.NoError(t, err, "Bootstrap job creation request must not error")
+	require.Empty(t, job.Errors, "Bootstrap job creation response must not return any errors")
+	require.NotEmpty(t, job.Data.ID, "Bootstrap job creation response must return a job ID: %v.", job)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Bootstrap job creation request must return 200 OK")
+
+	keys, err := bootstrapNodeClient.MustReadP2PKeys()
+	require.NoError(t, err)
+
+	parsedBootstrapURL, err := url.Parse(bootstrapNodeSet.CLNodes[0].Node.InternalP2PUrl)
+	require.NoError(t, err)
+	bootstrapP2PLocator := fmt.Sprintf("%s@%s", keys.Data[0].Attributes.PeerID, parsedBootstrapURL.Host)
+
+	gatewayNodeSet, err := simple_node_set.NewSharedDBNodeSet(gatewayNodeSetConfig, bc)
 	require.NoError(t, err)
 
 	gatewayNodeSetClients, err := clclient.New(gatewayNodeSet.CLNodes)
@@ -65,7 +170,6 @@ func TestVault_E2E(t *testing.T) {
 	// Id, which must match the AuthGatewayId in the gateway job spec
 	// URL, which is the WS URL of the gateway node (outputted after the node is configured)
 
-	vaultNodeSetConfig := c.NodeSets[1]
 	vaultNodeSet, err := simple_node_set.NewSharedDBNodeSet(vaultNodeSetConfig, bc)
 	require.NoError(t, err)
 
@@ -87,6 +191,9 @@ func TestVault_E2E(t *testing.T) {
 		require.NoError(t, err2)
 		internalGatewayURL := fmt.Sprintf("ws://%s:%s%s", parsedURL.Hostname(), GatewayPortForNodes, NodeRequestPath)
 		node.Node.UserConfigOverrides += fmt.Sprintf(`
+		[Feature]
+		LogPoller = true
+
 		[Capabilities.GatewayConnector]
 		DonID = "%s"
 		ChainIDForNodeKey = "%s"
@@ -210,20 +317,20 @@ func TestVault_E2E(t *testing.T) {
 			name = "vault_node"
 			forwardingAllowed = false
 			maxTaskDuration = "30s"
-			contractID = "0x0000000000000000000000000000000000000000"
+			contractID = "%s"
 			ocrKeyBundleID = "%s"
 			transmitterID = "%s"
 			relay = "evm"
-			p2pv2Bootstrappers = []
-			allowNoBootstrappers = true
+			p2pv2Bootstrappers = ["%s"]
 
 			[relayConfig]
             chainID = "%s"
-		`, nodeOCRKeyID, nodeTransmitterAddresses[0], c.Blockchain.ChainID)
+
+			[pluginConfig]
+			requestExpiryDuration = "60s"
+		`, ocr3Addr, nodeOCRKeyID, nodeTransmitterAddresses[0], bootstrapP2PLocator, c.Blockchain.ChainID)
 
 		job, resp, err := client.CreateJobRaw(vaultJobSpec)
-		fmt.Println(job)
-		fmt.Println(resp)
 		require.NoError(t, err, "Vault job creation request must not error")
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Vault job creation response must return 200 OK: %v", resp)
 		require.NotEmpty(t, job.Data.ID, "Vault job creation response must return a job ID: %v.", job)

@@ -13,17 +13,17 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 func TestCodec_WrapUnwrap(t *testing.T) {
-	codec := streams.NewCodec(logger.TestLogger(t))
+	codec := streams.NewCodec(logger.Test(t))
 
 	id1, id1Str := newFeedID(t)
 	id2, id2Str := newFeedID(t)
@@ -109,7 +109,7 @@ func newFeedID(t *testing.T) ([32]byte, string) {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
+	v3Codec := reportcodec.NewReportCodec(feedID, logger.Test(t))
 	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice:     price,
 		Timestamp:          uint32(timestamp),
