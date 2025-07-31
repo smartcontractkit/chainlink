@@ -197,7 +197,7 @@ func NewEventHandler(
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
-	workflowKey workflowkey.Key,
+	workflowEncryptionKey workflowkey.Key,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -219,7 +219,7 @@ func NewEventHandler(
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
-		workflowEncryptionKey:  workflowKey,
+		workflowEncryptionKey:  workflowEncryptionKey,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
