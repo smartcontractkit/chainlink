@@ -554,7 +554,7 @@ func StartCLIEnvironment(
 		}
 
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WebAPITriggerCapability}
 
 		capabilitiesDONCapabilities := make([]string, 0)
 		for capabilityName, binaryPath := range extraBinaries {
@@ -563,26 +563,26 @@ func StartCLIEnvironment(
 				capabilitiesBinaryPaths[capabilityName] = binaryPath
 			}
 		}
-		capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cretypes.MockCapability)
+		capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.MockCapability)
 
-		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
 				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cretypes.WorkflowDON},
+				DONTypes:           []string{cre.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 			{
 				Input:              in.NodeSets[1],
 				Capabilities:       capabilitiesDONCapabilities,
-				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: -1,
 			},
 			{
 				Input:              in.NodeSets[2],
 				Capabilities:       []string{},
-				DONTypes:           []string{cretypes.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
 				GatewayNodeIndex:   0,
 			},
 		}
@@ -620,7 +620,7 @@ func StartCLIEnvironment(
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		mock.MockCapabilityFactoryFn,
+		mock.CapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)

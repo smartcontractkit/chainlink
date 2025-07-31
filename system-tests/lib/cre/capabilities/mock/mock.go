@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-var MockCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var CapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 	// Configuration details are irrelevant here; this is only included to satisfy validation requirements
