@@ -1,6 +1,9 @@
+// Package workflow provides commands for managing workflows on the Workflow Registry blockchain contract.
+// It enables registering, updating, deleting, and querying workflow metadata.
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -9,13 +12,22 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
+)
+
+const (
+	// Workflow status values
+	WorkflowStatusActive = 0
+	WorkflowStatusPaused = 1
+
+	// Maximum number of workflows to fetch in a single query
+	MaxWorkflowsToFetch = 9999999
 )
 
 var (
@@ -31,16 +43,8 @@ var (
 	donID           uint32
 )
 
-type RegisterWorkflowParameters struct {
-	WorkflowName  string   // required: user specified human readable workflow name label
-	WorkflowID    [32]byte // required: generated based on the workflow content and owner address
-	BinaryURL     string   // required: URL location for the workflow binary WASM file
-	ConfigURL     string   // optional: URL location for the workflow configuration file (default empty string)
-	SecretsURL    string   // optional: URL location for the workflow secrets encrypted file (default empty string)
-	InitialStatus uint8    // optional: 1 to pause workflow after registration, 0 to activate it (default is 0)
-	DonID         uint32   // optional: DON where the workflow will run (default is specified in the DefaultDonId constant)
-}
-
+// WorkflowCmd is the root command for workflow management operations.
+// It provides subcommands for registering, updating, deleting, and querying workflows.
 var WorkflowCmd = &cobra.Command{
 	Use:   "workflow",
 	Short: "Manage workflows on the blockchain",
@@ -52,6 +56,12 @@ var registerCmd = &cobra.Command{
 	Short: "Register a new workflow",
 	Long:  `Register a new workflow on the Workflow Registry smart contract`,
 	Run: func(cmd *cobra.Command, args []string) {
+		err := validateStatus(initialStatus)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid status: %v\n", err)
+			return
+		}
+
 		// Setup client
 		client, seth, err := setupWorkflowClient()
 		if err != nil {
@@ -63,9 +73,10 @@ var registerCmd = &cobra.Command{
 		var workflowIDBytes [32]byte
 		copy(workflowIDBytes[:], common.FromHex(workflowID))
 
-		txOpt, err := bind.NewKeyedTransactorWithChainID(seth.MustGetRootPrivateKey(), big.NewInt(int64(chain_selectors.GETH_TESTNET.EvmChainID))) // TODO: @george-dorin get chainid from cre.yaml
+		txOpt, err := setupTransaction(seth)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create transactor: %v\n", err)
+			return
 		}
 		// Register workflow
 		output, err := client.RegisterWorkflow(txOpt, workflowName, workflowIDBytes, donID, initialStatus, binaryURL, configURL, secretsURL)
@@ -85,7 +96,7 @@ var updateCmd = &cobra.Command{
 	Long:  `Update the binary, config, or secrets URL of an existing workflow`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Setup client
-		client, _, err := setupWorkflowClient()
+		client, seth, err := setupWorkflowClient()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to setup workflow client: %v\n", err)
 			return
@@ -96,7 +107,12 @@ var updateCmd = &cobra.Command{
 		copy(workflowIDBytes[:], common.FromHex(workflowID))
 
 		// Update workflow
-		output, err := client.UpdateWorkflow(&bind.TransactOpts{}, ComputeHashKey(common.HexToAddress(workflowOwner), workflowName), workflowIDBytes, binaryURL, configURL, secretsURL)
+		txOpt, err := setupTransaction(seth)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create transactor: %v\n", err)
+			return
+		}
+		output, err := client.UpdateWorkflow(txOpt, ComputeWorkflowKey(common.HexToAddress(workflowOwner), workflowName), workflowIDBytes, binaryURL, configURL, secretsURL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to update workflow: %v\n", err)
 			return
@@ -104,55 +120,6 @@ var updateCmd = &cobra.Command{
 
 		fmt.Printf("Workflow '%s' successfully updated\n", workflowName)
 		fmt.Printf("Transaction hash: %s\n", output.Hash().Hex())
-	},
-}
-
-var activateCmd = &cobra.Command{
-	Use:   "activate",
-	Short: "Activate a workflow",
-	Long:  `Activate a paused workflow on the Workflow Registry contract`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// // Setup client
-		// client, _, err := setupWorkflowClient()
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Failed to setup workflow client: %v\n", err)
-		// 	return
-		// }
-		//
-		// // Activate workflow
-		// _, err = client.ActivateWorkflow(&bind.TransactOpts{}, workflowID)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Failed to activate workflow: %v\n", err)
-		// 	return
-		// }
-		//
-		// fmt.Printf("Workflow '%s' successfully activated\n", workflowName)
-	},
-}
-
-var pauseCmd = &cobra.Command{
-	Use:   "pause",
-	Short: "Pause a workflow",
-	Long:  `Pause an active workflow on the Workflow Registry contract`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// // Setup client
-		// client, err := setupWorkflowClient()
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Failed to setup workflow client: %v\n", err)
-		// 	return
-		// }
-		//
-		// // Parse owner
-		// owner := common.HexToAddress(workflowOwner)
-		//
-		// // Pause workflow
-		// err = client.PauseWorkflow(workflowName, owner)
-		// if err != nil {
-		// 	fmt.Fprintf(os.Stderr, "Failed to pause workflow: %v\n", err)
-		// 	return
-		// }
-		//
-		// fmt.Printf("Workflow '%s' successfully paused\n", workflowName)
 	},
 }
 
@@ -168,9 +135,12 @@ var deleteCmd = &cobra.Command{
 			return
 		}
 
-		// Delete workflow
-		txOpt, err := bind.NewKeyedTransactorWithChainID(seth.MustGetRootPrivateKey(), big.NewInt(int64(chain_selectors.GETH_TESTNET.EvmChainID))) // TODO: @george-dorin get chainid from cre.yaml
-		txHash, err := client.DeleteWorkflow(txOpt, ComputeHashKey(common.HexToAddress(workflowOwner), workflowName))
+		txOpt, err := setupTransaction(seth)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create transactor: %v\n", err)
+			return
+		}
+		txHash, err := client.DeleteWorkflow(txOpt, ComputeWorkflowKey(common.HexToAddress(workflowOwner), workflowName))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to delete workflow: %v\n", err)
 			return
@@ -196,7 +166,7 @@ var getCmd = &cobra.Command{
 		owner := common.HexToAddress(workflowOwner)
 
 		// Get workflow details
-		metadata, err := client.GetWorkflowMetadataListByOwner(seth.NewCallOpts(), owner, big.NewInt(0), big.NewInt(9999999))
+		metadata, err := client.GetWorkflowMetadataListByOwner(seth.NewCallOpts(), owner, big.NewInt(0), big.NewInt(MaxWorkflowsToFetch))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to get workflow: %v\n", err)
 			return
@@ -209,7 +179,7 @@ var getCmd = &cobra.Command{
 			fmt.Printf("Owner: %s\n", m.Owner.Hex())
 			fmt.Printf("ID: 0x%x\n", m.WorkflowID)
 			fmt.Printf("DON ID: %d\n", m.DonID)
-			fmt.Printf("Status: %d\n", m.Status)
+			fmt.Printf("Status: %d (%s)\n", m.Status, formatStatus(m.Status))
 			fmt.Printf("Binary URL: %s\n", m.BinaryURL)
 			fmt.Printf("Config URL: %s\n", m.ConfigURL)
 			fmt.Printf("Secrets URL: %s\n", m.SecretsURL)
@@ -218,7 +188,16 @@ var getCmd = &cobra.Command{
 	},
 }
 
-// setupWorkflowClient creates a workflow registry client using RPC information from cre.yaml
+// setupWorkflowClient creates a workflow registry client using RPC information from cre.yaml.
+// It loads the configuration file, extracts necessary connection information,
+// and initializes an Ethereum client connected to the specified RPC endpoint.
+//
+// The function tries to use contract address and workflow owner from config if not provided via flags.
+//
+// Returns:
+//   - Initialized WorkflowRegistry client
+//   - Seth client for blockchain interactions
+//   - Error if any step fails
 func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.Client, error) {
 	// Load and parse the cre.yaml file
 	configData, err := os.ReadFile(configPath)
@@ -253,12 +232,11 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 
 	// Use the first RPC URL by default
 	rpcURL := config.Test.Rpcs[0].URL
-	privateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // Default key
 
 	// Create Ethereum client
 	ethClient, err := seth.NewClientBuilder().
 		WithRpcUrl(rpcURL).
-		WithPrivateKeys([]string{privateKey}).
+		WithPrivateKeys([]string{blockchain.DefaultAnvilPrivateKey}).
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
 	if err != nil {
@@ -281,8 +259,11 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 	return workflowClient, ethClient, nil
 }
 
+// init initializes the workflow command and its subcommands.
+// It registers all command flags and their requirements, and adds
+// the subcommands to the main workflow command.
 func init() {
-	// Add config path flag first so it's loaded before other flags are processed
+	// Add config flag first so it's loaded before other flags are processed
 	WorkflowCmd.PersistentFlags().StringVar(&configPath, "config", "cre.yaml", "Path to cre.yaml config file")
 
 	// Add common flags - now optional since they can come from config
@@ -290,15 +271,16 @@ func init() {
 
 	// Register command flags
 	registerCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
-	registerCmd.Flags().StringVar(&workflowID, "id", "", "Workflow ID in hex (required)")
 	registerCmd.Flags().StringVar(&binaryURL, "binary-url", "", "URL to workflow binary WASM file (required)")
 	registerCmd.Flags().StringVar(&configURL, "config-url", "", "URL to workflow configuration file")
 	registerCmd.Flags().StringVar(&secretsURL, "secrets-url", "", "URL to encrypted workflow secrets file")
 	registerCmd.Flags().Uint8Var(&initialStatus, "status", 0, "Initial status (0=active, 1=paused)")
 	registerCmd.Flags().Uint32Var(&donID, "don-id", 1, "DON ID where the workflow will run")
+	// Required
 	registerCmd.MarkFlagRequired("name")
-	registerCmd.MarkFlagRequired("id")
 	registerCmd.MarkFlagRequired("binary-url")
+	registerCmd.MarkFlagRequired("config-url")
+	registerCmd.MarkFlagRequired("secrets-url")
 
 	// Update command flags
 	updateCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
@@ -307,6 +289,7 @@ func init() {
 	updateCmd.Flags().StringVar(&configURL, "new-config-url", "", "URL to workflow configuration file")
 	updateCmd.Flags().StringVar(&secretsURL, "new-secrets-url", "", "URL to encrypted workflow secrets file")
 	updateCmd.Flags().StringVar(&workflowID, "new-id", "", "Workflow ID in hex (required)")
+	// Required
 	updateCmd.MarkFlagRequired("name")
 	updateCmd.MarkFlagRequired("new-id")
 	updateCmd.MarkFlagRequired("new-binary-url")
@@ -315,16 +298,29 @@ func init() {
 
 	deleteCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
 	deleteCmd.Flags().StringVar(&workflowOwner, "owner", "", "Workflow owner address (optional if in config)")
+	// Required
 	deleteCmd.MarkFlagRequired("name")
 
+	// Get command flags
 	getCmd.Flags().StringVar(&workflowOwner, "owner", "", "Workflow owner address (optional if in config)")
 
-	// Add subcommands to main workflow command
-	WorkflowCmd.AddCommand(registerCmd, updateCmd, activateCmd, pauseCmd, deleteCmd, getCmd)
+	// Add subcommands to workflow command
+	WorkflowCmd.AddCommand(registerCmd, updateCmd, deleteCmd, getCmd)
 }
 
-// ComputeWorkflowKey creates a workflowKey fron owner and workflow name
-func ComputeHashKey(owner common.Address, name string) [32]byte {
+// ComputeWorkflowKey computes a unique bytes32 key from owner address and workflow name.
+// The key is created by hashing the packed concatenation of the owner address and name.
+// This key uniquely identifies a workflow in the registry contract.
+//
+// Parameters:
+//
+//	owner - The Ethereum address of the workflow owner
+//	name - The workflow name as a string
+//
+// Returns:
+//
+//	A bytes32 representation of the workflow key
+func ComputeWorkflowKey(owner common.Address, name string) [32]byte {
 	// Pack the values together (equivalent to abi.encodePacked)
 	packed := append(owner.Bytes(), []byte(name)...)
 
@@ -336,4 +332,57 @@ func ComputeHashKey(owner common.Address, name string) [32]byte {
 	copy(result[:], hash)
 
 	return result
+}
+
+// setupTransaction creates a keyed transactor with the current chain ID.
+// This is used to sign and send transactions to the blockchain.
+//
+// Parameters:
+//
+//	seth - The Seth client used to get chain ID and private key
+//
+// Returns:
+//   - Configured transaction options for blockchain transactions
+//   - Error if fetching chain ID fails
+func setupTransaction(seth *seth.Client) (*bind.TransactOpts, error) {
+	chainID, err := seth.Client.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain ID: %v", err)
+	}
+
+	return bind.NewKeyedTransactorWithChainID(seth.MustGetRootPrivateKey(), chainID)
+}
+
+// formatStatus converts numeric status to a human-readable string.
+// It handles the standard workflow statuses and provides a fallback for unknown values.
+//
+// Parameters:
+//
+//	status - Numeric workflow status (0=active, 1=paused)
+//
+// Returns:
+//
+//	A descriptive string representation of the status
+func formatStatus(status uint8) string {
+	switch status {
+	case WorkflowStatusActive:
+		return "Active (0)"
+	case WorkflowStatusPaused:
+		return "Paused (1)"
+	default:
+		return fmt.Sprintf("Unknown (%d)", status)
+	}
+}
+
+// validateStatus checks if the provided status is valid.
+// Valid statuses are WorkflowStatusActive (0) and WorkflowStatusPaused (1).
+//
+// Returns:
+//
+//	nil if status is valid, error with description otherwise
+func validateStatus(status uint8) error {
+	if status != WorkflowStatusActive && status != WorkflowStatusPaused {
+		return fmt.Errorf("invalid status: %d (must be 0=active or 1=paused)", status)
+	}
+	return nil
 }
