@@ -500,6 +500,9 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	instructions := []solana.Instruction{initGlobalConfigIx}
 
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, contractType, &txns)
 		if err != nil {
@@ -588,6 +591,9 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 	var txns []mcmsTypes.Transaction
 
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, contractType, &txns)
 		if err != nil {
