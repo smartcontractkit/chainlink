@@ -10,6 +10,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
@@ -30,6 +31,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	ccipocr3types "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -123,15 +125,13 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}
 		}
 
-		// Transfer TokenAdminRegistry, NonceManager, FeeQuoter, Router, & RMN Proxy to MCMS timelock on all chains
+		// Transfer TokenAdminRegistry, Router, & RMN Proxy to MCMS timelock on all chains
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(cldf_deploy.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), commonchangeset.TransferToMCMSWithTimelockConfig{
 				MCMSConfig: mcmsCfg,
 				ContractsByChain: map[uint64][]common.Address{
 					sel: {
 						state.Chains[sel].TokenAdminRegistry.Address(),
-						state.Chains[sel].NonceManager.Address(),
-						state.Chains[sel].FeeQuoter.Address(),
 						state.Chains[sel].RMNProxy.Address(),
 						state.Chains[sel].Router.Address(),
 					},
@@ -139,7 +139,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 			}),
 		})
 		if err != nil {
-			t.Fatalf("Failed to transfer NonceManager and FeeQuoter to MCMS timelock: %v", err)
+			t.Fatalf("Failed to transfer ownership of contracts to MCMS timelock: %v", err)
 		}
 
 		// Set LINK token on TokenAdminRegistry
@@ -370,10 +370,26 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 		sourceChains[chain.Selector] = v1_6.SourceChainConfig{
 			NewFeeQuoterParamsPerDest: fqParams,
 		}
+		nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+		require.NoError(t, err, "Failed to get node info for chain %d", chain.Selector)
+		readers := nodeInfo.NonBootstraps().PeerIDs()
 		donCfgs[chain.Selector] = v1_6.DONConfig{
 			FeedChainSelector: feedChainSelector,
 			CommitOCRParams:   v1_6.DefaultOCRParamsForCommitForETH,
 			ExecOCRParams:     v1_6.DefaultOCRParamsForExecForETH,
+			ChainConfig: v1_6.ChainConfig{
+				Readers: readers,
+				// #nosec G115 - Overflow is not a concern in this test scenario
+				FChain: uint8(len(readers) / 3),
+				EncodableChainConfig: chainconfig.ChainConfig{
+					//nolint:staticcheck // SA1019: Type required by ChainConfig
+					GasPriceDeviationPPB: ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					//nolint:staticcheck // SA1019: Type required by ChainConfig
+					DAGasPriceDeviationPPB:    ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					OptimisticConfirmations:   globals.OptimisticConfirmations,
+					ChainFeeDeviationDisabled: true,
+				},
+			},
 		}
 	}
 
@@ -394,27 +410,43 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 		require.NoError(t, err, "Failed to apply InitChainUpgradesChangeset")
 
 		// Commit and exec candidates for all chains (source and dest) should be added when the first dest chain is migrated
+		// Chain configs are added for all chains
+		// FeeQuoter and NonceManager should be owned by the MCMS timelock on all chains
 		commitCandidates := make(map[uint64][32]byte)
 		execCandidates := make(map[uint64][32]byte)
 		if i == 0 {
 			for _, chain := range e.BlockChains.EVMChains() {
-				if i == 0 {
-					donID, err := internal.DonIDForChain(
-						state.Chains[homeChainSelector].CapabilityRegistry,
-						state.Chains[homeChainSelector].CCIPHome,
-						chain.Selector,
-					)
-					require.NoError(t, err, "Failed to get DON ID for chain %d", chain.Selector)
-					commitCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPCommit))
-					require.NoError(t, err, "Failed to get commit candidate for chain %d", chain.Selector)
-					require.NotEqual(t, [32]byte{}, commitCandidate, "Commit candidate should not be empty for chain %d", chain.Selector)
-					execCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPExec))
-					require.NoError(t, err, "Failed to get exec candidate for chain %d", chain.Selector)
-					require.NotEqual(t, [32]byte{}, execCandidate, "Exec candidate should not be empty for chain %d", chain.Selector)
+				// FeeQuoter is owned by the MCMS timelock on all chains
+				fqOwner, err := state.Chains[chain.Selector].FeeQuoter.Owner(callOpts)
+				require.NoError(t, err, "Failed to get FeeQuoter owner for chain %d", chain.Selector)
+				require.Equal(t, state.Chains[chain.Selector].Timelock.Address(), fqOwner, "FeeQuoter owner should be MCMS timelock for chain %d", chain.Selector)
 
-					commitCandidates[chain.Selector] = commitCandidate
-					execCandidates[chain.Selector] = execCandidate
-				}
+				// NonceManager is owned by the MCMS timelock on all chains
+				nmOwner, err := state.Chains[chain.Selector].NonceManager.Owner(callOpts)
+				require.NoError(t, err, "Failed to get NonceManager owner for chain %d", chain.Selector)
+				require.Equal(t, state.Chains[chain.Selector].Timelock.Address(), nmOwner, "NonceManager owner should be MCMS timelock for chain %d", chain.Selector)
+
+				// ChainConfig is set for the chain on CCIPHome
+				chainConfig, err := state.Chains[homeChainSelector].CCIPHome.GetChainConfig(callOpts, chain.Selector)
+				require.NoError(t, err, "Failed to get chain config for chain %d", chain.Selector)
+				require.Equal(t, chainConfig.Readers, donCfgs[chain.Selector].ChainConfig.Readers, "ChainConfig readers should match for chain %d", chain.Selector)
+				require.Equal(t, chainConfig.FChain, donCfgs[chain.Selector].ChainConfig.FChain, "ChainConfig FChain should match for chain %d", chain.Selector)
+
+				donID, err := internal.DonIDForChain(
+					state.Chains[homeChainSelector].CapabilityRegistry,
+					state.Chains[homeChainSelector].CCIPHome,
+					chain.Selector,
+				)
+				require.NoError(t, err, "Failed to get DON ID for chain %d", chain.Selector)
+				commitCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPCommit))
+				require.NoError(t, err, "Failed to get commit candidate for chain %d", chain.Selector)
+				require.NotEqual(t, [32]byte{}, commitCandidate, "Commit candidate should not be empty for chain %d", chain.Selector)
+				execCandidate, err := state.Chains[homeChainSelector].CCIPHome.GetCandidateDigest(callOpts, donID, uint8(cciptypes.PluginTypeCCIPExec))
+				require.NoError(t, err, "Failed to get exec candidate for chain %d", chain.Selector)
+				require.NotEqual(t, [32]byte{}, execCandidate, "Exec candidate should not be empty for chain %d", chain.Selector)
+
+				commitCandidates[chain.Selector] = commitCandidate
+				execCandidates[chain.Selector] = execCandidate
 			}
 		}
 
@@ -432,6 +464,11 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 			if sourceChain.Selector == destChainSel {
 				continue
 			}
+
+			// FeeAggregator on OnRamp is set to Timelock on source OnRamp
+			onRampDynamicConfig, err := state.Chains[sourceChain.Selector].OnRamp.GetDynamicConfig(callOpts)
+			require.NoError(t, err, "Failed to get OnRamp dynamic config for chain %d", sourceChain.Selector)
+			require.Equal(t, state.Chains[sourceChain.Selector].Timelock.Address(), onRampDynamicConfig.FeeAggregator, "OnRamp FeeAggregator should be MCMS timelock for chain %d", sourceChain.Selector)
 
 			// PremiumMultiplierWeiPerEth is set for WETH and LINK
 			linkPremium, err := state.Chains[sourceChain.Selector].FeeQuoter.GetPremiumMultiplierWeiPerEth(callOpts, state.Chains[sourceChain.Selector].LinkToken.Address())

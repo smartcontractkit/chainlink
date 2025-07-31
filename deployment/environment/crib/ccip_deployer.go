@@ -1008,7 +1008,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 				params.CommitOffChainConfig.MaxPricesPerReport = 3
 				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
-
+				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
 				return params
 			})
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"net/http"
 	"net/url"
 	"path"
@@ -12,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -107,7 +107,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		cacheTTL          Uint64Param
 		reqHeaders        StringSliceParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),

@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -13,10 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -29,9 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -140,42 +142,51 @@ type Engine struct {
 	maxWorkerLimit int
 
 	clock          clockwork.Clock
-	ratelimiter    *ratelimiter.RateLimiter
-	workflowLimits *syncerlimiter.Limits
+	ratelimiter    limits.RateLimiter
+	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
 }
 
 func (e *Engine) Start(ctx context.Context) error {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
 	return e.StartOnce("Engine", func() error {
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
-		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
-		if !globalAllow {
-			e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrGlobalWorkflowCountLimitReached.Error(), e.logger)
-			return types.ErrGlobalWorkflowCountLimitReached
-		}
+		if err := e.workflowLimits.Use(ctx, 1); err != nil {
+			var errLimited limits.ErrorResourceLimited[int]
+			if errors.As(err, &errLimited) {
+				switch errLimited.Scope {
+				case settings.ScopeOwner:
+					e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
+				case settings.ScopeGlobal:
+					e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
+				default:
+					e.logger.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
+				}
+			}
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), fmt.Sprintf("failed to start workflow: %s", err), e.logger)
 
-		if !ownerAllow {
-			e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
-			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), types.ErrPerOwnerWorkflowCountLimitReached.Error(), e.logger)
-			return types.ErrPerOwnerWorkflowCountLimitReached
+			return err
 		}
 
 		e.metrics.IncrementWorkflowInitializationCounter(ctx)
 
-		e.wg.Add(e.maxWorkerLimit)
-		for i := 0; i < e.maxWorkerLimit; i++ {
-			go e.worker()
-		}
-
-		e.wg.Add(1)
-		go e.init()
-
-		e.wg.Add(1)
-		go e.heartbeat()
+		e.launch(context.WithoutCancel(ctx))
 
 		return nil
 	})
+}
+
+func (e *Engine) launch(ctx context.Context) {
+	e.wg.Add(e.maxWorkerLimit)
+	for i := 0; i < e.maxWorkerLimit; i++ {
+		go e.worker(ctx)
+	}
+
+	e.wg.Add(1)
+	go e.init(ctx)
+
+	e.wg.Add(1)
+	go e.heartbeat(ctx)
 }
 
 // resolveWorkflowCapabilities does the following:
@@ -337,9 +348,9 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 //  4. Registers for trigger events now that all capabilities are resolved
 //
 // Steps 1-3 are retried every 5 seconds until successful.
-func (e *Engine) init() {
+func (e *Engine) init(ctx context.Context) {
 	defer e.wg.Done()
-	ctx, cancel := e.stopCh.NewCtx()
+	ctx, cancel := e.stopCh.Ctx(ctx)
 	defer cancel()
 
 	retryErr := internal.RunWithRetries(ctx, e.logger, time.Millisecond*time.Duration(e.retryMs), e.maxRetries, func() error {
@@ -697,9 +708,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 // worker is responsible for:
 //   - handling a `pendingStepRequests`
 //   - starting a new execution when a trigger emits a message on `triggerEvents`
-func (e *Engine) worker() {
+func (e *Engine) worker(ctx context.Context) {
 	defer e.wg.Done()
-	ctx, cancel := e.stopCh.NewCtx()
+	ctx, cancel := e.stopCh.Ctx(ctx)
 	defer cancel()
 
 	for {
@@ -730,20 +741,23 @@ func (e *Engine) worker() {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
-
-			senderAllowed, globalAllowed := e.ratelimiter.Allow(e.workflow.owner)
-			if !senderAllowed {
-				e.onRateLimit(executionID)
-				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: per sender rate limit exceeded")
-				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: per sender rate limit exceeded", e.logger)
-				e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitPerUserCounter(ctx)
-				continue
-			}
-			if !globalAllowed {
-				e.onRateLimit(executionID)
-				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global rate limit exceeded")
-				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global rate limit exceeded", e.logger)
-				e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitGlobalCounter(ctx)
+			if err = e.ratelimiter.AllowErr(ctx); err != nil {
+				lggr := e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID, "err", err)
+				var errLimited limits.ErrorRateLimited
+				if errors.As(err, &errLimited) {
+					e.onRateLimit(executionID)
+					switch errLimited.Scope {
+					case settings.ScopeOwner:
+						lggr.Errorf("failed to start execution: per sender rate limit exceeded")
+						e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+					case settings.ScopeGlobal:
+						lggr.Errorf("failed to start execution: global rate limit exceeded")
+						e.metrics.With(platform.KeyTriggerID, te.ID).IncrementWorkflowExecutionRateLimitGlobalCounter(ctx)
+					default:
+						lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
+					}
+				}
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), fmt.Sprintf("failed to start execution: %s", err), e.logger)
 				continue
 			}
 
@@ -1180,9 +1194,9 @@ func (e *Engine) isWorkflowFullyProcessed(_ context.Context, state store.Workflo
 }
 
 // heartbeat runs by default every defaultHeartbeatCadence minutes
-func (e *Engine) heartbeat() {
+func (e *Engine) heartbeat(ctx context.Context) {
 	defer e.wg.Done()
-	ctx, cancel := e.stopCh.NewCtx()
+	ctx, cancel := e.stopCh.Ctx(ctx)
 	defer cancel()
 
 	ticker := time.NewTicker(e.heartbeatCadence)
@@ -1209,7 +1223,7 @@ func (e *Engine) heartbeat() {
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
-		ctx := context.Background()
+		ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
 		// To shut down the engine, we'll start by deregistering
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
@@ -1269,15 +1283,15 @@ func (e *Engine) Close() error {
 		if err != nil {
 			return err
 		}
-		// decrement the global and per owner engine counter
-		e.workflowLimits.Decrement(e.workflow.owner)
 
 		// reset metering mode metric so that a positive value does not persist
 		e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
 
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
-		return nil
+
+		// decrement the global and per owner engine counter
+		return e.workflowLimits.Free(ctx, 1)
 	})
 }
 
@@ -1315,11 +1329,11 @@ type Config struct {
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
-	RateLimiter *ratelimiter.RateLimiter
+	RateLimiter limits.RateLimiter
 
 	// WorkflowLimits specifies an upper limit on the count of workflows that can be
 	// running globally and per workflow owner.
-	WorkflowLimits *syncerlimiter.Limits
+	WorkflowLimits limits.ResourceLimiter[int]
 
 	// For testing purposes only
 	maxRetries          int

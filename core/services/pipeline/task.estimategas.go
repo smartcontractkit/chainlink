@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -66,7 +66,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		chainID    StringParam
 		block      StringParam
 	)
-	err := multierr.Combine(
+	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),

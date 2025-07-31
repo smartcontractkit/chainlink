@@ -2,11 +2,11 @@ package ocrcommon
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking/types"
 
@@ -72,7 +72,7 @@ func (d *DiscovererDatabase) ReadAnnouncements(ctx context.Context, peerIDs []st
 	if err != nil {
 		return nil, errors.Wrap(err, "DiscovererDatabase failed to ReadAnnouncements")
 	}
-	defer func() { err = multierr.Combine(err, rows.Close()) }()
+	defer func() { err = stderrors.Join(err, rows.Close()) }()
 	results = make(map[string][]byte)
 	for rows.Next() {
 		var peerID string

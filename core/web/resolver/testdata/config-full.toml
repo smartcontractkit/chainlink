@@ -361,6 +361,13 @@ URL = 'https://workflow.fetcher.url'
 URL = 'localhost:4319'
 TLSEnabled = true
 
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

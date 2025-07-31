@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -133,9 +132,9 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
-			require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
+			require.ErrorIs(t, result.Error, test.wantErrorCause)
 			if test.wantErrorContains != "" {
-				require.Contains(t, result.Error.Error(), test.wantErrorContains)
+				require.ErrorContains(t, result.Error, test.wantErrorContains)
 			}
 		})
 	}

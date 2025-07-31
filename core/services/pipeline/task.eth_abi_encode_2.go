@@ -3,11 +3,11 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -37,7 +37,7 @@ func (t *ETHABIEncodeTask2) Run(_ context.Context, _ logger.Logger, vars Vars, i
 		inputValues MapParam
 		theABI      BytesParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&inputValues, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false), nil)), "data"),
 		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)

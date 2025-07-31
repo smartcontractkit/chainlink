@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
+func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*cre.FullCLDEnvironmentOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -63,7 +63,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 
 	for idx, nodeOutput := range input.NodeSetOutput {
 		// check how many bootstrap nodes we have in each DON
-		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.BootstrapNode}, libnode.EqualLabels)
+		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.BootstrapNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
@@ -128,13 +128,13 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 	for i, don := range dons {
 		for j, node := range input.Topology.DonsMetadata[i].NodesMetadata {
 			// required for job proposals, because they need to include the ID of the node in Job Distributor
-			node.Labels = append(node.Labels, &types.Label{
+			node.Labels = append(node.Labels, &cre.Label{
 				Key:   libnode.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
 			// required for OCR2/3 job specs
-			node.Labels = append(node.Labels, &types.Label{
+			node.Labels = append(node.Labels, &cre.Label{
 				Key:   libnode.NodeOCR2KeyBundleIDKey,
 				Value: don.Nodes[j].Ocr2KeyBundleID,
 			})
@@ -194,7 +194,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 	}
 
 	// we take stateless fields from the first environment, because they are not environment specific
-	output := &types.FullCLDEnvironmentOutput{
+	output := &cre.FullCLDEnvironmentOutput{
 		Environment: &cldf.Environment{
 			Name:              envs[0].Name,
 			Logger:            envs[0].Logger,
@@ -209,12 +209,12 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *type
 		},
 	}
 
-	donTopology := &types.DonTopology{}
+	donTopology := &cre.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
 	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
-		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &types.DonWithMetadata{
+		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{
 			DON:         dons[i],
 			DonMetadata: donMetadata,
 		})

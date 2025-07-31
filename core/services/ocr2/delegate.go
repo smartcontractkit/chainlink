@@ -642,7 +642,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		lggr,
 		store,
 		clockwork.NewRealClock(),
-		cfg.RequestExpiryDuration,
+		cfg.RequestExpiryDuration.Duration(),
 	)
 	srvs = append(srvs, service)
 

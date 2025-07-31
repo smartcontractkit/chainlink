@@ -29,6 +29,7 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
@@ -48,10 +49,10 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
+	"github.com/smartcontractkit/cre-sdk-go/cre/testutils/registry"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	basicactionmock "github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction/mock"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/testutils/registry"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
@@ -93,7 +94,7 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.TestLogger(t), syncerlimiter.Config{
 		Global:   2,
 		PerOwner: 1,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	module := modulemocks.NewModuleV2(t)
