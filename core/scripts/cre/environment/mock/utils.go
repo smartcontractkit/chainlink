@@ -15,6 +15,8 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 )
 
+var containerAddresses []string
+
 var MockCommand = &cobra.Command{
 	Use:   "mock",
 	Short: "Mock CRE capability tools",
@@ -22,6 +24,9 @@ var MockCommand = &cobra.Command{
 
 // newMockCapabilityController creates a new MockCapabilityController with a standard logger
 func newMockCapabilityController() (*mockcapability.Controller, error) {
+	if len(containerAddresses) == 0 {
+		return nil, fmt.Errorf("no container addresses specified")
+	}
 	lggr := zerolog.New(os.Stdout)
 	c := mockcapability.NewMockCapabilityController(lggr)
 	err := c.ConnectAll([]string{"172.28.0.13:7777", "172.28.0.14:7777", "172.28.0.15:7777"}, true, false)
@@ -221,6 +226,9 @@ func runSendTrigger(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
+	MockCommand.PersistentFlags().StringSliceVar(&containerAddresses, "addresses", nil,
+		"Container addresses (format: addr1:port,addr2:port,addr3:port)")
+
 	// Create command
 	createCmd := &cobra.Command{
 		Use:   "create",
