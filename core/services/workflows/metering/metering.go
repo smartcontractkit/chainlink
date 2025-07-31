@@ -156,7 +156,10 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 
 	if client != nil {
 		report.client = client
-		resp, err := report.client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+
+		var resp *billing.GetWorkflowExecutionRatesResponse
+
+		resp, err = report.client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
 			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
 			WorkflowRegistryAddress: report.workflowRegistryAddress,
 			ChainSelector:           report.workflowRegistryChainSelector,
