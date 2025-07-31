@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
@@ -52,39 +52,39 @@ func TestComputeWorkflowKey(t *testing.T) {
 	key := ComputeWorkflowKey(owner, name)
 
 	// Check that we get a non-zero key
-	assert.NotEqual(t, [32]byte{}, key, "Key should not be empty")
+	require.NotEqual(t, [32]byte{}, key, "Key should not be empty")
 
 	// Same inputs should produce same key (deterministic)
 	key2 := ComputeWorkflowKey(owner, name)
-	assert.Equal(t, key, key2, "Same inputs should produce the same key")
+	require.Equal(t, key, key2, "Same inputs should produce the same key")
 
 	// Different inputs should produce different keys
 	differentOwner := common.HexToAddress("0x0987654321098765432109876543210987654321")
 	key3 := ComputeWorkflowKey(differentOwner, name)
-	assert.NotEqual(t, key, key3, "Different owners should produce different keys")
+	require.NotEqual(t, key, key3, "Different owners should produce different keys")
 
 	differentName := "different-workflow"
 	key4 := ComputeWorkflowKey(owner, differentName)
-	assert.NotEqual(t, key, key4, "Different names should produce different keys")
+	require.NotEqual(t, key, key4, "Different names should produce different keys")
 }
 
 // TestValidateStatus tests the status validation function
 func TestValidateStatus(t *testing.T) {
 	// Test valid statuses
-	assert.NoError(t, validateStatus(WorkflowStatusActive), "Active status should be valid")
-	assert.NoError(t, validateStatus(WorkflowStatusPaused), "Paused status should be valid")
+	require.NoError(t, validateStatus(WorkflowStatusActive), "Active status should be valid")
+	require.NoError(t, validateStatus(WorkflowStatusPaused), "Paused status should be valid")
 
 	// Test invalid status
 	err := validateStatus(99)
-	assert.Error(t, err, "Invalid status should return an error")
-	assert.Contains(t, err.Error(), "invalid status", "Error should mention invalid status")
+	require.Error(t, err, "Invalid status should return an error")
+	require.Contains(t, err.Error(), "invalid status", "Error should mention invalid status")
 }
 
 // TestFormatStatus tests the status formatting function
 func TestFormatStatus(t *testing.T) {
-	assert.Equal(t, "Active (0)", formatStatus(WorkflowStatusActive))
-	assert.Equal(t, "Paused (1)", formatStatus(WorkflowStatusPaused))
-	assert.Equal(t, "Unknown (99)", formatStatus(99))
+	require.Equal(t, "Active (0)", formatStatus(WorkflowStatusActive))
+	require.Equal(t, "Paused (1)", formatStatus(WorkflowStatusPaused))
+	require.Equal(t, "Unknown (99)", formatStatus(99))
 }
 
 // TestMarkFlagsRequired tests the flag requirement marking utility
@@ -94,12 +94,12 @@ func TestMarkFlagsRequired(t *testing.T) {
 
 	// Test with existing flag
 	err := MarkFlagsRequired(cmd, "existing")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test with non-existing flag
 	err = MarkFlagsRequired(cmd, "nonexistent")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to mark flag")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to mark flag")
 }
 
 // TestGetWorkflowCmd tests the functionality of the get command
@@ -150,23 +150,24 @@ func TestGetWorkflowCmd(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	require.NoError(t, err, "Failed to read captured output")
 	output := buf.String()
 
 	// Verify output contains expected information
-	assert.Contains(t, output, "### Workflow ###")
-	assert.Contains(t, output, "Name: test-workflow-1")
-	assert.Contains(t, output, "Name: test-workflow-2")
-	assert.Contains(t, output, "Owner: 0x1234567890123456789012345678901234567890")
-	assert.Contains(t, output, "ID: 0x010203")
-	assert.Contains(t, output, "ID: 0x040506")
-	assert.Contains(t, output, "DON ID: 42")
-	assert.Contains(t, output, "DON ID: 43")
-	assert.Contains(t, output, "Status: 0 (Active (0))")
-	assert.Contains(t, output, "Status: 1 (Paused (1))")
-	assert.Contains(t, output, "Binary URL: https://example.com/binary1")
-	assert.Contains(t, output, "Config URL: https://example.com/config2")
-	assert.Contains(t, output, "Secrets URL: https://example.com/secrets2")
+	require.Contains(t, output, "### Workflow ###")
+	require.Contains(t, output, "Name: test-workflow-1")
+	require.Contains(t, output, "Name: test-workflow-2")
+	require.Contains(t, output, "Owner: 0x1234567890123456789012345678901234567890")
+	require.Contains(t, output, "ID: 0x010203")
+	require.Contains(t, output, "ID: 0x040506")
+	require.Contains(t, output, "DON ID: 42")
+	require.Contains(t, output, "DON ID: 43")
+	require.Contains(t, output, "Status: 0 (Active (0))")
+	require.Contains(t, output, "Status: 1 (Paused (1))")
+	require.Contains(t, output, "Binary URL: https://example.com/binary1")
+	require.Contains(t, output, "Config URL: https://example.com/config2")
+	require.Contains(t, output, "Secrets URL: https://example.com/secrets2")
 
 	// Verify the mock was called with expected parameters
 	mockRegistry.AssertExpectations(t)
@@ -248,14 +249,15 @@ func TestUpdateWorkflowCmd(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	require.NoError(t, err, "Failed to read captured output")
 	output := buf.String()
 	os.Stdout = originalStdout
 
 	// Verify output
-	assert.Contains(t, output, "successfully updated")
-	assert.Contains(t, output, testName)
-	assert.Contains(t, output, mockTx.Hash().Hex())
+	require.Contains(t, output, "successfully updated")
+	require.Contains(t, output, testName)
+	require.Contains(t, output, mockTx.Hash().Hex())
 
 	// Verify mock expectations
 	mockRegistry.AssertExpectations(t)
@@ -297,14 +299,15 @@ func TestDeleteWorkflowCmd(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	require.NoError(t, err, "Failed to read captured output")
 	output := buf.String()
 	os.Stdout = originalStdout
 
 	// Verify output
-	assert.Contains(t, output, "successfully deleted")
-	assert.Contains(t, output, testName)
-	assert.Contains(t, output, mockTx.Hash().Hex())
+	require.Contains(t, output, "successfully deleted")
+	require.Contains(t, output, testName)
+	require.Contains(t, output, mockTx.Hash().Hex())
 
 	// Verify mock expectations
 	mockRegistry.AssertExpectations(t)
