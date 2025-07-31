@@ -68,6 +68,7 @@ func deployWorkflowCmd() *cobra.Command {
 	var (
 		workflowFilePathFlag        string
 		configFilePathFlag          string
+		secretsFilePathFlag         string
 		containerTargetDirFlag      string
 		containerNamePatternFlag    string
 		workflowNameFlag            string
@@ -82,12 +83,13 @@ func deployWorkflowCmd() *cobra.Command {
 		Short: "Compiles and uploads a workflow to the environment",
 		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag)
+			return compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
+	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "n", DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
@@ -99,7 +101,7 @@ func deployWorkflowCmd() *cobra.Command {
 	return cmd
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag string) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string) error {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
 	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
@@ -152,6 +154,25 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 		fmt.Printf("\n✅ Workflow config file copied to Docker container\n\n")
 	}
 
+	var secretsPath *string
+	if secretsFilePathFlag != "" {
+		fmt.Printf("\n⚙️ Copying workflow secrets file to Docker container\n\n")
+		secretPathAbs, secretPathAbsErr := filepath.Abs(secretsFilePathFlag)
+		if secretPathAbsErr != nil {
+			return errors.Wrap(secretPathAbsErr, "failed to get absolute path of the secrets file")
+		}
+
+		secretsCopyErr := creworkflow.CopyWorkflowToDockerContainers(secretsFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		if secretsCopyErr != nil {
+			return errors.Wrap(secretsCopyErr, "❌ failed to copy secrets file to Docker container")
+		}
+
+		secretPathAbs = "file://" + secretPathAbs
+		secretsPath = &secretPathAbs
+
+		fmt.Printf("\n✅ Workflow secrets file copied to Docker container\n\n")
+	}
+
 	fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
 
 	deleteErr := creworkflow.DeleteAllWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag))
@@ -162,7 +183,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	fmt.Printf("\n✅ All workflows deleted from the workflow registry\n\n")
 	fmt.Printf("\n⚙️ Registering workflow %s with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, nil, &containerTargetDirFlag)
+	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}

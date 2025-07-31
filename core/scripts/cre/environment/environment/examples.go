@@ -157,7 +157,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, DefaultWorkflowNodePattern, DefaultArtifactsDir, configFilePath, rpcURL)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, DefaultWorkflowNodePattern, DefaultArtifactsDir, configFilePath, "", rpcURL)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
