@@ -202,12 +202,12 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 	// Load and parse the cre.yaml file
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error reading config file: %v", err)
+		return nil, nil, fmt.Errorf("error reading config file: %w", err)
 	}
 	config := crecli.Profiles{}
 
 	if err := yaml.Unmarshal(configData, &config); err != nil {
-		return nil, nil, fmt.Errorf("error parsing config file: %v", err)
+		return nil, nil, fmt.Errorf("error parsing config file: %w", err)
 	}
 
 	// Use contract address from config if not provided via flag
@@ -227,7 +227,7 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 
 	// Validate we have at least one RPC URL
 	if len(config.Test.Rpcs) == 0 {
-		return nil, nil, fmt.Errorf("no RPC URLs found in config file")
+		return nil, nil, errors.New("no RPC URLs found in config file")
 	}
 
 	// Use the first RPC URL by default
@@ -240,11 +240,11 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create Ethereum client: %v", err)
+		return nil, nil, fmt.Errorf("failed to create Ethereum client: %w", err)
 	}
 
 	if contractAddress == "" {
-		return nil, nil, fmt.Errorf("workflow registry contract address not provided in flags or config")
+		return nil, nil, errors.New("workflow registry contract address not provided in flags or config")
 	}
 
 	// Create workflow registry client
@@ -253,7 +253,7 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 		ethClient.Client,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create workflow registry client: %v", err)
+		return nil, nil, fmt.Errorf("failed to create workflow registry client: %w", err)
 	}
 
 	return workflowClient, ethClient, nil
@@ -277,10 +277,13 @@ func init() {
 	registerCmd.Flags().Uint8Var(&initialStatus, "status", 0, "Initial status (0=active, 1=paused)")
 	registerCmd.Flags().Uint32Var(&donID, "don-id", 1, "DON ID where the workflow will run")
 	// Required
-	registerCmd.MarkFlagRequired("name")
-	registerCmd.MarkFlagRequired("binary-url")
-	registerCmd.MarkFlagRequired("config-url")
-	registerCmd.MarkFlagRequired("secrets-url")
+	if err := MarkFlagsRequired(registerCmd,
+		"name",
+		"binary-url",
+		"config-url",
+		"secrets-url"); err != nil {
+		panic(err)
+	}
 
 	// Update command flags
 	updateCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
@@ -290,17 +293,22 @@ func init() {
 	updateCmd.Flags().StringVar(&secretsURL, "new-secrets-url", "", "URL to encrypted workflow secrets file")
 	updateCmd.Flags().StringVar(&workflowID, "new-id", "", "Workflow ID in hex (required)")
 	// Required
-	updateCmd.MarkFlagRequired("name")
-	updateCmd.MarkFlagRequired("new-id")
-	updateCmd.MarkFlagRequired("new-binary-url")
-	updateCmd.MarkFlagRequired("new-config-url")
-	updateCmd.MarkFlagRequired("new-secrets-url")
+	if err := MarkFlagsRequired(updateCmd,
+		"name",
+		"new-id",
+		"new-binary-url",
+		"new-config-url",
+		"new-secrets-url"); err != nil {
+		panic(err)
+	}
 
 	deleteCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
 	deleteCmd.Flags().StringVar(&workflowOwner, "owner", "", "Workflow owner address (optional if in config)")
 	// Required
-	deleteCmd.MarkFlagRequired("name")
-
+	err := deleteCmd.MarkFlagRequired("name")
+	if err != nil {
+		panic(err)
+	}
 	// Get command flags
 	getCmd.Flags().StringVar(&workflowOwner, "owner", "", "Workflow owner address (optional if in config)")
 
@@ -347,7 +355,7 @@ func ComputeWorkflowKey(owner common.Address, name string) [32]byte {
 func setupTransaction(seth *seth.Client) (*bind.TransactOpts, error) {
 	chainID, err := seth.Client.ChainID(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain ID: %v", err)
+		return nil, fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
 	return bind.NewKeyedTransactorWithChainID(seth.MustGetRootPrivateKey(), chainID)
@@ -383,6 +391,24 @@ func formatStatus(status uint8) string {
 func validateStatus(status uint8) error {
 	if status != WorkflowStatusActive && status != WorkflowStatusPaused {
 		return fmt.Errorf("invalid status: %d (must be 0=active or 1=paused)", status)
+	}
+	return nil
+}
+
+// MarkFlagsRequired marks multiple flags as required for the given command.
+// It takes a command and a variable number of flag names, marking each one as required.
+// If any flag cannot be marked as required, it returns an error with details.
+//
+// Example usage:
+//
+//	if err := MarkFlagsRequired(updateCmd, "name", "new-id", "new-binary-url"); err != nil {
+//	    fmt.Fprintf(os.Stderr, "Error marking required flags: %v\n", err)
+//	}
+func MarkFlagsRequired(cmd *cobra.Command, flagNames ...string) error {
+	for _, flagName := range flagNames {
+		if err := cmd.MarkFlagRequired(flagName); err != nil {
+			return fmt.Errorf("failed to mark flag '%s' as required: %w", flagName, err)
+		}
 	}
 	return nil
 }

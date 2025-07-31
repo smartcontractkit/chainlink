@@ -78,9 +78,9 @@ var createCmd = &cobra.Command{
 
 		// Add capability
 		if !capExists {
-			txOpt, err := setupTransaction(seth)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to create transaction: %v\n", err)
+			txOpt, err2 := setupTransaction(seth)
+			if err2 != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create transaction: %v\n", err2)
 				return
 			}
 			output, err := client.AddCapabilities(txOpt, []capabilities_registry.CapabilitiesRegistryCapability{
@@ -249,8 +249,6 @@ var listCmd = &cobra.Command{
 			}
 			fmt.Println()
 		}
-
-		return
 	},
 }
 

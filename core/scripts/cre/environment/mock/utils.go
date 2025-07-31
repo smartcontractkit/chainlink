@@ -21,18 +21,24 @@ var MockCommand = &cobra.Command{
 }
 
 // newMockCapabilityController creates a new MockCapabilityController with a standard logger
-func newMockCapabilityController() *mockcapability.Controller {
+func newMockCapabilityController() (*mockcapability.Controller, error) {
 	lggr := zerolog.New(os.Stdout)
 	c := mockcapability.NewMockCapabilityController(lggr)
-	err := c.ConnectAll([]string{"172.28.0.13:7777", "172.28.0.14:7777", "172.28.0.15:7777"}, true, false) // TODO: @george-dorin get addresses
+	err := c.ConnectAll([]string{"172.28.0.13:7777", "172.28.0.14:7777", "172.28.0.15:7777"}, true, false)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to connect to mock capability controllers: %w", err)
 	}
-	return c
+	return c, nil
 }
 
+// Create creates a new capability with the specified parameters if it doesn't already exist.
+// It connects to the mock capability controller, checks if the capability exists,
+// and creates it if necessary.
 func Create(ctx context.Context, capabilityWithVersion string, capabilityType string, description string) error {
-	mocks := newMockCapabilityController()
+	mocks, err := newMockCapabilityController()
+	if err != nil {
+		return err
+	}
 	exists, err := mocks.HasCapability(ctx, capabilityWithVersion)
 	if err != nil {
 		return err
@@ -53,15 +59,25 @@ func Create(ctx context.Context, capabilityWithVersion string, capabilityType st
 	return nil
 }
 
+// Delete removes a capability with the specified ID from the mock capability controller.
 func Delete(ctx context.Context, capabilityWithVersion string) error {
-	mocks := newMockCapabilityController()
+	mocks, err := newMockCapabilityController()
+	if err != nil {
+		return err
+	}
 	return mocks.DeleteCapability(ctx, capabilityWithVersion)
 }
 
+// WatchExecutables monitors and displays capability executable requests.
+// It sets up a channel to receive capability requests and prints them to stdout
+// until the context is canceled.
 func WatchExecutables(ctx context.Context) error {
-	mocks := newMockCapabilityController()
+	mocks, err := newMockCapabilityController()
+	if err != nil {
+		return err
+	}
 	responseCh := make(chan capabilities.CapabilityRequest)
-	err := mocks.HookExecutables(ctx, responseCh)
+	err = mocks.HookExecutables(ctx, responseCh)
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		return err
@@ -80,11 +96,18 @@ func WatchExecutables(ctx context.Context) error {
 	}
 }
 
+// SendTrigger sends periodic trigger events to a capability with the specified ID.
+// It waits for trigger subscribers before sending triggers at the specified frequency.
+// The function can run for a specified duration or indefinitely if duration is 0.
+// It reports statistics about sent triggers periodically and upon completion.
 func SendTrigger(ctx context.Context, id string, mockDataType string, frequency time.Duration, duration time.Duration) error {
-	mocks := newMockCapabilityController()
+	mocks, err := newMockCapabilityController()
+	if err != nil {
+		return err
+	}
 
 	// Check if trigger has subscribers
-	err := mocks.WaitForTriggerSubscribers(context.Background(), id, time.Second*30)
+	err = mocks.WaitForTriggerSubscribers(context.Background(), id, time.Second*30)
 	if err != nil {
 		return err
 	}
@@ -143,7 +166,7 @@ func SendTrigger(ctx context.Context, id string, mockDataType string, frequency 
 
 		case <-ticker.C:
 			// Send trigger at each tick
-			data, err := getTriggerRequest(MockTriggerType(mockDataType))
+			data, err := getTriggerRequest(TriggerType(mockDataType))
 			if err != nil {
 				return err
 			}
@@ -160,13 +183,16 @@ func SendTrigger(ctx context.Context, id string, mockDataType string, frequency 
 			}
 		}
 	}
-	return nil
 }
 
+// runWatchExecutables handles the "watch" command execution by calling WatchExecutables
+// with the command's context.
 func runWatchExecutables(cmd *cobra.Command, args []string) error {
 	return WatchExecutables(cmd.Context())
 }
 
+// runCreate handles the "create" command execution by extracting command flags
+// and calling the Create function with the appropriate parameters.
 func runCreate(cmd *cobra.Command, args []string) error {
 	id, _ := cmd.Flags().GetString("id")
 	capType, _ := cmd.Flags().GetString("type")
@@ -175,12 +201,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	return Create(cmd.Context(), id, capType, desc)
 }
 
+// runDelete handles the "delete" command execution by extracting the ID flag
+// and calling the Delete function.
 func runDelete(cmd *cobra.Command, args []string) error {
 	id, _ := cmd.Flags().GetString("id")
 
 	return Delete(cmd.Context(), id)
 }
 
+// runSendTrigger handles the "trigger" command execution by extracting command flags
+// and calling the SendTrigger function with the appropriate parameters.
 func runSendTrigger(cmd *cobra.Command, args []string) error {
 	id, _ := cmd.Flags().GetString("id")
 	dataType, _ := cmd.Flags().GetString("type")
@@ -200,8 +230,14 @@ func init() {
 	createCmd.Flags().String("id", "", "Capability ID with version")
 	createCmd.Flags().String("type", "", "Capability type")
 	createCmd.Flags().String("description", "", "Capability description")
-	createCmd.MarkFlagRequired("id")
-	createCmd.MarkFlagRequired("type")
+	err := createCmd.MarkFlagRequired("id")
+	if err != nil {
+		panic(err)
+	}
+	err = createCmd.MarkFlagRequired("type")
+	if err != nil {
+		panic(err)
+	}
 
 	// Delete command
 	deleteCmd := &cobra.Command{
@@ -210,7 +246,10 @@ func init() {
 		RunE:  runDelete,
 	}
 	deleteCmd.Flags().String("id", "", "Capability ID with version")
-	deleteCmd.MarkFlagRequired("id")
+	err = deleteCmd.MarkFlagRequired("id")
+	if err != nil {
+		panic(err)
+	}
 
 	// SendTrigger command
 	triggerCmd := &cobra.Command{
@@ -222,7 +261,10 @@ func init() {
 	triggerCmd.Flags().String("type", string(TriggerTypeCron), "Mock data type (empty, cron)")
 	triggerCmd.Flags().Duration("frequency", 1*time.Second, "Frequency to send triggers")
 	triggerCmd.Flags().Duration("duration", 0*time.Second, "Duration to send triggers in seconds (0 for unlimited)")
-	triggerCmd.MarkFlagRequired("id")
+	err = triggerCmd.MarkFlagRequired("id")
+	if err != nil {
+		panic(err)
+	}
 
 	// Watch command
 	watchCmd := &cobra.Command{

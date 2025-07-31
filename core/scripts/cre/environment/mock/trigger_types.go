@@ -11,20 +11,20 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 )
 
-// MockTriggerType TriggerType represents a predefined trigger request configuration
-type MockTriggerType string
+// TriggerType defines the type of mock trigger
+type TriggerType string
 
 const (
-	TriggerTypeCron MockTriggerType = "cron"
-	// Add more trigger types as needed
+	TriggerTypeCron TriggerType = "cron"
+	// Add other trigger types as needed
 )
 
 // getTriggerRequest returns a configured SendTriggerEventRequest based on the requested type
-func getTriggerRequest(triggerType MockTriggerType) (*pb2.SendTriggerEventRequest, error) {
+func getTriggerRequest(triggerType TriggerType) (*pb2.SendTriggerEventRequest, error) {
 	switch triggerType {
 	case TriggerTypeCron:
 		// First create the payload
-		payload := &cron2.LegacyPayload{
+		payload := &cron2.LegacyPayload{ //nolint:staticcheck // legacy
 			ScheduledExecutionTime: time.Now().Format(time.RFC3339Nano),
 		}
 

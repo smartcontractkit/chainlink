@@ -61,7 +61,7 @@ var UploadCmd = &cobra.Command{
 		// Create bucket if it doesn't exist
 		err = ensureBucketExists(context.Background(), minioClient, bucketName, minioConfig.Region)
 		if err != nil {
-			fmt.Errorf("Error checking bucket: %w\n", err)
+			fmt.Printf("Error checking bucket: %v\n", err)
 			return
 		}
 
@@ -203,7 +203,7 @@ func setupMinioClient(configPath string) (*minio.Client, crecli.MinioStorageSett
 	}
 
 	var config crecli.Profiles
-	if err := yaml.Unmarshal(configData, &config); err != nil {
+	if err = yaml.Unmarshal(configData, &config); err != nil {
 		return nil, crecli.MinioStorageSettings{}, fmt.Errorf("error parsing config file: %w", err)
 	}
 
