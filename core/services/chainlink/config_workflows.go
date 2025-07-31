@@ -12,23 +12,23 @@ type workflowsConfig struct {
 }
 
 func (w *workflowsConfig) Limits() config.WorkflowsLimits {
-	return &limits{
+	return &limitsCfg{
 		l: w.c.Limits,
 	}
 }
 
-type limits struct {
+type limitsCfg struct {
 	l toml.Limits
 }
 
-func (l *limits) Global() int32 {
+func (l *limitsCfg) Global() int32 {
 	return *l.l.Global
 }
 
-func (l *limits) PerOwner() int32 {
+func (l *limitsCfg) PerOwner() int32 {
 	return *l.l.PerOwner
 }
 
-func (l *limits) PerOwnerOverrides() map[string]int32 {
+func (l *limitsCfg) PerOwnerOverrides() map[string]int32 {
 	return l.l.Overrides
 }

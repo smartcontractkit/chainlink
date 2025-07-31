@@ -105,7 +105,7 @@ type Report struct {
 	workflowRegistryChainSelector uint64
 }
 
-func NewReport(labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
+func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -114,9 +114,8 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		}
 	}
 
-	balanceStore, err := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-	if err != nil {
-		return nil, err
+	if client == nil {
+		return nil, ErrNoBillingClient
 	}
 
 	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
@@ -125,6 +124,35 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 	}
 
 	selector, err := chainselectors.SelectorFromChainId(chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+		WorkflowOwner:           labels[platform.KeyWorkflowOwner],
+		WorkflowRegistryAddress: workflowRegistryAddress,
+		ChainSelector:           selector,
+	})
+	if err != nil {
+		lggr.Error(err)
+	}
+
+	var meteringMode bool
+
+	rateCard, err := toRateCard(resp.GetRateCards())
+	if err != nil {
+		lggr.Errorf("switching to metering mode: %s", err)
+
+		meteringMode = true
+	}
+
+	if len(rateCard) == 0 && !meteringMode {
+		lggr.Error("empty rate card, switching to metering mode")
+
+		meteringMode = true
+	}
+
+	balanceStore, err := NewBalanceStore(decimal.Zero, rateCard)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +166,7 @@ func NewReport(labels map[string]string, lggr logger.Logger, client BillingClien
 		metrics: metrics,
 
 		ready:        false,
-		meteringMode: false,
+		meteringMode: meteringMode,
 		steps:        make(map[string]ReportStep),
 
 		workflowRegistryAddress:       workflowRegistryAddress,
@@ -185,13 +213,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetRateCards())
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return nil
-	}
-
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
 		r.switchToMeteringMode(err)
@@ -199,16 +220,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(credits, rateCard)
-	if err != nil {
-		r.switchToMeteringMode(err)
-		return nil
-	}
-
 	r.ready = true
-	r.balance = balanceStore
 
-	return nil
+	return r.balance.Add(credits)
 }
 
 // DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
@@ -543,16 +557,14 @@ func (r *Report) switchToMeteringMode(err error) {
 func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
-		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
-		if !ok {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not find index %s in MeasurementUnit enum", rate.ResourceType)
-		}
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
 		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", unit, rate.UnitsPerCredit)
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
 		}
-		rateCard[unit] = conversionDeci
+
+		rateCard[rate.ResourceType.String()] = conversionDeci
 	}
+
 	return rateCard, nil
 }
 
@@ -627,7 +639,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
 	if err != nil {
 		return nil, err
 	}

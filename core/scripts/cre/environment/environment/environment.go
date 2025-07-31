@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -281,7 +282,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if os.Getenv("PRIVATE_KEY") == "" {
-				setErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+				setErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
 				if setErr != nil {
 					return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
 				}

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
@@ -51,14 +52,14 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 	name, err := types.NewWorkflowName(testWorkflowNameA)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{})
+	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, limits.Factory{})
 	require.NoError(t, err)
 	rateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      10.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   10.0,
 		PerSenderBurst: 100,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	return &v2.EngineConfig{

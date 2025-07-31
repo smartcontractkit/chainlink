@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
@@ -15,9 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 func WithBillingClient(client metering.BillingClient) func(*Delegate) {
@@ -38,8 +37,8 @@ type Delegate struct {
 	secretsFetcher SecretsFor
 	logger         logger.Logger
 	store          store.Store
-	ratelimiter    *ratelimiter.RateLimiter
-	workflowLimits *syncerlimiter.Limits
+	ratelimiter    limits.RateLimiter
+	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -112,8 +111,8 @@ func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	opts ...func(*Delegate),
 ) *Delegate {
 	d := &Delegate{
