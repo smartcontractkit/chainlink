@@ -261,7 +261,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	oneE18 := new(big.Int).SetUint64(1e18)
 
 	// Deploy tokens and pool by CCIP Owner
-	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
+	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolanaV0_1_1(
 		lggr,
 		e,
 		sourceChain,
@@ -372,7 +372,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	const oneE9 uint64 = 1e9
 
 	// Deploy tokens and pool by CCIP Owner
-	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolana(
+	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolanaV0_1_1(
 		lggr,
 		e,
 		destChain,

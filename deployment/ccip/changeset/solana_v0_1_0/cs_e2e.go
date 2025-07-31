@@ -25,7 +25,6 @@ import (
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
-	InitializeGlobalTokenPoolConfig       []TokenPoolConfigWithMCM
 	AddTokenPoolAndLookupTable            []AddTokenPoolAndLookupTableConfig
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig

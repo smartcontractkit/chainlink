@@ -79,7 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
-	solTestTokenPoolV0_1_0 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -87,6 +86,7 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_ccip_receiver"
+	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -1845,7 +1845,7 @@ func DeployTransferableTokenAptos(
 }
 
 // assuming one out of the src and dst is solana and the other is evm
-func DeployTransferableTokenSolanaV0_1_0(
+func DeployTransferableTokenSolanaV0_1_1(
 	lggr logger.Logger,
 	e cldf.Environment,
 	evmChainSel, solChainSel uint64,
@@ -1888,8 +1888,8 @@ func DeployTransferableTokenSolanaV0_1_0(
 	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.DeploySolanaToken),
-			ccipChangeSetSolanaV0_1_0.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.DeploySolanaToken),
+			ccipChangeSetSolanaV0_1_1.DeploySolanaTokenConfig{
 				ChainSelector:    solChainSel,
 				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
@@ -1917,15 +1917,15 @@ func DeployTransferableTokenSolanaV0_1_0(
 		},
 		solAddresses,
 	)
-	bnm := solTestTokenPoolV0_1_0.BurnAndMint_PoolType
+	bnm := solTestTokenPoolV0_1_1.BurnAndMint_PoolType
 
 	// deploy and configure solana token pool
 	e, err = commoncs.Apply(nil, e,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.E2ETokenPool),
-			ccipChangeSetSolanaV0_1_0.E2ETokenPoolConfig{
-				InitializeGlobalTokenPoolConfig: []ccipChangeSetSolanaV0_1_0.TokenPoolConfigWithMCM{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.E2ETokenPool),
+			ccipChangeSetSolanaV0_1_1.E2ETokenPoolConfig{
+				InitializeGlobalTokenPoolConfig: []ccipChangeSetSolanaV0_1_1.TokenPoolConfigWithMCM{
 					{
 						ChainSelector: solChainSel,
 						TokenPubKey:   solTokenAddress,
@@ -1933,10 +1933,10 @@ func DeployTransferableTokenSolanaV0_1_0(
 						Metadata:      shared.CLLMetadata,
 					},
 				},
-				AddTokenPoolAndLookupTable: []ccipChangeSetSolanaV0_1_0.AddTokenPoolAndLookupTableConfig{
+				AddTokenPoolAndLookupTable: []ccipChangeSetSolanaV0_1_1.AddTokenPoolAndLookupTableConfig{
 					{
 						ChainSelector: solChainSel,
-						TokenPoolConfigs: []ccipChangeSetSolanaV0_1_0.TokenPoolConfig{
+						TokenPoolConfigs: []ccipChangeSetSolanaV0_1_1.TokenPoolConfig{
 							{
 								TokenPubKey: solTokenAddress,
 								PoolType:    &bnm,
@@ -1945,32 +1945,32 @@ func DeployTransferableTokenSolanaV0_1_0(
 						},
 					},
 				},
-				RegisterTokenAdminRegistry: []ccipChangeSetSolanaV0_1_0.RegisterTokenAdminRegistryConfig{
+				RegisterTokenAdminRegistry: []ccipChangeSetSolanaV0_1_1.RegisterTokenAdminRegistryConfig{
 					{
 						ChainSelector: solChainSel,
-						RegisterTokenConfigs: []ccipChangeSetSolanaV0_1_0.RegisterTokenConfig{
+						RegisterTokenConfigs: []ccipChangeSetSolanaV0_1_1.RegisterTokenConfig{
 							{
 								TokenPubKey:             solTokenAddress,
 								TokenAdminRegistryAdmin: solDeployerKey,
-								RegisterType:            ccipChangeSetSolanaV0_1_0.ViaGetCcipAdminInstruction,
+								RegisterType:            ccipChangeSetSolanaV0_1_1.ViaGetCcipAdminInstruction,
 							},
 						},
 					},
 				},
-				AcceptAdminRoleTokenAdminRegistry: []ccipChangeSetSolanaV0_1_0.AcceptAdminRoleTokenAdminRegistryConfig{
+				AcceptAdminRoleTokenAdminRegistry: []ccipChangeSetSolanaV0_1_1.AcceptAdminRoleTokenAdminRegistryConfig{
 					{
 						ChainSelector: solChainSel,
-						AcceptAdminRoleTokenConfigs: []ccipChangeSetSolanaV0_1_0.AcceptAdminRoleTokenConfig{
+						AcceptAdminRoleTokenConfigs: []ccipChangeSetSolanaV0_1_1.AcceptAdminRoleTokenConfig{
 							{
 								TokenPubKey: solTokenAddress,
 							},
 						},
 					},
 				},
-				SetPool: []ccipChangeSetSolanaV0_1_0.SetPoolConfig{
+				SetPool: []ccipChangeSetSolanaV0_1_1.SetPoolConfig{
 					{
 						ChainSelector: solChainSel,
-						SetPoolTokenConfigs: []ccipChangeSetSolanaV0_1_0.SetPoolTokenConfig{
+						SetPoolTokenConfigs: []ccipChangeSetSolanaV0_1_1.SetPoolTokenConfig{
 							{
 								TokenPubKey: solTokenAddress,
 								PoolType:    &bnm,
@@ -1980,26 +1980,26 @@ func DeployTransferableTokenSolanaV0_1_0(
 						WritableIndexes: []uint8{3, 4, 7},
 					},
 				},
-				RemoteChainTokenPool: []ccipChangeSetSolanaV0_1_0.SetupTokenPoolForRemoteChainConfig{
+				RemoteChainTokenPool: []ccipChangeSetSolanaV0_1_1.SetupTokenPoolForRemoteChainConfig{
 					{
 						SolChainSelector: solChainSel,
-						RemoteTokenPoolConfigs: []ccipChangeSetSolanaV0_1_0.RemoteChainTokenPoolConfig{
+						RemoteTokenPoolConfigs: []ccipChangeSetSolanaV0_1_1.RemoteChainTokenPoolConfig{
 							{
 								SolTokenPubKey: solTokenAddress,
 								SolPoolType:    &bnm,
 								Metadata:       shared.CLLMetadata,
-								EVMRemoteConfigs: map[uint64]ccipChangeSetSolanaV0_1_0.EVMRemoteConfig{
+								EVMRemoteConfigs: map[uint64]ccipChangeSetSolanaV0_1_1.EVMRemoteConfig{
 									evmChainSel: {
 										TokenSymbol: shared.TokenSymbol(evmTokenName),
 										PoolType:    shared.BurnMintTokenPool,
 										PoolVersion: shared.CurrentTokenPoolVersion,
-										RateLimiterConfig: ccipChangeSetSolanaV0_1_0.RateLimiterConfig{
-											Inbound: solTestTokenPoolV0_1_0.RateLimitConfig{
+										RateLimiterConfig: ccipChangeSetSolanaV0_1_1.RateLimiterConfig{
+											Inbound: solTestTokenPoolV0_1_1.RateLimitConfig{
 												Enabled:  false,
 												Capacity: 0,
 												Rate:     0,
 											},
-											Outbound: solTestTokenPoolV0_1_0.RateLimitConfig{
+											Outbound: solTestTokenPoolV0_1_1.RateLimitConfig{
 												Enabled:  false,
 												Capacity: 0,
 												Rate:     0,
