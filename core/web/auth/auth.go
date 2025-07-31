@@ -85,7 +85,7 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		return auth.ErrorAuthFailed
 	}
 
-	if token.AccessKey == "" {
+	if token.Secret == "" {
 		return auth.ErrorAuthFailed
 	}
 
