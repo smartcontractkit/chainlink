@@ -1,6 +1,8 @@
 package cre
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,13 +17,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
+	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -55,6 +62,8 @@ import (
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -71,15 +80,17 @@ type CustomAnvilMiner struct {
 }
 
 type TestConfig struct {
-	Blockchains                   []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	CustomAnvilMiner              *CustomAnvilMiner             `toml:"custom_anvil_miner"`
-	NodeSets                      []*ns.Input                   `toml:"nodesets" validate:"required"`
-	WorkflowConfigs               []WorkflowConfig              `toml:"workflow_configs" validate:"required"`
-	JD                            *jd.Input                     `toml:"jd" validate:"required"`
-	Fake                          *fake.Input                   `toml:"fake"`
-	WorkflowRegistryConfiguration *cre.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                  `toml:"infra" validate:"required"`
-	DependenciesConfig            *DependenciesConfig           `toml:"dependencies" validate:"required"`
+	Blockchains      []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	CustomAnvilMiner *CustomAnvilMiner             `toml:"custom_anvil_miner"`
+	NodeSets         []*ns.Input                   `toml:"nodesets" validate:"required"`
+	// WorkflowConfigs               []WorkflowConfig              `toml:"workflow_configs" validate:"required"`
+	WorkflowConfigs               []WorkflowConfig           `toml:"workflow_configs"`
+	JD                            *jd.Input                  `toml:"jd" validate:"required"`
+	Fake                          *fake.Input                `toml:"fake"`
+	WorkflowRegistryConfiguration *cre.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
+	Infra                         *infra.Input               `toml:"infra" validate:"required"`
+	// DependenciesConfig            *DependenciesConfig           `toml:"dependencies" validate:"required"`
+	DependenciesConfig *DependenciesConfig `toml:"dependencies"`
 }
 
 type WorkflowConfig struct {
@@ -382,6 +393,284 @@ func setupPoRTestEnvironment(
 		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelectorToWorkflowConfig:   chainSelectorToWorkflowConfig,
 	}
+}
+
+func TestCRE_ExistingEnv(t *testing.T) {
+	// configErr := setConfigurationIfMissing("environment-one-don-multichain.toml")
+	// require.NoError(t, configErr, "failed to set CTF config")
+	testLogger := framework.L
+
+	err := os.Setenv("CTF_CONFIGS", "../../../../core/scripts/cre/environment/configs/single-don-cache.toml")
+	require.NoError(t, err, "failed to set CTF_CONFIGS env var")
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVars(t)
+	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
+
+	feedIDs := make([]string, 0, len(in.WorkflowConfigs))
+	for _, wc := range in.WorkflowConfigs {
+		feedIDs = append(feedIDs, wc.FeedID)
+	}
+
+	if in.Fake == nil {
+		in.Fake = &fake.Input{
+			Port: 8171,
+		}
+	}
+
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
+	require.NoError(t, priceErr, "failed to create fake price provider")
+
+	chainSelectorToSethClient := make(map[uint64]*seth.Client)
+	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
+	chainSelectorToWorkflowConfig := make(map[uint64]WorkflowConfig)
+
+	if os.Getenv("PRIVATE_KEY") == "" {
+		err := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
+		require.NoError(t, err, "failed to set PRIVATE_KEY env var")
+	}
+
+	var homeChainSelector uint64
+
+	for idx, bc := range in.Blockchains {
+		if bc.ReadOnly {
+			continue
+		}
+
+		sethClient, err := seth.NewClientBuilder().
+			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
+			WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
+			// do not check if there's a pending nonce nor check node's health
+			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+			Build()
+		require.NoError(t, err, "failed to create seth client")
+
+		chainID, err := strconv.ParseUint(bc.ChainID, 10, 64)
+		require.NoError(t, err, "failed to parse chain id %s", bc.ChainID)
+
+		chainSelector, err := chainselectors.SelectorFromChainId(chainID)
+		require.NoError(t, err, "failed to get chain selector for chain id %d", chainID)
+
+		if idx == 0 {
+			homeChainSelector = chainSelector
+		}
+
+		workflowConfig := WorkflowConfig{
+			FeedID:               "018e16c39e000320000000000000000000000000000000000000000000000000",
+			WorkflowFileLocation: "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go",
+		}
+
+		if idx == 1 {
+			workflowConfig.FeedID = "018e16c38e000320000000000000000000000000000000000000000000000000"
+		}
+
+		chainSelectorToWorkflowConfig[chainSelector] = workflowConfig
+		chainSelectorToSethClient[chainSelector] = sethClient
+		chainSelectorToBlockchainOutput[chainSelector] = bc.Out
+	}
+
+	var envArtifact environment.EnvArtifact
+	artFile, err := os.ReadFile("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/env_artifact/env_artifact.json")
+	require.NoError(t, err, "failed to read artifact file")
+	err = json.Unmarshal(artFile, &envArtifact)
+	require.NoError(t, err, "failed to unmarshal artifact file")
+
+	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
+	datastore := datastore.NewMemoryDataStore()
+	for _, addrRef := range envArtifact.AddressRefs {
+		addErr := datastore.AddressRefStore.Add(addrRef)
+		require.NoError(t, addErr, "failed to add address ref to datastore")
+	}
+
+	nodeIDs := make([]string, 0, len(envArtifact.Nodes.Nodes))
+	for id := range envArtifact.Nodes.Nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+
+	// TODO: this should support multiple DONs, bootstrap node count and donID cannot be hardcoded
+	nodeInfo, err := libnode.GetNodeInfo(in.NodeSets[0].Out, in.NodeSets[0].Name, 1, 1)
+	require.NoError(t, err, "failed to get node info")
+
+	offChain, offChainErr := deployment_devenv.NewJDClient(t.Context(), deployment_devenv.JDConfig{
+		WSRPC:    envArtifact.JdConfig.InternalWSRPCUrl,
+		GRPC:     envArtifact.JdConfig.InternalGRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: nodeInfo,
+	})
+	require.NoError(t, offChainErr, "failed to create offchain client")
+
+	var buildChain = func(sethClient *seth.Client, bcOut *blockchain.Output) (*deployment_devenv.ChainConfig, error) {
+		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
+		}
+
+		return &deployment_devenv.ChainConfig{
+			ChainID:   strconv.FormatUint(cID, 10),
+			ChainName: sethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(bcOut.Family),
+			WSRPCs: []deployment_devenv.CribRPCs{{
+				External: bcOut.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.Nodes[0].InternalWSUrl,
+			}},
+			HTTPRPCs: []deployment_devenv.CribRPCs{{
+				External: bcOut.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.Nodes[0].InternalHTTPUrl,
+			}},
+			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		}, nil
+	}
+
+	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(chainSelectorToBlockchainOutput))
+	for chainSelector := range chainSelectorToBlockchainOutput {
+		chainConfig, err := buildChain(chainSelectorToSethClient[chainSelector], chainSelectorToBlockchainOutput[chainSelector])
+		require.NoError(t, err, "failed to build chain config for chain %d", chainSelector)
+		chainConfigs = append(chainConfigs, *chainConfig)
+	}
+
+	blockChains, err := deployment_devenv.NewChains(cldlogger.NewSingleFileLogger(t), chainConfigs)
+	require.NoError(t, err, "failed to create block chains")
+
+	cldEnv := cldf.NewEnvironment(
+		"devenv", // replace with constant
+		cldlogger.NewSingleFileLogger(t),
+		addressBook,
+		datastore.Seal(),
+		nodeIDs,
+		offChain,
+		func() context.Context {
+			return t.Context()
+		},
+		cldf.XXXGenerateTestOCRSecrets(),
+		blockChains,
+	)
+
+	for chainSelector := range chainSelectorToBlockchainOutput {
+		deployConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"}, // label required by the changeset
+		}
+
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *cldEnv, deployConfig)
+		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+
+		mergeErr := cldEnv.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr, "failed to merge address book")
+
+		workflowName := "por-workflow-" + chainSelectorToSethClient[chainSelector].Cfg.Network.Name
+
+		dfConfigInput := &configureDataFeedsCacheInput{
+			chainSelector:      chainSelector,
+			fullCldEnvironment: cldEnv,
+			workflowName:       workflowName,
+			feedID:             chainSelectorToWorkflowConfig[chainSelector].FeedID,
+			sethClient:         chainSelectorToSethClient[chainSelector],
+			blockchain:         chainSelectorToBlockchainOutput[chainSelector],
+			deployerPrivateKey: os.Getenv("PRIVATE_KEY"),
+		}
+		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
+		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
+
+		testLogger.Info().Msg("Proceeding to register PoR workflow...")
+
+		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+			cldEnv.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			homeChainSelector,
+			keystone_changeset.WorkflowRegistry.String(),
+		)
+		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", chainSelector)
+
+		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+			cldEnv.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			chainSelector,
+			df_changeset.DataFeedsCache.String(),
+		)
+		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+
+		chainID, err := chainselectors.ChainIdFromSelector(chainSelector)
+		require.NoError(t, err, "failed to get chain id from selector %d", chainSelector)
+
+		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, chainSelectorToWorkflowConfig[chainSelector].FeedID, priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
+		require.NoError(t, configErr, "failed to create workflow config file")
+
+		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(chainSelectorToWorkflowConfig[chainSelector].WorkflowFileLocation, workflowName)
+		require.NoError(t, compileErr, "failed to compile workflow '%s'", chainSelectorToWorkflowConfig[chainSelector].WorkflowFileLocation)
+
+		t.Cleanup(func() {
+			_ = os.Remove(compressedWorkflowWasmPath)
+			_ = os.Remove(workflowConfigFilePath)
+		})
+
+		containerTargetDir := "/home/chainlink/workflows"
+		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
+
+		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
+		require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
+
+		registerErr := creworkflow.RegisterWithContract(
+			t.Context(),
+			chainSelectorToSethClient[homeChainSelector],
+			workflowRegistryAddress,
+			uint32(envArtifact.DONs[0].DonID),
+			workflowName,
+			"file://"+compressedWorkflowWasmPath,
+			ptr.Ptr("file://"+workflowConfigFilePath),
+			nil,
+			&containerTargetDir,
+		)
+		require.NoError(t, registerErr, "failed to register PoR workflow")
+	}
+
+	timeout := 5 * time.Minute
+
+	eg := &errgroup.Group{}
+	for chainSelector, workflowConfig := range chainSelectorToWorkflowConfig {
+		eg.Go(func() error {
+			testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
+
+			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(cldEnv.ExistingAddresses, chainSelector, df_changeset.DataFeedsCache.String())
+			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+
+			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, chainSelectorToSethClient[chainSelector].Client)
+			require.NoError(t, instanceErr, "failed to create data feeds cache instance")
+
+			startTime := time.Now()
+			assert.Eventually(t, func() bool {
+				elapsed := time.Since(startTime).Round(time.Second)
+				price, err := dataFeedsCacheInstance.GetLatestAnswer(chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(workflowConfig.FeedID)))
+				require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
+
+				// if there are no more prices to be found, we can stop waiting
+				return !priceProvider.NextPrice(workflowConfig.FeedID, price, elapsed)
+			}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", workflowConfig.FeedID, timeout)
+
+			expected := priceProvider.ExpectedPrices(workflowConfig.FeedID)
+			actual := priceProvider.ActualPrices(workflowConfig.FeedID)
+
+			if len(expected) != len(actual) {
+				return errors.Errorf("expected %d prices, got %d", len(expected), len(actual))
+			}
+
+			for i := range expected {
+				if expected[i].Cmp(actual[i]) != 0 {
+					return errors.Errorf("expected price %d, got %d", expected[i], actual[i])
+				}
+			}
+
+			testLogger.Info().Msgf("All %d prices were found in the feed %s", len(expected), workflowConfig.FeedID)
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	testLogger.Info().Msgf("All prices were found for all feeds")
 }
 
 func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {

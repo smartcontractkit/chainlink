@@ -371,6 +371,9 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
+			// store the config with cached output
+			_ = framework.Store(in)
+
 			return nil
 		},
 	}

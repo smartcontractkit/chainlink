@@ -336,6 +336,11 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to setup jobs")
 	}
 
+	// append the nodeset output, so that later it can be stored in the config cache
+	for idx, nsOut := range nodeSetOutput {
+		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+	}
+
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯
 	fullCldInput := &cre.FullCLDEnvironmentInput{
