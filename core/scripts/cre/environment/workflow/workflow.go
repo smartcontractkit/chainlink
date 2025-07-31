@@ -4,6 +4,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -206,7 +207,7 @@ func setupWorkflowClient() (*workflow_registry_wrapper.WorkflowRegistry, *seth.C
 	}
 	config := crecli.Profiles{}
 
-	if err := yaml.Unmarshal(configData, &config); err != nil {
+	if err = yaml.Unmarshal(configData, &config); err != nil {
 		return nil, nil, fmt.Errorf("error parsing config file: %w", err)
 	}
 
