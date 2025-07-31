@@ -1318,12 +1318,7 @@ func TestRatiosFromConfig(t *testing.T) {
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
 
-	var clientIfc BillingClient
-	if client != nil {
-		clientIfc = client
-	}
-
-	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, clientIfc, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
 	require.NoError(t, err)
 
 	return meteringReport

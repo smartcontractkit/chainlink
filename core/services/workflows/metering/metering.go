@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"reflect"
 	"sort"
 	"strconv"
 	"sync"
@@ -122,6 +123,13 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 
 		ready: false,
 		steps: make(map[string]ReportStep),
+	}
+
+	// for safety in evaluating the client interface.
+	// the client could be a nil interface or a nil value that satisfies the interface.
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
 	}
 
 	if client == nil {
@@ -614,6 +622,11 @@ type Reports struct {
 
 // NewReports initializes and returns a new Reports.
 func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) *Reports {
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
+	}
+
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
