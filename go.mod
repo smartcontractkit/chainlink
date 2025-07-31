@@ -140,8 +140,6 @@ require (
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 )
 
-replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
-
 require (
 	cosmossdk.io/api v0.7.6 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
