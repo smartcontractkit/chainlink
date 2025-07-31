@@ -1209,13 +1209,13 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	assert.Equal(t, rawSecret, string(decryptedSecret))
 
 	// Encrypt the decryption shares with the workflow key. This is the expected output from Vault capability.
-	encryptedDecryptionShare0, err := cfg.WorkflowKey.Encrypt(decryptionShare0Bytes)
+	encryptedDecryptionShare0, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare0Bytes)
 	require.NoError(t, err)
-	encryptedDecryptionShare1, err := cfg.WorkflowKey.Encrypt(decryptionShare1Bytes)
+	encryptedDecryptionShare1, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare1Bytes)
 	require.NoError(t, err)
-	encryptedDecryptionShare2, err := cfg.WorkflowKey.Encrypt(decryptionShare2Bytes)
+	encryptedDecryptionShare2, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare2Bytes)
 	require.NoError(t, err)
-	workflowKeyBytes := cfg.WorkflowKey.PublicKey()
+	workflowKeyBytes := cfg.WorkflowEncryptionKey.PublicKey()
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -1290,7 +1290,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
-		cfg.WorkflowKey,
+		cfg.WorkflowEncryptionKey,
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)

@@ -34,8 +34,8 @@ type secretsFetcher struct {
 	semaphore *semaphore[[]*sdkpb.SecretResponse]
 
 	workflowOwner string
-	workflowName  string
-	workflowKey   workflowkey.Key
+	workflowName          string
+	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
 }
@@ -47,16 +47,16 @@ func NewSecretsFetcher(
 	semaphore *semaphore[[]*sdkpb.SecretResponse],
 	workflowOwner string,
 	workflowName string,
-	workflowKey workflowkey.Key,
+	workflowEncryptionKey workflowkey.Key,
 ) *secretsFetcher {
 	return &secretsFetcher{
-		capRegistry:    capRegistry,
-		lggr:           logger.Named(lggr, "SecretsFetcher"),
-		semaphore:      semaphore,
-		workflowOwner:  workflowOwner,
-		workflowName:   workflowName,
-		workflowKey:    workflowKey,
-		metrics:        metrics,
+		capRegistry:           capRegistry,
+		lggr:                  logger.Named(lggr, "SecretsFetcher"),
+		semaphore:             semaphore,
+		workflowOwner:         workflowOwner,
+		workflowName:          workflowName,
+		workflowEncryptionKey: workflowEncryptionKey,
+		metrics:               metrics,
 	}
 }
 
@@ -205,7 +205,7 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, names
 	}
 
 	var localNodeShares []string
-	workflowNodeEncryptionPublicKey := s.workflowKey.PublicKey()
+	workflowNodeEncryptionPublicKey := s.workflowEncryptionKey.PublicKey()
 	workflowNodeEncryptionPublicKeyBase64 := base64.StdEncoding.EncodeToString(workflowNodeEncryptionPublicKey[:])
 	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
 		if share.EncryptionKey == workflowNodeEncryptionPublicKeyBase64 {
@@ -271,7 +271,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 			lggr.Debugw("failed to base64 decode the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
 			continue
 		}
-		decryptionShareBytes, err := s.workflowKey.Decrypt(encryptedDecryptionShareBytes)
+		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
 			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
 			continue

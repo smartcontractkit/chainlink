@@ -72,7 +72,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		WorkflowID:                    testWorkflowID,
 		WorkflowOwner:                 testWorkflowOwnerA,
 		WorkflowName:                  name,
-		WorkflowKey:                   workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		LocalLimits:                   v2.EngineLimits{},
 		GlobalLimits:                  sLimiter,
 		ExecutionRateLimiter:          rateLimiter,

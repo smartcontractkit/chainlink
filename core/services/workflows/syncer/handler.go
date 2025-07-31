@@ -123,7 +123,7 @@ type eventHandler struct {
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
-	workflowKey            workflowkey.Key
+	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -219,7 +219,7 @@ func NewEventHandler(
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
-		workflowKey:            workflowKey,
+		workflowEncryptionKey:  workflowKey,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -553,10 +553,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 
-		WorkflowID:    workflowID,
-		WorkflowOwner: owner,
-		WorkflowName:  name,
-		WorkflowKey: h.workflowKey,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,

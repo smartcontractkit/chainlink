@@ -124,7 +124,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
-			cfg.WorkflowKey)
+			cfg.WorkflowEncryptionKey)
 	}
 
 	engine := &Engine{
