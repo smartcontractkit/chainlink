@@ -28,6 +28,7 @@ type Capability struct {
 	CapabilityType capabilities.CapabilityType
 }
 
+// LocalRegistry is a wrapper around mapping of IDs to the corresponding objects.
 type LocalRegistry struct {
 	lggr              logger.Logger
 	getPeerID         func() (types.PeerID, error)
@@ -39,16 +40,16 @@ type LocalRegistry struct {
 func NewLocalRegistry(
 	lggr logger.Logger,
 	getPeerID func() (types.PeerID, error),
-	IDsToDONs map[DonID]DON,
-	IDsToNodes map[types.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo,
-	IDsToCapabilities map[string]Capability,
+	idsToDONs map[DonID]DON,
+	idsToNodes map[types.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo,
+	idsToCapabilities map[string]Capability,
 ) LocalRegistry {
 	return LocalRegistry{
 		lggr:              logger.Named(lggr, "LocalRegistry"),
 		getPeerID:         getPeerID,
-		IDsToDONs:         IDsToDONs,
-		IDsToNodes:        IDsToNodes,
-		IDsToCapabilities: IDsToCapabilities,
+		IDsToDONs:         idsToDONs,
+		IDsToNodes:        idsToNodes,
+		IDsToCapabilities: idsToCapabilities,
 	}
 }
 

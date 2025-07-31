@@ -64,8 +64,6 @@ type registrySyncer struct {
 	mu   sync.RWMutex
 }
 
-const capabilitiesRegistryContractName = "CapabilitiesRegistry"
-
 var _ services.Service = &registrySyncer{}
 
 var (
@@ -241,9 +239,9 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 
 	idsToCapabilities := map[string]Capability{}
 	for _, c := range caps {
-		capabilityType, _, err := parseCapabilityMetadata(c.Metadata)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, err)
+		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, parseErr)
 		}
 		idsToCapabilities[c.CapabilityId] = Capability{
 			ID:             c.CapabilityId,
@@ -482,8 +480,8 @@ func (s *registrySyncer) Name() string {
 	return s.lggr.Name()
 }
 
-// V2CapabilityMetadata represents the metadata structure for V2 capabilities
-type V2CapabilityMetadata struct {
+// CapabilityMetadata represents the metadata structure for V2 capabilities
+type CapabilityMetadata struct {
 	CapabilityType uint8 `json:"capabilityType"`
 	ResponseType   uint8 `json:"responseType"`
 }
@@ -494,7 +492,7 @@ func parseCapabilityMetadata(metadata []byte) (capabilityType, responseType uint
 		return 0, 0, errors.New("metadata is empty")
 	}
 
-	var meta V2CapabilityMetadata
+	var meta CapabilityMetadata
 	if err := json.Unmarshal(metadata, &meta); err != nil {
 		return 0, 0, fmt.Errorf("invalid metadata: %w", err)
 	}

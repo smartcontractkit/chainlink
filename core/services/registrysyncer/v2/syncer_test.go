@@ -5,20 +5,18 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -43,27 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
-
-func startNewChainWithRegistry(t *testing.T) (*capabilities_registry_v2.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
-	owner := evmtestutils.MustNewSimTransactor(t)
-
-	i := &big.Int{}
-	oneEth, _ := i.SetString("100000000000000000000", 10)
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
-
-	simulatedBackend := simulated.NewBackend(gethtypes.GenesisAlloc{owner.From: {
-		Balance: oneEth,
-	}}, simulated.WithBlockGasLimit(gasLimit))
-	simulatedBackend.Commit()
-
-	CapabilitiesRegistryAddress, _, CapabilitiesRegistry, err := capabilities_registry_v2.DeployCapabilitiesRegistry(owner, simulatedBackend.Client(), capabilities_registry_v2.CapabilitiesRegistryConstructorParams{})
-	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
-
-	fmt.Println("Deployed CapabilitiesRegistry at", CapabilitiesRegistryAddress.Hex())
-	simulatedBackend.Commit()
-
-	return CapabilitiesRegistry, CapabilitiesRegistryAddress, owner, simulatedBackend
-}
 
 type crFactory struct {
 	lggr      logger.Logger
@@ -178,9 +155,9 @@ func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer_v2.Local
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
-	var pids []p2ptypes.PeerID
-	for _, id := range ids {
-		pids = append(pids, id)
+	pids := make([]p2ptypes.PeerID, len(ids))
+	for i, id := range ids {
+		pids[i] = id
 	}
 	return pids
 }

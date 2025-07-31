@@ -17,13 +17,13 @@ import (
 )
 
 type capabilitiesRegistryNodeInfo struct {
-	NodeOperatorId      uint32         `json:"nodeOperatorId"`
+	NodeOperatorID      uint32         `json:"nodeOperatorId"`
 	ConfigCount         uint32         `json:"configCount"`
 	WorkflowDONId       uint32         `json:"workflowDONId"`
 	Signer              types.PeerID   `json:"signer"`
-	P2pId               types.PeerID   `json:"p2pId"`
+	P2pID               types.PeerID   `json:"p2pId"`
 	EncryptionPublicKey [32]byte       `json:"encryptionPublicKey"`
-	HashedCapabilityIds []types.PeerID `json:"hashedCapabilityIds"`
+	HashedCapabilityIDs []types.PeerID `json:"hashedCapabilityIds"`
 	CapabilitiesDONIds  []string       `json:"capabilitiesDONIds"`
 }
 
@@ -35,11 +35,11 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 			capabilitiesDONIds[i] = id.String()
 		}
 		idsToNodes[k] = capabilitiesRegistryNodeInfo{
-			NodeOperatorId:      v.NodeOperatorId,
+			NodeOperatorID:      v.NodeOperatorId,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              types.PeerID(v.Signer[:]),
-			P2pId:               types.PeerID(v.P2pId[:]),
+			P2pID:               types.PeerID(v.P2pId[:]),
 			EncryptionPublicKey: v.EncryptionPublicKey,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
@@ -79,11 +79,6 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 
 	l.IDsToNodes = make(map[types.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo)
 	for peerID, v := range temp.IDsToNodes {
-		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
-		for i, id := range v.HashedCapabilityIds {
-			copy(hashedCapabilityIds[i][:], id[:])
-		}
-
 		capabilitiesDONIds := make([]*big.Int, len(v.CapabilitiesDONIds))
 		for i, id := range v.CapabilitiesDONIds {
 			bigInt := new(big.Int)
@@ -91,11 +86,11 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			capabilitiesDONIds[i] = bigInt
 		}
 		l.IDsToNodes[peerID] = capabilities_registry_v2.INodeInfoProviderNodeInfo{
-			NodeOperatorId:      v.NodeOperatorId,
+			NodeOperatorId:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              v.Signer,
-			P2pId:               v.P2pId,
+			P2pId:               v.P2pID,
 			EncryptionPublicKey: v.EncryptionPublicKey,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
