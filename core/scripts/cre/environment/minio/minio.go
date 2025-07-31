@@ -1,9 +1,14 @@
+// Package minio provides commands to interact with MinIO object storage
+// through a CLI interface. It supports uploading, downloading, and listing
+// objects in MinIO buckets.
+//
+// The package relies on configuration provided in a cre.yaml file which
+// contains credentials and connection details for the MinIO server.
 package minio
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -15,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
+// MinioCommand is the root command for all MinIO-related operations.
+// It serves as a container for subcommands that perform specific actions
+// with MinIO storage.
 var MinioCommand = &cobra.Command{
 	Use:   "minio",
 	Short: "interact with MinIO storage",
@@ -27,6 +35,16 @@ var (
 	objectName string
 )
 
+// UploadCmd handles uploading files to a MinIO bucket.
+// It accepts one or more file paths as arguments and uploads each file
+// to the specified bucket. If no object name is provided, the file's
+// basename is used as the object name.
+//
+// Flags:
+//
+//	--config string   Path to cre.yaml config file (default "cre.yaml")
+//	--bucket string   Bucket name (default "default")
+//	--name string     Object name (defaults to filename)
 var UploadCmd = &cobra.Command{
 	Use:   "upload [files...]",
 	Short: "Upload files to MinIO storage",
@@ -34,47 +52,17 @@ var UploadCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Read and parse the config file
-		configData, err := ioutil.ReadFile(configPath)
-		if err != nil {
-			fmt.Printf("Error reading config file: %v\n", err)
-			return
-		}
-
-		var config crecli.Profiles
-		if err := yaml.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Error parsing config file: %v\n", err)
-			return
-		}
-
-		// Get MinIO config
-		minioConfig := config.Test.WorkflowStorage.Minio // TODO @george-dorin: make it dynamic don't just use test
-
-		// Initialize MinIO client
-		minioClient, err := minio.New(minioConfig.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(minioConfig.AccessKeyID, minioConfig.SecretAccessKey, ""),
-			Secure: minioConfig.UseSSL,
-			Region: minioConfig.Region,
-		})
+		minioClient, minioConfig, err := setupMinioClient(configPath)
 		if err != nil {
 			fmt.Printf("Error initializing MinIO client: %v\n", err)
 			return
 		}
 
 		// Create bucket if it doesn't exist
-		exists, err := minioClient.BucketExists(context.Background(), bucketName)
+		err = ensureBucketExists(context.Background(), minioClient, bucketName, minioConfig.Region)
 		if err != nil {
-			fmt.Printf("Error checking bucket: %v\n", err)
+			fmt.Errorf("Error checking bucket: %w\n", err)
 			return
-		}
-		if !exists {
-			err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{
-				Region: minioConfig.Region,
-			})
-			if err != nil {
-				fmt.Printf("Error creating bucket: %v\n", err)
-				return
-			}
-			fmt.Printf("Created bucket %s\n", bucketName)
 		}
 
 		// Process each file
@@ -115,33 +103,20 @@ var UploadCmd = &cobra.Command{
 	},
 }
 
+// ListCmd displays all objects in a MinIO bucket.
+// It lists each object along with its size and last modified date.
+//
+// Flags:
+//
+//	--config string   Path to cre.yaml config file (default "cre.yaml")
+//	--bucket string   Bucket name (default "default")
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List objects in a MinIO bucket",
 	Long:  `List all objects stored in a specified MinIO bucket`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Read and parse the config file
-		configData, err := ioutil.ReadFile(configPath)
-		if err != nil {
-			fmt.Printf("Error reading config file: %v\n", err)
-			return
-		}
-
-		var config crecli.Profiles
-		if err := yaml.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Error parsing config file: %v\n", err)
-			return
-		}
-
-		// Get MinIO config
-		minioConfig := config.Test.WorkflowStorage.Minio
-
-		// Initialize MinIO client
-		minioClient, err := minio.New(minioConfig.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(minioConfig.AccessKeyID, minioConfig.SecretAccessKey, ""),
-			Secure: minioConfig.UseSSL,
-			Region: minioConfig.Region,
-		})
+		minioClient, _, err := setupMinioClient(configPath)
 		if err != nil {
 			fmt.Printf("Error initializing MinIO client: %v\n", err)
 			return
@@ -167,6 +142,14 @@ var ListCmd = &cobra.Command{
 	},
 }
 
+// DownloadCmd retrieves an object from a MinIO bucket and saves it locally.
+// It requires the object name as an argument and saves the downloaded
+// object using its basename as the filename.
+//
+// Flags:
+//
+//	--config string   Path to cre.yaml config file (default "cre.yaml")
+//	--bucket string   Bucket name (default "default")
 var DownloadCmd = &cobra.Command{
 	Use:   "download [object-name]",
 	Short: "Download an object from MinIO",
@@ -176,28 +159,7 @@ var DownloadCmd = &cobra.Command{
 		objectToDownload := args[0]
 		outputPath := filepath.Base(objectToDownload)
 
-		// Read and parse the config file
-		configData, err := ioutil.ReadFile(configPath)
-		if err != nil {
-			fmt.Printf("Error reading config file: %v\n", err)
-			return
-		}
-
-		var config crecli.Profiles
-		if err := yaml.Unmarshal(configData, &config); err != nil {
-			fmt.Printf("Error parsing config file: %v\n", err)
-			return
-		}
-
-		// Get MinIO config
-		minioConfig := config.Test.WorkflowStorage.Minio
-
-		// Initialize MinIO client
-		minioClient, err := minio.New(minioConfig.Endpoint, &minio.Options{
-			Creds:  credentials.NewStaticV4(minioConfig.AccessKeyID, minioConfig.SecretAccessKey, ""),
-			Secure: minioConfig.UseSSL,
-			Region: minioConfig.Region,
-		})
+		minioClient, _, err := setupMinioClient(configPath)
 		if err != nil {
 			fmt.Printf("Error initializing MinIO client: %v\n", err)
 			return
@@ -215,16 +177,61 @@ var DownloadCmd = &cobra.Command{
 	},
 }
 
+// init registers all subcommands and their flags with the root MinIO command.
+// It sets up default values for the config path, bucket name, and other options
+// for each subcommand.
 func init() {
 	UploadCmd.Flags().StringVar(&configPath, "config", "cre.yaml", "Path to cre.yaml config file")
-	UploadCmd.Flags().StringVar(&bucketName, "bucket", "test-bucket", "Bucket name")
+	UploadCmd.Flags().StringVar(&bucketName, "bucket", "default", "Bucket name")
 	UploadCmd.Flags().StringVar(&objectName, "name", "", "Object name (defaults to filename)")
 
 	ListCmd.Flags().StringVar(&configPath, "config", "cre.yaml", "Path to cre.yaml config file")
-	ListCmd.Flags().StringVar(&bucketName, "bucket", "test-bucket", "Bucket name")
+	ListCmd.Flags().StringVar(&bucketName, "bucket", "default", "Bucket name")
 
 	DownloadCmd.Flags().StringVar(&configPath, "config", "cre.yaml", "Path to cre.yaml config file")
-	DownloadCmd.Flags().StringVar(&bucketName, "bucket", "test-bucket", "Bucket name")
+	DownloadCmd.Flags().StringVar(&bucketName, "bucket", "default", "Bucket name")
 
 	MinioCommand.AddCommand(UploadCmd, ListCmd, DownloadCmd)
+}
+
+// setupMinioClient initializes and returns a MinIO client from config
+func setupMinioClient(configPath string) (*minio.Client, crecli.MinioStorageSettings, error) {
+	// Read and parse the config file
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, crecli.MinioStorageSettings{}, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	var config crecli.Profiles
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return nil, crecli.MinioStorageSettings{}, fmt.Errorf("error parsing config file: %w", err)
+	}
+
+	// Get MinIO config
+	minioConfig := config.Test.WorkflowStorage.Minio
+
+	// Initialize MinIO client
+	client, err := minio.New(minioConfig.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(minioConfig.AccessKeyID, minioConfig.SecretAccessKey, ""),
+		Secure: minioConfig.UseSSL,
+		Region: minioConfig.Region,
+	})
+
+	return client, minioConfig, err
+}
+
+// ensureBucketExists checks if a bucket exists and creates it if needed
+func ensureBucketExists(ctx context.Context, client *minio.Client, bucketName, region string) error {
+	exists, err := client.BucketExists(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("error checking bucket: %w", err)
+	}
+	if !exists {
+		err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: region})
+		if err != nil {
+			return fmt.Errorf("error creating bucket: %w", err)
+		}
+		fmt.Printf("Created bucket %s\n", bucketName)
+	}
+	return nil
 }
