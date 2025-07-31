@@ -1135,6 +1135,7 @@ func initializeTokenPoolGlobalConfig(
 		return nil, fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
 	var instruction solana.Instruction
+	var upgrading bool
 	switch contractType {
 	case shared.BurnMintTokenPool:
 		tempIx, ixErr := solBurnMintTokenPool.NewInitGlobalConfigInstruction(
@@ -1154,6 +1155,7 @@ func initializeTokenPoolGlobalConfig(
 			return nil, fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
 		}
 		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
+		upgrading = config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil
 	case shared.LockReleaseTokenPool:
 		tempIx, ixErr := solLockReleaseTokenPool.NewInitGlobalConfigInstruction(
 			routerAddress,
@@ -1172,6 +1174,7 @@ func initializeTokenPoolGlobalConfig(
 			return nil, fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
 		}
 		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
+		upgrading = config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil
 	default:
 		return nil, fmt.Errorf("unsupported token pool type: %s", contractType.String())
 	}
@@ -1184,8 +1187,8 @@ func initializeTokenPoolGlobalConfig(
 		return nil, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	// if we're not upgrading via timelock, execute the raw ixns
-	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+	// if we're not upgrading or the upgrade is not via timelock, execute the raw ixns
+	if !upgrading || config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
 		if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
 			return nil, fmt.Errorf("failed to confirm initializeTokenPoolGlobalConfig: %w", err)
 		}
