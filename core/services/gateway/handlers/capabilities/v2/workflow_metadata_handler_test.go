@@ -233,9 +233,9 @@ func TestOnMetadataPush(t *testing.T) {
 	require.NoError(t, err)
 
 	handler.syncMetadata()
-	require.Len(t, handler.authorizedKeys, 0)
-	require.Len(t, handler.workflowIDToRef, 0)
-	require.Len(t, handler.workflowRefToID, 0)
+	require.Empty(t, handler.authorizedKeys)
+	require.Empty(t, handler.workflowIDToRef)
+	require.Empty(t, handler.workflowRefToID)
 }
 
 func TestOnMetadataPushInvalidJSON(t *testing.T) {
@@ -304,9 +304,9 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	err = handler.OnMetadataPullResponse(ctx, resp, "node1")
 	require.NoError(t, err)
 	handler.syncMetadata()
-	require.Len(t, handler.authorizedKeys, 0)
-	require.Len(t, handler.workflowIDToRef, 0)
-	require.Len(t, handler.workflowRefToID, 0)
+	require.Empty(t, handler.authorizedKeys)
+	require.Empty(t, handler.workflowIDToRef)
+	require.Empty(t, handler.workflowRefToID)
 
 	// node2 responds with the same payload so observations should be aggregated because f=1
 	err = handler.OnMetadataPullResponse(ctx, resp, "node2")
