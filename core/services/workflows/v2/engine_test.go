@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -1172,6 +1171,50 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
 	}
 
+	billingClient := setupMockBillingClient(t)
+	cfg := defaultTestConfig(t)
+	cfg.WorkflowConfig = config
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+
+	rawSecret := "Original Secret Text"
+	f, n := 2, 3
+	_, vaultPublicKey, privateShares, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+
+	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+
+	decryptionShare0, err := tdh2easy.Decrypt(cipher, privateShares[0])
+	require.NoError(t, err)
+	decryptionShare0Bytes, err := decryptionShare0.Marshal()
+	require.NoError(t, err)
+	decryptionShare1, err := tdh2easy.Decrypt(cipher, privateShares[1])
+	require.NoError(t, err)
+	decryptionShare1Bytes, err := decryptionShare1.Marshal()
+	require.NoError(t, err)
+	decryptionShare2, err := tdh2easy.Decrypt(cipher, privateShares[2])
+	require.NoError(t, err)
+	decryptionShare2Bytes, err := decryptionShare2.Marshal()
+	require.NoError(t, err)
+
+	// Sanity testing that we can decrypt the secret with just 2 shares
+	twoDecryptionShares := []*tdh2easy.DecryptionShare{decryptionShare0, decryptionShare1}
+	decryptedSecret, err := tdh2easy.Aggregate(cipher, twoDecryptionShares, n)
+	require.NoError(t, err)
+	assert.Equal(t, rawSecret, string(decryptedSecret))
+
+	// Encrypt the decryption shares with the workflow key. This is the expected output from Vault capability.
+	encryptedDecryptionShare0, err := cfg.WorkflowKey.Encrypt(decryptionShare0Bytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare1, err := cfg.WorkflowKey.Encrypt(decryptionShare1Bytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare2, err := cfg.WorkflowKey.Encrypt(decryptionShare2Bytes)
+	require.NoError(t, err)
+	workflowKeyBytes := cfg.WorkflowKey.PublicKey()
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -1184,10 +1227,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
+								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
-										Shares:        req.Requests[0].GetEncryptionKeys(),
-										EncryptionKey: base64.StdEncoding.EncodeToString(localNode.EncryptionPublicKey[:]),
+										Shares: []string{
+											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
+											base64.StdEncoding.EncodeToString(encryptedDecryptionShare2),
+											base64.StdEncoding.EncodeToString([]byte("blabbermouth")),
+											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
+										},
+										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -1198,14 +1247,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		},
 	}
 	capreg.EXPECT().GetExecutable(matches.AnyContext, vault.CapabilityID).Return(mc, nil)
-
-	billingClient := setupMockBillingClient(t)
-
-	cfg := defaultTestConfig(t)
-	cfg.WorkflowConfig = config
-	cfg.Module = module
-	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	valueMap, err := values.NewMap[string](map[string]string{
+		"VaultPublicKey": base64.StdEncoding.EncodeToString(vaultPublicKeyBytes),
+	})
+	require.NoError(t, err)
+	capConfig := capabilities.CapabilityConfiguration{
+		DefaultConfig: valueMap,
+	}
+	capreg.EXPECT().ConfigForCapability(matches.AnyContext, vault.CapabilityID, localNode.WorkflowDON.ID).Return(capConfig, nil)
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1239,7 +1290,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		cfg.WorkflowKey,
-		&tdh2easy.PublicKey{},
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
@@ -1268,16 +1318,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		require.NoError(t, execErr)
 		unwrapped, execErr = value.Unwrap()
 		require.NoError(t, execErr)
-		var expectedSecret string
-		secretList := make([]string, 0, len(localRegistry.IDsToNodes))
-		for _, peers := range localRegistry.IDsToNodes {
-			secretList = append(secretList, string(peers.EncryptionPublicKey[:]))
-		}
-		sort.Strings(secretList)
-		for _, secret := range secretList {
-			expectedSecret = expectedSecret + secret + ", "
-		}
-		require.Equal(t, expectedSecret, unwrapped)
+		require.Equal(t, rawSecret, unwrapped)
 	default:
 		t.Fatalf("unexpected response type %T: %v", output, output)
 	}

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -36,8 +37,6 @@ type secretsFetcher struct {
 	workflowName  string
 	workflowKey   workflowkey.Key
 
-	vaultPublicKey *tdh2easy.PublicKey
-
 	metrics *monitoring.WorkflowsMetricLabeler
 }
 
@@ -49,7 +48,6 @@ func NewSecretsFetcher(
 	workflowOwner string,
 	workflowName string,
 	workflowKey workflowkey.Key,
-	vaultPublicKey *tdh2easy.PublicKey,
 ) *secretsFetcher {
 	return &secretsFetcher{
 		capRegistry:    capRegistry,
@@ -58,7 +56,6 @@ func NewSecretsFetcher(
 		workflowOwner:  workflowOwner,
 		workflowName:   workflowName,
 		workflowKey:    workflowKey,
-		vaultPublicKey: vaultPublicKey,
 		metrics:        metrics,
 	}
 }
@@ -70,7 +67,7 @@ func keyFor(owner, namespace, id string) string {
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	start := time.Now()
 	resp, err := s.semaphore.WhenAcquired(ctx, func() ([]*sdkpb.SecretResponse, error) {
-		return s.getSecrets(ctx, request)
+		return s.getSecretsForBatch(ctx, request)
 	})
 
 	s.metrics.With(
@@ -82,10 +79,35 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	return resp, err
 }
 
-func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
+	}
+
+	localNode, err := s.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return nil, errors.New("failed to get local node: " + err.Error())
+	}
+
+	vaultCapConfig, err := s.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, localNode.WorkflowDON.ID)
+	if err != nil {
+		return nil, errors.New("failed to get vault capability config: " + err.Error())
+	}
+
+	value := vaultCapConfig.DefaultConfig.Underlying["VaultPublicKey"]
+	vaultPublicKeyStr, ok := value.(*values.String)
+	if !ok {
+		return nil, errors.New("VaultPublicKey is not a string in the capability config")
+	}
+	vaultPublicKeyBytes, err := base64.StdEncoding.DecodeString(vaultPublicKeyStr.Underlying)
+	if err != nil {
+		return nil, errors.New("failed to decode vault public key from registry: " + err.Error())
+	}
+	vaultPublicKey := tdh2easy.PublicKey{}
+	err = vaultPublicKey.Unmarshal(vaultPublicKeyBytes)
+	if err != nil {
+		return nil, errors.New("failed to construct vault public key from raw bytes: " + err.Error())
 	}
 
 	encryptionKeys, err := s.getEncryptionKeys(ctx)
@@ -96,7 +118,7 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		Requests: make([]*vault.SecretRequest, 0),
 	}
 
-	logKeys := make([]string, len(request.Requests))
+	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
 		logKeys = append(logKeys, keyFor(s.workflowOwner, r.Namespace, r.Id))
 		vp.Requests = append(vp.Requests, &vault.SecretRequest{
@@ -117,7 +139,7 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "owner", s.workflowOwner, "workflow", s.workflowName)
 	lggr.Debug("fetching secrets...")
 
-	resp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
+	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
@@ -131,25 +153,19 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		return nil, fmt.Errorf("failed to execute vault.GetSecrets: %w", err)
 	}
 
-	lggr.Debug("successfully fetched secrets")
+	lggr.Debug("successfully fetched secrets from vault capability")
 
-	respPayload := &vault.GetSecretsResponse{}
-	err = resp.Payload.UnmarshalTo(respPayload)
+	batchedVaultResponse := &vault.GetSecretsResponse{}
+	err = capabilityResponse.Payload.UnmarshalTo(batchedVaultResponse)
 	if err != nil {
 		lggr.Errorw("failed to unmarshal vault payload to GetSecretsResponse", "err", err)
 		return nil, fmt.Errorf("failed to unmarshal vault payload to GetSecretsResponse: %w", err)
 	}
 
 	m := map[string]*vault.SecretResponse{}
-	for _, s := range respPayload.Responses {
-		key := keyFor(s.Id.Owner, s.Id.Namespace, s.Id.Key)
-		m[key] = s
-	}
-
-	localNode, err := s.capRegistry.LocalNode(ctx)
-	if err != nil {
-		lggr.Errorw("failed to get local node from registry" + err.Error())
-		return nil, errors.New("failed to get local node from registry: " + err.Error())
+	for _, secretResponse := range batchedVaultResponse.Responses {
+		key := keyFor(secretResponse.Id.Owner, secretResponse.Id.Namespace, secretResponse.Id.Key)
+		m[key] = secretResponse
 	}
 
 	sdkResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
@@ -157,136 +173,127 @@ func (s *secretsFetcher) getSecrets(ctx context.Context, request *sdkpb.GetSecre
 		key := keyFor(s.workflowOwner, r.Namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
-			lggr.Debugw("could not find secret in response map", "key", key)
-			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-				Response: &sdkpb.SecretResponse_Error{
-					Error: &sdkpb.SecretError{
-						Id:        r.Id,
-						Namespace: r.Namespace,
-						Owner:     s.workflowOwner,
-						Error:     "could not find secret for " + key,
-					},
-				},
-			})
+			errorMessage := "could not find response for the request: " + key
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, r.Namespace, s.workflowOwner, errorMessage)
+			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-
-		if resp.GetError() != "" {
-			lggr.Debugw("secret request returned an error", "key", key, "err", resp.GetError())
-			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-				Response: &sdkpb.SecretResponse_Error{
-					Error: &sdkpb.SecretError{
-						Id:        r.Id,
-						Namespace: r.Namespace,
-						Owner:     s.workflowOwner,
-						Error:     "secret request returned an error for key " + key + ". Error: " + resp.GetError(),
-					},
-				},
-			})
-			continue
-		}
-
-		var localNodeShares []string
-		for _, share := range resp.GetData().GetEncryptedDecryptionKeyShares() {
-			if share.EncryptionKey == base64.StdEncoding.EncodeToString(localNode.EncryptionPublicKey[:]) {
-				localNodeShares = share.Shares
-			}
-		}
-		if len(localNodeShares) == 0 {
-			lggr.Errorw("no shares found for this node's encryption key", "key", key, "encryptionkey", string(localNode.EncryptionPublicKey[:]))
-			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-				Response: &sdkpb.SecretResponse_Error{
-					Error: &sdkpb.SecretError{
-						Id:        r.Id,
-						Namespace: r.Namespace,
-						Owner:     s.workflowOwner,
-						Error:     "unexpected error when getting secret for " + key + ", no shares found for this node's encryption key(base64 encoded): " + base64.StdEncoding.EncodeToString(localNode.EncryptionPublicKey[:]),
-					},
-				},
-			})
-			continue
-		}
-
-		encryptedSecretBytes, err := base64.StdEncoding.DecodeString(resp.GetData().GetEncryptedValue())
-		if err != nil {
-			lggr.Debugw("failed to base64 decode the secret", "key", key, "err", resp.GetError())
-			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-				Response: &sdkpb.SecretResponse_Error{
-					Error: &sdkpb.SecretError{
-						Id:        r.Id,
-						Namespace: r.Namespace,
-						Owner:     s.workflowOwner,
-						Error:     "failed to base64 decode the secret for key " + key + ". Error: " + err.Error(),
-					},
-				},
-			})
-			continue
-		}
-
-		secret, err := s.decryptSecret(encryptedSecretBytes, localNodeShares)
-		if err != nil {
-			lggr.Errorw("failed to decrypt secret", "key", key, "err", err)
-			sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-				Response: &sdkpb.SecretResponse_Error{
-					Error: &sdkpb.SecretError{
-						Id:        r.Id,
-						Namespace: r.Namespace,
-						Owner:     s.workflowOwner,
-						Error:     "failed to decrypt secret for key " + key + ". Error: " + err.Error(),
-					},
-				},
-			})
-			continue
-		}
-
-		sdkResp = append(sdkResp, &sdkpb.SecretResponse{
-			Response: &sdkpb.SecretResponse_Secret{
-				Secret: &sdkpb.Secret{
-					Id:        resp.GetId().GetKey(),
-					Namespace: resp.GetId().GetNamespace(),
-					Owner:     resp.GetId().GetOwner(),
-					Value:     secret,
-				},
-			},
-		})
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, &vaultPublicKey, resp)
+		sdkResp = append(sdkResp, &response)
 	}
 
 	return sdkResp, nil
 }
 
-func (s *secretsFetcher) decryptSecret(encryptedSecretBytes []byte, encodedShares []string) (string, error) {
-	cipher := &tdh2easy.Ciphertext{}
-	err := cipher.UnmarshalVerify(encryptedSecretBytes, s.vaultPublicKey)
+func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, vaultPublicKey *tdh2easy.PublicKey, response *vault.SecretResponse) sdkpb.SecretResponse {
+
+	owner := s.workflowOwner
+	if response.GetId() != nil {
+		if response.GetId().GetKey() != "" {
+			id = response.GetId().GetKey()
+		}
+		if response.GetId().GetNamespace() != "" {
+			namespace = response.GetId().GetNamespace()
+		}
+		if response.GetId().GetOwner() != "" {
+			owner = response.GetId().GetOwner()
+		}
+	}
+	if response.GetError() != "" {
+		errorMessage := "secret request returned an error: " + response.GetError()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	var localNodeShares []string
+	workflowNodeEncryptionPublicKey := s.workflowKey.PublicKey()
+	workflowNodeEncryptionPublicKeyBase64 := base64.StdEncoding.EncodeToString(workflowNodeEncryptionPublicKey[:])
+	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
+		if share.EncryptionKey == workflowNodeEncryptionPublicKeyBase64 {
+			localNodeShares = share.Shares
+		}
+	}
+	if len(localNodeShares) == 0 {
+		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyBase64
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	encryptedSecretBytes, err := base64.StdEncoding.DecodeString(response.GetData().GetEncryptedValue())
+	if err != nil {
+		errorMessage := "failed to decode the secret string: " + err.Error()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, vaultPublicKey)
+	if err != nil {
+		errorMessage := "failed to decrypt secret: " + err.Error()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	return sdkpb.SecretResponse{
+		Response: &sdkpb.SecretResponse_Secret{
+			Secret: &sdkpb.Secret{
+				Id:        response.GetId().GetKey(),
+				Namespace: response.GetId().GetNamespace(),
+				Owner:     response.GetId().GetOwner(),
+				Value:     secret,
+			},
+		},
+	}
+}
+
+func (s *secretsFetcher) wrapErrorResponse(lggr logger.Logger, id, namespace, owner, errorMessage string) sdkpb.SecretResponse {
+	lggr.Debugw(errorMessage)
+	return sdkpb.SecretResponse{
+		Response: &sdkpb.SecretResponse_Error{
+			Error: &sdkpb.SecretError{
+				Id:        id,
+				Namespace: namespace,
+				Owner:     owner,
+				Error:     errorMessage,
+			},
+		},
+	}
+}
+
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, vaultPublicKey *tdh2easy.PublicKey) (string, error) {
+	lggr.Debug("decrypting secret...")
+
+	cipherText := &tdh2easy.Ciphertext{}
+	err := cipherText.UnmarshalVerify(encryptedSecretBytes, vaultPublicKey)
 	if err != nil {
 		return "", errors.New("failed to unmarshal encrypted secret: " + err.Error())
 	}
 
-	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encodedShares))
-	for _, encodedShare := range encodedShares {
-		encodedShareBytes, err := base64.StdEncoding.DecodeString(encodedShare)
+	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
+	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
+		encryptedDecryptionShareBytes, err := base64.StdEncoding.DecodeString(encryptedDecryptionShare)
 		if err != nil {
-			return "", errors.New("Failed to base64 decode the encodedShare: " + err.Error())
+			lggr.Debugw("failed to base64 decode the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			continue
 		}
-		privateShareBytes, err := s.workflowKey.Decrypt(encodedShareBytes)
+		decryptionShareBytes, err := s.workflowKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
-			return "", errors.New("failed to decrypt the encodedShare: " + err.Error())
+			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			continue
 		}
-		var privateShare tdh2easy.PrivateShare
-		err = privateShare.Unmarshal(privateShareBytes)
+		decryptionShare := &tdh2easy.DecryptionShare{}
+		err = decryptionShare.Unmarshal(decryptionShareBytes)
 		if err != nil {
-			return "", errors.New("failed to unmarshal privateShare: " + err.Error())
+			lggr.Debugw("failed to unmarshal decryption share", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			continue
 		}
-		decryptionShare, err := tdh2easy.Decrypt(cipher, &privateShare)
+		err = tdh2easy.VerifyShare(cipherText, vaultPublicKey, decryptionShare)
 		if err != nil {
-			return "", errors.New("failed to decrypt privateShare: " + err.Error())
-		}
-		err = tdh2easy.VerifyShare(cipher, s.vaultPublicKey, decryptionShare)
-		if err != nil {
-			return "", errors.New("failed to verifyshare the decryptionshare: " + err.Error())
+			lggr.Debugw("failed to verify decryption share", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			continue
 		}
 		decryptionShares = append(decryptionShares, decryptionShare)
 	}
-	decryptedSecret, err := tdh2easy.Aggregate(cipher, decryptionShares, len(encodedShares))
+	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares))
+
+	// Note that the last parameter 'n' to tdh2easy.Aggregate() isn't verified by the library at all.
+	// Thus, the len(encryptedDecryptionShares) set below is just an optional hint for memory allocation.
+	decryptedSecret, err := tdh2easy.Aggregate(cipherText, decryptionShares, len(encryptedDecryptionShares))
 	if err != nil {
 		return "", errors.New("failed to aggregate decryption shares: " + err.Error())
 	}

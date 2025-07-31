@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -123,8 +122,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
-			cfg.WorkflowKey,
-			&tdh2easy.PublicKey{})
+			cfg.WorkflowKey)
 	}
 
 	engine := &Engine{
