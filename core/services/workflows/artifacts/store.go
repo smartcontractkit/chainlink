@@ -203,7 +203,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode binary: %w binary lenght %d", err, len(binary))
+		return nil, nil, fmt.Errorf("failed to decode binary: %w binary length %d", err, len(binary))
 	}
 
 	if configURL != "" {
