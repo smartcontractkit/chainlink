@@ -646,7 +646,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 
 	chainSelectorSolana := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	for _, solChain := range chainSelectorSolana {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e.Env, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e.Env, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
