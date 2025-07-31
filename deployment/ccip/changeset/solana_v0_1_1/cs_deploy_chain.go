@@ -31,15 +31,12 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
-	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	solTokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
@@ -532,26 +529,6 @@ func deployChainContractsSolana(
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 	}
 
-	// BnM token pool global config initialization
-	var bnmTokenPoolConfig solBurnMintTokenPool.PoolConfig
-	bnmConfigPDA, _ := solTokens.TokenPoolGlobalConfigPDA(burnMintTokenPool)
-	err = chain.GetAccountDataBorshInto(e.GetContext(), bnmConfigPDA, &bnmTokenPoolConfig)
-	if err != nil {
-		newTxns, initErr := initializeTokenPoolGlobalConfig(e, chain, config, shared.BurnMintTokenPool, burnMintTokenPool, ccipRouterProgram, rmnRemoteAddress)
-		if initErr != nil {
-			return batches, initErr
-		}
-		// create proposals for txns if token pool owned by timelock
-		if len(newTxns) > 0 {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
-				Transactions:  newTxns,
-			})
-		}
-	} else {
-		e.Logger.Infow("BnM token pool global config already initialized, skipping initialization", "chain", chain.String())
-	}
-
 	var lockReleaseTokenPool solana.PublicKey
 	metadata = shared.CLLMetadata
 	if config.LockReleaseTokenPoolMetadata != "" {
@@ -579,26 +556,6 @@ func deployChainContractsSolana(
 	} else {
 		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
-	}
-
-	// LnR token pool global config initialization
-	var lnrTokenPoolConfig solLockReleaseTokenPool.PoolConfig
-	lnrConfigPDA, _ := solTokens.TokenPoolGlobalConfigPDA(lockReleaseTokenPool)
-	err = chain.GetAccountDataBorshInto(e.GetContext(), lnrConfigPDA, &lnrTokenPoolConfig)
-	if err != nil {
-		newTxns, initErr := initializeTokenPoolGlobalConfig(e, chain, config, shared.LockReleaseTokenPool, lockReleaseTokenPool, ccipRouterProgram, rmnRemoteAddress)
-		if initErr != nil {
-			return batches, initErr
-		}
-		// create proposals for txns if token pool owned by timelock
-		if len(newTxns) > 0 {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
-				Transactions:  newTxns,
-			})
-		}
-	} else {
-		e.Logger.Infow("LnR token pool global config already initialized, skipping initialization", "chain", chain.String())
 	}
 
 	// MCMS
@@ -1114,92 +1071,6 @@ func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID so
 		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 	return programData, nil
-}
-
-func initializeTokenPoolGlobalConfig(
-	e cldf.Environment,
-	chain cldf_solana.Chain,
-	config DeployChainContractsConfig,
-	contractType cldf.ContractType,
-	tokenPoolProgram solana.PublicKey,
-	routerAddress solana.PublicKey,
-	rmnAddress solana.PublicKey,
-) ([]mcmsTypes.Transaction, error) {
-	e.Logger.Debugw("Initializing token pool global config", "chain", chain.String(), "tokenPoolProgram", tokenPoolProgram.String(), "poolType", contractType)
-	programData, err := getSolProgramData(e, chain, tokenPoolProgram)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get solana router program data: %w", err)
-	}
-	globalConfigPDA, err := solTokens.TokenPoolGlobalConfigPDA(tokenPoolProgram)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
-	}
-	var instruction solana.Instruction
-	var upgrading bool
-	switch contractType {
-	case shared.BurnMintTokenPool:
-		tempIx, ixErr := solBurnMintTokenPool.NewInitGlobalConfigInstruction(
-			routerAddress,
-			rmnAddress,
-			globalConfigPDA,
-			chain.DeployerKey.PublicKey(),
-			solana.SystemProgramID,
-			tokenPoolProgram,
-			programData.Address,
-		).ValidateAndBuild()
-		if ixErr != nil {
-			return nil, fmt.Errorf("failed to build instruction: %w", err)
-		}
-		ixData, ixErr := tempIx.Data()
-		if ixErr != nil {
-			return nil, fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
-		}
-		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
-		upgrading = config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil
-	case shared.LockReleaseTokenPool:
-		tempIx, ixErr := solLockReleaseTokenPool.NewInitGlobalConfigInstruction(
-			routerAddress,
-			rmnAddress,
-			globalConfigPDA,
-			chain.DeployerKey.PublicKey(),
-			solana.SystemProgramID,
-			tokenPoolProgram,
-			programData.Address,
-		).ValidateAndBuild()
-		if ixErr != nil {
-			return nil, fmt.Errorf("failed to build instruction: %w", err)
-		}
-		ixData, ixErr := tempIx.Data()
-		if ixErr != nil {
-			return nil, fmt.Errorf("failed to extract data payload from bnm token pool init global config instruction: %w", ixErr)
-		}
-		instruction = solana.NewInstruction(tokenPoolProgram, tempIx.Accounts(), ixData)
-		upgrading = config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil
-	default:
-		return nil, fmt.Errorf("unsupported token pool type: %s", contractType.String())
-	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
-	}
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	// if we're not upgrading or the upgrade is not via timelock, execute the raw ixns
-	if !upgrading || config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
-		if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-			return nil, fmt.Errorf("failed to confirm initializeTokenPoolGlobalConfig: %w", err)
-		}
-		return nil, nil
-	}
-	initGlobalConfigTx, err := BuildMCMSTxn(instruction, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
-	if err != nil {
-		return []mcmsTypes.Transaction{*initGlobalConfigTx}, fmt.Errorf("failed to create %s init global config MCMS transaction: %w", contractType.String(), err)
-	}
-	e.Logger.Infow("Initialized token pool's global config", "chain", chain.String(), "poolType", contractType)
-	return nil, nil
 }
 
 type CloseBuffersConfig struct {

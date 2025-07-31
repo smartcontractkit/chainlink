@@ -17,6 +17,7 @@ import (
 
 var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
+var ccipCommonIDL = idl.FetchCommonIDL()
 
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
@@ -106,7 +107,124 @@ func buildCommitAccountsList(fromAddress, offrampProgramAddress string, priceOnl
 	return accounts
 }
 
-func getExecuteMethodConfig(fromAddress string) chainwriter.MethodConfig {
+func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
+	return chainwriter.MethodConfig{
+		FromAddress: fromAddress,
+		InputModifications: []codec.ModifierConfig{
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"ReportContextByteWords": "ReportContext"},
+			},
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"RawExecutionReport": "Report"},
+			},
+		},
+		ChainSpecificName:        "execute",
+		ArgsTransform:            "CCIPExecute",
+		ComputeUnitLimitOverhead: 150_000,
+		BufferPayloadMethod:      "CCIPExecutionReportBuffer",
+		LookupTables: chainwriter.LookupTables{
+			DerivedLookupTables: []chainwriter.DerivedLookupTable{
+				{
+					Name: "PoolLookupTable",
+					Accounts: chainwriter.Lookup{
+						PDALookups: &chainwriter.PDALookups{
+							Name:      "TokenAdminRegistry",
+							PublicKey: getRouterProgramAccount(offrampProgramAddress),
+							Seeds: []chainwriter.Seed{
+								{Static: []byte("token_admin_registry")},
+								{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
+							},
+							IsSigner:   false,
+							IsWritable: false,
+							InternalField: chainwriter.InternalField{
+								TypeName: "TokenAdminRegistry",
+								Location: "LookupTable",
+								// TokenAdminRegistry is in the common program so need to provide the IDL
+								IDL: ccipCommonIDL,
+							},
+						},
+					},
+					Optional: true, // Lookup table is optional if DestTokenAddress is not present in report
+				},
+				getCommonAddressLookupTableConfig(offrampProgramAddress),
+			},
+		},
+		ATAs: []chainwriter.ATALookup{
+			{
+				Location:      destTokenAddress,
+				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: tokenReceiverAddress}},
+				TokenProgram: chainwriter.Lookup{
+					AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
+						LookupTableName: "PoolLookupTable",
+						IncludeIndexes:  []int{6},
+					},
+				},
+				MintAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
+				Optional:    true, // ATA lookup is optional if DestTokenAddress is not present in report
+			},
+		},
+		Accounts: []chainwriter.Lookup{
+			getOfframpAccountConfig(offrampProgramAddress),
+			getReferenceAddressesConfig(offrampProgramAddress),
+			{
+				PDALookups: &chainwriter.PDALookups{
+					Name:      "SourceChainState",
+					PublicKey: getAddressConstant(offrampProgramAddress),
+					Seeds: []chainwriter.Seed{
+						{Static: []byte("source_chain_state")},
+						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
+					},
+					IsSigner:   false,
+					IsWritable: false,
+				},
+			},
+			{
+				PDALookups: &chainwriter.PDALookups{
+					Name:      "CommitReport",
+					PublicKey: getAddressConstant(offrampProgramAddress),
+					Seeds: []chainwriter.Seed{
+						{Static: []byte("commit_report")},
+						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
+						{Dynamic: chainwriter.Lookup{
+							AccountLookup: &chainwriter.AccountLookup{
+								// The seed is the merkle root of the report, as passed into the input params.
+								Location: merkleRoot,
+							}},
+						},
+					},
+					IsSigner:   false,
+					IsWritable: true,
+				},
+			},
+			getAddressConstant(offrampProgramAddress),
+			{
+				PDALookups: &chainwriter.PDALookups{
+					Name:      "AllowedOfframp",
+					PublicKey: getRouterProgramAccount(offrampProgramAddress),
+					Seeds: []chainwriter.Seed{
+						{Static: []byte("allowed_offramp")},
+						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
+						{Dynamic: getAddressConstant(offrampProgramAddress)},
+					},
+					IsSigner:   false,
+					IsWritable: false,
+				},
+			},
+			getAuthorityAccountConstant(fromAddress),
+			getSystemProgramConstant(),
+			getSysVarInstructionConstant(),
+			getRMNRemoteProgramAccount(offrampProgramAddress),
+			getRMNRemoteCursesLookup(offrampProgramAddress),
+			getRMNRemoteConfigLookup(offrampProgramAddress),
+			// logic receiver and user defined messaging accounts are appended in the CCIPExecute args transform
+			// user token account, token billing config, pool chain config, and pool lookup table accounts
+			// are appended to the accounts list in the CCIPExecute args transform for each token transfer
+		},
+		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
+	}
+}
+
+func getExecuteMethodConfigV2(fromAddress string) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -125,8 +243,8 @@ func getExecuteMethodConfig(fromAddress string) chainwriter.MethodConfig {
 			{
 				Location:      destTokenAddress,
 				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: tokenReceiverAddress}},
-				MintAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
-				Optional:    true, // ATA lookup is optional if DestTokenAddress is not present in report
+				MintAddress:   chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
+				Optional:      true, // ATA lookup is optional if DestTokenAddress is not present in report
 			},
 		},
 		// All accounts and lookup tables including the ones for messaging and token transfers are derived using an on-chain method
@@ -136,7 +254,7 @@ func getExecuteMethodConfig(fromAddress string) chainwriter.MethodConfig {
 	}
 }
 
-func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string) (chainwriter.ChainWriterConfig, error) {
+func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string, configVersion *string) (chainwriter.ChainWriterConfig, error) {
 	// check fromAddress
 	pk, err := solana.PublicKeyFromBase58(fromAddress)
 	if err != nil {
@@ -157,11 +275,15 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	if err = json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
+	executeMethodConfig := getExecuteMethodConfig(fromAddress, offrampProgramAddress)
+	if configVersion != nil && *configVersion == "v2" {
+		executeMethodConfig = getExecuteMethodConfigV2(fromAddress)
+	}
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			ccipconsts.ContractNameOffRamp: {
 				Methods: map[string]chainwriter.MethodConfig{
-					ccipconsts.MethodExecute:         getExecuteMethodConfig(fromAddress),
+					ccipconsts.MethodExecute:         executeMethodConfig,
 					ccipconsts.MethodCommit:          getCommitMethodConfig(fromAddress, offrampProgramAddress, false),
 					ccipconsts.MethodCommitPriceOnly: getCommitMethodConfig(fromAddress, offrampProgramAddress, true),
 				},
@@ -215,6 +337,26 @@ func getFeeQuoterProgramAccount(offrampProgramAddress string) chainwriter.Lookup
 			InternalField: chainwriter.InternalField{
 				TypeName: "ReferenceAddresses",
 				Location: "FeeQuoter",
+				IDL:      ccipOfframpIDL,
+			},
+		},
+	}
+}
+
+func getRouterProgramAccount(offrampProgramAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{
+		PDALookups: &chainwriter.PDALookups{
+			Name:      ccipconsts.ContractNameRouter,
+			PublicKey: getAddressConstant(offrampProgramAddress),
+			Seeds: []chainwriter.Seed{
+				{Static: []byte("reference_addresses")},
+			},
+			IsSigner:   false,
+			IsWritable: false,
+			// Reads the address from the reference addresses account
+			InternalField: chainwriter.InternalField{
+				TypeName: "ReferenceAddresses",
+				Location: "Router",
 				IDL:      ccipOfframpIDL,
 			},
 		},
