@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -33,7 +33,7 @@ type secretsFetcher struct {
 
 	semaphore *semaphore[[]*sdkpb.SecretResponse]
 
-	workflowOwner string
+	workflowOwner         string
 	workflowName          string
 	workflowEncryptionKey workflowkey.Key
 
@@ -181,12 +181,10 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, &vaultPublicKey, resp)
 		sdkResp = append(sdkResp, &response)
 	}
-
 	return sdkResp, nil
 }
 
 func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, vaultPublicKey *tdh2easy.PublicKey, response *vault.SecretResponse) sdkpb.SecretResponse {
-
 	owner := s.workflowOwner
 	if response.GetId() != nil {
 		if response.GetId().GetKey() != "" {
@@ -259,9 +257,9 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	lggr.Debug("decrypting secret...")
 
 	cipherText := &tdh2easy.Ciphertext{}
-	err := cipherText.UnmarshalVerify(encryptedSecretBytes, vaultPublicKey)
-	if err != nil {
-		return "", errors.New("failed to unmarshal encrypted secret: " + err.Error())
+	errOuter := cipherText.UnmarshalVerify(encryptedSecretBytes, vaultPublicKey)
+	if errOuter != nil {
+		return "", errors.New("failed to unmarshal encrypted secret: " + errOuter.Error())
 	}
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
