@@ -21,11 +21,11 @@ import (
 
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
-func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+func RegisterWithCRECLI(input cre.ManageWorkflowWithCRECLIInput) error {
 	if registerValErr := validateRegisterWorkflowInput(input); registerValErr != nil {
 		return errors.Wrap(registerValErr, "failed to validate RegisterWorkflowInput")
 	}
@@ -77,7 +77,7 @@ func RegisterWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 	return nil
 }
 
-func validateRegisterWorkflowInput(input cretypes.ManageWorkflowWithCRECLIInput) error {
+func validateRegisterWorkflowInput(input cre.ManageWorkflowWithCRECLIInput) error {
 	if input.ShouldCompileNewWorkflow && input.NewWorkflow == nil {
 		return errors.New("NewWorkflow is required when ShouldCompileNewWorkflow is true")
 	}
@@ -97,7 +97,7 @@ func validateRegisterWorkflowInput(input cretypes.ManageWorkflowWithCRECLIInput)
 	return nil
 }
 
-func prepareCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) (*os.File, error) {
+func prepareCRECLI(input cre.ManageWorkflowWithCRECLIInput) (*os.File, error) {
 	if valErr := input.Validate(); valErr != nil {
 		return nil, errors.Wrap(valErr, "failed to validate WorkflowInput")
 	}
@@ -113,7 +113,7 @@ func prepareCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) (*os.File, erro
 	return libcrecli.PrepareCRECLIWorkflowSettingsFile(input.CRECLIProfile, input.WorkflowOwnerAddress, input.WorkflowName)
 }
 
-func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+func PauseWithCRECLI(input cre.ManageWorkflowWithCRECLIInput) error {
 	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func PauseWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
 	return nil
 }
 
-func ActivateWithCRECLI(input cretypes.ManageWorkflowWithCRECLIInput) error {
+func ActivateWithCRECLI(input cre.ManageWorkflowWithCRECLIInput) error {
 	creCLIWorkflowSettingsFile, err := prepareCRECLI(input)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	var configErr error
 	configURLToUse := ""
 	if configURL != nil {
-		configData, configErr = libnet.Download(ctx, configURLToUse)
+		configData, configErr = libnet.Download(ctx, *configURL)
 		if configErr != nil {
 			return errors.Wrap(configErr, "failed to download workflow config")
 		}

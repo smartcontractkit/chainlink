@@ -435,7 +435,6 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 			if err != nil {
 				w.lggr.Errorw("failed to handle event", "err", err)
 			}
-
 		}
 	}
 
@@ -485,8 +484,8 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 		prevWfID := engine.WorkflowID.Hex()
 
 		id := idFor(wfMeta.Owner, wfMeta.WorkflowName)
-		switch {
-		case wfMeta.Status == WorkflowStatusActive:
+		switch wfMeta.Status {
+		case WorkflowStatusActive:
 			switch {
 			// if the workflow is active, but unable to get engine from the engine registry
 			// then handle as registered event
@@ -560,7 +559,7 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 			default:
 				return nil, fmt.Errorf("invariant violation: could not handle workflow (currWfID=%s; prevWfID=%s, engineFound=%t) in active status", currWfID, prevWfID, engineFound)
 			}
-		case wfMeta.Status == WorkflowStatusPaused:
+		case WorkflowStatusPaused:
 			switch {
 			case !engineFound:
 				// Account for a state change from active to paused, by checking
@@ -889,41 +888,41 @@ func toWorkflowRegistryEventResponse(
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 	case WorkflowRegisteredEvent:
 		var data WorkflowRegisteredV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowUpdatedEvent:
 		var data WorkflowUpdatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowPausedEvent:
 		var data WorkflowPausedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowActivatedEvent:
 		var data WorkflowActivatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowDeletedEvent:
 		var data WorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	default:
 		return workflowRegistryEvent{}, fmt.Errorf("unknown event type: %s", evt)

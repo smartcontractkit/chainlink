@@ -20,10 +20,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -34,8 +34,6 @@ const (
 )
 
 func Test_ClientRequest_MessageValidation(t *testing.T) {
-	lggr := logger.TestLogger(t)
-
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {
@@ -84,7 +82,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		defer req.Cancel(errors.New("test end"))
 
@@ -135,7 +133,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -169,7 +167,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -200,7 +198,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -238,7 +236,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -299,7 +297,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -335,7 +333,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Executes full schedule", func(t *testing.T) {
 		beholderTester := tests.Beholder(t)
-		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
 
@@ -457,7 +455,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Uses passed in time out if larger than schedule", func(t *testing.T) {
-		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
 
@@ -567,7 +565,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))

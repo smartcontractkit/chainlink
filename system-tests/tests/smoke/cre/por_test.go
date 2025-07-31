@@ -44,6 +44,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
@@ -60,15 +61,14 @@ import (
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 var (
-	SinglePoRDonCapabilitiesFlags = []string{types.CronCapability, types.OCR3Capability, types.CustomComputeCapability, types.WriteEVMCapability}
+	SinglePoRDonCapabilitiesFlags = []string{cre.CronCapability, cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability}
 )
 
 type CustomAnvilMiner struct {
@@ -76,15 +76,15 @@ type CustomAnvilMiner struct {
 }
 
 type TestConfig struct {
-	Blockchains                   []*types.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	CustomAnvilMiner              *CustomAnvilMiner               `toml:"custom_anvil_miner"`
-	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
-	WorkflowConfigs               []WorkflowConfig                `toml:"workflow_configs" validate:"required"`
-	JD                            *jd.Input                       `toml:"jd" validate:"required"`
-	Fake                          *fake.Input                     `toml:"fake"`
-	WorkflowRegistryConfiguration *types.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
-	Infra                         *libtypes.InfraInput            `toml:"infra" validate:"required"`
-	DependenciesConfig            *DependenciesConfig             `toml:"dependencies" validate:"required"`
+	Blockchains                   []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	CustomAnvilMiner              *CustomAnvilMiner             `toml:"custom_anvil_miner"`
+	NodeSets                      []*ns.Input                   `toml:"nodesets" validate:"required"`
+	WorkflowConfigs               []WorkflowConfig              `toml:"workflow_configs" validate:"required"`
+	JD                            *jd.Input                     `toml:"jd" validate:"required"`
+	Fake                          *fake.Input                   `toml:"fake"`
+	WorkflowRegistryConfiguration *cre.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
+	Infra                         *infra.Input                  `toml:"infra" validate:"required"`
+	DependenciesConfig            *DependenciesConfig           `toml:"dependencies" validate:"required"`
 }
 
 type WorkflowConfig struct {
@@ -258,7 +258,7 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 		return errors.Wrapf(dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", input.chainSelector)
 	}
 
-	configInput := &types.ConfigureDataFeedsCacheInput{
+	configInput := &cre.ConfigureDataFeedsCacheInput{
 		CldEnv:                input.fullCldEnvironment,
 		ChainSelector:         input.chainSelector,
 		FeedIDs:               []string{input.feedID},
@@ -275,8 +275,8 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 	return configErr
 }
 
-func buildManageWorkflowInput(input managePoRWorkflowInput) (types.ManageWorkflowWithCRECLIInput, error) {
-	return types.ManageWorkflowWithCRECLIInput{
+func buildManageWorkflowInput(input managePoRWorkflowInput) (cre.ManageWorkflowWithCRECLIInput, error) {
+	return cre.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
 		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
@@ -388,7 +388,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 		secretsFilePath = ptr.Ptr(secretsFile.Name())
 	}
 
-	registerWorkflowInput := types.ManageWorkflowWithCRECLIInput{
+	registerWorkflowInput := cre.ManageWorkflowWithCRECLIInput{
 		ChainSelector:            input.chainSelector,
 		WorkflowDonID:            input.workflowDonID,
 		WorkflowOwnerAddress:     input.sethClient.MustGetRootKeyAddress(),
@@ -401,7 +401,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 	}
 
 	if input.ShouldCompileNewWorkflow {
-		registerWorkflowInput.NewWorkflow = &types.NewWorkflow{
+		registerWorkflowInput.NewWorkflow = &cre.NewWorkflow{
 			FolderLocation:   *input.WorkflowFolderLocation,
 			WorkflowFileName: "main.go",
 			ConfigFilePath:   &workflowConfigFilePath,
@@ -411,7 +411,7 @@ func registerPoRWorkflow(ctx context.Context, input managePoRWorkflowInput) erro
 			},
 		}
 	} else {
-		registerWorkflowInput.ExistingWorkflow = &types.ExistingWorkflow{
+		registerWorkflowInput.ExistingWorkflow = &cre.ExistingWorkflow{
 			BinaryURL:  input.CompiledWorkflowConfig.BinaryURL,
 			ConfigURL:  &input.CompiledWorkflowConfig.ConfigURL,
 			SecretsURL: &input.CompiledWorkflowConfig.SecretsURL,
@@ -439,8 +439,8 @@ type porSetupOutput struct {
 	addressBook                     cldf.AddressBook
 	chainSelectorToSethClient       map[uint64]*seth.Client
 	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
-	donTopology                     *types.DonTopology
-	nodeOutput                      []*types.WrappedNodeOutput
+	donTopology                     *cre.DonTopology
+	nodeOutput                      []*cre.WrappedNodeOutput
 	chainSelectorToWorkflowConfig   map[uint64]WorkflowConfig
 }
 
@@ -449,7 +449,7 @@ func setupPoRTestEnvironment(
 	testLogger zerolog.Logger,
 	in *TestConfig,
 	priceProvider PriceProvider,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*types.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet,
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 ) *porSetupOutput {
 	extraAllowedGatewayPorts := []int{}
@@ -458,14 +458,14 @@ func setupPoRTestEnvironment(
 	}
 
 	customBinariesPaths := map[string]string{}
-	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.Type)
 	require.NoError(t, pathErr, "failed to get default container directory")
 	var cronBinaryPathInTheContainer string
 	if in.DependenciesConfig.CronCapabilityBinaryPath != "" {
 		// where cron binary is located in the container
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.DependenciesConfig.CronCapabilityBinaryPath))
 		// where cron binary is located on the host
-		customBinariesPaths[types.CronCapability] = in.DependenciesConfig.CronCapabilityBinaryPath
+		customBinariesPaths[cre.CronCapability] = in.DependenciesConfig.CronCapabilityBinaryPath
 	} else {
 		// assume that if cron binary is already in the image it is in the default location and has default name
 		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
@@ -484,13 +484,13 @@ func setupPoRTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		CustomBinariesPaths:                  customBinariesPaths,
-		JobSpecFactoryFunctions: []types.JobSpecFactoryFn{
+		JobSpecFactoryFunctions: []cre.JobSpecFactoryFn{
 			creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
 			crecron.CronJobSpecFactoryFn(cronBinaryPathInTheContainer),
 			cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 			crecompute.ComputeJobSpecFactoryFn,
 		},
-		ConfigFactoryFunctions: []types.ConfigFactoryFn{
+		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
 			gatewayconfig.GenerateConfig,
 		},
 	}
@@ -638,12 +638,12 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
 	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*types.CapabilitiesAwareNodeSet {
-		return []*types.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
+		return []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
 				Capabilities:       SinglePoRDonCapabilitiesFlags,
-				DONTypes:           []string{types.WorkflowDON, types.GatewayDON},
+				DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
 				BootstrapNodeIndex: 0, // not required, but set to make the configuration explicit
 				GatewayNodeIndex:   0, // not required, but set to make the configuration explicit
 			},
@@ -658,7 +658,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	capabilityFactoryFns := []types.DONCapabilityWithConfigFactoryFn{
+	capabilityFactoryFns := []cre.DONCapabilityWithConfigFactoryFn{
 		webapicap.WebAPITriggerCapabilityFactoryFn,
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
@@ -702,19 +702,19 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
 	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*types.CapabilitiesAwareNodeSet {
-		return []*types.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
+		return []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
 				Capabilities:       SinglePoRDonCapabilitiesFlags,
-				DONTypes:           []string{types.WorkflowDON},
+				DONTypes:           []string{cre.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 			{
 				Input:              input[1],
 				Capabilities:       []string{},
-				DONTypes:           []string{types.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                         // <----- it's crucial to indicate there's no bootstrap node
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
 				GatewayNodeIndex:   0,
 			},
 		}
@@ -727,7 +727,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []types.DONCapabilityWithConfigFactoryFn{
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []cre.DONCapabilityWithConfigFactoryFn{
 		webapicap.WebAPITriggerCapabilityFactoryFn,
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
@@ -756,27 +756,27 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*types.CapabilitiesAwareNodeSet {
-		return []*types.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
+		return []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       []string{types.OCR3Capability, types.CustomComputeCapability, types.CronCapability},
-				DONTypes:           []string{types.WorkflowDON},
+				Capabilities:       []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.CronCapability},
+				DONTypes:           []string{cre.WorkflowDON},
 				BootstrapNodeIndex: 0,
 				SupportedChains:    []uint64{1337}, // workflow DON has to support only home chain
 			},
 			{
 				Input:              input[1],
-				Capabilities:       []string{types.WriteEVMCapability},
-				DONTypes:           []string{types.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                              // <----- indicate that capabilities DON doesn't have a bootstrap node and will use the global bootstrap node
-				SupportedChains:    []uint64{1337, 2337},            // capabilities DON has to support both chains, because we want to make sure that second workflow that writes to the second chain is run using a remote capability
+				Capabilities:       []string{cre.WriteEVMCapability},
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                            // <----- indicate that capabilities DON doesn't have a bootstrap node and will use the global bootstrap node
+				SupportedChains:    []uint64{1337, 2337},          // capabilities DON has to support both chains, because we want to make sure that second workflow that writes to the second chain is run using a remote capability
 			},
 			{
 				Input:              input[2],
 				Capabilities:       []string{},
-				DONTypes:           []string{types.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                         // <----- it's crucial to indicate there's no bootstrap node for the gateway DON
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node for the gateway DON
 				GatewayNodeIndex:   0,
 			},
 		}
@@ -788,7 +788,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	require.NoError(t, secondChainErr, "failed to convert chain ID to int")
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []types.DONCapabilityWithConfigFactoryFn{
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []cre.DONCapabilityWithConfigFactoryFn{
 		webapicap.WebAPITriggerCapabilityFactoryFn,
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
@@ -843,7 +843,7 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 			logTestInfo(testLogger, workflowConfig.FeedID, workflowConfig.WorkflowName, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
 			counter++
 			// log scanning is not supported for CRIB
-			if in.Infra.InfraType == libtypes.CRIB {
+			if in.Infra.Type == infra.CRIB {
 				return
 			}
 
@@ -861,20 +861,20 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 				return
 			}
 
-			debugDons := make([]*types.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			debugDons := make([]*cre.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
 			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
 				for _, output := range setupOutput.nodeOutput[i].CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
-				debugDons = append(debugDons, &types.DebugDon{
+				debugDons = append(debugDons, &cre.DebugDon{
 					NodesMetadata:  donWithMetadata.NodesMetadata,
 					Flags:          donWithMetadata.Flags,
 					ContainerNames: containerNames,
 				})
 			}
 
-			debugInput := types.DebugInput{
+			debugInput := cre.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.chainSelectorToBlockchainOutput[chainSelector],
 				InfraInput:       in.Infra,
@@ -884,14 +884,14 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 	}
 }
 
-func waitForWorkflowRegistrySyncer(nodeSetOutput []*types.WrappedNodeOutput, topology *types.DonTopology) error {
+func waitForWorkflowRegistrySyncer(nodeSetOutput []*cre.WrappedNodeOutput, topology *cre.DonTopology) error {
 	for idx, nodeSetOut := range nodeSetOutput {
-		if !flags.HasFlag(topology.DonsWithMetadata[idx].Flags, types.WorkflowDON) {
+		if !flags.HasFlag(topology.DonsWithMetadata[idx].Flags, cre.WorkflowDON) {
 			continue
 		}
 
 		workerNodesOutput := []*clnode.Output{}
-		workerNodes, err := crenode.FindManyWithLabel(topology.DonsWithMetadata[idx].NodesMetadata, &types.Label{Key: crenode.NodeTypeKey, Value: types.WorkerNode}, crenode.EqualLabels)
+		workerNodes, err := crenode.FindManyWithLabel(topology.DonsWithMetadata[idx].NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.WorkerNode}, crenode.EqualLabels)
 		if err != nil {
 			return errors.Wrap(err, "failed to find worker nodes")
 		}

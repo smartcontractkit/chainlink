@@ -17,5 +17,5 @@ func Test_InitMonitoringResources(t *testing.T) {
 func Test_WorkflowMetricsLabeler(t *testing.T) {
 	testWorkflowsMetricLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), &monitoring.EngineMetrics{})
 	testWorkflowsMetricLabeler2 := testWorkflowsMetricLabeler.With("foo", "baz")
-	require.EqualValues(t, "baz", testWorkflowsMetricLabeler2.Labels["foo"])
+	require.Equal(t, "baz", testWorkflowsMetricLabeler2.Labels["foo"])
 }

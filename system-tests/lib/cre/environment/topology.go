@@ -9,24 +9,24 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func BuildTopology(
 	registryChainSelector uint64,
-	nodeSets []*cretypes.CapabilitiesAwareNodeSet,
-	infraInput libtypes.InfraInput,
+	nodeSets []*cre.CapabilitiesAwareNodeSet,
+	infraInput infra.Input,
 	chainIDs []int,
-	blockchainOutput map[uint64]*cretypes.WrappedBlockchainOutput,
+	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
-	configFactoryFunctions []cretypes.ConfigFactoryFn,
-	customBinariesPaths map[cretypes.CapabilityFlag]string,
-) (*cretypes.Topology, []*cretypes.CapabilitiesAwareNodeSet, error) {
+	configFactoryFunctions []cre.ConfigFactoryFn,
+	customBinariesPaths map[cre.CapabilityFlag]string,
+) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
 		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
@@ -41,14 +41,14 @@ func BuildTopology(
 
 	// Generate EVM and P2P keys or read them from the config
 	// That way we can pass them final configs and do away with restarting the nodes
-	var keys *cretypes.GenerateKeysOutput
+	var keys *cre.GenerateKeysOutput
 
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(localNodeSets)
 	if keysOutputErr != nil {
 		return nil, nil, errors.Wrap(keysOutputErr, "failed to generate keys output")
 	}
 
-	generateKeysInput := &cretypes.GenerateKeysInput{
+	generateKeysInput := &cre.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: chainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
@@ -100,7 +100,7 @@ func BuildTopology(
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
-				cretypes.GenerateConfigsInput{
+				cre.GenerateConfigsInput{
 					DonMetadata:            donMetadata,
 					BlockchainOutput:       blockchainOutput,
 					Flags:                  donMetadata.Flags,
@@ -122,7 +122,7 @@ func BuildTopology(
 
 		// generate secrets only if they are not provided
 		if secretsFound == 0 {
-			secretsInput := &cretypes.GenerateSecretsInput{
+			secretsInput := &cre.GenerateSecretsInput{
 				DonMetadata: donMetadata,
 			}
 
@@ -195,16 +195,16 @@ func BuildTopology(
 }
 
 func copyCapabilityAwareNodeSets(
-	nodeSets []*cretypes.CapabilitiesAwareNodeSet,
-) []*cretypes.CapabilitiesAwareNodeSet {
-	copiedNodeSets := make([]*cretypes.CapabilitiesAwareNodeSet, len(nodeSets))
+	nodeSets []*cre.CapabilitiesAwareNodeSet,
+) []*cre.CapabilitiesAwareNodeSet {
+	copiedNodeSets := make([]*cre.CapabilitiesAwareNodeSet, len(nodeSets))
 	for i, originalNs := range nodeSets {
 		if originalNs == nil {
 			copiedNodeSets[i] = nil
 			continue
 		}
 
-		newNs := &cretypes.CapabilitiesAwareNodeSet{
+		newNs := &cre.CapabilitiesAwareNodeSet{
 			BootstrapNodeIndex: originalNs.BootstrapNodeIndex,
 			GatewayNodeIndex:   originalNs.GatewayNodeIndex,
 		}

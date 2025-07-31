@@ -68,7 +68,6 @@ func checkConnectivity(
 
 func TestConnectNewChain(t *testing.T) {
 	t.Parallel()
-
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
 		require.NoError(t, err, "must get owner")
@@ -237,7 +236,6 @@ func TestConnectNewChain(t *testing.T) {
 
 func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 	t.Parallel()
-
 	type test struct {
 		Msg         string
 		MCMS        *proposalutils.TimelockConfig

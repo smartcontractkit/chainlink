@@ -74,9 +74,10 @@ RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${C
 USER ${CHAINLINK_USER}
 
 # Set plugin environment variable configuration.
-ENV CL_MEDIAN_CMD=chainlink-feeds
 ENV CL_SOLANA_CMD=chainlink-solana
 
+ARG CL_MEDIAN_CMD
+ENV CL_MEDIAN_CMD=${CL_MEDIAN_CMD}
 ARG CL_EVM_CMD
 ENV CL_EVM_CMD=${CL_EVM_CMD}
 
