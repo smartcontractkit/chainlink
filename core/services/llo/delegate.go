@@ -119,7 +119,9 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
 		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
 	})
-	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
+	// TESTING: Use hardcoded DataSource instead of real observation
+	ds := observation.NewTestDataSource(logger.Named(lggr, "DataSource"))
+	// ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
 	return &delegate{services.StateMachine{}, cfg, reportCodecs, cfg.ShouldRetireCache, ds, t, []Closer{}}, nil
 }
