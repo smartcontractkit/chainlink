@@ -2,11 +2,10 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"go.uber.org/multierr"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -115,7 +114,7 @@ func (l *launcher) Close() error {
 		// shut down all running oracles.
 		var err error
 		for _, ceDep := range l.instances {
-			err = multierr.Append(err, ceDep.CloseAll())
+			err = errors.Join(err, ceDep.CloseAll())
 		}
 
 		return err
@@ -185,8 +184,8 @@ func (l *launcher) tick(ctx context.Context) error {
 // for any updated OCR instances, it will restart them with the new configuration.
 func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 	err := l.processRemoved(diff.removed)
-	err = multierr.Append(err, l.processAdded(ctx, diff.added))
-	err = multierr.Append(err, l.processUpdate(ctx, diff.updated))
+	err = errors.Join(err, l.processAdded(ctx, diff.added))
+	err = errors.Join(err, l.processUpdate(ctx, diff.updated))
 
 	return err
 }

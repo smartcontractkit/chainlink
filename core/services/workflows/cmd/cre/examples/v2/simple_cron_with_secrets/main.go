@@ -5,19 +5,20 @@ package main
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/cre-sdk-go/sdk"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 )
 
 type runtimeConfig struct {
 	Schedule string `yaml:"schedule"`
 }
 
-func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
+func RunSimpleCronWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtimeConfig], error) {
 	cfg := &cron.Config{
 		Schedule: env.Config.Schedule,
 	}
@@ -32,16 +33,16 @@ func RunSimpleCronWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*
 		return nil, err
 	}
 
-	return sdk.Workflow[*runtimeConfig]{
-		sdk.Handler(
+	return cre.Workflow[*runtimeConfig]{
+		cre.Handler(
 			cron.Trigger(cfg),
 			makeCallback(secret.Value),
 		),
 	}, nil
 }
 
-func makeCallback(apiKey string) func(*sdk.Environment[*runtimeConfig], sdk.Runtime, *cron.Payload) (string, error) {
-	onTrigger := func(env *sdk.Environment[*runtimeConfig], runtime sdk.Runtime, outputs *cron.Payload) (string, error) {
+func makeCallback(apiKey string) func(*cre.Environment[*runtimeConfig], cre.Runtime, *cron.Payload) (string, error) {
+	onTrigger := func(env *cre.Environment[*runtimeConfig], runtime cre.Runtime, outputs *cron.Payload) (string, error) {
 		return fmt.Sprintf("ping (Schedule: %s, API KEY: %s)", env.Config.Schedule, apiKey), nil
 	}
 	return onTrigger

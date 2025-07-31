@@ -3,24 +3,27 @@ package utils
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -40,6 +43,10 @@ const (
 	defaultName                      = "myworkflow"
 )
 
+var (
+	defaultTimeout = 10 * time.Minute
+)
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -55,6 +62,7 @@ func NewStandaloneEngine(
 		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
+		Timeout:                 &defaultTimeout,
 	}
 
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
@@ -71,12 +79,13 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
+	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
 		PerSenderRPS:   defaultRPS,
 		PerSenderBurst: defaultBurst,
-	})
+	}, lf)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,14 +93,19 @@ func NewStandaloneEngine(
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
-	})
+	}, lf)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var billingClient billing.WorkflowClient
 	if billingClientAddr != "" {
-		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr)
+		clientOpts := []billing.WorkflowClientOpt{}
+		if strings.HasPrefix(billingClientAddr, "https") {
+			clientOpts = append(clientOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
+		}
+
+		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr, clientOpts...)
 	}
 
 	if module.IsLegacyDAG() {

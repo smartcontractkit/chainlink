@@ -7,6 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -80,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -185,6 +189,7 @@ type ocr2Config interface {
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
+	KeyValueStoreRootDir() string
 }
 
 type insecureConfig interface {
@@ -458,15 +463,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if rid.Network == relay.NetworkEVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		chainService, err2 := d.legacyChains.Get(rid.ChainID)
+		r, err2 := d.Get(rid)
 		if err2 != nil {
-			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
+			return nil, fmt.Errorf("could not get EVM Relayer for chain ID %s: %w", rid.ChainID, err2)
 		}
-		chain, ok := chainService.(legacyevm.Chain)
-		if !ok {
-			return nil, fmt.Errorf("effective transmitter ID is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+		evm, err2 := r.EVM()
+		if err2 != nil {
+			return nil, fmt.Errorf("could not get EVMService for chain %s: %w", rid.ChainID, err2)
 		}
-		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
+		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, evm, lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
@@ -558,7 +563,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 }
 
-func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EVMService, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
@@ -581,19 +586,14 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
 	if jb.ForwardingAllowed {
-		if chain == nil {
-			return "", errors.New("job forwarding requires non-nil chain")
+		if evm == nil {
+			return "", errors.New("job forwarding requires non-nil evm service")
 		}
 
 		var err error
 		var effectiveTransmitterID common.Address
 		// Median forwarders need special handling because of OCR2Aggregator transmitters whitelist.
-		if spec.PluginType == types.Median {
-			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID))
-		} else {
-			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String))
-		}
-
+		effectiveTransmitterID, err = evm.GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID), string(spec.PluginType))
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if !spec.TransmitterID.Valid {
@@ -642,7 +642,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		lggr,
 		store,
 		clockwork.NewRealClock(),
-		cfg.RequestExpiryDuration,
+		cfg.RequestExpiryDuration.Duration(),
 	)
 	srvs = append(srvs, service)
 
@@ -703,23 +703,34 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
+	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
+
 	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
-		ContractTransmitter:          nil, // TODO
-		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      nil, // TODO
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           oracleEndpoint,
-		OffchainConfigDigester:       provider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+		ContractTransmitter: vault.NewTransmitter(
+			lggr,
+			ocrtypes.Account(spec.TransmitterID.String),
+			store,
+		),
+		Database:                ocrDB,
+		KeyValueDatabaseFactory: kvFactory,
+		LocalConfig:             lc,
+		Logger:                  ocrLogger,
+		MonitoringEndpoint:      oracleEndpoint,
+		OffchainConfigDigester:  provider.OffchainConfigDigester(),
+		OffchainKeyring:         kb,
+		OnchainKeyring:          ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	// TODO: use properly generated config
-	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr.Named("VaultPluginFactory"), store, &vault.ReportingPluginConfig{})
+	oracleArgs.ReportingPluginFactory = vault.NewReportingPluginFactory(lggr, store, &vault.ReportingPluginConfig{})
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
 	if err != nil {
@@ -1157,6 +1168,7 @@ func (d *Delegate) newServicesLLO(
 		llotypes.ReportFormatEVMPremiumLegacy,
 		llotypes.ReportFormatRetirement,
 		llotypes.ReportFormatEVMABIEncodeUnpacked,
+		llotypes.ReportFormatEVMABIEncodeUnpackedExpr,
 		llotypes.ReportFormatCapabilityTrigger,
 		llotypes.ReportFormatEVMStreamlined,
 	}

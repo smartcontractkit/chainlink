@@ -20,8 +20,8 @@ func (f fakeBillingClient) GetOrganizationCreditsByWorkflow(ctx context.Context,
 	return &billing.GetOrganizationCreditsByWorkflowResponse{OrganizationId: "", Credits: &billing.OrganizationCredits{CreditsReserved: "", Credits: ""}}, nil
 }
 
-func (f fakeBillingClient) GetRateCard(ctx context.Context, req *billing.GetRateCardRequest) (*billing.GetRateCardResponse, error) {
-	return &billing.GetRateCardResponse{Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}}, nil
+func (f fakeBillingClient) GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error) {
+	return &billing.GetWorkflowExecutionRatesResponse{RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}}, nil
 }
 
 func (f fakeBillingClient) SubmitWorkflowReceipt(ctx context.Context, request *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error) {
@@ -29,5 +29,5 @@ func (f fakeBillingClient) SubmitWorkflowReceipt(ctx context.Context, request *b
 }
 
 func (f fakeBillingClient) ReserveCredits(ctx context.Context, request *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error) {
-	return &billing.ReserveCreditsResponse{Success: true, Entries: []*billing.RateCardEntry{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: 10000}, nil
+	return &billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil
 }

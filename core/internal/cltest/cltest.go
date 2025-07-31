@@ -37,6 +37,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -407,6 +408,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
+	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 	if cfg.EVMEnabled() {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
@@ -462,6 +464,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 		EVMFactoryConfigFn:       evmFactoryConfigFn,
+		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 
 	require.NoError(t, err)

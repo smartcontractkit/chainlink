@@ -16,12 +16,13 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -241,12 +242,18 @@ func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T)
 
 	report := []byte("report01234")
 	for idx, caller := range callers {
+		if idx < 0 || idx > 4294967295 { // Check bounds for uint32
+			require.Fail(t, "idx out of range for uint32")
+		}
 		payload := &evm.WriteReportRequest{
 			Receiver: []byte("abcdef"),
-			Report: &evm.SignedReport{
+			Report: &sdkpb.ReportResponse{
 				RawReport: report,
-				Signatures: [][]byte{ // non-deterministic set of sigs that we want to ignore when hashing
-					[]byte("sig" + strconv.Itoa(idx)),
+				Sigs: []*sdkpb.AttributedSignature{ // non-deterministic set of sigs that we want to ignore when hashing
+					{
+						SignerId:  uint32(idx), // Now safe after bounds check
+						Signature: []byte("sig" + strconv.Itoa(idx)),
+					},
 				},
 			},
 		}
@@ -287,7 +294,7 @@ func (r *v2WriteChainMessageHasher) Hash(msg *remotetypes.MessageBody) ([32]byte
 	if err = req.Payload.UnmarshalTo(&writeReportRequest); err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal payload to WriteReportRequest: %w", err)
 	}
-	writeReportRequest.Report.Signatures = nil // exclude signatures from the hash
+	writeReportRequest.Report.Sigs = nil // exclude signatures from the hash
 
 	req.Payload, err = anypb.New(&writeReportRequest)
 	if err != nil {
@@ -307,7 +314,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	numWorkflowPeers int, workflowDonF uint8,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
 	messageHasher remotetypes.MessageHasher) ([]*serverTestClient, []services.Service) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {

@@ -2,10 +2,10 @@ package webhook
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -44,7 +44,7 @@ func ValidatedWebhookSpec(ctx context.Context, tomlString string, externalInitia
 	for _, eiSpec := range tomlSpec.ExternalInitiators {
 		ei, findErr := externalInitiatorManager.FindExternalInitiatorByName(ctx, eiSpec.Name)
 		if findErr != nil {
-			err = multierr.Combine(err, errors.Wrapf(findErr, "unable to find external initiator named %s", eiSpec.Name))
+			err = stderrors.Join(err, errors.Wrapf(findErr, "unable to find external initiator named %s", eiSpec.Name))
 			continue
 		}
 		eiWS := job.ExternalInitiatorWebhookSpec{

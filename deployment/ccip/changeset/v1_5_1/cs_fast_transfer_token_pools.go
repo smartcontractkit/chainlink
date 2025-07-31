@@ -41,6 +41,10 @@ type UpdateLaneConfig struct {
 	SkipAllowlistValidation  bool
 	SettlementOverheadGas    *uint32
 	CustomExtraArgs          []byte
+	// Optional: Different contract type for the destination pool (if not set, uses the root config's ContractType)
+	DestinationContractType *cldf.ContractType
+	// Optional: Different contract version for the destination pool (if not set, uses the root config's ContractVersion)
+	DestinationContractVersion *semver.Version
 }
 
 func (u UpdateLaneConfig) Validate(contract *bindings.FastTransferTokenPoolWrapper) error {
@@ -216,10 +220,44 @@ func (c FastTransferUpdateLaneConfigConfig) Validate(env cldf.Environment) error
 			return fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, chainSelector, err)
 		}
 
-		for _, update := range poolUpdate {
+		for destinationChainSelector, update := range poolUpdate {
 			err := update.Validate(pool)
 			if err != nil {
 				return fmt.Errorf("failed to validate update for chain selector %d: %w", chainSelector, err)
+			}
+
+			// Validate destination pool exists if custom type/version is specified
+			if update.DestinationContractType != nil || update.DestinationContractVersion != nil {
+				destContractType := c.ContractType
+				destContractVersion := c.ContractVersion
+
+				if update.DestinationContractType != nil {
+					destContractType = *update.DestinationContractType
+				}
+				if update.DestinationContractVersion != nil {
+					destContractVersion = *update.DestinationContractVersion
+				}
+
+				// Validate destination chain exists
+				err := cldf.IsValidChainSelector(destinationChainSelector)
+				if err != nil {
+					return fmt.Errorf("failed to validate destination chain selector %d: %w", destinationChainSelector, err)
+				}
+
+				destChain, ok := env.BlockChains.EVMChains()[destinationChainSelector]
+				if !ok {
+					return fmt.Errorf("destination chain with selector %d does not exist in environment", destinationChainSelector)
+				}
+
+				destChainState, ok := state.Chains[destinationChainSelector]
+				if !ok {
+					return fmt.Errorf("destination %s does not exist in state", destChain.String())
+				}
+
+				// Validate destination pool exists with the specified type/version
+				if err := validateFastTransferTokenPoolExists(destChainState, c.TokenSymbol, destContractType, destContractVersion, destChain.String()); err != nil {
+					return fmt.Errorf("destination pool validation failed: %w", err)
+				}
 			}
 		}
 	}
@@ -337,7 +375,18 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 
 		laneConfigs := make([]bindings.DestChainConfigUpdateArgs, 0)
 		for destinationChainSelector, update := range updates {
-			destinationPool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, destinationChainSelector)
+			// Determine destination pool contract type and version
+			destContractType := c.ContractType
+			destContractVersion := c.ContractVersion
+
+			if update.DestinationContractType != nil {
+				destContractType = *update.DestinationContractType
+			}
+			if update.DestinationContractVersion != nil {
+				destContractVersion = *update.DestinationContractVersion
+			}
+
+			destinationPool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, destContractType, destContractVersion, destinationChainSelector)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, destinationChainSelector, err)
 			}

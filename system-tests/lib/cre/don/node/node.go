@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
@@ -22,6 +22,10 @@ const (
 	NodeIDKey              = "node_id"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
+	DONIDKey               = "don_id"
+	EnvironmentKey         = "environment"
+	ProductKey             = "product"
+	DONNameKey             = "don_name"
 )
 
 func AddressKeyFromSelector(chainSelector uint64) string {
@@ -42,7 +46,7 @@ func KeyExtractingTransformFn(value string) string {
 	return value
 }
 
-func ToP2PID(node *types.NodeMetadata, transformFn stringTransformer) (string, error) {
+func ToP2PID(node *cre.NodeMetadata, transformFn stringTransformer) (string, error) {
 	for _, label := range node.Labels {
 		if label.Key == NodeP2PIDKey {
 			if label.Value == "" {
@@ -58,49 +62,47 @@ func ToP2PID(node *types.NodeMetadata, transformFn stringTransformer) (string, e
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
 // TODO: remove this once the PR is merged and import his function
 // IMPORTANT ADDITION: prefix to differentiate between the different DONs
-func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
+func GetNodeInfo(nodeOut *ns.Output, prefix string, donID uint64, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
 		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.InternalP2PUrl)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
 		}
-		if i <= bootstrapNodeCount {
-			nodeInfo = append(nodeInfo, devenv.NodeInfo{
-				IsBootstrap: true,
-				Name:        fmt.Sprintf("%s_bootstrap-%d", prefix, i),
-				P2PPort:     p2pURL.Port(),
-				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
-					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
-					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
-					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
-				},
-				Labels: map[string]string{
-					NodeTypeKey: types.BootstrapNode,
-				},
-			})
-		} else {
-			nodeInfo = append(nodeInfo, devenv.NodeInfo{
-				IsBootstrap: false,
-				Name:        fmt.Sprintf("%s_node-%d", prefix, i),
-				P2PPort:     p2pURL.Port(),
-				CLConfig: nodeclient.ChainlinkConfig{
-					URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
-					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
-					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
-					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
-				},
-				Labels: map[string]string{
-					NodeTypeKey: types.WorkerNode,
-				},
-			})
+
+		info := devenv.NodeInfo{
+			P2PPort: p2pURL.Port(),
+			CLConfig: nodeclient.ChainlinkConfig{
+				URL:        nodeOut.CLNodes[i-1].Node.ExternalURL,
+				Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
+				Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
+				InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
+			},
+			Labels: map[string]string{
+				"don-" + prefix: "true",
+				ProductKey:      "keystone",
+				EnvironmentKey:  "local",
+				DONIDKey:        strconv.FormatUint(donID, 10),
+				DONNameKey:      prefix,
+			},
 		}
+
+		if i <= bootstrapNodeCount {
+			info.IsBootstrap = true
+			info.Name = fmt.Sprintf("%s_bootstrap-%d", prefix, i)
+			info.Labels[NodeTypeKey] = cre.BootstrapNode
+		} else {
+			info.IsBootstrap = false
+			info.Name = fmt.Sprintf("%s_node-%d", prefix, i)
+			info.Labels[NodeTypeKey] = cre.WorkerNode
+		}
+
+		nodeInfo = append(nodeInfo, info)
 	}
 	return nodeInfo, nil
 }
 
-func FindOneWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, labelMatcherFn labelMatcherFn) (*types.NodeMetadata, error) {
+func FindOneWithLabel(nodes []*cre.NodeMetadata, wantedLabel *cre.Label, labelMatcherFn labelMatcherFn) (*cre.NodeMetadata, error) {
 	if wantedLabel == nil {
 		return nil, errors.New("label is nil")
 	}
@@ -114,12 +116,12 @@ func FindOneWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, lab
 	return nil, fmt.Errorf("node with label %s=%s not found", wantedLabel.Key, wantedLabel.Value)
 }
 
-func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, labelMatcherFn labelMatcherFn) ([]*types.NodeMetadata, error) {
+func FindManyWithLabel(nodes []*cre.NodeMetadata, wantedLabel *cre.Label, labelMatcherFn labelMatcherFn) ([]*cre.NodeMetadata, error) {
 	if wantedLabel == nil {
 		return nil, errors.New("label is nil")
 	}
 
-	var foundNodes []*types.NodeMetadata
+	var foundNodes []*cre.NodeMetadata
 
 	for _, node := range nodes {
 		for _, label := range node.Labels {
@@ -132,7 +134,7 @@ func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, la
 	return foundNodes, nil
 }
 
-func FindLabelValue(node *types.NodeMetadata, labelKey string) (string, error) {
+func FindLabelValue(node *cre.NodeMetadata, labelKey string) (string, error) {
 	for _, label := range node.Labels {
 		if label.Key == labelKey {
 			if label.Value == "" {

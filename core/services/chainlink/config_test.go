@@ -435,6 +435,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
+		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
@@ -595,7 +596,15 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Billing = toml.Billing{
-		URL: ptr("localhost:4319"),
+		URL:        ptr("localhost:4319"),
+		TLSEnabled: ptr(true),
+	}
+	full.BridgeStatusReporter = toml.BridgeStatusReporter{
+		Enabled:              ptr(false),
+		StatusPath:           ptr("/status"),
+		PollingInterval:      commoncfg.MustNewDuration(5 * time.Minute),
+		IgnoreInvalidBridges: ptr(true),
+		IgnoreJoblessBridges: ptr(false),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: ptr("test-node"),
@@ -708,6 +717,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
 					PersistenceEnabled:      ptr(false),
+					PersistenceBatchSize:    ptr[int64](100),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -1062,6 +1072,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
 DisplayName = 'test-node'
@@ -1211,6 +1222,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -1415,6 +1427,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
 				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
 			}
+			if got.EVM[c].Nodes[n].IsLoadBalancedRPC == nil {
+				got.EVM[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
+			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
@@ -1446,6 +1461,14 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].GasEstimator.SenderAddress == nil {
 			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
+		}
+	}
+
+	for c := range got.Solana {
+		for n := range got.Solana[c].Nodes {
+			if got.Solana[c].Nodes[n].IsLoadBalancedRPC == nil {
+				got.Solana[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
+			}
 		}
 	}
 

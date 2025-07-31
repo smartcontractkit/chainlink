@@ -17,11 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -70,7 +69,7 @@ func workflowTriggerConfig(_ testHarness, addresses []string, topics []string) (
 func setup(t *testing.T) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
-	lggr := corelogger.TestLogger(t)
+	lggr := logger.Test(t)
 	config := ""
 
 	trigger, err := NewTrigger(config, registry, connector, lggr)

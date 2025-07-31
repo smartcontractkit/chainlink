@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/ocr3cap"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 )
@@ -20,14 +20,14 @@ func Test_NewEncoder(t *testing.T) {
 		config := map[ocr3cap.Encoder]*values.Map{ocr3cap.EncoderEVM: evmEncoding}
 
 		for _, tt := range ocr3cap.Encoders() {
-			encoder, err2 := NewEncoder(string(tt), config[tt], logger.NullLogger)
+			encoder, err2 := NewEncoder(string(tt), config[tt], logger.Nop())
 			require.NoError(t, err2)
 			require.NotNil(t, encoder)
 		}
 	})
 
 	t.Run("Invalid encoder returns an error", func(t *testing.T) {
-		_, err2 := NewEncoder("NotReal", values.EmptyMap(), logger.NullLogger)
+		_, err2 := NewEncoder("NotReal", values.EmptyMap(), logger.Nop())
 		require.Error(t, err2)
 	})
 }
