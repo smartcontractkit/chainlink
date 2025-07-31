@@ -117,6 +117,163 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		require.Equal(t, spec.Config, dbSpec.Config)
 		require.Equal(t, spec.Status, dbSpec.Status)
 	})
+
+	t.Run("workflow is unique by owner and name", func(t *testing.T) {
+		WFID1 := "cid-123"
+		WFID2 := "cid-456"
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    WFID1,
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err := orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the record exists in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		require.NoError(t, err)
+		require.Equal(t, WFID1, dbSpec.WorkflowID)
+
+		// Create another entry with a different ID
+		spec.WorkflowID = WFID2
+		_, err = orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the original record has been removed
+		var dbSpec2 job.WorkflowSpec
+		err = db.Get(&dbSpec2, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+
+		// Verify the new record is there
+		var dbSpec3 job.WorkflowSpec
+		err = db.Get(&dbSpec3, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID2)
+		require.NoError(t, err)
+		require.Equal(t, WFID2, dbSpec3.WorkflowID)
+	})
+}
+
+func Test_UpsertWorkflowSpecUniqueID(t *testing.T) {
+	t.Run("inserts new spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err := orm.UpsertWorkflowSpecUniqueID(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the record exists in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		require.NoError(t, err)
+		require.Equal(t, spec.Workflow, dbSpec.Workflow)
+	})
+
+	t.Run("updates existing spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err := orm.UpsertWorkflowSpecUniqueID(ctx, spec)
+		require.NoError(t, err)
+
+		// Update the status
+		spec.Status = job.WorkflowSpecStatusPaused
+
+		_, err = orm.UpsertWorkflowSpecUniqueID(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the record is updated in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		require.NoError(t, err)
+		require.Equal(t, spec.Config, dbSpec.Config)
+		require.Equal(t, spec.Status, dbSpec.Status)
+	})
+
+	t.Run("workflow is unique by workflow ID", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		WFID1 := "cid-123"
+		WFID2 := "cid-456"
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    WFID1,
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		_, err := orm.UpsertWorkflowSpecUniqueID(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the record exists in the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		require.NoError(t, err)
+		require.Equal(t, WFID1, dbSpec.WorkflowID)
+
+		// Create another entry with a different ID
+		spec.WorkflowID = WFID2
+		_, err = orm.UpsertWorkflowSpecUniqueID(ctx, spec)
+		require.NoError(t, err)
+
+		// Verify the original record is still there
+		var dbSpec2 job.WorkflowSpec
+		err = db.Get(&dbSpec2, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		require.NoError(t, err)
+		require.Equal(t, WFID1, dbSpec2.WorkflowID)
+
+		// Verify the new record is there
+		var dbSpec3 job.WorkflowSpec
+		err = db.Get(&dbSpec3, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID2)
+		require.NoError(t, err)
+		require.Equal(t, WFID2, dbSpec3.WorkflowID)
+	})
 }
 
 func Test_DeleteWorkflowSpec(t *testing.T) {
@@ -155,6 +312,47 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
 		err := orm.DeleteWorkflowSpec(ctx, "owner-123", "Test Workflow")
+		require.Error(t, err)
+		require.Equal(t, sql.ErrNoRows, err)
+	})
+}
+
+func Test_DeleteWorkflowSpecByID(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	t.Run("deletes a workflow spec by ID", func(t *testing.T) {
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			BinaryURL:     "http://example.com/binary",
+			ConfigURL:     "http://example.com/config",
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+
+		id, err := orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+		require.NotZero(t, id)
+
+		err = orm.DeleteWorkflowSpecByID(ctx, spec.WorkflowID)
+		require.NoError(t, err)
+
+		// Verify the record is deleted from the database
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE id = $1`, id)
+		require.Error(t, err)
+		require.Equal(t, sql.ErrNoRows, err)
+	})
+
+	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		err := orm.DeleteWorkflowSpecByID(ctx, "non-existent-workflow-id")
 		require.Error(t, err)
 		require.Equal(t, sql.ErrNoRows, err)
 	})

@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -99,9 +100,9 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
 		giveEvent := Event{}
@@ -540,9 +541,9 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
 		fetcher := fetcherFactory()
@@ -564,11 +565,11 @@ type mockArtifactStore struct {
 func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
 	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 }
-func (m *mockArtifactStore) GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error) {
-	return m.artifactStore.GetWorkflowSpec(ctx, workflowOwner, workflowName)
+func (m *mockArtifactStore) GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	return m.artifactStore.GetWorkflowSpecByID(ctx, workflowID)
 }
-func (m *mockArtifactStore) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return m.artifactStore.UpsertWorkflowSpec(ctx, spec)
+func (m *mockArtifactStore) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	return m.artifactStore.UpsertWorkflowSpecUniqueID(ctx, spec)
 }
 func (m *mockArtifactStore) UpsertWorkflowSpecWithSecrets(ctx context.Context, entry *job.WorkflowSpec, secretsURL, urlHash, secrets string) (int64, error) {
 	return m.artifactStore.UpsertWorkflowSpecWithSecrets(ctx, entry, secretsURL, urlHash, secrets)
@@ -649,9 +650,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
@@ -717,9 +718,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
@@ -776,9 +777,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())

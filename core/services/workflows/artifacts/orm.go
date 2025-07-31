@@ -13,6 +13,84 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
+var (
+	UpsertByOwnerAndNameQuery = `
+			MERGE INTO workflow_specs
+			USING ( VALUES (
+				:workflow,
+				:config,
+				:workflow_id,
+				:workflow_owner,
+				:workflow_name,
+				:status,
+				:binary_url,
+				:config_url,
+				CAST (:secrets_id AS integer),
+				CAST (:created_at AS timestamp with time zone),
+				CAST (:updated_at AS timestamp with time zone),
+				:spec_type
+			)) AS vals (
+				workflow,
+				config,
+				workflow_id,
+				workflow_owner,
+				workflow_name,
+				status,
+				binary_url,
+				config_url,
+				secrets_id,
+				created_at,
+				updated_at,
+				spec_type
+			)
+			ON workflow_specs.workflow_owner = vals.workflow_owner AND workflow_specs.workflow_name = vals.workflow_name
+			WHEN matched THEN
+			UPDATE SET
+				workflow = vals.workflow,
+				config = vals.config,
+				workflow_id = vals.workflow_id,
+				workflow_name = vals.workflow_name,
+				workflow_owner = vals.workflow_owner,
+				status = vals.status,
+				binary_url = vals.binary_url,
+				config_url = vals.config_url,
+				secrets_id = vals.secrets_id,
+				created_at = vals.created_at,
+				updated_at = vals.updated_at,
+				spec_type = vals.spec_type
+			WHEN NOT matched THEN
+			INSERT (
+				workflow,
+				config,
+				workflow_id,
+				workflow_owner,
+				workflow_name,
+				status,
+				binary_url,
+				config_url,
+				secrets_id,
+				created_at,
+				updated_at,
+				spec_type
+			)
+			VALUES (
+				vals.workflow,
+				vals.config,
+				vals.workflow_id,
+				vals.workflow_owner,
+				vals.workflow_name,
+				vals.status,
+				vals.binary_url,
+				vals.config_url,
+				vals.secrets_id,
+				vals.created_at,
+				vals.updated_at,
+				vals.spec_type
+			)
+			RETURNING id
+		`
+)
+
 type WorkflowSecretsDS interface {
 	// GetSecretsURLByID returns the secrets URL for the given ID.
 	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
@@ -39,6 +117,9 @@ type WorkflowSecretsDS interface {
 }
 
 type WorkflowSpecsDS interface {
+	// UpsertWorkflowSpec inserts or updates a workflow spec. Mujltiple workflow specs can exists per owner/name combination; unique by workflow ID.
+	UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+
 	// UpsertWorkflowSpec inserts or updates a workflow spec.  Updates on conflict of workflow name
 	// and owner
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
@@ -214,6 +295,7 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 	return crypto.Keccak256(append(owner, secretsURL...))
 }
 
+// UpsertWorkflowSpec inserts or updates a workflow spec. It ensures that only one workflow spec exists per owner/name combination.
 func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	var id int64
 	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
@@ -228,51 +310,7 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
 		}
 
-		query := `
-			INSERT INTO workflow_specs (
-				workflow,
-				config,
-				workflow_id,
-				workflow_owner,
-				workflow_name,
-				status,
-				binary_url,
-				config_url,
-				secrets_id,
-				created_at,
-				updated_at,
-				spec_type
-			) VALUES (
-				:workflow,
-				:config,
-				:workflow_id,
-				:workflow_owner,
-				:workflow_name,
-				:status,
-				:binary_url,
-				:config_url,
-				:secrets_id,
-				:created_at,
-				:updated_at,
-				:spec_type
-			) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
-			SET
-				workflow = EXCLUDED.workflow,
-				config = EXCLUDED.config,
-				workflow_id = EXCLUDED.workflow_id,
-				workflow_owner = EXCLUDED.workflow_owner,
-				workflow_name = EXCLUDED.workflow_name,
-				status = EXCLUDED.status,
-				binary_url = EXCLUDED.binary_url,
-				config_url = EXCLUDED.config_url,
-				secrets_id = EXCLUDED.secrets_id,
-				created_at = EXCLUDED.created_at,
-				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type
-			RETURNING id
-		`
-
-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+		stmt, err := orm.ds.PrepareNamedContext(ctx, UpsertByOwnerAndNameQuery)
 		if err != nil {
 			return err
 		}
@@ -320,6 +358,22 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 
 		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
 
+		stmt, txErr := tx.PrepareNamedContext(ctx, UpsertByOwnerAndNameQuery)
+		if txErr != nil {
+			return txErr
+		}
+		defer stmt.Close()
+
+		spec.UpdatedAt = time.Now()
+		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+	})
+	return id, err
+}
+
+// UpsertWorkflowSpec inserts or updates a workflow spec. Unique by workflow ID. Multiple workflow specs can exists per owner/name combination.
+func (orm *orm) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	var id int64
+	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		query := `
 			INSERT INTO workflow_specs (
 				workflow,
@@ -347,32 +401,32 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 				:created_at,
 				:updated_at,
 				:spec_type
-			) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
+			) ON CONFLICT (workflow_id) DO UPDATE
 			SET
 				workflow = EXCLUDED.workflow,
 				config = EXCLUDED.config,
-				workflow_id = EXCLUDED.workflow_id,
 				workflow_owner = EXCLUDED.workflow_owner,
 				workflow_name = EXCLUDED.workflow_name,
 				status = EXCLUDED.status,
 				binary_url = EXCLUDED.binary_url,
 				config_url = EXCLUDED.config_url,
+				secrets_id = EXCLUDED.secrets_id,
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type,
-				secrets_id = EXCLUDED.secrets_id
+				spec_type = EXCLUDED.spec_type
 			RETURNING id
 		`
 
-		stmt, txErr := tx.PrepareNamedContext(ctx, query)
-		if txErr != nil {
-			return txErr
+		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
 		}
 		defer stmt.Close()
 
 		spec.UpdatedAt = time.Now()
 		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
 	})
+
 	return id, err
 }
 

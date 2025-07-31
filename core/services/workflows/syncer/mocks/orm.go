@@ -761,6 +761,63 @@ func (_c *ORM_UpsertWorkflowSpec_Call) RunAndReturn(run func(context.Context, *j
 	return _c
 }
 
+// UpsertWorkflowSpecUniqueID provides a mock function with given fields: ctx, spec
+func (_m *ORM) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpsertWorkflowSpecUniqueID")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) (int64, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *job.WorkflowSpec) int64); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *job.WorkflowSpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_UpsertWorkflowSpecUniqueID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpsertWorkflowSpecUniqueID'
+type ORM_UpsertWorkflowSpecUniqueID_Call struct {
+	*mock.Call
+}
+
+// UpsertWorkflowSpecUniqueID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec *job.WorkflowSpec
+func (_e *ORM_Expecter) UpsertWorkflowSpecUniqueID(ctx interface{}, spec interface{}) *ORM_UpsertWorkflowSpecUniqueID_Call {
+	return &ORM_UpsertWorkflowSpecUniqueID_Call{Call: _e.mock.On("UpsertWorkflowSpecUniqueID", ctx, spec)}
+}
+
+func (_c *ORM_UpsertWorkflowSpecUniqueID_Call) Run(run func(ctx context.Context, spec *job.WorkflowSpec)) *ORM_UpsertWorkflowSpecUniqueID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*job.WorkflowSpec))
+	})
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpecUniqueID_Call) Return(_a0 int64, _a1 error) *ORM_UpsertWorkflowSpecUniqueID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_UpsertWorkflowSpecUniqueID_Call) RunAndReturn(run func(context.Context, *job.WorkflowSpec) (int64, error)) *ORM_UpsertWorkflowSpecUniqueID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpsertWorkflowSpecWithSecrets provides a mock function with given fields: ctx, spec, url, hash, contents
 func (_m *ORM) UpsertWorkflowSpecWithSecrets(ctx context.Context, spec *job.WorkflowSpec, url string, hash string, contents string) (int64, error) {
 	ret := _m.Called(ctx, spec, url, hash, contents)

@@ -309,3 +309,48 @@ func newMockDecrypter() *mockDecrypter {
 		mocks: map[string]decryptSecretsOutput{},
 	}
 }
+
+func Test_Store_DeleteWorkflowArtifactsByID(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	workflowOwner := hex.EncodeToString([]byte("anOwner"))
+	workflowName := "aName"
+	workflowID := "anID"
+	encryptionKey, err := workflowkey.New()
+	require.NoError(t, err)
+
+	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
+		Workflow:      "",
+		Config:        "",
+		SecretsID:     sql.NullInt64{Int64: 0, Valid: false},
+		WorkflowID:    workflowID,
+		WorkflowOwner: workflowOwner,
+		WorkflowName:  workflowName,
+		BinaryURL:     "",
+		ConfigURL:     "",
+		CreatedAt:     time.Now(),
+		SpecType:      job.DefaultSpecType,
+	})
+	require.NoError(t, err)
+
+	fetcher := &mockFetcher{}
+
+	h := NewStore(
+		lggr,
+		orm,
+		fetcher.Fetch,
+		clockwork.NewFakeClock(),
+		encryptionKey,
+		custmsg.NewLabeler(),
+	)
+
+	// Delete the workflow artifacts by ID
+	err = h.DeleteWorkflowArtifactsByID(testutils.Context(t), workflowID)
+	require.NoError(t, err)
+
+	// Check that the workflow no longer exists
+	_, err = orm.GetWorkflowSpec(testutils.Context(t), workflowOwner, workflowName)
+	require.ErrorIs(t, err, sql.ErrNoRows)
+}

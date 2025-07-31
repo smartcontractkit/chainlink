@@ -934,9 +934,6 @@ func newCREServices(
 				}
 
 				crFactory := func(ctx context.Context, bytes []byte) (commontypes.ContractReader, error) {
-					fmt.Println("relayer ready... ", wfRegRelayer.Ready())
-					head, err := wfRegRelayer.LatestHead(ctx)
-					fmt.Println("relayer latest head... ", head, err)
 					return wfRegRelayer.NewContractReader(ctx, bytes)
 				}
 

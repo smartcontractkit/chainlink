@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -21,15 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 type ORM interface {
-	artifacts.WorkflowSecretsDS
 	artifacts.WorkflowSpecsDS
 }
 
@@ -44,8 +42,8 @@ type eventHandler struct {
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         *syncerlimiter.Limits
+	ratelimiter            limits.RateLimiter
+	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	billingClient          metering.BillingClient
 
@@ -90,18 +88,9 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
-	GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error)
-	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+	GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifactsByID(ctx context.Context, workflowID string) error
-
-	// Secrets methods
-	GetSecrets(ctx context.Context, secretsURL string, WorkflowID [32]byte, WorkflowOwner []byte) ([]byte, error)
-	ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error
-	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
-	GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error)
-	GetSecretsURLByID(ctx context.Context, id int64) (string, error)
-
-	ForceUpdateSecrets(ctx context.Context, secretsURLHash []byte, owner []byte) (string, error)
 }
 
 // NewEventHandler returns a new eventHandler instance.
@@ -111,8 +100,8 @@ func NewEventHandler(
 	capRegistry core.CapabilitiesRegistry,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
@@ -213,7 +202,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegisteredEvent,
 ) error {
-	owner := hex.EncodeToString(payload.WorkflowOwner)
 	status := toSpecStatus(payload.Status)
 
 	// First, let's synchronize the database state.
@@ -221,7 +209,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// - new registration, without an existing DB record
 	// - existing registration that has been updated with new artifacts, and potentially also the status
 	// - existing registration that has been updated with a new status
-	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, owner, payload.WorkflowName)
+	spec, err := h.workflowArtifactsStore.GetWorkflowSpecByID(ctx, payload.WorkflowID.Hex())
 	switch {
 	case err != nil:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
@@ -240,30 +228,21 @@ func (h *eventHandler) workflowRegisteredEvent(
 	case spec.Status != status:
 		spec.Status = status
 
-		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
+		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpecUniqueID(ctx, spec); innerErr != nil {
 			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
 		}
 	}
 
-	// Next, let's synchronize the engine.
-	// If the state isn't active, we shouldn't have an engine running.
-	// Let's try to clean one up if it exists
-	if spec.Status != job.WorkflowSpecStatusActive {
-		return h.tryEngineCleanup(payload.WorkflowID)
-	}
-
-	// We know we need an engine, let's make sure it's the right one.
-	// We do this by fetching and comparing whether it's running and that the workflow ID matches
+	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
-	if ok && prevEngine.Ready() == nil {
+	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
 		// This is the happy-path, we're done.
 		return nil
 	}
 
 	// Any other case ->
-	// - engine not in workflow registry
-	// - engine in registry, but workflow ID does not match
 	// - engine in registry, but service isn't running
+	// - state isn't active
 	// Let's clean up and recreate
 
 	cleanupErr := h.tryEngineCleanup(payload.WorkflowID)
@@ -309,7 +288,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		ConfigURL:     payload.ConfigURL,
 	}
 
-	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
+	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpecUniqueID(ctx, entry); err != nil {
 		return nil, fmt.Errorf("failed to upsert workflow spec: %w", err)
 	}
 
@@ -332,6 +311,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
 		}
 
+		// WorkflowRegistry V2 contract does not contain secrets
+		emptySecretsFetcher := func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
+			return map[string]string{}, nil
+		}
+
 		cfg := workflows.Config{
 			Lggr:           h.lggr,
 			Workflow:       *sdkSpec,
@@ -342,7 +326,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			Store:          h.workflowStore,
 			Config:         config,
 			Binary:         binary,
-			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
+			SecretsFetcher: emptySecretsFetcher,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 			BillingClient:  h.billingClient,

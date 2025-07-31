@@ -313,6 +313,11 @@ func (h *Store) GetWorkflowSpec(ctx context.Context, workflowOwner string, workf
 	return spec, err
 }
 
+func (h *Store) GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	spec, err := h.orm.GetWorkflowSpecByID(ctx, workflowID)
+	return spec, err
+}
+
 func (h *Store) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	secretsURLHash, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
 	if err != nil {
@@ -348,6 +353,10 @@ func (h *Store) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, 
 	}
 
 	return h.decryptSecrets([]byte(secretsPayload), workflowOwner)
+}
+
+func (h *Store) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	return h.orm.UpsertWorkflowSpecUniqueID(ctx, spec)
 }
 
 func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
