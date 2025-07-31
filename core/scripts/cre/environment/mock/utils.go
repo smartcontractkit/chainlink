@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -25,7 +26,7 @@ var MockCommand = &cobra.Command{
 // newMockCapabilityController creates a new MockCapabilityController with a standard logger
 func newMockCapabilityController() (*mockcapability.Controller, error) {
 	if len(containerAddresses) == 0 {
-		return nil, fmt.Errorf("no container addresses specified")
+		return nil, errors.New("no container addresses specified")
 	}
 	lggr := zerolog.New(os.Stdout)
 	c := mockcapability.NewMockCapabilityController(lggr)

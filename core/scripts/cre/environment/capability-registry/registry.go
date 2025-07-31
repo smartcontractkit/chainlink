@@ -83,7 +83,7 @@ var createCmd = &cobra.Command{
 				fmt.Fprintf(os.Stderr, "Failed to create transaction: %v\n", err2)
 				return
 			}
-			output, err := client.AddCapabilities(txOpt, []capabilities_registry.CapabilitiesRegistryCapability{
+			output, err2 := client.AddCapabilities(txOpt, []capabilities_registry.CapabilitiesRegistryCapability{
 				{
 					LabelledName:   capabilityName,
 					Version:        capabilityVersion,
@@ -91,8 +91,8 @@ var createCmd = &cobra.Command{
 					ResponseType:   0,
 				},
 			})
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to create capability: %v\n", err)
+			if err2 != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create capability: %v\n", err2)
 				return
 			}
 
