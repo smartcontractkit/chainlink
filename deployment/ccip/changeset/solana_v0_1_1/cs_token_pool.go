@@ -489,7 +489,7 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
 		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	default:
-		panic("unhandled default case")
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
@@ -559,7 +559,7 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 	}
 
-	// If configPDA already exists, we assume the global config is already initialized
+	// Checking that configPDA exists, so the update method will not fail
 	_, err = chain.Client.GetAccountInfo(context.Background(), configPDA)
 	if err != nil {
 		e.Logger.Infow("Global config not initialized", "configPDA", configPDA.String())
@@ -580,7 +580,7 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
 		initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, chain.DeployerKey.PublicKey(), tokenPool, programData.Address).ValidateAndBuild()
 	default:
-		panic("unhandled default case")
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
@@ -640,7 +640,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	case solTestTokenPool.LockAndRelease_PoolType:
 		return cldf.ChangesetOutput{}, nil
 	default:
-		panic("unhandled default case")
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
 
 	newMintAuthority := cfg.NewMintAuthority
@@ -648,7 +648,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 
 	poolConfig, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool configg: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool config: %w", err)
 	}
 	programData, err := getSolProgramData(e, chain, tokenPool)
 	if err != nil {
@@ -1970,7 +1970,7 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 			tokenPubKey,
 			poolConfig).ValidateAndBuild()
 	default:
-		panic("unhandled default case")
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
