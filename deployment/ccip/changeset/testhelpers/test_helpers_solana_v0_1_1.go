@@ -284,7 +284,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 }
 
 func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
-	chainFamilySelector := [4]uint8{}
+	var chainFamilySelector [4]uint8
 	switch remoteFamily {
 	case chainsel.FamilyEVM:
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
