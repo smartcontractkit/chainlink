@@ -85,14 +85,29 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, errors.New("failed to get vault capability: " + err.Error())
 	}
 
-	localNode, err := s.capRegistry.LocalNode(ctx)
+	vaultCapInfo, err := vaultCap.Info(ctx)
 	if err != nil {
-		return nil, errors.New("failed to get local node: " + err.Error())
+		return nil, errors.New("failed to get vault capability Info: " + err.Error())
 	}
 
-	vaultCapConfig, err := s.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, localNode.WorkflowDON.ID)
+	var donID uint32
+	if vaultCapInfo.IsLocal {
+		// If the capability is local, we can use the local node's DON ID.
+		localNode, err := s.capRegistry.LocalNode(ctx)
+		if err != nil {
+			return nil, errors.New("failed to get local node from registry: " + err.Error())
+		}
+		donID = localNode.WorkflowDON.ID
+	} else {
+		don := vaultCapInfo.DON
+		if don == nil {
+			return nil, errors.New("vault capability is not associated with any DON")
+		}
+		donID = don.ID
+	}
+	vaultCapConfig, err := s.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, donID)
 	if err != nil {
-		return nil, errors.New("failed to get vault capability config: " + err.Error())
+		return nil, errors.New("failed to get vault capability config for donID: " + strconv.FormatUint(uint64(donID), 10) + ". Error: " + err.Error())
 	}
 
 	value := vaultCapConfig.DefaultConfig.Underlying["VaultPublicKey"]

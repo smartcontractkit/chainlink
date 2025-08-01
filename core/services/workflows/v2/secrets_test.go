@@ -588,9 +588,9 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 			},
 		},
 		map[string]registrysyncer.Capability{
-			"test-target@1.0.0": {
-				CapabilityType: capabilities.CapabilityTypeTarget,
-				ID:             "write-chain@1.0.1",
+			vault.CapabilityID: {
+				CapabilityType: capabilities.CapabilityTypeAction,
+				ID:             vault.CapabilityID,
 			},
 		},
 	)
