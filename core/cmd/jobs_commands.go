@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -230,7 +230,7 @@ func (s *Shell) ShowJob(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -262,14 +262,14 @@ func (s *Shell) CreateJob(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
 	if resp.StatusCode >= 400 {
 		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
-			err = multierr.Append(err, rerr)
+			err = stderrors.Join(err, rerr)
 			return s.errorOut(err)
 		}
 		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
@@ -309,7 +309,7 @@ func (s *Shell) TriggerPipelineRun(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 

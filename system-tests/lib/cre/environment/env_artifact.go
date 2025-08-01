@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 const (
@@ -85,9 +85,9 @@ func DumpArtifact(
 	datastore datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
-	donTopology types.DonTopology,
+	donTopology cre.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
-	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
+	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
 ) (string, error) {
 	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
 	if err != nil {
@@ -106,9 +106,9 @@ func GenerateArtifact(
 	ds datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
-	donTopology types.DonTopology,
+	donTopology cre.DonTopology,
 	offchainClient cldf_deployment.OffchainClient,
-	capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn,
+	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
 ) (*EnvArtifact, error) {
 	var err error
 
@@ -144,9 +144,9 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &types.Label{
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{
 			Key:   crenode.NodeTypeKey,
-			Value: types.WorkerNode,
+			Value: cre.WorkerNode,
 		}, crenode.EqualLabels)
 		if workerNodesErr != nil {
 			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")

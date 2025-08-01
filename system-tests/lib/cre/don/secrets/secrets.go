@@ -12,13 +12,34 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func GenerateSecrets(input *cretypes.GenerateSecretsInput) (cretypes.NodeIndexToSecretsOverride, error) {
+type NodeEthKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  int    `toml:"ID"`
+}
+
+type NodeP2PKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+}
+
+type NodeEthKeyWrapper struct {
+	EthKeys []NodeEthKey `toml:"Keys"`
+}
+
+type NodeSecret struct {
+	EthKeys NodeEthKeyWrapper `toml:"EVM"`
+	P2PKey  NodeP2PKey        `toml:"P2PKey"`
+	// Add more fields as needed to reflect 'Secrets' struct from /core/config/toml/types.go
+	// We can't use the original struct, because it's using custom types that serlialize secrets to 'xxxxx'
+}
+
+func GenerateSecrets(input *cre.GenerateSecretsInput) (cre.NodeIndexToSecretsOverride, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -26,14 +47,14 @@ func GenerateSecrets(input *cretypes.GenerateSecretsInput) (cretypes.NodeIndexTo
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	overrides := make(cretypes.NodeIndexToSecretsOverride)
+	overrides := make(cre.NodeIndexToSecretsOverride)
 
 	for i := range input.DonMetadata.NodesMetadata {
-		nodeSecret := types.NodeSecret{}
+		nodeSecret := NodeSecret{}
 		if input.EVMKeys != nil {
-			nodeSecret.EthKeys = types.NodeEthKeyWrapper{}
+			nodeSecret.EthKeys = NodeEthKeyWrapper{}
 			for chainID, evmKeys := range input.EVMKeys {
-				nodeSecret.EthKeys.EthKeys = append(nodeSecret.EthKeys.EthKeys, types.NodeEthKey{
+				nodeSecret.EthKeys.EthKeys = append(nodeSecret.EthKeys.EthKeys, NodeEthKey{
 					JSON:     string(evmKeys.EncryptedJSONs[i]),
 					Password: evmKeys.Password,
 					ChainID:  chainID,
@@ -42,7 +63,7 @@ func GenerateSecrets(input *cretypes.GenerateSecretsInput) (cretypes.NodeIndexTo
 		}
 
 		if input.P2PKeys != nil {
-			nodeSecret.P2PKey = types.NodeP2PKey{
+			nodeSecret.P2PKey = NodeP2PKey{
 				JSON:     string(input.P2PKeys.EncryptedJSONs[i]),
 				Password: input.P2PKeys.Password,
 			}
@@ -59,7 +80,7 @@ func GenerateSecrets(input *cretypes.GenerateSecretsInput) (cretypes.NodeIndexTo
 	return overrides, nil
 }
 
-func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysOutput) (*cretypes.Topology, error) {
+func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*cre.Topology, error) {
 	if topology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -86,7 +107,7 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 			return nil, fmt.Errorf("number of P2P keys for DON %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, len(donMetadata.NodesMetadata), len(p2pKeys.PeerIDs))
 		}
 		for idx, nodeMetadata := range donMetadata.NodesMetadata {
-			nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
+			nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
 				Key:   node.NodeP2PIDKey,
 				Value: p2pKeys.PeerIDs[idx],
 			})
@@ -109,7 +130,7 @@ func AddKeysToTopology(topology *cretypes.Topology, keys *cretypes.GenerateKeysO
 			}
 
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cretypes.Label{
+				nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
 					Key:   node.AddressKeyFromSelector(chainSelector),
 					Value: evmKeys.PublicAddresses[idx].Hex(),
 				})
@@ -172,17 +193,17 @@ var publicP2PAddressFromEncryptedJSON = func(jsonString string) (string, error) 
 	return pJSON.PeerID, nil
 }
 
-func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*cretypes.GenerateKeysOutput, error) {
-	output := &cretypes.GenerateKeysOutput{
-		EVMKeys: make(cretypes.DonsToEVMKeys),
-		P2PKeys: make(cretypes.DonsToP2PKeys),
+func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.GenerateKeysOutput, error) {
+	output := &cre.GenerateKeysOutput{
+		EVMKeys: make(cre.DonsToEVMKeys),
+		P2PKeys: make(cre.DonsToP2PKeys),
 	}
 	p2pKeysFoundPerDon := make(map[uint32]int)
 	evmKeysFoundPerDon := make(map[uint32]int)
 	for donIdx, nodeSet := range nodeSets {
 		donIdxUint32 := uint32(donIdx) // #nosec G115: ignore as this will NEVER happen, we don't have zillions of DONs
-		p2pKeys := types.P2PKeys{}
-		evmKeysPerChainID := make(cretypes.ChainIDToEVMKeys)
+		p2pKeys := crypto.P2PKeys{}
+		evmKeysPerChainID := make(cre.ChainIDToEVMKeys)
 		for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestSecretsOverrides != "" {
 				var sSecrets secrets
@@ -223,7 +244,7 @@ func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*crety
 					}
 
 					if _, ok := evmKeysPerChainID[*evmKey.ID]; !ok {
-						evmKeysPerChainID[*evmKey.ID] = &types.EVMKeys{}
+						evmKeysPerChainID[*evmKey.ID] = &crypto.EVMKeys{}
 					}
 
 					evmKeysPerChainID[*evmKey.ID].EncryptedJSONs = append(evmKeysPerChainID[*evmKey.ID].EncryptedJSONs, []byte(*evmKey.JSON))
@@ -262,7 +283,7 @@ func KeysOutputFromConfig(nodeSets []*cretypes.CapabilitiesAwareNodeSet) (*crety
 	return output, nil
 }
 
-func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutput, error) {
+func GenereteKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -275,9 +296,9 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 		return input.Out, nil
 	}
 
-	output := &cretypes.GenerateKeysOutput{
-		EVMKeys: make(cretypes.DonsToEVMKeys),
-		P2PKeys: make(cretypes.DonsToP2PKeys),
+	output := &cre.GenerateKeysOutput{
+		EVMKeys: make(cre.DonsToEVMKeys),
+		P2PKeys: make(cre.DonsToP2PKeys),
 	}
 
 	for _, donMetadata := range input.Topology.DonsMetadata {
@@ -300,7 +321,7 @@ func GenereteKeys(input *cretypes.GenerateKeysInput) (*cretypes.GenerateKeysOutp
 					return nil, errors.Wrap(err, "failed to generate EVM keys")
 				}
 				if _, ok := output.EVMKeys[donMetadata.ID]; !ok {
-					output.EVMKeys[donMetadata.ID] = make(cretypes.ChainIDToEVMKeys)
+					output.EVMKeys[donMetadata.ID] = make(cre.ChainIDToEVMKeys)
 				}
 				output.EVMKeys[donMetadata.ID][chainID] = evmKeys
 			}

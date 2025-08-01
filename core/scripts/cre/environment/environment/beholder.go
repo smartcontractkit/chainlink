@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/google/go-github/v72/github"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -180,7 +178,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	for _, protoConfig := range protoConfigsFlag {
 		file, fileErr := os.ReadFile(protoConfig)
 		if fileErr != nil {
-			return errors.Wrap(fileErr, protoRegistrationErrMsg+"failed to read proto config file: "+protoConfig)
+			return errors.Wrap(fileErr, protoRegistrationErrMsg+": failed to read proto config file: "+protoConfig)
 		}
 
 		type wrappedProtoSchemaSets struct {
@@ -206,17 +204,12 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
-	var client *github.Client
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-		tc := oauth2.NewClient(ctx, ts)
-		client = github.NewClient(tc)
-	} else {
-		framework.L.Warn().Msg("GITHUB_TOKEN is not set, using unauthenticated GitHub client. This may cause rate limiting issues when downloading proto files")
-		client = github.NewClient(nil)
-	}
-
-	reposErr := chipingressset.DefaultRegisterAndFetchProtos(ctx, client, protoSchemaSets, schemaRegistryExternalURL)
+	reposErr := chipingressset.DefaultRegisterAndFetchProtos(
+		ctx,
+		nil, // GH client will be created dynamically, if needed
+		protoSchemaSets,
+		schemaRegistryExternalURL,
+	)
 	if reposErr != nil {
 		return errors.Wrap(reposErr, protoRegistrationErrMsg+"failed to fetch and register protos")
 	}

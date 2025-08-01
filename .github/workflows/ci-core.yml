@@ -102,9 +102,9 @@ jobs:
         env:
           GH_EVENT_NAME: ${{ github.event_name }}
         run: |
-          # if scheduled, run for all modules. Otherwise, run for only affected modules.
+          # if scheduled, run for all modules (apart from the CRE workflow examples). Otherwise, run for only affected modules.
           if [[ "$GH_EVENT_NAME" == "schedule" || "$GH_EVENT_NAME" == "workflow_dispatch" ]]; then
-            json_array=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
+            json_array=$(find . -name 'go.mod' -not -path './core/scripts/cre/environment/examples/workflows/*' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "module_names=$json_array" >> "$GITHUB_OUTPUT"
           else
             # Ensure the step uses `with.list-files: json` to get the list of files in JSON format

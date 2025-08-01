@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -117,7 +117,7 @@ func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -138,7 +138,7 @@ func (s *Shell) DeleteExternalInitiator(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 	_, err = s.parseResponse(resp)
@@ -162,7 +162,7 @@ func (s *Shell) getPage(requestURI string, page int, model interface{}) (err err
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -201,7 +201,7 @@ func (s *Shell) Logout(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 	err = s.CookieAuthenticator.Logout()
@@ -231,7 +231,7 @@ func (s *Shell) ChangePassword(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -272,11 +272,11 @@ func getTOMLString(s string) (string, error) {
 func (s *Shell) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if errors.Is(err, errUnauthorized) {
-		return nil, s.errorOut(multierr.Append(err, errors.New("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
+		return nil, s.errorOut(stderrors.Join(err, errors.New("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 
 	if errors.Is(err, errForbidden) {
-		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
+		return nil, s.errorOut(stderrors.Join(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
 	}
 	if err != nil {
 		return nil, s.errorOut(err)
@@ -320,7 +320,7 @@ func (s *Shell) configV2Str(userOnly bool) (string, error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 	respPayload, err := io.ReadAll(resp.Body)
@@ -358,7 +358,7 @@ func (s *Shell) SetLogLevel(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -390,7 +390,7 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -460,7 +460,7 @@ func parseErrorResponseBody(responseBody []byte) (string, error) {
 func parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return b, multierr.Append(errors.New(resp.Status), err)
+		return b, stderrors.Join(errors.New(resp.Status), err)
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized

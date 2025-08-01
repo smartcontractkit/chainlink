@@ -3,9 +3,9 @@
 package main
 
 import (
+	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"github.com/smartcontractkit/cre-sdk-go/sdk"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,10 +14,10 @@ type runtimeConfig struct {
 	Number int32  `yaml:"number"`
 }
 
-func CreateWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtimeConfig], error) {
+func CreateWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtimeConfig], error) {
 	runnerCfg := env.Config
-	return sdk.Workflow[*runtimeConfig]{
-		sdk.Handler(
+	return cre.Workflow[*runtimeConfig]{
+		cre.Handler(
 			basictrigger.Trigger(&basictrigger.Config{
 				Name:   runnerCfg.Name,
 				Number: runnerCfg.Number,
@@ -27,7 +27,7 @@ func CreateWorkflow(env *sdk.Environment[*runtimeConfig]) (sdk.Workflow[*runtime
 	}, nil
 }
 
-func onTrigger(env *sdk.Environment[*runtimeConfig], _ sdk.Runtime, _ *basictrigger.Outputs) (string, error) {
+func onTrigger(env *cre.Environment[*runtimeConfig], _ cre.Runtime, _ *basictrigger.Outputs) (string, error) {
 	env.Logger.Info("onTrigger called")
 	b, err := yaml.Marshal(env.Config)
 	if err != nil {

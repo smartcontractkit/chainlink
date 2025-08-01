@@ -3,12 +3,12 @@ package v2
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
@@ -295,7 +295,7 @@ func (lsn *listenerV2) getUnfulfilled(logs []logpoller.Log, ll logger.Logger) (u
 			parsed, err2 := lsn.coordinator.ParseRandomWordsFulfilled(l.ToGethLog())
 			if err2 != nil {
 				// should never happen
-				errs = multierr.Append(errs, err2)
+				errs = errors.Join(errs, err2)
 				continue
 			}
 			fulfilled[parsed.RequestID().String()] = parsed
@@ -303,7 +303,7 @@ func (lsn *listenerV2) getUnfulfilled(logs []logpoller.Log, ll logger.Logger) (u
 			parsed, err2 := lsn.coordinator.ParseRandomWordsRequested(l.ToGethLog())
 			if err2 != nil {
 				// should never happen
-				errs = multierr.Append(errs, err2)
+				errs = errors.Join(errs, err2)
 				continue
 			}
 			keyHash := parsed.KeyHash()

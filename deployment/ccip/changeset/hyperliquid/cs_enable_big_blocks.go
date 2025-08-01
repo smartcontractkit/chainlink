@@ -11,47 +11,45 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
-	"github.com/ugorji/go/codec"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
 var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
 
 type EnableBigBlocksConfig struct {
-	APIURL   string
-	ChainSel uint64
+	APIURL    string
+	ChainSel  uint64
+	IsMainnet bool
 }
 
 // Payload to be sent in the HTTP POST request
-type EnableBigBlocksRequestPayload struct {
-	Action    map[string]interface{} `json:"action"`    // Action details
-	Nonce     int64                  `json:"nonce"`     // Unique nonce for the request
-	Signature ECDSASignature         `json:"signature"` // ECDSA signature of the action
+type enableBigBlocksRequestPayload struct {
+	Action       map[string]interface{} `json:"action"`       // Action details
+	Nonce        int64                  `json:"nonce"`        // Unique nonce for the request
+	Signature    ecdsaSignature         `json:"signature"`    // ECDSA signature of the action
+	VaultAddress *string                `json:"vaultAddress"` // Vault address (null for most cases)
 }
 
-type ECDSASignature struct {
+type ecdsaSignature struct {
 	R string `json:"r"`
 	S string `json:"s"`
-	V byte   `json:"v"`
+	V int    `json:"v"`
 }
 
-type EnableBigBlocksDetailConfig struct {
+type enableBigBlocksDetailConfig struct {
 	URL               string        // RPC URL
-	ChainID           int64         // chain ID
 	VerifyingContract string        // Verifying contract address
 	RequestTimeout    time.Duration // HTTP request timeout
 }
@@ -65,33 +63,14 @@ func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig
 }
 
 func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
-	chainIDStr, err := chain_selectors.GetChainIDFromSelector(cfg.ChainSel)
-
 	out := cldf.ChangesetOutput{}
-	if err != nil {
-		return out, fmt.Errorf("invalid chain id: %w", err)
-	}
-
-	if err != nil {
-		return out, fmt.Errorf("invalid private key: %w", err)
-	}
-
-	chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
-	const maxInt64 = int64(^uint64(0) >> 1)
-	if chainID > uint64(maxInt64) {
-		return out, fmt.Errorf("chain ID too large for int64: %d", chainID)
-	}
-
-	if err != nil {
-		return out, fmt.Errorf("error converting string to uint64: %w", err)
-	}
 
 	action := map[string]interface{}{
 		"type":           "evmUserModify",
 		"usingBigBlocks": true,
 	}
 
-	chain, err := FindChainBySelector(env, cfg.ChainSel)
+	chain, err := findChainBySelector(env, cfg.ChainSel)
 
 	if err != nil {
 		return out, fmt.Errorf("error: %w finding chain by selector: %d", err, cfg.ChainSel)
@@ -104,22 +83,22 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	defaultRequestTimeout := 10 * time.Second
 
 	nonce := time.Now().UnixMilli()
-	config := EnableBigBlocksDetailConfig{
+	config := enableBigBlocksDetailConfig{
 		URL:               cfg.APIURL,
-		ChainID:           int64(chainID),
 		VerifyingContract: defaultVerifyingContract,
 		RequestTimeout:    defaultRequestTimeout,
 	}
 
-	sig, err := SignL1Action(action, nonce, true, config, chain)
+	sig, err := signL1Action(action, nonce, cfg.IsMainnet, config, chain)
 	if err != nil {
 		return out, fmt.Errorf("signing failed: %w", err)
 	}
 
-	err = sendRequest(EnableBigBlocksRequestPayload{
-		Action:    action,
-		Nonce:     nonce,
-		Signature: sig,
+	err = sendRequest(enableBigBlocksRequestPayload{
+		Action:       action,
+		Nonce:        nonce,
+		Signature:    sig,
+		VaultAddress: nil,
 	}, config)
 	if err != nil {
 		return out, fmt.Errorf("send failed: %w", err)
@@ -128,11 +107,11 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	return out, nil
 }
 
-func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config EnableBigBlocksDetailConfig, chain chain.BlockChain) (ECDSASignature, error) {
+func signL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config enableBigBlocksDetailConfig, chain chain.BlockChain) (ecdsaSignature, error) {
 	// Compute the action hash
-	actionHash, err := ActionHash(action, nil, nonce)
+	actionHash, err := actionHash(action, "", nonce, nil)
 	if err != nil {
-		return ECDSASignature{}, err
+		return ecdsaSignature{}, err
 	}
 
 	// Construct the phantom agent for signing
@@ -142,14 +121,14 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 	}
 	phantomAgent := map[string]interface{}{
 		"source":       source,
-		"connectionId": actionHash,
+		"connectionId": "0x" + hex.EncodeToString(actionHash),
 	}
 
 	// Define the EIP-712 domain
 	domain := apitypes.TypedDataDomain{
 		Name:              "Exchange",
 		Version:           "1",
-		ChainId:           (*math.HexOrDecimal256)(big.NewInt(config.ChainID)),
+		ChainId:           (*math.HexOrDecimal256)(big.NewInt(1337)),
 		VerifyingContract: config.VerifyingContract,
 	}
 
@@ -176,37 +155,45 @@ func SignL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 	}
 
 	// Compute the hash of the typed data
-	hash, _, err := apitypes.TypedDataAndHash(typedData)
+	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
-		return ECDSASignature{}, err
+		return ecdsaSignature{}, err
 	}
+	typedDataHash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
+	if err != nil {
+		return ecdsaSignature{}, err
+	}
+	rawData := []byte{0x19, 0x01}
+	rawData = append(rawData, domainSeparator...)
+	rawData = append(rawData, typedDataHash...)
+	msgHash := crypto.Keccak256Hash(rawData)
 
 	// Sign the hash using the private key
 	// signature, err := crypto.Sign(hash, privateKey)
 	evmChain, ok := chain.(evm.Chain)
 	if !ok {
-		return ECDSASignature{}, errors.New("not an EVM chain")
+		return ecdsaSignature{}, errors.New("not an EVM chain")
 	}
 
-	signature, err := evmChain.SignHash(hash)
+	signature, err := evmChain.SignHash(msgHash.Bytes())
 	if err != nil {
-		return ECDSASignature{}, err
+		return ecdsaSignature{}, err
 	}
 
-	var r, s [32]byte
-	copy(r[:], signature[:32])
-	copy(s[:], signature[32:64])
-	v := signature[64] + 27 // Adjust V to be 27 or 28
+	// Extract r, s, v components
+	r := new(big.Int).SetBytes(signature[:32])
+	s := new(big.Int).SetBytes(signature[32:64])
+	v := int(signature[64]) + 27
 
-	return ECDSASignature{
-		R: hex.EncodeToString(r[:]),
-		S: hex.EncodeToString(s[:]),
+	return ecdsaSignature{
+		R: hexutil.EncodeBig(r),
+		S: hexutil.EncodeBig(s),
 		V: v,
 	}, nil
 }
 
 // sendRequest sends the HTTP POST request with the signed payload
-func sendRequest(payload EnableBigBlocksRequestPayload, config EnableBigBlocksDetailConfig) error {
+func sendRequest(payload enableBigBlocksRequestPayload, config enableBigBlocksDetailConfig) error {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error marshaling payload: %w", err)
@@ -238,37 +225,59 @@ func sendRequest(payload EnableBigBlocksRequestPayload, config EnableBigBlocksDe
 }
 
 // ActionHash computes the hash of the action, including the nonce and optional vault address
-func ActionHash(action map[string]interface{}, vaultAddress *string, nonce int64) ([]byte, error) {
+func actionHash(action any, vaultAddress string, nonce int64, expiresAfter *int64) ([]byte, error) {
+	// Pack action using msgpack (like Python's msgpack.packb)
 	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	enc.SetSortMapKeys(true)
 
-	// Encode the action using MessagePack
-	encoder := codec.NewEncoder(&buf, new(codec.MsgpackHandle))
-	if err := encoder.Encode(action); err != nil {
-		return nil, fmt.Errorf("error encoding action: %w", err)
+	err := enc.Encode(action)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal action: %w", err)
 	}
+	data := buf.Bytes()
 
-	// Append the nonce
-	nonceBytes := make([]byte, 8)
+	// Add nonce as 8 bytes big endian
 	if nonce < 0 {
-		return nil, fmt.Errorf("nonce must be non-negative, got %d", nonce)
+		return nil, fmt.Errorf("nonce cannot be negative: %d", nonce)
 	}
+	nonceBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(nonceBytes, uint64(nonce))
-	buf.Write(nonceBytes)
+	data = append(data, nonceBytes...)
 
-	// Append vault address if provided
-	if vaultAddress == nil {
-		buf.WriteByte(0x00)
+	// Add vault address
+	if vaultAddress == "" {
+		data = append(data, 0x00)
 	} else {
-		buf.WriteByte(0x01)
-		addressBytes := hexutil.Bytes(*vaultAddress)
-		buf.Write(addressBytes)
+		data = append(data, 0x01)
+		data = append(data, addressToBytes(vaultAddress)...)
 	}
 
-	// Compute the Keccak-256 hash of the serialized data
-	return crypto.Keccak256(buf.Bytes()), nil
+	// Add expires_after if provided
+	if expiresAfter != nil {
+		if *expiresAfter < 0 {
+			panic(fmt.Sprintf("expiresAfter cannot be negative: %d", *expiresAfter))
+		}
+		data = append(data, 0x00)
+		expiresAfterBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(expiresAfterBytes, uint64(*expiresAfter))
+		data = append(data, expiresAfterBytes...)
+	}
+
+	// Return keccak256 hash
+	hash := crypto.Keccak256(data)
+	fmt.Printf("go action hash: %s\n", hex.EncodeToString(hash))
+	return hash, nil
 }
 
-func FindChainBySelector(e cldf.Environment, selector uint64) (chain.BlockChain, error) {
+// addressToBytes converts a hex address to bytes
+func addressToBytes(address string) []byte {
+	address = strings.TrimPrefix(address, "0x")
+	bytes, _ := hex.DecodeString(address)
+	return bytes
+}
+
+func findChainBySelector(e cldf.Environment, selector uint64) (chain.BlockChain, error) {
 	evmChains := e.BlockChains.EVMChains()
 
 	for _, chain := range evmChains {

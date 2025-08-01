@@ -27,12 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	workflow_registry_wrapper_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -439,10 +440,10 @@ func Test_SecretsWorker(t *testing.T) {
 			contents, err := orm.GetContents(ctx, giveSecretsURL)
 			require.NoError(t, err)
 			require.Equal(t, string(beforeSecretsPayload), contents)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig)
+			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 			require.NoError(t, err)
 
-			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 			require.NoError(t, err)
 
 			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
@@ -624,10 +625,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
@@ -730,9 +731,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)

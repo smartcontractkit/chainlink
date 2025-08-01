@@ -2,16 +2,14 @@
 
 # Parse command line arguments
 max_retries=${1:-5} # Default to 5 if not provided
-cre_cli_version=${2:-v0.2.0} # Default to v0.2.0 if not provided
-capability_names=${3:-cron} # Default to cron if not provided
-capability_version=${4:-v1.0.2-alpha} # Default to v1.0.2-alpha if not provided
-output_dir=${5:-../} # Default to ../ if not provided
+capability_names=${2:-cron} # Default to cron if not provided
+capability_version=${3:-v1.0.2-alpha} # Default to v1.0.2-alpha if not provided
+output_dir=${4:-../} # Default to ../ if not provided
 
 # Display usage if help is requested
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   echo "Usage: $0 [max_retries] [cre_cli_version] [capability_names] [capability_version] [output_dir]"
   echo "  max_retries: Maximum number of retry attempts (default: 5)"
-  echo "  cre_cli_version: CRE CLI version to download (default: v0.2.0)"
   echo "  capability_names: Capability names to download (default: cron)"
   echo "  capability_version: Capability version to download (default: v1.0.2-alpha)"
   echo "  output_dir: Directory to save the binaries (default: ../)"
@@ -22,7 +20,6 @@ fi
 
 echo "🔧 Using configuration:"
 echo "  Max retries: $max_retries"
-echo "  CRE CLI version: $cre_cli_version"
 echo "  Capability names: $capability_names"
 echo "  Capability version: $capability_version"
 echo "  Output directory: $output_dir"
@@ -40,16 +37,15 @@ for capability in "${CAPABILITY_ARRAY[@]}"; do
   capability="${capability#\"}"  # Remove leading quote
   capability="${capability%\"}"  # Remove trailing quote
   if [[ -n "$capability" ]]; then
-    capability_flags+=(--capability-names "$capability")
+    capability_flags+=(--names "$capability")
   fi
 done
 
-until go run main.go download all \
+until go run main.go download capabilities \
   --output-dir "$output_dir" \
   --gh-token-env-var-name GITHUB_API_TOKEN \
-  --cre-cli-version "$cre_cli_version" \
   "${capability_flags[@]}" \
-  --capability-version "$capability_version"
+  --version "$capability_version"
 do
   ((count++))
   if (( count >= max_retries )); then
