@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
@@ -16,7 +17,7 @@ import (
 func PermissionlessFeedsConsumer(rpcURL string) (*common.Address, error) {
 	var privateKey string
 	if os.Getenv("PRIVATE_KEY") == "" {
-		privateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+		privateKey = blockchain.DefaultAnvilPrivateKey
 		fmt.Printf("Since PRIVATE_KEY environment variable was empty, will use default value: %s\n", privateKey)
 	} else {
 		privateKey = os.Getenv("PRIVATE_KEY")
