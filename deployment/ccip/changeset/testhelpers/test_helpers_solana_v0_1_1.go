@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
