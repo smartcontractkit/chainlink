@@ -1,4 +1,4 @@
-package artifacts
+package v2
 
 import (
 	"database/sql"
