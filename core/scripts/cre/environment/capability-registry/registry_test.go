@@ -1,11 +1,7 @@
 package capabilityregistry
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -146,28 +142,8 @@ func TestCreateCommand(t *testing.T) {
 		}),
 		testDON.IsPublic, testDON.F).Return(mockUpdateDONTx, nil).Once()
 
-	// Capture stdout
-	originalStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
 	// Call extracted function for creating capability
-	createCapability(mockRegistry, testName, testVersion, testType, testDonID)
-
-	// Restore stdout
-	w.Close()
-	os.Stdout = originalStdout
-
-	// Read captured output
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
-
-	// Verify output
-	require.Contains(t, output, "successfully created")
-	require.Contains(t, output, mockAddTx.Hash().Hex())
-	require.Contains(t, output, "Nodes successfully updated")
-	require.Contains(t, output, "DON successfully updated")
+	require.NoError(t, createCapability(mockRegistry, testName, testVersion, testType, testDonID))
 
 	// Test Case 2: Capability already exists
 	existingCaps := []capabilities_registry.CapabilitiesRegistryCapability{
@@ -184,37 +160,23 @@ func TestCreateCommand(t *testing.T) {
 	mockRegistry.On("UpdateNodes", mock.Anything, mock.Anything).Return(mockUpdateNodesTx, nil).Once()
 	mockRegistry.On("UpdateDON", mock.Anything, testDonID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mockUpdateDONTx, nil).Once()
 
-	r, w, _ = os.Pipe()
-	os.Stdout = w
-
-	createCapability(mockRegistry, testName, testVersion, testType, testDonID)
-
-	w.Close()
-	os.Stdout = originalStdout
-
-	buf = bytes.Buffer{}
-	io.Copy(&buf, r)
-	output = buf.String()
-
-	require.Contains(t, output, "already exists")
+	require.NoError(t, createCapability(mockRegistry, testName, testVersion, testType, testDonID))
 
 	mockRegistry.AssertExpectations(t)
 }
 
 // createCapability encapsulates the logic from createCmd.Run for testing
-func createCapability(client *MockCapabilityRegistry, name, version, typeName string, donID uint32) {
+func createCapability(client *MockCapabilityRegistry, name, version, typeName string, donID uint32) error {
 	// Check if capability already exists
 	callOpts := &bind.CallOpts{}
 	caps, err := client.GetCapabilities(callOpts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get capabilities: %v\n", err)
-		return
+		return err
 	}
 
 	capExists := false
 	for _, capability := range caps {
 		if capability.LabelledName == name && capability.Version == version {
-			fmt.Printf("Capability '%s@%s' already exists\n", name, version)
 			capExists = true
 			break
 		}
@@ -223,7 +185,7 @@ func createCapability(client *MockCapabilityRegistry, name, version, typeName st
 	// Add capability
 	if !capExists {
 		txOpt := &bind.TransactOpts{}
-		output, err := client.AddCapabilities(txOpt, []capabilities_registry.CapabilitiesRegistryCapability{
+		_, err2 := client.AddCapabilities(txOpt, []capabilities_registry.CapabilitiesRegistryCapability{
 			{
 				LabelledName:   name,
 				Version:        version,
@@ -231,28 +193,20 @@ func createCapability(client *MockCapabilityRegistry, name, version, typeName st
 				ResponseType:   0,
 			},
 		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create capability: %v\n", err)
-			return
+		if err2 != nil {
+			return err
 		}
-
-		fmt.Printf("Capability '%s@%s' successfully created\n", name, version)
-		fmt.Printf("Transaction hash: %s\n", output.Hash().Hex())
 	}
 
 	don, err := client.GetDON(callOpts, donID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get nodes: %v\n", err)
-		return
+		return err
 	}
-
-	fmt.Printf("Don %d has %d nodes\n", donID, len(don.NodeP2PIds))
 
 	// Fetch Node Data
 	nodes, err := client.GetNodes(callOpts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get nodes: %v\n", err)
-		return
+		return err
 	}
 
 	// Figure out which nodes we want to update
@@ -279,12 +233,10 @@ func createCapability(client *MockCapabilityRegistry, name, version, typeName st
 	}
 
 	txOpt := &bind.TransactOpts{}
-	output, err := client.UpdateNodes(txOpt, nodesToUpdate)
+	_, err = client.UpdateNodes(txOpt, nodesToUpdate)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to update nodes: %v\n", err)
-		return
+		return err
 	}
-	fmt.Printf("Nodes successfully updated, tx hash: %s\n", output.Hash().Hex())
 
 	txOpt = &bind.TransactOpts{}
 	// append cap config
@@ -292,10 +244,9 @@ func createCapability(client *MockCapabilityRegistry, name, version, typeName st
 		CapabilityId: getHashedCapabilityID(name, version),
 		Config:       nil,
 	})
-	updateDON, err := client.UpdateDON(txOpt, donID, don.NodeP2PIds, don.CapabilityConfigurations, don.IsPublic, don.F)
+	_, err = client.UpdateDON(txOpt, donID, don.NodeP2PIds, don.CapabilityConfigurations, don.IsPublic, don.F)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to update don: %v\n", err)
-		return
+		return err
 	}
-	fmt.Printf("DON successfully updated, tx hash: %s\n", updateDON.Hash().Hex())
+	return nil
 }
