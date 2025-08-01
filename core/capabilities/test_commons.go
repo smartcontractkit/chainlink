@@ -7,7 +7,6 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -52,10 +51,10 @@ func DonMaker(dID uint32, donNodes []p2ptypes.PeerID, acceptWorkflow bool) capab
 	}
 }
 
-func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo {
-	IDsToNodes := map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{}
+func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.PeerID]registrysyncer.NodeInfo {
+	IDsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for i := range tt.capabilityDonNodes {
-		IDsToNodes[tt.capabilityDonNodes[i]] = kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes[tt.capabilityDonNodes[i]] = registrysyncer.NodeInfo{
 			NodeOperatorId:      1,
 			Signer:              RandomUTF8BytesWord(),
 			P2pId:               tt.capabilityDonNodes[i],
@@ -65,7 +64,7 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 		}
 	}
 	for i := range tt.workflowDonNodes {
-		IDsToNodes[tt.workflowDonNodes[i]] = kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes[tt.workflowDonNodes[i]] = registrysyncer.NodeInfo{
 			NodeOperatorId:      1,
 			Signer:              RandomUTF8BytesWord(),
 			P2pId:               tt.workflowDonNodes[i],

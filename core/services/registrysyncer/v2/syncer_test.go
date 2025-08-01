@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -37,9 +36,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	registrysyncer_v1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
-	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -106,11 +105,11 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry *registrysyncer_v2.LocalRegistry
+	localRegistry *registrysyncer.LocalRegistry
 	mu            sync.RWMutex
 }
 
-func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer_v2.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -141,7 +140,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer_v2.LocalRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
@@ -149,7 +148,7 @@ func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer
 	return err
 }
 
-func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer_v2.LocalRegistry, error) {
+func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
@@ -299,7 +298,7 @@ func TestReader_Integration(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
-	syncerORM := registrysyncer_v2.NewORM(db, lggr)
+	syncerORM := registrysyncer.NewORM(db, lggr)
 	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
@@ -315,7 +314,7 @@ func TestReader_Integration(t *testing.T) {
 	// Test V2 capabilities with string IDs
 	assert.Len(t, s.IDsToCapabilities, 1)
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, registrysyncer_v2.Capability{
+	assert.Equal(t, registrysyncer.Capability{
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             "write-chain@1.0.1",
 	}, gotCap)
@@ -337,8 +336,11 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
+	hashedID, err := registrysyncer_v2.HashCapabilityID(cid)
+	require.NoError(t, err, "Failed to hash capability ID")
+
 	// Test V2 node info with string capability IDs
-	expectedNodesInfo := []capabilities_registry_v2.INodeInfoProviderNodeInfo{
+	expectedNodesInfo := []registrysyncer.NodeInfo{
 		{
 			NodeOperatorId:      uint32(1),
 			ConfigCount:         1,
@@ -348,6 +350,7 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey1,
 			CapabilityIds:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
+			HashedCapabilityIds: [][32]byte{hashedID},
 		},
 		{
 			NodeOperatorId:      uint32(1),
@@ -358,6 +361,7 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey2,
 			CapabilityIds:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
+			HashedCapabilityIds: [][32]byte{hashedID},
 		},
 		{
 			NodeOperatorId:      uint32(1),
@@ -368,11 +372,12 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey3,
 			CapabilityIds:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
+			HashedCapabilityIds: [][32]byte{hashedID},
 		},
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 		nodeSet[0]: expectedNodesInfo[0],
 		nodeSet[1]: expectedNodesInfo[1],
 		nodeSet[2]: expectedNodesInfo[2],
@@ -546,66 +551,6 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	}
 }
 
-func TestSyncer_V1ToV2Transition(t *testing.T) {
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-
-	// Step 1: Create actual V1 LocalRegistry with real V1 structs
-	peerID := p2ptypes.PeerID{}
-	copy(peerID[:], []byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N")[:32])
-
-	// Create V1 node info with HashedCapabilityIds (the key difference from V2)
-	hashedCapabilityIDs := [][32]byte{
-		{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef}, // Some dummy hash
-	}
-
-	v1NodeInfo := kcr.INodeInfoProviderNodeInfo{
-		NodeOperatorId:      1,
-		ConfigCount:         1,
-		WorkflowDONId:       1,
-		Signer:              [32]byte(peerID),
-		P2pId:               [32]byte(peerID),
-		EncryptionPublicKey: [32]byte{},
-		HashedCapabilityIds: hashedCapabilityIDs, // This field doesn't exist in V2!
-		CapabilitiesDONIds:  []*big.Int{big.NewInt(1)},
-	}
-
-	// Create V1 LocalRegistry
-	v1Registry := registrysyncer_v1.NewLocalRegistry(
-		lggr,
-		func() (p2ptypes.PeerID, error) { return peerID, nil },
-		make(map[registrysyncer_v1.DonID]registrysyncer_v1.DON),
-		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
-			peerID: v1NodeInfo,
-		},
-		make(map[string]registrysyncer_v1.Capability),
-	)
-
-	// Marshal V1 registry to JSON (this will include HashedCapabilityIds)
-	v1JSONBytes, err := json.Marshal(v1Registry)
-	require.NoError(t, err, "Failed to marshal V1 registry")
-	v1JSONData := string(v1JSONBytes)
-
-	t.Logf("V1 JSON data: %s", v1JSONData)
-
-	// Step 2: Insert V1 data directly into registry_syncer_states table
-	hash := "test_v1_hash"
-	_, err = db.ExecContext(ctx,
-		`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2)`,
-		v1JSONData, hash)
-	require.NoError(t, err, "Failed to insert V1 data")
-
-	// Step 3: Create V2 ORM and try to read the V1 data
-	syncerORM := registrysyncer_v2.NewORM(db, lggr)
-
-	// Step 4: Attempt to read V1 data with V2 ORM - this should handle gracefully
-	localRegistry, err := syncerORM.LatestLocalRegistry(ctx)
-	require.Error(t, err, "V2 ORM should not be able to read V1 data")
-	assert.Contains(t, err.Error(), "unmarshal", "Error should be related to JSON unmarshaling")
-	require.Nil(t, localRegistry, "Local registry should be nil since V2 ORM cannot read V1 data")
-}
-
 func TestSyncer_V2_LocalNode(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -625,12 +570,12 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 	dName := "test-don-v2-db"
 	dFamilies := []string{"workflow-don-family-v2"}
 	dConfig := []byte("test-don-v2-db-config")
-	// Test V2 local registry with string capability IDs
-	localRegistry := registrysyncer_v2.NewLocalRegistry(
+	// Test local registry with string capability IDs
+	localRegistry := registrysyncer.NewLocalRegistry(
 		lggr,
 		func() (p2ptypes.PeerID, error) { return pid, nil },
-		map[registrysyncer_v2.DonID]registrysyncer_v2.DON{
-			registrysyncer_v2.DonID(dID): {
+		map[registrysyncer.DonID]registrysyncer.DON{
+			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
 					Name:             dName,
 					Families:         dFamilies,
@@ -644,7 +589,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -674,7 +619,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 				CapabilityIds:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
 			},
 		},
-		map[string]registrysyncer_v2.Capability{
+		map[string]registrysyncer.Capability{
 			"write-chain@1.0.1": {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 				ID:             "write-chain@1.0.1",
@@ -912,7 +857,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	// Set up syncer and reader
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
-	syncerORM := registrysyncer_v2.NewORM(db, lggr)
+	syncerORM := registrysyncer.NewORM(db, lggr)
 	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 

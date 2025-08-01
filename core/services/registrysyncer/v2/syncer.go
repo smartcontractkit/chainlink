@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,16 +19,14 @@ import (
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type Listener interface {
-	OnNewRegistry(ctx context.Context, registry *LocalRegistry) error
-}
-
 type Syncer interface {
 	services.Service
-	AddListener(h ...Listener)
+	AddListener(h ...registrysyncer.Listener)
 }
 
 type ContractReaderFactory interface {
@@ -36,7 +35,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddListener(listeners ...Listener)
+	AddListener(listeners ...registrysyncer.Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -48,16 +47,16 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	listeners            []Listener
+	listeners            []registrysyncer.Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
 	getPeerID            func() (p2ptypes.PeerID, error)
 
-	orm ORM
+	orm registrysyncer.ORM
 
-	updateChan chan *LocalRegistry
+	updateChan chan *registrysyncer.LocalRegistry
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -76,7 +75,7 @@ func New(
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer ContractReaderFactory,
 	registryAddress string,
-	orm ORM,
+	orm registrysyncer.ORM,
 ) (RegistrySyncer, error) {
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
@@ -86,7 +85,7 @@ func New(
 	return &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
-		updateChan: make(chan *LocalRegistry),
+		updateChan: make(chan *registrysyncer.LocalRegistry),
 		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
@@ -229,7 +228,7 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
 	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
@@ -237,13 +236,13 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToCapabilities := map[string]Capability{}
+	idsToCapabilities := map[string]registrysyncer.Capability{}
 	for _, c := range caps {
 		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
 		if parseErr != nil {
 			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, parseErr)
 		}
-		idsToCapabilities[c.CapabilityId] = Capability{
+		idsToCapabilities[c.CapabilityId] = registrysyncer.Capability{
 			ID:             c.CapabilityId,
 			CapabilityType: toCapabilityType(capabilityType),
 		}
@@ -256,16 +255,16 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToDONs := map[DonID]DON{}
+	idsToDONs := map[registrysyncer.DonID]registrysyncer.DON{}
 	for _, d := range dons {
-		cc := map[string]CapabilityConfiguration{}
+		cc := map[string]registrysyncer.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
-			cc[dc.CapabilityId] = CapabilityConfiguration{
+			cc[dc.CapabilityId] = registrysyncer.CapabilityConfiguration{
 				Config: dc.Config,
 			}
 		}
 
-		idsToDONs[DonID(d.Id)] = DON{
+		idsToDONs[registrysyncer.DonID(d.Id)] = registrysyncer.DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}
@@ -278,14 +277,38 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for _, node := range nodes {
-		idsToNodes[node.P2pId] = node
+		nodeInfo := registrysyncer.NodeInfo{
+			NodeOperatorId:      node.NodeOperatorId,
+			ConfigCount:         node.ConfigCount,
+			WorkflowDONId:       node.WorkflowDONId,
+			Signer:              node.Signer,
+			P2pId:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
+			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
+			HashedCapabilityIds: make([][32]byte, 0, len(node.CapabilityIds)),
+			CsaKey:              node.CsaKey,
+			CapabilityIds:       node.CapabilityIds,
+		}
+		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
+
+		// Backfill hashed capability IDs
+		for _, capID := range node.CapabilityIds {
+			hashedCapID, err := HashCapabilityID(capID)
+			if err != nil {
+				s.lggr.Warnw("failed to hash capability ID, skipping", "capabilityID", capID, "error", err)
+				continue
+			}
+			nodeInfo.HashedCapabilityIds = append(nodeInfo.HashedCapabilityIds, hashedCapID)
+		}
+
+		idsToNodes[node.P2pId] = nodeInfo
 	}
 
-	return &LocalRegistry{
-		lggr:              s.lggr,
-		getPeerID:         s.getPeerID,
+	return &registrysyncer.LocalRegistry{
+		Logger:            s.lggr,
+		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
@@ -310,7 +333,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var latestRegistry *LocalRegistry
+	var latestRegistry *registrysyncer.LocalRegistry
 	var err error
 
 	if isInitialSync {
@@ -319,8 +342,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
-			latestRegistry.lggr = s.lggr
-			latestRegistry.getPeerID = s.getPeerID
+			latestRegistry.Logger = s.lggr
+			latestRegistry.GetPeerID = s.getPeerID
 		}
 	}
 
@@ -346,7 +369,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := deepCopyLocalRegistry(latestRegistry)
+		lrCopy := registrysyncer.DeepCopyLocalRegistry(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -354,62 +377,6 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	return nil
-}
-
-func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
-	var lrCopy LocalRegistry
-	lrCopy.lggr = lr.lggr
-	lrCopy.getPeerID = lr.getPeerID
-	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
-	for id, don := range lr.IDsToDONs {
-		d := capabilities.DON{
-			Name:             don.Name,
-			ID:               don.ID,
-			Families:         don.Families,
-			ConfigVersion:    don.ConfigVersion,
-			Members:          make([]p2ptypes.PeerID, len(don.Members)),
-			F:                don.F,
-			IsPublic:         don.IsPublic,
-			AcceptsWorkflows: don.AcceptsWorkflows,
-			Config:           don.Config,
-		}
-		copy(d.Members, don.Members)
-		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
-		for capID, capCfg := range don.CapabilityConfigurations {
-			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config,
-			}
-		}
-		lrCopy.IDsToDONs[id] = DON{
-			DON:                      d,
-			CapabilityConfigurations: capCfgs,
-		}
-	}
-
-	lrCopy.IDsToCapabilities = make(map[string]Capability, len(lr.IDsToCapabilities))
-	for id, capability := range lr.IDsToCapabilities {
-		cp := capability
-		lrCopy.IDsToCapabilities[id] = cp
-	}
-
-	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]capabilities_registry_v2.INodeInfoProviderNodeInfo, len(lr.IDsToNodes))
-	for id, node := range lr.IDsToNodes {
-		nodeInfo := capabilities_registry_v2.INodeInfoProviderNodeInfo{
-			NodeOperatorId:      node.NodeOperatorId,
-			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
-			Signer:              node.Signer,
-			P2pId:               node.P2pId,
-			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilityIds:       make([]string, len(node.CapabilityIds)),
-			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
-		}
-		copy(nodeInfo.CapabilityIds, node.CapabilityIds)
-		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
-		lrCopy.IDsToNodes[id] = nodeInfo
-	}
-
-	return lrCopy
 }
 
 type ContractCapabilityType uint8
@@ -455,7 +422,7 @@ func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabi
 	}
 }
 
-func (s *registrySyncer) AddListener(listeners ...Listener) {
+func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.listeners = append(s.listeners, listeners...)
@@ -498,4 +465,23 @@ func parseCapabilityMetadata(metadata []byte) (capabilityType, responseType uint
 	}
 
 	return meta.CapabilityType, meta.ResponseType, nil
+}
+
+// parseCapabilityID parses a V2 capability ID (e.g., "write-chain@1.0.1") into name and version parts
+func parseCapabilityID(capabilityID string) (name, version string, err error) {
+	parts := strings.Split(capabilityID, "@")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid capability ID format: %s (expected format: name@version)", capabilityID)
+	}
+	return parts[0], parts[1], nil
+}
+
+// hashCapabilityID creates a hashed capability ID from a V2 capability ID string
+func HashCapabilityID(capabilityID string) ([32]byte, error) {
+	name, version, err := parseCapabilityID(capabilityID)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	return common.HashedCapabilityID(name, version)
 }

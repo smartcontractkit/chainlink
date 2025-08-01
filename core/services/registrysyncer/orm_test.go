@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -110,7 +109,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
-		IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),

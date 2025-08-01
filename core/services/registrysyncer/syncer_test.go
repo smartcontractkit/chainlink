@@ -330,7 +330,7 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
-	nodesInfo := []kcr_v1.INodeInfoProviderNodeInfo{
+	nodesInfo := []registrysyncer.NodeInfo{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -341,6 +341,7 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey1,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIds:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -352,6 +353,7 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey2,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIds:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -363,11 +365,12 @@ func TestReader_Integration(t *testing.T) {
 			EncryptionPublicKey: encPubKey3,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIds:       []string{cid},
 		},
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 		nodeSet[0]: nodesInfo[0],
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
@@ -533,7 +536,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),

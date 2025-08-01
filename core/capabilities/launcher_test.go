@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -155,7 +154,7 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTarget,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              RandomUTF8BytesWord(),
@@ -265,7 +264,7 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTrigger,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              RandomUTF8BytesWord(),
@@ -370,7 +369,7 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTarget,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              RandomUTF8BytesWord(),
@@ -539,7 +538,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              RandomUTF8BytesWord(),
@@ -716,7 +715,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              RandomUTF8BytesWord(),
@@ -858,7 +857,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              RandomUTF8BytesWord(),
@@ -1024,7 +1023,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              RandomUTF8BytesWord(),

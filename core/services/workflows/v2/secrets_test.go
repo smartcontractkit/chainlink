@@ -15,8 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -377,7 +375,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorId:      1,
 				WorkflowDONId:       dID,

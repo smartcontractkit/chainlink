@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
+	registrysyncer "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -23,7 +23,7 @@ func (_m *RegistrySyncer) EXPECT() *RegistrySyncer_Expecter {
 }
 
 // AddListener provides a mock function with given fields: listeners
-func (_m *RegistrySyncer) AddListener(listeners ...v2.Listener) {
+func (_m *RegistrySyncer) AddListener(listeners ...registrysyncer.Listener) {
 	_va := make([]interface{}, len(listeners))
 	for _i := range listeners {
 		_va[_i] = listeners[_i]
@@ -39,18 +39,18 @@ type RegistrySyncer_AddListener_Call struct {
 }
 
 // AddListener is a helper method to define mock.On call
-//   - listeners ...v2.Listener
+//   - listeners ...registrysyncer.Listener
 func (_e *RegistrySyncer_Expecter) AddListener(listeners ...interface{}) *RegistrySyncer_AddListener_Call {
 	return &RegistrySyncer_AddListener_Call{Call: _e.mock.On("AddListener",
 		append([]interface{}{}, listeners...)...)}
 }
 
-func (_c *RegistrySyncer_AddListener_Call) Run(run func(listeners ...v2.Listener)) *RegistrySyncer_AddListener_Call {
+func (_c *RegistrySyncer_AddListener_Call) Run(run func(listeners ...registrysyncer.Listener)) *RegistrySyncer_AddListener_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]v2.Listener, len(args)-0)
+		variadicArgs := make([]registrysyncer.Listener, len(args)-0)
 		for i, a := range args[0:] {
 			if a != nil {
-				variadicArgs[i] = a.(v2.Listener)
+				variadicArgs[i] = a.(registrysyncer.Listener)
 			}
 		}
 		run(variadicArgs...)
@@ -63,7 +63,7 @@ func (_c *RegistrySyncer_AddListener_Call) Return() *RegistrySyncer_AddListener_
 	return _c
 }
 
-func (_c *RegistrySyncer_AddListener_Call) RunAndReturn(run func(...v2.Listener)) *RegistrySyncer_AddListener_Call {
+func (_c *RegistrySyncer_AddListener_Call) RunAndReturn(run func(...registrysyncer.Listener)) *RegistrySyncer_AddListener_Call {
 	_c.Run(run)
 	return _c
 }

@@ -50,7 +50,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	capabilities_v2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -933,18 +932,17 @@ func newCREServices(
 					},
 					relayer,
 					registryAddress,
-					registrysyncerV2.NewORM(ds, globalLogger),
+					registrysyncerV1.NewORM(ds, globalLogger),
 				)
 				if err != nil {
 					return nil, fmt.Errorf("could not configure syncer: %w", err)
 				}
 
-				capabilitiesRegistryV2 := capabilities_v2.NewRegistry(globalLogger)
-				wfLauncher := capabilities_v2.NewLauncher(
+				wfLauncher := capabilities.NewLauncher(
 					globalLogger,
 					externalPeerWrapper,
 					dispatcher,
-					capabilitiesRegistryV2,
+					opts.CapabilitiesRegistry,
 					workflowDonNotifier,
 				)
 				registrySyncer.AddListener(wfLauncher)

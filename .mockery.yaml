@@ -410,7 +410,6 @@ packages:
       RegistrySyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2:
     interfaces:
-      ORM:
       RegistrySyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:

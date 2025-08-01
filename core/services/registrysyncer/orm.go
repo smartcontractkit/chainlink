@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type capabilitiesRegistryNodeInfo struct {
@@ -82,7 +80,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 
 	l.IDsToDONs = temp.IDsToDONs
 
-	l.IDsToNodes = make(map[types.PeerID]kcr.INodeInfoProviderNodeInfo)
+	l.IDsToNodes = make(map[types.PeerID]NodeInfo)
 	for peerID, v := range temp.IDsToNodes {
 		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
 		for i, id := range v.HashedCapabilityIds {
@@ -95,7 +93,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			bigInt.SetString(id, 10)
 			capabilitiesDONIds[i] = bigInt
 		}
-		l.IDsToNodes[peerID] = kcr.INodeInfoProviderNodeInfo{
+		l.IDsToNodes[peerID] = NodeInfo{
 			NodeOperatorId:      v.NodeOperatorId,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
