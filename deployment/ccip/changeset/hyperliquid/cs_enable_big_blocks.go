@@ -29,8 +29,9 @@ import (
 var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
 
 type EnableBigBlocksConfig struct {
-	APIURL   string
-	ChainSel uint64
+	APIURL    string
+	ChainSel  uint64
+	IsMainnet bool
 }
 
 // Payload to be sent in the HTTP POST request
@@ -88,7 +89,7 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 		RequestTimeout:    defaultRequestTimeout,
 	}
 
-	sig, err := signL1Action(action, nonce, true, config, chain)
+	sig, err := signL1Action(action, nonce, cfg.IsMainnet, config, chain)
 	if err != nil {
 		return out, fmt.Errorf("signing failed: %w", err)
 	}
