@@ -250,10 +250,9 @@ jobs:
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/1.0.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/0.2.0
         with:
           tmpfs: "true"
-          image-tag: "16-alpine" # use same version as dockerfile
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
