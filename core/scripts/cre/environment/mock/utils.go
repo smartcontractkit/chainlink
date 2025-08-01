@@ -30,7 +30,7 @@ func newMockCapabilityController() (*mockcapability.Controller, error) {
 	}
 	lggr := zerolog.New(os.Stdout)
 	c := mockcapability.NewMockCapabilityController(lggr)
-	err := c.ConnectAll([]string{"172.28.0.13:7777", "172.28.0.14:7777", "172.28.0.15:7777"}, true, false)
+	err := c.ConnectAll(containerAddresses, true, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to mock capability controllers: %w", err)
 	}
