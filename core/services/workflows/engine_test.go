@@ -556,13 +556,18 @@ targets:
 		)
 
 		mBillingClient.EXPECT().
+			GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+				},
+			}, nil)
+		mBillingClient.EXPECT().
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: "10000"}, nil)
+			Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -652,13 +657,18 @@ targets:
 		})
 
 		mBillingClient.EXPECT().
+			GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+				},
+			}, nil)
+		mBillingClient.EXPECT().
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: "10000"}, nil)
+			Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -729,10 +739,17 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 
 	mBillingClient.EXPECT().
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: []*billing.RateCard{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+			},
+		}, nil)
+	mBillingClient.EXPECT().
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
@@ -2880,6 +2897,17 @@ targets:
 			},
 		)
 
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
 		// Verify that ReserveCredits is called with the correct workflow registry information
 		// Sepolia chain ID 11155111 converts to the expected chainSelector
 		mBillingClient.EXPECT().
@@ -2893,13 +2921,6 @@ targets:
 			})).
 			Return(&billing.ReserveCreditsResponse{
 				Success: true,
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
 				Credits: "10000",
 			}, nil)
 
@@ -2935,11 +2956,39 @@ targets:
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
 
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{
+				Success: true,
+				Credits: "10000",
+			}, nil)
+
 		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
 		invalidChainSelector := "invalid-chain-id"
 
-		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// No mock expectations needed since the call won't happen
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == 0 // default value
+			})).
+			Return(&emptypb.Empty{}, nil)
+
+		// billing calls still happen, but with invalid chain selector
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
@@ -2970,10 +3019,6 @@ targets:
 		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
-
-		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// This is expected behavior since no metering report exists
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
 	})
 
 	t.Run("handles empty workflow registry information", func(t *testing.T) {
@@ -2983,8 +3028,34 @@ targets:
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
 
-		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// No mock expectations needed since the call won't happen
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{
+				Success: true,
+				Credits: "10000",
+			}, nil)
+
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == "" &&
+					req.WorkflowRegistryChainSelector == 0 // default value
+			})).
+			Return(&emptypb.Empty{}, nil)
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
