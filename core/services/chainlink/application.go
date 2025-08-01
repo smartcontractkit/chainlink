@@ -87,7 +87,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -958,7 +957,7 @@ func newCREServices(
 						fetcherFunc = opts.FetcherFunc
 					}
 
-					artifactsStore := artifactsV1.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
+					artifactsStore := artifactsV1.NewStore(lggr, artifactsV1.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV1.WithMaxArtifactSize(
 							artifactsV1.ArtifactConfig{

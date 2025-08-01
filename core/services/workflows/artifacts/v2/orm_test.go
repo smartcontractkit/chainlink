@@ -38,7 +38,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 
 		// Verify the record exists in the database
 		var dbSpec job.WorkflowSpec
-		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
 		require.NoError(t, err)
 		require.Equal(t, spec.Workflow, dbSpec.Workflow)
 	})
@@ -73,7 +73,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 
 		// Verify the record is updated in the database
 		var dbSpec job.WorkflowSpec
-		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2`, spec.WorkflowOwner, spec.WorkflowName)
 		require.NoError(t, err)
 		require.Equal(t, spec.Config, dbSpec.Config)
 		require.Equal(t, spec.Status, dbSpec.Status)
@@ -105,7 +105,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 
 		// Verify the record exists in the database
 		var dbSpec job.WorkflowSpec
-		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
 		require.NoError(t, err)
 		require.Equal(t, WFID1, dbSpec.WorkflowID)
 
@@ -116,13 +116,13 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 
 		// Verify the original record is still there
 		var dbSpec2 job.WorkflowSpec
-		err = db.Get(&dbSpec2, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
+		err = db.Get(&dbSpec2, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID1)
 		require.NoError(t, err)
 		require.Equal(t, WFID1, dbSpec2.WorkflowID)
 
 		// Verify the new record is there
 		var dbSpec3 job.WorkflowSpec
-		err = db.Get(&dbSpec3, `SELECT * FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID2)
+		err = db.Get(&dbSpec3, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id = $3`, spec.WorkflowOwner, spec.WorkflowName, WFID2)
 		require.NoError(t, err)
 		require.Equal(t, WFID2, dbSpec3.WorkflowID)
 	})
@@ -157,7 +157,7 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 
 		// Verify the record is deleted from the database
 		var dbSpec job.WorkflowSpec
-		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs WHERE id = $1`, id)
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE id = $1`, id)
 		require.Error(t, err)
 		require.Equal(t, sql.ErrNoRows, err)
 	})
