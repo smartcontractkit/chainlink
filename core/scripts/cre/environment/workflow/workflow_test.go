@@ -316,7 +316,6 @@ func TestDeleteWorkflowCmd(t *testing.T) {
 // Extract the update logic from updateCmd.Run into a testable function
 func updateWorkflow(client WorkflowRegistryInterface, owner common.Address, name string,
 	idBytes [32]byte, binaryURL, configURL, secretsURL string) {
-
 	// Create a simple transactor for testing
 	txOpt := &bind.TransactOpts{}
 
