@@ -948,6 +948,8 @@ func newCREServices(
 				registrySyncer.AddListener(wfLauncher)
 
 				srvcs = append(srvcs, wfLauncher, registrySyncer)
+			default:
+				return nil, fmt.Errorf("could not configure capability registry syncer with version: %s", externalRegistryVersion.Major())
 			}
 
 			if capCfg.WorkflowRegistry().Address() != "" {
