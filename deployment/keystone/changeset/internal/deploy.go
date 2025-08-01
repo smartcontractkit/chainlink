@@ -347,10 +347,10 @@ type ConfigureOCR3Resp struct {
 
 type ConfigureOCR3Config struct {
 	ChainSel   uint64
-	NodeIDs    []string
 	Contract   *ocr3_capability.OCR3Capability
 	OCR3Config *OracleConfig
 	DryRun     bool
+	Nodes      []deployment.Node
 
 	UseMCMS bool
 }
@@ -374,15 +374,11 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 
 	contract := cfg.Contract
 
-	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
-	if err != nil {
-		return nil, err
-	}
 	r, err := configureOCR3contract(configureOCR3Request{
 		cfg:        cfg.OCR3Config,
 		chain:      registryChain,
 		contract:   contract,
-		nodes:      nodes,
+		nodes:      cfg.Nodes,
 		dryRun:     cfg.DryRun,
 		useMCMS:    cfg.UseMCMS,
 		ocrSecrets: env.OCRSecrets,

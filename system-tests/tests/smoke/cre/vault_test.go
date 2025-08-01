@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -29,11 +30,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type Config struct {
@@ -118,6 +121,9 @@ func TestVault_E2E(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 	ocr3Addr := addrs[0].Address
+
+	// TODO: Figure out a proper way to merge the data store
+	cldEnv.DataStore = ocrDeploymentOutput.DataStore.Seal()
 
 	// BLOCKCHAIN SETUP - end
 
@@ -291,6 +297,8 @@ func TestVault_E2E(t *testing.T) {
 	}
 	fmt.Println("✅ Gateway jobs created successfully.")
 
+	var vaultNodeIDs []string
+	var vaultNodes []deployment.Node
 	// Add the vault job to each node in the second nodeset
 	for _, client := range vaultNodeSetClients {
 		// Get the actual OCR key bundle ID and transmitter address for this node
@@ -335,8 +343,79 @@ func TestVault_E2E(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Vault job creation response must return 200 OK: %v", resp)
 		require.NotEmpty(t, job.Data.ID, "Vault job creation response must return a job ID: %v.", job)
 		fmt.Println(job.Data.ID)
+
+		p2pKeys, err := bootstrapNodeClient.MustReadP2PKeys()
+		require.NoError(t, err)
+		vaultNodeIDs = append(vaultNodeIDs, p2pKeys.Data[0].Attributes.PeerID)
+		var vaultNode deployment.Node
+
+		peerID, err := p2pkey.MakePeerID("p2p_" + p2pKeys.Data[0].Attributes.PeerID)
+		require.NoError(t, err)
+		vaultNode.PeerID = peerID
+
+		csaKeys, _, err := client.MustReadCSAKeys()
+		require.NoError(t, err)
+		vaultNode.CSAKey = csaKeys.Data[0].Attributes.PublicKey
+
+		// TODO: How do I get the workflow key?
+
+		// vaultNode.NodeID = p2pKeys.Data[0].Attributes.PeerID
+		// vaultNode.Name = keys.Data[0].Attributes.Name
+		// vaultNode.CSAKey = keys.Data[0].Attributes.CSAKey
+		// vaultNode.WorkflowKey = keys.Data[0].Attributes.WorkflowKey
+		// vaultNode.SelToOCRConfig = keys.Data[0].Attributes.SelToOCRConfig
+
+		// type Node struct {
+		// 	NodeID         string
+		// 	Name           string
+		// ✅	CSAKey         string
+		// 	WorkflowKey    string
+		// 	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
+		// 	✅ PeerID         p2pkey.PeerID
+		// 	IsBootstrap    bool
+		// 	MultiAddr      string
+		// 	AdminAddr      string
+		// 	Labels         []*ptypes.Label
+		// }
 	}
 	fmt.Println("✅ Vault jobs created successfully.")
+
+	fmt.Println("ocr3Addr", ocr3Addr)
+	ocr3CommonAddr := common.HexToAddress(ocr3Addr)
+	fmt.Println("ocr3CommonAddr", ocr3CommonAddr)
+	transmissionSchedule := []int{len(vaultNodeSetClients)}
+	fmt.Println("address book", cldEnv.DataStore.Addresses())
+
+	ocr3Config := changeset.OracleConfig{
+		DeltaProgressMillis:               5000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              transmissionSchedule,
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxBatchSize:                      1000,
+		UniqueReports:                     true,
+	}
+
+	_, err = changeset.ConfigureOCR3Contract(*cldEnv, changeset.ConfigureOCR3Config{
+		ChainSel:   registrySel,
+		Nodes:      vaultNodeSet.CLNodes,
+		Address:    &ocr3CommonAddr,
+		OCR3Config: &ocr3Config,
+		DryRun:     false,
+	})
+	require.NoError(t, err)
 
 	fmt.Println("⏳ Waiting for a connection between gateway and vault to be established...")
 	// TODO: Make this more robust

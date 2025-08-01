@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	// vault_actions "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -111,6 +112,19 @@ func (h *Handler) handleSecretsCreate(ctx context.Context, gatewayID string, req
 	if err := json.Unmarshal(*req.Params, &requestData); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+
+	// h.vault.CreateSecrets(ctx, &vault_actions.CreateSecretsRequest{
+	// 	ID:    requestData.ID,
+	// 	Value: requestData.Value,
+	// })
+
+	// type CreateSecretsRequest struct {
+	// 	state            protoimpl.MessageState `protogen:"open.v1"`
+	// 	RequestId        string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// 	EncryptedSecrets []*EncryptedSecret     `protobuf:"bytes,2,rep,name=encrypted_secrets,json=encryptedSecrets,proto3" json:"encrypted_secrets,omitempty"`
+	// 	unknownFields    protoimpl.UnknownFields
+	// 	sizeCache        protoimpl.SizeCache
+	// }
 
 	// DUMMY RESPONSE
 	responseData := vault_api.SecretsCreateResponse{

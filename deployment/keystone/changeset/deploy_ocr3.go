@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -44,6 +46,8 @@ type ConfigureOCR3Config struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+
+	Nodes []deployment.Node
 }
 
 func (cfg ConfigureOCR3Config) UseMCMS() bool {
@@ -65,17 +69,39 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
 
-	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
-		ChainSel:   cfg.ChainSel,
-		NodeIDs:    cfg.NodeIDs,
-		OCR3Config: cfg.OCR3Config,
-		Contract:   contract.Contract,
-		DryRun:     cfg.DryRun,
-		UseMCMS:    cfg.UseMCMS(),
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
+	var resp *internal.ConfigureOCR3Resp
+	if len(cfg.Nodes) == 0 && env.Offchain != nil {
+		nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		resp, err = internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
+			ChainSel:   cfg.ChainSel,
+			Nodes:      nodes,
+			OCR3Config: cfg.OCR3Config,
+			Contract:   contract.Contract,
+			DryRun:     cfg.DryRun,
+			UseMCMS:    cfg.UseMCMS(),
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
+		}
+	} else if len(cfg.Nodes) > 0 {
+		resp, err = internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
+			ChainSel:   cfg.ChainSel,
+			Nodes:      cfg.Nodes,
+			OCR3Config: cfg.OCR3Config,
+			Contract:   contract.Contract,
+			DryRun:     cfg.DryRun,
+			UseMCMS:    cfg.UseMCMS(),
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
+		}
+	} else {
+		return cldf.ChangesetOutput{}, errors.New("nodes are required")
 	}
+
 	if w := cfg.WriteGeneratedConfig; w != nil {
 		b, err := json.MarshalIndent(&resp.OCR2OracleConfig, "", "  ")
 		if err != nil {
