@@ -23,7 +23,7 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 
 	for _, don := range input.DonTopology.DonsWithMetadata {
 		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
-			createErr := jobs.Create(ctx, input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
+			createErr := jobs.Create(ctx, input.CldEnv.Offchain, jobSpecs)
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 			}
@@ -74,7 +74,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 		}
 
 		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint32(i + 1),
+			ID:              libc.MustSafeUint64FromInt(i + 1),
 			Flags:           flags,
 			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
 			Name:            nodeSetInput[i].Name,

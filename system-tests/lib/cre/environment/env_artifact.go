@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	pkgerrors "github.com/pkg/errors"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf_deployment "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -28,10 +30,11 @@ type EnvArtifact struct {
 	AddressRefs   []datastore.AddressRef                               `json:"address_refs"`
 	AddressBook   map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
 	JdConfig      jd.Output                                            `json:"jd_config"`
-	Nodes         NodesArtifact                                        `json:"nodes"`
+	Nodes         map[string]NodesArtifact                             `json:"nodes"`
 	DONs          []DonArtifact                                        `json:"dons"`
 	Bootstrappers []BootstrapNodeArtifact                              `json:"bootstrappers"`
 	NOPs          []NOPArtifact                                        `json:"nops"`
+	Topology      cre.DonTopology                                      `json:"topology"`
 }
 
 type NodesArtifact struct {
@@ -44,7 +47,7 @@ type SimpleNodeArtifact struct {
 
 type DonArtifact struct {
 	DonName        string                  `json:"don_name"`
-	DonID          int                     `json:"don_id"`
+	DonID          uint64                  `json:"don_id"`
 	F              uint8                   `json:"f"`
 	BootstrapNodes []string                `json:"bootstrap_nodes"`
 	Capabilities   []DONCapabilityArtifact `json:"capabilities,omitempty"`
@@ -123,21 +126,20 @@ func GenerateArtifact(
 	}
 
 	artifact := EnvArtifact{
-		JdConfig:    jdOutput,
-		AddressBook: addresses,
-		AddressRefs: addressRecords,
-		Nodes: NodesArtifact{
-			Nodes: make(map[string]SimpleNodeArtifact),
-		},
+		JdConfig:      jdOutput,
+		AddressBook:   addresses,
+		AddressRefs:   addressRecords,
+		Nodes:         make(map[string]NodesArtifact),
 		DONs:          make([]DonArtifact, 0),
 		Bootstrappers: make([]BootstrapNodeArtifact, 0),
 		NOPs:          make([]NOPArtifact, 0),
+		Topology:      donTopology,
 	}
 
 	for i, don := range donTopology.DonsWithMetadata {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
-			DonID:          int(don.ID),
+			DonID:          don.ID,
 			F:              0, // F will be calculated based on the number of worker nodes
 			BootstrapNodes: make([]string, 0),
 			Nodes:          make([]FullNodeArtifact, 0),
@@ -179,9 +181,19 @@ func GenerateArtifact(
 			nodeIDs = append(nodeIDs, node.NodeID)
 		}
 
+		artifact.Nodes[don.Name] = NodesArtifact{
+			Nodes: make(map[string]SimpleNodeArtifact),
+		}
+
+		artifact.NOPs = append(artifact.NOPs, nop)
+		artifact.DONs = append(artifact.DONs, donArtifact)
+
 		nodeInfo, nodeInfoErr := deployment.NodeInfo(nodeIDs, offchainClient)
 		if nodeInfoErr != nil {
-			return nil, pkgerrors.Wrapf(nodeInfoErr, "failed to get node info for DON %s", don.Name)
+			if !strings.Contains(nodeInfoErr.Error(), "missing node metadata") {
+				return nil, pkgerrors.Wrapf(nodeInfoErr, "failed to get node info for DON %s", don.Name)
+			}
+			framework.L.Warn().Msgf("Metadata is missing for some nodes in DON %s: %s", don.Name, nodeInfoErr.Error())
 		}
 
 		for _, node := range nodeInfo {
@@ -195,19 +207,17 @@ func GenerateArtifact(
 					OCRUrl:     "", // TODO: this will be needed to distribute job specs
 					DON2DONUrl: "",
 				})
+				artifact.Nodes[don.Name].Nodes[node.NodeID] = SimpleNodeArtifact{Name: node.Name}
 				continue
 			}
 
-			artifact.Nodes.Nodes[node.NodeID] = SimpleNodeArtifact{Name: node.Name}
+			artifact.Nodes[don.Name].Nodes[node.NodeID] = SimpleNodeArtifact{Name: node.Name}
 			donArtifact.Nodes = append(donArtifact.Nodes, FullNodeArtifact{
 				NOP:    nop.Name,
 				Name:   node.Name,
 				CSAKey: node.CSAKey,
 			})
 		}
-
-		artifact.NOPs = append(artifact.NOPs, nop)
-		artifact.DONs = append(artifact.DONs, donArtifact)
 	}
 
 	return &artifact, nil

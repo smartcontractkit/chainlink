@@ -1,42 +1,33 @@
 package cre
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -47,63 +38,144 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
-	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
-	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
-	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
-	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
-	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
-	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
-	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
-	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
-	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
 
-var (
-	SinglePoRDonCapabilitiesFlags = []string{cre.CronCapability, cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability}
-)
+func createEnvironmentIfNotExists(stateteFile string, topology string) error {
+	if _, err := os.Stat(stateteFile); os.IsNotExist(err) {
+		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
+		cmd.Dir = "../../../../core/scripts/cre/environment"
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
 
-type CustomAnvilMiner struct {
-	BlockSpeedSeconds int `toml:"block_speed_seconds"`
+	return nil
 }
 
-type TestConfig struct {
-	Blockchains      []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	CustomAnvilMiner *CustomAnvilMiner             `toml:"custom_anvil_miner"`
-	NodeSets         []*ns.Input                   `toml:"nodesets" validate:"required"`
-	// WorkflowConfigs               []WorkflowConfig              `toml:"workflow_configs" validate:"required"`
-	WorkflowConfigs               []WorkflowConfig           `toml:"workflow_configs"`
-	JD                            *jd.Input                  `toml:"jd" validate:"required"`
-	Fake                          *fake.Input                `toml:"fake"`
-	WorkflowRegistryConfiguration *cre.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input               `toml:"infra" validate:"required"`
-	// DependenciesConfig            *DependenciesConfig           `toml:"dependencies" validate:"required"`
-	DependenciesConfig *DependenciesConfig `toml:"dependencies"`
+/*
+To execute on local start the local CRE first with following command:
+# inside core/scripts/cre/environment directory
+go run . env start
+*/
+func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice_ExistingEnv(t *testing.T) {
+	// TODO this cache file needs to be an env var maybe with a default (so that it can also be used in CI, where paths are different)
+	// TODO add to other tests
+	createErr := createEnvironmentIfNotExists("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
+	require.NoError(t, createErr, "failed to create environment")
+
+	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml")
+	require.NoError(t, confErr, "failed to set configuration")
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
+
+	/*
+		LOAD ENVIRONMENT STATE
+	*/
+	in, err := framework.Load[environment.Config](nil)
+	require.NoError(t, err, "couldn't load environment state")
+	validateEnvVars(t)
+	require.Len(t, in.NodeSets, 1, "expected 1 nodeset in the environment")
+
+	var envArtifact environment.EnvArtifact
+	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
+	require.NoError(t, err, "failed to read artifact file")
+	err = json.Unmarshal(artFile, &envArtifact)
+	require.NoError(t, err, "failed to unmarshal artifact file")
+
+	/*
+		START LOCAL PRICE PROVIDER
+		(won't work outside of the local environment until we dockerize it)
+	*/
+	priceProvider, priceErr := NewFakePriceProvider(framework.L, in.Fake, AuthorizationKey, feedIDs)
+	require.NoError(t, priceErr, "failed to create fake price provider")
+
+	/*
+		EXECUTE TEST
+	*/
+	executePoRTest(t, in, envArtifact, workflowFileLocation, feedIDs, priceProvider)
 }
 
-type WorkflowConfig struct {
-	// Tells the test where the workflow file is located
-	WorkflowFileLocation string `toml:"workflow_file_location" validate:"required"`
-	FeedID               string `toml:"feed_id" validate:"required,startsnotwith=0x"`
+/*
+To execute on local start the local CRE first with following command:
+# inside core/scripts/cre/environment directory
+go run . env start --topology workflow-gateway
+*/
+func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
+	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-gateway-don-cache.toml")
+	require.NoError(t, confErr, "failed to set configuration")
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000"}
+
+	/*
+		LOAD ENVIRONMENT STATE
+	*/
+	in, err := framework.Load[environment.Config](nil)
+	require.NoError(t, err, "couldn't load environment state")
+	validateEnvVars(t)
+	require.Len(t, in.NodeSets, 2, "expected 2 nodesets in the environment")
+
+	var envArtifact environment.EnvArtifact
+	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
+	require.NoError(t, err, "failed to read artifact file")
+	err = json.Unmarshal(artFile, &envArtifact)
+	require.NoError(t, err, "failed to unmarshal artifact file")
+
+	/*
+		START LOCAL PRICE PROVIDER
+		(won't work outside of the local environment until we dockerize it)
+	*/
+	priceProvider, priceErr := NewFakePriceProvider(framework.L, in.Fake, AuthorizationKey, feedIDs)
+	require.NoError(t, priceErr, "failed to create fake price provider")
+
+	/*
+		EXECUTE TEST
+	*/
+	executePoRTest(t, in, envArtifact, workflowFileLocation, feedIDs, priceProvider)
 }
 
-// Defines the location of the binary files that are required to run the test
-// When test runs in CI hardcoded versions will be downloaded before the test starts
-// Command that downloads them is part of "test_cmd" in .github/e2e-tests.yml file
-type DependenciesConfig struct {
-	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path"`
+/*
+To execute on local start the local CRE first with following command:
+# inside core/scripts/cre/environment directory
+go run . env start --topology workflow-gateway-capabilities
+*/
+func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_MultipleWriters_LivePrice(t *testing.T) {
+	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-capabilities-gateway-don-cache.toml")
+	require.NoError(t, confErr, "failed to set configuration")
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
+
+	/*
+		LOAD ENVIRONMENT STATE
+	*/
+	in, err := framework.Load[environment.Config](nil)
+	require.NoError(t, err, "couldn't load environment state")
+	validateEnvVars(t)
+	require.Len(t, in.NodeSets, 3, "expected 3 nodesets in the environment")
+
+	var envArtifact environment.EnvArtifact
+	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
+	require.NoError(t, err, "failed to read artifact file")
+	err = json.Unmarshal(artFile, &envArtifact)
+	require.NoError(t, err, "failed to unmarshal artifact file")
+
+	/*
+		START LOCAL PRICE PROVIDER
+		(won't work outside of the local environment until we dockerize it)
+	*/
+	priceProvider := NewTrueUSDPriceProvider(framework.L, feedIDs)
+
+	/*
+		EXECUTE TEST
+	*/
+	executePoRTest(t, in, envArtifact, workflowFileLocation, feedIDs, priceProvider)
 }
 
 const (
@@ -120,8 +192,8 @@ func validateEnvVars(t *testing.T) {
 		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
-		require.NotEmpty(t, os.Getenv(creenv.E2eJobDistributorImageEnvVarName), "missing env var: "+creenv.E2eJobDistributorImageEnvVarName)
-		require.NotEmpty(t, os.Getenv(creenv.E2eJobDistributorVersionEnvVarName), "missing env var: "+creenv.E2eJobDistributorVersionEnvVarName)
+		require.NotEmpty(t, os.Getenv(environment.E2eJobDistributorImageEnvVarName), "missing env var: "+environment.E2eJobDistributorImageEnvVarName)
+		require.NotEmpty(t, os.Getenv(environment.E2eJobDistributorVersionEnvVarName), "missing env var: "+environment.E2eJobDistributorVersionEnvVarName)
 	}
 }
 
@@ -132,7 +204,6 @@ type configureDataFeedsCacheInput struct {
 	feedID             string
 	sethClient         *seth.Client
 	blockchain         *blockchain.Output
-	deployerPrivateKey string
 }
 
 func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configureDataFeedsCacheInput) error {
@@ -219,356 +290,56 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	return outputFileAbsPath, nil
 }
 
-type porSetupOutput struct {
-	priceProvider                   PriceProvider
-	addressBook                     cldf.AddressBook
-	chainSelectorToSethClient       map[uint64]*seth.Client
-	chainSelectorToBlockchainOutput map[uint64]*blockchain.Output
-	donTopology                     *cre.DonTopology
-	nodeOutput                      []*cre.WrappedNodeOutput
-	chainSelectorToWorkflowConfig   map[uint64]WorkflowConfig
-}
-
-func setupPoRTestEnvironment(
-	t *testing.T,
-	testLogger zerolog.Logger,
-	in *TestConfig,
-	priceProvider PriceProvider,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet,
-	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
-) *porSetupOutput {
-	extraAllowedGatewayPorts := []int{}
-	if _, ok := priceProvider.(*FakePriceProvider); ok {
-		extraAllowedGatewayPorts = append(extraAllowedGatewayPorts, in.Fake.Port)
-	}
-
-	customBinariesPaths := map[string]string{}
-	containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.Type)
-	require.NoError(t, pathErr, "failed to get default container directory")
-	var cronBinaryPathInTheContainer string
-	if in.DependenciesConfig.CronCapabilityBinaryPath != "" {
-		// where cron binary is located in the container
-		cronBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.DependenciesConfig.CronCapabilityBinaryPath))
-		// where cron binary is located on the host
-		customBinariesPaths[cre.CronCapability] = in.DependenciesConfig.CronCapabilityBinaryPath
-	} else {
-		// assume that if cron binary is already in the image it is in the default location and has default name
-		cronBinaryPathInTheContainer = filepath.Join(containerPath, "cron")
-	}
-
-	firstBlockchain := in.Blockchains[0]
-
-	chainIDInt, err := strconv.Atoi(firstBlockchain.ChainID)
-	require.NoError(t, err, "failed to convert chain ID to int")
-	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
-
-	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
-		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:                     in.Blockchains,
-		JdInput:                              *in.JD,
-		InfraInput:                           *in.Infra,
-		CustomBinariesPaths:                  customBinariesPaths,
-		JobSpecFactoryFunctions: []cre.JobSpecFactoryFn{
-			creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
-			crecron.CronJobSpecFactoryFn(cronBinaryPathInTheContainer),
-			cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
-			crecompute.ComputeJobSpecFactoryFn,
-		},
-		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
-			gatewayconfig.GenerateConfig,
-		},
-	}
-
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
-	require.NoError(t, setupErr, "failed to setup test environment")
-	homeChainOutput := universalSetupOutput.BlockchainOutput[0]
-
-	if in.CustomAnvilMiner != nil {
-		for _, bi := range universalSetupInput.BlockchainsInput {
-			if bi.Type == blockchain.TypeAnvil {
-				require.NotContains(t, bi.DockerCmdParamsOverrides, "-b", "custom_anvil_miner was specified but Anvil has '-b' key set, remove that parameter from 'docker_cmd_params' to run deployments instantly or remove custom_anvil_miner key from TOML config")
-			}
-		}
-		for _, bo := range universalSetupOutput.BlockchainOutput {
-			if bo.BlockchainOutput.Type == blockchain.TypeAnvil {
-				miner := rpc.NewRemoteAnvilMiner(bo.BlockchainOutput.Nodes[0].ExternalHTTPUrl, nil)
-				miner.MinePeriodically(time.Duration(in.CustomAnvilMiner.BlockSpeedSeconds) * time.Second)
-			}
-		}
-	}
-
-	chainSelectorToWorkflowConfig := make(map[uint64]WorkflowConfig)
-	chainSelectorToSethClient := make(map[uint64]*seth.Client)
-	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
-
-	for idx, bo := range universalSetupOutput.BlockchainOutput {
-		if bo.ReadOnly {
-			continue
-		}
-		chainSelectorToWorkflowConfig[bo.ChainSelector] = in.WorkflowConfigs[idx]
-		chainSelectorToSethClient[bo.ChainSelector] = bo.SethClient
-		chainSelectorToBlockchainOutput[bo.ChainSelector] = bo.BlockchainOutput
-
-		deployConfig := df_changeset_types.DeployConfig{
-			ChainsToDeploy: []uint64{bo.ChainSelector},
-			Labels:         []string{"data-feeds"}, // label required by the changeset
-		}
-
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
-		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
-
-		mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
-		require.NoError(t, mergeErr, "failed to merge address book")
-
-		workflowName := "por-workflow-" + strconv.FormatUint(bo.ChainID, 10)
-
-		dfConfigInput := &configureDataFeedsCacheInput{
-			chainSelector:      bo.ChainSelector,
-			fullCldEnvironment: universalSetupOutput.CldEnvironment,
-			workflowName:       workflowName,
-			feedID:             in.WorkflowConfigs[idx].FeedID,
-			sethClient:         bo.SethClient,
-			blockchain:         bo.BlockchainOutput,
-			deployerPrivateKey: bo.DeployerPrivateKey,
-		}
-		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
-		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
-
-		testLogger.Info().Msg("Proceeding to register PoR workflow...")
-
-		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			homeChainOutput.ChainSelector,
-			keystone_changeset.WorkflowRegistry.String(),
-		)
-		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bo.ChainSelector)
-
-		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-			universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			bo.ChainSelector,
-			df_changeset.DataFeedsCache.String(),
-		)
-		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bo.ChainSelector)
-
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, in.WorkflowConfigs[idx].FeedID, priceProvider.URL(), corevm.GenerateWriteTargetName(bo.ChainID))
-		require.NoError(t, configErr, "failed to create workflow config file")
-
-		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(in.WorkflowConfigs[idx].WorkflowFileLocation, workflowName)
-		require.NoError(t, compileErr, "failed to compile workflow '%s'", in.WorkflowConfigs[idx].WorkflowFileLocation)
-
-		t.Cleanup(func() {
-			_ = os.Remove(compressedWorkflowWasmPath)
-			_ = os.Remove(workflowConfigFilePath)
-		})
-
-		containerTargetDir := "/home/chainlink/workflows"
-		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
-		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
-
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
-		require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
-
-		registerErr := creworkflow.RegisterWithContract(
-			t.Context(),
-			homeChainOutput.SethClient,
-			workflowRegistryAddress,
-			universalSetupOutput.DonTopology.WorkflowDonID,
-			workflowName,
-			"file://"+compressedWorkflowWasmPath,
-			ptr.Ptr("file://"+workflowConfigFilePath),
-			nil,
-			&containerTargetDir,
-		)
-		require.NoError(t, registerErr, "failed to register PoR workflow")
-	}
-	// Workflow-specific configuration -- END
-
-	return &porSetupOutput{
-		priceProvider:                   priceProvider,
-		chainSelectorToSethClient:       chainSelectorToSethClient,
-		chainSelectorToBlockchainOutput: chainSelectorToBlockchainOutput,
-		donTopology:                     universalSetupOutput.DonTopology,
-		nodeOutput:                      universalSetupOutput.NodeOutput,
-		addressBook:                     universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		chainSelectorToWorkflowConfig:   chainSelectorToWorkflowConfig,
-	}
-}
-
-func TestCRE_ExistingEnv(t *testing.T) {
-	// configErr := setConfigurationIfMissing("environment-one-don-multichain.toml")
-	// require.NoError(t, configErr, "failed to set CTF config")
+func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, workflowFileLocation string, feedIDs []string, priceProvider PriceProvider) {
 	testLogger := framework.L
+	cldLogger := cldlogger.NewSingleFileLogger(t)
 
-	err := os.Setenv("CTF_CONFIGS", "../../../../core/scripts/cre/environment/configs/single-don-cache.toml")
-	require.NoError(t, err, "failed to set CTF_CONFIGS env var")
+	/*
+		BUILD ENVIRONMENT FROM SAVED STATE
+	*/
+	fullCldEnvOutput, wrappedBlockchainOutputs, loadErr := environment.BuildFromSavedState(t.Context(), cldLogger, in, envArtifact)
+	require.NoError(t, loadErr, "failed to load environment")
 
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t)
-	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
-
-	feedIDs := make([]string, 0, len(in.WorkflowConfigs))
-	for _, wc := range in.WorkflowConfigs {
-		feedIDs = append(feedIDs, wc.FeedID)
-	}
-
-	if in.Fake == nil {
-		in.Fake = &fake.Input{
-			Port: 8171,
+	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+	numberOfWriteableChains := 0
+	for _, bcOutput := range wrappedBlockchainOutputs {
+		if !bcOutput.ReadOnly {
+			numberOfWriteableChains++
 		}
 	}
+	require.Len(t, feedIDs, numberOfWriteableChains, "number of writeable chains must match number of feed IDs (look for read-only chains in the environment)")
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
-	require.NoError(t, priceErr, "failed to create fake price provider")
+	/*
+		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
+		Workflow will write price data to the data feeds cache contract
 
-	chainSelectorToSethClient := make(map[uint64]*seth.Client)
-	chainSelectorToBlockchainOutput := make(map[uint64]*blockchain.Output)
-	chainSelectorToWorkflowConfig := make(map[uint64]WorkflowConfig)
-
-	if os.Getenv("PRIVATE_KEY") == "" {
-		err := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
-		require.NoError(t, err, "failed to set PRIVATE_KEY env var")
-	}
-
-	var homeChainSelector uint64
-
-	for idx, bc := range in.Blockchains {
-		if bc.ReadOnly {
+		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
+	*/
+	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.ReadOnly {
 			continue
 		}
 
-		sethClient, err := seth.NewClientBuilder().
-			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
-		require.NoError(t, err, "failed to create seth client")
-
-		chainID, err := strconv.ParseUint(bc.ChainID, 10, 64)
-		require.NoError(t, err, "failed to parse chain id %s", bc.ChainID)
-
-		chainSelector, err := chainselectors.SelectorFromChainId(chainID)
-		require.NoError(t, err, "failed to get chain selector for chain id %d", chainID)
-
-		if idx == 0 {
-			homeChainSelector = chainSelector
-		}
-
-		workflowConfig := WorkflowConfig{
-			FeedID:               "018e16c39e000320000000000000000000000000000000000000000000000000",
-			WorkflowFileLocation: "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go",
-		}
-
-		if idx == 1 {
-			workflowConfig.FeedID = "018e16c38e000320000000000000000000000000000000000000000000000000"
-		}
-
-		chainSelectorToWorkflowConfig[chainSelector] = workflowConfig
-		chainSelectorToSethClient[chainSelector] = sethClient
-		chainSelectorToBlockchainOutput[chainSelector] = bc.Out
-	}
-
-	var envArtifact environment.EnvArtifact
-	artFile, err := os.ReadFile("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/env_artifact/env_artifact.json")
-	require.NoError(t, err, "failed to read artifact file")
-	err = json.Unmarshal(artFile, &envArtifact)
-	require.NoError(t, err, "failed to unmarshal artifact file")
-
-	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
-	datastore := datastore.NewMemoryDataStore()
-	for _, addrRef := range envArtifact.AddressRefs {
-		addErr := datastore.AddressRefStore.Add(addrRef)
-		require.NoError(t, addErr, "failed to add address ref to datastore")
-	}
-
-	nodeIDs := make([]string, 0, len(envArtifact.Nodes.Nodes))
-	for id := range envArtifact.Nodes.Nodes {
-		nodeIDs = append(nodeIDs, id)
-	}
-
-	// TODO: this should support multiple DONs, bootstrap node count and donID cannot be hardcoded
-	nodeInfo, err := libnode.GetNodeInfo(in.NodeSets[0].Out, in.NodeSets[0].Name, 1, 1)
-	require.NoError(t, err, "failed to get node info")
-
-	offChain, offChainErr := deployment_devenv.NewJDClient(t.Context(), deployment_devenv.JDConfig{
-		WSRPC:    envArtifact.JdConfig.InternalWSRPCUrl,
-		GRPC:     envArtifact.JdConfig.InternalGRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: nodeInfo,
-	})
-	require.NoError(t, offChainErr, "failed to create offchain client")
-
-	var buildChain = func(sethClient *seth.Client, bcOut *blockchain.Output) (*deployment_devenv.ChainConfig, error) {
-		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
-		}
-
-		return &deployment_devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(cID, 10),
-			ChainName: sethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.Family),
-			WSRPCs: []deployment_devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []deployment_devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		}, nil
-	}
-
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(chainSelectorToBlockchainOutput))
-	for chainSelector := range chainSelectorToBlockchainOutput {
-		chainConfig, err := buildChain(chainSelectorToSethClient[chainSelector], chainSelectorToBlockchainOutput[chainSelector])
-		require.NoError(t, err, "failed to build chain config for chain %d", chainSelector)
-		chainConfigs = append(chainConfigs, *chainConfig)
-	}
-
-	blockChains, err := deployment_devenv.NewChains(cldlogger.NewSingleFileLogger(t), chainConfigs)
-	require.NoError(t, err, "failed to create block chains")
-
-	cldEnv := cldf.NewEnvironment(
-		"devenv", // replace with constant
-		cldlogger.NewSingleFileLogger(t),
-		addressBook,
-		datastore.Seal(),
-		nodeIDs,
-		offChain,
-		func() context.Context {
-			return t.Context()
-		},
-		cldf.XXXGenerateTestOCRSecrets(),
-		blockChains,
-	)
-
-	for chainSelector := range chainSelectorToBlockchainOutput {
 		deployConfig := df_changeset_types.DeployConfig{
-			ChainsToDeploy: []uint64{chainSelector},
+			ChainsToDeploy: []uint64{bcOutput.ChainSelector},
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
 
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *cldEnv, deployConfig)
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployConfig)
 		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-		mergeErr := cldEnv.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 		require.NoError(t, mergeErr, "failed to merge address book")
 
-		workflowName := "por-workflow-" + chainSelectorToSethClient[chainSelector].Cfg.Network.Name
+		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 
 		dfConfigInput := &configureDataFeedsCacheInput{
-			chainSelector:      chainSelector,
-			fullCldEnvironment: cldEnv,
+			chainSelector:      bcOutput.ChainSelector,
+			fullCldEnvironment: fullCldEnvOutput.Environment,
 			workflowName:       workflowName,
-			feedID:             chainSelectorToWorkflowConfig[chainSelector].FeedID,
-			sethClient:         chainSelectorToSethClient[chainSelector],
-			blockchain:         chainSelectorToBlockchainOutput[chainSelector],
-			deployerPrivateKey: os.Getenv("PRIVATE_KEY"),
+			feedID:             feedIDs[idx],
+			sethClient:         bcOutput.SethClient,
+			blockchain:         bcOutput.BlockchainOutput,
 		}
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
@@ -576,31 +347,33 @@ func TestCRE_ExistingEnv(t *testing.T) {
 		testLogger.Info().Msg("Proceeding to register PoR workflow...")
 
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			cldEnv.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			homeChainSelector,
 			keystone_changeset.WorkflowRegistry.String(),
 		)
-		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", chainSelector)
+		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
 
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-			cldEnv.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			chainSelector,
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			bcOutput.ChainSelector,
 			df_changeset.DataFeedsCache.String(),
 		)
-		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
 
-		chainID, err := chainselectors.ChainIdFromSelector(chainSelector)
-		require.NoError(t, err, "failed to get chain id from selector %d", chainSelector)
-
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, chainSelectorToWorkflowConfig[chainSelector].FeedID, priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
+		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
 
-		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(chainSelectorToWorkflowConfig[chainSelector].WorkflowFileLocation, workflowName)
-		require.NoError(t, compileErr, "failed to compile workflow '%s'", chainSelectorToWorkflowConfig[chainSelector].WorkflowFileLocation)
+		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+		require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 
 		t.Cleanup(func() {
 			_ = os.Remove(compressedWorkflowWasmPath)
 			_ = os.Remove(workflowConfigFilePath)
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), wrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
+			if deleteErr != nil {
+				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
+			}
+			debugTest(t, testLogger, in, fullCldEnvOutput, wrappedBlockchainOutputs, feedIDs)
 		})
 
 		containerTargetDir := "/home/chainlink/workflows"
@@ -612,9 +385,9 @@ func TestCRE_ExistingEnv(t *testing.T) {
 
 		registerErr := creworkflow.RegisterWithContract(
 			t.Context(),
-			chainSelectorToSethClient[homeChainSelector],
+			wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
 			workflowRegistryAddress,
-			uint32(envArtifact.DONs[0].DonID),
+			fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 			workflowName,
 			"file://"+compressedWorkflowWasmPath,
 			ptr.Ptr("file://"+workflowConfigFilePath),
@@ -624,31 +397,40 @@ func TestCRE_ExistingEnv(t *testing.T) {
 		require.NoError(t, registerErr, "failed to register PoR workflow")
 	}
 
+	/*
+		START THE VALIDATION PHASE
+		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
+	*/
 	timeout := 5 * time.Minute
 
 	eg := &errgroup.Group{}
-	for chainSelector, workflowConfig := range chainSelectorToWorkflowConfig {
+	for idx, bcOutput := range wrappedBlockchainOutputs {
 		eg.Go(func() error {
-			testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
+			feedID := feedIDs[idx]
+			testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
-			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(cldEnv.ExistingAddresses, chainSelector, df_changeset.DataFeedsCache.String())
-			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
+			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+				fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				bcOutput.ChainSelector,
+				df_changeset.DataFeedsCache.String(),
+			)
+			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
 
-			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, chainSelectorToSethClient[chainSelector].Client)
+			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, bcOutput.SethClient.Client)
 			require.NoError(t, instanceErr, "failed to create data feeds cache instance")
 
 			startTime := time.Now()
 			assert.Eventually(t, func() bool {
 				elapsed := time.Since(startTime).Round(time.Second)
-				price, err := dataFeedsCacheInstance.GetLatestAnswer(chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(workflowConfig.FeedID)))
+				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
 				require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
 				// if there are no more prices to be found, we can stop waiting
-				return !priceProvider.NextPrice(workflowConfig.FeedID, price, elapsed)
-			}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", workflowConfig.FeedID, timeout)
+				return !priceProvider.NextPrice(feedID, price, elapsed)
+			}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", feedID, timeout)
 
-			expected := priceProvider.ExpectedPrices(workflowConfig.FeedID)
-			actual := priceProvider.ActualPrices(workflowConfig.FeedID)
+			expected := priceProvider.ExpectedPrices(feedID)
+			actual := priceProvider.ActualPrices(feedID)
 
 			if len(expected) != len(actual) {
 				return errors.Errorf("expected %d prices, got %d", len(expected), len(actual))
@@ -660,7 +442,7 @@ func TestCRE_ExistingEnv(t *testing.T) {
 				}
 			}
 
-			testLogger.Info().Msgf("All %d prices were found in the feed %s", len(expected), workflowConfig.FeedID)
+			testLogger.Info().Msgf("All prices were found in the feed %s", feedID)
 
 			return nil
 		})
@@ -673,242 +455,26 @@ func TestCRE_ExistingEnv(t *testing.T) {
 	testLogger.Info().Msgf("All prices were found for all feeds")
 }
 
-func TestCRE_OCR3_PoR_Workflow_SingleDon_MultipleWriters_MockedPrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-one-don-multichain.toml")
-	require.NoError(t, configErr, "failed to set CTF config")
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t)
-	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
-
-	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
-		return []*cre.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       SinglePoRDonCapabilitiesFlags,
-				DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
-				BootstrapNodeIndex: 0, // not required, but set to make the configuration explicit
-				GatewayNodeIndex:   0, // not required, but set to make the configuration explicit
-			},
-		}
-	}
-
-	feedIDs := make([]string, 0, len(in.WorkflowConfigs))
-	for _, wc := range in.WorkflowConfigs {
-		feedIDs = append(feedIDs, wc.FeedID)
-	}
-
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, feedIDs)
-	require.NoError(t, priceErr, "failed to create fake price provider")
-
-	capabilityFactoryFns := []cre.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPITriggerCapabilityFactoryFn,
-		webapicap.WebAPITargetCapabilityFactoryFn,
-		computecap.ComputeCapabilityFactoryFn,
-		consensuscap.OCR3CapabilityFactoryFn,
-		croncap.CronCapabilityFactoryFn,
-	}
-
-	for _, bc := range in.Blockchains {
-		chainID, chainErr := strconv.Atoi(bc.ChainID)
-		require.NoError(t, chainErr, "failed to convert chain ID to int")
-		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainID))))
-	}
-
-	setupOutput := setupPoRTestEnvironment(
-		t,
-		testLogger,
-		in,
-		priceProvider,
-		mustSetCapabilitiesFn,
-		capabilityFactoryFns,
-	)
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		debugTest(t, testLogger, setupOutput, in)
-	})
-
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
-}
-
-func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-gateway-don.toml")
-	require.NoError(t, configErr, "failed to set CTF config")
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
-
-	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
-		return []*cre.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       SinglePoRDonCapabilitiesFlags,
-				DONTypes:           []string{cre.WorkflowDON},
-				BootstrapNodeIndex: 0,
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{},
-				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
-				GatewayNodeIndex:   0,
-			},
-		}
-	}
-
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake, AuthorizationKey, []string{in.WorkflowConfigs[0].FeedID})
-	require.NoError(t, priceErr, "failed to create fake price provider")
-
-	firstBlockchain := in.Blockchains[0]
-	chainIDInt, chainErr := strconv.Atoi(firstBlockchain.ChainID)
-	require.NoError(t, chainErr, "failed to convert chain ID to int")
-
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []cre.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPITriggerCapabilityFactoryFn,
-		webapicap.WebAPITargetCapabilityFactoryFn,
-		computecap.ComputeCapabilityFactoryFn,
-		consensuscap.OCR3CapabilityFactoryFn,
-		croncap.CronCapabilityFactoryFn,
-		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
-	})
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		debugTest(t, testLogger, setupOutput, in)
-	})
-
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
-}
-
-func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
-	configErr := setConfigurationIfMissing("environment-capabilities-don.toml")
-	require.NoError(t, configErr, "failed to set CTF config")
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t)
-	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
-
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cre.CapabilitiesAwareNodeSet {
-		return []*cre.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.CronCapability},
-				DONTypes:           []string{cre.WorkflowDON},
-				BootstrapNodeIndex: 0,
-				SupportedChains:    []uint64{1337}, // workflow DON has to support only home chain
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{cre.WriteEVMCapability},
-				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                            // <----- indicate that capabilities DON doesn't have a bootstrap node and will use the global bootstrap node
-				SupportedChains:    []uint64{1337, 2337},          // capabilities DON has to support both chains, because we want to make sure that second workflow that writes to the second chain is run using a remote capability
-			},
-			{
-				Input:              input[2],
-				Capabilities:       []string{},
-				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node for the gateway DON
-				GatewayNodeIndex:   0,
-			},
-		}
-	}
-
-	// we want to register write EVM capability only for the second blockchain
-	secondBlockchain := in.Blockchains[1]
-	secondChainIDInt, secondChainErr := strconv.Atoi(secondBlockchain.ChainID)
-	require.NoError(t, secondChainErr, "failed to convert chain ID to int")
-
-	priceProvider := NewTrueUSDPriceProvider(testLogger, []string{in.WorkflowConfigs[0].FeedID})
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []cre.DONCapabilityWithConfigFactoryFn{
-		webapicap.WebAPITriggerCapabilityFactoryFn,
-		webapicap.WebAPITargetCapabilityFactoryFn,
-		computecap.ComputeCapabilityFactoryFn,
-		consensuscap.OCR3CapabilityFactoryFn,
-		croncap.CronCapabilityFactoryFn,
-		writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(secondChainIDInt))),
-	})
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		debugTest(t, testLogger, setupOutput, in)
-	})
-
-	waitForFeedUpdate(t, testLogger, priceProvider, setupOutput, 5*time.Minute)
-}
-
-func waitForFeedUpdate(t *testing.T, testLogger zerolog.Logger, priceProvider PriceProvider, setupOutput *porSetupOutput, timeout time.Duration) {
-	eg := &errgroup.Group{}
-	for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
-		eg.Go(func() error {
-			testLogger.Info().Msgf("Waiting for feed %s to update...", workflowConfig.FeedID)
-
-			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
-			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
-
-			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, setupOutput.chainSelectorToSethClient[chainSelector].Client)
-			require.NoError(t, instanceErr, "failed to create data feeds cache instance")
-
-			startTime := time.Now()
-			assert.Eventually(t, func() bool {
-				elapsed := time.Since(startTime).Round(time.Second)
-				price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.chainSelectorToSethClient[chainSelector].NewCallOpts(), [16]byte(common.Hex2Bytes(workflowConfig.FeedID)))
-				require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
-
-				// if there are no more prices to be found, we can stop waiting
-				return !setupOutput.priceProvider.NextPrice(workflowConfig.FeedID, price, elapsed)
-			}, timeout, 10*time.Second, "feed %s did not update, timeout after: %s", workflowConfig.FeedID, timeout)
-
-			expected := priceProvider.ExpectedPrices(workflowConfig.FeedID)
-			actual := priceProvider.ActualPrices(workflowConfig.FeedID)
-
-			if len(expected) != len(actual) {
-				return errors.Errorf("expected %d prices, got %d", len(expected), len(actual))
-			}
-
-			for i := range expected {
-				if expected[i].Cmp(actual[i]) != 0 {
-					return errors.Errorf("expected price %d, got %d", expected[i], actual[i])
-				}
-			}
-
-			testLogger.Info().Msgf("All %d prices were found in the feed %s", len(expected), workflowConfig.FeedID)
-
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	testLogger.Info().Msgf("All prices were found for all feeds")
-}
-
-func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOutput, in *TestConfig) {
+func debugTest(t *testing.T, testLogger zerolog.Logger, in *environment.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
 	if t.Failed() {
 		counter := 0
-		for chainSelector, workflowConfig := range setupOutput.chainSelectorToWorkflowConfig {
-			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, df_changeset.DataFeedsCache.String())
+		for idx, feedID := range feedIDs {
+			chainSelector := wrappedBlockchainOutputs[idx].ChainSelector
+			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+				env.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				chainSelector,
+				df_changeset.DataFeedsCache.String(),
+			)
 			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
 
-			forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(setupOutput.addressBook, chainSelector, keystone_changeset.KeystoneForwarder.String())
+			forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(
+				env.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				chainSelector,
+				keystone_changeset.KeystoneForwarder.String(),
+			)
 			require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", chainSelector)
 
-			logTestInfo(testLogger, workflowConfig.FeedID, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
+			logTestInfo(testLogger, feedID, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
 			counter++
 			// log scanning is not supported for CRIB
 			if in.Infra.Type == infra.CRIB {
@@ -929,10 +495,10 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 				return
 			}
 
-			debugDons := make([]*cre.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+			debugDons := make([]*cre.DebugDon, 0, len(env.DonTopology.DonsWithMetadata))
+			for i, donWithMetadata := range env.DonTopology.DonsWithMetadata {
 				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].CLNodes {
+				for _, output := range in.NodeSets[i].Out.CLNodes {
 					containerNames = append(containerNames, output.Node.ContainerName)
 				}
 				debugDons = append(debugDons, &cre.DebugDon{
@@ -944,10 +510,10 @@ func debugTest(t *testing.T, testLogger zerolog.Logger, setupOutput *porSetupOut
 
 			debugInput := cre.DebugInput{
 				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.chainSelectorToBlockchainOutput[chainSelector],
+				BlockchainOutput: wrappedBlockchainOutputs[idx].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			lidebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
+			credebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
 		}
 	}
 }
@@ -957,6 +523,13 @@ func setConfigurationIfMissing(configName string) error {
 		err := os.Setenv("CTF_CONFIGS", configName)
 		if err != nil {
 			return errors.Wrap(err, "failed to set CTF_CONFIGS env var")
+		}
+	}
+
+	if os.Getenv("ENV_ARTIFACT_PATH") == "" {
+		err := os.Setenv("ENV_ARTIFACT_PATH", "../../../..//core/scripts/cre/environment/env_artifact/env_artifact.json")
+		if err != nil {
+			return errors.Wrap(err, "failed to set ENV_ARTIFACT_PATH env var")
 		}
 	}
 

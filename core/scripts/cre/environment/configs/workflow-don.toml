@@ -5,16 +5,19 @@
   docker_cmd_params = ["-b", "5"]
 
 # uncomment to start a second blockchain
-#[[blockchains]]
-#  type = "anvil"
-#  chain_id = "2337"
-#  port = "8546"
-#  docker_cmd_params = ["-b", "5"]
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "5"]
 
 [jd]
   # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   image = "job-distributor:0.12.7"
+
+[fake]
+  port = 8171
 
 #[s3provider]
 #  # use all defaults
@@ -33,7 +36,7 @@
 [extra_capabilities]
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
- cron_capability_binary_path = "/Users/bartektofel/Desktop/repos/capabilities-compiled/cron"
+# cron_capability_binary_path = "./cron"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 

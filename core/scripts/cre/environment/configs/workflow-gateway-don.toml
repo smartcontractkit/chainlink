@@ -16,10 +16,13 @@
   # change to your version
   image = "job-distributor:0.12.7"
 
-[s3provider]
-  # use all defaults
-  port = 9000
-  console_port = 9001
+[fake]
+  port = 8171
+
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
 
 [infra]
   # either "docker" or "crib"
@@ -53,41 +56,6 @@
       # image = "chainlink-tmp:latest"
       # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
-
-[[nodesets]]
-  nodes = 2
-  override_mode = "all"
-  http_port_range_start = 10200
-  name = "capabilities"
-
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13100
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'

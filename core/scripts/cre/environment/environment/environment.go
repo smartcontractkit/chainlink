@@ -47,14 +47,10 @@ import (
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -96,34 +92,13 @@ var EnvironmentCmd = &cobra.Command{
 }
 
 const (
-	TopologySimplified = "simplified"
-	TopologyFull       = "full"
+	TopologyWorkflow                    = "workflow"
+	TopologyWorkflowGateway             = "workflow-gateway"
+	TopologyWorkflowGatewayCapabilities = "workflow-gateway-capabilities"
 
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
 )
-
-type Config struct {
-	Blockchains       []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input                   `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                     `toml:"jd" validate:"required"`
-	Infra             *infra.Input                  `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input             `toml:"s3provider"`
-}
-
-func (c Config) Validate() error {
-	if c.JD.CSAEncryptionKey == "" {
-		return errors.New("jd.csa_encryption_key must be provided")
-	}
-	return nil
-}
-
-type ExtraCapabilitiesConfig struct {
-	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
-	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
-	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
-}
 
 // DX tracking
 var (
@@ -271,8 +246,8 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if topology != TopologySimplified && topology != TopologyFull {
-				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topology, TopologySimplified, TopologyFull)
+			if topology != TopologyWorkflow && topology != TopologyWorkflowGatewayCapabilities && topology != TopologyWorkflowGateway {
+				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s, %s", topology, TopologyWorkflow, TopologyWorkflowGatewayCapabilities, TopologyWorkflowGateway)
 			}
 
 			PrintCRELogo()
@@ -297,13 +272,15 @@ func startCmd() *cobra.Command {
 
 			cmdContext := cmd.Context()
 			// Load and validate test configuration
-			in, err := framework.Load[Config](nil)
+			in, err := framework.Load[creenv.Config](nil)
 			if err != nil {
 				return errors.Wrap(err, "failed to load test configuration")
 			}
 			if err := in.Validate(); err != nil {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
+
+			extraAllowedGatewayPorts = append(extraAllowedGatewayPorts, in.Fake.Port)
 
 			output, startErr := StartCLIEnvironment(cmdContext, in, topology, exampleWorkflowTrigger, withPluginsDockerImage, withExampleFlag, extraAllowedGatewayPorts, nil, nil)
 			if startErr != nil {
@@ -378,7 +355,7 @@ func startCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&topology, "topology", "t", "simplified", "Topology to use for the environment (simplified or full)")
+	cmd.Flags().StringVarP(&topology, "topology", "t", TopologyWorkflow, "Topology to use for the environment (workflow, workflow-gateway, workflow-gateway-capabilities)")
 	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
@@ -434,6 +411,28 @@ var stopCmd = &cobra.Command{
 			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 		}
 
+		framework.L.Info().Msg("Removing environment state files")
+		// remove cache config files
+		cacheConfigPattern := "configs/*-cache.toml"
+		cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
+		if globErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
+		} else {
+			for _, file := range cacheFiles {
+				if removeFileErr := os.Remove(file); removeFileErr != nil {
+					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
+				} else {
+					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
+				}
+			}
+		}
+
+		if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
+			framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
+		} else {
+			framework.L.Debug().Msg("Removed env_artifact folder")
+		}
+
 		fmt.Println("Environment stopped successfully")
 		return nil
 	},
@@ -441,7 +440,7 @@ var stopCmd = &cobra.Command{
 
 func StartCLIEnvironment(
 	cmdContext context.Context,
-	in *Config,
+	in *creenv.Config,
 	topologyFlag string,
 	workflowTrigger,
 	withPluginsDockerImageFlag string,
@@ -460,10 +459,7 @@ func StartCLIEnvironment(
 	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 
-	if topologyFlag == TopologySimplified {
-		if len(in.NodeSets) != 1 {
-			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
-		}
+	if topologyFlag == TopologyWorkflow || topologyFlag == TopologyWorkflowGateway {
 		// add support for more binaries if needed
 		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -488,15 +484,41 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
-			{
-				Input:              in.NodeSets[0],
-				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
-				BootstrapNodeIndex: 0,
-				GatewayNodeIndex:   0,
-			},
+		if topologyFlag == TopologyWorkflow {
+			if len(in.NodeSets) != 1 {
+				return nil, fmt.Errorf("expected 1 nodeset for topology %s, got %d", topologyFlag, len(in.NodeSets))
+			}
+			capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
+				{
+					Input:              in.NodeSets[0],
+					Capabilities:       workflowDONCapabilities,
+					DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
+					BootstrapNodeIndex: 0,
+					GatewayNodeIndex:   0,
+				},
+			}
+		} else {
+			if len(in.NodeSets) != 2 {
+				return nil, fmt.Errorf("expected 2 nodesets for topology %s, got %d", topologyFlag, len(in.NodeSets))
+			}
+			capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
+				{
+					Input:              in.NodeSets[0],
+					Capabilities:       workflowDONCapabilities,
+					DONTypes:           []string{cre.WorkflowDON},
+					BootstrapNodeIndex: 0,
+					GatewayNodeIndex:   -1,
+				},
+				{
+					Input:              in.NodeSets[1],
+					Capabilities:       []string{},
+					DONTypes:           []string{cre.GatewayDON},
+					BootstrapNodeIndex: -1,
+					GatewayNodeIndex:   0,
+				},
+			}
 		}
+
 	} else {
 		if len(in.NodeSets) != 3 {
 			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
@@ -721,13 +743,19 @@ func PrintCRELogo() {
 func defaultCtfConfigs(topologyFlag string) error {
 	if os.Getenv("CTF_CONFIGS") == "" {
 		// use default config
-		if topologyFlag == TopologySimplified {
-			setErr := os.Setenv("CTF_CONFIGS", "configs/single-don.toml")
+		switch topologyFlag {
+		case TopologyWorkflow:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml")
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
-		} else {
-			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-don.toml")
+		case TopologyWorkflowGateway:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml")
+			if setErr != nil {
+				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			}
+		case TopologyWorkflowGatewayCapabilities:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-gateway-don.toml")
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
@@ -738,7 +766,7 @@ func defaultCtfConfigs(topologyFlag string) error {
 	return nil
 }
 
-func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
+func hasBuiltDockerImage(in *creenv.Config, withPluginsDockerImageFlag string) bool {
 	if withPluginsDockerImageFlag != "" {
 		return false
 	}

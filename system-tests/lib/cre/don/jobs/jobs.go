@@ -11,12 +11,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs cre.DonJobs) error {
+func Create(ctx context.Context, offChainClient deployment.OffchainClient, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}
