@@ -9,8 +9,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
@@ -26,6 +29,8 @@ const (
 	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
 	merkleRoot                    = "Info.MerkleRoots.MerkleRoot"
 )
+
+type ExecuteMethodConfigFunc func(string, string) chainwriter.MethodConfig
 
 func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, priceOnly bool) chainwriter.MethodConfig {
 	chainSpecificName := "commit"
@@ -107,7 +112,7 @@ func buildCommitAccountsList(fromAddress, offrampProgramAddress string, priceOnl
 	return accounts
 }
 
-func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
+func getExecuteMethodConfigV1(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -224,7 +229,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 	}
 }
 
-func getExecuteMethodConfigV2(fromAddress string) chainwriter.MethodConfig {
+func getExecuteMethodConfigV2(fromAddress string, _ string) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -275,15 +280,12 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	if err = json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
-	executeMethodConfig := getExecuteMethodConfig(fromAddress, offrampProgramAddress)
-	if configVersion != nil && *configVersion == "v2" {
-		executeMethodConfig = getExecuteMethodConfigV2(fromAddress)
-	}
+	executeMethodConfigFunc := getExecuteMethodConfigByVersion(configVersion)
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			ccipconsts.ContractNameOffRamp: {
 				Methods: map[string]chainwriter.MethodConfig{
-					ccipconsts.MethodExecute:         executeMethodConfig,
+					ccipconsts.MethodExecute:         executeMethodConfigFunc(fromAddress, offrampProgramAddress),
 					ccipconsts.MethodCommit:          getCommitMethodConfig(fromAddress, offrampProgramAddress, false),
 					ccipconsts.MethodCommitPriceOnly: getCommitMethodConfig(fromAddress, offrampProgramAddress, true),
 				},
@@ -293,6 +295,21 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	}
 
 	return solConfig, nil
+}
+
+func getExecuteMethodConfigByVersion(version *string) ExecuteMethodConfigFunc {
+	if version == nil {
+		return getExecuteMethodConfigV1
+	}
+	versionStr := *version
+	switch versionStr {
+	case types.SolanaChainWriterExecuteConfigVersionV1:
+		return getExecuteMethodConfigV1
+	case types.SolanaChainWriterExecuteConfigVersionV2:
+		return getExecuteMethodConfigV2
+	default:
+		return getExecuteMethodConfigV1
+	}
 }
 
 func getOfframpAccountConfig(offrampProgramAddress string) chainwriter.Lookup {

@@ -13,6 +13,6 @@ func (tp *TimeProvider) GetNodeTime() time.Time {
 	return time.Now().UTC()
 }
 
-func (tp *TimeProvider) GetDONTime(context.Context) (time.Time, error) {
+func (tp *TimeProvider) GetDONTime(ctx context.Context) (time.Time, error) {
 	return time.Now().UTC(), nil
 }
