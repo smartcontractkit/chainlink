@@ -874,7 +874,10 @@ func Test_Report_SendReceipt(t *testing.T) {
 	t.Run("returns an error billing client not set", func(t *testing.T) {
 		t.Parallel()
 
-		newTestReport(t, logger.Nop(), nil)
+		report := newTestReport(t, logger.Nop(), nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrNoBillingClient)
 	})
 
 	t.Run("returns an error if unable to call billing client", func(t *testing.T) {
@@ -1314,13 +1317,6 @@ func TestRatiosFromConfig(t *testing.T) {
 
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
-
-	if client == nil {
-		meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, nil, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
-		require.ErrorIs(t, err, ErrNoBillingClient)
-
-		return meteringReport
-	}
 
 	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
 	require.NoError(t, err)

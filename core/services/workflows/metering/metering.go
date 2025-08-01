@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"reflect"
 	"sort"
 	"strconv"
 	"sync"
@@ -114,64 +115,87 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		}
 	}
 
+	report := Report{
+		labels:                  labels,
+		lggr:                    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
+		metrics:                 metrics,
+		workflowRegistryAddress: workflowRegistryAddress,
+
+		ready: false,
+		steps: make(map[string]ReportStep),
+	}
+
+	// for safety in evaluating the client interface.
+	// the client could be a nil interface or a nil value that satisfies the interface.
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
+	}
+
 	if client == nil {
-		return nil, ErrNoBillingClient
+		report.meteringMode = true
+
+		lggr.Errorf("switching to metering mode: %s", ErrNoBillingClient)
 	}
 
 	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
 	if err != nil {
-		return nil, err
+		report.meteringMode = true
+
+		lggr.Errorf("switching to metering mode: failed to parse registry chain id: %s", err)
 	}
 
-	selector, err := chainselectors.SelectorFromChainId(chainID)
+	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
-		return nil, err
+		report.meteringMode = true
+
+		lggr.Errorf("switching to metering mode: failed to get selector for chain id: %s", err)
 	}
 
-	resp, err := client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
-		WorkflowOwner:           labels[platform.KeyWorkflowOwner],
-		WorkflowRegistryAddress: workflowRegistryAddress,
-		ChainSelector:           selector,
-	})
+	rateCard := make(map[string]decimal.Decimal)
+
+	if client != nil {
+		report.client = client
+
+		var resp *billing.GetWorkflowExecutionRatesResponse
+
+		resp, err = report.client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
+			WorkflowRegistryAddress: report.workflowRegistryAddress,
+			ChainSelector:           report.workflowRegistryChainSelector,
+		})
+		if err != nil {
+			lggr.Error(err)
+		}
+
+		rateCard, err = toRateCard(resp.GetRateCards())
+		if err != nil {
+			lggr.Errorf("switching to metering mode: %s", err)
+
+			report.meteringMode = true
+		}
+	}
+
+	if len(rateCard) == 0 && !report.meteringMode {
+		lggr.Error("switching to metering mode: empty rate card")
+
+		report.meteringMode = true
+	}
+
+	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
 	if err != nil {
-		lggr.Error(err)
+		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
+		report.meteringMode = true
+
+		// we can recover with an empty rate card and in metering mode
+		report.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+		if err != nil {
+			// this should never happen, but if it does, we cannot proceed
+			return nil, err
+		}
 	}
 
-	var meteringMode bool
-
-	rateCard, err := toRateCard(resp.GetRateCards())
-	if err != nil {
-		lggr.Errorf("switching to metering mode: %s", err)
-
-		meteringMode = true
-	}
-
-	if len(rateCard) == 0 && !meteringMode {
-		lggr.Error("empty rate card, switching to metering mode")
-
-		meteringMode = true
-	}
-
-	balanceStore, err := NewBalanceStore(decimal.Zero, rateCard)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Report{
-		labels: labels,
-
-		balance: balanceStore,
-		client:  client,
-		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
-		metrics: metrics,
-
-		ready:        false,
-		meteringMode: meteringMode,
-		steps:        make(map[string]ReportStep),
-
-		workflowRegistryAddress:       workflowRegistryAddress,
-		workflowRegistryChainSelector: selector,
-	}, nil
+	return &report, nil
 }
 
 // Reserve calls the billing service for the initial credit balance that can be used in an execution.
@@ -601,6 +625,11 @@ type Reports struct {
 
 // NewReports initializes and returns a new Reports.
 func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) *Reports {
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
+	}
+
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
