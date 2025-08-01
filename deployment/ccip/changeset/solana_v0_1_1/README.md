@@ -55,6 +55,7 @@ registry.Add("0029_deploy_chain_contracts_on_solana",
           FeeQuoterParams: shared.DeriveSolanaFeeQuoterInitParams(
             shared.SolanaTokenAddress[chainsel.SOLANA_MAINNET.Selector].LinkToken,
             nil,
+            
           ),
           OffRampParams: ccipchangesetsolana.OffRampParams{
             // https://smartcontract-it.atlassian.net/browse/NONEVM-1717
