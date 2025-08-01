@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
@@ -93,9 +92,9 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	var donID uint32
 	if vaultCapInfo.IsLocal {
 		// If the capability is local, we can use the local node's DON ID.
-		localNode, err := s.capRegistry.LocalNode(ctx)
-		if err != nil {
-			return nil, errors.New("failed to get local node from registry: " + err.Error())
+		localNode, err2 := s.capRegistry.LocalNode(ctx)
+		if err2 != nil {
+			return nil, errors.New("failed to get local node from registry: " + err2.Error())
 		}
 		donID = localNode.WorkflowDON.ID
 	} else {
@@ -110,12 +109,11 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, errors.New("failed to get vault capability config for donID: " + strconv.FormatUint(uint64(donID), 10) + ". Error: " + err.Error())
 	}
 
-	value := vaultCapConfig.DefaultConfig.Underlying["VaultPublicKey"]
-	vaultPublicKeyStr, ok := value.(*values.String)
-	if !ok {
-		return nil, errors.New("VaultPublicKey is not a string in the capability config")
+	vaultPublicKeyStr, err := extractVaultPublicKeyFromCapabilityConfig(vaultCapConfig)
+	if err != nil {
+		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
 	}
-	vaultPublicKeyBytes, err := base64.StdEncoding.DecodeString(vaultPublicKeyStr.Underlying)
+	vaultPublicKeyBytes, err := base64.StdEncoding.DecodeString(vaultPublicKeyStr)
 	if err != nil {
 		return nil, errors.New("failed to decode vault public key from registry: " + err.Error())
 	}
@@ -331,4 +329,19 @@ func (s *secretsFetcher) getEncryptionKeys(ctx context.Context) ([]string, error
 	// Sort the encryption keys to ensure consistent ordering across all nodes.
 	sort.Strings(encryptionKeys)
 	return encryptionKeys, nil
+}
+
+func extractVaultPublicKeyFromCapabilityConfig(config capabilities.CapabilityConfiguration) (string, error) {
+	capConfigMap := make(map[string]string)
+	err := config.DefaultConfig.UnwrapTo(&capConfigMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to unwrap capability config: %w", err)
+	}
+
+	vaultPublicKey, ok := capConfigMap["VaultPublicKey"]
+	if !ok {
+		return "", errors.New("VaultPublicKey is not provided in the capability config")
+	}
+
+	return vaultPublicKey, nil
 }
