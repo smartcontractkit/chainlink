@@ -87,8 +87,7 @@ var (
 				vals.updated_at,
 				vals.spec_type
 			)
-			RETURNING id
-		`
+			RETURNING workflow_specs.id;`
 )
 
 type WorkflowSecretsDS interface {

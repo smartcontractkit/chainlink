@@ -287,7 +287,6 @@ func Test_UpsertWorkflowSpecUniqueID(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpec(t *testing.T) {
-
 	t.Run("deletes a workflow spec", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)
