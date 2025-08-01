@@ -550,7 +550,7 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		return cldf.ChangesetOutput{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	tokenPool, contractType := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	tokenPool, contractType := solChainState.GetActiveTokenPool(cfg.PoolType.String(), cfg.Metadata)
 
 	var configPDA solana.PublicKey
 	// Global Configuration
