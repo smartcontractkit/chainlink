@@ -2,7 +2,6 @@ package ccipsolana
 
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -14,10 +13,18 @@ type SolanaChainAccessorFactory struct{}
 func (f SolanaChainAccessorFactory) NewChainAccessor(
 	params common.ChainAccessorFactoryParams,
 ) (ccipocr3.ChainAccessor, error) {
+	reader, err := common.WrapContractReaderForDefaultAccessor(
+		params.ContractReader,
+		params.ChainSelector,
+		params.Lggr,
+	)
+	if err != nil {
+		return nil, err
+	}
 	return chainaccessor.NewDefaultAccessor(
 		params.Lggr,
 		params.ChainSelector,
-		contractreader.NewExtendedContractReader(params.ContractReader),
+		reader,
 		params.ContractWriter,
 		params.AddrCodec,
 	)
