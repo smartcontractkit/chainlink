@@ -280,7 +280,10 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	if err = json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
-	executeMethodConfigFunc := getExecuteMethodConfigByVersion(configVersion)
+	executeMethodConfigFunc, err := getExecuteMethodConfigByVersion(configVersion)
+	if err != nil {
+		return chainwriter.ChainWriterConfig{}, fmt.Errorf("failed to get execute method config func for version: %w", err)
+	}
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			ccipconsts.ContractNameOffRamp: {
@@ -297,18 +300,18 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	return solConfig, nil
 }
 
-func getExecuteMethodConfigByVersion(version *string) ExecuteMethodConfigFunc {
+func getExecuteMethodConfigByVersion(version *string) (ExecuteMethodConfigFunc, error) {
 	if version == nil {
-		return getExecuteMethodConfigV1
+		return getExecuteMethodConfigV1, nil
 	}
 	versionStr := *version
 	switch versionStr {
-	case types.SolanaChainWriterExecuteConfigVersionV1:
-		return getExecuteMethodConfigV1
+	case "", types.SolanaChainWriterExecuteConfigVersionV1:
+		return getExecuteMethodConfigV1, nil
 	case types.SolanaChainWriterExecuteConfigVersionV2:
-		return getExecuteMethodConfigV2
+		return getExecuteMethodConfigV2, nil
 	default:
-		return getExecuteMethodConfigV1
+		return nil, fmt.Errorf("unsupported execute config version: %s", versionStr)
 	}
 }
 
