@@ -87,8 +87,8 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	if err != nil {
 		return nil, err
 	}
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter)
 	return &gatewayHandler{
 		config:          cfg,
 		don:             don,

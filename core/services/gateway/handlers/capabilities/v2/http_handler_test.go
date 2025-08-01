@@ -41,6 +41,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		require.NotNil(t, handler)
 		require.Equal(t, "test-don", handler.donConfig.DonId)
 		require.NotNil(t, handler.responseCache)
+		require.NotNil(t, handler.triggerHandler)
+		require.NotNil(t, handler.metadataHandler)
 	})
 
 	t.Run("invalid config JSON", func(t *testing.T) {
