@@ -58,12 +58,12 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 }
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
-
 	t.Run("inserts new spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -88,6 +88,11 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("updates existing spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -119,6 +124,11 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("workflow is unique by owner and name", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		WFID1 := "cid-123"
 		WFID2 := "cid-456"
 		spec := &job.WorkflowSpec{
@@ -277,12 +287,13 @@ func Test_UpsertWorkflowSpecUniqueID(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpec(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
 
 	t.Run("deletes a workflow spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -311,6 +322,11 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		err := orm.DeleteWorkflowSpec(ctx, "owner-123", "Test Workflow")
 		require.Error(t, err)
 		require.Equal(t, sql.ErrNoRows, err)
@@ -318,12 +334,12 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpecByID(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
-
 	t.Run("deletes a workflow spec by ID", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -352,6 +368,11 @@ func Test_DeleteWorkflowSpecByID(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		err := orm.DeleteWorkflowSpecByID(ctx, "non-existent-workflow-id")
 		require.Error(t, err)
 		require.Equal(t, sql.ErrNoRows, err)
@@ -359,12 +380,12 @@ func Test_DeleteWorkflowSpecByID(t *testing.T) {
 }
 
 func Test_GetWorkflowSpec(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
-
 	t.Run("gets a workflow spec", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -391,6 +412,11 @@ func Test_GetWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		dbSpec, err := orm.GetWorkflowSpec(ctx, "owner-123", "Test Workflow")
 		require.Error(t, err)
 		require.Nil(t, dbSpec)
@@ -398,12 +424,12 @@ func Test_GetWorkflowSpec(t *testing.T) {
 }
 
 func Test_GetWorkflowSpecByID(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
-
 	t.Run("gets a workflow spec by ID", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -430,6 +456,11 @@ func Test_GetWorkflowSpecByID(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		dbSpec, err := orm.GetWorkflowSpecByID(ctx, "inexistent-workflow-id")
 		require.Error(t, err)
 		require.Nil(t, dbSpec)
@@ -531,12 +562,13 @@ func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
 }
 
 func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
 
 	t.Run("inserts new spec and new secrets", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		giveURL := "https://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -572,6 +604,11 @@ func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
 	})
 
 	t.Run("updates existing spec and secrets", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		giveURL := "https://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -613,6 +650,11 @@ func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
 	})
 
 	t.Run("updates existing spec and secrets if spec has executions", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		ctx := testutils.Context(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
 		giveURL := "https://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
