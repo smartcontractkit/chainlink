@@ -80,11 +80,12 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 		Chain:   chainCfg,
 		Nodes: toml.EVMNodes{
 			&toml.Node{
-				Name:     ptr("test"),
-				WSURL:    &commonconfig.URL{},
-				HTTPURL:  &commonconfig.URL{},
-				SendOnly: new(bool),
-				Order:    ptr[int32](100),
+				Name:              ptr("test"),
+				WSURL:             &commonconfig.URL{},
+				HTTPURL:           &commonconfig.URL{},
+				SendOnly:          new(bool),
+				Order:             ptr[int32](100),
+				IsLoadBalancedRPC: ptr[bool](false),
 			},
 		},
 	})
@@ -121,11 +122,12 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 }
 
 var validTestNode = toml.Node{
-	Name:     ptr("simulated-node"),
-	WSURL:    commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:  commonconfig.MustParseURL("http://simulated.com"),
-	SendOnly: nil,
-	Order:    ptr(int32(1)),
+	Name:              ptr("simulated-node"),
+	WSURL:             commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:           commonconfig.MustParseURL("http://simulated.com"),
+	SendOnly:          nil,
+	Order:             ptr(int32(1)),
+	IsLoadBalancedRPC: ptr(false),
 }
 
 func ptr[T any](v T) *T { return &v }

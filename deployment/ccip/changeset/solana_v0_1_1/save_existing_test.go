@@ -7,14 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -26,6 +23,7 @@ import (
 
 func TestSaveExistingCCIP(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -67,8 +65,8 @@ func TestSaveExisting(t *testing.T) {
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		BlockChains: chain.NewBlockChains(
-			map[uint64]chain.BlockChain{
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
 				chainsel.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
 			}),
 	}

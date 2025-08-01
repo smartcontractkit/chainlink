@@ -51,6 +51,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
@@ -60,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -140,6 +142,9 @@ type TestConfigs struct {
 	// i.e. AddDONAndSetCandidate, SetCandidate, PromoteCandidate, and SetOCR3.
 	// This is useful for tests that need to initialize DONs using different changesets.
 	SkipDONConfiguration bool
+
+	// Solana Handle different contract versions
+	CCIPSolanaContractVersion ccipChangeSetSolanaV0_1_1.CCIPSolanaContractVersion
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -187,6 +192,12 @@ type TestOps func(testCfg *TestConfigs)
 func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.LogMessagesToIgnore = logMessages
+	}
+}
+
+func WithCCIPSolanaContractVersion(version ccipChangeSetSolanaV0_1_1.CCIPSolanaContractVersion) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.CCIPSolanaContractVersion = version
 	}
 }
 
@@ -425,7 +436,18 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	}
 
 	m.Chains = chains
-	solChains := memory.NewMemoryChainsSol(t, tc.SolChains)
+
+	var commitSha string
+
+	ccipContractVersion := m.TestConfig.CCIPSolanaContractVersion
+	if ccipContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
+		commitSha = ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipContractVersion]
+	} else {
+		commitSha = ""
+	}
+
+	solChains := memory.NewMemoryChainsSol(t, tc.SolChains, commitSha)
+
 	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
 	tonChains := memory.NewMemoryChainsTon(t, tc.TonChains)
 	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
@@ -752,6 +774,78 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
+func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	if preload {
+		// Pre load default programs
+		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+			Proposer: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+			},
+			TimelockMinDelay: big.NewInt(1),
+		}
+	}
+	state, err := stateview.LoadOnchainState(e.Env)
+	if err != nil {
+		return nil, err
+	}
+	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
+	return []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.DeployChainContractsChangeset),
+			ccipChangeSetSolanaV0_1_1.DeployChainContractsConfig{
+				HomeChainSelector: e.HomeChainSel,
+				ChainSelector:     solChainSelector,
+				ContractParamsPerChain: ccipChangeSetSolanaV0_1_1.ChainContractParams{
+					FeeQuoterParams: ccipChangeSetSolanaV0_1_1.FeeQuoterParams{
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
+							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
+						},
+						BillingConfig: []solFeeQuoterV0_1_1.BillingTokenConfig{
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].LinkToken,
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: time.Now().Unix(),
+								},
+								PremiumMultiplierWeiPerEth: 9e17,
+							},
+							{
+								Enabled: true,
+								Mint:    state.SolChains[solChainSelector].WSOL,
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+									Value:     value,
+									Timestamp: time.Now().Unix(),
+								},
+								PremiumMultiplierWeiPerEth: 1e18,
+							},
+						},
+					},
+					OffRampParams: ccipChangeSetSolanaV0_1_1.OffRampParams{
+						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+					},
+				},
+				BuildConfig:            buildSolConfig,
+				MCMSWithTimelockConfig: mcmsCfg,
+			},
+		)}, nil
+}
+
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
@@ -886,9 +980,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
-		require.NoError(t, err)
-		apps = append(apps, solCs...)
+		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
+			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
+				GitCommitSha:   ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1],
+				DestinationDir: memory.ProgramsPath,
+			}
+			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
+
+			require.NoError(t, err)
+			apps = append(apps, solCs...)
+		} else {
+			// If no version is specified, we will use the default one
+			solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
+			require.NoError(t, err)
+			apps = append(apps, solCs...)
+		}
 	}
 	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
@@ -1226,15 +1332,27 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 			},
 		))
-		apps = append(apps, commonchangeset.Configure(
-			// Enable the OCR config on the remote chains.
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetOCR3ConfigSolana),
-			v1_6.SetOCR3OffRampConfig{
-				HomeChainSel:       e.HomeChainSel,
-				RemoteChainSels:    solChains,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
-			},
-		))
+		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
+			apps = append(apps, commonchangeset.Configure(
+				// Enable the OCR config on the remote chains.
+				cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.SetOCR3ConfigSolana),
+				v1_6.SetOCR3OffRampConfig{
+					HomeChainSel:       e.HomeChainSel,
+					RemoteChainSels:    solChains,
+					CCIPHomeConfigType: globals.ConfigTypeActive,
+				},
+			))
+		} else {
+			apps = append(apps, commonchangeset.Configure(
+				// Enable the OCR config on the remote chains.
+				cldf.CreateLegacyChangeSet(ccipChangeSetSolana.SetOCR3ConfigSolana),
+				v1_6.SetOCR3OffRampConfig{
+					HomeChainSel:       e.HomeChainSel,
+					RemoteChainSels:    solChains,
+					CCIPHomeConfigType: globals.ConfigTypeActive,
+				},
+			))
+		}
 		// TODO(ton): We need OCR3OffRamp Changeset for Ton, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
 		// apps = append(apps, commonchangeset.Configure(
 		// 	// Enable the OCR config on the remote chains.

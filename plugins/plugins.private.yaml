@@ -12,6 +12,7 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
       gitRef: "fed08e9ef44646e515c6ce002867abac53740949"
       installPath: "github.com/smartcontractkit/capabilities/cron"
+      flags: "-tags timetzdata"
   kvstore:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/kvstore"

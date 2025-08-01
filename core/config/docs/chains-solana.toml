@@ -104,3 +104,7 @@ URL = 'http://solana.web' # Example
 SendOnly = false # Default
 # Order specifies the priority for each node. 1 is highest priority down to 100 being the lowest.
 Order = 100 # Default
+# IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's behind it.
+# If true, we should try reconnecting to the node even when its the only node in the Nodes list.
+# If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
+IsLoadBalancedRPC = false # Default

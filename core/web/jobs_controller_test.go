@@ -18,10 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/freeport"
 
@@ -414,6 +415,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "workflow",
 			tomlTemplate: func(_ string) string {
 				workflow := `
+owner: "0x00000000000000000000000000000000000000aa"
 triggers:
   - id: "mercury-trigger@1.0.0"
     config:
@@ -463,8 +465,11 @@ targets:
 				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
+				ok := assert.Equal(t, http.StatusOK, r.StatusCode)
 				resp := cltest.ParseResponseBody(t, r)
+				if !ok {
+					t.Fatal("response body:", string(resp))
+				}
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err, "failed to parse response body: %s", resp)

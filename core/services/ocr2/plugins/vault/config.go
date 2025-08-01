@@ -3,11 +3,11 @@ package vault
 import (
 	"errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type Config struct {
-	RequestExpiryDuration config.Duration `json:"requestExpiryDuration"`
+	RequestExpiryDuration commonconfig.Duration `json:"requestExpiryDuration"`
 }
 
 func (c *Config) Validate() error {

@@ -36,11 +36,8 @@ func updateAddresses(addr datastore.MutableAddressRefStore, as datastore.Address
 			return err
 		}
 	}
-	if err := sourceAB.Merge(ab); err != nil {
-		return err
-	}
 
-	return nil
+	return sourceAB.Merge(ab)
 }
 
 // DeployKeystoneContractsSequence is a sequence that deploys the Keystone contracts (OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder).

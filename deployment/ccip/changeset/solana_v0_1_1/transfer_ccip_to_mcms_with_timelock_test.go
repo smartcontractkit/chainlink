@@ -14,9 +14,9 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,17 +24,16 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -67,34 +66,34 @@ func TestValidateContracts(t *testing.T) {
 	tests := []struct {
 		name          string
 		state         solanastateview.CCIPChainState
-		contracts     solanachangesets.CCIPContractsToTransfer
+		contracts     ccipChangesetSolana.CCIPContractsToTransfer
 		chainSelector uint64
 		expectedError string
 	}{
 		{
 			name:          "All required contracts present",
 			state:         makeState(validPubkey, validPubkey),
-			contracts:     solanachangesets.CCIPContractsToTransfer{Router: true},
+			contracts:     ccipChangesetSolana.CCIPContractsToTransfer{Router: true},
 			chainSelector: 12345,
 		},
 		{
 			name:          "Missing Router contract",
 			state:         makeState(zeroPubkey, validPubkey),
-			contracts:     solanachangesets.CCIPContractsToTransfer{Router: true},
+			contracts:     ccipChangesetSolana.CCIPContractsToTransfer{Router: true},
 			chainSelector: 12345,
 			expectedError: "missing required contract Router on chain 12345",
 		},
 		{
 			name:          "Missing FeeQuoter contract",
 			state:         makeState(validPubkey, zeroPubkey),
-			contracts:     solanachangesets.CCIPContractsToTransfer{Router: true, FeeQuoter: true},
+			contracts:     ccipChangesetSolana.CCIPContractsToTransfer{Router: true, FeeQuoter: true},
 			chainSelector: 12345,
 			expectedError: "missing required contract FeeQuoter on chain 12345",
 		},
 		{
 			name:          "invalid pub key",
 			state:         makeState(validPubkey, zeroPubkey),
-			contracts:     solanachangesets.CCIPContractsToTransfer{Router: true, FeeQuoter: true},
+			contracts:     ccipChangesetSolana.CCIPContractsToTransfer{Router: true, FeeQuoter: true},
 			chainSelector: 12345,
 			expectedError: "missing required contract FeeQuoter on chain 12345",
 		},
@@ -102,7 +101,7 @@ func TestValidateContracts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := solanachangesets.ValidateContracts(tt.state, tt.chainSelector, tt.contracts)
+			err := ccipChangesetSolana.ValidateContracts(tt.state, tt.chainSelector, tt.contracts)
 
 			if tt.expectedError == "" {
 				require.NoError(t, err)
@@ -115,6 +114,7 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	skipInCI(t)
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
@@ -134,7 +134,7 @@ func TestValidate(t *testing.T) {
 	tests := []struct {
 		name             string
 		env              cldf.Environment
-		contractsByChain map[uint64]solanachangesets.CCIPContractsToTransfer
+		contractsByChain map[uint64]ccipChangesetSolana.CCIPContractsToTransfer
 		expectedError    string
 	}{
 		{
@@ -147,7 +147,7 @@ func TestValidate(t *testing.T) {
 			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				SolChains: 1,
 			}),
-			contractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
+			contractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 				99999: {Router: true, FeeQuoter: true},
 			},
 			expectedError: "chain 99999 not found in environment",
@@ -155,7 +155,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "Invalid chain family",
 			env:  envWithInvalidSolChain,
-			contractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
+			contractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 				chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector: {Router: true, FeeQuoter: true},
 			},
 			expectedError: "failed to load addresses for chain 6827576821754315911: chain selector 6827576821754315911: chain not found",
@@ -164,7 +164,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := solanachangesets.TransferCCIPToMCMSWithTimelockSolanaConfig{
+			cfg := ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				ContractsByChain: tt.contractsByChain,
 				MCMSCfg: proposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
@@ -189,19 +189,17 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		SolChains:  1,
-		Nodes:      4,
+		Bootstraps:                1,
+		Chains:                    2,
+		SolChains:                 1,
+		Nodes:                     4,
+		CCIPSolanaContractVersion: memory.SolanaContractV0_1_1,
 	})
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	solChain1 := solChainSelectors[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
-	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
-	selectors = append(selectors, evmSelectors...)
-	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	// Fund account for fees
@@ -231,31 +229,31 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
-			solanachangesets.DeployChainContractsConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ChainSelector:     solChain1,
-				ContractParamsPerChain: solanachangesets.ChainContractParams{
-					FeeQuoterParams: solanachangesets.FeeQuoterParams{
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{
+					FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
 						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
 					},
-					OffRampParams: solanachangesets.OffRampParams{
+					OffRampParams: ccipChangesetSolana.OffRampParams{
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
-			solanachangesets.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
+			ccipChangesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
-			solanachangesets.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
+			ccipChangesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: shared.SPLTokens,
 				TokenDecimals:    9,
@@ -286,29 +284,29 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	lnr := test_token_pool.LockAndRelease_PoolType
 	bnm := test_token_pool.BurnAndMint_PoolType
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-		// commonchangeset.Configure(
-		//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-		//	ccipChangesetSolana.TokenPoolConfigWithMCM{
-		//		ChainSelector: solChain1,
-		//		TokenPubKey:   tokenAddressLockRelease,
-		//		PoolType:      &lnr,
-		//		Metadata:      shared.CLLMetadata,
-		//	},
-		// ),
-		// commonchangeset.Configure(
-		//	cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-		//	ccipChangesetSolana.TokenPoolConfigWithMCM{
-		//		ChainSelector: solChain1,
-		//		TokenPubKey:   tokenAddressBurnMint,
-		//		PoolType:      &bnm,
-		//		Metadata:      shared.CLLMetadata,
-		//	},
-		// ),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
-			solanachangesets.AddTokenPoolAndLookupTableConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
-				TokenPoolConfigs: []solanachangesets.TokenPoolConfig{
+				TokenPubKey:   tokenAddressLockRelease,
+				PoolType:      &lnr,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddressBurnMint,
+				PoolType:      &bnm,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
+			ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
+				ChainSelector: solChain1,
+				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 					{
 						TokenPubKey: tokenAddressLockRelease,
 						PoolType:    &lnr,
@@ -318,10 +316,10 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(solanachangesets.AddTokenPoolAndLookupTable),
-			solanachangesets.AddTokenPoolAndLookupTableConfig{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolAndLookupTable),
+			ccipChangesetSolana.AddTokenPoolAndLookupTableConfig{
 				ChainSelector: solChain1,
-				TokenPoolConfigs: []solanachangesets.TokenPoolConfig{
+				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 					{
 						TokenPubKey: tokenAddressBurnMint,
 						PoolType:    &bnm,
@@ -334,8 +332,10 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	require.NoError(t, err)
 	return e, state
 }
+
 func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
@@ -345,12 +345,12 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
 	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(
 		t,
 		&e,
 		solChain1,
 		false,
-		solanachangesets.CCIPContractsToTransfer{
+		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:                true,
 			FeeQuoter:             true,
 			OffRamp:               true,
@@ -425,6 +425,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
@@ -434,12 +435,12 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 
 	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPools[shared.CLLMetadata])
 	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPools[shared.CLLMetadata])
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(
 		t,
 		&e,
 		solChain1,
 		false,
-		solanachangesets.CCIPContractsToTransfer{
+		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:                true,
 			FeeQuoter:             true,
 			OffRamp:               true,
@@ -456,7 +457,7 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 				CurrentOwner:  timelockSignerPDA,
 				ProposedOwner: solChain.DeployerKey.PublicKey(),
 				ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-					solChain1: ccipChangesetSolana.CCIPContractsToTransfer{
+					solChain1: {
 						Router:                true,
 						FeeQuoter:             true,
 						OffRamp:               true,

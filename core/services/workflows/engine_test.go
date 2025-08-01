@@ -21,8 +21,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -52,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const (
@@ -235,7 +237,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		GlobalBurst:    1000,
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
@@ -243,7 +245,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	sl, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   200,
 		PerOwner: 200,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	reg.SetLocalRegistry(&testConfigProvider{})
@@ -554,13 +556,18 @@ targets:
 		)
 
 		mBillingClient.EXPECT().
+			GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+				},
+			}, nil)
+		mBillingClient.EXPECT().
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: "10000"}, nil)
+			Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -650,13 +657,18 @@ targets:
 		})
 
 		mBillingClient.EXPECT().
+			GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+					{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
+				},
+			}, nil)
+		mBillingClient.EXPECT().
 			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 			})).
-			Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
-				{ResourceType: billing.ResourceType_RESOURCE_TYPE_NETWORK, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST, UnitsPerCredit: "0.01"},
-			}, Credits: "10000"}, nil)
+			Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -727,10 +739,17 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 
 	mBillingClient.EXPECT().
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: []*billing.RateCard{
+				{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"},
+			},
+		}, nil)
+	mBillingClient.EXPECT().
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
-		Return(&billing.ReserveCreditsResponse{Success: true, RateCards: []*billing.RateCard{{ResourceType: billing.ResourceType_RESOURCE_TYPE_COMPUTE, MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS, UnitsPerCredit: "0.0001"}}, Credits: "10000"}, nil)
+		Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 	mBillingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
@@ -1082,7 +1101,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1000,
 				PerSenderRPS:   1.0,
 				PerSenderBurst: 1,
-			})
+			}, limits.Factory{})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1095,9 +1114,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as owner, so next execution gets blocked by per user limit
-		senderAllow, globalAllow := eng.ratelimiter.Allow(testWorkflowOwner)
-		require.True(t, senderAllow)
-		require.True(t, globalAllow)
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: testWorkflowOwner})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -1138,7 +1155,7 @@ func TestEngine_RateLimit(t *testing.T) {
 				GlobalBurst:    1,
 				PerSenderRPS:   100.0,
 				PerSenderBurst: 100,
-			})
+			}, limits.Factory{})
 			require.NoError(t, err)
 			c.RateLimiter = rl
 		}
@@ -1151,9 +1168,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as other owner, so next execution gets blocked by global limit
-		senderAllow, globalAllow := eng.ratelimiter.Allow("some other owner")
-		require.True(t, senderAllow)
-		require.True(t, globalAllow)
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "some other owner"})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -1191,7 +1206,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		setWorkflowLimits := func(c *Config) {
@@ -1199,9 +1214,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// we allow one owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		require.NoError(t, workflowLimits.Use(contexts.WithCRE(ctx, contexts.CRE{Owner: "some-previous-owner"}), 1))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1210,9 +1223,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrGlobalWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeGlobal, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -1243,7 +1259,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		setWorkflowLimits := func(c *Config) {
@@ -1251,9 +1267,8 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// we allow one workflow for this particular owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: testWorkflowOwner})
+		require.NoError(t, workflowLimits.Use(ctx, 1))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1262,9 +1277,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 
 	// Verify that overriding the perOwner limit enables an external workflow
@@ -1304,7 +1322,7 @@ func TestEngine_RateLimit(t *testing.T) {
 			Global:            10,
 			PerOwner:          1,
 			PerOwnerOverrides: overrides,
-		})
+		}, limits.Factory{})
 		require.NoError(t, err)
 
 		// define functional options
@@ -1317,13 +1335,8 @@ func TestEngine_RateLimit(t *testing.T) {
 		}
 
 		// allow two workflows for the external owner, so the third one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow(externalWFOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
-
-		ownerAllow, globalAllow = workflowLimits.Allow(externalWFOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
+		ctxOwner := contexts.WithCRE(ctx, contexts.CRE{Owner: externalWFOwner})
+		require.NoError(t, workflowLimits.Use(ctxOwner, 2))
 
 		eng, _ := newTestEngineWithYAMLSpec(
 			t,
@@ -1333,9 +1346,12 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowOwner,
 		)
 
-		err = eng.Start(context.Background())
-		require.Error(t, err)
-		assert.ErrorIs(t, err, types.ErrPerOwnerWorkflowCountLimitReached)
+		err = eng.Start(ctx)
+		if limitErr := new(limits.ErrorResourceLimited[int]); assert.ErrorAs(t, err, limitErr) {
+			assert.Equal(t, settings.ScopeOwner, limitErr.Scope)
+		} else if err == nil {
+			assert.NoError(t, eng.Close())
+		}
 	})
 }
 
@@ -2881,6 +2897,17 @@ targets:
 			},
 		)
 
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
 		// Verify that ReserveCredits is called with the correct workflow registry information
 		// Sepolia chain ID 11155111 converts to the expected chainSelector
 		mBillingClient.EXPECT().
@@ -2894,13 +2921,6 @@ targets:
 			})).
 			Return(&billing.ReserveCreditsResponse{
 				Success: true,
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
 				Credits: "10000",
 			}, nil)
 
@@ -2936,11 +2956,39 @@ targets:
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
 
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{
+				Success: true,
+				Credits: "10000",
+			}, nil)
+
 		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
 		invalidChainSelector := "invalid-chain-id"
 
-		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// No mock expectations needed since the call won't happen
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == 0 // default value
+			})).
+			Return(&emptypb.Empty{}, nil)
+
+		// billing calls still happen, but with invalid chain selector
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
@@ -2971,10 +3019,6 @@ targets:
 		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
-
-		// When chain selector parsing fails, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// This is expected behavior since no metering report exists
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
 	})
 
 	t.Run("handles empty workflow registry information", func(t *testing.T) {
@@ -2984,8 +3028,34 @@ targets:
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
 
-		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// No mock expectations needed since the call won't happen
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: []*billing.RateCard{
+					{
+						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+						UnitsPerCredit:  "0.0001",
+					},
+				},
+			}, nil)
+
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.Anything).
+			Return(&billing.ReserveCreditsResponse{
+				Success: true,
+				Credits: "10000",
+			}, nil)
+
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == "" &&
+					req.WorkflowRegistryChainSelector == 0 // default value
+			})).
+			Return(&emptypb.Empty{}, nil)
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)

@@ -20,19 +20,12 @@
   type = "docker"
 
 [[workflow_configs]]
-  workflow_name = "abcdefgasd
   # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
-
-  use_cre_cli = true
-  should_compile_new_workflow = true
-  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
-  # config below assumes that you have it cloned next to chainlink repository
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test/cron-based"
+  workflow_file_location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 
 [dependencies]
   cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
 
 [[nodesets]]
   nodes = 5
@@ -51,13 +44,18 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
       user_config_overrides = """
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
+
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 1
@@ -79,4 +77,11 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
+
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""
