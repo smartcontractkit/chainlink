@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 

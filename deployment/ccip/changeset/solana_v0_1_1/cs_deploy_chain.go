@@ -529,17 +529,6 @@ func deployChainContractsSolana(
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 	}
 
-	//	poolType := solTestTokenPool.BurnAndMint_PoolType
-	//	_, err = InitGlobalConfigTokenPoolProgram(e, TokenPoolConfigWithMCM{
-	//		ChainSelector: chain.Selector,
-	//		PoolType:      &poolType,
-	//		TokenPubKey:   burnMintTokenPool,
-	//		Metadata:      metadata,
-	//	})
-	//	if err != nil {
-	//		return batches, fmt.Errorf("failed to initialize global config token pool program: %w", err)
-	//	}
-
 	var lockReleaseTokenPool solana.PublicKey
 	metadata = shared.CLLMetadata
 	if config.LockReleaseTokenPoolMetadata != "" {
@@ -568,17 +557,6 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 	}
-
-	//	lockReleasePoolType := solTestTokenPool.LockAndRelease_PoolType
-	//	_, err = InitGlobalConfigTokenPoolProgram(e, TokenPoolConfigWithMCM{
-	//		ChainSelector: chain.Selector,
-	//		PoolType:      &lockReleasePoolType,
-	//		TokenPubKey:   lockReleaseTokenPool,
-	//		Metadata:      metadata,
-	//	})
-	//	if err != nil {
-	//		return batches, fmt.Errorf("failed to initialize global config token pool program: %w", err)
-	//	}
 
 	// MCMS
 	// this should selectively deploy and initialise anything if required
