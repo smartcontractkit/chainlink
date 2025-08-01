@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
@@ -681,7 +682,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
-		ProviderType:  string(types.VaultPlugin),
+		ProviderType:  string(types.OCR3Capability),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
 		PluginConfig:  spec.PluginConfig.Bytes(),
@@ -710,6 +711,14 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
 
+	keyBundles := map[string]ocr2key.KeyBundle{
+		string(chaintype.EVM): kb,
+	}
+	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+	if err != nil {
+		return nil, err
+	}
+
 	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
@@ -726,7 +735,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		MonitoringEndpoint:      oracleEndpoint,
 		OffchainConfigDigester:  provider.OffchainConfigDigester(),
 		OffchainKeyring:         kb,
-		OnchainKeyring:          ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+		OnchainKeyring:          onchainKeyringAdapter,
 		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	// TODO: use properly generated config

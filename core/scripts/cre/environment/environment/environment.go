@@ -33,6 +33,7 @@ import (
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
+	vaultcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -43,6 +44,7 @@ import (
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -462,7 +464,7 @@ func StartCLIEnvironment(
 			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
 		}
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
@@ -518,9 +520,9 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabiliitesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability}
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cre.ReadContractCapability)
+			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
@@ -533,7 +535,7 @@ func StartCLIEnvironment(
 			},
 			{
 				Input:              in.NodeSets[1],
-				Capabilities:       capabiliitesDONCapabilities,
+				Capabilities:       capabilitiesDONCapabilities,
 				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
 			},
@@ -577,6 +579,7 @@ func StartCLIEnvironment(
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
 		croncap.CronCapabilityFactoryFn,
+		vaultcap.VaultCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
@@ -612,6 +615,7 @@ func StartCLIEnvironment(
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
 		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
+		crevault.VaultJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 	}
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
