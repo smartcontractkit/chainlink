@@ -172,6 +172,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	addressBook := cldf.NewMemoryAddressBook()
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
+	rmnRemoteAddress := chainState.RMNRemote
 
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
 		e.Logger.Infow("Adding token pool", "cfg", tokenPoolCfg)
@@ -206,6 +208,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 			// initialize token pool for token
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
+				routerProgramAddress,
+				rmnRemoteAddress,
 				poolConfigPDA,
 				tokenPubKey,
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
@@ -217,6 +221,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 			// initialize token pool for token
 			poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
+				routerProgramAddress,
+				rmnRemoteAddress,
 				poolConfigPDA,
 				tokenPubKey,
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
