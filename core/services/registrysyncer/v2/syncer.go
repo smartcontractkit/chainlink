@@ -280,16 +280,16 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for _, node := range nodes {
 		nodeInfo := registrysyncer.NodeInfo{
-			NodeOperatorId:      node.NodeOperatorId,
+			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,
 			Signer:              node.Signer,
-			P2pId:               node.P2pId,
+			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
 			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
-			HashedCapabilityIds: make([][32]byte, 0, len(node.CapabilityIds)),
+			HashedCapabilityIDs: make([][32]byte, 0, len(node.CapabilityIds)),
 			CsaKey:              node.CsaKey,
-			CapabilityIds:       node.CapabilityIds,
+			CapabilityIDs:       node.CapabilityIds,
 		}
 		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
 
@@ -300,7 +300,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 				s.lggr.Warnw("failed to hash capability ID, skipping", "capabilityID", capID, "error", err)
 				continue
 			}
-			nodeInfo.HashedCapabilityIds = append(nodeInfo.HashedCapabilityIds, hashedCapID)
+			nodeInfo.HashedCapabilityIDs = append(nodeInfo.HashedCapabilityIDs, hashedCapID)
 		}
 
 		idsToNodes[node.P2pId] = nodeInfo

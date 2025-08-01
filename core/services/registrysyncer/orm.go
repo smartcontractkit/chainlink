@@ -28,22 +28,22 @@ type capabilitiesRegistryNodeInfo struct {
 func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 	idsToNodes := make(map[types.PeerID]capabilitiesRegistryNodeInfo)
 	for k, v := range l.IDsToNodes {
-		hashedCapabilityIds := make([]types.PeerID, len(v.HashedCapabilityIds))
-		for i, id := range v.HashedCapabilityIds {
-			hashedCapabilityIds[i] = types.PeerID(id[:])
+		hashedCapabilityIDs := make([]types.PeerID, len(v.HashedCapabilityIDs))
+		for i, id := range v.HashedCapabilityIDs {
+			hashedCapabilityIDs[i] = types.PeerID(id[:])
 		}
 		capabilitiesDONIds := make([]string, len(v.CapabilitiesDONIds))
 		for i, id := range v.CapabilitiesDONIds {
 			capabilitiesDONIds[i] = id.String()
 		}
 		idsToNodes[k] = capabilitiesRegistryNodeInfo{
-			NodeOperatorId:      v.NodeOperatorId,
+			NodeOperatorId:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              types.PeerID(v.Signer[:]),
-			P2pId:               types.PeerID(v.P2pId[:]),
+			P2pId:               types.PeerID(v.P2pID[:]),
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIds: hashedCapabilityIds,
+			HashedCapabilityIds: hashedCapabilityIDs,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
@@ -94,13 +94,13 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			capabilitiesDONIds[i] = bigInt
 		}
 		l.IDsToNodes[peerID] = NodeInfo{
-			NodeOperatorId:      v.NodeOperatorId,
+			NodeOperatorID:      v.NodeOperatorId,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              v.Signer,
-			P2pId:               v.P2pId,
+			P2pID:               v.P2pId,
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIds: hashedCapabilityIds,
+			HashedCapabilityIDs: hashedCapabilityIds,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}

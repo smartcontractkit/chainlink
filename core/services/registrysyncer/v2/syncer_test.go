@@ -342,37 +342,37 @@ func TestReader_Integration(t *testing.T) {
 	// Test V2 node info with string capability IDs
 	expectedNodesInfo := []registrysyncer.NodeInfo{
 		{
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[0],
-			P2pId:               p2ptypes.PeerID(nodeSet[0]),
+			P2pID:               p2ptypes.PeerID(nodeSet[0]),
 			EncryptionPublicKey: encPubKey1,
-			CapabilityIds:       []string{cid}, // V2 uses string IDs
+			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIds: [][32]byte{hashedID},
+			HashedCapabilityIDs: [][32]byte{hashedID},
 		},
 		{
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[1],
-			P2pId:               p2ptypes.PeerID(nodeSet[1]),
+			P2pID:               p2ptypes.PeerID(nodeSet[1]),
 			EncryptionPublicKey: encPubKey2,
-			CapabilityIds:       []string{cid}, // V2 uses string IDs
+			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIds: [][32]byte{hashedID},
+			HashedCapabilityIDs: [][32]byte{hashedID},
 		},
 		{
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[2],
-			P2pId:               p2ptypes.PeerID(nodeSet[2]),
+			P2pID:               p2ptypes.PeerID(nodeSet[2]),
 			EncryptionPublicKey: encPubKey3,
-			CapabilityIds:       []string{cid}, // V2 uses string IDs
+			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIds: [][32]byte{hashedID},
+			HashedCapabilityIDs: [][32]byte{hashedID},
 		},
 	}
 
@@ -591,32 +591,32 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 		},
 		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: randomWord(),
-				CapabilityIds:       []string{"write-chain@1.0.1", "trigger@1.0.0"}, // V2 uses string IDs
+				CapabilityIDs:       []string{"write-chain@1.0.1", "trigger@1.0.0"}, // V2 uses string IDs
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: randomWord(),
-				CapabilityIds:       []string{"write-chain@1.0.1", "trigger@1.0.0"}, // V2 uses string IDs
+				CapabilityIDs:       []string{"write-chain@1.0.1", "trigger@1.0.0"}, // V2 uses string IDs
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: randomWord(),
-				CapabilityIds:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
+				CapabilityIDs:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: randomWord(),
-				CapabilityIds:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
+				CapabilityIDs:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
 			},
 		},
 		map[string]registrysyncer.Capability{
@@ -662,8 +662,8 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 
 	// Test that V2 node info has string capability IDs
 	nodeInfo := localRegistry.IDsToNodes[pid]
-	assert.NotNil(t, nodeInfo.CapabilityIds)
-	assert.Equal(t, []string{"write-chain@1.0.1", "trigger@1.0.0"}, nodeInfo.CapabilityIds)
+	assert.NotNil(t, nodeInfo.CapabilityIDs)
+	assert.Equal(t, []string{"write-chain@1.0.1", "trigger@1.0.0"}, nodeInfo.CapabilityIDs)
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {

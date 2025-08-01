@@ -55,19 +55,19 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 	IDsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for i := range tt.capabilityDonNodes {
 		IDsToNodes[tt.capabilityDonNodes[i]] = registrysyncer.NodeInfo{
-			NodeOperatorId:      1,
+			NodeOperatorID:      1,
 			Signer:              RandomUTF8BytesWord(),
-			P2pId:               tt.capabilityDonNodes[i],
+			P2pID:               tt.capabilityDonNodes[i],
 			EncryptionPublicKey: RandomUTF8BytesWord(),
-			HashedCapabilityIds: [][32]byte{triggerCapID},
+			HashedCapabilityIDs: [][32]byte{triggerCapID},
 			CapabilitiesDONIds:  nil,
 		}
 	}
 	for i := range tt.workflowDonNodes {
 		IDsToNodes[tt.workflowDonNodes[i]] = registrysyncer.NodeInfo{
-			NodeOperatorId:      1,
+			NodeOperatorID:      1,
 			Signer:              RandomUTF8BytesWord(),
-			P2pId:               tt.workflowDonNodes[i],
+			P2pID:               tt.workflowDonNodes[i],
 			EncryptionPublicKey: RandomUTF8BytesWord(),
 		}
 	}

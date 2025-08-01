@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,19 +29,19 @@ type Capability struct {
 }
 
 type NodeInfo struct {
-	NodeOperatorId      uint32
+	NodeOperatorID      uint32
 	ConfigCount         uint32
 	WorkflowDONId       uint32
 	Signer              [32]byte
-	P2pId               [32]byte
+	P2pID               [32]byte
 	EncryptionPublicKey [32]byte
 	CapabilitiesDONIds  []*big.Int
 
 	// V1 specific fields
-	HashedCapabilityIds [][32]byte
+	HashedCapabilityIDs [][32]byte
 
 	// V2 specific fields
-	CapabilityIds []string
+	CapabilityIDs []string
 	CsaKey        [32]byte
 }
 
@@ -115,7 +114,7 @@ func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (
 
 	return capabilities.Node{
 		PeerID:              &peerID,
-		NodeOperatorID:      nodeInfo.NodeOperatorId,
+		NodeOperatorID:      nodeInfo.NodeOperatorID,
 		Signer:              nodeInfo.Signer,
 		EncryptionPublicKey: nodeInfo.EncryptionPublicKey,
 		WorkflowDON:         workflowDON,
@@ -165,7 +164,7 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			ID:               don.ID,
 			Families:         don.Families,
 			ConfigVersion:    don.ConfigVersion,
-			Members:          make([]p2ptypes.PeerID, len(don.Members)),
+			Members:          make([]types.PeerID, len(don.Members)),
 			F:                don.F,
 			IsPublic:         don.IsPublic,
 			AcceptsWorkflows: don.AcceptsWorkflows,
@@ -190,21 +189,21 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 		lrCopy.IDsToCapabilities[id] = cp
 	}
 
-	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]NodeInfo, len(lr.IDsToNodes))
+	lrCopy.IDsToNodes = make(map[types.PeerID]NodeInfo, len(lr.IDsToNodes))
 	for id, node := range lr.IDsToNodes {
 		nodeInfo := NodeInfo{
-			NodeOperatorId:      node.NodeOperatorId,
+			NodeOperatorID:      node.NodeOperatorID,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,
 			Signer:              node.Signer,
-			P2pId:               node.P2pId,
+			P2pID:               node.P2pID,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
-			CapabilityIds:       make([]string, len(node.CapabilityIds)),
+			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIDs)),
+			CapabilityIDs:       make([]string, len(node.CapabilityIDs)),
 			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 		}
-		copy(nodeInfo.HashedCapabilityIds, node.HashedCapabilityIds)
-		copy(nodeInfo.CapabilityIds, node.CapabilityIds)
+		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIDs)
+		copy(nodeInfo.CapabilityIDs, node.CapabilityIDs)
 		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
 		lrCopy.IDsToNodes[id] = nodeInfo
 	}
