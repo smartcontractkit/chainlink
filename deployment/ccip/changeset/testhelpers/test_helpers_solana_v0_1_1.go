@@ -10,6 +10,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -279,4 +281,69 @@ func DeployTransferableTokenSolanaV0_1_1(
 	}
 
 	return evmToken, evmPool, solTokenAddress, nil
+}
+
+func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+	chainFamilySelector := [4]uint8{}
+	switch remoteFamily {
+	case chainsel.FamilyEVM:
+		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+		chainFamilySelector = [4]uint8{40, 18, 213, 44}
+	case chainsel.FamilySolana:
+		// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		chainFamilySelector = [4]uint8{30, 16, 189, 196}
+	case chainsel.FamilyAptos:
+		// bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
+		chainFamilySelector = [4]uint8{0xac, 0x77, 0xff, 0xec}
+	default:
+		panic("unsupported remote family")
+	}
+	solanaChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToRouter),
+			ccipChangeSetSolanaV0_1_1.AddRemoteChainToRouterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.RouterConfig{
+					remoteChainSelector: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+							AllowedSenders:   []solana.PublicKey{e.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey()},
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToFeeQuoter),
+			ccipChangeSetSolanaV0_1_1.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.FeeQuoterConfig{
+					remoteChainSelector: {
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 90000,
+							DestGasOverhead:             90000,
+							ChainFamilySelector:         chainFamilySelector,
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToOffRamp),
+			ccipChangeSetSolanaV0_1_1.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.OffRampConfig{
+					remoteChainSelector: {
+						EnabledAsSource: true,
+					},
+				},
+			},
+		),
+	}
+	return solanaChangesets
 }

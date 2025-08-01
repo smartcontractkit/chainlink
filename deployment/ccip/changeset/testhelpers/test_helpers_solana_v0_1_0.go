@@ -49,7 +49,6 @@ import (
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
-	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -79,13 +78,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
-	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_ccip_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_common"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_offramp"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/rmn_remote"
+	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_ccip_receiver"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -1171,7 +1170,7 @@ func AddLane(
 		}
 		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
 	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_1(e, from, to, toFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
 	case chainsel.FamilyAptos:
 		aptosTokenPrices := make(map[aptos.AccountAddress]*big.Int, len(tokenPrices))
 		for address, price := range tokenPrices {
@@ -1184,7 +1183,7 @@ func AddLane(
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
 	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_1(e, to, from, fromFamily)...)
+		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
@@ -1197,7 +1196,7 @@ func AddLane(
 	return nil
 }
 
-func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
 	switch remoteFamily {
 	case chainsel.FamilyEVM:
@@ -1214,10 +1213,10 @@ func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChain
 	}
 	solanaChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToRouter),
-			ccipChangeSetSolanaV0_1_1.AddRemoteChainToRouterConfig{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.AddRemoteChainToRouter),
+			ccipChangeSetSolanaV0_1_0.AddRemoteChainToRouterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.RouterConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_0.RouterConfig{
 					remoteChainSelector: {
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: true,
@@ -1228,10 +1227,10 @@ func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChain
 			},
 		),
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToFeeQuoter),
-			ccipChangeSetSolanaV0_1_1.AddRemoteChainToFeeQuoterConfig{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.AddRemoteChainToFeeQuoter),
+			ccipChangeSetSolanaV0_1_0.AddRemoteChainToFeeQuoterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.FeeQuoterConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_0.FeeQuoterConfig{
 					remoteChainSelector: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
@@ -1248,10 +1247,10 @@ func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChain
 			},
 		),
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddRemoteChainToOffRamp),
-			ccipChangeSetSolanaV0_1_1.AddRemoteChainToOffRampConfig{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.AddRemoteChainToOffRamp),
+			ccipChangeSetSolanaV0_1_0.AddRemoteChainToOffRampConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_1.OffRampConfig{
+				UpdatesByChain: map[uint64]*ccipChangeSetSolanaV0_1_0.OffRampConfig{
 					remoteChainSelector: {
 						EnabledAsSource: true,
 					},
