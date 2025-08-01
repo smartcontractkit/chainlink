@@ -85,7 +85,6 @@ func TestAddRemoteChainWithMcms(t *testing.T) {
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	doTestAddRemoteChain(t, false)
 }
 
@@ -582,7 +581,6 @@ func TestBillingWithMcms(t *testing.T) {
 
 func TestBillingWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	doTestBilling(t, false)
 }
 
@@ -756,7 +754,6 @@ func TestTokenAdminRegistryWithMcms(t *testing.T) {
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
 }
 
@@ -868,7 +865,6 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
 }
@@ -876,7 +872,6 @@ func TestPoolLookupTableWithoutMcms(t *testing.T) {
 func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
-	skipInCI(t)
 	testhelpers.DeployCCIPContractsTest(t, 1)
 }
 

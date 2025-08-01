@@ -40,7 +40,6 @@ import (
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: false, TokenMetadata: shared.CLLMetadata})

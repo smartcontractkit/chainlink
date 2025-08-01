@@ -113,7 +113,6 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	skipInCI(t)
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
@@ -334,7 +333,6 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 
 func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
@@ -424,7 +422,6 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	solChain := e.BlockChains.SolanaChains()[solChain1]
