@@ -17,14 +17,14 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -271,7 +271,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					0: v1_5_1.TokenPoolConfig{},
+					0: {},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
@@ -281,7 +281,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					5009297550715157269: v1_5_1.TokenPoolConfig{},
+					5009297550715157269: {},
 				},
 			},
 			ErrStr: "does not exist in environment",
@@ -291,7 +291,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
@@ -322,12 +322,12 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.RateLimiterConfig{},
 						},
@@ -479,11 +479,11 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 				burnMintB, _ := token_pool.NewTokenPool(state.Chains[selectorB].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[selectorB].Client)
 
 				pools := map[uint64]tokenPools{
-					selectorA: tokenPools{
+					selectorA: {
 						LockRelease: lockReleaseA,
 						BurnMint:    burnMintA,
 					},
-					selectorB: tokenPools{
+					selectorB: {
 						LockRelease: lockReleaseB,
 						BurnMint:    burnMintB,
 					},
@@ -789,15 +789,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
 		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			// commonchangeset.Configure(
-			//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
-			//	changeset_solana.TokenPoolConfigWithMCM{
-			//		ChainSelector: selector,
-			//		TokenPubKey:   tokenAddress,
-			//		PoolType:      &bnm,
-			//		Metadata:      shared.CLLMetadata,
-			//	},
-			// ),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+				changeset_solana.TokenPoolConfigWithMCM{
+					ChainSelector: selector,
+					TokenPubKey:   tokenAddress,
+					PoolType:      &bnm,
+					Metadata:      shared.CLLMetadata,
+				},
+			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.AddTokenPoolAndLookupTableConfig{
@@ -977,15 +977,15 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	for _, selector := range solanaSelectors {
 		for _, tokenAddress := range remoteTokenAddresses {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-				// commonchangeset.Configure(
-				//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
-				//	changeset_solana.TokenPoolConfigWithMCM{
-				//		ChainSelector: selector,
-				//		TokenPubKey:   tokenAddress,
-				//		PoolType:      &lr,
-				//		Metadata:      shared.CLLMetadata,
-				//	},
-				// ),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+					changeset_solana.TokenPoolConfigWithMCM{
+						ChainSelector: selector,
+						TokenPubKey:   tokenAddress,
+						PoolType:      &lr,
+						Metadata:      shared.CLLMetadata,
+					},
+				),
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.AddTokenPoolAndLookupTableConfig{
