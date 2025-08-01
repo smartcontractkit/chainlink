@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -88,9 +88,9 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
-	GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
-	UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
-	DeleteWorkflowArtifactsByID(ctx context.Context, workflowID string) error
+	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
+	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
 }
 
 // NewEventHandler returns a new eventHandler instance.
@@ -209,7 +209,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// - new registration, without an existing DB record
 	// - existing registration that has been updated with new artifacts, and potentially also the status
 	// - existing registration that has been updated with a new status
-	spec, err := h.workflowArtifactsStore.GetWorkflowSpecByID(ctx, payload.WorkflowID.Hex())
+	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, payload.WorkflowID.Hex())
 	switch {
 	case err != nil:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
@@ -227,10 +227,17 @@ func (h *eventHandler) workflowRegisteredEvent(
 		spec = newSpec
 	case spec.Status != status:
 		spec.Status = status
-
-		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpecUniqueID(ctx, spec); innerErr != nil {
+		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
 			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
 		}
+	}
+
+	// Next, let's synchronize the engine.
+	// If the state isn't active, we shouldn't have an engine running.
+
+	// Let's try to clean one up if it exists
+	if spec.Status != job.WorkflowSpecStatusActive {
+		return h.tryEngineCleanup(payload.WorkflowID)
 	}
 
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
@@ -288,7 +295,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		ConfigURL:     payload.ConfigURL,
 	}
 
-	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpecUniqueID(ctx, entry); err != nil {
+	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
 		return nil, fmt.Errorf("failed to upsert workflow spec: %w", err)
 	}
 
@@ -376,7 +383,7 @@ func (h *eventHandler) workflowDeletedEvent(
 		}
 	}
 
-	if err := h.workflowArtifactsStore.DeleteWorkflowArtifactsByID(ctx, payload.WorkflowID.Hex()); err != nil {
+	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, payload.WorkflowID.Hex()); err != nil {
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 

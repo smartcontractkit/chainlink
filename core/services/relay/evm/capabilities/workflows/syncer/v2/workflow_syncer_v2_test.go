@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -34,7 +33,7 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -299,8 +298,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	time.Sleep(5 * time.Second)
 	_, ok := er.Get(wfTypes.WorkflowID(id))
 	require.False(t, ok)
-	owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
-	_, err = orm.GetWorkflowSpec(ctx, owner, "test-wf")
+	_, err = orm.GetWorkflowSpec(ctx, wfTypes.WorkflowID(id).Hex())
 	require.ErrorContains(t, err, "sql: no rows in result set")
 }
 
@@ -397,8 +395,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			return false
 		}
 
-		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
-		_, err = orm.GetWorkflowSpec(ctx, owner, "test-wf")
+		_, err = orm.GetWorkflowSpec(ctx, wfTypes.WorkflowID(id).Hex())
 		return err == nil
 	}, tests.WaitTimeout(t), time.Second)
 }

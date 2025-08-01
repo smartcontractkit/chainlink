@@ -20,10 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
 // FetcherService is a service that fetches data from the gateway using the OutgoingConnectorHandler.
+
+// TODO: CAPPL-1031 refactor to use Storage service instead of Gateway
 type FetcherService struct {
 	services.StateMachine
 	lggr         logger.Logger

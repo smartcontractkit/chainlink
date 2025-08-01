@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -21,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -60,6 +57,7 @@ func safeUint32(n uint64) uint32 {
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
+// TODO: CAPPL-1031 refactor fetcher to use Storage service instead of Gateway
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
 type ArtifactConfig struct {
@@ -84,14 +82,6 @@ func (cfg *ArtifactConfig) ApplyDefaults() {
 	}
 }
 
-// logCustMsg emits a custom message to the external sink and logs an error if that fails.
-func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
-	err := cma.Emit(ctx, msg)
-	if err != nil {
-		log.Helper(1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
-	}
-}
-
 var defaultSecretsFreshnessDuration = 24 * time.Hour
 
 func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
@@ -106,8 +96,6 @@ type SerialisedModuleStore interface {
 	GetBinaryID(workflowID string) (string, bool, error)
 	DeleteModule(workflowID string) error
 }
-
-type decryptSecretsFn func(data []byte, owner string) (map[string]string, error)
 
 type Store struct {
 	lggr logger.Logger
@@ -126,28 +114,11 @@ type Store struct {
 
 	encryptionKey workflowkey.Key
 
-	decryptSecrets decryptSecretsFn
-
 	emitter custmsg.MessageEmitter
 }
 
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, opts ...func(*Store)) *Store {
-	return NewStoreWithDecryptSecretsFn(lggr, orm, fetchFn, clock, encryptionKey, emitter,
-		func(data []byte, owner string) (map[string]string, error) {
-			secretsPayload := secrets.EncryptedSecretsResult{}
-			err := json.Unmarshal(data, &secretsPayload)
-			if err != nil {
-				return nil, fmt.Errorf("could not unmarshal secrets: %w", err)
-			}
-
-			return secrets.DecryptSecretsForNode(secretsPayload, encryptionKey, owner)
-		},
-		opts...)
-}
-
-func NewStoreWithDecryptSecretsFn(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
-	emitter custmsg.MessageEmitter, decryptSecrets decryptSecretsFn, opts ...func(*Store)) *Store {
 	limits := &ArtifactConfig{}
 	limits.ApplyDefaults()
 
@@ -161,7 +132,6 @@ func NewStoreWithDecryptSecretsFn(lggr logger.Logger, orm WorkflowRegistryDS, fe
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		emitter:                  emitter,
-		decryptSecrets:           decryptSecrets,
 	}
 
 	for _, o := range opts {
@@ -176,7 +146,7 @@ func NewStoreWithDecryptSecretsFn(lggr logger.Logger, orm WorkflowRegistryDS, fe
 // workflow are available from the store.
 func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
 	// Check if the workflow spec is already stored in the database
-	if spec, err := h.orm.GetWorkflowSpecByID(ctx, workflowID); err == nil {
+	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil {
 		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
 		decodedBinary, err := hex.DecodeString(spec.Workflow)
 		if err != nil {
@@ -221,177 +191,18 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	return decodedBinary, config, nil
 }
 
-func (h *Store) GetSecrets(ctx context.Context, secretsURL string, workflowID [32]byte, workflowOwner []byte) ([]byte, error) {
-	wid := hex.EncodeToString(workflowID[:])
-	req := ghcapabilities.Request{
-		URL:              secretsURL,
-		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(h.limits.MaxSecretsSize),
-		WorkflowID:       wid,
-	}
-	fetchedSecrets, fetchErr := h.fetchFn(ctx, messageID(secretsURL, wid), req)
-	if fetchErr != nil {
-		return nil, fmt.Errorf("failed to fetch secrets from %s : %w", secretsURL, fetchErr)
-	}
-
-	return fetchedSecrets, nil
-}
-
-func (h *Store) ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error {
-	_, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
-	if err != nil {
-		// The workflow record was found, but secrets_id was empty.
-		if errors.Is(err, ErrEmptySecrets) {
-			return nil
-		}
-
-		return fmt.Errorf("failed to retrieve secrets by workflow ID: %w", err)
-	}
-
-	_, decryptErr := h.decryptSecrets([]byte(secretsPayload), workflowOwner)
-	if decryptErr != nil {
-		return fmt.Errorf("failed to decrypt secrets: %w", decryptErr)
-	}
-
-	return nil
-}
-
-func (h *Store) ForceUpdateSecrets(
-	ctx context.Context,
-	secretsURLHash []byte,
-	owner []byte,
-) (string, error) {
-	// Get the URL of the secrets file from the event data
-	hash := hex.EncodeToString(secretsURLHash)
-
-	url, err := h.orm.GetSecretsURLByHash(ctx, hash)
-	if err != nil {
-		return "", fmt.Errorf("failed to get URL by hash %s : %w", hash, err)
-	}
-
-	ownerHex := hex.EncodeToString(owner)
-	req := ghcapabilities.Request{
-		URL:              url,
-		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(h.limits.MaxSecretsSize),
-		// TODO -- fix, but this is used for rate limiting purposes
-		WorkflowID: hex.EncodeToString(owner),
-	}
-	// Fetch the contents of the secrets file from the url via the fetcher
-	secrets, err := h.fetchFn(ctx, messageID(url, ownerHex), req)
-	if err != nil {
-		return "", err
-	}
-
-	// Sanity check the payload and ensure we can decrypt it.
-	// If we can't, let's return an error and we won't store the result in the DB.
-	_, err = h.decryptSecrets(secrets, hex.EncodeToString(owner))
-	if err != nil {
-		return "", fmt.Errorf("failed to validate secrets: could not decrypt: %w", err)
-	}
-
-	h.lastFetchedAtMap.Set(hash, h.clock.Now())
-
-	// Update the secrets in the ORM
-	if _, err := h.orm.Update(ctx, hash, string(secrets)); err != nil {
-		return "", fmt.Errorf("failed to update secrets: %w", err)
-	}
-
-	return string(secrets), nil
-}
-
-func (h *Store) GetSecretsURLByID(ctx context.Context, id int64) (string, error) {
-	secretsURL, err := h.orm.GetSecretsURLByID(ctx, id)
-	if err != nil {
-		return "", fmt.Errorf("failed to get secrets URL by ID: %w", err)
-	}
-	return secretsURL, nil
-}
-
-func (h *Store) GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error) {
-	spec, err := h.orm.GetWorkflowSpec(ctx, workflowOwner, workflowName)
+func (h *Store) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	spec, err := h.orm.GetWorkflowSpec(ctx, workflowID)
 	return spec, err
-}
-
-func (h *Store) GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
-	spec, err := h.orm.GetWorkflowSpecByID(ctx, workflowID)
-	return spec, err
-}
-
-func (h *Store) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	secretsURLHash, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
-	if err != nil {
-		// The workflow record was found, but secrets_id was empty.
-		// Let's just stub out the response.
-		if errors.Is(err, ErrEmptySecrets) {
-			return map[string]string{}, nil
-		}
-
-		return nil, fmt.Errorf("failed to fetch secrets by workflow ID: %w", err)
-	}
-
-	lastFetchedAt, ok := h.lastFetchedAtMap.Get(secretsURLHash)
-	if !ok || h.clock.Now().Sub(lastFetchedAt) > h.secretsFreshnessDuration {
-		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, hexWorkflowName, workflowID, secretsURLHash)
-		if innerErr != nil {
-			msg := fmt.Sprintf("could not refresh secrets: proceeding with stale secrets for workflowID %s: %s", workflowID, innerErr)
-			h.lggr.Error(msg)
-
-			logCustMsg(
-				ctx,
-				h.emitter.With(
-					platform.KeyWorkflowID, workflowID,
-					platform.KeyWorkflowName, decodedWorkflowName,
-					platform.KeyWorkflowOwner, workflowOwner,
-				),
-				msg,
-				h.lggr,
-			)
-		} else {
-			secretsPayload = updatedSecrets
-		}
-	}
-
-	return h.decryptSecrets([]byte(secretsPayload), workflowOwner)
-}
-
-func (h *Store) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return h.orm.UpsertWorkflowSpecUniqueID(ctx, spec)
 }
 
 func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	return h.orm.UpsertWorkflowSpec(ctx, spec)
 }
 
-func (h *Store) UpsertWorkflowSpecWithSecrets(ctx context.Context, entry *job.WorkflowSpec, secretsURL, urlHash, secrets string) (int64, error) {
-	return h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, secretsURL, urlHash, secrets)
-}
-
-func (h *Store) GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error) {
-	urlHash, err := h.orm.GetSecretsURLHash(workflowOwner, secretsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secrets URL hash: %w", err)
-	}
-	return urlHash, nil
-}
-
 // DeleteWorkflowArtifacts removes the workflow spec from the database. If not found, returns nil.
-func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowOwner string, workflowName string, workflowID string) error {
-	err := h.orm.DeleteWorkflowSpec(ctx, workflowOwner, workflowName)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
-			return nil
-		}
-		return fmt.Errorf("failed to delete workflow spec: %w", err)
-	}
-
-	return nil
-}
-
-// DeleteWorkflowArtifacts removes the workflow spec from the database. If not found, returns nil.
-func (h *Store) DeleteWorkflowArtifactsByID(ctx context.Context, workflowID string) error {
-	err := h.orm.DeleteWorkflowSpecByID(ctx, workflowID)
+func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error {
+	err := h.orm.DeleteWorkflowSpec(ctx, workflowID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
@@ -404,7 +215,7 @@ func (h *Store) DeleteWorkflowArtifactsByID(ctx context.Context, workflowID stri
 }
 
 func (h *Store) GetWasmBinary(ctx context.Context, workflowID string) ([]byte, error) {
-	spec, err := h.orm.GetWorkflowSpecByID(ctx, workflowID)
+	spec, err := h.orm.GetWorkflowSpec(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow spec by workflow ID: %w", err)
 	}
@@ -416,26 +227,6 @@ func (h *Store) GetWasmBinary(ctx context.Context, workflowID string) ([]byte, e
 	}
 
 	return decodedBinary, nil
-}
-
-func (h *Store) refreshSecrets(ctx context.Context, workflowOwner, workflowName, workflowID, secretsURLHash string) (string, error) {
-	owner, err := hex.DecodeString(workflowOwner)
-	if err != nil {
-		return "", err
-	}
-
-	decodedHash, err := hex.DecodeString(secretsURLHash)
-	if err != nil {
-		return "", err
-	}
-
-	updatedSecrets, err := h.ForceUpdateSecrets(
-		ctx, decodedHash, owner)
-	if err != nil {
-		return "", err
-	}
-
-	return updatedSecrets, nil
 }
 
 func messageID(url string, parts ...string) string {

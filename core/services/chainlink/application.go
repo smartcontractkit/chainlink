@@ -88,6 +88,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -770,7 +772,7 @@ type CREOpts struct {
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
-	FetcherFunc      artifacts.FetcherFunc
+	FetcherFunc      artifactsV1.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
 
 	BillingClient metering.BillingClient
@@ -944,7 +946,7 @@ func newCREServices(
 
 				switch wrVersion.Major() {
 				case 1:
-					var fetcherFunc artifacts.FetcherFunc
+					var fetcherFunc artifactsV1.FetcherFunc
 					if opts.FetcherFunc == nil {
 						if gatewayConnectorWrapper == nil {
 							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
@@ -956,10 +958,10 @@ func newCREServices(
 						fetcherFunc = opts.FetcherFunc
 					}
 
-					artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
+					artifactsStore := artifactsV1.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
-						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
-							artifacts.ArtifactConfig{
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV1.WithMaxArtifactSize(
+							artifactsV1.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
@@ -1004,22 +1006,18 @@ func newCREServices(
 					globalLogger.Debugw("Created WorkflowRegistrySyncer V1")
 
 				case 2:
-					var fetcherFunc artifacts.FetcherFunc
-					if opts.FetcherFunc == nil {
-						if gatewayConnectorWrapper == nil {
-							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
-						}
-						fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper)
-						fetcherFunc = fetcher.Fetch
-						srvcs = append(srvcs, fetcher)
-					} else {
-						fetcherFunc = opts.FetcherFunc
+					// TODO: CAPPL-1031 refactor fetcher to use Storage service instead of Gateway
+					if gatewayConnectorWrapper == nil {
+						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
 					}
+					fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper)
+					fetcherFunc := fetcher.Fetch
+					srvcs = append(srvcs, fetcher)
 
-					artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
+					artifactsStore := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
-						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
-							artifacts.ArtifactConfig{
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
+							artifactsV2.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),

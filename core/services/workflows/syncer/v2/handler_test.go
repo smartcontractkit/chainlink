@@ -26,10 +26,10 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -140,7 +140,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
-		dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), wfName)
+		dbSpec, err := s.GetWorkflowSpec(ctx, wfID.Hex())
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 		require.Equal(t, wfName, dbSpec.WorkflowName)
@@ -180,7 +180,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -215,7 +215,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -242,7 +242,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -271,7 +271,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -301,7 +301,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -335,12 +335,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(1),
+					Status:        WorkflowStatusPaused,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					ConfigURL:     configURL,
+				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher) {
@@ -348,7 +349,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.NoError(t, err)
 
 				// Verify the record is updated in the database
-				dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+				dbSpec, err := s.GetWorkflowSpec(ctx, wfID.Hex())
 				require.NoError(t, err)
 				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 				require.Equal(t, workflowName, dbSpec.WorkflowName)
@@ -374,7 +375,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -402,7 +403,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.NoError(t, err)
 
 				// Verify the record is updated in the database
-				dbSpec, err := s.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), workflowName)
+				dbSpec, err := s.GetWorkflowSpec(ctx, wfID.Hex())
 				require.NoError(t, err)
 				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 				require.Equal(t, workflowName, dbSpec.WorkflowName)
@@ -435,7 +436,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -479,7 +480,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			Event: func(wfID []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
-					Status:        uint8(0),
+					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
@@ -565,46 +566,18 @@ type mockArtifactStore struct {
 func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
 	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 }
-func (m *mockArtifactStore) GetWorkflowSpecByID(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
-	return m.artifactStore.GetWorkflowSpecByID(ctx, workflowID)
+func (m *mockArtifactStore) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	return m.artifactStore.GetWorkflowSpec(ctx, workflowID)
 }
-func (m *mockArtifactStore) UpsertWorkflowSpecUniqueID(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
-	return m.artifactStore.UpsertWorkflowSpecUniqueID(ctx, spec)
+func (m *mockArtifactStore) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
+	return m.artifactStore.UpsertWorkflowSpec(ctx, spec)
 }
-func (m *mockArtifactStore) UpsertWorkflowSpecWithSecrets(ctx context.Context, entry *job.WorkflowSpec, secretsURL, urlHash, secrets string) (int64, error) {
-	return m.artifactStore.UpsertWorkflowSpecWithSecrets(ctx, entry, secretsURL, urlHash, secrets)
-}
-func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflowOwner string, workflowName string, workflowID string) error {
+func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error {
 	if m.deleteWorkflowArtifactsErr != nil {
 		return m.deleteWorkflowArtifactsErr
 	}
-	return m.artifactStore.DeleteWorkflowArtifacts(ctx, workflowOwner, workflowName, workflowID)
+	return m.artifactStore.DeleteWorkflowArtifacts(ctx, workflowID)
 }
-func (m *mockArtifactStore) DeleteWorkflowArtifactsByID(ctx context.Context, workflowID string) error {
-	if m.deleteWorkflowArtifactsErr != nil {
-		return m.deleteWorkflowArtifactsErr
-	}
-	return m.artifactStore.DeleteWorkflowArtifactsByID(ctx, workflowID)
-}
-func (m *mockArtifactStore) GetSecrets(ctx context.Context, secretsURL string, workflowID [32]byte, workflowOwner []byte) ([]byte, error) {
-	return m.artifactStore.GetSecrets(ctx, secretsURL, workflowID, workflowOwner)
-}
-func (m *mockArtifactStore) ValidateSecrets(ctx context.Context, workflowID, workflowOwner string) error {
-	return m.artifactStore.ValidateSecrets(ctx, workflowID, workflowOwner)
-}
-func (m *mockArtifactStore) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	return m.artifactStore.SecretsFor(ctx, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID)
-}
-func (m *mockArtifactStore) GetSecretsURLHash(workflowOwner []byte, secretsURL []byte) ([]byte, error) {
-	return m.artifactStore.GetSecretsURLHash(workflowOwner, secretsURL)
-}
-func (m *mockArtifactStore) GetSecretsURLByID(ctx context.Context, id int64) (string, error) {
-	return m.artifactStore.GetSecretsURLByID(ctx, id)
-}
-func (m *mockArtifactStore) ForceUpdateSecrets(ctx context.Context, secretsURLHash []byte, owner []byte) (string, error) {
-	return m.artifactStore.ForceUpdateSecrets(ctx, secretsURLHash, owner)
-}
-
 func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error) WorkflowArtifactsStore {
 	return &mockArtifactStore{
 		artifactStore:              as,
@@ -639,7 +612,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		active := WorkflowRegisteredEvent{
-			Status:        uint8(0),
+			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -663,7 +636,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
-		dbSpec, err := orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		dbSpec, err := orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
@@ -682,7 +655,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
-		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		_, err = orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.Error(t, err)
 
 		// Verify the engine is deleted
@@ -734,7 +707,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
-		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		_, err = orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.Error(t, err)
 	})
 
@@ -766,7 +739,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		active := WorkflowRegisteredEvent{
-			Status:        uint8(0),
+			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
@@ -793,7 +766,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
-		dbSpec, err := orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		dbSpec, err := orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
@@ -812,7 +785,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err, failWith)
 
 		// Verify the record is still in the DB
-		_, err = orm.GetWorkflowSpec(ctx, hex.EncodeToString(wfOwner), "workflow-name")
+		_, err = orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.NoError(t, err)
 
 		// Verify the engine is still running
