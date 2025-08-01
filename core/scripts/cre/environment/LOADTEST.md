@@ -17,7 +17,7 @@ Ensure you have the following installed:
 
 ## 1. Build the Docker Plugin-testing Image
 
-We’ll use the `-testing` image variant, which includes the required capabilities and mock support. Note that this instalations relays on the fact that the mock capability is already installed in the image.
+We’ll use the `-testing` image variant, which includes the required capabilities and mock support. Note that this installations relays on the fact that the mock capability is already installed in the image.
 
 ```bash
 CL_INSTALL_PRIVATE_PLUGINS=true \
@@ -163,13 +163,13 @@ brew install chipmk/tap/docker-mac-net-connect
 brew services start chipmk/tap/docker-mac-net-connect
 ```
 
-At the moment we have to fetch the capabilities-node container image manualy, best way to do it is by running 
+At the moment we have to fetch the capabilities-node container image manually, best way to do it is by running 
 ```base
 docker inspect capabilities-node0 | grep "IPAddress"
 docker inspect capabilities-node1 | grep "IPAddress"
 docker inspect capabilities-node1 | grep "IPAddress"
 ```
-These IP addresses are requiered in order to connect to the mock capability, the cli command will expect a list of IP:PORT values. The mock capability service is exposed on port 7777 so that will be the port for all IPs
+These IP addresses are required in order to connect to the mock capability, the cli command will expect a list of IP:PORT values. The mock capability service is exposed on port 7777 so that will be the port for all IPs
 
 ### Register Mock Implementations
 
@@ -178,16 +178,16 @@ go run main.go mock create \
   --id="write_ethereum-testnet-sepolia@1.0.0" \
   --description="mock target" \
   --type="target" \
-  --addresses="<ADDRESSES FROM THE PREVIOS STEP IN FORMAT: IP:PORT,IP:PORT,IP:PORT>"
+  --addresses="<ADDRESSES FROM THE PREVIOUS STEP IN FORMAT: IP:PORT,IP:PORT,IP:PORT>"
 
 
 go run main.go mock create \
   --id="cron-trigger@1.0.0" \
   --description="mock trigger" \
   --type="trigger" \
-  --addresses="<ADDRESSES FROM THE PREVIOS STEP IN FORMAT: IP:PORT,IP:PORT,IP:PORT>"
+  --addresses="<ADDRESSES FROM THE PREVIOUS STEP IN FORMAT: IP:PORT,IP:PORT,IP:PORT>"
  
-# This is an example comand to see the expected format of the addresses
+# This is an example command to see the expected format of the addresses
 #  go run main.go mock create \
 #  --id="cron-trigger@1.0.0" \
 #  --description="mock trigger" \
