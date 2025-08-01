@@ -2,7 +2,7 @@ package vault
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -196,7 +196,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	pks := base64.StdEncoding.EncodeToString(pubK[:])
+	pks := hex.EncodeToString(pubK[:])
 
 	p := &vault.GetSecretsRequest{
 		Requests: []*vault.SecretRequest{
@@ -481,7 +481,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	pubK, privK, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	pks := base64.StdEncoding.EncodeToString(pubK[:])
+	pks := hex.EncodeToString(pubK[:])
 
 	p := &vault.GetSecretsRequest{
 		Requests: []*vault.SecretRequest{
@@ -516,12 +516,12 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 
 	assert.Empty(t, resp.GetError())
 
-	assert.Equal(t, base64.StdEncoding.EncodeToString(ciphertextBytes), resp.GetData().EncryptedValue)
+	assert.Equal(t, hex.EncodeToString(ciphertextBytes), resp.GetData().EncryptedValue)
 
 	assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, 1)
 	shareString := resp.GetData().EncryptedDecryptionKeyShares[0].Shares[0]
 
-	share, err := base64.StdEncoding.DecodeString(shareString)
+	share, err := hex.DecodeString(shareString)
 	require.NoError(t, err)
 	msg, ok := box.OpenAnonymous(nil, share, pubK, privK)
 	assert.True(t, ok)
@@ -531,7 +531,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	ct := &tdh2easy.Ciphertext{}
-	ctb, err := base64.StdEncoding.DecodeString(resp.GetData().EncryptedValue)
+	ctb, err := hex.DecodeString(resp.GetData().EncryptedValue)
 	require.NoError(t, err)
 	err = ct.UnmarshalVerify(ctb, pk)
 	require.NoError(t, err)
@@ -746,7 +746,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id1,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -769,7 +769,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id2,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -875,7 +875,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "invalid base64 encoding for ciphertext")
+	assert.Contains(t, resp.GetError(), "invalid hex encoding for ciphertext")
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
@@ -911,7 +911,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertext),
+				EncryptedValue: hex.EncodeToString(ciphertext),
 			},
 		},
 	}
@@ -983,7 +983,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -1062,7 +1062,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -1144,7 +1144,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -1220,7 +1220,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
@@ -1790,7 +1790,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 		Key:       "secret",
 	}
 	value := []byte("encrypted-value")
-	enc := base64.StdEncoding.EncodeToString(value)
+	enc := hex.EncodeToString(value)
 	req := &vault.CreateSecretsRequest{
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{

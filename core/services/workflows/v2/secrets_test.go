@@ -2,7 +2,7 @@ package v2
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"testing"
@@ -96,15 +96,15 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare2),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare2),
+											hex.EncodeToString(encryptedDecryptionShare1),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -118,15 +118,15 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString([]byte("junk value")),
+											hex.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString([]byte("junk value")),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -140,14 +140,14 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare0),
 											// deliberately supplying less than threshold shares
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -340,7 +340,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares:        []string{"encryptedShare1"},
-										EncryptionKey: base64.StdEncoding.EncodeToString([]byte{}),
+										EncryptionKey: hex.EncodeToString([]byte{}),
 									},
 								},
 							},
@@ -432,13 +432,13 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedPrivateShare0),
+											hex.EncodeToString(encryptedPrivateShare0),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -548,7 +548,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 	}
 
 	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": base64.StdEncoding.EncodeToString(vaultPublicKey),
+		"VaultPublicKey": hex.EncodeToString(vaultPublicKey),
 	})
 	require.NoError(t, err)
 	config := &capabilitiespb.CapabilityConfig{
