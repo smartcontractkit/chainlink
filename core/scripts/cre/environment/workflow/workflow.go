@@ -271,6 +271,7 @@ func init() {
 	WorkflowCmd.PersistentFlags().StringVar(&contractAddress, "contract", "", "Workflow Registry contract address (optional if in config)")
 
 	// Register command flags
+	registerCmd.Flags().StringVar(&workflowID, "id", "", "Workflow id")
 	registerCmd.Flags().StringVar(&workflowName, "name", "", "Workflow name (required)")
 	registerCmd.Flags().StringVar(&binaryURL, "binary-url", "", "URL to workflow binary WASM file (required)")
 	registerCmd.Flags().StringVar(&configURL, "config-url", "", "URL to workflow configuration file")
@@ -279,6 +280,7 @@ func init() {
 	registerCmd.Flags().Uint32Var(&donID, "don-id", 1, "DON ID where the workflow will run")
 	// Required
 	if err := MarkFlagsRequired(registerCmd,
+		"id",
 		"name",
 		"binary-url",
 		"config-url",
