@@ -164,14 +164,8 @@ func getFChainValuesFromTiers(selectors []uint64, fChain uint8) map[cciptypes.Ch
 	return fChainValues
 }
 
-// getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied ChainTiers
-// We need this because chainselectors are unsorted and nondeterministic in crib, but evmChainID is deterministic
-// In order to have a deterministic order of the first 'n' chains organized into tiers, we need to sort chainIDs into tiers and then convert them to selectors
-// We also 'prioritize' home,feed selectors and aptos assuming they will always be 'high' value chains
-func getTierChainSelectors(allSelectors []uint64, tierConfigs *[]TierConfigs) [][]uint64 {
-	if len(*tierConfigs) == 0 {
-		return [][]uint64{}
-	}
+// getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied number of high and low tier chains.
+func getTierChainSelectors(allSelectors []uint64, highTierCount, lowTierCount int) ([]uint64, []uint64) {
 	// we prioritize home selector, simulated solana, and evm feed selectors
 	prioritySelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
 	orderedSelectors := make([]uint64, 0, len(allSelectors))
@@ -189,13 +183,5 @@ func getTierChainSelectors(allSelectors []uint64, tierConfigs *[]TierConfigs) []
 		evmChainID++
 	}
 
-	tieredSelectors := make([][]uint64, len(*tierConfigs))
-	startIndex, endIndex := 0, 0
-	for ind, tier := range *tierConfigs {
-		tieredSelectors[ind] = make([]uint64, 0)
-		startIndex = endIndex
-		endIndex += tier.NumChains
-		tieredSelectors[ind] = orderedSelectors[startIndex:endIndex]
-	}
-	return tieredSelectors
+	return orderedSelectors[0:highTierCount], orderedSelectors[highTierCount : highTierCount+lowTierCount]
 }

@@ -13,75 +13,65 @@ func Test_getTierChainSelectors(t *testing.T) {
 	allSelectors := append(otherSelectors, defaultSelectors...)
 
 	tests := []struct {
-		name           string
-		inputSelectors []uint64
-		chainTiers     []TierConfigs
-		wantTiers      [][]uint64
+		name                 string
+		inputSelectors       []uint64
+		highTierCount        int
+		lowTierCount         int
+		expectedHighTierSels []uint64
+		expectedLowTierSels  []uint64
 	}{
 		{
-			name:           "single tier, all selectors",
-			inputSelectors: allSelectors,
-			chainTiers:     []TierConfigs{{NumChains: len(allSelectors)}},
-			wantTiers:      [][]uint64{{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834}},
+			name:                 "single tier, all selectors",
+			inputSelectors:       allSelectors,
+			highTierCount:        len(allSelectors),
+			expectedHighTierSels: []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834},
+			expectedLowTierSels:  []uint64{},
 		},
 		{
-			name:           "two tiers, split",
-			inputSelectors: allSelectors,
-			chainTiers:     []TierConfigs{{NumChains: 4}, {NumChains: 4}},
-			wantTiers: [][]uint64{
-				{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123},
-				{5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834},
-			},
+			name:                 "two tiers, split",
+			inputSelectors:       allSelectors,
+			highTierCount:        4,
+			lowTierCount:         4,
+			expectedHighTierSels: []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123},
+			expectedLowTierSels:  []uint64{5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834},
 		},
 		{
-			name:           "fewer than priority selectors ",
-			inputSelectors: allSelectors,
-			chainTiers:     []TierConfigs{{NumChains: 2}, {NumChains: 6}},
-			wantTiers: [][]uint64{
-				{3379446385462418246, 12463857294658392847},
-				{12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834},
-			},
+			name:                 "fewer than priority selectors ",
+			inputSelectors:       allSelectors,
+			highTierCount:        2,
+			lowTierCount:         6,
+			expectedHighTierSels: []uint64{3379446385462418246, 12463857294658392847},
+			expectedLowTierSels:  []uint64{12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046, 5721565186521185178, 964127714438319834},
 		},
 		{
-			name:           "fewer than all selectors ",
-			inputSelectors: []uint64{12463857294658392847, 3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741},
-			chainTiers:     []TierConfigs{{NumChains: 3}, {NumChains: 2}},
-			wantTiers: [][]uint64{
-				{3379446385462418246, 12463857294658392847, 12922642891491394802},
-				{909606746561742123, 5548718428018410741},
-			},
+			name:                 "fewer than all selectors ",
+			inputSelectors:       []uint64{12463857294658392847, 3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741},
+			highTierCount:        3,
+			lowTierCount:         2,
+			expectedHighTierSels: []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802},
+			expectedLowTierSels:  []uint64{909606746561742123, 5548718428018410741},
 		},
 		{
-			name:           "evm only",
-			inputSelectors: []uint64{3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046},
-			chainTiers:     []TierConfigs{{NumChains: 3}, {NumChains: 2}},
-			wantTiers: [][]uint64{
-				{3379446385462418246, 12922642891491394802, 909606746561742123},
-				{5548718428018410741, 789068866484373046},
-			},
+			name:                 "evm only",
+			inputSelectors:       []uint64{3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046},
+			highTierCount:        3,
+			lowTierCount:         2,
+			expectedHighTierSels: []uint64{3379446385462418246, 12922642891491394802, 909606746561742123},
+			expectedLowTierSels:  []uint64{5548718428018410741, 789068866484373046},
 		},
 		{
-			name:           "no tiers",
-			inputSelectors: []uint64{3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046},
-			chainTiers:     nil,
-			wantTiers:      [][]uint64{},
-		},
-		{
-			name:           "three tiers",
-			inputSelectors: []uint64{3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046},
-			chainTiers:     []TierConfigs{{NumChains: 2}, {NumChains: 2}, {NumChains: 1}},
-			wantTiers: [][]uint64{
-				{3379446385462418246, 12922642891491394802},
-				{909606746561742123, 5548718428018410741},
-				{789068866484373046},
-			},
+			name:                 "no tiers",
+			inputSelectors:       []uint64{3379446385462418246, 12922642891491394802, 909606746561742123, 5548718428018410741, 789068866484373046},
+			expectedHighTierSels: []uint64{},
+			expectedLowTierSels:  []uint64{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTierChainSelectors(tt.inputSelectors, &tt.chainTiers)
-			assert.Equal(t, tt.wantTiers, got)
+			highTierSels, lowTierSels := getTierChainSelectors(tt.inputSelectors, tt.highTierCount, tt.lowTierCount)
+			assert.Equal(t, tt.expectedHighTierSels, highTierSels)
+			assert.Equal(t, tt.expectedLowTierSels, lowTierSels)
 		})
 	}
 }
