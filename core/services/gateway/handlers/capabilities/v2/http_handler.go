@@ -237,7 +237,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
-		// not cancelled whenn parent is cancelled to ensure the goroutine can finish
+		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
