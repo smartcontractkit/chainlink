@@ -889,6 +889,14 @@ func newCREServices(
 			}
 
 			workflowDonNotifier := capabilities.NewDonNotifier()
+			wfLauncher := capabilities.NewLauncher(
+				globalLogger,
+				externalPeerWrapper,
+				dispatcher,
+				opts.CapabilitiesRegistry,
+				workflowDonNotifier,
+			)
+
 			switch externalRegistryVersion.Major() {
 			case 1:
 				registrySyncer, err := registrysyncerV1.New(
@@ -909,15 +917,7 @@ func newCREServices(
 					return nil, fmt.Errorf("could not configure syncer: %w", err)
 				}
 
-				wfLauncher := capabilities.NewLauncher(
-					globalLogger,
-					externalPeerWrapper,
-					dispatcher,
-					opts.CapabilitiesRegistry,
-					workflowDonNotifier,
-				)
 				registrySyncer.AddListener(wfLauncher)
-
 				srvcs = append(srvcs, wfLauncher, registrySyncer)
 			case 2:
 				registrySyncer, err := registrysyncerV2.New(
@@ -938,15 +938,7 @@ func newCREServices(
 					return nil, fmt.Errorf("could not configure syncer: %w", err)
 				}
 
-				wfLauncher := capabilities.NewLauncher(
-					globalLogger,
-					externalPeerWrapper,
-					dispatcher,
-					opts.CapabilitiesRegistry,
-					workflowDonNotifier,
-				)
 				registrySyncer.AddListener(wfLauncher)
-
 				srvcs = append(srvcs, wfLauncher, registrySyncer)
 			default:
 				return nil, fmt.Errorf("could not configure capability registry syncer with version: %d", externalRegistryVersion.Major())
