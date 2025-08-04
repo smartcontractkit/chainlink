@@ -11,6 +11,7 @@ import (
 
 // responseCache is a thread-safe cache for storing HTTP responses.
 // It uses a map to store responses keyed by a unique identifier generated from the request
+// cache key is prefixed by workflowID to avoid collisions between different workflows.
 type responseCache struct {
 	cacheMu sync.Mutex
 	cache   map[string]*cachedResponse
@@ -40,7 +41,8 @@ func isCacheableStatusCode(statusCode int) bool {
 // isExpiredOrNotCached returns true if the cached response is expired or not cached.
 // It does not lock the cache map.
 func (rc *responseCache) isExpiredOrNotCached(workflowID string, req gateway.OutboundHTTPRequest) bool {
-	cachedResp, exists := rc.cache[req.Hash()]
+	key := cacheKey(workflowID, req)
+	cachedResp, exists := rc.cache[key]
 	if !exists || time.Now().After(cachedResp.storedAt.Add(rc.ttl)) {
 		return true
 	}
@@ -51,6 +53,10 @@ func cacheKey(workflowID string, req gateway.OutboundHTTPRequest) string {
 	return fmt.Sprintf("%s:%s", workflowID, req.Hash())
 }
 
+// CachedFetch fetches a response from the cache if it exists and
+// the age of cached response is less than the max age of the request.
+// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
+// and caches the response if it is cacheable.
 func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
@@ -70,6 +76,7 @@ func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTP
 	return response
 }
 
+// Set caches a response if it is cacheable (2xx or 4xx and cache is empty or expired for the given request)
 func (rc *responseCache) Set(workflowID string, req gateway.OutboundHTTPRequest, response gateway.OutboundHTTPResponse) {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
