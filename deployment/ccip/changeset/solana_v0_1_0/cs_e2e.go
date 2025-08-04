@@ -7,7 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -25,7 +25,6 @@ import (
 var _ cldf.ChangeSet[E2ETokenPoolConfig] = E2ETokenPool
 
 type E2ETokenPoolConfig struct {
-	InitializeGlobalTokenPoolConfig       []TokenPoolConfigWithMCM
 	AddTokenPoolAndLookupTable            []AddTokenPoolAndLookupTableConfig
 	RegisterTokenAdminRegistry            []RegisterTokenAdminRegistryConfig
 	AcceptAdminRoleTokenAdminRegistry     []AcceptAdminRoleTokenAdminRegistryConfig

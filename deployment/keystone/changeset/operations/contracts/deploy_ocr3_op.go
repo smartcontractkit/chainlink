@@ -18,6 +18,7 @@ type DeployOCR3OpDeps struct {
 
 type DeployOCR3OpInput struct {
 	ChainSelector uint64
+	Qualifier     string
 }
 
 type DeployOCR3OpOutput struct {
@@ -32,7 +33,8 @@ var DeployOCR3Op = operations.NewOperation[DeployOCR3OpInput, DeployOCR3OpOutput
 	"Deploy OCR3 Contract",
 	func(b operations.Bundle, deps DeployOCR3OpDeps, input DeployOCR3OpInput) (DeployOCR3OpOutput, error) {
 		ocr3Output, err := changeset.DeployOCR3V2(*deps.Env, &changeset.DeployRequestV2{
-			ChainSel: input.ChainSelector,
+			ChainSel:  input.ChainSelector,
+			Qualifier: input.Qualifier,
 		})
 		if err != nil {
 			return DeployOCR3OpOutput{}, fmt.Errorf("DeployOCR3Op error: failed to deploy OCR3 contract: %w", err)
