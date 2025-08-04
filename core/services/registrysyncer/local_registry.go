@@ -36,13 +36,11 @@ type NodeInfo struct {
 	P2pID               [32]byte
 	EncryptionPublicKey [32]byte
 	CapabilitiesDONIds  []*big.Int
-
-	// V1 specific fields
 	HashedCapabilityIDs [][32]byte
+	CapabilityIDs       []string
 
 	// V2 specific fields
-	CapabilityIDs []string
-	CsaKey        [32]byte
+	CsaKey [32]byte
 }
 
 type LocalRegistry struct {
@@ -201,6 +199,7 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIDs)),
 			CapabilityIDs:       make([]string, len(node.CapabilityIDs)),
 			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
+			CsaKey:              node.CsaKey,
 		}
 		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIDs)
 		copy(nodeInfo.CapabilityIDs, node.CapabilityIDs)

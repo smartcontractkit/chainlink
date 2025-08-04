@@ -225,6 +225,10 @@ func TestReader_Integration(t *testing.T) {
 	encPubKey2 := randomWord()
 	encPubKey3 := randomWord()
 
+	csaKey1 := randomWord()
+	csaKey2 := randomWord()
+	csaKey3 := randomWord()
+
 	// V2 nodes use string capability IDs and require CsaKey
 	nodes := []capabilities_registry_v2.CapabilitiesRegistryNodeParams{
 		{
@@ -232,7 +236,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
 			EncryptionPublicKey: encPubKey1,
-			CsaKey:              randomWord(),
+			CsaKey:              csaKey1,
 			CapabilityIds:       []string{cid},
 		},
 		{
@@ -240,7 +244,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
 			EncryptionPublicKey: encPubKey2,
-			CsaKey:              randomWord(),
+			CsaKey:              csaKey2,
 			CapabilityIds:       []string{cid},
 		},
 		{
@@ -248,7 +252,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
 			EncryptionPublicKey: encPubKey3,
-			CsaKey:              randomWord(),
+			CsaKey:              csaKey3,
 			CapabilityIds:       []string{cid},
 		},
 	}
@@ -351,6 +355,7 @@ func TestReader_Integration(t *testing.T) {
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
 			HashedCapabilityIDs: [][32]byte{hashedID},
+			CsaKey:              csaKey1,
 		},
 		{
 			NodeOperatorID:      uint32(1),
@@ -362,6 +367,7 @@ func TestReader_Integration(t *testing.T) {
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
 			HashedCapabilityIDs: [][32]byte{hashedID},
+			CsaKey:              csaKey2,
 		},
 		{
 			NodeOperatorID:      uint32(1),
@@ -373,6 +379,7 @@ func TestReader_Integration(t *testing.T) {
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
 			CapabilitiesDONIds:  []*big.Int{},
 			HashedCapabilityIDs: [][32]byte{hashedID},
+			CsaKey:              csaKey3,
 		},
 	}
 
