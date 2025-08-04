@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v5"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +22,7 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 
 		signature, err := sm.Sign(signingString, privateKey)
 		require.NoError(t, err)
-		assert.Len(t, signature, 65)
+		require.Len(t, signature, 65)
 	})
 
 	t.Run("invalid key type", func(t *testing.T) {
@@ -31,8 +30,8 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 		signingString := "test.signing.string"
 
 		signature, err := sm.Sign(signingString, "invalid-key")
-		assert.Nil(t, signature)
-		assert.Equal(t, jwt.ErrInvalidKeyType, err)
+		require.Nil(t, signature)
+		require.Equal(t, jwt.ErrInvalidKeyType, err)
 	})
 }
 
@@ -49,7 +48,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 		require.NoError(t, err)
 
 		err = sm.Verify(signingString, signature, address)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("wrong address", func(t *testing.T) {
@@ -61,7 +60,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 
 		wrongAddress := gethcommon.HexToAddress("0x3E1Cc9C5aBEa1B87f9C918A7160A37a182f27e8b")
 		err = sm.Verify(signingString, signature, wrongAddress)
-		assert.Equal(t, jwt.ErrSignatureInvalid, err)
+		require.Equal(t, jwt.ErrSignatureInvalid, err)
 	})
 
 	t.Run("invalid key type", func(t *testing.T) {
@@ -70,7 +69,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 		signature := make([]byte, 65)
 
 		err := sm.Verify(signingString, signature, "invalid-key")
-		assert.Equal(t, jwt.ErrInvalidKeyType, err)
+		require.Equal(t, jwt.ErrInvalidKeyType, err)
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
@@ -79,7 +78,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 		invalidSignature := make([]byte, 64) // Wrong length
 
 		err := sm.Verify(signingString, invalidSignature, address)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -90,7 +89,7 @@ func TestWithExpiry(t *testing.T) {
 	WithExpiry(duration)(opts)
 
 	require.NotNil(t, opts.expiryDuration)
-	assert.Equal(t, duration, *opts.expiryDuration)
+	require.Equal(t, duration, *opts.expiryDuration)
 }
 
 func TestWithIssuer(t *testing.T) {
@@ -100,7 +99,7 @@ func TestWithIssuer(t *testing.T) {
 	WithIssuer(issuer)(opts)
 
 	require.NotNil(t, opts.issuer)
-	assert.Equal(t, issuer, *opts.issuer)
+	require.Equal(t, issuer, *opts.issuer)
 }
 
 func TestWithAudience(t *testing.T) {
@@ -109,7 +108,7 @@ func TestWithAudience(t *testing.T) {
 
 	WithAudience(audience)(opts)
 
-	assert.Equal(t, audience, opts.audience)
+	require.Equal(t, audience, opts.audience)
 }
 
 func TestWithSubject(t *testing.T) {
@@ -119,7 +118,7 @@ func TestWithSubject(t *testing.T) {
 	WithSubject(subject)(opts)
 
 	require.NotNil(t, opts.subject)
-	assert.Equal(t, subject, *opts.subject)
+	require.Equal(t, subject, *opts.subject)
 }
 
 func testRequest(t *testing.T) jsonrpc.Request[json.RawMessage] {
@@ -138,18 +137,18 @@ func TestCreateRequestJWT(t *testing.T) {
 	t.Run("default options", func(t *testing.T) {
 		token, err := CreateRequestJWT(req)
 		require.NoError(t, err)
-		assert.NotNil(t, token)
+		require.NotNil(t, token)
 
 		claims, ok := token.Claims.(JWTClaims)
 		require.True(t, ok)
 		digest, err := req.Digest()
 		require.NoError(t, err)
-		assert.Equal(t, "0x"+digest, claims.Digest)
-		assert.Equal(t, "", claims.Issuer)
-		assert.Equal(t, "", claims.Subject)
-		assert.Empty(t, claims.Audience)
-		assert.NotNil(t, claims.ExpiresAt)
-		assert.NotNil(t, claims.IssuedAt)
+		require.Equal(t, "0x"+digest, claims.Digest)
+		require.Equal(t, "", claims.Issuer)
+		require.Equal(t, "", claims.Subject)
+		require.Empty(t, claims.Audience)
+		require.NotNil(t, claims.ExpiresAt)
+		require.NotNil(t, claims.IssuedAt)
 	})
 
 	t.Run("with custom options", func(t *testing.T) {
@@ -168,13 +167,13 @@ func TestCreateRequestJWT(t *testing.T) {
 
 		claims, ok := token.Claims.(JWTClaims)
 		require.True(t, ok)
-		assert.Equal(t, issuer, claims.Issuer)
-		assert.Equal(t, subject, claims.Subject)
-		assert.Equal(t, jwt.ClaimStrings(audience), claims.Audience)
+		require.Equal(t, issuer, claims.Issuer)
+		require.Equal(t, subject, claims.Subject)
+		require.Equal(t, jwt.ClaimStrings(audience), claims.Audience)
 
 		// Verify expiry duration
 		expectedExpiry := claims.IssuedAt.Add(customExpiry)
-		assert.Equal(t, expectedExpiry.Unix(), claims.ExpiresAt.Unix())
+		require.Equal(t, expectedExpiry.Unix(), claims.ExpiresAt.Unix())
 	})
 }
 
@@ -183,23 +182,23 @@ func TestSplitToken(t *testing.T) {
 		tokenString := "header.payload.signature"
 
 		signedString, signature, err := splitToken(tokenString)
-		assert.NoError(t, err)
-		assert.Equal(t, "header.payload", signedString)
-		assert.Equal(t, "signature", signature)
+		require.NoError(t, err)
+		require.Equal(t, "header.payload", signedString)
+		require.Equal(t, "signature", signature)
 	})
 
 	t.Run("invalid token format - too few parts", func(t *testing.T) {
 		tokenString := "header.payload"
 
 		_, _, err := splitToken(tokenString)
-		assert.EqualError(t, err, "invalid JWT format: expected 3 parts")
+		require.EqualError(t, err, "invalid JWT format: expected 3 parts")
 	})
 
 	t.Run("invalid token format - too many parts", func(t *testing.T) {
 		tokenString := "header.payload.signature.extra"
 
 		_, _, err := splitToken(tokenString)
-		assert.EqualError(t, err, "invalid JWT format: expected 3 parts")
+		require.EqualError(t, err, "invalid JWT format: expected 3 parts")
 	})
 }
 
@@ -220,18 +219,18 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
-		assert.Equal(t, expectedAddr, recoveredAddr)
+		require.Equal(t, expectedAddr, recoveredAddr)
 		digest, err := req.Digest()
 		require.NoError(t, err)
-		assert.Equal(t, "0x"+digest, claims.Digest)
+		require.Equal(t, "0x"+digest, claims.Digest)
 	})
 
 	t.Run("invalid token format", func(t *testing.T) {
 		invalidToken := "invalid.token"
 
 		_, _, err := VerifyRequestJWT(invalidToken, req)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid JWT format")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid JWT format")
 	})
 
 	t.Run("digest mismatch", func(t *testing.T) {
@@ -250,8 +249,8 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "JWT digest does not match request digest")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JWT digest does not match request digest")
 	})
 
 	t.Run("expired token", func(t *testing.T) {
@@ -263,8 +262,8 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "token is expired")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "token is expired")
 	})
 
 	t.Run("wrong signing method", func(t *testing.T) {
@@ -282,8 +281,8 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid signature: signature length must be 65 bytes")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid signature: signature length must be 65 bytes")
 	})
 }
 
@@ -293,5 +292,5 @@ func TestSigningMethodRegistration(t *testing.T) {
 
 	ethMethod, ok := method.(*SigningMethodEth)
 	require.True(t, ok)
-	assert.Equal(t, "ETH", ethMethod.Alg())
+	require.Equal(t, "ETH", ethMethod.Alg())
 }

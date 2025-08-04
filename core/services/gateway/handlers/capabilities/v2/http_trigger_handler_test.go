@@ -568,8 +568,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		callbackCh := make(chan handlers.UserCallbackPayload, 1)
 
 		triggerReq := createTestTriggerRequest()
-		reqBytes, err := json.Marshal(triggerReq)
-		require.NoError(t, err)
+		reqBytes, err2 := json.Marshal(triggerReq)
+		require.NoError(t, err2)
 
 		rawParams := json.RawMessage(reqBytes)
 		req := &jsonrpc.Request[json.RawMessage]{
@@ -584,7 +584,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(r *jsonrpc.Request[json.RawMessage]) bool {
 			var params gateway_common.HTTPTriggerRequest
-			err := json.Unmarshal(*r.Params, &params)
+			err = json.Unmarshal(*r.Params, &params)
 			return err == nil && params.Key.PublicKey == key.PublicKey
 		})).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
@@ -602,8 +602,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		callbackCh := make(chan handlers.UserCallbackPayload, 1)
 
 		triggerReq := createTestTriggerRequest()
-		reqBytes, err := json.Marshal(triggerReq)
-		require.NoError(t, err)
+		reqBytes, err2 := json.Marshal(triggerReq)
+		require.NoError(t, err2)
 
 		rawParams := json.RawMessage(reqBytes)
 		req := &jsonrpc.Request[json.RawMessage]{
@@ -616,7 +616,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Auth failure")
+		require.Contains(t, err.Error(), "auth failure")
 
 		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
 	})
@@ -642,7 +642,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Auth failure")
+		require.Contains(t, err.Error(), "auth failure")
 
 		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
 	})
@@ -656,8 +656,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 			},
 			Input: []byte(`{"key": "value"}`),
 		}
-		reqBytes, err := json.Marshal(triggerReq)
-		require.NoError(t, err)
+		reqBytes, err2 := json.Marshal(triggerReq)
+		require.NoError(t, err2)
 
 		rawParams := json.RawMessage(reqBytes)
 		req := &jsonrpc.Request[json.RawMessage]{
@@ -672,7 +672,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Auth failure")
+		require.Contains(t, err.Error(), "auth failure")
 
 		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
 	})
@@ -831,23 +831,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 }
 
-// Helper functions
-
 func createTestTriggerRequest() gateway_common.HTTPTriggerRequest {
 	return gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
 			WorkflowID: "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456",
-		},
-		Input: []byte(`{"key": "value"}`),
-	}
-}
-
-func createTestTriggerRequestWithNameLookup() gateway_common.HTTPTriggerRequest {
-	return gateway_common.HTTPTriggerRequest{
-		Workflow: gateway_common.WorkflowSelector{
-			WorkflowOwner: "0x1234567890abcdef1234567890abcdef12345678",
-			WorkflowName:  "test-workflow",
-			WorkflowTag:   "v1.0",
 		},
 		Input: []byte(`{"key": "value"}`),
 	}

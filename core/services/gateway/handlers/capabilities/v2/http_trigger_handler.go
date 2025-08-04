@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -82,7 +81,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	if err := h.checkRateLimit(workflowID, req.ID, callbackCh); err != nil {
+	if err = h.checkRateLimit(workflowID, req.ID, callbackCh); err != nil {
 		return err
 	}
 
@@ -95,7 +94,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
 		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
-		return errors.Join(errors.New("Auth failure"), err)
+		return errors.Join(errors.New("auth failure"), err)
 	}
 
 	if err := h.setupCallback(req.ID, callbackCh); err != nil {
@@ -175,11 +174,7 @@ func (h *httpTriggerHandler) validateTriggerParams(triggerReq *gateway_common.HT
 		return errors.New("invalid params JSON")
 	}
 
-	if err := h.validateWorkflowFields(triggerReq.Workflow, requestID, callbackCh); err != nil {
-		return err
-	}
-
-	return nil
+	return h.validateWorkflowFields(triggerReq.Workflow, requestID, callbackCh)
 }
 
 func (h *httpTriggerHandler) validateWorkflowFields(workflow gateway_common.WorkflowSelector, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
@@ -213,11 +208,11 @@ func (h *httpTriggerHandler) resolveWorkflowID(triggerReq *jsonrpc.Request[gatew
 	return workflowID, nil
 }
 
-func (h *httpTriggerHandler) authorizeRequest(workflowID string, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway.AuthorizedKey, error) {
+func (h *httpTriggerHandler) authorizeRequest(workflowID string, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.AuthorizedKey, error) {
 	key, err := h.workflowMetadataHandler.Authorize(workflowID, req.Auth, req)
 	if err != nil {
 		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
-		return nil, errors.Join(errors.New("Auth failure"), err)
+		return nil, errors.Join(errors.New("auth failure"), err)
 	}
 	return key, nil
 }
@@ -431,7 +426,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 	}
 }
 
-func reqWithAuthorizedKey(req *jsonrpc.Request[gateway.HTTPTriggerRequest], key gateway.AuthorizedKey) (*jsonrpc.Request[json.RawMessage], error) {
+func reqWithAuthorizedKey(req *jsonrpc.Request[gateway_common.HTTPTriggerRequest], key gateway_common.AuthorizedKey) (*jsonrpc.Request[json.RawMessage], error) {
 	params := *req.Params
 	params.Key = key
 	msg, err := json.Marshal(params)
