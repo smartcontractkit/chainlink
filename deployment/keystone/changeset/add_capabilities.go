@@ -113,7 +113,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 
 	cr, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: '%s' %w", req.RegistryRef.String(), err)
 	}
 	useMCMS := req.MCMSConfig != nil
 	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.BlockChains.EVMChains()[req.RegistryChainSel], req.Capabilities, useMCMS)

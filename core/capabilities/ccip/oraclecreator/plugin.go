@@ -568,13 +568,18 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
+		var solanaChainWriterConfigVersion *string
+		if ofc.Execute != nil {
+			solanaChainWriterConfigVersion = ofc.Execute.SolanaChainWriterConfigVersion
+		}
 		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:               chainID,
-			Relayer:               relayer,
-			Transmitters:          i.transmitters,
-			ExecBatchGasLimit:     execBatchGasLimit,
-			ChainFamily:           relayChainFamily,
-			OfframpProgramAddress: config.Config.OfframpAddress,
+			ChainID:                        chainID,
+			Relayer:                        relayer,
+			Transmitters:                   i.transmitters,
+			ExecBatchGasLimit:              execBatchGasLimit,
+			ChainFamily:                    relayChainFamily,
+			OfframpProgramAddress:          config.Config.OfframpAddress,
+			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
 			return nil, nil, err1
@@ -595,7 +600,8 @@ func decodeAndValidateOffchainConfig(
 	publicConfig ocr3confighelper.PublicConfig,
 ) (ccipcommon.OffChainConfig, error) {
 	var ofc ccipcommon.OffChainConfig
-	if pluginType == cctypes.PluginTypeCCIPExec {
+	switch pluginType {
+	case cctypes.PluginTypeCCIPExec:
 		execOffchainCfg, err1 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
@@ -604,7 +610,7 @@ func decodeAndValidateOffchainConfig(
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
 		}
 		ofc.Execute = &execOffchainCfg
-	} else if pluginType == cctypes.PluginTypeCCIPCommit {
+	case cctypes.PluginTypeCCIPCommit:
 		commitOffchainCfg, err1 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))

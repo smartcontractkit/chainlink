@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -248,32 +247,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		return errors.New("no OCR3-capable DON found in the topology")
 	}
 
-	oracleConfig := input.OCR3Config
-	if reflect.DeepEqual(oracleConfig, keystone_changeset.OracleConfig{}) {
-		// values supplied by Alexandr Yepishev as the expected values for OCR3 config
-		oracleConfig = keystone_changeset.OracleConfig{
-			DeltaProgressMillis:               5000,
-			DeltaResendMillis:                 5000,
-			DeltaInitialMillis:                5000,
-			DeltaRoundMillis:                  2000,
-			DeltaGraceMillis:                  500,
-			DeltaCertifiedCommitRequestMillis: 1000,
-			DeltaStageMillis:                  30000,
-			MaxRoundsPerEpoch:                 10,
-			TransmissionSchedule:              transmissionSchedule,
-			MaxDurationQueryMillis:            1000,
-			MaxDurationObservationMillis:      1000,
-			MaxDurationShouldAcceptMillis:     1000,
-			MaxDurationShouldTransmitMillis:   1000,
-			MaxFaultyOracles:                  1,
-			MaxQueryLengthBytes:               1000000,
-			MaxObservationLengthBytes:         1000000,
-			MaxReportLengthBytes:              1000000,
-			MaxBatchSize:                      1000,
-			UniqueReports:                     true,
-		}
-	}
-
 	_, err := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
@@ -353,12 +326,31 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 			ContractAddress:  input.OCR3Address,
 			RegistryChainSel: input.ChainSelector,
 			DONs:             configDONs,
-			Config:           &oracleConfig,
+			Config:           &input.OCR3Config,
 			DryRun:           false,
 		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to configure OCR3 contract")
+	}
+
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress:  input.VaultOCR3Address,
+			RegistryChainSel: input.ChainSelector,
+			DONs:             configDONs,
+			Config:           &input.VaultOCR3Config,
+			DryRun:           false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure Vault OCR3 contract")
 	}
 
 	return nil
@@ -422,9 +414,11 @@ func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, c
 	}
 
 	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), contractName) {
-			return common.HexToAddress(addrStr), nil
+		if !strings.Contains(tv.String(), contractName) {
+			continue
 		}
+
+		return common.HexToAddress(addrStr), nil
 	}
 
 	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)

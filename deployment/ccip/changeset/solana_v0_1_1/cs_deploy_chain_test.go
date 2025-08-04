@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -363,6 +364,29 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
+
+	burnMintTokenPoolType := solTestTokenPool.BurnAndMint_PoolType
+	lockReleaseTokenPoolType := solTestTokenPool.LockAndRelease_PoolType
+
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
+				ChainSelector: solChainSelectors[0],
+				PoolType:      &burnMintTokenPoolType,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
+			ccipChangesetSolana.TokenPoolConfigWithMCM{
+				ChainSelector: solChainSelectors[0],
+				PoolType:      &lockReleaseTokenPoolType,
+				Metadata:      shared.CLLMetadata,
+			},
+		),
+	})
 	require.NoError(t, err)
 }
 
