@@ -626,8 +626,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		unauthorizedKey := createTestPrivateKey(t)
 
 		triggerReq := createTestTriggerRequest()
-		reqBytes, err := json.Marshal(triggerReq)
-		require.NoError(t, err)
+		reqBytes, err2 := json.Marshal(triggerReq)
+		require.NoError(t, err2)
 
 		rawParams := json.RawMessage(reqBytes)
 		req := &jsonrpc.Request[json.RawMessage]{
