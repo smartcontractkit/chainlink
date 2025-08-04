@@ -121,7 +121,7 @@ func NewHomeChainReader(t interface {
 	Cleanup(func())
 }) *HomeChainReader {
 	mock := &HomeChainReader{}
-	mock.Mock.Test(t)
+	mock.Test(t)
 
 	t.Cleanup(func() { mock.AssertExpectations(t) })
 

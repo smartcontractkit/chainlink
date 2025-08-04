@@ -2,6 +2,7 @@ package v2_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -13,6 +14,7 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -70,6 +72,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		WorkflowID:                    testWorkflowID,
 		WorkflowOwner:                 testWorkflowOwnerA,
 		WorkflowName:                  name,
+		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		LocalLimits:                   v2.EngineLimits{},
 		GlobalLimits:                  sLimiter,
 		ExecutionRateLimiter:          rateLimiter,
