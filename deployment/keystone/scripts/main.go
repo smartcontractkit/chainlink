@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 )
 
@@ -22,15 +24,18 @@ type Config struct {
 
 // NodeConfig holds the configuration for a single node
 type NodeConfig struct {
-	Name        string `toml:"name"`
-	Bootstrap   bool   `toml:"bootstrap"`
-	Credentials struct {
-		Email    string `toml:"email"`
-		Password string `toml:"password"`
-	} `toml:"credentials"`
-	Connection struct {
-		BaseURL string `toml:"base_url"`
-	} `toml:"connection"`
+	Name        string      `toml:"name"`
+	Bootstrap   bool        `toml:"bootstrap"`
+	Credentials Credentials `toml:"credentials"`
+	Connection  Connection  `toml:"connection"`
+}
+
+type Credentials struct {
+	Email    string `toml:"email"`
+	Password string `toml:"password"`
+}
+type Connection struct {
+	BaseURL string `toml:"base_url"`
 }
 
 // JobDistributorConfig defines a job distributor configuration
@@ -92,17 +97,60 @@ func main() {
 	infoCmd.Flags().StringVarP(&bootstrapOutputPath, "bootstrap-output", "b", "", "Path to output JSON file for bootstrap nodes (stdout if not specified)")
 
 	// JD command
+
+	// In the main() function, update the JD command section:
+
+	// JD command hierarchy
 	jdCmd := &cobra.Command{
 		Use:   "jd",
+		Short: "Job Distributor operations",
+		Long:  `Commands for managing Job Distributors and blockchain integrations`,
+	}
+
+	// Original JD create command (rename for clarity)
+	jdCreateCmd := &cobra.Command{
+		Use:   "create",
 		Short: "Create Job Distributors",
 		Long:  `Creates Job Distributors for nodes based on configuration`,
 		RunE:  runJDCommand,
 	}
+	jdCreateCmd.Flags().StringVarP(&jdConfigPath, "jd-config", "j", "jd.toml", "Path to Job Distributor TOML config file")
+
+	// Aptos chain enablement command
+	jdAptosCmd := newJDAptosCmd()
+
+	// Build JD command hierarchy
+	jdCmd.AddCommand(jdCreateCmd)
+	jdCmd.AddCommand(jdAptosCmd)
+
 	jdCmd.Flags().StringVarP(&jdConfigPath, "jd-config", "j", "jd.toml", "Path to Job Distributor TOML config file")
+
+	// Keys command hierarchy
+	keysCmd := &cobra.Command{
+		Use:   "keys",
+		Short: "Manage cryptographic keys",
+		Long:  `Commands for creating and managing various types of cryptographic keys on Chainlink nodes`,
+	}
+
+	// Aptos keys subcommand
+	aptosKeysCmd := &cobra.Command{
+		Use:   "aptos",
+		Short: "Manage Aptos keys",
+		Long:  `Commands for managing Aptos cryptographic keys`,
+	}
+
+	// Aptos create command
+	aptosCreateCmd := newCreateAptosKeysCmd()
+
+	// Build command hierarchy
+	aptosKeysCmd.AddCommand(aptosCreateCmd)
+	aptosKeysCmd.AddCommand(newListAptosKeysCmd())
+	keysCmd.AddCommand(aptosKeysCmd)
 
 	// Add commands to root
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(jdCmd)
+	rootCmd.AddCommand(keysCmd)
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
@@ -111,23 +159,42 @@ func main() {
 	}
 }
 
-func runInfoCommand(cmd *cobra.Command, args []string) error {
-	// Load configuration
+func loadConfig(path string) (Config, error) {
 	var config Config
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("Config file not found: %s", configPath)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("Config file not found: %s", path)
 	}
 
-	if _, err := toml.DecodeFile(configPath, &config); err != nil {
-		return fmt.Errorf("Failed to decode config file: %v", err)
+	if _, err := toml.DecodeFile(path, &config); err != nil {
+		return Config{}, fmt.Errorf("Failed to decode config file: %v", err)
 	}
 
 	// Check if we have any nodes configured
 	if len(config.Nodes) == 0 {
-		return fmt.Errorf("No nodes configured in the config file")
+		return Config{}, fmt.Errorf("No nodes configured in the config file")
 	}
 
+	return config, nil
+}
+
+func loadJDConfig(path string) (JobDistributorConfig, error) {
+
+	var jdConfig JobDistributorConfig
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return JobDistributorConfig{}, fmt.Errorf("Job Distributor config file not found: %s", path)
+	}
+	if _, err := toml.DecodeFile(path, &jdConfig); err != nil {
+		return JobDistributorConfig{}, fmt.Errorf("Failed to decode Job Distributor config file: %v", err)
+	}
+	return jdConfig, nil
+}
+
+func runInfoCommand(cmd *cobra.Command, args []string) error {
+	config, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("Failed to load config: %v", err)
+	}
 	// Create slice to hold all node information
 	var nodes []NodeInfo
 	var bootstrapNodes []BootstrapNodeInfo
@@ -150,83 +217,27 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// Initialize node info with known data
-		nodeInfo := NodeInfo{
-			Name: nodeConfig.Name,
-			URL:  nodeConfig.Connection.BaseURL,
-		}
-
 		// Create timeout context
 		timeout := time.Duration(10) * time.Second
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
-		// Create client credentials
-		creds := client.Credentials{
-			Email:    nodeConfig.Credentials.Email,
-			Password: nodeConfig.Credentials.Password,
-		}
-
-		// Try to create client and fetch keys
-		cl, err := client.NewWithContext(ctx, nodeConfig.Connection.BaseURL, creds)
+		info, err := nodeInfo(ctx, nodeConfig)
 		if err != nil {
-			log.Printf("Failed to connect to node %s: %v", nodeConfig.Name, err)
+			log.Printf("Failed to get info for node %s: %v", nodeConfig.Name, err)
 			cancel()
 			continue
 		}
-
-		// Fetch CSA Public Key
-		csaKey, err := cl.FetchCSAPublicKey(ctx)
-		if err == nil && csaKey != nil {
-			nodeInfo.CSAPublicKey = *csaKey
-		}
-
-		// Fetch P2P Peer ID
-		peerID, err := cl.FetchP2PPeerID(ctx)
-		if err == nil && peerID != nil {
-			nodeInfo.P2PPeerID = *peerID
-		}
-
 		if !nodeConfig.Bootstrap {
-			ocrKeyBundleIDs, err := cl.ListOCR2KeyBundles(ctx)
-			if err == nil {
-				nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
-			}
-			// if no aptos ocr2 key bundles are found, create one and retry fetching
-			foundAptosKeyBundle := false
-			for _, keyBundle := range nodeInfo.OCR2KeyBundles {
-				if keyBundle.ChainType == client.OCR2ChainTypeAptos {
-					foundAptosKeyBundle = true
-					break
-				}
-			}
-			if !foundAptosKeyBundle {
-				// Create a new OCR2 key bundle for Aptos
-				aptosKeyBundleID, err := cl.CreateOCR2KeyBundle(ctx, client.OCR2ChainTypeAptos)
-				if err != nil {
-					log.Printf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err)
-					panic(fmt.Sprintf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err))
-				} else {
-					log.Printf("Created OCR2 key bundle for Aptos on node %s with ID: %s", nodeConfig.Name, aptosKeyBundleID)
-					// Retry fetching OCR2 key bundles
-					ocrKeyBundleIDs, err = cl.ListOCR2KeyBundles(ctx)
-					if err == nil {
-						nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
-					} else {
-						log.Printf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err)
-						panic(fmt.Sprintf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err))
-					}
-				}
-			}
-			// Add node to the list
-			nodes = append(nodes, nodeInfo)
+			nodes = append(nodes, info)
 		}
+
 		if nodeConfig.Bootstrap {
-			p := strings.TrimPrefix(nodeInfo.P2PPeerID, "p2p_")
+			p := strings.TrimPrefix(info.P2PPeerID, "p2p_")
 			bootstrapNodeInfo := BootstrapNodeInfo{
 				Name:         nodeConfig.Name,
 				URL:          nodeConfig.Connection.BaseURL,
-				CSAPublicKey: nodeInfo.CSAPublicKey,
-				P2PPeerID:    nodeInfo.P2PPeerID,
+				CSAPublicKey: info.CSAPublicKey,
+				P2PPeerID:    info.P2PPeerID,
 				OCRUrl:       fmt.Sprintf("%s@%s:5001", p, nodeConfig.Name),
 				Don2DonURL:   fmt.Sprintf("%s@%s:6690", p, nodeConfig.Name),
 			}
@@ -271,23 +282,80 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runJDCommand(cmd *cobra.Command, args []string) error {
-	// Load node configuration
-	var nodeConfig Config
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("Node config file not found: %s", configPath)
+func nodeInfo(ctx context.Context, nodeConfig NodeConfig) (NodeInfo, error) {
+	nodeInfo := NodeInfo{
+		Name: nodeConfig.Name,
+		URL:  nodeConfig.Connection.BaseURL,
 	}
-	if _, err := toml.DecodeFile(configPath, &nodeConfig); err != nil {
-		return fmt.Errorf("Failed to decode node config file: %v", err)
+	// Create client credentials
+	creds := client.Credentials{
+		Email:    nodeConfig.Credentials.Email,
+		Password: nodeConfig.Credentials.Password,
+	}
+
+	// Try to create client and fetch keys
+	cl, err := client.NewWithContext(ctx, nodeConfig.Connection.BaseURL, creds)
+	if err != nil {
+		return NodeInfo{}, fmt.Errorf("failed to connect to node %s: %w", nodeConfig.Name, err)
+	}
+
+	// Fetch CSA Public Key
+	csaKey, err := cl.FetchCSAPublicKey(ctx)
+	if err == nil && csaKey != nil {
+		nodeInfo.CSAPublicKey = *csaKey
+	}
+
+	// Fetch P2P Peer ID
+	peerID, err := cl.FetchP2PPeerID(ctx)
+	if err == nil && peerID != nil {
+		nodeInfo.P2PPeerID = *peerID
+	}
+
+	if !nodeConfig.Bootstrap {
+		ocrKeyBundleIDs, err := cl.ListOCR2KeyBundles(ctx)
+		if err == nil {
+			nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
+		}
+		// if no aptos ocr2 key bundles are found, create one and retry fetching
+		foundAptosKeyBundle := false
+		for _, keyBundle := range nodeInfo.OCR2KeyBundles {
+			if keyBundle.ChainType == client.OCR2ChainTypeAptos {
+				foundAptosKeyBundle = true
+				break
+			}
+		}
+		if !foundAptosKeyBundle {
+			// Create a new OCR2 key bundle for Aptos
+			aptosKeyBundleID, err := cl.CreateOCR2KeyBundle(ctx, client.OCR2ChainTypeAptos)
+			if err != nil {
+				log.Printf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err)
+				panic(fmt.Sprintf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err))
+			} else {
+				log.Printf("Created OCR2 key bundle for Aptos on node %s with ID: %s", nodeConfig.Name, aptosKeyBundleID)
+				// Retry fetching OCR2 key bundles
+				ocrKeyBundleIDs, err = cl.ListOCR2KeyBundles(ctx)
+				if err == nil {
+					nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
+				} else {
+					log.Printf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err)
+					panic(fmt.Sprintf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err))
+				}
+			}
+		}
+	}
+	return nodeInfo, nil
+}
+
+func runJDCommand(cmd *cobra.Command, args []string) error {
+	nodeConfig, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("Failed to load node configuration: %v", err)
 	}
 
 	// Load JD configuration
-	var jdConfig JobDistributorConfig
-	if _, err := os.Stat(jdConfigPath); os.IsNotExist(err) {
-		return fmt.Errorf("Job Distributor config file not found: %s", jdConfigPath)
-	}
-	if _, err := toml.DecodeFile(jdConfigPath, &jdConfig); err != nil {
-		return fmt.Errorf("Failed to decode Job Distributor config file: %v", err)
+	jdConfig, err := loadJDConfig(jdConfigPath)
+	if err != nil {
+		return fmt.Errorf("Failed to load Job Distributor configuration: %v", err)
 	}
 
 	// Map node names to configurations for quick lookup
@@ -354,6 +422,357 @@ func runJDCommand(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func newCreateAptosKeysCmd() *cobra.Command {
+	var (
+		nodeURL  string
+		email    string
+		password string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create Aptos keys on Chainlink nodes",
+		Long:  "Creates Aptos keys on one or more Chainlink nodes using their REST API",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			nodeConfig, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load node configuration: %w", err)
+			}
+
+			// If nodeURL is specified, create key for single node
+			if nodeURL != "" {
+				return createAptosKeyForNode(ctx, nodeURL, email, password)
+			}
+
+			// Otherwise, create keys for all nodes
+			for _, node := range nodeConfig.Nodes {
+				log.Printf("Creating Aptos key for node: %s", node.Connection.BaseURL)
+				if err := createAptosKeyForNode(ctx, node.Connection.BaseURL, node.Credentials.Email, node.Credentials.Password); err != nil {
+					log.Printf("Failed to create Aptos key for node %s: %v", node.Connection.BaseURL, err)
+					continue
+				}
+				log.Printf("Successfully created Aptos key for node: %s", node.Connection.BaseURL)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&nodeURL, "node-url", "", "URL of a specific Chainlink node (optional)")
+	cmd.Flags().StringVar(&email, "email", "", "Email for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&password, "password", "", "Password for node authentication (required if using --node-url)")
+
+	return cmd
+}
+
+// Helper function to create Aptos key for a single node
+func createAptosKeyForNode(ctx context.Context, nodeURL, email, password string) error {
+	c, err := nodeclient.NewChainlinkClient(&nodeclient.ChainlinkConfig{
+		URL:      nodeURL,
+		Email:    email,
+		Password: password,
+	}, zerolog.Logger{})
+	if err != nil {
+		return fmt.Errorf("failed to create Chainlink client for %s: %w", nodeURL, err)
+	}
+	k, _, err := c.CreateAptosKey()
+	if err != nil {
+		return fmt.Errorf("failed to create Aptos key: %w", err)
+	}
+	fmt.Printf("Created Aptos key with ID: '%s' and account '%s'\n", k.Data.ID, k.Data.Attributes.Account)
+	return nil
+}
+
+func newListAptosKeysCmd() *cobra.Command {
+	var (
+		nodeURL  string
+		email    string
+		password string
+		output   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List Aptos keys on Chainlink nodes",
+		Long:  "Lists all Aptos keys on one or more Chainlink nodes using their REST API",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			nodeConfig, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load node configuration: %w", err)
+			}
+
+			var allKeys []NodeAptosKeys
+
+			// If nodeURL is specified, list keys for single node
+			if nodeURL != "" {
+				keys, err := listAptosKeysForNode(ctx, nodeURL, email, password)
+				if err != nil {
+					return err
+				}
+				allKeys = append(allKeys, NodeAptosKeys{
+					NodeName: "single-node",
+					NodeURL:  nodeURL,
+					Keys:     keys,
+				})
+			} else {
+				// Otherwise, list keys for all nodes
+				for _, node := range nodeConfig.Nodes {
+					log.Printf("Listing Aptos keys for node: %s", node.Connection.BaseURL)
+					keys, err := listAptosKeysForNode(ctx, node.Connection.BaseURL, node.Credentials.Email, node.Credentials.Password)
+					if err != nil {
+						log.Printf("Failed to list Aptos keys for node %s: %v", node.Connection.BaseURL, err)
+						continue
+					}
+
+					allKeys = append(allKeys, NodeAptosKeys{
+						NodeName: node.Name,
+						NodeURL:  node.Connection.BaseURL,
+						Keys:     keys,
+					})
+				}
+			}
+
+			// Output results
+			if output == "json" {
+				jsonOutput, err := json.MarshalIndent(allKeys, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal keys to JSON: %w", err)
+				}
+				fmt.Println(string(jsonOutput))
+			} else {
+				// Human-readable output
+				for _, nodeKeys := range allKeys {
+					fmt.Printf("\nNode: %s (%s)\n", nodeKeys.NodeName, nodeKeys.NodeURL)
+					if len(nodeKeys.Keys) == 0 {
+						fmt.Println("  No Aptos keys found")
+					} else {
+						for _, key := range nodeKeys.Keys {
+							fmt.Printf("  ID: %s\n", key.ID)
+							fmt.Printf("  Account: %s\n", key.Attributes.Account)
+							fmt.Printf("  Public Key: %s\n", key.Attributes.PublicKey)
+							fmt.Printf("  Created: %s\n", key.Attributes.CreatedAt)
+							fmt.Printf("  Updated: %s\n", key.Attributes.UpdatedAt)
+							fmt.Println("  ---")
+						}
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&nodeURL, "node-url", "", "URL of a specific Chainlink node (optional)")
+	cmd.Flags().StringVar(&email, "email", "", "Email for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&password, "password", "", "Password for node authentication (required if using --node-url)")
+	cmd.Flags().StringVarP(&output, "output", "o", "table", "Output format: table or json")
+
+	return cmd
+}
+
+// Add these type definitions near the top with your other types
+
+// NodeAptosKeys represents Aptos keys for a specific node
+type NodeAptosKeys struct {
+	NodeName string                    `json:"node_name"`
+	NodeURL  string                    `json:"node_url"`
+	Keys     []nodeclient.AptosKeyData `json:"keys"`
+}
+
+// Helper function to list Aptos keys for a single node
+func listAptosKeysForNode(ctx context.Context, nodeURL, email, password string) ([]nodeclient.AptosKeyData, error) {
+	c, err := nodeclient.NewChainlinkClient(&nodeclient.ChainlinkConfig{
+		URL:      nodeURL,
+		Email:    email,
+		Password: password,
+	}, zerolog.Logger{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Chainlink client for %s: %w", nodeURL, err)
+	}
+
+	keys, _, err := c.ReadAptosKeys()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Aptos keys: %w", err)
+	}
+
+	if keys == nil {
+		return []nodeclient.AptosKeyData{}, nil
+	}
+
+	return keys.Data, nil
+}
+
+func newJDAptosCmd() *cobra.Command {
+	var (
+		nodeURL   string
+		email     string
+		password  string
+		chainID   string
+		chainName string
+		adminAddr string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "aptos",
+		Short: "Enable Aptos chain on Chainlink nodes",
+		Long:  "Lists Aptos keys and enables Aptos chains using the accounts from those keys",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			nodeConfig, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load node configuration: %w", err)
+			}
+			jdConfig, err := loadJDConfig(jdConfigPath)
+			if err != nil {
+				return fmt.Errorf("failed to load Job Distributor configuration: %w", err)
+			}
+
+			// If nodeURL is specified, enable Aptos chain for single node
+			if nodeURL != "" {
+				return enableAptosChainForNode(ctx, nodeURL, email, password, chainID, chainName, adminAddr, jdConfig.PublicKey)
+			}
+
+			// Otherwise, enable Aptos chains for all nodes
+			for _, node := range nodeConfig.Nodes {
+				if node.Bootstrap {
+					log.Printf("Skipping bootstrap node: %s", node.Name)
+					continue
+				}
+				adminAddr = "0x0000000000000000000000000000000000000000" // Default admin address, can be overridden by command line flag
+				log.Printf("Enabling Aptos chain for node: %s", node.Connection.BaseURL)
+				if err := enableAptosChainForNode(ctx, node.Connection.BaseURL, node.Credentials.Email, node.Credentials.Password, chainID, chainName, adminAddr, jdConfig.PublicKey); err != nil {
+					log.Printf("Failed to enable Aptos chain for node %s: %v", node.Connection.BaseURL, err)
+					continue
+				}
+				log.Printf("Successfully enabled Aptos chain for node: %s", node.Connection.BaseURL)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&nodeURL, "node-url", "", "URL of a specific Chainlink node (optional)")
+	cmd.Flags().StringVar(&email, "email", "", "Email for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&password, "password", "", "Password for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&chainID, "chain-id", "2", "Aptos chain ID (default: 2 for testnet)")
+	//cmd.Flags().StringVar(&jdCSAKey, "jd-csa-key", "41dcc9f2d7bf9d7510d95995c1ecac09a2116f0c902a1d532cf010bfb91badf1", "Job Distributor CSA key (default: 41dcc9f2d7bf9d7510d95995c1ecac09a2116f0c902a1d532cf010bfb91badf1)")
+	cmd.Flags().StringVar(&chainName, "chain-name", "aptos-testnet", "Aptos chain name")
+	cmd.Flags().StringVar(&adminAddr, "admin-addr", "0x0000000000000000000000000000000000000000", "Admin address for Aptos chain")
+	return cmd
+}
+
+// Helper function to enable Aptos chain for a single node
+func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chainID, chainName, adminAddr, jdCSAKey string) error {
+	// Create Chainlink client
+	// need both the graphql client and the chainlink client so use devenv.NewClient
+
+	cc, err := nodeclient.NewChainlinkClient(&nodeclient.ChainlinkConfig{
+		URL:      nodeURL,
+		Email:    email,
+		Password: password,
+	}, zerolog.Logger{})
+	if err != nil {
+		return fmt.Errorf("failed to create Chainlink client for %s: %w", nodeURL, err)
+	}
+
+	creds := client.Credentials{
+		Email:    email,
+		Password: password,
+	}
+
+	// Connect to the node
+	gc, err := client.NewWithContext(ctx, nodeURL, creds)
+	if err != nil {
+		log.Printf("Failed to connect to node %s: %v", nodeURL, err)
+		return fmt.Errorf("failed to connect to node %s: %w", nodeURL, err)
+	}
+
+	// First, list existing Aptos keys to get the account
+	keys, _, err := cc.ReadAptosKeys()
+	if err != nil {
+		return fmt.Errorf("failed to read Aptos keys: %w", err)
+	}
+
+	if keys == nil || len(keys.Data) == 0 {
+		return fmt.Errorf("no Aptos keys found on node %s", nodeURL)
+	}
+
+	// Use the first Aptos key's account
+	aptosAccount := keys.Data[0].Attributes.Account
+	log.Printf("Using Aptos account: %s", aptosAccount)
+
+	jds, err := gc.ListJobDistributors(ctx)
+	if err != nil {
+		log.Printf("Warning: failed to list job distributors: %v", err)
+		return fmt.Errorf("failed to list job distributors: %w", err)
+	}
+
+	var jdID string
+	for _, jd := range jds.FeedsManagers.GetResults() {
+		if jd.PublicKey == "" {
+			log.Printf("Warning: Job Distributor %s has no public key", jd.Name)
+			continue
+		}
+
+		if jd.GetPublicKey() == jdCSAKey {
+			jdID = jd.Id
+			break
+		}
+	}
+
+	// now create the chain configuration. we need to list the existing keys
+	info, err := nodeInfo(ctx, NodeConfig{
+		Name:        "Aptos Chain Config",
+		Connection:  Connection{BaseURL: nodeURL},
+		Credentials: Credentials{Email: email, Password: password},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get node info: %w", err)
+	}
+
+	if len(info.OCR2KeyBundles) == 0 {
+		return fmt.Errorf("no OCR2 key bundles found for Aptos chain on node %s", nodeURL)
+	}
+	// get the aptos key bundle ID
+	var aptosKeyBundleID string
+	for _, bundle := range info.OCR2KeyBundles {
+		if bundle.ChainType == client.OCR2ChainTypeAptos {
+			aptosKeyBundleID = bundle.ID
+			break
+		}
+	}
+	if aptosKeyBundleID == "" {
+		return fmt.Errorf("no OCR2 key bundle found for Aptos chain on node %s", nodeURL)
+	}
+
+	log.Printf("Using Aptos OCR2 Key Bundle ID: %s", aptosKeyBundleID)
+
+	// Check if Aptos chain already exists
+	r, err := gc.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+		JobDistributorID: jdID,
+		ChainID:          chainID,
+		ChainType:        client.OCR2ChainTypeAptos,
+		AccountAddr:      aptosAccount,
+		AdminAddr:        adminAddr,
+		Ocr2Enabled:      true,
+		Ocr2P2PPeerID:    info.P2PPeerID,
+		Ocr2KeyBundleID:  aptosKeyBundleID,
+		Ocr2Plugins:      `{"commit":false,"execute":false,"median":false,"mercury":false}`,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create Aptos chain configuration: %w", err)
+	}
+
+	log.Printf("Created Aptos node with name: %s", r)
+
+	fmt.Printf("Successfully enabled Aptos chain '%s' (ID: %s) for node %s using account %s\n",
+		chainName, chainID, nodeURL, aptosAccount)
 
 	return nil
 }
