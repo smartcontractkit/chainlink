@@ -8,8 +8,9 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v5"
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/stretchr/testify/require"
+
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
 func TestSigningMethodEth_Sign(t *testing.T) {
