@@ -23,11 +23,11 @@ import (
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"  // Register Aptos plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
@@ -185,6 +185,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
 	}
 
+	// Create chain accessors
+	chainAccessors, err := i.createChainAccessors(contractReaders, chainWriters, pluginServices)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
+	}
+
 	// build the onchain keyring. it will be the signing key for the destination chain family.
 	keybundle, ok := i.ocrKeyBundles[destChainFamily]
 	if !ok {
@@ -209,7 +215,20 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainFamily, destChainID, pluginServices.PluginConfig, offrampAddrStr)
+		donID,
+		config,
+		destRelayID,
+		chainAccessors,
+		contractReaders,
+		chainWriters,
+		destChainWriter,
+		destFromAccounts,
+		publicConfig,
+		destChainFamily,
+		destChainID,
+		pluginServices.PluginConfig,
+		offrampAddrStr,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -266,6 +285,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
 	destRelayID types.RelayID,
+	chainAccessors map[cciptypes.ChainSelector]cciptypes.ChainAccessor,
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
 	destChainWriter types.ContractWriter,
@@ -308,6 +328,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				AddrCodec:         i.addressCodec,
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
+				ChainAccessors:    chainAccessors,
 				ContractReaders:   contractReaders,
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
@@ -368,6 +389,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				HomeChainReader:  i.homeChainReader,
 				TokenDataEncoder: pluginConfig.TokenDataEncoder,
 				EstimateProvider: pluginConfig.GasEstimateProvider,
+				ChainAccessors:   chainAccessors,
 				ContractReaders:  contractReaders,
 				ContractWriters:  chainWriters,
 			})
@@ -415,6 +437,36 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
+}
+
+func (i *pluginOracleCreator) createChainAccessors(
+	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
+	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
+	pluginServices ccipcommon.PluginServices,
+) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, error) {
+	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	for relayID, relayer := range i.relayers {
+		chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
+		}
+		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+		chainAccessor, err := pluginServices.PluginConfig.ChainAccessorFactory.NewChainAccessor(
+			ccipcommon.ChainAccessorFactoryParams{
+				Lggr:           i.lggr,
+				Relayer:        relayer,
+				ChainSelector:  chainSelector,
+				ContractReader: contractReaders[chainSelector],
+				ContractWriter: chainWriters[chainSelector],
+				AddrCodec:      pluginServices.AddrCodec,
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chain accessor for relay ID %s: %w", relayID, err)
+		}
+		chainAccessors[chainSelector] = chainAccessor
+	}
+	return chainAccessors, nil
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
@@ -516,13 +568,18 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
+		var solanaChainWriterConfigVersion *string
+		if ofc.Execute != nil {
+			solanaChainWriterConfigVersion = ofc.Execute.SolanaChainWriterConfigVersion
+		}
 		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:               chainID,
-			Relayer:               relayer,
-			Transmitters:          i.transmitters,
-			ExecBatchGasLimit:     execBatchGasLimit,
-			ChainFamily:           relayChainFamily,
-			OfframpProgramAddress: config.Config.OfframpAddress,
+			ChainID:                        chainID,
+			Relayer:                        relayer,
+			Transmitters:                   i.transmitters,
+			ExecBatchGasLimit:              execBatchGasLimit,
+			ChainFamily:                    relayChainFamily,
+			OfframpProgramAddress:          config.Config.OfframpAddress,
+			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
 			return nil, nil, err1
@@ -543,7 +600,8 @@ func decodeAndValidateOffchainConfig(
 	publicConfig ocr3confighelper.PublicConfig,
 ) (ccipcommon.OffChainConfig, error) {
 	var ofc ccipcommon.OffChainConfig
-	if pluginType == cctypes.PluginTypeCCIPExec {
+	switch pluginType {
+	case cctypes.PluginTypeCCIPExec:
 		execOffchainCfg, err1 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
@@ -552,7 +610,7 @@ func decodeAndValidateOffchainConfig(
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
 		}
 		ofc.Execute = &execOffchainCfg
-	} else if pluginType == cctypes.PluginTypeCCIPCommit {
+	case cctypes.PluginTypeCCIPCommit:
 		commitOffchainCfg, err1 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
 			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))

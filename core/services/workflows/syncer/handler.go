@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -16,14 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -120,9 +120,10 @@ type eventHandler struct {
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         *syncerlimiter.Limits
+	ratelimiter            limits.RateLimiter
+	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
+	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -193,9 +194,10 @@ func NewEventHandler(
 	capRegistry core.CapabilitiesRegistry,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
+	workflowEncryptionKey workflowkey.Key,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -217,6 +219,7 @@ func NewEventHandler(
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
+		workflowEncryptionKey:  workflowEncryptionKey,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -550,9 +553,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		CapRegistry:     h.capRegistry,
 		ExecutionsStore: h.workflowStore,
 
-		WorkflowID:    workflowID,
-		WorkflowOwner: owner,
-		WorkflowName:  name,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,

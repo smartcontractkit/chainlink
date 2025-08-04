@@ -47,6 +47,7 @@ const (
 	WebAPITargetCapability  CapabilityFlag = "web-api-target"
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
+	VaultCapability         CapabilityFlag = "vault"
 	// Add more capabilities as needed
 )
 
@@ -254,9 +255,13 @@ type ConfigureKeystoneInput struct {
 	ChainSelector uint64
 	Topology      *Topology
 	CldEnv        *cldf.Environment
-	OCR3Config    keystone_changeset.OracleConfig
 
-	OCR3Address                 *common.Address
+	OCR3Config  keystone_changeset.OracleConfig
+	OCR3Address *common.Address
+
+	VaultOCR3Config  keystone_changeset.OracleConfig
+	VaultOCR3Address *common.Address
+
 	CapabilitiesRegistryAddress *common.Address
 }
 
@@ -634,7 +639,6 @@ type JobSpecFactoryInput struct {
 	CldEnvironment   *cldf.Environment
 	BlockchainOutput *blockchain.Output
 	DonTopology      *DonTopology
-	AddressBook      cldf.AddressBook
 }
 
 type ManageWorkflowWithCRECLIInput struct {

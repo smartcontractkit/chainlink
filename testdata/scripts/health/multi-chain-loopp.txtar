@@ -122,6 +122,7 @@ ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
 ok TelemetryManager
+ok WorkflowLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -561,6 +562,15 @@ ok WorkflowStore
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowLimiter",
+      "attributes": {
+        "name": "WorkflowLimiter",
         "status": "passing",
         "output": ""
       }

@@ -27,12 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	workflow_registry_wrapper_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -439,10 +441,10 @@ func Test_SecretsWorker(t *testing.T) {
 			contents, err := orm.GetContents(ctx, giveSecretsURL)
 			require.NoError(t, err)
 			require.Equal(t, string(beforeSecretsPayload), contents)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig)
+			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 			require.NoError(t, err)
 
-			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 			require.NoError(t, err)
 
 			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
@@ -451,8 +453,9 @@ func Test_SecretsWorker(t *testing.T) {
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
 
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, engineRegistry,
-				emitter, rl, wl, store)
+				emitter, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -624,17 +627,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store)
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -730,17 +734,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
-		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
+		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

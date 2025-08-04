@@ -128,7 +128,6 @@ jobs:
       - name: Download test dependencies
         uses: ./.github/actions/setup-cre-e2e-test-dependencies
         with:
-          cre-cli-version: "v0.2.0"
           capability-version: "v1.0.2-alpha"
           capability-names: "cron"
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -142,13 +141,10 @@ jobs:
         shell: bash
         working-directory: system-tests/tests
         env:
-          CTF_CONFIGS: ${{ matrix.tests.test_config }}
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.9.0"
+          E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
-          # Anvil developer key, not a secret
-          PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           # Sleep to allow testcontainers to stop

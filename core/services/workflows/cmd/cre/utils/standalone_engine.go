@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
@@ -78,12 +79,13 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
+	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
 		PerSenderRPS:   defaultRPS,
 		PerSenderBurst: defaultBurst,
-	})
+	}, lf)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -91,7 +93,7 @@ func NewStandaloneEngine(
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
-	})
+	}, lf)
 	if err != nil {
 		return nil, nil, err
 	}

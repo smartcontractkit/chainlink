@@ -2,15 +2,16 @@ package vault
 
 import (
 	"errors"
-	"time"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type Config struct {
-	RequestExpiryDuration time.Duration `json:"requestExpiryDuration"`
+	RequestExpiryDuration commonconfig.Duration `json:"requestExpiryDuration"`
 }
 
 func (c *Config) Validate() error {
-	if c.RequestExpiryDuration <= 0 {
+	if c.RequestExpiryDuration.Duration() <= 0 {
 		return errors.New("request expiry duration cannot be 0")
 	}
 	return nil
