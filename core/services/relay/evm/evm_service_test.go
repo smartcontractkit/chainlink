@@ -13,7 +13,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -196,8 +197,8 @@ func TestEVMService(t *testing.T) {
 		data := []byte("kitties")
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-		mocks.EvmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.GetTransactionByHash(ctx, hash)
+		mocks.EvmClient.EXPECT().TransactionByHashWithOpts(ctx, hash, types.TransactionByHashOpts{}).Return(transaction, nil)
+		tx, err := relayer.GetTransactionByHash(ctx, evm.GetTransactionByHashRequest{Hash: hash})
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)
