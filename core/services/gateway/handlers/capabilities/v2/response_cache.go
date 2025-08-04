@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,40 +12,74 @@ import (
 // responseCache is a thread-safe cache for storing HTTP responses.
 // It uses a map to store responses keyed by a unique identifier generated from the request
 type responseCache struct {
-	cacheMu sync.RWMutex
+	cacheMu sync.Mutex
 	cache   map[string]*cachedResponse
 	lggr    logger.Logger
+	ttl     time.Duration
 }
 
 type cachedResponse struct {
 	response gateway.OutboundHTTPResponse
-	expiry   time.Time
+	storedAt time.Time
 }
 
-func newResponseCache(lggr logger.Logger) *responseCache {
+func newResponseCache(lggr logger.Logger, ttlMs int) *responseCache {
 	return &responseCache{
 		cache: make(map[string]*cachedResponse),
 		lggr:  logger.Named(lggr, "ResponseCache"),
+		ttl:   time.Duration(ttlMs) * time.Millisecond,
 	}
 }
 
-func (rc *responseCache) Set(req gateway.OutboundHTTPRequest, response gateway.OutboundHTTPResponse, ttl time.Duration) {
+// isCacheableStatusCode returns true if the HTTP status code indicates a cacheable response.
+// This includes successful responses (2xx) and client errors (4xx)
+func isCacheableStatusCode(statusCode int) bool {
+	return (statusCode >= 200 && statusCode < 300) || (statusCode >= 400 && statusCode < 500)
+}
+
+// isExpiredOrNotCached returns true if the cached response is expired or not cached.
+// It does not lock the cache map.
+func (rc *responseCache) isExpiredOrNotCached(workflowID string, req gateway.OutboundHTTPRequest) bool {
+	cachedResp, exists := rc.cache[req.Hash()]
+	if !exists || time.Now().After(cachedResp.storedAt.Add(rc.ttl)) {
+		return true
+	}
+	return false
+}
+
+func cacheKey(workflowID string, req gateway.OutboundHTTPRequest) string {
+	return fmt.Sprintf("%s:%s", workflowID, req.Hash())
+}
+
+func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
-	rc.cache[req.Hash()] = &cachedResponse{
-		response: response,
-		expiry:   time.Now().Add(ttl),
+	key := cacheKey(workflowID, req)
+	cacheMaxAgeMs := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
+	cachedResp, exists := rc.cache[key]
+	if exists && cachedResp.storedAt.Add(cacheMaxAgeMs).After(time.Now()) {
+		return cachedResp.response
 	}
+	response := fetchFn()
+	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
+		rc.cache[key] = &cachedResponse{
+			response: response,
+			storedAt: time.Now(),
+		}
+	}
+	return response
 }
 
-func (rc *responseCache) Get(req gateway.OutboundHTTPRequest) *gateway.OutboundHTTPResponse {
-	rc.cacheMu.RLock()
-	defer rc.cacheMu.RUnlock()
-	cachedResp, exists := rc.cache[req.Hash()]
-	if !exists || time.Now().After(cachedResp.expiry) {
-		return nil
+func (rc *responseCache) Set(workflowID string, req gateway.OutboundHTTPRequest, response gateway.OutboundHTTPResponse) {
+	rc.cacheMu.Lock()
+	defer rc.cacheMu.Unlock()
+	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
+		cacheKey := cacheKey(workflowID, req)
+		rc.cache[cacheKey] = &cachedResponse{
+			response: response,
+			storedAt: time.Now(),
+		}
 	}
-	return &cachedResp.response
 }
 
 func (rc *responseCache) DeleteExpired() int {
@@ -53,7 +88,7 @@ func (rc *responseCache) DeleteExpired() int {
 	now := time.Now()
 	var expiredCount int
 	for key, cachedResp := range rc.cache {
-		if now.After(cachedResp.expiry) {
+		if now.After(cachedResp.storedAt.Add(rc.ttl)) {
 			delete(rc.cache, key)
 			expiredCount++
 		}
