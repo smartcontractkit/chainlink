@@ -956,6 +956,7 @@ func newCREServices(
 					workflowRateLimiter,
 					workflowLimits,
 					artifactsStore,
+					key,
 					syncer.WithBillingClient(billingClient),
 					syncer.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
 				)

@@ -17,7 +17,7 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	rmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -54,7 +54,7 @@ type CCIPChainState struct {
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
 	DestChainStatePDAs   map[uint64]solana.PublicKey
-	TokenPoolLookupTable map[solana.PublicKey]map[solTestTokenPool.PoolType]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
+	TokenPoolLookupTable map[solana.PublicKey]map[string]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
@@ -91,16 +91,16 @@ func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKe
 }
 
 func (s CCIPChainState) GetActiveTokenPool(
-	poolType solTestTokenPool.PoolType,
+	poolType string,
 	metadata string,
 ) (solana.PublicKey, cldf.ContractType) {
 	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType:
+	case solTestTokenPool.BurnAndMint_PoolType.String():
 		if metadata == "" {
 			return s.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
 		}
 		return s.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
-	case solTestTokenPool.LockAndRelease_PoolType:
+	case solTestTokenPool.LockAndRelease_PoolType.String():
 		if metadata == "" {
 			return s.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
 		}
@@ -112,7 +112,7 @@ func (s CCIPChainState) GetActiveTokenPool(
 
 func (s CCIPChainState) ValidatePoolDeployment(
 	e *cldf.Environment,
-	poolType solTestTokenPool.PoolType,
+	poolType string,
 	selector uint64,
 	tokenPubKey solana.PublicKey,
 	validatePoolConfig bool,
@@ -131,9 +131,9 @@ func (s CCIPChainState) ValidatePoolDeployment(
 		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, chain.Selector)
 	}
 	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType:
+	case solTestTokenPool.BurnAndMint_PoolType.String():
 		poolConfigAccount = solBurnMintTokenPool.State{}
-	case solTestTokenPool.LockAndRelease_PoolType:
+	case solTestTokenPool.LockAndRelease_PoolType.String():
 		poolConfigAccount = solLockReleaseTokenPool.State{}
 	default:
 		return fmt.Errorf("invalid pool type: %s", poolType)
@@ -329,7 +329,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 		SPL2022Tokens:         make([]solana.PublicKey, 0),
 		SPLTokens:             make([]solana.PublicKey, 0),
 		WSOL:                  solana.SolMint,
-		TokenPoolLookupTable:  make(map[solana.PublicKey]map[solTestTokenPool.PoolType]map[string]solana.PublicKey),
+		TokenPoolLookupTable:  make(map[solana.PublicKey]map[string]map[string]solana.PublicKey),
 	}
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
@@ -415,12 +415,12 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 				poolType = &t
 			}
 			if ccipChainState.TokenPoolLookupTable[tokenPubKey] == nil {
-				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[solTestTokenPool.PoolType]map[string]solana.PublicKey)
+				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[string]map[string]solana.PublicKey)
 			}
-			if ccipChainState.TokenPoolLookupTable[tokenPubKey][*poolType] == nil {
-				ccipChainState.TokenPoolLookupTable[tokenPubKey][*poolType] = make(map[string]solana.PublicKey)
+			if ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] == nil {
+				ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] = make(map[string]solana.PublicKey)
 			}
-			ccipChainState.TokenPoolLookupTable[tokenPubKey][*poolType][poolMetadata] = lookupTablePubKey
+			ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()][poolMetadata] = lookupTablePubKey
 		case shared.FeeQuoter:
 			pub := solana.MustPublicKeyFromBase58(address)
 			ccipChainState.FeeQuoter = pub

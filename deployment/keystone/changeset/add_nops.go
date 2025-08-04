@@ -59,10 +59,11 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 
 	useMCMS := req.MCMSConfig != nil
 	req2 := internal.RegisterNOPSRequest{
-		Env:                   &env,
-		RegistryChainSelector: req.RegistryChainSel,
-		Nops:                  req.Nops,
-		UseMCMS:               useMCMS,
+		Env:           &env,
+		Registry:      capReg.Contract,
+		RegistryChain: &registryChain,
+		Nops:          req.Nops,
+		UseMCMS:       useMCMS,
 	}
 	resp, err := internal.RegisterNOPS(env.GetContext(), env.Logger, req2)
 

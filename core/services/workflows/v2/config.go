@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -28,9 +29,10 @@ type EngineConfig struct {
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
 
-	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
-	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
-	WorkflowName  types.WorkflowName
+	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
+	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
+	WorkflowName          types.WorkflowName
+	WorkflowEncryptionKey workflowkey.Key
 
 	LocalLimits          EngineLimits                // local to a single workflow
 	GlobalLimits         limits.ResourceLimiter[int] // global to all workflows
