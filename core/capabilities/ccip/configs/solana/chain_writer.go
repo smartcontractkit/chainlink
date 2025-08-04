@@ -23,6 +23,7 @@ var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 // TODO: Remove IDL once V2 execute configs are live
+//
 //go:embed ccip_common.json
 var ccipCommonIDL string
 
