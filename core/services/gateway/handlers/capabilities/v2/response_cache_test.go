@@ -335,7 +335,7 @@ func TestDeleteExpired(t *testing.T) {
 		count := cache.DeleteExpired()
 
 		require.Equal(t, 2, count, "should delete 2 expired entries")
-		require.Equal(t, 1, len(cache.cache), "should have 1 entry remaining")
+		require.Len(t, cache.cache, 1, "should have 1 entry remaining")
 
 		// Valid entry should still exist
 		_, exists := cache.cache[cacheKey(workflowID, validReq)]

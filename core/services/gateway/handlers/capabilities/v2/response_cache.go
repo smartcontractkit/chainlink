@@ -61,9 +61,9 @@ func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTP
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	key := cacheKey(workflowID, req)
-	cacheMaxAgeMs := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
+	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 	cachedResp, exists := rc.cache[key]
-	if exists && cachedResp.storedAt.Add(cacheMaxAgeMs).After(time.Now()) {
+	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
 		return cachedResp.response
 	}
 	response := fetchFn()
