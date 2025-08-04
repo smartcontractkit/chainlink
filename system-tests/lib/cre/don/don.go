@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -107,7 +109,15 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 
 					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
-					topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+					if topology.GatewayConnectorOutput == nil {
+						// we need to call the DonID "vault" because it is used in two-fold manner:
+						// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector, it uses the same DonID for all gateways.
+						// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
+						// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then "DonID" can be only be "vault".
+						topology.GatewayConnectorOutput = initGatewayConnectorOutput("vault")
+					}
+
+					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 						Outgoing: cre.Outgoing{
 							Path: "/node",
 							Port: 5003,
@@ -117,11 +127,49 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 							Protocol:     "http",
 							Path:         "/",
 							InternalPort: 5002,
-							ExternalPort: ExternalGatewayPort(infraInput),
+							ExternalPort: ExternalGatewayPort(infraInput, coregateway.WebAPICapabilitiesType),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
+						HandlerType:   coregateway.WebAPICapabilitiesType,
+						AuthGatewayId: "web-api-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
+					})
+				}
+			}
+
+			if flags.HasFlag(donMetadata.Flags, cre.VaultCapability) {
+				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
+					nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
+						Key:   node.ExtraRolesKey,
+						Value: cre.GatewayNode,
+					})
+					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
+
+					if topology.GatewayConnectorOutput == nil {
+						// we need to call the DonID "vault" because it is used in two-fold manner:
+						// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector, it uses the same DonID for all gateways.
+						// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
+						// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then "DonID" can be only be "vault".
+						topology.GatewayConnectorOutput = initGatewayConnectorOutput("vault")
 					}
+
+					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
+						Outgoing: cre.Outgoing{
+							Path: "/node",
+							Port: 15003,
+							Host: gatewayInternalHost,
+						},
+						Incoming: cre.Incoming{
+							Protocol:     "http",
+							Path:         "/",
+							InternalPort: 15002,
+							ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
+							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
+						},
+						HandlerType:   coregateway.VaultHandlerType,
+						AuthGatewayId: "vault-gateway",
+						// do not set gateway connector dons, they will be resolved automatically
+					})
 				}
 			}
 
@@ -155,4 +203,21 @@ func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
 	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
+}
+
+// TODO should it return a slice? some gateway types can have multiple instances
+func GatewayConfigurationForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) (*cre.GatewayConfiguration, error) {
+	for _, configuration := range gatewayConnectorOutput.Configurations {
+		if configuration.HandlerType == handlerType {
+			return configuration, nil
+		}
+	}
+	return nil, errors.New("no gateway connector configuration found for handler type " + string(handlerType))
+}
+
+func initGatewayConnectorOutput(donID string) *cre.GatewayConnectorOutput {
+	return &cre.GatewayConnectorOutput{
+		DonID:          donID,
+		Configurations: make([]*cre.GatewayConfiguration, 0),
+	}
 }

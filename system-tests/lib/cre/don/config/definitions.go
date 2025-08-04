@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -176,22 +175,29 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 	)
 }
 
-func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint64, gatewayConnectorData cre.GatewayConnectorOutput) string {
-	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
-
-	return fmt.Sprintf(`
+func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID string, gatewayConfiguration []*cre.GatewayConfiguration) string {
+	config := fmt.Sprintf(`
 	[Capabilities.GatewayConnector]
 	DonID = "%s"
 	ChainIDForNodeKey = "%d"
 	NodeAddress = '%s'
-
-	[[Capabilities.GatewayConnector.Gateways]]
-	Id = "por_gateway"
-	URL = "%s"
 `,
-		strconv.FormatUint(donID, 10),
+		donID,
 		homeChainID,
 		nodeAddress,
-		gatewayURL,
 	)
+
+	for _, gatewayConnectorData := range gatewayConfiguration {
+		gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
+		config += fmt.Sprintf(`
+	[[Capabilities.GatewayConnector.Gateways]]
+	Id = "%s"
+	URL = "%s"
+`,
+			gatewayConnectorData.AuthGatewayId,
+			gatewayURL,
+		)
+	}
+
+	return config
 }

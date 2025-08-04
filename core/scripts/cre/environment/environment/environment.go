@@ -21,6 +21,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	mock2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/mock"
@@ -39,6 +41,7 @@ import (
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -337,7 +340,11 @@ func startCmd() *cobra.Command {
 			}
 
 			if withExampleFlag {
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
+				gatewayConfiguration, handlerErr := credon.GatewayConfigurationForHandler(coregateway.WebAPICapabilitiesType, output.DonTopology.GatewayConnectorOutput)
+				if handlerErr != nil {
+					return errors.Wrapf(handlerErr, "failed to get gateway configuration for handler %s", coregateway.WebAPICapabilitiesType)
+				}
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", gatewayConfiguration.Incoming.Protocol, gatewayConfiguration.Incoming.Host, gatewayConfiguration.Incoming.ExternalPort, gatewayConfiguration.Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
@@ -345,7 +352,7 @@ func startCmd() *cobra.Command {
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 					output.BlockchainOutput[0].ChainSelector,
 					keystone_changeset.WorkflowRegistry.String())
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.DonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}

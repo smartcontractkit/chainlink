@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -31,8 +32,8 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
-	// if we don't have a gateway connector output, we don't need to create any job specs
-	if gatewayConnectorOutput == nil {
+	// if we don't have a gateway connector outputs, we don't need to create any job specs
+	if gatewayConnectorOutput == nil || len(gatewayConnectorOutput.Configurations) == 0 {
 		return donToJobSpecs, nil
 	}
 
@@ -57,19 +58,18 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 				return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
 			}
 		}
-		gatewayConnectorOutput.Dons = append(gatewayConnectorOutput.Dons, cre.GatewayConnectorDons{
-			MembersEthAddresses: ethAddresses,
-			ID:                  donWithMetadata.ID,
-		})
-	}
 
-	if len(gatewayConnectorOutput.Dons) == 0 {
-		return donToJobSpecs, nil
+		for idx := range gatewayConnectorOutput.Configurations {
+			gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
+				MembersEthAddresses: ethAddresses,
+				ID:                  donWithMetadata.ID,
+			})
+		}
 	}
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		// create job specs for the gateway node
-		if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
+		// create job specs for the gateway node or vault DON
+		if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) && !flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
 			continue
 		}
 
@@ -88,7 +88,44 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			return nil, errors.Wrap(homeChainErr, "failed to get home chain id from selector")
 		}
 
-		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, *gatewayConnectorOutput))
+		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
+			gatewayConfiguration, handlerErr := don.GatewayConfigurationForHandler(coregateway.WebAPICapabilitiesType, gatewayConnectorOutput)
+			if handlerErr != nil {
+				return nil, errors.Wrapf(handlerErr, "failed to get gateway connector output for handler %s", coregateway.WebAPICapabilitiesType)
+			}
+
+			handlerConfig := `
+			[gatewayConfig.Dons.HandlerConfig]
+			MaxAllowedMessageAgeSec = 1_000
+			[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+			GlobalBurst = 10
+			GlobalRPS = 50
+			PerSenderBurst = 10
+			PerSenderRPS = 10
+			`
+
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput.DonID, handlerConfig, gatewayConfiguration))
+		}
+
+		if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
+			gatewayConfiguration, handlerErr := don.GatewayConfigurationForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
+			if handlerErr != nil {
+				return nil, errors.Wrapf(handlerErr, "failed to get gateway connector output for handler %s", coregateway.VaultHandlerType)
+			}
+
+			// for some reason vault expects different field names than web API
+			handlerConfig := `
+			[gatewayConfig.Dons.HandlerConfig]
+			request_timeout_sec = 30
+			[gatewayConfig.Dons.HandlerConfig.node_rate_limiter]
+			globalRPS = 100
+			globalBurst = 100
+			perSenderRPS = 10
+			perSenderBurst = 10
+			`
+
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput.DonID, handlerConfig, gatewayConfiguration))
+		}
 	}
 
 	return donToJobSpecs, nil

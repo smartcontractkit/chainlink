@@ -41,10 +41,10 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, donID, handlerConfig string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
-	for _, don := range gatewayConnectorData.Dons {
+	for _, don := range gatewayConfiguration.Dons {
 		var gatewayMembers string
 
 		for i := 0; i < len(don.MembersEthAddresses); i++ {
@@ -59,18 +59,12 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint64, extraAllow
 
 		gatewayDons += fmt.Sprintf(`
 		[[gatewayConfig.Dons]]
-		DonId = "%d"
+		DonId = "%s"
 		F = 1
-		HandlerName = "web-api-capabilities"
-			[gatewayConfig.Dons.HandlerConfig]
-			MaxAllowedMessageAgeSec = 1_000
-				[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-				GlobalBurst = 10
-				GlobalRPS = 50
-				PerSenderBurst = 10
-				PerSenderRPS = 10
-			%s
-		`, don.ID, gatewayMembers)
+		HandlerName = "%s"
+		%s
+		%s
+		`, donID, gatewayConfiguration.HandlerType, handlerConfig, gatewayMembers)
 	}
 
 	uuid := uuid.NewString()
@@ -83,7 +77,7 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint64, extraAllow
 	forwardingAllowed = false
 	[gatewayConfig.ConnectionManagerConfig]
 	AuthChallengeLen = 10
-	AuthGatewayId = "por_gateway"
+	AuthGatewayId = "%s"
 	AuthTimestampToleranceSec = 5
 	HeartbeatIntervalSec = 20
 	%s
@@ -111,12 +105,13 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint64, extraAllow
 	MaxResponseBytes = 100_000_000
 `,
 		uuid,
-		cre.GatewayJobName,
+		"gateway-"+gatewayConfiguration.HandlerType,
+		gatewayConfiguration.AuthGatewayId,
 		gatewayDons,
-		gatewayConnectorData.Outgoing.Path,
-		gatewayConnectorData.Outgoing.Port,
-		gatewayConnectorData.Incoming.Path,
-		gatewayConnectorData.Incoming.InternalPort,
+		gatewayConfiguration.Outgoing.Path,
+		gatewayConfiguration.Outgoing.Port,
+		gatewayConfiguration.Incoming.Path,
+		gatewayConfiguration.Incoming.InternalPort,
 	)
 
 	if len(extraAllowedPorts) != 0 {

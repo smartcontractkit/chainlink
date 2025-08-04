@@ -10,6 +10,8 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -49,11 +51,6 @@ const (
 	MockCapability          CapabilityFlag = "mock"
 	VaultCapability         CapabilityFlag = "vault"
 	// Add more capabilities as needed
-)
-
-// Job names for which there are no specific capabilities
-const (
-	GatewayJobName = "gateway"
 )
 
 type NodeType = string
@@ -291,9 +288,16 @@ type GatewayConnectorDons struct {
 }
 
 type GatewayConnectorOutput struct {
-	Dons     []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
-	Outgoing Outgoing               `toml:"outgoing" json:"outgoing"`
-	Incoming Incoming               `toml:"incoming" json:"incoming"`
+	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
+	DonID          string                  `toml:"don_id" json:"don_id"`
+}
+
+type GatewayConfiguration struct {
+	Dons          []GatewayConnectorDons  `toml:"dons" json:"dons"` // do not set, it will be set dynamically
+	Outgoing      Outgoing                `toml:"outgoing" json:"outgoing"`
+	Incoming      Incoming                `toml:"incoming" json:"incoming"`
+	HandlerType   coregateway.HandlerType `toml:"handler_type" json:"handler_type"`
+	AuthGatewayId string                  `toml:"auth_gateway_id" json:"auth_gateway_id"`
 }
 
 type Outgoing struct {

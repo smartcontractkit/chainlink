@@ -53,8 +53,6 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -125,7 +123,9 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
-      custom_ports = ["5002:5002"]
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
       user_config_overrides = """
       [Log]
       Level = 'debug'

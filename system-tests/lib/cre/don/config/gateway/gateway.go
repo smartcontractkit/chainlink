@@ -22,8 +22,8 @@ import (
 func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
-	if input.GatewayConnectorOutput == nil {
-		return configOverrides, errors.New("gateway connector output is not set")
+	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
+		return configOverrides, errors.New("gateway connector output or configurations are empty")
 	}
 
 	// find worker nodes
@@ -62,7 +62,7 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
 		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
 		// gateway is also required by various capabilities
-		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) || flags.HasFlag(input.Flags, cre.VaultCapability) {
 			var nodeEthAddr common.Address
 			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
 			for _, label := range workflowNodeSet[i].Labels {
@@ -78,8 +78,8 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				homeChainID,
-				input.DonMetadata.ID,
-				*input.GatewayConnectorOutput,
+				input.GatewayConnectorOutput.DonID,
+				input.GatewayConnectorOutput.Configurations,
 			)
 		}
 	}

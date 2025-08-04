@@ -3,6 +3,8 @@ package don
 import (
 	"fmt"
 
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -42,10 +44,17 @@ func ExternalGatewayHost(nodeIndex int, nodeType cre.CapabilityFlag, donName str
 	return "localhost"
 }
 
-func ExternalGatewayPort(infraInput infra.Input) int {
+func ExternalGatewayPort(infraInput infra.Input, handlerType coregateway.HandlerType) int {
 	if infraInput.Type == infra.CRIB {
 		return 80
 	}
 
-	return 5002
+	switch handlerType {
+	case coregateway.WebAPICapabilitiesType:
+		return 5002
+	case coregateway.VaultHandlerType:
+		return 15002
+	default:
+		return 5002
+	}
 }
