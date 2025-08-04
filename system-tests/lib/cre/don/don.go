@@ -205,14 +205,15 @@ func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
 }
 
-// TODO should it return a slice? some gateway types can have multiple instances
-func GatewayConfigurationForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) (*cre.GatewayConfiguration, error) {
+func GatewayConfigurationsForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) []*cre.GatewayConfiguration {
+	gatewayConfigurations := make([]*cre.GatewayConfiguration, 0)
 	for _, configuration := range gatewayConnectorOutput.Configurations {
 		if configuration.HandlerType == handlerType {
-			return configuration, nil
+			gatewayConfigurations = append(gatewayConfigurations, configuration)
 		}
 	}
-	return nil, errors.New("no gateway connector configuration found for handler type " + string(handlerType))
+
+	return gatewayConfigurations
 }
 
 func initGatewayConnectorOutput(donID string) *cre.GatewayConnectorOutput {

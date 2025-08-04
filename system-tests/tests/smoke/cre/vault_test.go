@@ -65,9 +65,9 @@ func TestVault_SecretsCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make HTTP request to gateway endpoint
-	gatewayConfiguration, handlerErr := credon.GatewayConfigurationForHandler(coregateway.VaultHandlerType, fullCldEnvOutput.DonTopology.GatewayConnectorOutput)
-	require.NoError(t, handlerErr)
-	gatewayURL, err := url.Parse(gatewayConfiguration.Incoming.Protocol + "://" + gatewayConfiguration.Incoming.Host + ":" + fmt.Sprint(gatewayConfiguration.Incoming.ExternalPort) + gatewayConfiguration.Incoming.Path)
+	gatewayConfigurations := credon.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, fullCldEnvOutput.DonTopology.GatewayConnectorOutput)
+	require.Greater(t, len(gatewayConfigurations), 0, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(gatewayConfigurations[0].Incoming.Protocol + "://" + gatewayConfigurations[0].Incoming.Host + ":" + fmt.Sprint(gatewayConfigurations[0].Incoming.ExternalPort) + gatewayConfigurations[0].Incoming.Path)
 	require.NoError(t, err)
 	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL.String(), bytes.NewBuffer(requestBody))
 	require.NoError(t, err)

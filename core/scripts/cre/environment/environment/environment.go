@@ -340,11 +340,13 @@ func startCmd() *cobra.Command {
 			}
 
 			if withExampleFlag {
-				gatewayConfiguration, handlerErr := credon.GatewayConfigurationForHandler(coregateway.WebAPICapabilitiesType, output.DonTopology.GatewayConnectorOutput)
-				if handlerErr != nil {
-					return errors.Wrapf(handlerErr, "failed to get gateway configuration for handler %s", coregateway.WebAPICapabilitiesType)
+				gatewayConfigurations := credon.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, output.DonTopology.GatewayConnectorOutput)
+				if len(gatewayConfigurations) == 0 {
+					return errors.New("no gateway connector configurations found for handler type " + string(coregateway.WebAPICapabilitiesType))
 				}
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", gatewayConfiguration.Incoming.Protocol, gatewayConfiguration.Incoming.Host, gatewayConfiguration.Incoming.ExternalPort, gatewayConfiguration.Incoming.Path)
+
+				// use first gateway for example workflow
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", gatewayConfigurations[0].Incoming.Protocol, gatewayConfigurations[0].Incoming.Host, gatewayConfigurations[0].Incoming.ExternalPort, gatewayConfigurations[0].Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
