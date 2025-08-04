@@ -131,7 +131,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
 						HandlerType:   coregateway.WebAPICapabilitiesType,
-						AuthGatewayId: "web-api-gateway",
+						AuthGatewayID: "web-api-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
 					})
 				}
@@ -167,7 +167,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
 						HandlerType:   coregateway.VaultHandlerType,
-						AuthGatewayId: "vault-gateway",
+						AuthGatewayID: "vault-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
 					})
 				}

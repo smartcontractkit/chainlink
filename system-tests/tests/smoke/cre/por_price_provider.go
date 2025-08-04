@@ -50,9 +50,9 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 
 		marshalled, mErr := json.Marshal(response)
 		if mErr == nil {
-			testLogger.Info().Msgf("Returning response: %s", string(marshalled))
+			testLogger.Info().Msgf("Returning response for feedID: %s: %s", feedID, string(marshalled))
 		} else {
-			testLogger.Info().Msgf("Returning response: %v", response)
+			testLogger.Info().Msgf("Returning response for feedID: %s: %v", feedID, response)
 		}
 
 		return response, nil
@@ -127,11 +127,11 @@ func (l *TrueUSDPriceProvider) NextPrice(feedID string, price *big.Int, elapsed 
 	cleanFeedID := cleanFeedID(feedID)
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
-		l.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", cleanFeedID, elapsed)
+		l.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", feedID, elapsed)
 		return true
 	}
 
-	l.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", cleanFeedID, elapsed, price)
+	l.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", feedID, elapsed, price)
 	l.actualPrices[cleanFeedID] = append(l.actualPrices[cleanFeedID], price)
 
 	// no other price to return, we are done

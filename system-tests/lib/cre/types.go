@@ -297,7 +297,7 @@ type GatewayConfiguration struct {
 	Outgoing      Outgoing                `toml:"outgoing" json:"outgoing"`
 	Incoming      Incoming                `toml:"incoming" json:"incoming"`
 	HandlerType   coregateway.HandlerType `toml:"handler_type" json:"handler_type"`
-	AuthGatewayId string                  `toml:"auth_gateway_id" json:"auth_gateway_id"`
+	AuthGatewayID string                  `toml:"auth_gateway_id" json:"auth_gateway_id"`
 }
 
 type Outgoing struct {

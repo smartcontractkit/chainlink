@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	artifactDirName = "env_artifact"
-	NOPAdminPrefix  = "0xaadd000000000000000000000000000000"
+	ArtifactDirName  = "env_artifact"
+	ArtifactFileName = "env_artifact.json"
+	NOPAdminPrefix   = "0xaadd000000000000000000000000000000"
 )
 
 type EnvArtifact struct {
@@ -224,16 +225,16 @@ func GenerateArtifact(
 }
 
 func persistArtifact(artifact *EnvArtifact) (string, error) {
-	err := os.MkdirAll(artifactDirName, 0755)
+	err := os.MkdirAll(ArtifactDirName, 0755)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
 	}
-	err = WriteJSONFile(artifactDirName+"/env_artifact.json", artifact)
+	err = WriteJSONFile(filepath.Join(ArtifactDirName, ArtifactFileName), artifact)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to write environment artifact to file")
 	}
 
-	absPath, absPathErr := filepath.Abs(artifactDirName + "/env_artifact.json")
+	absPath, absPathErr := filepath.Abs(filepath.Join(ArtifactDirName, ArtifactFileName))
 	if absPathErr != nil {
 		return "", pkgerrors.Wrap(absPathErr, "failed to get absolute path for the environment artifact")
 	}

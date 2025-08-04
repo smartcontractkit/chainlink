@@ -194,7 +194,7 @@ func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID string,
 	Id = "%s"
 	URL = "%s"
 `,
-			gatewayConnectorData.AuthGatewayId,
+			gatewayConnectorData.AuthGatewayID,
 			gatewayURL,
 		)
 	}

@@ -25,3 +25,4 @@ examples/**/*.yaml
 # dumped data
 env_artifact/
 bin/
+artifact_paths.json

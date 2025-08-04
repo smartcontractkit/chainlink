@@ -3,8 +3,9 @@ package gateway
 import (
 	"github.com/pkg/errors"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -91,7 +92,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
 			gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, gatewayConnectorOutput)
 			if len(gatewayConfigurations) == 0 {
-				return nil, errors.New("no gateway connector configurations found for handler type " + string(coregateway.WebAPICapabilitiesType))
+				return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
 			}
 
 			handlerConfig := `
@@ -112,7 +113,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
 			gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
 			if len(gatewayConfigurations) == 0 {
-				return nil, errors.New("no gateway connector configurations found for handler type " + string(coregateway.VaultHandlerType))
+				return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.VaultHandlerType)
 			}
 
 			// for some reason vault expects different field names than web API

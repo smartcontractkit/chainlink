@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -342,7 +343,7 @@ func startCmd() *cobra.Command {
 			if withExampleFlag {
 				gatewayConfigurations := credon.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, output.DonTopology.GatewayConnectorOutput)
 				if len(gatewayConfigurations) == 0 {
-					return errors.New("no gateway connector configurations found for handler type " + string(coregateway.WebAPICapabilitiesType))
+					return errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
 				}
 
 				// use first gateway for example workflow
@@ -365,6 +366,11 @@ func startCmd() *cobra.Command {
 			// store the config with cached output
 			_ = framework.Store(in)
 
+			saveArtifactPathsErr := saveArtifactPaths()
+			if saveArtifactPathsErr != nil {
+				return errors.Wrap(saveArtifactPathsErr, "failed to save artifact paths")
+			}
+
 			return nil
 		},
 	}
@@ -380,6 +386,43 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	return cmd
+}
+
+func saveArtifactPaths() error {
+	artifactAbsPath, artifactAbsPathErr := filepath.Abs(filepath.Join(creenv.ArtifactDirName, creenv.ArtifactFileName))
+	if artifactAbsPathErr != nil {
+		return artifactAbsPathErr
+	}
+
+	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	if ctfConfigs == "" {
+		return errors.New("CTF_CONFIGS env var is not set")
+	}
+
+	splitConfigs := strings.Split(ctfConfigs, ",")
+	baseConfigPath := splitConfigs[0]
+	newCacheName := strings.ReplaceAll(baseConfigPath, ".toml", "")
+	if strings.Contains(newCacheName, "cache") {
+		return nil
+	}
+	cachedOutName := strings.ReplaceAll(baseConfigPath, ".toml", "") + "-cache.toml"
+
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(cachedOutName)
+	if ctfConfigsAbsPathErr != nil {
+		return ctfConfigsAbsPathErr
+	}
+
+	artifactPaths := map[string]string{
+		"env_artifact": artifactAbsPath,
+		"env_config":   ctfConfigsAbsPath,
+	}
+
+	marshalled, mErr := json.Marshal(artifactPaths)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal artifact paths")
+	}
+
+	return os.WriteFile("artifact_paths.json", marshalled, 0600)
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
