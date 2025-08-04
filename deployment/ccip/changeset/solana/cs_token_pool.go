@@ -1154,7 +1154,7 @@ func getInstructionsForLockRelease(
 	return ixns, nil
 }
 
-func getNewSetuptInstructionsForCCTP(
+func getNewSetupInstructionsForCCTP(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
@@ -1163,7 +1163,7 @@ func getNewSetuptInstructionsForCCTP(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig cctp_token_pool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getNewSetuptInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
+	e.Logger.Infow("getNewSetupInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := chainState.CCTPTokenPool
 	contractType := shared.USDCTokenPool
@@ -1177,7 +1177,7 @@ func getNewSetuptInstructionsForCCTP(
 		tokenPubKey,
 		cfg.Metadata,
 	)
-	e.Logger.Infow("getNewSetuptInstructionsForCCTP", "authority", authority.String())
+	e.Logger.Infow("getNewSetupInstructionsForCCTP", "authority", authority.String())
 	onChainEVMPoolConfigWithoutPoolAddress := cctp_token_pool.RemoteConfig{
 		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
 		PoolAddresses: []cctp_token_pool.RemoteAddress{},
@@ -1337,7 +1337,7 @@ func getInstructionsForCCTP(
 			}
 		}
 	} else {
-		ixns, err = getNewSetuptInstructionsForCCTP(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
+		ixns, err = getNewSetupInstructionsForCCTP(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -2088,35 +2088,6 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 		}
 		if cfg.SetRouterCfg != nil {
 			ix, err = solLockReleaseTokenPool.NewSetRouterInstruction(
-				cfg.SetRouterCfg.Router,
-				poolConfigPDA,
-				tokenPubKey,
-				authority,
-				tokenPool,
-				programData.Address,
-			).ValidateAndBuild()
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
-			}
-			ixns = append(ixns, ix)
-		}
-	case shared.CCTPTokenPool:
-		cctp_token_pool.SetProgramID(tokenPool)
-		if cfg.DeleteChainCfg != nil {
-			ix, err = cctp_token_pool.NewDeleteChainConfigInstruction(
-				cfg.DeleteChainCfg.RemoteChainSelector,
-				tokenPubKey,
-				poolConfigPDA,
-				remoteChainConfigPDA,
-				authority,
-			).ValidateAndBuild()
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
-			}
-			ixns = append(ixns, ix)
-		}
-		if cfg.SetRouterCfg != nil {
-			ix, err = cctp_token_pool.NewSetRouterInstruction(
 				cfg.SetRouterCfg.Router,
 				poolConfigPDA,
 				tokenPubKey,

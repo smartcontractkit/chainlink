@@ -604,6 +604,16 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 			mcmsTxs = append(mcmsTxs, *upgradeTx)
 		}
 	}
+	if c.CCTPTokenPool {
+		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.CCTPTokenPoolProgramName, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 	if err != nil {
