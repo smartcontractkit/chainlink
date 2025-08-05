@@ -28,7 +28,7 @@ const serviceConfigTemplate = `"""
 """
 `
 
-var HttpActionJobSpecFactoryFn = func(httpActionBinaryPath string) cre.JobSpecFactoryFn {
+var HTTPActionJobSpecFactoryFn = func(httpActionBinaryPath string) cre.JobSpecFactoryFn {
 	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(
 			input.DonTopology,
@@ -44,7 +44,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, httpActionBinaryPath string)
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(donWithMetadata.Flags, cre.HttpActionCapability) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.HTTPActionCapability) {
 			continue
 		}
 		workflowNodeSet, err := crenode.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.WorkerNode}, crenode.EqualLabels)
@@ -58,7 +58,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, httpActionBinaryPath string)
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HttpActionCapability, httpActionBinaryPath, serviceConfigTemplate, ""))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HTTPActionCapability, httpActionBinaryPath, serviceConfigTemplate, ""))
 		}
 	}
 

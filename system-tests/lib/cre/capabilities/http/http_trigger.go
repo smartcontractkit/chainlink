@@ -12,7 +12,7 @@ import (
 
 var HTTPTriggerCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
-	if flags.HasFlag(donFlags, cre.HttpTriggerCapability) {
+	if flags.HasFlag(donFlags, cre.HTTPTriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "http-trigger",

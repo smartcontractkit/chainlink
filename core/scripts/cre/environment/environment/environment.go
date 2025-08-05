@@ -509,14 +509,14 @@ func StartCLIEnvironment(
 		}
 
 		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.HttpTriggerCapability)
-			capabilitiesBinaryPaths[cre.HttpTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
 			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.HttpActionCapability)
-			capabilitiesBinaryPaths[cre.HttpActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
 			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
@@ -572,14 +572,14 @@ func StartCLIEnvironment(
 		}
 
 		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.HttpTriggerCapability)
-			capabilitiesBinaryPaths[cre.HttpTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
 			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.HttpActionCapability)
-			capabilitiesBinaryPaths[cre.HttpActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
 			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
@@ -731,8 +731,8 @@ func StartCLIEnvironment(
 		crecompute.ComputeJobSpecFactoryFn,
 		crevault.VaultJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		mock2.MockJobSpecFactoryFn(7777),
-		crehttpaction.HttpActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
-		crehttptrigger.HttpTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
+		crehttpaction.HTTPActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
+		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
 	}
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)

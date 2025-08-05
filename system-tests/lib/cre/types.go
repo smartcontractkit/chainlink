@@ -49,8 +49,8 @@ const (
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
 	VaultCapability         CapabilityFlag = "vault"
-	HttpTriggerCapability   CapabilityFlag = "http-trigger"
-	HttpActionCapability    CapabilityFlag = "http-action"
+	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
+	HTTPActionCapability    CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
