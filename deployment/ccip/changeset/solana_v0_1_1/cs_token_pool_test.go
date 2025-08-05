@@ -409,7 +409,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
 										BurnMintTokenPools: map[string][]solana.PublicKey{
 											tokenMetadata: {tokenAddress},
 										},
@@ -473,6 +473,19 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				require.NoError(t, err)
 			}
 		}
+
+		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+			ccipChangesetSolana.NewMintTokenPoolConfig{
+				NewMintAuthority: deployerKey,
+				ChainSelector:    solChain,
+				TokenPubKey:      tokenAddress,
+				PoolType:         &testCase.poolType,
+				MCMS:             mcmsConfig,
+				Metadata:         tokenMetadata,
+			},
+		)})
+		require.NoError(t, err)
 	}
 }
 
