@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	ks_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
+	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
 
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -86,17 +86,15 @@ type (
 	}
 
 	ConfigureCacheDecimalReportInput struct {
-		ChainSel             uint64
-		Descriptions         [][32]uint8
-		DataIDs              [][16]uint8
-		MCMS                 *proposalutils.TimelockConfig // if set, assumes current owner is the timelock
-		AllowedSender        []solana.PublicKey
-		AllowedWorkflowOwner [][20]uint8
-		AllowedWorkflowName  [][10]uint8
-		FeedAdmin            solana.PublicKey
-		State                solana.PublicKey
-		Type                 cldf.ContractType
-		RemainingAccounts    []solana.AccountMeta
+		ChainSel          uint64
+		Descriptions      [][32]uint8
+		DataIDs           [][16]uint8
+		MCMS              *proposalutils.TimelockConfig // if set, assumes current owner is the timelock
+		WorkflowMetadatas []df_cache.WorkflowMetadata
+		FeedAdmin         solana.PublicKey
+		State             solana.PublicKey
+		Type              cldf.ContractType
+		RemainingAccounts []solana.AccountMeta
 	}
 
 	ConfigureCacheOutput struct {
@@ -180,8 +178,8 @@ func getCurrentAuthority(deps Deps, chainSel uint64, mcmsConfig *proposalutils.T
 func initCache(b operations.Bundle, deps Deps, in InitCacheInput) (InitCacheOutput, error) {
 	var out InitCacheOutput
 
-	if ks_cache.ProgramID.IsZero() {
-		ks_cache.SetProgramID(in.ProgramID)
+	if df_cache.ProgramID.IsZero() {
+		df_cache.SetProgramID(in.ProgramID)
 	}
 
 	stateKey, err := solana.NewRandomPrivateKey()
@@ -189,7 +187,7 @@ func initCache(b operations.Bundle, deps Deps, in InitCacheInput) (InitCacheOutp
 		return out, fmt.Errorf("failed to create random keys: %w", err)
 	}
 
-	instruction, err := ks_cache.NewInitializeInstruction(
+	instruction, err := df_cache.NewInitializeInstruction(
 		in.FeedAdmins,
 		deps.Chain.DeployerKey.PublicKey(),
 		stateKey.PublicKey(),
@@ -248,7 +246,7 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 func initCacheDecimalReport(b operations.Bundle, deps Deps, in InitCacheDecimalReportInput) (ConfigureCacheOutput, error) {
 	var out ConfigureCacheOutput
 
-	instruction := ks_cache.NewInitDecimalReportsInstruction(
+	instruction := df_cache.NewInitDecimalReportsInstruction(
 		in.DataIDs,
 		in.FeedAdmin,
 		in.State,
@@ -286,19 +284,10 @@ func initCacheDecimalReport(b operations.Bundle, deps Deps, in InitCacheDecimalR
 func configureCacheDecimalReport(b operations.Bundle, deps Deps, in ConfigureCacheDecimalReportInput) (ConfigureCacheOutput, error) {
 	var out ConfigureCacheOutput
 
-	workflowMetas := make([]ks_cache.WorkflowMetadata, len(in.AllowedSender))
-	for i := range in.AllowedSender {
-		workflowMetas[i] = ks_cache.WorkflowMetadata{
-			AllowedSender:        in.AllowedSender[i],
-			AllowedWorkflowOwner: in.AllowedWorkflowOwner[i],
-			AllowedWorkflowName:  in.AllowedWorkflowName[i],
-		}
-	}
-
-	instruction := ks_cache.NewSetDecimalFeedConfigsInstruction(
+	instruction := df_cache.NewSetDecimalFeedConfigsInstruction(
 		in.DataIDs,
 		in.Descriptions,
-		workflowMetas,
+		in.WorkflowMetadatas,
 		in.FeedAdmin,
 		in.State,
 		solana.SystemProgramID,
