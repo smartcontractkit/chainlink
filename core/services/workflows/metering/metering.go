@@ -363,11 +363,14 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	for _, nodeDetail := range spendsByNode {
 		var spendUnit string
 		switch nodeDetail.SpendUnit {
-		case "compute":
+		case "compute", "RESOURCE_TYPE_COMPUTE":
 			spendUnit = "RESOURCE_TYPE_COMPUTE"
 
-		case "payload":
+		case "payload", "RESOURCE_TYPE_NETWORK":
 			spendUnit = "RESOURCE_TYPE_NETWORK"
+
+		case "Gas":
+			spendUnit = "Gas"
 
 		default:
 			r.lggr.Error("unknown spend unit", "spendUnit", nodeDetail.SpendUnit)
