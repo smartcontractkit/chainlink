@@ -121,6 +121,10 @@ func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
 }
 
+func (c *capabilitiesExternalRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
+}
+
 type capabilitiesWorkflowRegistry struct {
 	c toml.WorkflowRegistry
 }
@@ -135,6 +139,10 @@ func (c *capabilitiesWorkflowRegistry) NetworkID() string {
 
 func (c *capabilitiesWorkflowRegistry) ChainID() string {
 	return *c.c.ChainID
+}
+
+func (c *capabilitiesWorkflowRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
 }
 
 func (c *capabilitiesWorkflowRegistry) Address() string {

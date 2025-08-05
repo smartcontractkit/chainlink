@@ -598,10 +598,10 @@ func TestETHTxTask(t *testing.T) {
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				require.Nil(t, result.Value)
 				if test.expectedErrorCause != nil {
-					require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+					require.ErrorIs(t, result.Error, test.expectedErrorCause)
 				}
 				if test.expectedErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+					require.ErrorContains(t, result.Error, test.expectedErrorContains)
 				}
 			} else {
 				require.NoError(t, result.Error)

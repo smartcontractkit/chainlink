@@ -2,16 +2,19 @@ package v2_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -51,29 +54,32 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 	name, err := types.NewWorkflowName(testWorkflowNameA)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{})
+	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, limits.Factory{})
 	require.NoError(t, err)
 	rateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      10.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   10.0,
 		PerSenderBurst: 100,
-	})
+	}, limits.Factory{})
 	require.NoError(t, err)
 
 	return &v2.EngineConfig{
-		Lggr:                 lggr,
-		Module:               modulemocks.NewModuleV2(t),
-		CapRegistry:          regmocks.NewCapabilitiesRegistry(t),
-		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		WorkflowID:           testWorkflowID,
-		WorkflowOwner:        testWorkflowOwnerA,
-		WorkflowName:         name,
-		LocalLimits:          v2.EngineLimits{},
-		GlobalLimits:         sLimiter,
-		ExecutionRateLimiter: rateLimiter,
-		BeholderEmitter:      &noopBeholderEmitter{},
-		BillingClient:        metmocks.NewBillingClient(t),
+		Lggr:                          lggr,
+		Module:                        modulemocks.NewModuleV2(t),
+		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
+		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		WorkflowID:                    testWorkflowID,
+		WorkflowOwner:                 testWorkflowOwnerA,
+		WorkflowName:                  name,
+		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		LocalLimits:                   v2.EngineLimits{},
+		GlobalLimits:                  sLimiter,
+		ExecutionRateLimiter:          rateLimiter,
+		BeholderEmitter:               &noopBeholderEmitter{},
+		BillingClient:                 metmocks.NewBillingClient(t),
+		WorkflowRegistryAddress:       "0x123",
+		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}
 }
 

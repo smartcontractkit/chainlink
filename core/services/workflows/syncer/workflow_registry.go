@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -126,7 +125,6 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
-	workflowRegistryVersion semver.Version
 
 	contractReaderFn versioning.ContractReaderFactory
 
@@ -233,12 +231,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
-				return
-			}
-
-			err = w.getContractTypeAndVersion(ctx)
-			if err != nil {
-				w.lggr.Criticalf("unable to get WorkflowRegistry contract version: %s", err)
 				return
 			}
 
@@ -435,7 +427,6 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 			if err != nil {
 				w.lggr.Errorw("failed to handle event", "err", err)
 			}
-
 		}
 	}
 
@@ -485,8 +476,8 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 		prevWfID := engine.WorkflowID.Hex()
 
 		id := idFor(wfMeta.Owner, wfMeta.WorkflowName)
-		switch {
-		case wfMeta.Status == WorkflowStatusActive:
+		switch wfMeta.Status {
+		case WorkflowStatusActive:
 			switch {
 			// if the workflow is active, but unable to get engine from the engine registry
 			// then handle as registered event
@@ -560,7 +551,7 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 			default:
 				return nil, fmt.Errorf("invariant violation: could not handle workflow (currWfID=%s; prevWfID=%s, engineFound=%t) in active status", currWfID, prevWfID, engineFound)
 			}
-		case wfMeta.Status == WorkflowStatusPaused:
+		case WorkflowStatusPaused:
 			switch {
 			case !engineFound:
 				// Account for a state change from active to paused, by checking
@@ -728,71 +719,54 @@ type sequenceWithEventType struct {
 	EventType WorkflowRegistryEventType
 }
 
-func (w *workflowRegistry) getContractTypeAndVersion(ctx context.Context) error {
-	version, err := versioning.VerifyTypeAndVersion(ctx, w.workflowRegistryAddress, w.contractReaderFn, versioning.ContractType(WorkflowRegistryContractName))
-	if err != nil {
-		return err
-	}
-	w.workflowRegistryVersion = version
-	return nil
-}
-
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	var contractReaderCfg evmtypes.ChainReaderConfig
-	switch w.workflowRegistryVersion.Major() {
-	case 1:
-		contractReaderCfg = evmtypes.ChainReaderConfig{
-			Contracts: map[string]evmtypes.ChainContractReader{
-				WorkflowRegistryContractName: {
-					ContractPollingFilter: evmtypes.ContractPollingFilter{
-						GenericEventNames: []string{
-							string(ForceUpdateSecretsEvent),
-							string(WorkflowActivatedEvent),
-							string(WorkflowDeletedEvent),
-							string(WorkflowPausedEvent),
-							string(WorkflowRegisteredEvent),
-							string(WorkflowUpdatedEvent),
-						},
+	contractReaderCfg := evmtypes.ChainReaderConfig{
+		Contracts: map[string]evmtypes.ChainContractReader{
+			WorkflowRegistryContractName: {
+				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					GenericEventNames: []string{
+						string(ForceUpdateSecretsEvent),
+						string(WorkflowActivatedEvent),
+						string(WorkflowDeletedEvent),
+						string(WorkflowPausedEvent),
+						string(WorkflowRegisteredEvent),
+						string(WorkflowUpdatedEvent),
 					},
-					ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-					Configs: map[string]*evmtypes.ChainReaderDefinition{
-						GetWorkflowMetadataListByDONMethodName: {
-							ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
-						},
-						string(ForceUpdateSecretsEvent): {
-							ChainSpecificName: string(ForceUpdateSecretsEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowActivatedEvent): {
-							ChainSpecificName: string(WorkflowActivatedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowDeletedEvent): {
-							ChainSpecificName: string(WorkflowDeletedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowPausedEvent): {
-							ChainSpecificName: string(WorkflowPausedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowRegisteredEvent): {
-							ChainSpecificName: string(WorkflowRegisteredEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowUpdatedEvent): {
-							ChainSpecificName: string(WorkflowUpdatedEvent),
-							ReadType:          evmtypes.Event,
-						},
+				},
+				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
+				Configs: map[string]*evmtypes.ChainReaderDefinition{
+					GetWorkflowMetadataListByDONMethodName: {
+						ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
+					},
+					string(ForceUpdateSecretsEvent): {
+						ChainSpecificName: string(ForceUpdateSecretsEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowActivatedEvent): {
+						ChainSpecificName: string(WorkflowActivatedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowDeletedEvent): {
+						ChainSpecificName: string(WorkflowDeletedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowPausedEvent): {
+						ChainSpecificName: string(WorkflowPausedEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowRegisteredEvent): {
+						ChainSpecificName: string(WorkflowRegisteredEvent),
+						ReadType:          evmtypes.Event,
+					},
+					string(WorkflowUpdatedEvent): {
+						ChainSpecificName: string(WorkflowUpdatedEvent),
+						ReadType:          evmtypes.Event,
 					},
 				},
 			},
-		}
-	// case 2:
-	// TODO CAPPL-1000
-	default:
-		return nil, errors.New("unsupported version " + w.workflowRegistryVersion.String())
+		},
 	}
 
 	marshalledCfg, err := json.Marshal(contractReaderCfg)
@@ -889,41 +863,41 @@ func toWorkflowRegistryEventResponse(
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 	case WorkflowRegisteredEvent:
 		var data WorkflowRegisteredV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowUpdatedEvent:
 		var data WorkflowUpdatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowPausedEvent:
 		var data WorkflowPausedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowActivatedEvent:
 		var data WorkflowActivatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowDeletedEvent:
 		var data WorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	default:
 		return workflowRegistryEvent{}, fmt.Errorf("unknown event type: %s", evt)

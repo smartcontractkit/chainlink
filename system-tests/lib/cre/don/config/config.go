@@ -17,29 +17,29 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func Set(t *testing.T, nodeInput *types.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*types.WrappedNodeOutput, error) {
+func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*cre.WrappedNodeOutput, error) {
 	nodeset, err := ns.UpgradeNodeSet(t, nodeInput.Input, bc, 5*time.Second)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to upgrade node set")
 	}
 
-	return &types.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
+	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
 }
 
-func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactoryFn) (types.NodeIndexToConfigOverride, error) {
+func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) (cre.NodeIndexToConfigOverride, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
-	configOverrides := make(types.NodeIndexToConfigOverride)
+	configOverrides := make(cre.NodeIndexToConfigOverride)
 
 	// if it's only a gateway DON, we don't need to generate any extra configuration, the default one will do
-	if flags.HasFlag(input.Flags, types.GatewayDON) && (!flags.HasFlag(input.Flags, types.WorkflowDON) && !flags.HasFlag(input.Flags, types.CapabilitiesDON)) {
+	if flags.HasFlag(input.Flags, cre.GatewayDON) && (!flags.HasFlag(input.Flags, cre.WorkflowDON) && !flags.HasFlag(input.Flags, cre.CapabilitiesDON)) {
 		return configOverrides, nil
 	}
 
@@ -80,7 +80,7 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	var donBootstrapNodeHost string
 	var donBootstrapNodePeerID string
 
-	bootstrapNodes, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.BootstrapNode}, node.EqualLabels)
+	bootstrapNodes, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 	}
@@ -123,7 +123,7 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 		// generate configuration for the bootstrap node
 		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
 
-		if flags.HasFlag(input.Flags, types.WorkflowDON) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
 			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.PeeringData)
 		}
 	default:
@@ -131,7 +131,7 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	}
 
 	// find worker nodes
-	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}

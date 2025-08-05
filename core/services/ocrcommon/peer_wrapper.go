@@ -42,6 +42,11 @@ type (
 		ocr2types.BootstrapperFactory
 	}
 
+	peerAdapterOCR3_1 struct {
+		ocr2types.BinaryNetworkEndpoint2Factory
+		ocr2types.BootstrapperFactory
+	}
+
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		services.StateMachine
@@ -60,6 +65,9 @@ type (
 
 		// OCR2 peer adapter
 		Peer2 *peerAdapterOCR2
+
+		// OCR3_1 peer adapter
+		Peer3_1 *peerAdapterOCR3_1
 
 		// PeerGroupFactory can be used to create PeerGroup instances
 		PeerGroupFactory ocrnetworking.PeerGroupFactory
@@ -108,6 +116,10 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		}
 		p.Peer2 = &peerAdapterOCR2{
 			peer.OCR2BinaryNetworkEndpointFactory(),
+			peer.OCR2BootstrapperFactory(),
+		}
+		p.Peer3_1 = &peerAdapterOCR3_1{
+			peer.OCR3_1BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
 

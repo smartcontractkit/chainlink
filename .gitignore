@@ -33,6 +33,9 @@ debug.env
 operator_ui/install
 .devenv
 
+# neovim
+.nvim.lua
+
 # codeship
 *.aes
 dockercfg

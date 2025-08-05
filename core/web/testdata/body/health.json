@@ -2,6 +2,15 @@
   "data": [
     {
       "type": "checks",
+      "id": "BridgeStatusReporter",
+      "attributes": {
+        "name": "BridgeStatusReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0",
       "attributes": {
         "name": "EVM.0",
@@ -257,6 +266,15 @@
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowLimiter",
+      "attributes": {
+        "name": "WorkflowLimiter",
         "status": "passing",
         "output": ""
       }

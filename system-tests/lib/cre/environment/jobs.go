@@ -13,22 +13,23 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraType libtypes.InfraType) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
 	startTime := time.Now()
-	lggr.Info().Msg("Starting Jod Distributor")
+	lggr.Info().Msg("Starting Job Distributor")
 
 	var jdOutput *jd.Output
-	if infraType == libtypes.CRIB {
-		deployCribJdInput := &cretypes.DeployCribJdInput{
+	if infraInput.Type == infra.CRIB {
+		deployCribJdInput := &cre.DeployCribJdInput{
 			JDInput:        &jdInput,
 			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
+			Namespace:      infraInput.CRIB.Namespace,
 		}
 
 		var jdErr error
@@ -55,21 +56,13 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraTy
 	return jdOutput, nil
 }
 
-func SetupJobs(
-	lggr zerolog.Logger,
-	jdInput jd.Input,
-	nixShell *nix.Shell,
-	registryChainBlockchainOutput *blockchain.Output,
-	topology *cretypes.Topology,
-	infraType libtypes.InfraType,
-	capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet,
-) (*jd.Output, []*cretypes.WrappedNodeOutput, error) {
+func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, nixShell, jdInput, infraType)
+		jdOutput, startJDErr = StartJD(lggr, nixShell, jdInput, infraInput)
 		if startJDErr != nil {
 			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
@@ -77,11 +70,11 @@ func SetupJobs(
 		return nil
 	})
 
-	nodeSetOutput := make([]*cretypes.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startDonsErr error
-		nodeSetOutput, startDonsErr = StartDONs(lggr, nixShell, topology, infraType, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
+		nodeSetOutput, startDonsErr = StartDONs(lggr, nixShell, topology, infraInput, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
 		if startDonsErr != nil {
 			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}

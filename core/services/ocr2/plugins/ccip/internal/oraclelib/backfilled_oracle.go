@@ -2,14 +2,13 @@ package oraclelib
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -56,7 +55,7 @@ func (r *ChainAgnosticBackFilledOracle) run() {
 		s := time.Now()
 		srcReplayErr := r.srcProvider.Start(ctx)
 		errMu.Lock()
-		err = multierr.Combine(err, srcReplayErr)
+		err = errors.Join(err, srcReplayErr)
 		errMu.Unlock()
 		r.lggr.Infow("finished replaying src chain", "time", time.Since(s))
 	}()
@@ -67,7 +66,7 @@ func (r *ChainAgnosticBackFilledOracle) run() {
 		s := time.Now()
 		dstReplayErr := r.dstProvider.Start(ctx)
 		errMu.Lock()
-		err = multierr.Combine(err, dstReplayErr)
+		err = errors.Join(err, dstReplayErr)
 		errMu.Unlock()
 		r.lggr.Infow("finished replaying dst chain", "time", time.Since(s))
 	}()

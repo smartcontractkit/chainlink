@@ -15,6 +15,7 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -39,7 +40,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
-		return nil, fmt.Errorf("trigger capability not found: %w", err)
+		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
 
 	info, err := capability.Info(ctx)
@@ -68,8 +69,13 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowExecutionID: c.WorkflowExecutionID,
-			ReferenceID:         strconv.Itoa(int(request.CallbackId)),
+			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowName:             c.cfg.WorkflowName.String(),
+			WorkflowDonID:            c.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			WorkflowExecutionID:      c.WorkflowExecutionID,
+			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 		},
 		Config: values.EmptyMap(),
 	}
@@ -85,18 +91,16 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
 	userSpendLimit.Valid = false
 
-	spendLimit, err := meterReport.GetMaxSpendForInvocation(userSpendLimit, int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow)-c.capCallsSemaphore.Len())
-	if err != nil {
-		c.lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-	}
-
-	if spendLimit.Valid {
-		if err = meterReport.Deduct(meteringRef, spendLimit.Decimal); err != nil {
-			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-		}
-
-		// the nil case for config.RestrictedConfig is and should be handled by CreditToSpendingLimits
-		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, config.RestrictedConfig, spendLimit.Decimal)
+	if capReq.Metadata.SpendLimits, err = meterReport.Deduct(
+		meteringRef,
+		metering.ByDerivedAvailability(
+			userSpendLimit,
+			int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow)-c.capCallsSemaphore.Len(),
+			info,
+			config.RestrictedConfig,
+		),
+	); err != nil {
+		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)

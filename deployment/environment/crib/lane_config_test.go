@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
+func TestGenerateBidirectionalRandomLanesWithMinConnectivity(t *testing.T) {
 	tests := []struct {
 		name         string
 		chains       []uint64
@@ -43,7 +43,7 @@ func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lanes := generateRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
+			lanes := generateBidirectionalRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
 			tt.validateFunc(t, lanes, tt.chains, tt.numLanes)
 		})
 	}
@@ -53,7 +53,7 @@ func TestBidirectionalPairGeneration(t *testing.T) {
 	chains := []uint64{1, 2, 3, 4}
 	numLanes := 12 // full connectivity
 
-	lanes := generateRandomLanesWithMinConnectivity(chains, numLanes)
+	lanes := generateBidirectionalRandomLanesWithMinConnectivity(chains, numLanes)
 
 	// Validate that we have complete bidirectional pairs
 	bidirectionalPairs := findBidirectionalPairs(lanes)

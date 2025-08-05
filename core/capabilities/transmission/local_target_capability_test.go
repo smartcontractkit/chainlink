@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -24,7 +24,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	var gotTime time.Time
 	var called bool
 
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 
 	// Our capability has DONInfo == nil, so we'll treat it as a local
 	// capability and use the local DON Info to determine the transmission

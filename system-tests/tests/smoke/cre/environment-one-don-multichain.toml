@@ -25,24 +25,13 @@
 
 [[workflow_configs]]
   feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
-
-  should_compile_new_workflow = true
-  use_cre_cli = true
-
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test/cron-based"
-  workflow_name = "porfeedone"
+  workflow_file_location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 
 [[workflow_configs]]
   feed_id = "018e16c38e000320000000000000000000000000000000000000000000000000"
-
-  should_compile_new_workflow = true
-  use_cre_cli = true
-
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test/cron-based"
-  workflow_name = "porfeedtwo"
+  workflow_file_location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 
 [dependencies]
-  cre_cli_binary_path = "./cre_v0.2.0_darwin_arm64"
   cron_capability_binary_path = "./cron"
 
 [[nodesets]]
@@ -66,4 +55,11 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
+
+    [nodesets.node_specs.node.env_vars]
+    CL_EVM_CMD=""

@@ -184,7 +184,7 @@ func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 
 func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
-	horm := heads.NewORM(FixtureChainID, ds)
+	horm := heads.NewORM(FixtureChainID, ds, 0)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)

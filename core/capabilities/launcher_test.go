@@ -18,12 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
@@ -74,7 +73,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 func TestLauncher(t *testing.T) {
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -155,34 +154,34 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTarget,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[0],
+					P2pID:               nodes[0],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[1]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[1],
+					P2pID:               nodes[1],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[2]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[2],
+					P2pID:               nodes[2],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 				nodes[3]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[3],
+					P2pID:               nodes[3],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID, missingTargetCapID},
 				},
 			},
 		}
@@ -204,7 +203,7 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_trigger_capability", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -265,34 +264,34 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTrigger,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[0],
+					P2pID:               nodes[0],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID},
 				},
 				nodes[1]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[1],
+					P2pID:               nodes[1],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID},
 				},
 				nodes[2]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[2],
+					P2pID:               nodes[2],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID},
 				},
 				nodes[3]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[3],
+					P2pID:               nodes[3],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{triggerCapID},
+					HashedCapabilityIDs: [][32]byte{triggerCapID},
 				},
 			},
 		}
@@ -313,7 +312,7 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -370,34 +369,34 @@ func TestLauncher(t *testing.T) {
 					CapabilityType: capabilities.CapabilityTypeTarget,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 				nodes[0]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[0],
+					P2pID:               nodes[0],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{targetCapID},
+					HashedCapabilityIDs: [][32]byte{targetCapID},
 				},
 				nodes[1]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[1],
+					P2pID:               nodes[1],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{targetCapID},
+					HashedCapabilityIDs: [][32]byte{targetCapID},
 				},
 				nodes[2]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[2],
+					P2pID:               nodes[2],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{targetCapID},
+					HashedCapabilityIDs: [][32]byte{targetCapID},
 				},
 				nodes[3]: {
-					NodeOperatorId:      1,
+					NodeOperatorID:      1,
 					Signer:              RandomUTF8BytesWord(),
-					P2pId:               nodes[3],
+					P2pID:               nodes[3],
 					EncryptionPublicKey: RandomUTF8BytesWord(),
-					HashedCapabilityIds: [][32]byte{targetCapID},
+					HashedCapabilityIDs: [][32]byte{targetCapID},
 				},
 			},
 		}
@@ -448,7 +447,7 @@ func newTriggerEventMsg(t *testing.T,
 
 func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -539,57 +538,57 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[0],
+				P2pID:               capabilityDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[1],
+				P2pID:               capabilityDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[2],
+				P2pID:               capabilityDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[3],
+				P2pID:               capabilityDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
@@ -658,7 +657,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -716,34 +715,34 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			nodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               nodes[0],
+				P2pID:               nodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				HashedCapabilityIDs: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               nodes[1],
+				P2pID:               nodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				HashedCapabilityIDs: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               nodes[2],
+				P2pID:               nodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				HashedCapabilityIDs: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 			nodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               nodes[3],
+				P2pID:               nodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				HashedCapabilityIDs: [][32]byte{hashedTriggerID, hashedTargetID},
 			},
 		},
 	}
@@ -768,7 +767,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -858,57 +857,57 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[0],
+				P2pID:               capabilityDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[1],
+				P2pID:               capabilityDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[2],
+				P2pID:               capabilityDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[3],
+				P2pID:               capabilityDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
@@ -937,7 +936,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -1024,57 +1023,57 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			capabilityDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[0],
+				P2pID:               capabilityDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[1],
+				P2pID:               capabilityDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[2],
+				P2pID:               capabilityDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			capabilityDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               capabilityDonNodes[3],
+				P2pID:               capabilityDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
-				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				HashedCapabilityIDs: [][32]byte{triggerCapID, targetCapID},
 			},
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
@@ -1099,7 +1098,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 }
 
 func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -1162,7 +1161,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 }
 
 func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
