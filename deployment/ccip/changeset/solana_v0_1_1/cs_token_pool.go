@@ -682,7 +682,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			tokenPool,
 			programData.Address).ValidateAndBuild()
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
 
 		err = appendTxs([]solana.Instruction{ix}, tokenPool, contractType, &txns)
@@ -700,7 +700,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			tokenPool,
 			programData.Address).ValidateAndBuild()
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
 
 		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
