@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -35,4 +36,19 @@ func (c *creConfig) RestURL() string {
 		return ""
 	}
 	return *c.c.Streams.RestURL
+}
+
+type workflowFetcherConfig struct {
+	url string
+}
+
+func (w *workflowFetcherConfig) URL() string {
+	return w.url
+}
+
+func (c *creConfig) WorkflowFetcher() config.WorkflowFetcher {
+	if c.c.WorkflowFetcher == nil || c.c.WorkflowFetcher.URL == nil {
+		return &workflowFetcherConfig{url: ""}
+	}
+	return &workflowFetcherConfig{url: *c.c.WorkflowFetcher.URL}
 }

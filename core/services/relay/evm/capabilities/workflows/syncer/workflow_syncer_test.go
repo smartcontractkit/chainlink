@@ -22,17 +22,16 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	workflow_registry_wrapper_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -318,53 +317,6 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 }
 
-func Test_V2Registry_Unsupported(t *testing.T) {
-	lggr, logs := logger.TestLoggerObserved(t, zapcore.DPanicLevel)
-
-	backendTH := testutils.NewEVMBackendTH(t)
-	donID := uint32(1)
-
-	// Deploy a test V2 workflow_registry
-	wfRegistryAddr, _, _, err := workflow_registry_wrapper_v2.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
-	backendTH.Backend.Commit()
-	backendTH.Backend.Commit()
-	backendTH.Backend.Commit()
-	require.NoError(t, err)
-	// TODO: setup contract state
-	// TODO: deploy workflows
-
-	testEventHandler := newTestEvtHandler(nil)
-
-	// Create the worker
-	worker, err := syncer.NewWorkflowRegistry(
-		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
-		wfRegistryAddr.Hex(),
-		syncer.Config{
-			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
-		},
-		testEventHandler,
-		&testDonNotifier{
-			don: capabilities.DON{
-				ID: donID,
-			},
-			err: nil,
-		},
-		syncer.NewEngineRegistry(),
-		syncer.WithTicker(make(chan time.Time)),
-	)
-	require.NoError(t, err)
-
-	servicetest.Run(t, worker)
-
-	// NOTE: .Start() is not blocking. It runs external calls in a goroutine. Errors are logged, not returned.
-	time.Sleep(time.Millisecond * 500)
-	require.Contains(t, logs.TakeAll()[0].Message, "unsupported version 2.0.0-dev")
-}
-
 func Test_SecretsWorker(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
@@ -439,10 +391,10 @@ func Test_SecretsWorker(t *testing.T) {
 			contents, err := orm.GetContents(ctx, giveSecretsURL)
 			require.NoError(t, err)
 			require.Equal(t, string(beforeSecretsPayload), contents)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig)
+			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 			require.NoError(t, err)
 
-			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 			require.NoError(t, err)
 
 			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
@@ -451,8 +403,9 @@ func Test_SecretsWorker(t *testing.T) {
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
 
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, engineRegistry,
-				emitter, rl, wl, store)
+				emitter, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -624,17 +577,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store)
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -730,17 +684,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
-		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
+		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

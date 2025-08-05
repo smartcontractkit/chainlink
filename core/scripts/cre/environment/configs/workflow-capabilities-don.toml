@@ -64,6 +64,11 @@
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -94,6 +99,11 @@
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -125,6 +135,11 @@
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""

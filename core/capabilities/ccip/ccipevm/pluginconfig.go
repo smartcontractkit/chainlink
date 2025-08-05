@@ -21,6 +21,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  NewEVMRMNCrypto(logger.Sugared(lggr).Named(chainsel.FamilyEVM).Named("RMNCrypto")),
 		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(extraDataCodec),
+		ChainAccessorFactory:       EVMChainAccessorFactory{},
 		ChainRW:                    ChainCWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		AddressCodec:               AddressCodec{},

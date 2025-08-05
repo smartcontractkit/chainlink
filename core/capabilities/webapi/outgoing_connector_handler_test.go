@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -114,7 +114,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockConnector := gcmocks.NewGatewayConnector(t)
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 
 			if tc.gatewayConnectorSetup != nil {
 				tc.gatewayConnectorSetup(mockConnector)
@@ -371,7 +371,7 @@ func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConn
 }
 
 func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceConfig ServiceConfig) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 	connector := gcmocks.NewGatewayConnector(t)
 
 	mockFn(connector)

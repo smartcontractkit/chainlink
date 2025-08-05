@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -110,37 +109,37 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
-		IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{
+		IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{
 			nodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               nodes[0],
+				P2pID:               nodes[0],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
+				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               nodes[1],
+				P2pID:               nodes[1],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
+				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               nodes[2],
+				P2pID:               nodes[2],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
+				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               nodes[3],
+				P2pID:               nodes[3],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
+				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 		},

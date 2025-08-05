@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -291,6 +294,177 @@ func TestNewFetcherService(t *testing.T) {
 
 		expectedPayload := []byte("response body")
 		require.Equal(t, expectedPayload, payload)
+	})
+}
+
+func TestNewFetcherFunc(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := context.Background()
+	testContent := []byte("test content")
+
+	t.Run("error cases", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			baseURL string
+			errMsg  string
+		}{
+			{
+				name:    "empty url",
+				baseURL: "",
+				errMsg:  "baseURL cannot be empty",
+			},
+			{
+				name:    "invalid url",
+				baseURL: "://invalid-url",
+				errMsg:  "invalid URL",
+			},
+			{
+				name:    "unsupported scheme",
+				baseURL: "ftp://example.com",
+				errMsg:  "unsupported URL scheme: ftp",
+			},
+			{
+				name:    "relative file path",
+				baseURL: "file:relative/path",
+				errMsg:  "basePath must be an absolute path",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := NewFetcherFunc(tc.baseURL, lggr)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
+			})
+		}
+	})
+
+	t.Run("file fetcher", func(t *testing.T) {
+		// Create temp dir for test files
+		tempDir := t.TempDir()
+		testFilePath := filepath.Join(tempDir, "test.txt")
+
+		// Write test content to file
+		err := os.WriteFile(testFilePath, testContent, 0600)
+		require.NoError(t, err)
+
+		baseURL := "file://" + tempDir
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+		require.NotNil(t, fetcher)
+
+		// Test fetching valid file
+		resp, err := fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "test.txt",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test fetching non-existent file
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "nonexistent.txt",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read file")
+
+		// Test path traversal attempt
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "../../../etc/passwd",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not within the basePath")
+
+		// Test fetching full path
+		resp, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: testFilePath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test full path with file:// prefix
+		resp, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "file://" + testFilePath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+	})
+
+	t.Run("http fetcher", func(t *testing.T) {
+		// Create test HTTP server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/workflows/test.json" {
+				w.WriteHeader(http.StatusOK)
+				_, err := w.Write(testContent)
+				assert.NoError(t, err)
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		baseURL := server.URL + "/workflows"
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+		require.NotNil(t, fetcher)
+
+		// Test fetching valid URL
+		resp, err := fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "test.json",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test fetching non-existent resource
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "nonexistent.json",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP request failed with status code: 404")
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		baseURL := "file://" + tempDir
+
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+
+		// Create a canceled context
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		// Try to fetch with canceled context
+		_, err = fetcher(canceledCtx, "test-msg-id", ghcapabilities.Request{
+			URL: "anything.txt",
+		})
+		require.Error(t, err)
+		assert.Equal(t, context.Canceled, err)
+	})
+
+	t.Run("timeout handling", func(t *testing.T) {
+		// Create a slow HTTP server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond) // Delay response
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write(testContent)
+			assert.NoError(t, err)
+		}))
+		defer server.Close()
+
+		baseURL := server.URL
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+
+		// Create a context with short timeout
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		// Try to fetch with timeout context - should fail with deadline exceeded
+		_, err = fetcher(timeoutCtx, "test-msg-id", ghcapabilities.Request{
+			URL: "anything",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
 }
 

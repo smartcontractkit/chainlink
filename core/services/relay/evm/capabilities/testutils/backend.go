@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -44,6 +45,8 @@ type EVMBackendTH struct {
 	LogPoller   logpoller.LogPoller
 }
 
+var startID = atomic.NewInt64(1000)
+
 // Test harness to create a simulated backend for testing a LOOPCapability
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	lggr := logger.Test(t)
@@ -58,7 +61,8 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	genesisData := core.GenesisAlloc{
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
-	chainID := testutils.SimulatedChainID
+
+	chainID := big.NewInt(startID.Add(1))
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
@@ -91,7 +95,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, th.Lggr),
+		logpoller.NewORM(th.EVMClient.ConfiguredChainID(), db, th.Lggr),
 		th.EVMClient,
 		th.Lggr,
 		ht,

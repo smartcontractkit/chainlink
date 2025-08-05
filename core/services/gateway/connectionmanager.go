@@ -15,7 +15,6 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -160,7 +159,7 @@ func (m *connectionManager) Start(ctx context.Context) error {
 func (m *connectionManager) Close() error {
 	return m.StopOnce("ConnectionManager", func() (err error) {
 		m.lggr.Info("closing connection manager")
-		err = multierr.Combine(err, m.wsServer.Close())
+		err = errors.Join(err, m.wsServer.Close())
 		for _, donConnMgr := range m.dons {
 			close(donConnMgr.shutdownCh)
 			for _, nodeState := range donConnMgr.nodes {
@@ -178,7 +177,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
-		return "", nil, multierr.Append(network.ErrAuthHeaderParse, err)
+		return "", nil, errors.Join(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
 	donConnMgr, ok := m.dons[authHeaderElems.DonId]
@@ -274,7 +273,8 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
-	ctx, _ := m.shutdownCh.NewCtx()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-m.shutdownCh:
@@ -296,8 +296,9 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 }
 
 func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
-	ctx, _ := m.shutdownCh.NewCtx()
 	defer m.closeWait.Done()
+	ctx, cancel := m.shutdownCh.NewCtx()
+	defer cancel()
 
 	if intervalSec == 0 {
 		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)

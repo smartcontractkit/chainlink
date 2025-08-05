@@ -848,6 +848,7 @@ func (r *ExecutionReportingPlugin) ensurePriceRegistrySynchronization(ctx contex
 	if r.sourcePriceRegistry != nil {
 		currentPriceRegistryAddress, err = r.sourcePriceRegistry.Address(ctx)
 		if err != nil {
+			r.sourcePriceRegistryLock.RUnlock()
 			return fmt.Errorf("get current priceregistry address: %w", err)
 		}
 	}

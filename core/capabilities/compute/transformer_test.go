@@ -6,9 +6,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,7 +84,7 @@ func Test_popOptionalValue(t *testing.T) {
 
 func Test_transformer(t *testing.T) {
 	var (
-		lgger   = logger.TestLogger(t)
+		lgger   = logger.Test(t)
 		emitter = custmsg.NewLabeler()
 	)
 	t.Run("success", func(t *testing.T) {

@@ -23,13 +23,15 @@ import (
 var _ handlers.Handler = (*gatewayHandler)(nil)
 
 const (
-	handlerName                        = "HTTPCapabilityHandler"
-	defaultCleanUpPeriodMs             = 1000 * 60 * 10 // 10 minutes
-	defaultMaxTriggerRequestDurationMs = 1000 * 60      // 1 minute
-	defaultInitialIntervalMs           = 100
-	defaultMaxIntervalTimeMs           = 1000 * 30 // 30 seconds
-	defaultMultiplier                  = 2.0
-	internalErrorMessage               = "Internal server error occurred while processing the request"
+	handlerName                          = "HTTPCapabilityHandler"
+	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
+	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
+	defaultInitialIntervalMs             = 100
+	defaultMaxIntervalTimeMs             = 1000 * 30 // 30 seconds
+	defaultMultiplier                    = 2.0
+	defaultMetadataPullIntervalMs        = 1000 * 60 // 1 minute
+	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
+	internalErrorMessage                 = "Internal server error occurred while processing the request"
 )
 
 type gatewayHandler struct {
@@ -45,6 +47,7 @@ type gatewayHandler struct {
 	stopCh          services.StopChan
 	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
 	triggerHandler  HTTPTriggerHandler
+	metadataHandler *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
 }
 
 type ResponseCache interface {
@@ -54,11 +57,13 @@ type ResponseCache interface {
 }
 
 type ServiceConfig struct {
-	NodeRateLimiter             ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	UserRateLimiter             ratelimit.RateLimiterConfig `json:"userRateLimiter"`
-	MaxTriggerRequestDurationMs int                         `json:"maxTriggerRequestDurationMs"`
-	RetryConfig                 RetryConfig                 `json:"retryConfig"`
-	CleanUpPeriodMs             int                         `json:"cacheCleanUpPeriodMs"`
+	NodeRateLimiter               ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	UserRateLimiter               ratelimit.RateLimiterConfig `json:"userRateLimiter"`
+	MaxTriggerRequestDurationMs   int                         `json:"maxTriggerRequestDurationMs"`
+	RetryConfig                   RetryConfig                 `json:"retryConfig"`
+	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
+	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
+	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
 }
 
 type RetryConfig struct {
@@ -83,6 +88,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, err
 	}
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig)
 	return &gatewayHandler{
 		config:          cfg,
 		don:             don,
@@ -94,6 +100,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		stopCh:          make(services.StopChan),
 		responseCache:   newResponseCache(lggr),
 		triggerHandler:  triggerHandler,
+		metadataHandler: metadataHandler,
 	}, nil
 }
 
@@ -103,6 +110,12 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.MaxTriggerRequestDurationMs == 0 {
 		cfg.MaxTriggerRequestDurationMs = defaultMaxTriggerRequestDurationMs
+	}
+	if cfg.MetadataPullIntervalMs == 0 {
+		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
+	}
+	if cfg.MetadataAggregationIntervalMs == 0 {
+		cfg.MetadataAggregationIntervalMs = defaultMetadataPullIntervalMs
 	}
 	if cfg.RetryConfig.InitialIntervalMs == 0 {
 		cfg.RetryConfig.InitialIntervalMs = defaultInitialIntervalMs
@@ -120,20 +133,25 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 	if resp.ID == "" {
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
-	if resp.Result == nil {
-		return fmt.Errorf("received response with nil result from node %s", nodeAddr)
-	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
 	// Node messages follow the format "<methodName>/<workflowID>/<uuid>" or
 	// "<methodName>/<workflowID>/<workflowExecutionID>/<uuid>". Messages are routed
 	// based on the method in the ID.
 	// Any messages without "/" is assumed to be a trigger response to a prior user request.
 	if strings.Contains(resp.ID, "/") {
+		if resp.Result == nil {
+			h.lggr.Errorw("received response with empty result from node", "nodeAddr", nodeAddr, "error", resp.Error)
+			return fmt.Errorf("received response with empty result from node %s", nodeAddr)
+		}
 		parts := strings.Split(resp.ID, "/")
 		methodName := parts[0]
 		switch methodName {
 		case gateway_common.MethodHTTPAction:
 			return h.makeOutgoingRequest(ctx, resp, nodeAddr)
+		case gateway_common.MethodPushWorkflowMetadata:
+			return h.metadataHandler.OnMetadataPush(ctx, resp, nodeAddr)
+		case gateway_common.MethodPullWorkflowMetadata:
+			return h.metadataHandler.OnMetadataPullResponse(ctx, resp, nodeAddr)
 		default:
 			return fmt.Errorf("unsupported method %s in node message ID %s", methodName, resp.ID)
 		}
@@ -239,6 +257,10 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP trigger handler: %w", err)
 		}
+		err = h.metadataHandler.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
+		}
 		go func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
@@ -261,6 +283,10 @@ func (h *gatewayHandler) Close() error {
 		err := h.triggerHandler.Close()
 		if err != nil {
 			h.lggr.Errorw("failed to close HTTP trigger handler", "err", err)
+		}
+		err = h.metadataHandler.Close()
+		if err != nil {
+			h.lggr.Errorw("failed to close HTTP auth handler", "err", err)
 		}
 		close(h.stopCh)
 		h.wg.Wait()

@@ -140,8 +140,9 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 func (h *handler) Start(ctx context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
 		h.lggr.Info("starting vault handler")
-		ctx, _ := h.stopCh.NewCtx()
 		go func() {
+			ctx, cancel := h.stopCh.NewCtx()
+			defer cancel()
 			ticker := time.NewTicker(defaultCleanUpPeriod)
 			defer ticker.Stop()
 			for {

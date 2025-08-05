@@ -2,11 +2,10 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"go.uber.org/multierr"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -14,7 +13,6 @@ import (
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -43,7 +41,7 @@ func New(
 		homeChainReader: homeChainReader,
 		regState: registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
 		tickInterval:  tickInterval,
@@ -115,7 +113,7 @@ func (l *launcher) Close() error {
 		// shut down all running oracles.
 		var err error
 		for _, ceDep := range l.instances {
-			err = multierr.Append(err, ceDep.CloseAll())
+			err = errors.Join(err, ceDep.CloseAll())
 		}
 
 		return err
@@ -185,8 +183,8 @@ func (l *launcher) tick(ctx context.Context) error {
 // for any updated OCR instances, it will restart them with the new configuration.
 func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 	err := l.processRemoved(diff.removed)
-	err = multierr.Append(err, l.processAdded(ctx, diff.added))
-	err = multierr.Append(err, l.processUpdate(ctx, diff.updated))
+	err = errors.Join(err, l.processAdded(ctx, diff.added))
+	err = errors.Join(err, l.processUpdate(ctx, diff.updated))
 
 	return err
 }

@@ -82,9 +82,9 @@ func (okr *onchainKeyring) MaxSignatureLength() (n int) {
 }
 
 func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo]) (signature []byte, err error) {
-	switch r.Info.ReportFormat {
-	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
-		rf := r.Info.ReportFormat
+	rf := r.Info.ReportFormat
+	switch rf {
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked, llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
 		if key, exists := okr.keys[rf]; exists {
 			// NOTE: Must use legacy Sign method for compatibility with v0.3 report verification
 			rc, err := evm.LegacyReportContext(digest, seqNr, okr.donID)
@@ -94,7 +94,6 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 			return key.Sign(rc, r.Report)
 		}
 	case llotypes.ReportFormatEVMStreamlined:
-		rf := r.Info.ReportFormat
 		if key, exists := okr.keys[rf]; exists {
 			// NOTE: Report context for EVMStreamlined is digest only since
 			// timestamp is guaranteed unique per round and always included in
@@ -103,11 +102,9 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 			if err != nil {
 				return nil, fmt.Errorf("failed to hash report: %w", err)
 			}
-
 			return key.SignBlob(h)
 		}
 	default:
-		rf := r.Info.ReportFormat
 		if key, exists := okr.keys[rf]; exists {
 			return key.Sign3(digest, seqNr, r.Report)
 		}
@@ -116,9 +113,9 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 }
 
 func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo], signature []byte) bool {
-	switch r.Info.ReportFormat {
-	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
-		rf := r.Info.ReportFormat
+	rf := r.Info.ReportFormat
+	switch rf {
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked, llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
 		if verifier, exists := okr.keys[rf]; exists {
 			// NOTE: Must use legacy Verify method for compatibility with v0.3 report verification
 			rc, err := evm.LegacyReportContext(digest, seqNr, okr.donID)
@@ -129,7 +126,6 @@ func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.Confi
 			return verifier.Verify(key, rc, r.Report, signature)
 		}
 	case llotypes.ReportFormatEVMStreamlined:
-		rf := r.Info.ReportFormat
 		if verifier, exists := okr.keys[rf]; exists {
 			h, err := crypto.Keccak256(append(digest[:], r.Report...))
 			if err != nil {
@@ -139,11 +135,11 @@ func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.Confi
 			return verifier.VerifyBlob(key, h, signature)
 		}
 	default:
-		rf := r.Info.ReportFormat
 		if verifier, exists := okr.keys[rf]; exists {
 			return verifier.Verify3(key, digest, seqNr, r.Report, signature)
 		}
 	}
+
 	okr.lggr.Errorf("Verify failed; unsupported report format: %q", r.Info.ReportFormat)
 	return false
 }

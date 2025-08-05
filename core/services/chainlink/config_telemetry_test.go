@@ -206,3 +206,22 @@ func ptrDuration(d time.Duration) *config.Duration {
 func ptrFloat(f float64) *float64 {
 	return &f
 }
+
+func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"HeartbeatIntervalSet", toml.Telemetry{HeartbeatInterval: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"HeartbeatIntervalNil", toml.Telemetry{HeartbeatInterval: nil}, 1 * time.Second},             // Default value
+		{"HeartbeatIntervalZero", toml.Telemetry{HeartbeatInterval: ptrDuration(0)}, 1 * time.Second}, // Zero value results in default
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.HeartbeatInterval())
+		})
+	}
+}

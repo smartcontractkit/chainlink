@@ -164,6 +164,13 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 				Key:   LabelNodeTypeKey,
 				Value: ptr(LabelNodeTypeValuePlugin),
 			})
+
+			for key, val := range info.Labels {
+				node.labels = append(node.labels, &ptypes.Label{
+					Key:   key,
+					Value: ptr(val),
+				})
+			}
 		}
 		// Set up Job distributor in node and register node with the job distributor
 		err = node.SetUpAndLinkJobDistributor(ctx, jd)

@@ -3,8 +3,8 @@ package readcontract
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -16,7 +16,7 @@ var ReadContractCapabilityFactory = func(chainID uint64, chainFamily string) fun
 	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		if flags.HasFlag(donFlags, types.ReadContractCapability) {
+		if flags.HasFlag(donFlags, cre.ReadContractCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
