@@ -52,20 +52,20 @@ func GenerateJobSpecs(logger zerolog.Logger, donTopology *cre.DonTopology,
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
-	evmOCR3Key := datastore.NewAddressRefKey(
-		donTopology.HomeChainSelector,
-		datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-		semver.MustParse("1.0.0"),
-		"capability_evm",
-	)
-	evmOCR3CapabilityAddress, err := ds.Addresses().Get(evmOCR3Key)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get EVM capability address")
-	}
-
 	for donIdx, donWithMetadata := range donTopology.DonsWithMetadata {
 		if !flags.HasFlag(donWithMetadata.Flags, cre.EVMCapability) {
 			continue
+		}
+
+		evmOCR3Key := datastore.NewAddressRefKey(
+			donTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			"capability_evm",
+		)
+		evmOCR3CapabilityAddress, err := ds.Addresses().Get(evmOCR3Key)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get EVM capability address")
 		}
 
 		internalHostsBS := getBoostrapWorkflowNames(donWithMetadata, nodeSetInput, donIdx, infraInput)
