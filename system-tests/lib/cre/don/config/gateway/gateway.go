@@ -82,7 +82,9 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 			if flags.HasFlag(input.Flags, cre.VaultCapability) {
 				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
 				donID = input.GatewayConnectorOutput.DonID
-			} else {
+			}
+
+			if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) {
 				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
 				donID = input.DonMetadata.Name
 			}
@@ -95,7 +97,7 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 				nodeEthAddr,
 				homeChainID,
 				donID,
-				input.GatewayConnectorOutput.Configurations,
+				gatewayConfigurations,
 			)
 		}
 	}

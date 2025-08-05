@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -208,7 +209,7 @@ func NodeNeedsGateway(handlerType coregateway.HandlerType, nodeFlags []cre.Capab
 func GatewayConfigurationsForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) []*cre.GatewayConfiguration {
 	gatewayConfigurations := make([]*cre.GatewayConfiguration, 0)
 	for _, configuration := range gatewayConnectorOutput.Configurations {
-		if configuration.HandlerType == handlerType {
+		if strings.EqualFold(configuration.HandlerType, handlerType) {
 			gatewayConfigurations = append(gatewayConfigurations, configuration)
 		}
 	}
