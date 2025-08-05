@@ -122,7 +122,7 @@ func (h *functionsConnectorHandler) Sign(ctx context.Context, data ...[]byte) ([
 	return h.keystore.SignMessage(ctx, h.signAddr, gc.Flatten(data...))
 }
 
-func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		h.lggr.Errorw("failed to decode request", "id", gatewayID, "err", err)
@@ -290,8 +290,7 @@ func internalErrorResponse(internalError string) HeartbeatResponse {
 
 func (h *functionsConnectorHandler) handleOffchainRequest(request *OffchainRequest) {
 	defer h.shutdownWaitGroup.Done()
-	stopCtx, _ := h.chStop.NewCtx()
-	ctx, cancel := context.WithTimeout(stopCtx, time.Duration(h.requestTimeoutSec)*time.Second)
+	ctx, cancel := h.chStop.CtxWithTimeout(time.Duration(h.requestTimeoutSec) * time.Second)
 	defer cancel()
 	err := h.listener.HandleOffchainRequest(ctx, request)
 	if err != nil {

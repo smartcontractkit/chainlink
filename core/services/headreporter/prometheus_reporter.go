@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -83,7 +82,7 @@ func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, erro
 
 func (pr *prometheusReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	evmChainID := head.EVMChainID.ToInt()
-	return multierr.Combine(
+	return stderrors.Join(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
@@ -163,7 +162,7 @@ SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 		return errors.Wrap(err, "failed to query for pipeline_run_id")
 	}
 	defer func() {
-		err = multierr.Combine(err, rows.Close())
+		err = stderrors.Join(err, rows.Close())
 	}()
 
 	pipelineTaskRunsQueued := 0

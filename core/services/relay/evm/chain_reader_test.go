@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -21,8 +22,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
+	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -64,6 +68,82 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 			assert.Equal(t, int64(42), out.Int64())
 		})
 	}
+}
+
+func TestChainReader_Bind(t *testing.T) {
+	lp := lpmocks.NewLogPoller(t)
+	ht := headstest.NewTracker[*evmtypes.Head](t)
+	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: map[string]types.ChainContractReader{
+		"test-contract": {
+			ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"someDW\",\"type\":\"string\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
+			ContractPollingFilter: types.ContractPollingFilter{
+				GenericEventNames: []string{"EventName"},
+				PollingFilter:     types.PollingFilter{Retention: 1},
+			},
+			Configs: map[string]*types.ChainReaderDefinition{
+				"EventName": {
+					ReadType:          types.Event,
+					ChainSpecificName: "EventName",
+				},
+			},
+		},
+	}})
+	require.NoError(t, err)
+	err = cr.Start(t.Context())
+	require.NoError(t, err)
+
+	store := make(map[string]struct{})
+	expName1 := "test-contract.0430115be8436dbea07d64550add9f4d37e9d6805bef7edc1f4dbb3cdbca9acb"
+	expName2 := "test-contract.86b706b7fa72798c579b09b6a814fe2bd7d59c3bb3159b339e03dd166139df01"
+	lp.EXPECT().HasFilter(mock.Anything).RunAndReturn(func(name string) bool {
+		_, ok := store[name]
+		return ok
+	})
+
+	lp.EXPECT().UnregisterFilter(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, name string) error {
+		delete(store, name)
+		return nil
+	})
+
+	lp.EXPECT().RegisterFilter(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, filter logpoller.Filter) error {
+		store[filter.Name] = struct{}{}
+		return nil
+	}).Twice()
+
+	// first register filter
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
+		{
+			Name:    "test-contract",
+			Address: common.BytesToAddress([]byte{1, 2, 3}).Hex(),
+		},
+	})
+	require.NoError(t, err)
+	_, ok := store[expName1]
+	assert.True(t, ok)
+	// second register filter call
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
+		{
+			Name:    "test-contract",
+			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
+		},
+	})
+	require.NoError(t, err)
+	_, ok = store[expName2]
+	assert.True(t, ok)
+	// this one shouldn't call
+	err = cr.Bind(t.Context(), []commontypes.BoundContract{
+		{
+			Name:    "test-contract",
+			Address: common.BytesToAddress([]byte{1, 2, 3, 5}).Hex(),
+		},
+	})
+	require.NoError(t, err)
+
+	_, ok = store[expName2]
+	assert.True(t, ok)
+	assert.Len(t, store, 1)
+
+	lp.AssertExpectations(t)
 }
 
 func TestChainReaderPrimitiveTypes(t *testing.T) {
@@ -202,4 +282,8 @@ func (h *simpleHeadTracker) Start(context.Context) error { return nil }
 
 func (h *simpleHeadTracker) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error) {
 	return &evmtypes.Head{}, &evmtypes.Head{}, nil
+}
+
+func (h *simpleHeadTracker) LatestSafeBlock(ctx context.Context) (safe *evmtypes.Head, err error) {
+	return &evmtypes.Head{}, nil
 }

@@ -135,7 +135,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	return err
 }
 
-func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		h.lggr.Errorw("error validating message from request", "err", err, "request", req)

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -199,7 +198,7 @@ func NewFunctionsHandler(
 	}
 }
 
-func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
 	return errors.New("functions handler does not support JSON-RPC user messages")
 }
 
@@ -269,7 +268,7 @@ func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, 
 	return nil
 }
 
-func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := hc.ValidatedMessageFromResp(resp)
 	if err != nil {
 		h.lggr.Debugw("HandleNodeMessage: failed to validate message", "error", err, "nodeAddr", nodeAddr)
@@ -412,10 +411,10 @@ func (h *functionsHandler) Close() error {
 	return h.StopOnce("FunctionsHandler", func() (err error) {
 		close(h.chStop)
 		if h.allowlist != nil {
-			err = multierr.Combine(err, h.allowlist.Close())
+			err = errors.Join(err, h.allowlist.Close())
 		}
 		if h.subscriptions != nil {
-			err = multierr.Combine(err, h.subscriptions.Close())
+			err = errors.Join(err, h.subscriptions.Close())
 		}
 		return
 	})

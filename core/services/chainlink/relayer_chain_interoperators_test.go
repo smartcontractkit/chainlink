@@ -39,25 +39,28 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	newConfig := func() chainlink.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			node1_1 := toml.Node{
-				Name:     ptr("Test node chain1:1"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(15)),
+				Name:              ptr("Test node chain1:1"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8546"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8546"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(15)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			node1_2 := toml.Node{
-				Name:     ptr("Test node chain1:2"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(36)),
+				Name:              ptr("Test node chain1:2"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(36)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			node2_1 := toml.Node{
-				Name:     ptr("Test node chain2:1"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(11)),
+				Name:              ptr("Test node chain2:1"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(11)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			c.EVM[0] = &toml.EVMConfig{
 				ChainID: evmChainID1,

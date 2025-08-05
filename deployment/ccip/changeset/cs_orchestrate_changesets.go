@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -50,11 +53,63 @@ func CreateGenericChangeSetWithConfig[C any](changeSet cldf.ChangeSetV2[C], cfg 
 	}
 }
 
+// MCMSAddressesForEVM is a struct that holds the addresses of the MCMS contracts for EVM chains.
+type MCMSAddressesForEVM struct {
+	Canceller common.Address
+	Bypasser  common.Address
+	Proposer  common.Address
+}
+
 // OrchestrateChangesetsConfig is the configuration struct for OrchestrateChangesets.
 type OrchestrateChangesetsConfig struct {
-	Description string
-	MCMS        *proposalutils.TimelockConfig
-	ChangeSets  []WithConfig
+	Description               string
+	MCMSOverridesForEVMChains map[uint64]MCMSAddressesForEVM
+	MCMS                      *proposalutils.TimelockConfig
+	ChangeSets                []WithConfig
+}
+
+func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s stateview.CCIPOnChainState) (map[uint64]state.MCMSWithTimelockState, error) {
+	if c.MCMSOverridesForEVMChains == nil {
+		return s.EVMMCMSStateByChain(), nil
+	}
+	evmState := s.EVMMCMSStateByChain()
+	var err error
+	for chainSelector, addresses := range c.MCMSOverridesForEVMChains {
+		chain, ok := e.BlockChains.EVMChains()[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("failed to get EVM chain for selector %d", chainSelector)
+		}
+		cancellerMcm := evmState[chainSelector].CancellerMcm
+		if addresses.Canceller != (common.Address{}) {
+			cancellerMcm, err = gethwrappers.NewManyChainMultiSig(addresses.Canceller, chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ManyChainMultiSig for CancellerMcm on chain %s: %w", chain, err)
+			}
+		}
+		bypasserMcm := evmState[chainSelector].BypasserMcm
+		if addresses.Bypasser != (common.Address{}) {
+			bypasserMcm, err = gethwrappers.NewManyChainMultiSig(addresses.Bypasser, chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ManyChainMultiSig for BypasserMcm on chain %s: %w", chain, err)
+			}
+		}
+		proposerMcm := evmState[chainSelector].ProposerMcm
+		if addresses.Proposer != (common.Address{}) {
+			proposerMcm, err = gethwrappers.NewManyChainMultiSig(addresses.Proposer, chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ManyChainMultiSig for ProposerMcm on chain %s: %w", chain, err)
+			}
+		}
+		evmState[chainSelector] = state.MCMSWithTimelockState{
+			CancellerMcm: cancellerMcm,
+			BypasserMcm:  bypasserMcm,
+			ProposerMcm:  proposerMcm,
+			Timelock:     evmState[chainSelector].Timelock,
+			CallProxy:    evmState[chainSelector].CallProxy,
+		}
+	}
+
+	return evmState, nil
 }
 
 func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfig) (cldf.ChangesetOutput, error) {
@@ -79,11 +134,16 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 		}
 	}
 
+	evmMCMSState, err := c.EVMMCMSStateByChain(e, state)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get EVM MCMS state by chain: %w", err)
+	}
+
 	// Aggregate all Timelock proposals into 1 proposal
 	proposal, err := proposalutils.AggregateProposalsV2(
 		e,
 		proposalutils.MCMSStates{
-			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 		},
 		finalOutput.MCMSTimelockProposals,

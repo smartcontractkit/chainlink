@@ -34,6 +34,7 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
@@ -451,6 +452,7 @@ func setupNodeCCIP(
 		Config:   config,
 		DS:       db,
 		KeyStore: keyStore,
+		// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
@@ -468,6 +470,7 @@ func setupNodeCCIP(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))

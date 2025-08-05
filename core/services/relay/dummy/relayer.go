@@ -24,12 +24,13 @@ type RelayConfig struct {
 }
 
 type relayer struct {
+	types.UnimplementedRelayer
 	lggr    logger.Logger
 	chainID string
 }
 
 func NewRelayer(lggr logger.Logger, chainID string) loop.Relayer {
-	return &relayer{lggr, chainID}
+	return &relayer{lggr: lggr, chainID: chainID}
 }
 
 func (r *relayer) NewContractWriter(ctx context.Context, chainWriterConfig []byte) (types.ContractWriter, error) {
@@ -40,10 +41,6 @@ func (r *relayer) NewContractReader(ctx context.Context, contractReaderConfig []
 	return nil, nil
 }
 
-func (r *relayer) EVM() (types.EVMService, error) {
-	return nil, nil
-}
-
 func (r *relayer) NewConfigProvider(_ context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
 	var cfg RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &cfg); err != nil {
@@ -51,9 +48,11 @@ func (r *relayer) NewConfigProvider(_ context.Context, rargs types.RelayArgs) (t
 	}
 	return NewConfigProvider(r.lggr, cfg)
 }
+
 func (r *relayer) NewPluginProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.PluginProvider, error) {
 	return nil, nil
 }
+
 func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.LLOProvider, error) {
 	cp, err := r.NewConfigProvider(ctx, rargs)
 	if err != nil {
@@ -71,21 +70,27 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	src := retirement.NewNeverShouldRetireCache()
 	return NewLLOProvider(r.lggr, cp, transmitter, cdc, src), nil
 }
+
 func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {
 	return types.Head{}, nil
 }
+
 func (r *relayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return types.ChainStatus{}, nil
 }
+
 func (r *relayer) GetChainInfo(_ context.Context) (types.ChainInfo, error) {
 	return types.ChainInfo{}, nil
 }
+
 func (r *relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
 	return nil, "", 0, nil
 }
+
 func (r *relayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }
+
 func (r *relayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	return nil
 }

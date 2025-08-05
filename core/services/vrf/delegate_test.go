@@ -85,7 +85,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	evmKs := keys.NewChainStore(keystore.NewEthSigner(ks.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
 	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, evmKs, nil, nil, nil)
-	orm := heads.NewORM(*testutils.FixtureChainID, db)
+	orm := heads.NewORM(*testutils.FixtureChainID, db, 0)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })

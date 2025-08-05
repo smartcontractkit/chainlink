@@ -3,24 +3,28 @@ package webapi
 import (
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-var WebAPITriggerJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+var WebAPITriggerJobSpecFactoryFn = func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
 	return GenerateWebAPITriggerJobSpecs(input.DonTopology)
 }
 
-func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
+func GenerateWebAPITriggerJobSpecs(donTopology *cre.DonTopology) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
-	donToJobSpecs := make(types.DonsToJobSpecs)
+	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.WorkerNode}, libnode.EqualLabels)
+		if !flags.HasFlag(donWithMetadata.Flags, cre.WebAPITriggerCapability) {
+			continue
+		}
+
+		workflowNodeSet, err := libnode.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.WorkerNode}, libnode.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
@@ -31,12 +35,10 @@ func GenerateWebAPITriggerJobSpecs(donTopology *types.DonTopology) (types.DonsTo
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITriggerCapability) {
-				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
-				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, types.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
+			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
+				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
 			}
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, cre.WebAPITriggerCapability, "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig, ""))
 		}
 	}
 

@@ -17,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"go.uber.org/multierr"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
@@ -628,7 +627,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	for i, req := range checkReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
+			multiErr = errors.Join(multiErr, req.Error)
 		} else {
 			var err error
 			r.lggr.Debugf("UnpackCheckResult key %s checkResult: %s", string(keys[i]), *checkResults[i])
@@ -699,7 +698,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	for i, req := range performReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Block, checkResults[i].ID, req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
+			multiErr = errors.Join(multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
@@ -770,7 +769,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	for i, req := range uReqs {
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
+			multiErr = errors.Join(multiErr, req.Error)
 		} else {
 			var err error
 			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])

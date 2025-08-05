@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
@@ -14,7 +14,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
 	[[EVM]]
-	ChainID = '%s'
+	ChainID = '%d'
 	AutoCreateKey = false
 
 	[[EVM.Nodes]]
@@ -58,7 +58,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 	)
 }
 
-func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
+func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
 	Enabled = true
@@ -71,21 +71,22 @@ func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
 }
 
 type WorkerEVMInput struct {
-	Name             string
-	ChainID          string
-	ChainSelector    uint64
-	HTTPRPC          string
-	WSRPC            string
-	FromAddress      common.Address
-	ForwarderAddress string
+	Name                 string
+	ChainID              uint64
+	ChainSelector        uint64
+	HTTPRPC              string
+	WSRPC                string
+	FromAddress          common.Address
+	ForwarderAddress     string
+	HasForwarderContract bool
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
 	[[EVM]]
-	ChainID = '%s'
+	ChainID = '%d'
 	AutoCreateKey = false
 	# reduce workflow registry sync time to minimum to speed up tests & local environment
 	FinalityDepth = 1
@@ -95,6 +96,15 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	Name = '%s'
 	WSURL = '%s'
 	HTTPURL = '%s'
+`,
+			chain.ChainID,
+			chain.Name,
+			chain.WSRPC,
+			chain.HTTPRPC,
+		)
+
+		if chain.HasForwarderContract {
+			evmChainsConfig += fmt.Sprintf(`
 
 	[EVM.Workflow]
 	FromAddress = '%s'
@@ -106,14 +116,11 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 
 	[EVM.Transactions]
 	ForwardersEnabled = true
-`,
-			chain.ChainID,
-			chain.Name,
-			chain.WSRPC,
-			chain.HTTPRPC,
-			chain.FromAddress,
-			chain.ForwarderAddress,
-		)
+	`,
+				chain.FromAddress,
+				chain.ForwarderAddress,
+			)
+		}
 	}
 
 	return fmt.Sprintf(`
@@ -169,7 +176,7 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 	)
 }
 
-func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData types.GatewayConnectorOutput) string {
+func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData cre.GatewayConnectorOutput) string {
 	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
 
 	return fmt.Sprintf(`

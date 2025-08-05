@@ -32,6 +32,7 @@ type server struct {
 	lggr logger.Logger
 
 	config       *commoncap.RemoteExecutableConfig
+	hasher       types.MessageHasher
 	peerID       p2ptypes.PeerID
 	underlying   commoncap.ExecutableCapability
 	capInfo      commoncap.CapabilityInfo
@@ -63,14 +64,20 @@ type requestAndMsgID struct {
 func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
 	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	maxParallelRequests int,
+	maxParallelRequests int, messageHasher types.MessageHasher,
 	lggr logger.Logger) *server {
 	if remoteExecutableConfig == nil {
 		lggr.Info("no remote config provided, using default values")
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
+	if messageHasher == nil {
+		messageHasher = &v1Hasher{
+			requestHashExcludedAttributes: remoteExecutableConfig.RequestHashExcludedAttributes,
+		}
+	}
 	return &server{
 		config:       remoteExecutableConfig,
+		hasher:       messageHasher,
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -94,10 +101,7 @@ func (r *server) Start(ctx context.Context) error {
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			tickerInterval := expiryCheckInterval
-			if r.requestTimeout < tickerInterval {
-				tickerInterval = r.requestTimeout
-			}
+			tickerInterval := min(r.requestTimeout, expiryCheckInterval)
 			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
 
@@ -169,7 +173,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := r.getMessageHash(msg)
+	msgHash, err := r.hasher.Hash(msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
@@ -226,7 +230,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 }
 
-func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
+type v1Hasher struct {
+	requestHashExcludedAttributes []string
+}
+
+func (r *v1Hasher) Hash(msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
@@ -234,11 +242,11 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 
 	// An attribute called StepDependency is used to define a data dependency between steps,
 	// and not to provide input values; we should therefore disregard it when hashing the request
-	if len(r.config.RequestHashExcludedAttributes) == 0 {
-		r.config.RequestHashExcludedAttributes = []string{"StepDependency"}
+	if len(r.requestHashExcludedAttributes) == 0 {
+		r.requestHashExcludedAttributes = []string{"StepDependency"}
 	}
 
-	for _, path := range r.config.RequestHashExcludedAttributes {
+	for _, path := range r.requestHashExcludedAttributes {
 		if req.Inputs != nil {
 			req.Inputs.DeleteAtPath(path)
 		}

@@ -312,6 +312,53 @@ func (_c *GeneralConfig_Billing_Call) RunAndReturn(run func() config.Billing) *G
 	return _c
 }
 
+// BridgeStatusReporter provides a mock function with no fields
+func (_m *GeneralConfig) BridgeStatusReporter() config.BridgeStatusReporter {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for BridgeStatusReporter")
+	}
+
+	var r0 config.BridgeStatusReporter
+	if rf, ok := ret.Get(0).(func() config.BridgeStatusReporter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.BridgeStatusReporter)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_BridgeStatusReporter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BridgeStatusReporter'
+type GeneralConfig_BridgeStatusReporter_Call struct {
+	*mock.Call
+}
+
+// BridgeStatusReporter is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) BridgeStatusReporter() *GeneralConfig_BridgeStatusReporter_Call {
+	return &GeneralConfig_BridgeStatusReporter_Call{Call: _e.mock.On("BridgeStatusReporter")}
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) Run(run func()) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) Return(_a0 config.BridgeStatusReporter) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) RunAndReturn(run func() config.BridgeStatusReporter) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CRE provides a mock function with no fields
 func (_m *GeneralConfig) CRE() config.CRE {
 	ret := _m.Called()
@@ -1013,6 +1060,53 @@ func (_c *GeneralConfig_InsecurePPROFHeap_Call) Return(_a0 bool) *GeneralConfig_
 }
 
 func (_c *GeneralConfig_InsecurePPROFHeap_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JobDistributor provides a mock function with no fields
+func (_m *GeneralConfig) JobDistributor() config.JobDistributor {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for JobDistributor")
+	}
+
+	var r0 config.JobDistributor
+	if rf, ok := ret.Get(0).(func() config.JobDistributor); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.JobDistributor)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_JobDistributor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobDistributor'
+type GeneralConfig_JobDistributor_Call struct {
+	*mock.Call
+}
+
+// JobDistributor is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobDistributor() *GeneralConfig_JobDistributor_Call {
+	return &GeneralConfig_JobDistributor_Call{Call: _e.mock.On("JobDistributor")}
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) Run(run func()) *GeneralConfig_JobDistributor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) Return(_a0 config.JobDistributor) *GeneralConfig_JobDistributor_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) RunAndReturn(run func() config.JobDistributor) *GeneralConfig_JobDistributor_Call {
 	_c.Call.Return(run)
 	return _c
 }

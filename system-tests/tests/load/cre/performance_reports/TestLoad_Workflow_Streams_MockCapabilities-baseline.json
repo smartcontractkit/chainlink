@@ -1,0 +1,143 @@
+{
+ "test_name": "TestLoad_Workflow_Streams_MockCapabilities",
+ "commit_or_tag": "6da6a95a048e1ac52369b58039f9e43a3076599420250714084034",
+ "test_start_timestamp": "2025-07-14T08:29:04.848382942Z",
+ "test_end_timestamp": "2025-07-14T08:39:04.849249471Z",
+ "generator_configs": {
+  "Generator": {
+   "generator_name": "Generator",
+   "load_type": "rps_schedule",
+   "schedule": [
+    {
+     "from": 4,
+     "duration": 600000000000,
+     "type": "plain",
+     "time_start": "2025-07-14T08:29:04.848382942Z",
+     "time_end": "2025-07-14T08:39:04.849249471Z"
+    }
+   ],
+   "rate_limit_unit_duration": 60000000000,
+   "call_timeout": 120000000000
+  }
+ },
+ "directory": "performance_reports",
+ "query_executors": [
+  {
+   "kind": "direct",
+   "generator_config": {
+    "generator_name": "Generator",
+    "load_type": "rps_schedule",
+    "schedule": [
+     {
+      "from": 4,
+      "duration": 600000000000,
+      "type": "plain",
+      "time_start": "2025-07-14T08:29:04.848382942Z",
+      "time_end": "2025-07-14T08:39:04.849249471Z"
+     }
+    ],
+    "rate_limit_unit_duration": 60000000000,
+    "call_timeout": 120000000000
+   },
+   "queries": [
+    "max_latency",
+    "error_rate",
+    "median_latency",
+    "95th_percentile_latency",
+    "99th_percentile_latency"
+   ],
+   "query_results": {
+    "95th_percentile_latency": 120002.365643,
+    "99th_percentile_latency": 120002.989004,
+    "error_rate": 0.14634146341463414,
+    "max_latency": 120003.055324,
+    "median_latency": 43430.109678
+   }
+  },
+  {
+   "kind": "prometheus",
+   "queries": {
+    "cpu_percent": "avg (rate(container_cpu_usage_seconds_total{name=~\"workflow-node[1-9][0-9]*\"}[10m]) * 100)",
+    "disk_io_time_seconds": "avg (container_fs_io_time_seconds_total{name=~\"workflow-node[1-9][0-9]*\"})",
+    "mem_avg": "avg (avg_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[10m]))",
+    "mem_peak": "avg (max_over_time(container_memory_working_set_bytes{name=~\"workflow-node[1-9][0-9]*\"}[10m]))",
+    "network_rx": "avg (container_network_receive_bytes_total{name=~\"workflow-node[1-9][0-9]*\"})",
+    "network_tx": "avg (container_network_transmit_bytes_total{name=~\"workflow-node[1-9][0-9]*\"})"
+   },
+   "query_results": {
+    "cpu_percent": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "63.205949011229556"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    },
+    "disk_io_time_seconds": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "0.00008195879999999999"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    },
+    "mem_avg": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "301520820.90666676"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    },
+    "mem_peak": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "398427750.4"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    },
+    "network_rx": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "37213787.4"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    },
+    "network_tx": {
+     "value": [
+      {
+       "metric": {},
+       "value": [
+        1752482344.849,
+        "40020404.2"
+       ]
+      }
+     ],
+     "metric_type": "vector"
+    }
+   }
+  }
+ ]
+}

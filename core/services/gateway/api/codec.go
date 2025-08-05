@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
@@ -8,7 +10,7 @@ import (
 type Codec interface {
 	DecodeRawRequest(msgBytes []byte, jwtToken string) (*Message, error)
 
-	DecodeJSONRequest(request jsonrpc2.Request) (*Message, error)
+	DecodeJSONRequest(request jsonrpc2.Request[json.RawMessage]) (*Message, error)
 
 	// EncodeLegacyRequest creates a Json request with a Message object
 	// embedded in jsonrpc2.Request.Params as opposed to new requests,

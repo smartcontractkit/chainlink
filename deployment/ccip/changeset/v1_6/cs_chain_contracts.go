@@ -87,6 +87,10 @@ var (
 type UpdateNonceManagerConfig struct {
 	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
 	MCMS           *proposalutils.TimelockConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the NonceManager.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 type NonceManagerUpdate struct {
@@ -122,8 +126,10 @@ func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 		if !ok {
 			return fmt.Errorf("missing chain %d in environment", sourceSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.NonceManager); err != nil {
-			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
+		if !cfg.SkipOwnershipCheck {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.NonceManager); err != nil {
+				return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
+			}
 		}
 		for _, prevRamp := range update.PreviousRampsArgs {
 			if prevRamp.RemoteChainSelector == sourceSel {
@@ -447,7 +453,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 			}
 		}
 	}
-	if cfg.MCMS == nil {
+	if cfg.MCMS == nil || len(batches) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
 	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)

@@ -1,15 +1,14 @@
 package utils
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // FileExists returns true if a file at the passed string exists.
@@ -26,15 +25,6 @@ func FileExists(name string) (bool, error) {
 // TooPermissive checks if the file has more than the allowed permissions
 func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 	return fileMode&^maxAllowedPerms != 0
-}
-
-// IsFileOwnedByChainlink attempts to read fileInfo to verify file owner
-func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
-	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
-	if !ok {
-		return false, errors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
-	}
-	return int(stat.Uid) == os.Getuid(), nil
 }
 
 // EnsureDirAndMaxPerms ensures that the given path exists, that it's a directory,
@@ -68,7 +58,7 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err err
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, f.Close()) }()
+	defer func() { err = stderrors.Join(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return
@@ -97,7 +87,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, dst.Close()) }()
+	defer func() { err = stderrors.Join(err, dst.Close()) }()
 	return EnsureFileMaxPerms(dst, perms)
 }
 

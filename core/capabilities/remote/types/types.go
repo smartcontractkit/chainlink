@@ -45,3 +45,7 @@ type DON struct {
 	Members []p2ptypes.PeerID
 	F       uint8
 }
+
+type MessageHasher interface {
+	Hash(msg *MessageBody) ([32]byte, error)
+}

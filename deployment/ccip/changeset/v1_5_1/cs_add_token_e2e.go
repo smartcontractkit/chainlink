@@ -12,9 +12,9 @@ import (
 	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/burn_mint_erc677_helper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
@@ -33,7 +33,7 @@ import (
 // AddTokensE2E is a changeset that deploys and configures token pools for multiple tokens across multiple chains in a single changeset.
 // AddTokensE2E does the following:
 //
-//  1. Deploys tokens ( specifically TestTokens) optionally if DeployTokenConfig is provided and
+//  1. Deploys tokens (specifically TestTokens) optionally if DeployTokenConfig is provided and
 //     populates the pool deployment configuration for each token.
 //
 //  2. Deploys token pool contracts for each token specified in the config.
@@ -83,10 +83,10 @@ type AddTokenE2EConfig struct {
 	// Whether this is a test router configuration.
 	IsTestRouter bool `json:"isTestRouter"`
 
-	// Configures the pools, if empty deployed pools aren't configured.
+	// Configures the pools, if empty, deployed pools aren't configured.
 	ConfigurePools ConfigureTokenPoolContractsConfig `json:"configurePools"`
 
-	// internal fields - To be populated from the PoolConfig.
+	// Internal fields - To be populated from the PoolConfig.
 	// User does not need to populate these fields.
 	deployPool             *DeployTokenPoolContractsConfig
 	configureTokenAdminReg TokenAdminRegistryChangesetConfig
@@ -128,7 +128,7 @@ func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Enviro
 		return fmt.Errorf("failed to validate deploy pool config: %w", err)
 	}
 
-	// rest of the validation should be done after token pools are deployed
+	// The rest of the validation should be done after token pools are deployed
 	return nil
 }
 
@@ -185,7 +185,7 @@ type DeployTokenConfig struct {
 	AcceptLiquidity *bool `json:"acceptLiquidity,omitempty"`
 
 	// MintTokenForRecipients is a map of recipient address to amount to be transferred or minted
-	// and provided minting role after token deployment.
+	// and provided the minting role after token deployment.
 	MintTokenForRecipients map[common.Address]*big.Int `json:"mintTokenForRecipients,omitempty"`
 }
 
@@ -536,14 +536,17 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 			tokenAddresses[selector] = token.Address
 		case shared.ERC677TokenHelper:
 			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
-				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677_helper.BurnMintERC677Helper] {
-					tokenAddress, tx, token, err := burn_mint_erc677_helper.DeployBurnMintERC677Helper(
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_with_drip.BurnMintERC20] {
+					tokenAddress, tx, token, err := burn_mint_erc20_with_drip.DeployBurnMintERC20(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
 						e.BlockChains.EVMChains()[selector].Client,
 						cfg.TokenName,
 						string(cfg.TokenSymbol),
+						18,
+						big.NewInt(0),
+						big.NewInt(0),
 					)
-					return cldf.ContractDeploy[*burn_mint_erc677_helper.BurnMintERC677Helper]{
+					return cldf.ContractDeploy[*burn_mint_erc20_with_drip.BurnMintERC20]{
 						Address:  tokenAddress,
 						Contract: token,
 						Tv:       cldf.NewTypeAndVersion(shared.ERC677TokenHelper, deployment.Version1_0_0),
@@ -614,7 +617,7 @@ func addMinterAndMintTokenERC677(env cldf.Environment, selector uint64, token *b
 }
 
 // addMinterAndMintTokenERC677Helper adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
-func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, token *burn_mint_erc677_helper.BurnMintERC677Helper, recipient common.Address, amount *big.Int) error {
+func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, token *burn_mint_erc20_with_drip.BurnMintERC20, recipient common.Address, amount *big.Int) error {
 	baseToken, err := burn_mint_erc677.NewBurnMintERC677(token.Address(), env.BlockChains.EVMChains()[selector].Client)
 	if err != nil {
 		return fmt.Errorf("failed to cast helper to base token: %w", err)
@@ -625,7 +628,7 @@ func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, to
 func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
-	// check if owner is the deployer key
+	// check if the owner is the deployer key
 	owner, err := token.Owner(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get owner of token %s on chain %d: %w", token.Address().Hex(), selector, err)

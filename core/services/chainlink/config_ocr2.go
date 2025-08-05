@@ -72,3 +72,7 @@ func (o *ocr2Config) DefaultTransactionQueueDepth() uint32 {
 func (o *ocr2Config) SimulateTransactions() bool {
 	return *o.c.SimulateTransactions
 }
+
+func (o *ocr2Config) KeyValueStoreRootDir() string {
+	return *o.c.KeyValueStoreRootDir
+}

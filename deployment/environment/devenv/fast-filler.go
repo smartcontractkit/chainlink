@@ -21,9 +21,10 @@ var (
 )
 
 type ListenerConfig struct {
-	RPCURL           string `json:"rpcUrl"`
-	TokenPoolAddress string `json:"tokenPoolAddress"`
-	ChainSelector    string `json:"chainSelector"`
+	RPCURL               string `json:"rpcUrl"`
+	TokenPoolAddress     string `json:"tokenPoolAddress"`
+	ChainSelector        string `json:"chainSelector"`
+	DestinationTokenPool string `json:"destinationTokenPool"`
 }
 
 type SignerProvider struct {
@@ -38,6 +39,7 @@ type FillerConfig struct {
 	TokenPoolAddress string `json:"tokenPoolAddress"`
 	SignerProvider   string `json:"signerProvider"`
 	ChainSelector    string `json:"chainSelector"`
+	SourceTokenPool  string `json:"sourceTokenPool"`
 }
 
 type CCIPFastFillerConfig struct {

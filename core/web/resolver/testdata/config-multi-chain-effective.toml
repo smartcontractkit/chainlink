@@ -125,6 +125,9 @@ HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
@@ -157,6 +160,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = true
@@ -293,11 +297,13 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
@@ -324,6 +330,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+HeartbeatInterval = '1s'
 
 [Workflows]
 [Workflows.Limits]
@@ -335,8 +342,19 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
+[CRE.WorkflowFetcher]
+URL = ''
+
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
 
 [[EVM]]
 ChainID = '1'
@@ -416,7 +434,8 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -537,6 +556,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -651,6 +671,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5

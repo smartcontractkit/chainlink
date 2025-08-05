@@ -16,3 +16,6 @@ PriceMax = '3000 gwei' # recommended by ds&a
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 200
+
+[HeadTracker]
+PersistenceEnabled = false

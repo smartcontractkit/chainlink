@@ -49,7 +49,7 @@ type fakeConsensus struct {
 	config      FakeConsensusConfig
 	plugin      ocr3types.ReportingPlugin[[]byte]
 	transmitter *ocr3.ContractTransmitter
-	store       *requests.Store[*ocr3.ReportRequest, ocr3.ReportResponse]
+	store       *requests.Store[*ocr3.ReportRequest]
 	cap         capIface
 	stats       SimpleStats
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
@@ -148,10 +149,26 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmsStateNoPtr := make(map[uint64]state.MCMSWithTimelockState)
+	mcmsStateForProposal := make(map[uint64]state.MCMSWithTimelockState)
 	for k, v := range mcmsState {
 		if v != nil {
-			mcmsStateNoPtr[k] = *v
+			// Replace the proposer MCM in state with the existing proposer.
+			// This is to ensure that we are using an MCM contract that already has the proposer role.
+			existingProposerMcm, err := gethwrappers.NewManyChainMultiSig(
+				cfg.ExistingProposerByChain[k],
+				e.BlockChains.EVMChains()[k].Client,
+			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create ManyChainMultiSig for existing proposer %s on chain %d: %w",
+					cfg.ExistingProposerByChain[k].Hex(), k, err)
+			}
+			mcmsStateForProposal[k] = state.MCMSWithTimelockState{
+				CancellerMcm: v.CancellerMcm,
+				BypasserMcm:  v.BypasserMcm,
+				ProposerMcm:  existingProposerMcm,
+				Timelock:     v.Timelock,
+				CallProxy:    v.CallProxy,
+			}
 		}
 	}
 
@@ -168,7 +185,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 				Timelock:     stateForChain.Timelock,
 				CallProxy:    stateForChain.CallProxy,
 			}, false, gasBoostConfigs[chain])
-		out, err = opsutils.AddEVMCallSequenceToCSOutput(e, out, seqReport, err, mcmsStateNoPtr, cfg.MCMS, fmt.Sprintf("GrantRolesForTimelock on %s", evmChains[chain]))
+		out, err = opsutils.AddEVMCallSequenceToCSOutput(e, out, seqReport, err, mcmsStateForProposal, cfg.MCMS, fmt.Sprintf("GrantRolesForTimelock on %s", evmChains[chain]))
 		if err != nil {
 			return out, fmt.Errorf("failed to grant roles for timelock on chain %d: %w", chain, err)
 		}

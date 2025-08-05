@@ -38,6 +38,7 @@ var (
 
 	// Pools
 	BurnMintToken                                   deployment.ContractType = "BurnMintToken"
+	BurnMintERC20Token                              deployment.ContractType = "BurnMintERC20Token"
 	FactoryBurnMintERC20Token                       deployment.ContractType = "FactoryBurnMintERC20Token"
 	ERC20Token                                      deployment.ContractType = "ERC20Token"
 	ERC677Token                                     deployment.ContractType = "ERC677Token"
@@ -52,6 +53,7 @@ var (
 	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
 	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"

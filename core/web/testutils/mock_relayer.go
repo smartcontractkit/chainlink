@@ -9,76 +9,77 @@ import (
 )
 
 type MockRelayer struct {
+	types.UnimplementedRelayer
 	Head         commontypes.Head
 	ChainStatus  commontypes.ChainStatus
 	ChainInfo    commontypes.ChainInfo
 	NodeStatuses []commontypes.NodeStatus
 }
 
-func (m MockRelayer) Name() string {
+func (m *MockRelayer) Name() string {
 	panic("not implemented")
 }
 
-func (m MockRelayer) Start(ctx context.Context) error {
+func (m *MockRelayer) Start(ctx context.Context) error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) Close() error {
+func (m *MockRelayer) Close() error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) Ready() error {
+func (m *MockRelayer) Ready() error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) HealthReport() map[string]error {
+func (m *MockRelayer) HealthReport() map[string]error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewContractWriter(_ context.Context, _ []byte) (commontypes.ContractWriter, error) {
+func (m *MockRelayer) NewContractWriter(_ context.Context, _ []byte) (commontypes.ContractWriter, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
+func (m *MockRelayer) NewContractReader(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) EVM() (types.EVMService, error) {
+func (m *MockRelayer) EVM() (types.EVMService, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) LatestHead(_ context.Context) (commontypes.Head, error) {
+func (m *MockRelayer) LatestHead(_ context.Context) (commontypes.Head, error) {
 	return m.Head, nil
 }
 
-func (m MockRelayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
+func (m *MockRelayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
 	return m.ChainStatus, nil
 }
 
-func (m MockRelayer) GetChainInfo(_ context.Context) (commontypes.ChainInfo, error) {
+func (m *MockRelayer) GetChainInfo(_ context.Context) (commontypes.ChainInfo, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
+func (m *MockRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
 	return m.NodeStatuses, "", len(m.NodeStatuses), nil
 }
 
-func (m MockRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (m *MockRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+func (m *MockRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (commontypes.ConfigProvider, error) {
+func (m *MockRelayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (commontypes.ConfigProvider, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewPluginProvider(ctx context.Context, args commontypes.RelayArgs, args2 commontypes.PluginArgs) (commontypes.PluginProvider, error) {
+func (m *MockRelayer) NewPluginProvider(ctx context.Context, args commontypes.RelayArgs, args2 commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	panic("not implemented")
 }
 
-func (m MockRelayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
+func (m *MockRelayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
 	panic("not implemented")
 }

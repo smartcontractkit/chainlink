@@ -97,13 +97,34 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 
 	// Create simple channel definition to match streams
 	streams := make([]llotypes.Stream, len(reports.Payload))
+	// Create multipliers based on the actual StreamIDs from the payload
+	multipliers := make([]cre.ReportCodecCapabilityTriggerMultiplier, len(reports.Payload))
+	multiplier, err := decimal.NewFromString("1000000000000000000")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to parse multiplier string: %w", err)
+	}
 	for i, payload := range reports.Payload {
 		streams[i] = llotypes.Stream{
 			StreamID: payload.StreamID,
 		}
+
+		multipliers[i] = cre.ReportCodecCapabilityTriggerMultiplier{
+			Multiplier: multiplier,
+			StreamID:   payload.StreamID,
+		}
 	}
+
+	opts, err := (&cre.ReportCodecCapabilityTriggerOpts{
+		Multipliers: multipliers,
+	}).Encode()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to encode opts: %w", err)
+	}
+
 	channelDef := llotypes.ChannelDefinition{
-		Streams: streams,
+		ReportFormat: llotypes.ReportFormatCapabilityTrigger,
+		Streams:      streams,
+		Opts:         opts,
 	}
 
 	// Encode the report to bytes

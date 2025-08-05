@@ -123,7 +123,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 	}
 }
 
-func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request {
+func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request[json.RawMessage] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{

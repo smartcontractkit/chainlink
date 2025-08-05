@@ -113,7 +113,6 @@ func SetupTwoChainEnvironmentWithTokens(
 		)
 		require.NoError(t, err)
 		tokens[selector] = token
-
 	}
 
 	// Deploy MCMS setup & prerequisite contracts
@@ -207,6 +206,9 @@ func DeployTestTokenPools(
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
 				case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).BurnMintWithExternalMinterFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				case shared.HybridWithExternalMinterFastTransferTokenPool:
+					timelockOwnedContractsByChain[selector] = getPoolsOwnedByDeployer(t, state.MustGetEVMChainState(selector).HybridWithExternalMinterFastTransferTokenPools[TestTokenSymbol], e.BlockChains.EVMChains()[selector])
+				default:
 				}
 			}
 		}

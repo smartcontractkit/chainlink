@@ -5,6 +5,8 @@ package mocks
 import (
 	context "context"
 
+	json "encoding/json"
+
 	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	mock "github.com/stretchr/testify/mock"
@@ -24,7 +26,7 @@ func (_m *DON) EXPECT() *DON_Expecter {
 }
 
 // SendToNode provides a mock function with given fields: ctx, nodeAddress, req
-func (_m *DON) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc2.Request) error {
+func (_m *DON) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc2.Request[json.RawMessage]) error {
 	ret := _m.Called(ctx, nodeAddress, req)
 
 	if len(ret) == 0 {
@@ -32,7 +34,7 @@ func (_m *DON) SendToNode(ctx context.Context, nodeAddress string, req *jsonrpc2
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Request) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Request[json.RawMessage]) error); ok {
 		r0 = rf(ctx, nodeAddress, req)
 	} else {
 		r0 = ret.Error(0)
@@ -49,14 +51,14 @@ type DON_SendToNode_Call struct {
 // SendToNode is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nodeAddress string
-//   - req *jsonrpc2.Request
+//   - req *jsonrpc2.Request[json.RawMessage]
 func (_e *DON_Expecter) SendToNode(ctx interface{}, nodeAddress interface{}, req interface{}) *DON_SendToNode_Call {
 	return &DON_SendToNode_Call{Call: _e.mock.On("SendToNode", ctx, nodeAddress, req)}
 }
 
-func (_c *DON_SendToNode_Call) Run(run func(ctx context.Context, nodeAddress string, req *jsonrpc2.Request)) *DON_SendToNode_Call {
+func (_c *DON_SendToNode_Call) Run(run func(ctx context.Context, nodeAddress string, req *jsonrpc2.Request[json.RawMessage])) *DON_SendToNode_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Request))
+		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Request[json.RawMessage]))
 	})
 	return _c
 }
@@ -66,7 +68,7 @@ func (_c *DON_SendToNode_Call) Return(_a0 error) *DON_SendToNode_Call {
 	return _c
 }
 
-func (_c *DON_SendToNode_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Request) error) *DON_SendToNode_Call {
+func (_c *DON_SendToNode_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Request[json.RawMessage]) error) *DON_SendToNode_Call {
 	_c.Call.Return(run)
 	return _c
 }

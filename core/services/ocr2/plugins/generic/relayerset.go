@@ -79,3 +79,17 @@ func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayA
 
 	return r.Relayer.NewPluginProvider(ctx, relayArgs, types.PluginArgs(pargs))
 }
+
+func (r relayerWrapper) NewConfigProvider(ctx context.Context, rargs core.RelayArgs) (types.ConfigProvider, error) {
+	relayArgs := types.RelayArgs{
+		ExternalJobID:      r.ExternalJobID,
+		JobID:              r.JobID,
+		ContractID:         rargs.ContractID,
+		New:                r.New,
+		RelayConfig:        rargs.RelayConfig,
+		ProviderType:       rargs.ProviderType,
+		MercuryCredentials: rargs.MercuryCredentials,
+	}
+
+	return r.Relayer.NewConfigProvider(ctx, relayArgs)
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -30,7 +31,7 @@ type client struct {
 	lggr       logger.Logger
 }
 
-func (h *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (h *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		return err

@@ -1,4 +1,3 @@
-//nolint:gosec // disable G115
 package evm
 
 import (
@@ -28,7 +27,6 @@ import (
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -131,12 +129,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			PollPeriod:        config.PollPeriod(),
 			AcceptanceTimeout: config.AcceptanceTimeout(),
 		},
-		ChainInfo: monitor.ChainInfo{
-			FamilyName:      chainInfo.FamilyName,
-			ChainID:         chainInfo.ChainID,
-			NetworkName:     chainInfo.NetworkName,
-			NetworkNameFull: chainInfo.NetworkNameFull,
-		},
+		ChainInfo:            chainInfo,
 		Beholder:             beholder,
 		ChainService:         chain,
 		ConfigValidateFn:     evaluate,

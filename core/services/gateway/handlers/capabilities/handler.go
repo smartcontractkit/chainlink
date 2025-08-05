@@ -10,7 +10,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -214,7 +213,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	return nil
 }
 
-func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response, nodeAddr string) error {
+func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := common.ValidatedMessageFromResp(resp)
 	if err != nil {
 		return err
@@ -244,7 +243,7 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request, _ chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
@@ -333,7 +332,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 	// Send original request to all nodes
 	for _, member := range h.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

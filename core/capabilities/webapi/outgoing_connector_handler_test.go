@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -114,7 +114,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockConnector := gcmocks.NewGatewayConnector(t)
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 
 			if tc.gatewayConnectorSetup != nil {
 				tc.gatewayConnectorSetup(mockConnector)
@@ -176,7 +176,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 		// expect the request body to contain the default timeout
 		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -218,7 +218,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 		// expect the request body to contain the defined timeout
 		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -263,7 +263,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 		// expect the request body to contain the defined timeout
 		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			// don't call HandleGatewayMessage here; i.e. simulate a failure to receive a response
 		}).Return(nil).Times(1)
 
@@ -323,7 +323,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 		// expect the request body to contain the default timeout
 		connector.EXPECT().SignMessage(mock.Anything, common.Flatten(api.GetRawMessageBody(expectedBody)...)).Return([]byte("signature"), nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID, privateKey))
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -371,7 +371,7 @@ func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConn
 }
 
 func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceConfig ServiceConfig) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 	connector := gcmocks.NewGatewayConnector(t)
 
 	mockFn(connector)
@@ -381,7 +381,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 	return connector, connectorHandler
 }
 
-func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request {
+func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request[json.RawMessage] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -441,10 +441,11 @@ func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing
 	}
 	params, err := json.Marshal(invalidMsg)
 	require.NoError(t, err)
-	req := &jsonrpc.Request{
+	rawParams := json.RawMessage(params)
+	req := &jsonrpc.Request[json.RawMessage]{
 		Version: "2.0",
 		Method:  invalidMsg.Body.Method,
-		Params:  params,
+		Params:  &rawParams,
 	}
 	err = handler.HandleGatewayMessage(context.Background(), "gateway1", req)
 	require.NoError(t, err)

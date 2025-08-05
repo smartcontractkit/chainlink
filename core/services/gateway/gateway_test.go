@@ -142,7 +142,7 @@ func requireJSONRPCResult(t *testing.T, response []byte, expectedID string, expe
 }
 
 func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedID string, expectedCode int64, expectedMsg string) {
-	var response jsonrpc.Response
+	var response jsonrpc.Response[json.RawMessage]
 	err := json.Unmarshal(responseBytes, &response)
 	require.NoError(t, err)
 	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
@@ -185,11 +185,12 @@ func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID
 
 // newJSONRpcRequest creates a json rpc based request message for testing purposes.
 func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []byte) []byte {
-	request := jsonrpc.Request{
+	rawPayload := json.RawMessage(payload)
+	request := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      requestID,
 		Method:  method,
-		Params:  payload,
+		Params:  &rawPayload,
 	}
 	rawRequest, err := json.Marshal(&request)
 	require.NoError(t, err)
@@ -261,13 +262,14 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		request := args.Get(1).(jsonrpc.Request)
+		request := args.Get(1).(jsonrpc.Request[json.RawMessage])
 		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
-		response := jsonrpc.Response{
+		rawResult := json.RawMessage([]byte(`{"result":"OK"}`))
+		response := jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      request.ID,
-			Result:  []byte(`{"result":"OK"}`),
+			Result:  &rawResult,
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)

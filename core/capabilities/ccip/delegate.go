@@ -266,7 +266,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	)
 
 	// register the capability launcher with the registry syncer
-	registrySyncer.AddLauncher(capLauncher)
+	registrySyncer.AddListener(capLauncher)
 
 	return []job.ServiceCtx{
 		homeChainContractReader,

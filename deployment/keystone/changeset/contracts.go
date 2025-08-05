@@ -324,7 +324,7 @@ func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_e
 		}
 	}
 	if !foundAddr {
-		return nil, fmt.Errorf("address %s not found in address book", addr)
+		return nil, fmt.Errorf("address %s not found in datastore", addr)
 	}
 	contract, err := GetOwnableContractV2[T](addrs, chain, addr)
 	if err != nil {

@@ -17,8 +17,7 @@ import (
 func TestResolver_Nodes(t *testing.T) {
 	t.Parallel()
 
-	var (
-		query = `
+	query := `
 			query GetNodes {
 				nodes {
 					results {
@@ -33,7 +32,6 @@ func TestResolver_Nodes(t *testing.T) {
 					}
 				}
 			}`
-	)
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
@@ -52,10 +50,10 @@ func TestResolver_Nodes(t *testing.T) {
 						},
 					},
 					Relayers: map[types.RelayID]loop.Relayer{
-						types.RelayID{
+						{
 							Network: relay.NetworkEVM,
 							ChainID: "1",
-						}: testutils.MockRelayer{ChainStatus: types.ChainStatus{
+						}: &testutils.MockRelayer{ChainStatus: types.ChainStatus{
 							ID:      "1",
 							Enabled: true,
 							Config:  "",
@@ -129,10 +127,10 @@ func Test_NodeQuery(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[types.RelayID]loop.Relayer{
-					types.RelayID{
+					{
 						Network: relay.NetworkEVM,
 						ChainID: "1",
-					}: testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
+					}: &testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
 						{
 							Name:   "node-name",
 							Config: "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",

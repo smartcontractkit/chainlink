@@ -16,5 +16,5 @@ type ResponseBase struct {
 
 type SecretsCreateResponse struct {
 	ResponseBase
-	ID string `json:"id,omitempty"`
+	SecretID string `json:"secret_id,omitempty"`
 }

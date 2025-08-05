@@ -67,6 +67,7 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 }
 
 // OracleIDAsAddressBytes returns valid address bytes for a given chain selector and oracle ID.
+// Used for making nil transmitters in the OCR config valid, it just means that this oracle does not support the destination chain.
 func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector cciptypes.ChainSelector) ([]byte, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {

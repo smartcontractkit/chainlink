@@ -160,6 +160,9 @@ HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
@@ -192,6 +195,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = false
@@ -328,11 +332,13 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
@@ -359,6 +365,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+HeartbeatInterval = '1s'
 
 [Workflows]
 [Workflows.Limits]
@@ -370,8 +377,19 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
+[CRE.WorkflowFetcher]
+URL = ''
+
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
 
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'

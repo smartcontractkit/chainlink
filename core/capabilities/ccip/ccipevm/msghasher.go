@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ag_binary "github.com/gagliardetto/binary"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
@@ -278,14 +277,8 @@ func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
 			if val, ok := fieldValue.(*big.Int); ok {
 				outputGas = val
 				return outputGas, nil
-			} else {
-				// when source chain is svm, the gas limit is an ag_binary.Uint128 struct instead of *big.Int
-				if val, ok := fieldValue.(ag_binary.Uint128); ok {
-					outputGas = val.BigInt()
-					return outputGas, nil
-				}
-				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
 			}
+			return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
 		default:
 			// no error here, as we only need the keys to gasLimit, other keys can be skipped without like AllowOutOfOrderExecution	etc.
 		}

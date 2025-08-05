@@ -17,11 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -70,7 +69,7 @@ func workflowTriggerConfig(_ testHarness, addresses []string, topics []string) (
 func setup(t *testing.T) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
-	lggr := corelogger.TestLogger(t)
+	lggr := logger.Test(t)
 	config := ""
 
 	trigger, err := NewTrigger(config, registry, connector, lggr)
@@ -85,7 +84,7 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName string) *jsonrpc.Request {
+func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName string) *jsonrpc.Request[json.RawMessage] {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = ghcapabilities.MethodWebAPITrigger
@@ -124,9 +123,9 @@ func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName
 }
 
 func getResponseFromArg(arg interface{}) (ghcapabilities.TriggerResponsePayload, error) {
-	resp := arg.(*jsonrpc.Response)
+	resp := arg.(*jsonrpc.Response[json.RawMessage])
 	var msg api.Message
-	err := json.Unmarshal(resp.Result, &msg)
+	err := json.Unmarshal(*resp.Result, &msg)
 	if err != nil {
 		return ghcapabilities.TriggerResponsePayload{}, err
 	}
@@ -304,7 +303,7 @@ func TestTriggerExecute(t *testing.T) {
 
 	t.Run("invalid message validation", func(t *testing.T) {
 		// request with missing params
-		req := &jsonrpc.Request{
+		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      "id",
 			Method:  ghcapabilities.MethodWebAPITrigger,

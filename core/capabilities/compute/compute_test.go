@@ -227,7 +227,7 @@ func TestComputeFetch(t *testing.T) {
 	th.connector.EXPECT().
 		SendToGateway(matches.AnyContext, "gateway1", mock.Anything).
 		Return(nil).
-		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err, "failed to handle gateway message")
 		}).
@@ -354,7 +354,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 			th.connector.EXPECT().
 				SendToGateway(mock.Anything, "gateway1", mock.Anything).
 				Return(nil).
-				Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+				Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 					err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 					require.NoError(t, err, "failed to handle gateway message")
 				}).
@@ -413,7 +413,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	th.connector.EXPECT().
 		SendToGateway(matches.AnyContext, "gateway1", mock.Anything).
 		Return(nil).
-		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err, "failed to handle gateway message")
 		}).Once()
@@ -441,7 +441,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2092, 1*1024))
 }
 
-func gatewayResponse(t *testing.T, msgID string, body []byte, privateKey string) *jsonrpc.Request {
+func gatewayResponse(t *testing.T, msgID string, body []byte, privateKey string) *jsonrpc.Request[json.RawMessage] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		StatusCode:     200,

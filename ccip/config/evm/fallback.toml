@@ -73,6 +73,7 @@ SamplingInterval = '5s'
 FinalityTagBypass = false 
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
+PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5

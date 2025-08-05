@@ -2,13 +2,13 @@ package evm
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/big"
 
-	"go.uber.org/multierr"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -128,7 +128,7 @@ func (p *SrcCommitProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(); err != nil {
-			multiErr = multierr.Append(multiErr, err)
+			multiErr = stderrors.Join(multiErr, err)
 		}
 	}
 	return multiErr
@@ -193,7 +193,7 @@ func (p *DstCommitProvider) Close() error {
 	var multiErr error
 	for _, fn := range unregisterFuncs {
 		if err := fn(ctx); err != nil {
-			multiErr = multierr.Append(multiErr, err)
+			multiErr = stderrors.Join(multiErr, err)
 		}
 	}
 

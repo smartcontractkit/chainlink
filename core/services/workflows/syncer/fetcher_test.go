@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +70,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -96,7 +99,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, inconsistentPayload(t, msgID, donID))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -124,14 +127,15 @@ func TestNewFetcherService(t *testing.T) {
 		gatewayMessage := gatewayResponse(t, msgID, donID, 500) // gateway response that is not signed
 		payload, err := json.Marshal(gatewayMessage)
 		require.NoError(t, err)
-		gatewayResp := &jsonrpc.Request{
+		rawPayload := json.RawMessage(payload)
+		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      gatewayMessage.Body.MessageId,
 			Method:  gatewayMessage.Body.Method,
-			Params:  payload,
+			Params:  &rawPayload,
 		}
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -168,11 +172,12 @@ func TestNewFetcherService(t *testing.T) {
 		}
 		payload, err := json.Marshal(gatewayMsg)
 		require.NoError(t, err)
-		gatewayResp := &jsonrpc.Request{
+		rawPayload := json.RawMessage(payload)
+		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      gatewayMsg.Body.MessageId,
 			Method:  gatewayMsg.Body.Method,
-			Params:  payload,
+			Params:  &rawPayload,
 		}
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
@@ -180,7 +185,7 @@ func TestNewFetcherService(t *testing.T) {
 		defer fetcher.Close()
 
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -208,7 +213,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 500))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -273,7 +278,7 @@ func TestNewFetcherService(t *testing.T) {
 
 		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
 		connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return(signature, nil).Once()
-		connector.EXPECT().SendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response) {
+		connector.EXPECT().SendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
 			err2 := fetcher.och.HandleGatewayMessage(ctx, "gateway2", gatewayResp)
 			require.NoError(t, err2)
 		}).Return(nil).Times(1)
@@ -289,6 +294,177 @@ func TestNewFetcherService(t *testing.T) {
 
 		expectedPayload := []byte("response body")
 		require.Equal(t, expectedPayload, payload)
+	})
+}
+
+func TestNewFetcherFunc(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := context.Background()
+	testContent := []byte("test content")
+
+	t.Run("error cases", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			baseURL string
+			errMsg  string
+		}{
+			{
+				name:    "empty url",
+				baseURL: "",
+				errMsg:  "baseURL cannot be empty",
+			},
+			{
+				name:    "invalid url",
+				baseURL: "://invalid-url",
+				errMsg:  "invalid URL",
+			},
+			{
+				name:    "unsupported scheme",
+				baseURL: "ftp://example.com",
+				errMsg:  "unsupported URL scheme: ftp",
+			},
+			{
+				name:    "relative file path",
+				baseURL: "file:relative/path",
+				errMsg:  "basePath must be an absolute path",
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := NewFetcherFunc(tc.baseURL, lggr)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
+			})
+		}
+	})
+
+	t.Run("file fetcher", func(t *testing.T) {
+		// Create temp dir for test files
+		tempDir := t.TempDir()
+		testFilePath := filepath.Join(tempDir, "test.txt")
+
+		// Write test content to file
+		err := os.WriteFile(testFilePath, testContent, 0600)
+		require.NoError(t, err)
+
+		baseURL := "file://" + tempDir
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+		require.NotNil(t, fetcher)
+
+		// Test fetching valid file
+		resp, err := fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "test.txt",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test fetching non-existent file
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "nonexistent.txt",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read file")
+
+		// Test path traversal attempt
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "../../../etc/passwd",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not within the basePath")
+
+		// Test fetching full path
+		resp, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: testFilePath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test full path with file:// prefix
+		resp, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "file://" + testFilePath,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+	})
+
+	t.Run("http fetcher", func(t *testing.T) {
+		// Create test HTTP server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/workflows/test.json" {
+				w.WriteHeader(http.StatusOK)
+				_, err := w.Write(testContent)
+				assert.NoError(t, err)
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer server.Close()
+
+		baseURL := server.URL + "/workflows"
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+		require.NotNil(t, fetcher)
+
+		// Test fetching valid URL
+		resp, err := fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "test.json",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		// Test fetching non-existent resource
+		_, err = fetcher(ctx, "test-msg-id", ghcapabilities.Request{
+			URL: "nonexistent.json",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP request failed with status code: 404")
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		baseURL := "file://" + tempDir
+
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+
+		// Create a canceled context
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		// Try to fetch with canceled context
+		_, err = fetcher(canceledCtx, "test-msg-id", ghcapabilities.Request{
+			URL: "anything.txt",
+		})
+		require.Error(t, err)
+		assert.Equal(t, context.Canceled, err)
+	})
+
+	t.Run("timeout handling", func(t *testing.T) {
+		// Create a slow HTTP server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond) // Delay response
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write(testContent)
+			assert.NoError(t, err)
+		}))
+		defer server.Close()
+
+		baseURL := server.URL
+		fetcher, err := NewFetcherFunc(baseURL, lggr)
+		require.NoError(t, err)
+
+		// Create a context with short timeout
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		// Try to fetch with timeout context - should fail with deadline exceeded
+		_, err = fetcher(timeoutCtx, "test-msg-id", ghcapabilities.Request{
+			URL: "anything",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context deadline exceeded")
 	})
 }
 
@@ -331,7 +507,7 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 
 // signGatewayResponse signs the gateway response with a private key and arbitrarily sets the receiver
 // to the signer's address.  A signature and receiver are required for a valid gateway response.
-func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request {
+func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request[json.RawMessage] {
 	nodeKeys := common.NewTestNodes(t, 1)
 	s := &signer{pk: nodeKeys[0].PrivateKey}
 	msgToSign := api.GetRawMessageBody(&msg.Body)

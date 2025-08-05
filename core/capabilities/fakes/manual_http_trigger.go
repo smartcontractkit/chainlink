@@ -15,7 +15,7 @@ var _ services.Service = (*ManualHTTPTriggerService)(nil)
 var _ httpserver.HTTPCapability = (*ManualHTTPTriggerService)(nil)
 
 const HTTPTriggerServiceName = "HttpTriggerService"
-const HTTPTriggerID = "http-trigger@1.0.0"
+const HTTPTriggerID = "http-trigger@1.0.0-alpha"
 
 var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 	HTTPTriggerID,
@@ -26,7 +26,7 @@ var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 type ManualHTTPTriggerService struct {
 	capabilities.CapabilityInfo
 	lggr       logger.Logger
-	callbackCh chan capabilities.TriggerAndId[*httptypedapi.Payload]
+	callbackCh map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]
 }
 
 func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerService {
@@ -35,13 +35,14 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerSer
 	return &ManualHTTPTriggerService{
 		CapabilityInfo: manualHTTPTriggerInfo,
 		lggr:           lggr,
-		callbackCh:     make(chan capabilities.TriggerAndId[*httptypedapi.Payload]),
+		callbackCh:     make(map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]),
 	}
 }
 
 // HTTPCapability interface methods
 func (f *ManualHTTPTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
-	return f.callbackCh, nil
+	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*httptypedapi.Payload])
+	return f.callbackCh[triggerID], nil
 }
 
 func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) error {
@@ -55,17 +56,18 @@ func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string
 	_ core.PipelineRunnerService,
 	_ core.RelayerSet,
 	_ core.OracleFactory,
-	_ core.GatewayConnector) error {
+	_ core.GatewayConnector,
+	_ core.Keystore) error {
 	f.lggr.Debugf("Initialising %s", HTTPTriggerServiceName)
 	return f.Start(ctx)
 }
 
 // ManualTriggerCapability interface method
-func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, payload *httptypedapi.Payload) error {
+func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, triggerID string, payload *httptypedapi.Payload) error {
 	// Run in a goroutine to avoid blocking
 	go func() {
 		select {
-		case f.callbackCh <- f.createManualTriggerEvent(payload):
+		case f.callbackCh[triggerID] <- f.createManualTriggerEvent(payload):
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine

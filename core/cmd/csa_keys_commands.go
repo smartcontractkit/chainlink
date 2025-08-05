@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -114,7 +114,7 @@ func (s *Shell) ListCSAKeys(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -129,7 +129,7 @@ func (s *Shell) CreateCSAKey(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -171,7 +171,7 @@ func (s *Shell) ImportCSAKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 
@@ -214,7 +214,7 @@ func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = stderrors.Join(err, cerr)
 		}
 	}()
 

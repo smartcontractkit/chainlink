@@ -17,3 +17,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 100
+
+[HeadTracker]
+PersistenceEnabled = false

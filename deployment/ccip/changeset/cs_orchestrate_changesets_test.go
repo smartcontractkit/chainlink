@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -244,4 +245,35 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 		require.Len(t, output.MCMSTimelockProposals[0].Operations[0].Transactions, 1)
 		require.Len(t, output.MCMSTimelockProposals[0].Operations[1].Transactions, 1)
 	})
+}
+
+func TestOrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
+	env := newMemoryEnvWithMCMS(t)
+	state, err := stateview.LoadOnchainState(env)
+	require.NoError(t, err)
+
+	chainSelector := env.BlockChains.ListChainSelectors()[0]
+	// Use random addresses for overrides
+	// Canceller left empty to test that it is not overridden
+	override := changeset.MCMSAddressesForEVM{
+		Bypasser: utils.RandomAddress(),
+		Proposer: utils.RandomAddress(),
+	}
+	cfg := changeset.OrchestrateChangesetsConfig{
+		Description: "Test MCMS override",
+		MCMS:        &proposalutils.TimelockConfig{MinDelay: 0},
+		ChangeSets:  nil,
+		MCMSOverridesForEVMChains: map[uint64]changeset.MCMSAddressesForEVM{
+			chainSelector: override,
+		},
+	}
+
+	evmState, err := cfg.EVMMCMSStateByChain(env, state)
+	require.NoError(t, err)
+	require.Contains(t, evmState, chainSelector)
+
+	// The MCMS contract addresses should match the override, except for canceller
+	require.Equal(t, state.Chains[chainSelector].CancellerMcm.Address(), evmState[chainSelector].CancellerMcm.Address())
+	require.Equal(t, override.Bypasser, evmState[chainSelector].BypasserMcm.Address())
+	require.Equal(t, override.Proposer, evmState[chainSelector].ProposerMcm.Address())
 }

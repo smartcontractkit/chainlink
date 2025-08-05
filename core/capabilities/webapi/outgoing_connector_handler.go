@@ -301,7 +301,7 @@ func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context,
 
 // HandleGatewayMessage processes incoming messages from the Gateway,
 // which are in response to a HandleSingleNodeRequest call.
-func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		c.lggr.Errorw("failed to validate request", "err", err, "gatewayID", gatewayID)

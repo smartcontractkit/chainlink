@@ -16,6 +16,7 @@ import (
 
 type metadataRegistry interface {
 	LocalNode(ctx context.Context) (capabilities.Node, error)
+	NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error)
 	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
 }
 
@@ -36,6 +37,15 @@ func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	}
 
 	return r.metadataRegistry.LocalNode(ctx)
+}
+
+func (r *Registry) NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.metadataRegistry == nil {
+		return capabilities.Node{}, errors.New("metadataRegistry information not available")
+	}
+	return r.metadataRegistry.NodeByPeerID(ctx, peerID)
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
@@ -90,6 +100,10 @@ func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node
 		WorkflowDON:    workflowDON,
 		CapabilityDONs: []capabilities.DON{},
 	}, nil
+}
+
+func (t *TestMetadataRegistry) NodeByPeerID(ctx context.Context, _ p2ptypes.PeerID) (capabilities.Node, error) {
+	return t.LocalNode(ctx)
 }
 
 func (t *TestMetadataRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {

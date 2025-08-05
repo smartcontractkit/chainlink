@@ -28,7 +28,8 @@ func TestRunner(t *testing.T) {
 		hooks := DefaultHooks()
 		hooks.Finally = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, svcs []services.Service) {
 			for _, service := range svcs {
-				require.ErrorContains(t, service.Ready(), "Stopped")
+				err := service.Ready()
+				require.ErrorContains(t, err, "Stopped")
 			}
 		}
 

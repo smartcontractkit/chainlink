@@ -4,11 +4,11 @@ import (
 	"os"
 	"path"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -71,7 +71,7 @@ func newStandardCapabilities(
 		loop := standardcapabilities.NewStandardCapabilities(lggr, spec,
 			pluginRegistrar, &fakes.TelemetryServiceMock{}, &fakes.KVStoreMock{},
 			registry, &fakes.ErrorLogMock{}, &fakes.PipelineRunnerServiceMock{},
-			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{})
+			&fakes.RelayerSetMock{}, &fakes.OracleFactoryMock{}, &fakes.GatewayConnectorMock{}, &fakes.KeystoreMock{})
 
 		service := &standaloneLoopWrapper{
 			StandardCapabilities: loop,

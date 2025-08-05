@@ -111,7 +111,7 @@ type client struct {
 	done       atomic.Bool
 }
 
-func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request) error {
+func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	msg, err := hc.ValidatedMessageFromReq(req)
 	if err != nil {
 		panic(err)
@@ -121,10 +121,11 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req
 	if err != nil {
 		panic(err)
 	}
-	resp := &jsonrpc.Response{
+	rawPayload := json.RawMessage(payload)
+	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
-		Result:  payload,
+		Result:  &rawPayload,
 	}
 	// send back user's message without re-signing - should be ignored by the Gateway
 	_ = c.connector.SendToGateway(ctx, gatewayID, resp)

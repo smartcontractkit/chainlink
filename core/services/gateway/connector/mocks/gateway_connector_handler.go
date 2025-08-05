@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+	json "encoding/json"
 
 	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	mock "github.com/stretchr/testify/mock"
@@ -68,7 +69,7 @@ func (_c *GatewayConnectorHandler_Close_Call) RunAndReturn(run func() error) *Ga
 }
 
 // HandleGatewayMessage provides a mock function with given fields: ctx, gatewayID, req
-func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc2.Request) error {
+func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc2.Request[json.RawMessage]) error {
 	ret := _m.Called(ctx, gatewayID, req)
 
 	if len(ret) == 0 {
@@ -76,7 +77,7 @@ func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Request) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, *jsonrpc2.Request[json.RawMessage]) error); ok {
 		r0 = rf(ctx, gatewayID, req)
 	} else {
 		r0 = ret.Error(0)
@@ -93,14 +94,14 @@ type GatewayConnectorHandler_HandleGatewayMessage_Call struct {
 // HandleGatewayMessage is a helper method to define mock.On call
 //   - ctx context.Context
 //   - gatewayID string
-//   - req *jsonrpc2.Request
+//   - req *jsonrpc2.Request[json.RawMessage]
 func (_e *GatewayConnectorHandler_Expecter) HandleGatewayMessage(ctx interface{}, gatewayID interface{}, req interface{}) *GatewayConnectorHandler_HandleGatewayMessage_Call {
 	return &GatewayConnectorHandler_HandleGatewayMessage_Call{Call: _e.mock.On("HandleGatewayMessage", ctx, gatewayID, req)}
 }
 
-func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Run(run func(ctx context.Context, gatewayID string, req *jsonrpc2.Request)) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Run(run func(ctx context.Context, gatewayID string, req *jsonrpc2.Request[json.RawMessage])) *GatewayConnectorHandler_HandleGatewayMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Request))
+		run(args[0].(context.Context), args[1].(string), args[2].(*jsonrpc2.Request[json.RawMessage]))
 	})
 	return _c
 }
@@ -110,7 +111,7 @@ func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) Return(_a0 error) *
 	return _c
 }
 
-func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Request) error) *GatewayConnectorHandler_HandleGatewayMessage_Call {
+func (_c *GatewayConnectorHandler_HandleGatewayMessage_Call) RunAndReturn(run func(context.Context, string, *jsonrpc2.Request[json.RawMessage]) error) *GatewayConnectorHandler_HandleGatewayMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

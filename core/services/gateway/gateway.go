@@ -3,10 +3,9 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
-
-	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -120,10 +119,10 @@ func (g *gateway) Start(ctx context.Context) error {
 func (g *gateway) Close() error {
 	return g.StopOnce("Gateway", func() (err error) {
 		g.lggr.Info("closing gateway")
-		err = multierr.Combine(err, g.httpServer.Close())
-		err = multierr.Combine(err, g.connMgr.Close())
+		err = errors.Join(err, g.httpServer.Close())
+		err = errors.Join(err, g.connMgr.Close())
 		for _, handler := range g.handlers {
-			err = multierr.Combine(err, handler.Close())
+			err = errors.Join(err, handler.Close())
 		}
 		return
 	})
@@ -132,7 +131,7 @@ func (g *gateway) Close() error {
 // Called by the server
 func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth string) (rawResponse []byte, httpStatusCode int) {
 	// decode
-	jsonRequest, err := jsonrpc2.DecodeRequest(rawRequest, auth)
+	jsonRequest, err := jsonrpc2.DecodeRequest[json.RawMessage](rawRequest, auth)
 	if err != nil {
 		return newError("", api.UserMessageParseError, err.Error())
 	}
@@ -180,7 +179,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 }
 
 func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
-	response := jsonrpc2.Response{
+	response := jsonrpc2.Response[json.RawMessage]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{

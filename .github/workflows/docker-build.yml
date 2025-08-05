@@ -185,6 +185,8 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip-plugins:
     needs: [init]
@@ -222,7 +224,7 @@ jobs:
   call-cre-local-env-tests:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@f74ffbc053ad5a87d2c348a5d986a0e1098a615f # develop SHA from 30th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@d25b74eaf40de22d96f0cfddcab7ff764278b469 # develop SHA from 7th July 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
@@ -234,7 +236,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@aade1fb1abcdf1e401a07ee504cc6a65e7e6f86f # develop SHA from 30th June 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@382b503b25a442ae5a592998039ead2429581a28 # develop SHA from 14th July 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}

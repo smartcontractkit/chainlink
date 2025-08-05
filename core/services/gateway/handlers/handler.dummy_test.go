@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,7 +31,7 @@ func (m *testConnManager) SetHandler(handler handlers.Handler) {
 	m.handler = handler
 }
 
-func (m *testConnManager) SendToNode(ctx context.Context, nodeAddress string, resp *jsonrpc.Request) error {
+func (m *testConnManager) SendToNode(ctx context.Context, nodeAddress string, resp *jsonrpc.Request[json.RawMessage]) error {
 	m.sendCounter++
 	return nil
 }

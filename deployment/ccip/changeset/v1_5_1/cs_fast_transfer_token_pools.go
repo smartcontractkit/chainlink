@@ -24,6 +24,7 @@ import (
 var (
 	FastTransferUpdateLaneConfigChangeset = cldf.CreateChangeSet(fastTransferUpdateLaneConfigLogic, fastTransferUpdateLaneConfigPrecondition)
 	FastTransferFillerAllowlistChangeset  = cldf.CreateChangeSet(fastTransferUpdateFillerAllowlistLogic, fastTransferUpdateFillerAllowlistPrecondition)
+	FastTransferWithdrawPoolFeesChangeset = cldf.CreateChangeSet(fastTransferWithdrawPoolFeesLogic, fastTransferWithdrawPoolFeesPrecondition)
 )
 
 var (
@@ -40,6 +41,10 @@ type UpdateLaneConfig struct {
 	SkipAllowlistValidation  bool
 	SettlementOverheadGas    *uint32
 	CustomExtraArgs          []byte
+	// Optional: Different contract type for the destination pool (if not set, uses the root config's ContractType)
+	DestinationContractType *cldf.ContractType
+	// Optional: Different contract version for the destination pool (if not set, uses the root config's ContractVersion)
+	DestinationContractVersion *semver.Version
 }
 
 func (u UpdateLaneConfig) Validate(contract *bindings.FastTransferTokenPoolWrapper) error {
@@ -112,6 +117,60 @@ func (f FillerAllowlistConfig) Validate(contract *bindings.FastTransferTokenPool
 	return nil
 }
 
+type FastTransferWithdrawPoolFeesConfig struct {
+	TokenSymbol     shared.TokenSymbol
+	ContractType    cldf.ContractType
+	ContractVersion semver.Version
+	Withdrawals     map[uint64]common.Address // chainSelector -> recipient address
+	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
+	MCMS *proposalutils.TimelockConfig
+}
+
+func (c FastTransferWithdrawPoolFeesConfig) Validate(env cldf.Environment) error {
+	if c.TokenSymbol == "" {
+		return errors.New("token symbol must be defined")
+	}
+	if len(c.Withdrawals) == 0 {
+		return errors.New("at least one withdrawal must be specified")
+	}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	for chainSelector, recipient := range c.Withdrawals {
+		err := cldf.IsValidChainSelector(chainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
+		}
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
+		}
+		chainState, ok := state.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain.String())
+		}
+
+		if err := validateFastTransferTokenPoolExists(chainState, c.TokenSymbol, c.ContractType, c.ContractVersion, chain.String()); err != nil {
+			return err
+		}
+
+		if recipient == (common.Address{}) {
+			return fmt.Errorf("recipient address cannot be empty for chain %d", chainSelector)
+		}
+
+		if c.MCMS != nil {
+			if timelock := chainState.Timelock; timelock == nil {
+				return fmt.Errorf("missing timelock on %s", chain.String())
+			}
+			if proposerMcm := chainState.ProposerMcm; proposerMcm == nil {
+				return fmt.Errorf("missing proposerMcm on %s", chain.String())
+			}
+		}
+	}
+	return nil
+}
+
 type FastTransferUpdateLaneConfigConfig struct {
 	TokenSymbol     shared.TokenSymbol
 	ContractType    cldf.ContractType
@@ -161,10 +220,44 @@ func (c FastTransferUpdateLaneConfigConfig) Validate(env cldf.Environment) error
 			return fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, chainSelector, err)
 		}
 
-		for _, update := range poolUpdate {
+		for destinationChainSelector, update := range poolUpdate {
 			err := update.Validate(pool)
 			if err != nil {
 				return fmt.Errorf("failed to validate update for chain selector %d: %w", chainSelector, err)
+			}
+
+			// Validate destination pool exists if custom type/version is specified
+			if update.DestinationContractType != nil || update.DestinationContractVersion != nil {
+				destContractType := c.ContractType
+				destContractVersion := c.ContractVersion
+
+				if update.DestinationContractType != nil {
+					destContractType = *update.DestinationContractType
+				}
+				if update.DestinationContractVersion != nil {
+					destContractVersion = *update.DestinationContractVersion
+				}
+
+				// Validate destination chain exists
+				err := cldf.IsValidChainSelector(destinationChainSelector)
+				if err != nil {
+					return fmt.Errorf("failed to validate destination chain selector %d: %w", destinationChainSelector, err)
+				}
+
+				destChain, ok := env.BlockChains.EVMChains()[destinationChainSelector]
+				if !ok {
+					return fmt.Errorf("destination chain with selector %d does not exist in environment", destinationChainSelector)
+				}
+
+				destChainState, ok := state.Chains[destinationChainSelector]
+				if !ok {
+					return fmt.Errorf("destination %s does not exist in state", destChain.String())
+				}
+
+				// Validate destination pool exists with the specified type/version
+				if err := validateFastTransferTokenPoolExists(destChainState, c.TokenSymbol, destContractType, destContractVersion, destChain.String()); err != nil {
+					return fmt.Errorf("destination pool validation failed: %w", err)
+				}
 			}
 		}
 	}
@@ -244,6 +337,13 @@ func validateFastTransferTokenPoolExists(chainState evm.CCIPChainState, tokenSym
 		if _, ok := chainState.BurnMintWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]; !ok {
 			return fmt.Errorf("token %s does not have a fast transfer token pool with version %s on %s", tokenSymbol, contractVersion.String(), chainString)
 		}
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		if _, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[tokenSymbol]; !ok {
+			return fmt.Errorf("token %s does not have a fast transfer token pool on %s", tokenSymbol, chainString)
+		}
+		if _, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[tokenSymbol][contractVersion]; !ok {
+			return fmt.Errorf("token %s does not have a fast transfer token pool with version %s on %s", tokenSymbol, contractVersion.String(), chainString)
+		}
 	default:
 		return fmt.Errorf("unsupported contract type %s for fast transfer token pools", contractType)
 	}
@@ -275,7 +375,18 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 
 		laneConfigs := make([]bindings.DestChainConfigUpdateArgs, 0)
 		for destinationChainSelector, update := range updates {
-			destinationPool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, destinationChainSelector)
+			// Determine destination pool contract type and version
+			destContractType := c.ContractType
+			destContractVersion := c.ContractVersion
+
+			if update.DestinationContractType != nil {
+				destContractType = *update.DestinationContractType
+			}
+			if update.DestinationContractVersion != nil {
+				destContractVersion = *update.DestinationContractVersion
+			}
+
+			destinationPool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, destContractType, destContractVersion, destinationChainSelector)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, destinationChainSelector, err)
 			}
@@ -379,5 +490,60 @@ func fastTransferUpdateFillerAllowlistLogic(env cldf.Environment, c FastTransfer
 		state.EVMMCMSStateByChain(),
 		c.MCMS,
 		fmt.Sprintf("Update %s fast transfer token pool filler allowlists", c.TokenSymbol),
+	)
+}
+
+func fastTransferWithdrawPoolFeesPrecondition(env cldf.Environment, c FastTransferWithdrawPoolFeesConfig) error {
+	return c.Validate(env)
+}
+
+func fastTransferWithdrawPoolFeesLogic(env cldf.Environment, c FastTransferWithdrawPoolFeesConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(env); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid FastTransferWithdrawPoolFeesConfig: %w", err)
+	}
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	// Build the sequence input for multi-chain withdrawals
+	withdrawalsByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.WithdrawPoolFeesInput])
+
+	for chainSelector, recipient := range c.Withdrawals {
+		pool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, chainSelector, err)
+		}
+
+		withdrawalsByChain[chainSelector] = opsutil.EVMCallInput[ccipops.WithdrawPoolFeesInput]{
+			Address:       pool.Address(),
+			ChainSelector: chainSelector,
+			CallInput: ccipops.WithdrawPoolFeesInput{
+				Recipient: recipient,
+			},
+			NoSend: c.MCMS != nil, // Use NoSend for MCMS proposals
+		}
+	}
+
+	// Execute the sequence
+	seqInput := ccipseq.FastTransferTokenPoolWithdrawPoolFeesSequenceInput{
+		ContractType:       c.ContractType,
+		WithdrawalsByChain: withdrawalsByChain,
+	}
+
+	seqReport, err := operations.ExecuteSequence(env.OperationsBundle, ccipseq.FastTransferTokenPoolWithdrawPoolFeesSequence, env.BlockChains.EVMChains(), seqInput)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute fast transfer token pool withdraw pool fees sequence: %w", err)
+	}
+
+	return opsutil.AddEVMCallSequenceToCSOutput(
+		env,
+		cldf.ChangesetOutput{},
+		seqReport,
+		nil, // no error since we already handled it above
+		state.EVMMCMSStateByChain(),
+		c.MCMS,
+		fmt.Sprintf("Withdraw pool fees from %s fast transfer token pools", c.TokenSymbol),
 	)
 }
