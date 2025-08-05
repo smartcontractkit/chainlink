@@ -594,7 +594,6 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	chainState, ok := state.SolChains[cfg.ChainSelector]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
@@ -604,7 +603,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
-
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)

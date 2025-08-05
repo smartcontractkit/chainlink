@@ -513,6 +513,7 @@ func deployChainContractsSolana(
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
+		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
@@ -541,6 +542,7 @@ func deployChainContractsSolana(
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
+		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
