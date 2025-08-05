@@ -551,7 +551,6 @@ type SetPoolTokenConfig struct {
 type SetPoolConfig struct {
 	ChainSelector       uint64
 	SetPoolTokenConfigs []SetPoolTokenConfig
-	WritableIndexes     []uint8
 	MCMS                *proposalutils.TimelockConfig
 }
 
@@ -650,7 +649,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			currentAdmin = tokenAdminRegistryAccount.Administrator
 		}
 		base := solRouter.NewSetPoolInstruction(
-			cfg.WritableIndexes,
+			tokenConfig.WritableIndexes,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,

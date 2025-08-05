@@ -1537,11 +1537,10 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	typeVersion := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
 	typeVersion.Labels.Add(tokenPubKey.String())
 	typeVersion.Labels.Add(cfg.Metadata)
+	typeVersion.Labels.Add(cfg.PoolType.String())
 	switch cfg.PoolType {
-	case shared.BurnMintTokenPool:
-		typeVersion.Labels.Add(solTestTokenPool.BurnAndMint_PoolType.String())
-	case shared.LockReleaseTokenPool:
-		typeVersion.Labels.Add(solTestTokenPool.LockAndRelease_PoolType.String())
+	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
+		// no-op for BurnMint and LockRelease token pools since their token pools do not need any more accounts
 	case shared.CCTPTokenPool:
 		tokenMessageMinterAuthority, _, err := solana.FindProgramAddress([][]byte{[]byte("sender_authority")}, cfg.CCTPTokenMessengerMinter)
 		if err != nil {
@@ -1579,7 +1578,6 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 			solana.SystemProgramID,       // 17
 			eventAuthority,               // 18
 		)
-		typeVersion.Labels.Add(cfg.PoolType.String())
 	default:
 		return cldf.ChangesetOutput{}, errors.New("unsupported pool type")
 	}

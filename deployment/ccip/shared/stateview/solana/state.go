@@ -416,9 +416,9 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 					tokenPubKey = maybeTokenPubKey
 				} else {
 					switch label {
-					case solTestTokenPool.BurnAndMint_PoolType.String():
+					case solTestTokenPool.BurnAndMint_PoolType.String(), shared.BurnMintTokenPool.String():
 						poolType = shared.BurnMintTokenPool
-					case solTestTokenPool.LockAndRelease_PoolType.String():
+					case solTestTokenPool.LockAndRelease_PoolType.String(), shared.LockReleaseTokenPool.String():
 						poolType = shared.LockReleaseTokenPool
 					case shared.CCTPTokenPool.String():
 						poolType = shared.CCTPTokenPool

@@ -222,7 +222,6 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	setPoolCfg := SetPoolConfig{
 		ChainSelector:       cfg.ChainSelector,
 		SetPoolTokenConfigs: make([]SetPoolTokenConfig, 0),
-		WritableIndexes:     []uint8{3, 4, 7},
 		MCMS:                cfg.MCMS,
 	}
 
@@ -284,6 +283,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			Metadata:    tokenCfg.Metadata,
 			// registering in the same changeset so skip registry check
 			SkipRegistryCheck: true,
+			WritableIndexes:     []uint8{3, 4, 7},
 		})
 		// setup evm remote pool on solana
 		if len(tokenCfg.SolanaToEVMRemoteConfigs) > 0 {
