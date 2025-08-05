@@ -710,10 +710,7 @@ func (cfg SetTokenPoolSupportAutoDerivationConfig) Validate(e cldf.Environment, 
 	if err := chainState.CommonValidation(e, cfg.SolChainSelector, cfg.TokenPubKey); err != nil {
 		return err
 	}
-	if err := chainState.ValidatePoolDeployment(&e, shared.CCTPTokenPool, cfg.SolChainSelector, cfg.TokenPubKey, true, shared.CLLMetadata); err != nil {
-		return err
-	}
-	return nil
+	return chainState.ValidatePoolDeployment(&e, shared.CCTPTokenPool, cfg.SolChainSelector, cfg.TokenPubKey, true, shared.CLLMetadata)
 }
 
 func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSupportAutoDerivationConfig) (cldf.ChangesetOutput, error) {

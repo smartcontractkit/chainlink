@@ -224,7 +224,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 
 			sourcePoolPubkey := solana.PublicKeyFromBytes(sourcePoolBytes)
 			if !sourcePoolPubkey.Equals(tokenPoolConfig) {
-				return fmt.Errorf("Solana chain %d has CCTP token pool config deployed at %s, "+
+				return fmt.Errorf("solana chain %d has CCTP token pool config deployed at %s, "+
 					"but SourcePoolAddress provided in USDCCCTPObserverConfig decodes to %s",
 					sel, tokenPoolConfig.String(), sourcePoolPubkey.String())
 			}

@@ -563,12 +563,13 @@ func deployChainContractsSolana(
 	}
 
 	var cctpTokenPool solana.PublicKey
-	if chainState.CCTPTokenPool.IsZero() {
+	switch {
+	case chainState.CCTPTokenPool.IsZero():
 		cctpTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.CCTPTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
-	} else if config.UpgradeConfig.NewCCTPTokenPoolVersion != nil {
+	case config.UpgradeConfig.NewCCTPTokenPoolVersion != nil:
 		cctpTokenPool = chainState.CCTPTokenPool
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewCCTPTokenPoolVersion, cctpTokenPool, shared.CCTPTokenPool)
 		if err != nil {
@@ -581,7 +582,7 @@ func deployChainContractsSolana(
 				Transactions:  newTxns,
 			})
 		}
-	} else {
+	default:
 		e.Logger.Infow("Using existing CCTP token pool", "addr", chainState.CCTPTokenPool.String())
 		cctpTokenPool = chainState.CCTPTokenPool
 	}
