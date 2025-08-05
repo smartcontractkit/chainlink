@@ -222,7 +222,7 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			}
 		}
 	case shared.USDCTokenPool:
-		if version == deployment.Version1_6_0 {
+		if version == deployment.Version1_6_2 {
 			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
 				return tokenPool.Address(), true
 			}

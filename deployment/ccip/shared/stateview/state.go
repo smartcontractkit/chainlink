@@ -939,7 +939,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				ccipshared.USDCSymbol: ut,
 			}
 			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
-		case cldf.NewTypeAndVersion(ccipshared.CCTPMessageTransmitterProxy, deployment.Version1_6_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.CCTPMessageTransmitterProxy, deployment.Version1_6_2).String():
 			cmtp, err := cctp_message_transmitter_proxy.NewCCTPMessageTransmitterProxy(
 				common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -948,7 +948,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if state.CCTPMessageTransmitterProxies == nil {
 				state.CCTPMessageTransmitterProxies = make(map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy)
 			}
-			state.CCTPMessageTransmitterProxies[deployment.Version1_6_0] = cmtp
+			state.CCTPMessageTransmitterProxies[deployment.Version1_6_2] = cmtp
 			state.ABIByAddress[address] = cctp_message_transmitter_proxy.CCTPMessageTransmitterProxyABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
@@ -968,7 +968,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if state.USDCTokenPoolsV1_6 == nil {
 				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
 			}
-			state.USDCTokenPoolsV1_6[deployment.Version1_6_0] = utp
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
 		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {

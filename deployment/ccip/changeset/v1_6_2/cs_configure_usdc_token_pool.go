@@ -158,7 +158,7 @@ func configUSDCTokenPoolLogic(env cldf.Environment, c ConfigUSDCTokenPoolConfig)
 
 		input[sourceChainSelector] = opsutil.EVMCallInput[[]utp.USDCTokenPoolDomainUpdate]{
 			ChainSelector: sourceChainSelector,
-			NoSend:        c.MCMS != nil, // TODO: MCMS?
+			NoSend:        c.MCMS != nil,
 			Address:       chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2].Address(),
 			CallInput:     domainUpdates,
 		}

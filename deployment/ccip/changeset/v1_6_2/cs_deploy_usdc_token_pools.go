@@ -51,7 +51,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		return errors.New("token messenger must be defined")
 	}
 	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_2]; !ok {
-		// TODO: Could this be deployed automatically if it doesn't exist?
+		// Note: This could be deployed automatically if it doesn't exist.
 		return fmt.Errorf("CCTP message transmitter proxy for version %s not found on %s", deployment.Version1_6_2, chain)
 	}
 	if i.PreviousPoolAddress == utils.ZeroAddress {
@@ -165,10 +165,6 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 					switch {
 					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
-					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_1] == nil:
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_1].Address()
-					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_0] == nil:
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_0].Address()
 					case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
 						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
 					case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
