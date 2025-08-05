@@ -49,7 +49,6 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/cctp_message_transmitter_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
@@ -58,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
-	usdc_token_pool_v1_6_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -82,6 +80,8 @@ import (
 	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
@@ -960,13 +960,13 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
 			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
-		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_6_0).String():
-			utp, err := usdc_token_pool_v1_6_0.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_6_2).String():
+			utp, err := usdc_token_pool_v1_6_2.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			if state.USDCTokenPoolsV1_6 == nil {
-				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
 			}
 			state.USDCTokenPoolsV1_6[deployment.Version1_6_0] = utp
 		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
@@ -979,16 +979,16 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
 			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
-		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_0).String():
-			utp, err := usdc_token_pool_v1_6_0.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2).String():
+			utp, err := usdc_token_pool_v1_6_2.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			if state.USDCTokenPoolsV1_6 == nil {
-				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_0.USDCTokenPool)
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
 			}
-			state.USDCTokenPoolsV1_6[deployment.Version1_6_0] = utp
-			state.ABIByAddress[address] = usdc_token_pool_v1_6_0.USDCTokenPoolABI
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
+			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
