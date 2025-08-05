@@ -22,9 +22,9 @@ import (
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -32,9 +32,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -43,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -271,7 +270,6 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
 	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
-	nonHomeSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithChainSelectorsExclusion([]uint64{homeChainSel}))
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -280,31 +278,15 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	typedNonHomeSelectors := make([]cciptypes.ChainSelector, 0, len(nonHomeSelectors))
-	for _, sel := range nonHomeSelectors {
-		typedNonHomeSelectors = append(typedNonHomeSelectors, cciptypes.ChainSelector(sel))
-	}
-
-	//nolint:gosec // this should always be less than max uint8
-	fChainValues := getFChainValuesFromTiers(e.BlockChains.ListChainSelectors(), uint8(len(nodeInfo.NonBootstraps().PeerIDs())/3))
-	distributedTopology := cciptesthelpertypes.NewDistributedTopology(cciptesthelpertypes.DistributedTopologyArgs{FValues: fChainValues})
-	readersPerChain, err := distributedTopology.ChainToNodeMapping(
-		nodeInfo.NonBootstraps().PeerIDs(),
-		typedNonHomeSelectors,
-		cciptypes.ChainSelector(homeChainSel),
-	)
-	if err != nil {
-		return *e, fmt.Errorf("failed to get chain to node mapping: %w", err)
-	}
-
 	for _, chain := range evmChainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: readersPerChain[cciptypes.ChainSelector(chain)],
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			// Number of nodes is 3f+1
-			FChain: fChainValues[cciptypes.ChainSelector(chain)],
+			//nolint:gosec // this should always be less than max uint8
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
@@ -323,9 +305,9 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		// Currently it seems to throw a nil pointer when run with both solana and evm and needs to be investigated
 		for _, chain := range solChainSelectors {
 			chainConfigs[chain] = v1_6.ChainConfig{
-				Readers: readersPerChain[cciptypes.ChainSelector(chain)],
+				Readers: nodeInfo.NonBootstraps().PeerIDs(),
 				// #nosec G115 - Overflow is not a concern in this test scenario
-				FChain: fChainValues[cciptypes.ChainSelector(chain)],
+				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
 					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
 					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
@@ -766,7 +748,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				if hasLaneFromTo(relevantLanes, evmChainSel, solChainSel) {
 					cs := testhelpers.AddEVMSrcChangesets(evmChainSel, solChainSel, false, gasPrices, tokenPrices, fqCfg)
 					laneChangesets = append(laneChangesets, cs...)
-					cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
+					cs = testhelpers.AddLaneSolanaChangesetsV0_1_1(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
 					laneChangesets = append(laneChangesets, cs...)
 				}
 
@@ -1026,7 +1008,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 				params.CommitOffChainConfig.MaxPricesPerReport = 3
 				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
-
+				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
 				return params
 			})
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, tokenDataProviders,
