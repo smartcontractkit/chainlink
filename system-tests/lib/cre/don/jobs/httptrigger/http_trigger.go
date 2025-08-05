@@ -1,4 +1,4 @@
-package http_action
+package httptrigger
 
 import (
 	"github.com/pkg/errors"
@@ -9,9 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const serviceConfigTemplate = `"""
+const triggerServiceConfigTemplate = `"""
 {
-	"proxyMode": "gateway",
 	"incomingRateLimiter": {
 		"globalBurst": 10,
 		"globalRPS": 50,
@@ -28,23 +27,23 @@ const serviceConfigTemplate = `"""
 """
 `
 
-var HttpActionJobSpecFactoryFn = func(httpActionBinaryPath string) cre.JobSpecFactoryFn {
+var HttpTriggerJobSpecFactoryFn = func(httpTriggerBinaryPath string) cre.JobSpecFactoryFn {
 	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(
 			input.DonTopology,
-			httpActionBinaryPath,
+			httpTriggerBinaryPath,
 		)
 	}
 }
 
-func GenerateJobSpecs(donTopology *cre.DonTopology, httpActionBinaryPath string) (cre.DonsToJobSpecs, error) {
+func GenerateJobSpecs(donTopology *cre.DonTopology, httpTriggerBinaryPath string) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(donWithMetadata.Flags, cre.HttpActionCapability) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.HttpTriggerCapability) {
 			continue
 		}
 		workflowNodeSet, err := crenode.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.WorkerNode}, crenode.EqualLabels)
@@ -58,7 +57,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, httpActionBinaryPath string)
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HttpActionCapability, httpActionBinaryPath, serviceConfigTemplate, ""))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HttpTriggerCapability, httpTriggerBinaryPath, triggerServiceConfigTemplate, ""))
 		}
 	}
 

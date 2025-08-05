@@ -61,7 +61,7 @@ func GenerateJobSpecs(handlerType jobs.HandlerType, donTopology *cre.DonTopology
 			}
 		}
 		var id string
-		if handlerType == jobs.HttpHandlerType {
+		if handlerType == jobs.HTTPHandlerType {
 			id = "workflows"
 		} else {
 			id = strconv.FormatUint(uint64(donWithMetadata.ID), 10)

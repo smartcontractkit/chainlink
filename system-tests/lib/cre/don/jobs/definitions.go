@@ -19,8 +19,8 @@ var (
 type HandlerType string
 
 const (
-	WebApiHandlerType HandlerType = "web-api-capabilities"
-	HttpHandlerType   HandlerType = "http-capabilities"
+	WebAPIHandlerType HandlerType = "web-api-capabilities"
+	HTTPHandlerType   HandlerType = "http-capabilities"
 )
 
 func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
@@ -64,7 +64,7 @@ func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64,
 			)
 		}
 
-		if handlerType == HttpHandlerType {
+		if handlerType == HTTPHandlerType {
 			gatewayDons += fmt.Sprintf(`
 				[[gatewayConfig.Dons]]
 				DonId = "workflows"
@@ -88,7 +88,7 @@ func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64,
 		} else {
 			gatewayDons += fmt.Sprintf(`
 				[[gatewayConfig.Dons]]
-				DonId = "%d"
+				DonId = "%s"
 				F = 1
 				HandlerName = "web-api-capabilities"
 					[gatewayConfig.Dons.HandlerConfig]

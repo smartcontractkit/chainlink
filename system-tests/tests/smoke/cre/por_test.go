@@ -262,11 +262,11 @@ func setupPoRTestEnvironment(
 		JobSpecFactoryFunctions: []cre.JobSpecFactoryFn{
 			creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
 			crecron.CronJobSpecFactoryFn(cronBinaryPathInTheContainer),
-			cregateway.GatewayJobSpecFactoryFn(jobs.WebApiHandlerType, extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
+			cregateway.GatewayJobSpecFactoryFn(jobs.WebAPIHandlerType, extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 			crecompute.ComputeJobSpecFactoryFn,
 		},
 		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
-			gatewayconfig.GenerateConfigFn(jobs.WebApiHandlerType),
+			gatewayconfig.GenerateConfigFn(jobs.WebAPIHandlerType),
 		},
 	}
 

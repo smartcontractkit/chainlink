@@ -10,7 +10,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-var HttpTriggerCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var HTTPTriggerCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
 	if flags.HasFlag(donFlags, cre.HttpTriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
