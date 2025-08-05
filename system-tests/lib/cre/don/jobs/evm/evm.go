@@ -27,43 +27,80 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 )
 
-var EVMJobSpecFactoryFn = func(logger zerolog.Logger, chainID uint64, networkFamily string, config map[string]any,
+var EVMJobSpecFactoryFn = func(logger zerolog.Logger, chainID uint64, config map[string]any,
 	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
 	evmBinaryPath string) cre.JobSpecFactoryFn {
 	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
-		return GenerateJobSpecs(logger, input.DonTopology, input.CldEnvironment.DataStore, chainID, networkFamily, config, capabilitiesAwareNodeSets, infraInput, evmBinaryPath)
+		return GenerateJobSpecs(
+			logger,
+			input.DonTopology,
+			input.CldEnvironment.DataStore,
+			chainID,
+			"evm",
+			config,
+			capabilitiesAwareNodeSets,
+			infraInput,
+			evmBinaryPath,
+			"capability_evm",
+			cre.EVMCapability,
+		)
 	}
 }
 
-var jobName = func(chainID uint64) string {
+var ConsensusV2JobSpecFactoryFn = func(logger zerolog.Logger, chainID uint64, config map[string]any,
+	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
+	infraInput infra.Input,
+	evmBinaryPath string) cre.JobSpecFactoryFn {
+	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
+		return GenerateJobSpecs(
+			logger,
+			input.DonTopology,
+			input.CldEnvironment.DataStore,
+			chainID,
+			"evm",
+			config,
+			capabilitiesAwareNodeSets,
+			infraInput,
+			evmBinaryPath,
+			"capability_consensus",
+			cre.ConsensusCapability,
+		)
+	}
+}
+
+var jobName = func(chainID uint64) string { // TODO parameterize
 	return fmt.Sprintf("evm-capability-%d", chainID)
 }
 
-func GenerateJobSpecs(logger zerolog.Logger, donTopology *cre.DonTopology,
+func GenerateJobSpecs(
+	logger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	chainID uint64,
 	networkFamily string, config map[string]any,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
-	evmBinaryPath string) (cre.DonsToJobSpecs, error) {
+	evmBinaryPath string,
+	contractName string,
+	flag cre.CapabilityFlag) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for donIdx, donWithMetadata := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(donWithMetadata.Flags, cre.EVMCapability) {
+		if !flags.HasFlag(donWithMetadata.Flags, flag) {
 			continue
 		}
 
-		evmOCR3Key := datastore.NewAddressRefKey(
+		ocr3Key := datastore.NewAddressRefKey(
 			donTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_evm",
+			contractName,
 		)
-		evmOCR3CapabilityAddress, err := ds.Addresses().Get(evmOCR3Key)
+		ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get EVM capability address")
 		}
@@ -113,8 +150,8 @@ func GenerateJobSpecs(logger zerolog.Logger, donTopology *cre.DonTopology,
 		}
 
 		// create job specs for the bootstrap node
-		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "evm-capability", evmOCR3CapabilityAddress.Address, chainID))
-		logger.Debug().Msgf("Deployed EVM OCR3 contract on chain %d at %s", chainID, evmOCR3CapabilityAddress.Address)
+		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainID))
+		logger.Debug().Msgf("Deployed EVM OCR3 contract on chain %d at %s", chainID, ocr3ConfigContractAddress.Address)
 
 		creForwarderKey := datastore.NewAddressRefKey(
 			donTopology.HomeChainSelector,
@@ -167,7 +204,7 @@ func GenerateJobSpecs(logger zerolog.Logger, donTopology *cre.DonTopology,
 				Enabled:            true,
 				ChainID:            strconv.FormatUint(chainID, 10),
 				BootstrapPeers:     bootstrapPeers,
-				OCRContractAddress: evmOCR3CapabilityAddress.Address,
+				OCRContractAddress: ocr3ConfigContractAddress.Address,
 				OCRKeyBundleID:     keyBundle,
 				TransmitterID:      transmitterAddress,
 				OnchainSigning: job.OnchainSigningStrategy{
