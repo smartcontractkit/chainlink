@@ -456,6 +456,14 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	return nil
 }
 
+func labelToInt32(label string) int32 {
+	if value, err := strconv.ParseInt(label, 10, 32); err == nil {
+		return int32(value)
+	}
+
+	return -1
+}
+
 func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	protoReport := &protoEvents.MeteringReport{
 		Steps: map[string]*protoEvents.MeteringReportStep{},
@@ -465,9 +473,9 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			Version:                 r.labels[platform.KeyWorkflowVersion],
 			WorkflowID:              r.labels[platform.KeyWorkflowID],
 			WorkflowExecutionID:     r.labels[platform.KeyWorkflowExecutionID],
-			DonID:                   int32(0), // TODO: r.labels[platform.KeyDonID],
-			DonF:                    int32(0), // TODO: r.labels[platform.KeyDonF],
-			DonN:                    int32(0), // TODO: r.labels[platform.KeyDonN],
+			DonID:                   labelToInt32(r.labels[platform.KeyDonID]),
+			DonF:                    labelToInt32(r.labels[platform.KeyDonF]),
+			DonN:                    labelToInt32(r.labels[platform.KeyDonN]),
 			P2PID:                   r.labels[platform.KeyP2PID],
 			WorkflowRegistryAddress: r.workflowRegistryAddress,
 			WorkflowRegistryVersion: "", // TODO: r.workflowRegistryVersion,
