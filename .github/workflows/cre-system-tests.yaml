@@ -152,11 +152,16 @@ jobs:
           cd core/scripts/cre/environment
           go run . env start --topology ${{ env.TOPOLOGY }}
 
-          env_artifact=$(jq -r '.env_artifact' artifact_paths.json)
-          echo "env_artifact_path=$env_artifact" >> "${GITHUB_OUTPUT}"
+          env_artifact_abs=$(jq -r '.env_artifact' artifact_paths.json)
+          env_config_abs=$(jq -r '.env_config' artifact_paths.json)
 
-          env_config=$(jq -r '.env_config' artifact_paths.json)
-          echo "env_config_path=$env_config" >> "${GITHUB_OUTPUT}"
+          # Extract filename and build relative path
+          config_filename=$(basename "$env_config_abs")
+          env_config_rel="../../core/scripts/cre/environment/configs/${config_filename}"
+
+          echo "✅ Using relative path for env_config: $env_config_rel"
+          echo "env_config_path=$env_config_rel" >> "${GITHUB_OUTPUT}"
+          echo "env_artifact_path=$env_artifact_abs" >> "${GITHUB_OUTPUT}"
 
       - name: Run CRE system tests
         shell: bash
