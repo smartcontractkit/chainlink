@@ -66,7 +66,7 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow"}, {"test_name": ., "topology": "workflow-gateway"}, {"test_name": ., "topology": "workflow-gateway-capabilities"}]) | flatten')
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -138,6 +138,14 @@ jobs:
 
       # TODO
       # Add Flakeguard support
+      - name: Enable cron capability
+        shell: bash
+        working-directory: core/scripts/cre/environment/configs
+        run: |
+          echo "[extra_capabilities]" >> "ci-config.toml"
+          echo 'cron_capability_binary_path = "${{ github.workspace }}/system-tests/tests/smoke/cre/cron"' >> "ci-config.toml"
+
+          cat "ci-config.toml"
 
       - name: Start local CRE
         shell: bash
@@ -148,6 +156,7 @@ jobs:
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
           go run . env start --topology ${{ env.TOPOLOGY }}
@@ -162,7 +171,6 @@ jobs:
           echo "✅ Using relative path for env_config: $env_config_rel"
           echo "env_config_path=$env_config_rel" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$env_artifact_abs" >> "${GITHUB_OUTPUT}"
-
       - name: Run CRE system tests
         shell: bash
         working-directory: system-tests/tests
