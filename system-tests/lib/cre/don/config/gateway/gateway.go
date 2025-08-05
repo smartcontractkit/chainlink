@@ -76,17 +76,24 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 				}
 			}
 
-			//hack
-			var donID string
 			var gatewayConfigurations []*cre.GatewayConfiguration
-			if flags.HasFlag(input.Flags, cre.VaultCapability) {
-				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
-				donID = input.GatewayConnectorOutput.DonID
-			}
-
+			var donID string
 			if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) {
 				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
-				donID = input.DonMetadata.Name
+				if len(gatewayConfigurations) > 0 {
+					donID = input.DonMetadata.Name
+				}
+			}
+
+			if flags.HasFlag(input.Flags, cre.VaultCapability) {
+				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
+				// we need to call the DonID "vault" because that value is used in two-fold manner:
+				// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector configuration, it uses the same DonID for all gateways.
+				// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
+				// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then only "DonID" equal to "vault" will work for all cases.
+				if len(gatewayConfigurations) > 0 {
+					donID = cre.VaultGatewayDonID
+				}
 			}
 
 			if len(gatewayConfigurations) == 0 {

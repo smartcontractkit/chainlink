@@ -40,7 +40,6 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 
 	donsWithGatewaysCount := 0
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
 		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
 			continue
 		}
@@ -70,19 +69,21 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		}
 
 		for idx := range gatewayConnectorOutput.Configurations {
-			if flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) {
-				// hack
-				var donID string
-				if donsWithGatewaysCount == 1 {
-					donID = gatewayConnectorOutput.DonID
-				} else {
-					if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
-						donID = gatewayConnectorOutput.DonID
-					} else {
-						donID = donWithMetadata.Name
-					}
-				}
+			donID := donWithMetadata.Name
+			if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
+				donID = cre.VaultGatewayDonID
+			}
 
+			if don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
+				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.VaultHandlerType {
+					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
+						MembersEthAddresses: ethAddresses,
+						ID:                  donID,
+					})
+				}
+			}
+
+			if flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) {
 				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.WebAPICapabilitiesType {
 					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
 						MembersEthAddresses: ethAddresses,
@@ -91,19 +92,11 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 				}
 			}
 
-			if don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
-				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.VaultHandlerType {
-					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
-						MembersEthAddresses: ethAddresses,
-						ID:                  gatewayConnectorOutput.DonID,
-					})
-				}
-			}
 		}
 	}
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		// create job specs for the gateway node or vault DON
+		// create job specs only for the gateway node
 		if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
 			continue
 		}

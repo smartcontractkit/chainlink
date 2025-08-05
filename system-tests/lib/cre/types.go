@@ -282,6 +282,8 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	return nil
 }
 
+const VaultGatewayDonID = "vault"
+
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
@@ -291,7 +293,6 @@ type GatewayConnectorDons struct {
 // and set DonID dynamically based on the flags and number of DONs
 type GatewayConnectorOutput struct {
 	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
-	DonID          string                  `toml:"don_id" json:"don_id"`
 }
 
 type GatewayConfiguration struct {

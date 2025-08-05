@@ -111,11 +111,9 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 					if topology.GatewayConnectorOutput == nil {
-						// we need to call the DonID "vault" because it is used in two-fold manner:
-						// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector, it uses the same DonID for all gateways.
-						// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
-						// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then "DonID" can be only be "vault".
-						topology.GatewayConnectorOutput = initGatewayConnectorOutput("vault")
+						topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+							Configurations: make([]*cre.GatewayConfiguration, 0),
+						}
 					}
 
 					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
@@ -215,11 +213,4 @@ func GatewayConfigurationsForHandler(handlerType coregateway.HandlerType, gatewa
 	}
 
 	return gatewayConfigurations
-}
-
-func initGatewayConnectorOutput(donID string) *cre.GatewayConnectorOutput {
-	return &cre.GatewayConnectorOutput{
-		DonID:          donID,
-		Configurations: make([]*cre.GatewayConfiguration, 0),
-	}
 }

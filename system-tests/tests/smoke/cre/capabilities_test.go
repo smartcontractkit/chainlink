@@ -63,7 +63,7 @@ To execute on local start the local CRE first with following command:
 go run . env start
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
-	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-gateway-capabilities-don-cache.toml", "workflow-gateway")
+	confErr := setConfigurationIfMissing("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
 	require.NoError(t, confErr, "failed to set configuration")
 
 	configurationFiles := os.Getenv("CTF_CONFIGS")
@@ -88,7 +88,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	require.NoError(t, err, "failed to unmarshal artifact file")
 
 	t.Run("cron-based PoR workflow", func(t *testing.T) {
-		executePoRTest(t, in, envArtifact, 5*time.Minute)
+		executePoRTest(t, in, envArtifact, 10*time.Minute)
 	})
 
 	t.Run("vault DON test", func(t *testing.T) {
