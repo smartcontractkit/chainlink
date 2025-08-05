@@ -2,6 +2,7 @@ package evm
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"slices"
 	"testing"
@@ -423,6 +424,14 @@ func TestEVMService_HeaderByNumber(t *testing.T) {
 				).Return(&types.Header{Number: 42}, nil).Once()
 			},
 			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(42)}},
+		},
+		{
+			Name: "Large block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(0).SetUint64(math.MaxInt64 + 1),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			ExpectedError: "block number 9223372036854775808 is larger than int64: not found",
 		},
 		{
 			Name: "Failed to get latest",
