@@ -227,7 +227,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			client := env.BlockChains.AptosChains()[cs].Client
 			nodeInfo, err := client.Info()
 			require.NoError(t, err)
-			
+
 			var version uint64 = nodeInfo.LedgerVersion() // tx version
 			startBlocks[cs] = &version
 			go subscribeAptosTransmitEvents(

@@ -95,6 +95,15 @@ func subscribeAptosTransmitEvents(
 				"sequenceNumber", event.SequenceNumber,
 				"version", eventWithVersion.Version)
 
+			block, err := client.BlockByVersion(eventWithVersion.Version, false)
+			if err != nil {
+				lggr.Errorw("Error fetching block by version",
+					"version", eventWithVersion.Version,
+					"err", err)
+				continue
+			}
+			timestamp := block.BlockTimestamp / 1000000 // microseconds to seconds conversion
+
 			// Push metrics to state manager
 			data := messageData{
 				eventType: transmitted,
@@ -103,7 +112,7 @@ func subscribeAptosTransmitEvents(
 					dst:    event.DestChainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+				timestamp: timestamp,
 			}
 
 			metricPipe <- data
@@ -227,6 +236,15 @@ func subscribeAptosCommitEvents(
 					"maxSeqNr", mr.MaxSeqNr,
 					"version", eventWithVersion.Version)
 
+				block, err := client.BlockByVersion(eventWithVersion.Version, false)
+				if err != nil {
+					lggr.Errorw("Error fetching block by version",
+						"version", eventWithVersion.Version,
+						"err", err)
+					continue
+				}
+				timestamp := block.BlockTimestamp / 1000000 // microseconds to seconds conversion
+
 				// Push metrics for each sequence number in the range
 				for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 					data := messageData{
@@ -236,7 +254,7 @@ func subscribeAptosCommitEvents(
 							dst:    chainSelector,
 							seqNum: i,
 						},
-						timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+						timestamp: timestamp,
 					}
 					metricPipe <- data
 					seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
@@ -378,6 +396,15 @@ func subscribeAptosExecutionEvents(
 				"sequenceNumber", event.SequenceNumber,
 				"version", eventWithVersion.Version)
 
+			block, err := client.BlockByVersion(eventWithVersion.Version, false)
+			if err != nil {
+				lggr.Errorw("Error fetching block by version",
+					"version", eventWithVersion.Version,
+					"err", err)
+				continue
+			}
+			timestamp := block.BlockTimestamp / 1000000 // microseconds to seconds conversion
+
 			// Push metrics
 			data := messageData{
 				eventType: executed,
@@ -386,7 +413,7 @@ func subscribeAptosExecutionEvents(
 					dst:    chainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+				timestamp: timestamp,
 			}
 			metricPipe <- data
 			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
@@ -447,3 +474,4 @@ func subscribeAptosExecutionEvents(
 		}
 	}
 }
+
