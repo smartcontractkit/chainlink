@@ -2,18 +2,23 @@ package evm
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -21,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -31,14 +37,15 @@ import (
 const ExpectedTxHash = "0xabcd"
 
 type Mocks struct {
-	Chain     *evmmocks.Chain
-	TxManager *txmmocks.MockEvmTxManager
-	Config    *configmocks.ChainScopedConfig
-	EVM       *configmocks.EVM
-	Workflow  *configmocks.Workflow
-	EvmClient *clienttest.Client
-	Poller    *lpmocks.LogPoller
-	Relayer   *Relayer
+	Chain         *evmmocks.Chain
+	TxManager     *txmmocks.MockEvmTxManager
+	Config        *configmocks.ChainScopedConfig
+	EVM           *configmocks.EVM
+	Workflow      *configmocks.Workflow
+	EvmClient     *clienttest.Client
+	Poller        *lpmocks.LogPoller
+	HeaderTracker *headstest.Tracker[*types.Head, common.Hash]
+	Relayer       *Relayer
 }
 
 type returnedStatusAndReceipts struct {
@@ -82,13 +89,14 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	}
 
 	return &Mocks{
-		Chain:     chain,
-		TxManager: txManager,
-		Config:    mockConfig,
-		EVM:       mockEVM,
-		Workflow:  mockWorkflow,
-		EvmClient: evmClient,
-		Poller:    poller,
+		Chain:         chain,
+		TxManager:     txManager,
+		Config:        mockConfig,
+		EVM:           mockEVM,
+		Workflow:      mockWorkflow,
+		EvmClient:     evmClient,
+		Poller:        poller,
+		HeaderTracker: ht,
 	}, relayer
 }
 
@@ -343,6 +351,166 @@ func TestEVMService(t *testing.T) {
 	for _, tc := range submitTxCases {
 		t.Run("SubmitTransaction - "+tc.Name, func(t *testing.T) {
 			runSubmitTransactionTest(t, tc)
+		})
+	}
+}
+
+func TestEVMService_HeaderByNumber(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        evm.HeaderByNumberRequest
+		ExpectedResult evm.HeaderByNumberReply
+		PrepareMocks   func(m *Mocks)
+		ExpectedError  string
+	}{
+		{
+			Name: "Explicit Latest header",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.LatestBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(10)}},
+		},
+		{
+			Name: "Nil BlockNumber - should return latest header",
+			Request: evm.HeaderByNumberRequest{
+				Number: nil,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(10)}},
+		},
+		{
+			Name: "Finalized",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.FinalizedBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(8)}},
+		},
+		{
+			Name: "Safe",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.SafeBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestSafeBlock(mock.Anything).Return(&types.Head{Number: 9}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(9)}},
+		},
+		{
+			Name: "Unknown special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(-42),
+			},
+			ExpectedError: "unexpected block number -42",
+		},
+		{
+			Name: "Non-special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(42),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(&types.Header{Number: 42}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(42)}},
+		},
+		{
+			Name: "Large block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(0).SetUint64(math.MaxInt64 + 1),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			ExpectedError: "block number 9223372036854775808 is larger than int64: not found",
+		},
+		{
+			Name: "Failed to get latest",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.LatestBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(nil, nil, errors.New("failed to get latest")).Once()
+			},
+			ExpectedError: "failed to get latest",
+		},
+		{
+			Name: "Failed to get finalized",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.FinalizedBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(nil, nil, errors.New("failed to get finalized")).Once()
+			},
+			ExpectedError: "failed to get finalized",
+		},
+		{
+			Name: "Safe",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.SafeBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestSafeBlock(mock.Anything).Return(nil, errors.New("failed to get safe")).Once()
+			},
+			ExpectedError: "failed to get safe",
+		},
+		{
+			Name: "Failed to get non-special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(42),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(nil, errors.New("failed to get block 42")).Once()
+			},
+			ExpectedError: "failed to get block 42",
+		},
+		{
+			Name: "Block not found",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(404),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(404),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(nil, nil).Once()
+			},
+			ExpectedError: ethereum.NotFound.Error(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.HeaderByNumber(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult.Header.Number, result.Header.Number)
+			}
 		})
 	}
 }

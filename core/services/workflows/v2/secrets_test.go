@@ -2,7 +2,7 @@ package v2
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"testing"
@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -96,15 +95,15 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare2),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare2),
+											hex.EncodeToString(encryptedDecryptionShare1),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -118,15 +117,15 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString([]byte("junk value")),
+											hex.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString([]byte("junk value")),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -140,14 +139,14 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare0),
 											// deliberately supplying less than threshold shares
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -340,7 +339,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares:        []string{"encryptedShare1"},
-										EncryptionKey: base64.StdEncoding.EncodeToString([]byte{}),
+										EncryptionKey: hex.EncodeToString([]byte{}),
 									},
 								},
 							},
@@ -432,13 +431,13 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedPrivateShare0),
+											hex.EncodeToString(encryptedPrivateShare0),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -502,33 +501,33 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 		},
@@ -548,7 +547,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 	}
 
 	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": base64.StdEncoding.EncodeToString(vaultPublicKey),
+		"VaultPublicKey": hex.EncodeToString(vaultPublicKey),
 	})
 	require.NoError(t, err)
 	config := &capabilitiespb.CapabilityConfig{
@@ -578,12 +577,12 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: workflowPublicKey,
 			},
 		},

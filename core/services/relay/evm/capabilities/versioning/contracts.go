@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -32,7 +33,14 @@ var (
 type ContractReaderFactory func(context.Context, []byte) (commontypes.ContractReader, error)
 
 func VerifyTypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFactory, expectedType ContractType) (semver.Version, error) {
-	contractType, version, err := TypeAndVersion(ctx, addr, crFactory)
+	contractType, version, err := RunWithRetries(
+		ctx,
+		3*time.Second,
+		5,
+		func() (ContractType, semver.Version, error) {
+			return TypeAndVersion(ctx, addr, crFactory)
+		},
+	)
 	if err != nil {
 		return semver.Version{}, fmt.Errorf("failed getting type and version %w", err)
 	}
@@ -118,4 +126,44 @@ func ParseTypeAndVersion(tvStr string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid type and version %s", tvStr)
 	}
 	return typeAndVersionValues[0], typeAndVersionValues[1], nil
+}
+
+// RunWithRetries is a helper function that retries a function until it succeeds.
+//
+// It will call it immediately and then retry on failure every `retryInterval`, up to `maxRetries` times.
+// If `maxRetries` is 0, it will retry indefinitely.
+//
+// RunWithRetries will return an error in the following conditions:
+//   - the context is cancelled
+//   - the retry limit has been hit
+func RunWithRetries(ctx context.Context, retryInterval time.Duration, maxRetries int, fn func() (ContractType, semver.Version, error)) (ContractType, semver.Version, error) {
+	ticker := time.NewTicker(retryInterval)
+	defer ticker.Stop()
+
+	// immediately try once
+	typeAndVersion, version, err := fn()
+	if err == nil {
+		return typeAndVersion, version, nil
+	}
+	retries := 0
+
+	for {
+		// if maxRetries is 0, we'll retry indefinitely
+		if maxRetries > 0 && retries >= maxRetries {
+			msg := fmt.Sprintf("max retries (%d) reached, aborting", maxRetries)
+			return "", semver.Version{}, errors.New(msg)
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", semver.Version{}, ctx.Err()
+		case <-ticker.C:
+			typeAndVersion, version, err = fn()
+			if err == nil {
+				return typeAndVersion, version, nil
+			}
+		}
+
+		retries++
+	}
 }

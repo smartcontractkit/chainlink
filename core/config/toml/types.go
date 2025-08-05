@@ -1844,9 +1844,10 @@ func (eerl *EngineExecutionRateLimit) setFrom(f *EngineExecutionRateLimit) {
 }
 
 type ExternalRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address         *string
+	NetworkID       *string
+	ChainID         *string
+	ContractVersion *string
 }
 
 func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
@@ -1860,6 +1861,10 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 }
 
@@ -1896,6 +1901,7 @@ type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
 	ChainID                 *string
+	ContractVersion         *string
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
@@ -1913,6 +1919,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 
 	if f.MaxBinarySize != nil {

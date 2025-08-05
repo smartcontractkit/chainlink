@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -1228,16 +1228,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare2),
-											base64.StdEncoding.EncodeToString([]byte("blabbermouth")),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare2),
+											hex.EncodeToString([]byte("blabbermouth")),
+											hex.EncodeToString(encryptedDecryptionShare1),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -1251,7 +1251,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": base64.StdEncoding.EncodeToString(vaultPublicKeyBytes),
+		"VaultPublicKey": hex.EncodeToString(vaultPublicKeyBytes),
 	})
 	require.NoError(t, err)
 	capConfig := capabilities.CapabilityConfiguration{

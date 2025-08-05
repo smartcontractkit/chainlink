@@ -40,7 +40,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
-		return nil, fmt.Errorf("trigger capability not found: %w", err)
+		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
 
 	info, err := capability.Info(ctx)
