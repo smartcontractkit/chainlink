@@ -72,9 +72,7 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
 
-      [Billing]
-      URL = 'host.docker.internal:2223'
-      TLSEnabled = false
+
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -103,41 +101,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
 
-      [Billing]
-      URL = 'host.docker.internal:2223'
-      TLSEnabled = false
-      """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-
-      [Billing]
-      URL = 'host.docker.internal:2223'
-      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -167,9 +130,6 @@
       URL = "file:///home/chainlink/workflows"
 
 
-      [Billing]
-      URL = 'host.docker.internal:2223'
-      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -199,9 +159,35 @@
       URL = "file:///home/chainlink/workflows"
 
 
-      [Billing]
-      URL = 'host.docker.internal:2223'
-      TLSEnabled = false
+      """
+      [nodesets.node_specs.node.env_vars]
+      CL_EVM_CMD=""
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
