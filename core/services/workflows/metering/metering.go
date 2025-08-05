@@ -483,10 +483,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			EngineVersion:           r.engineVersion,
 			DonVersion:              "", // TODO: r.donVersion,
 			Trigger: &protoEvents.TriggerDetail{
-				TriggerID:  r.labels[platform.KeyTriggerID],
-				SpendValue: "", // TODO:
-				SpendUnit:  "", // TODO:
-				CreValue:   "", // TODO:
+				TriggerID: r.labels[platform.KeyTriggerID],
 			},
 		},
 		MeteringMode: r.meteringMode,
