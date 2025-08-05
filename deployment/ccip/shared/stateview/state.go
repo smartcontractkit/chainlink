@@ -1009,7 +1009,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
-		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1Dev).String():
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
 			if err != nil {

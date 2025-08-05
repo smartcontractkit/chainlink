@@ -99,11 +99,14 @@ func (e *evmService) HeaderByNumber(ctx context.Context, request evmtypes.Header
 	var err error
 	var h *types.Head
 	switch {
+	case request.Number != nil && !request.Number.IsInt64():
+		// chain-evm.RpcClient does not support block numbers larger than int64
+		return nil, fmt.Errorf("block number %s is larger than int64: %w", request.Number.String(), ethereum.NotFound)
 	// latest block
 	case request.Number == nil || request.Number.Int64() == rpc.LatestBlockNumber.Int64():
 		h, _, err = e.chain.HeadTracker().LatestAndFinalizedBlock(ctx)
 		// non-special block or larger that int64
-	case request.Number.Sign() >= 0 || request.Number.IsInt64():
+	case request.Number.Sign() >= 0:
 		var header *types.Header
 		header, err = e.chain.Client().HeaderByNumberWithOpts(ctx, request.Number, types.HeaderByNumberOpts{ConfidenceLevel: request.ConfidenceLevel})
 		h = (*types.Head)(header)

@@ -46,7 +46,6 @@ var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, Create
 				CldEnvironment:   deps.FullCLDEnvOutput.Environment,
 				BlockchainOutput: deps.HomeChainBlockchainOutput,
 				DonTopology:      deps.FullCLDEnvOutput.DonTopology,
-				AddressBook:      deps.AddressBook,
 			})
 			if jobSpecsErr != nil {
 				return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
@@ -88,7 +87,6 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 					CldEnvironment:   deps.FullCLDEnvOutput.Environment,
 					BlockchainOutput: deps.HomeChainBlockchainOutput,
 					DonTopology:      deps.FullCLDEnvOutput.DonTopology,
-					AddressBook:      deps.AddressBook,
 				})
 				if jobSpecsErr != nil {
 					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")

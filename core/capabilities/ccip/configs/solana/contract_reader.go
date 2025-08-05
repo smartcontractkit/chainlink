@@ -3,6 +3,7 @@ package solana
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -13,9 +14,22 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 )
 
-var ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
-var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
-var ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
+var (
+	ccipOffRampIDL       = idl.FetchCCIPOfframpIDL()
+	ccipFeeQuoterIDL     = idl.FetchFeeQuoterIDL()
+	ccipRmnRemoteIDL     = idl.FetchRMNRemoteIDL()
+	ccipCCTPTokenPoolIDL = idl.FetchCctpTokenPoolIDL()
+
+	// defaultCCIPLogsRetention defines the duration for which logs critical for Commit/Exec plugins processing are retained.
+	// Although Exec relies on permissionlessExecThreshold which is lower than 24hours for picking eligible CommitRoots,
+	// Commit still can reach to older logs because it filters them by sequence numbers. For instance, in case of RMN curse on chain,
+	// we might have logs waiting in OnRamp to be committed first. When outage takes days we still would
+	// be able to bring back processing without replaying any logs from chain. You can read that param as
+	// "how long CCIP can be down and still be able to process all the messages after getting back to life".
+	// Breaching this threshold would require replaying chain using LogPoller from the beginning of the outage.
+	// Using same default retention as v1.5 https://github.com/smartcontractkit/ccip/pull/530/files
+	defaultCCIPLogsRetention = 30 * 24 * time.Hour // 30 days
+)
 
 func DestContractReaderConfig() (config.ContractReader, error) {
 	var offRampIDL solanacodec.IDL
@@ -31,6 +45,11 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	var rmnRemoteIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRmnRemoteIDL), &rmnRemoteIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP RMN Remote IDL, error: %w", err)
+	}
+
+	var cctpTokenPoolIDL solanacodec.IDL
+	if err := json.Unmarshal([]byte(ccipCCTPTokenPoolIDL), &cctpTokenPoolIDL); err != nil {
+		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP CCTP Token Pool IDL, error: %w", err)
 	}
 
 	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
@@ -76,6 +95,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
+								Retention:       &defaultCCIPLogsRetention,
 								IncludeReverted: &trueVal,
 							},
 							IndexedField0: &config.IndexedField{
@@ -96,7 +116,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CommitReportAccepted",
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"MerkleRoot": "UnblessedMerkleRoots"}},
@@ -421,6 +443,28 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 					},
 				},
 			},
+			consts.ContractNameUSDCTokenPool: {
+				IDL: cctpTokenPoolIDL,
+				Reads: map[string]config.ReadDefinition{
+					consts.EventNameCCTPMessageSent: {
+						ChainSpecificName: "CcipCctpMessageSentEvent",
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
+							IndexedField0: &config.IndexedField{
+								OffChainPath: consts.EventAttributeCCTPNonce,
+								OnChainPath:  "CctpNonce",
+							},
+							IndexedField1: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSourceDomain,
+								OnChainPath:  "SourceDomain",
+							},
+						},
+					},
+				},
+			},
 		},
 	}, nil
 }
@@ -434,6 +478,11 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 	var feeQuoterIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
+	}
+
+	var cctpTokenPoolIDL solanacodec.IDL
+	if err := json.Unmarshal([]byte(ccipCCTPTokenPoolIDL), &cctpTokenPoolIDL); err != nil {
+		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP CCTP Token Pool IDL, error: %w", err)
 	}
 
 	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
@@ -484,7 +533,9 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "CCIPMessageSent",
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,
 								OnChainPath:  "Message.Header.SourceChainSelector",
@@ -644,6 +695,28 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.String()}},
 							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
 							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
+						},
+					},
+				},
+			},
+			consts.ContractNameUSDCTokenPool: {
+				IDL: cctpTokenPoolIDL,
+				Reads: map[string]config.ReadDefinition{
+					consts.EventNameCCTPMessageSent: {
+						ChainSpecificName: "CcipCctpMessageSentEvent",
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{
+								Retention: &defaultCCIPLogsRetention,
+							},
+							IndexedField0: &config.IndexedField{
+								OffChainPath: consts.EventAttributeCCTPNonce,
+								OnChainPath:  "CctpNonce",
+							},
+							IndexedField1: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSourceDomain,
+								OnChainPath:  "SourceDomain",
+							},
 						},
 					},
 				},

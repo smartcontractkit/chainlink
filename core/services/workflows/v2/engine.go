@@ -124,10 +124,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
-			func(shares []string) (string, error) {
-				return "", errors.New("decryption not implemented in v2 engine")
-			},
-		)
+			cfg.WorkflowEncryptionKey)
 	}
 
 	engine := &Engine{

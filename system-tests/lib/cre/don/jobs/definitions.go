@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
@@ -16,7 +16,7 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
-func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID uint64) *jobv1.ProposeJobRequest {
+func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -35,8 +35,8 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	providerType = "ocr3-capability"
 `,
 			uuid,
-			cre.OCR3Capability,
-			ocr3CapabilityAddress.Hex(),
+			"ocr3-bootstrap-"+name,
+			ocr3CapabilityAddress,
 			chainID),
 	}
 }
@@ -187,7 +187,7 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
-func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -227,6 +227,42 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddr
 			nodeEthAddress,
 			chainID,
 			ocr2KeyBundleID,
+		),
+	}
+}
+
+func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "%s"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	requestExpiryDuration = "60s"
+`,
+			uuid,
+			"Vault OCR3 Capability",
+			vaultCapabilityAddress,
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			types.VaultPlugin,
+			nodeEthAddress,
+			chainID,
 		),
 	}
 }

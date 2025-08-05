@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -124,6 +125,7 @@ type eventHandler struct {
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
+	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -198,6 +200,7 @@ func NewEventHandler(
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
+	workflowEncryptionKey workflowkey.Key,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -220,6 +223,7 @@ func NewEventHandler(
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
+		workflowEncryptionKey:  workflowEncryptionKey,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -554,9 +558,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		DonTimeStore:    h.dontimeStore,
 		ExecutionsStore: h.workflowStore,
 
-		WorkflowID:    workflowID,
-		WorkflowOwner: owner,
-		WorkflowName:  name,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,

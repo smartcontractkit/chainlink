@@ -494,9 +494,10 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		ExternalRegistry: toml.ExternalRegistry{
-			Address:   ptr(""),
-			ChainID:   ptr("1"),
-			NetworkID: ptr("evm"),
+			Address:         ptr(""),
+			ChainID:         ptr("1"),
+			NetworkID:       ptr("evm"),
+			ContractVersion: ptr("1.0.0"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
 			Address:                 ptr(""),
