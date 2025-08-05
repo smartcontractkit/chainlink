@@ -134,42 +134,26 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 						AuthGatewayID: "web-api-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
 					})
-				}
-			}
 
-			if flags.HasFlag(donMetadata.Flags, cre.VaultCapability) {
-				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
-					nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
-						Key:   node.ExtraRolesKey,
-						Value: cre.GatewayNode,
-					})
-					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
-
-					if topology.GatewayConnectorOutput == nil {
-						// we need to call the DonID "vault" because it is used in two-fold manner:
-						// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector, it uses the same DonID for all gateways.
-						// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
-						// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then "DonID" can be only be "vault".
-						topology.GatewayConnectorOutput = initGatewayConnectorOutput("vault")
+					if anyDonHasCapability(cre.WebAPITriggerCapability, donsWithMetadata) {
+						topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
+							Outgoing: cre.Outgoing{
+								Path: "/node",
+								Port: 15003,
+								Host: gatewayInternalHost,
+							},
+							Incoming: cre.Incoming{
+								Protocol:     "http",
+								Path:         "/",
+								InternalPort: 15002,
+								ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
+								Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
+							},
+							HandlerType:   coregateway.VaultHandlerType,
+							AuthGatewayID: "vault-gateway",
+							// do not set gateway connector dons, they will be resolved automatically
+						})
 					}
-
-					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
-						Outgoing: cre.Outgoing{
-							Path: "/node",
-							Port: 15003,
-							Host: gatewayInternalHost,
-						},
-						Incoming: cre.Incoming{
-							Protocol:     "http",
-							Path:         "/",
-							InternalPort: 15002,
-							ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
-							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
-						},
-						HandlerType:   coregateway.VaultHandlerType,
-						AuthGatewayID: "vault-gateway",
-						// do not set gateway connector dons, they will be resolved automatically
-					})
 				}
 			}
 
@@ -199,10 +183,28 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 	return topology, nil
 }
 
-func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
-	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
-		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
-		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
+func anyDonHasCapability(capability cre.CapabilityFlag, donMetadata []*cre.DonMetadata) bool {
+	for _, don := range donMetadata {
+		for _, flag := range don.Flags {
+			if flag == capability {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func NodeNeedsGateway(handlerType coregateway.HandlerType, nodeFlags []cre.CapabilityFlag) bool {
+	switch handlerType {
+	case coregateway.WebAPICapabilitiesType:
+		return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
+			flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
+			flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
+	case coregateway.VaultHandlerType:
+		return flags.HasFlag(nodeFlags, cre.VaultCapability)
+	}
+	return false
 }
 
 func GatewayConfigurationsForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) []*cre.GatewayConfiguration {

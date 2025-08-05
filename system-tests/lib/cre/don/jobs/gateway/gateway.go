@@ -42,7 +42,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 	// This map will be used to configure the gateway job on the node that runs it. Currently, we support only a single gateway connector, even if CRE supports multiple
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
 		// if it's a workflow DON or it has custom compute capability, it needs access to gateway connector
-		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(donWithMetadata.Flags) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
 			continue
 		}
 

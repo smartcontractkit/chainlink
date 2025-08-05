@@ -9,6 +9,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
@@ -62,7 +63,7 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
 		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
 		// gateway is also required by various capabilities
-		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) || flags.HasFlag(input.Flags, cre.VaultCapability) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) || don.NodeNeedsGateway(coregateway.VaultHandlerType, input.Flags) {
 			var nodeEthAddr common.Address
 			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
 			for _, label := range workflowNodeSet[i].Labels {
