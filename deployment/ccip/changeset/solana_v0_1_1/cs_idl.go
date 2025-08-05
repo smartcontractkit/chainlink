@@ -502,6 +502,12 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 			return cldf.ChangesetOutput{}, err
 		}
 	}
+	if c.CCTPTokenPool {
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {

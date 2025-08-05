@@ -31,9 +31,9 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/cctp_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -904,7 +904,7 @@ func initializeCCTPTokenPoolGlobalConfig(
 	if err != nil {
 		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
-	instruction, err := cctp_token_pool.NewInitGlobalConfigInstruction(
+	ix, err := cctp_token_pool.NewInitGlobalConfigInstruction(
 		config,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -914,7 +914,12 @@ func initializeCCTPTokenPoolGlobalConfig(
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+	ixData, err := ix.Data()
+	if err != nil {
+		return fmt.Errorf("failed to extract data payload for CCTP token pool init global config instruction: %w", err)
+	}
+	initGlobalCfgIx := solana.NewInstruction(cctpTokenPoolProgram, ix.Accounts(), ixData)
+	if err := chain.Confirm([]solana.Instruction{initGlobalCfgIx}); err != nil {
 		return fmt.Errorf("failed to confirm initializeCCTPTokenPoolGlobalConfig: %w", err)
 	}
 	e.Logger.Infow("Initialized CCTP token pool's global config", "chain", chain.String())
