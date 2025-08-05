@@ -26,3 +26,4 @@ examples/**/*.yaml
 env_artifact/
 bin/
 artifact_paths.json
+*.b64

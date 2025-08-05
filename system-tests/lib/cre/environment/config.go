@@ -12,13 +12,18 @@ import (
 )
 
 type Config struct {
-	Blockchains       []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input                   `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                     `toml:"jd" validate:"required"`
-	Infra             *infra.Input                  `toml:"infra" validate:"required"`
-	Fake              *fake.Input                   `toml:"fake" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input             `toml:"s3provider"`
+	Blockchains        []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets           []*ns.Input                   `toml:"nodesets" validate:"required"`
+	JD                 *jd.Input                     `toml:"jd" validate:"required"`
+	Infra              *infra.Input                  `toml:"infra" validate:"required"`
+	Fake               *fake.Input                   `toml:"fake" validate:"required"`
+	ExtraCapabilities  ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
+	CapabilitiesConfig CapabilitiesConfig            `toml:"capabilities_configs"`
+	S3ProviderInput    *s3provider.Input             `toml:"s3provider"`
+}
+
+type CapabilitiesConfig struct {
+	EVM map[string]map[string]any `toml:"evm"`
 }
 
 func (c Config) Validate() error {
@@ -30,6 +35,7 @@ func (c Config) Validate() error {
 
 type ExtraCapabilitiesConfig struct {
 	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
+	EVMCapabilityBinaryPath   string `toml:"evm_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }

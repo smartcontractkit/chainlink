@@ -623,6 +623,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Lggr:                           globalLogger,
 				Ks:                             keyStore.OCR2(),
 				EthKs:                          keyStore.Eth(),
+				WorkflowKs:                     keyStore.Workflow(),
 				Relayers:                       relayChainInterops,
 				MailMon:                        mailMon,
 				CapabilitiesRegistry:           opts.CapabilitiesRegistry,

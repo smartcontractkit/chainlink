@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -47,6 +49,7 @@ import (
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	evmJob "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/evm"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
@@ -513,6 +516,10 @@ func StartCLIEnvironment(
 		return nil, fmt.Errorf("either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag", os.Getenv("CTF_CONFIGS"))
 	}
 
+	if evmCapErr := validateCapabilitiesConfig(in); evmCapErr != nil {
+		return nil, evmCapErr
+	}
+
 	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 
@@ -526,6 +533,11 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -608,6 +620,11 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -740,6 +757,11 @@ func StartCLIEnvironment(
 		cronBinaryName = "cron"
 	}
 
+	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		evmBinaryName = "evm"
+	}
+
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
 	if withPluginsDockerImageFlag != "" {
 		logEventTriggerBinaryName = "log-event-trigger"
@@ -775,6 +797,18 @@ func StartCLIEnvironment(
 		}
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, evm.EVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		config := in.CapabilitiesConfig.EVM[blockchain.ChainID]
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.EVMJobSpecFactoryFn(
+			testLogger,
+			libc.MustSafeUint64(int64(chainIDInt)),
+			"evm",
+			config,
+			capabilitiesAwareNodeSets,
+			*in.Infra,
+			filepath.Join(containerPath, evmBinaryName),
+		))
 
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, crelogevent.LogEventTriggerJobSpecFactoryFn(
 			chainIDInt,
@@ -825,6 +859,35 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
+}
+
+func validateCapabilitiesConfig(in *creenv.Config) error {
+	// if CapabilitiesConfig has values, EVM capability binary must be present
+	if len(in.CapabilitiesConfig.EVM) > 0 && in.ExtraCapabilities.EVMCapabilityBinaryPath == "" {
+		return errors.New("evm_capability_binary_path must be provided when capabilities_configs is set")
+	}
+	for chainID, config := range in.CapabilitiesConfig.EVM {
+		// check the chain exists in the blockchain list
+		found := false
+		for _, blockchain := range in.Blockchains {
+			if blockchain.ChainID == chainID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.Errorf("capabilities_configs.evm.%q does not match any configured blockchains ChainID", chainID)
+		}
+
+		// check the configs per chain is a map[string]string
+		for subK, subV := range config {
+			_, okVal := subV.(string)
+			if !okVal {
+				return errors.Errorf("capabilities_configs.evm.%q[%s] must be a map[string]string (got %T)", chainID, subK, subV)
+			}
+		}
+	}
+	return nil
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {

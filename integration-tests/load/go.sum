@@ -1541,8 +1541,8 @@ github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-d98d7674da89/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250804223734-02018e687bcd h1:w8G34i6+oYFgn3C8bJ+9PHL7q+P6NzVgKp5wzjhLYYk=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250804223734-02018e687bcd/go.mod h1:v6SXJpswr6T8gUDib/KK1XpkIgiUtmFO7fO2XI5fr7A=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.6 h1:vnUXO+Fhr7x30+ptRRv7/CqLwENnrWjZiLoTDYEw+iY=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.6/go.mod h1:q99H9vcMJDs6T+zsSI8XJZd6PUkZnyG3iaRbrYNUCTk=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.10 h1:6r7X3BA/hFYE3FIUaOv6S04P3g5pH2PEyzJn7FO0n20=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.10/go.mod h1:47sm4C5wBxR8VBAZoDRGSt5wJwDJN3vVeE36l5vQs1g=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 h1:S5HND0EDtlA+xp2E+mD11DlUTp2wD6uojwixye8ZB/k=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5/go.mod h1:SKBYQvtnl3OqOTr5aQyt9YbIckuNNn40LOJUCR0vlMo=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4 h1:gbQqdsF8mVRgh4h4KRi+8b00OT3Wp/6zrN0uXr0i/J0=
@@ -1573,8 +1573,8 @@ github.com/smartcontractkit/mcms v0.20.2 h1:pcqKKtrF6jd8f9tCOWDtLIaPa7Y9ANOPDjLw
 github.com/smartcontractkit/mcms v0.20.2/go.mod h1:GrMd6EH4ogqYot6IeBC52B9CfD7oCi5POYdTJPRTv2U=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de h1:n0w0rKF+SVM+S3WNlup6uabXj2zFlFNfrlsKCMMb/co=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de/go.mod h1:Sl2MF/Fp3fgJIVzhdGhmZZX2BlnM0oUUyBP4s4xYb6o=
-github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de h1:66VQxXx3lvTaAZrMBkIcdH9VEjujUEvmBQdnyOJnkOc=
-github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de/go.mod h1:NSc7hgOQbXG3DAwkOdWnZzLTZENXSwDJ7Va1nBp0YU0=
+github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b h1:hN0Aqc20PTMGkYzqJGKIZCZMR4RoFlI85WpbK9fKIns=
+github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b/go.mod h1:NSc7hgOQbXG3DAwkOdWnZzLTZENXSwDJ7Va1nBp0YU0=
 github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 h1:zxcODLrFytOKmAd8ty8S/XK6WcIEJEgRBaL7sY/7l4Y=
 github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945/go.mod h1:m3pdp17i4bD50XgktkzWetcV5yaLsi7Gunbv4ZgN6qg=
 github.com/smarty/assertions v1.15.0/go.mod h1:yABtdzeQs6l1brC900WlRNwj6ZR55d7B+E8C6HtKdec=

@@ -43,11 +43,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, chainID int, networkFamily, 
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if readContractBinaryPath == "" {
-				return nil, errors.New("read contract binary path is empty")
-			}
-
-			jobSpec := libjobs.WorkerStandardCapability(nodeID, ReadContractJobName(chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
+			jobSpec := libjobs.WorkerStandardCapability(nodeID, ReadContractJobName(chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily), "")
 
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)

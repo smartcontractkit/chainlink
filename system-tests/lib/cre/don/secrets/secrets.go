@@ -283,7 +283,7 @@ func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.Genera
 	return output, nil
 }
 
-func GenereteKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error) {
+func GenerateKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
