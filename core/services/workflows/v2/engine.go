@@ -391,7 +391,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	// TODO(CAPPL-911): add rate-limiting
 
-	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
+	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID, "v2")
 	if meteringErr != nil {
 		e.lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
 	}

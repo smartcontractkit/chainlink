@@ -513,7 +513,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
-	meteringReport, err := e.meterReports.Start(ctx, executionID)
+	meteringReport, err := e.meterReports.Start(ctx, executionID, "v1")
 	switch {
 	case err != nil:
 		e.logger.Errorw("could not start metering workflow execution. continuing without metering", "err", err)

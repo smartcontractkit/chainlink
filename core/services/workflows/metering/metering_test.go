@@ -72,6 +72,7 @@ var (
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
+		platform.KeyTriggerID:           "triggerId",
 	}
 	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
@@ -93,7 +94,7 @@ func Test_Report(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
-		_, err := NewReport(t.Context(), map[string]string{}, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+		_, err := NewReport(t.Context(), map[string]string{}, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, "v1")
 		require.ErrorIs(t, err, ErrMissingLabels)
 	})
 }
@@ -918,7 +919,18 @@ func Test_Report_FormatReport(t *testing.T) {
 		require.NoError(t, report.Reserve(t.Context()))
 
 		meteringReport := report.FormatReport()
-		require.Equal(t, &eventspb.WorkflowMetadata{}, meteringReport.Metadata)
+		require.Equal(t, &eventspb.WorkflowMetadata{
+			WorkflowOwner:           "accountId",
+			WorkflowName:            "workflowId",
+			WorkflowID:              "workflowId",
+			WorkflowExecutionID:     "workflowExecutionId",
+			WorkflowRegistryAddress: "0x123",
+			WorkflowRegistryChain:   "16015286601757825753",
+			EngineVersion:           "v2",
+			Trigger: &eventspb.TriggerDetail{
+				TriggerID: "triggerId",
+			},
+		}, meteringReport.Metadata)
 		billingClient.AssertExpectations(t)
 	})
 
@@ -928,7 +940,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		numSteps := 100
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+			Return(&billing.GetWorkflowExecutionRatesResponse{RateCards: successRatesMulti}, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
@@ -943,16 +955,21 @@ func Test_Report_FormatReport(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
-				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
+				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
 			}))
 
-			expected[stepRef] = &eventspb.MeteringReportStep{Nodes: []*eventspb.MeteringReportNodeDetail{
-				{
-					Peer_2PeerId: "xyz",
-					SpendUnit:    "a",
-					SpendValue:   "42",
+			expected[stepRef] = &eventspb.MeteringReportStep{
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId: "xyz",
+						SpendUnit:    billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:   "42",
+					},
 				},
-			}}
+				AggSpendValue:    "42.000",
+				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+				AggSpendValueCre: "84.000",
+			}
 		}
 
 		assert.Equal(t, expected, report.FormatReport().Steps)
@@ -1228,7 +1245,7 @@ func Test_MeterReports(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		r, err := mrs.Start(t.Context(), workflowExecutionID1)
+		r, err := mrs.Start(t.Context(), workflowExecutionID1, "v2")
 		require.NoError(t, err)
 
 		require.NoError(t, r.Reserve(t.Context()))
@@ -1262,7 +1279,7 @@ func Test_MeterReports(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		r, err := mrs.Start(t.Context(), workflowExecutionID1)
+		r, err := mrs.Start(t.Context(), workflowExecutionID1, "v2")
 		require.NoError(t, err)
 
 		require.NoError(t, r.Reserve(t.Context()))
@@ -1298,13 +1315,13 @@ func Test_MeterReports_Length(t *testing.T) {
 	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 		Return(&emptypb.Empty{}, nil)
 
-	_, err = mrs.Start(t.Context(), "exec1")
+	_, err = mrs.Start(t.Context(), "exec1", "v2")
 	require.NoError(t, err)
 
-	mr, err := mrs.Start(t.Context(), "exec2")
+	mr, err := mrs.Start(t.Context(), "exec2", "v2")
 	require.NoError(t, err)
 
-	_, err = mrs.Start(t.Context(), "exec3")
+	_, err = mrs.Start(t.Context(), "exec3", "v2")
 	require.NoError(t, err)
 	assert.Equal(t, 3, mrs.Len())
 
@@ -1326,10 +1343,10 @@ func Test_MeterReports_Start(t *testing.T) {
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 
-		_, err := mrs.Start(t.Context(), "exec1")
+		_, err := mrs.Start(t.Context(), "exec1", "v2")
 		require.NoError(t, err)
 
-		_, err = mrs.Start(t.Context(), "exec1")
+		_, err = mrs.Start(t.Context(), "exec1", "v2")
 		require.ErrorIs(t, err, ErrReportExists)
 	})
 }
@@ -1347,7 +1364,7 @@ func Test_MeterReports_Get(t *testing.T) {
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 
-		_, err := mrs.Start(t.Context(), "exec1")
+		_, err := mrs.Start(t.Context(), "exec1", "v2")
 		require.NoError(t, err)
 
 		report, exists := mrs.Get("exec1")
@@ -1395,7 +1412,7 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		mr, err := mrs.Start(t.Context(), "exec1")
+		mr, err := mrs.Start(t.Context(), "exec1", "v2")
 		require.NoError(t, err)
 		assert.Len(t, mrs.reports, 1)
 
@@ -1419,7 +1436,7 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(nil, errors.New("errrrr"))
 
-		mr, err := mrs.Start(t.Context(), "exec1")
+		mr, err := mrs.Start(t.Context(), "exec1", "v2")
 		require.NoError(t, err)
 		assert.Len(t, mrs.reports, 1)
 
@@ -1545,7 +1562,7 @@ func TestRatiosFromConfig(t *testing.T) {
 func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
 	t.Helper()
 
-	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector)
+	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, "v2")
 	require.NoError(t, err)
 
 	return meteringReport
