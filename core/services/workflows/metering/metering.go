@@ -182,6 +182,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		report.meteringMode = true
 	}
 
+
 	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
 	if err != nil {
 		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
@@ -361,7 +362,20 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 
 	// Group by resource dimension
 	for _, nodeDetail := range spendsByNode {
-		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
+		var spendUnit string
+		switch nodeDetail.SpendUnit {
+		case "compute":
+			spendUnit = "RESOURCE_TYPE_COMPUTE"
+
+		case "payload":
+			spendUnit = "RESOURCE_TYPE_NETWORK"
+
+		default:
+			r.lggr.Error("unknown spend unit", "spendUnit", nodeDetail.SpendUnit)
+			spendUnit = nodeDetail.SpendUnit
+		}
+
+		resourceSpends[spendUnit] = append(resourceSpends[spendUnit], ReportStepDetail{
 			Peer2PeerID: nodeDetail.Peer2PeerID,
 			SpendValue:  nodeDetail.SpendValue,
 		})
@@ -459,6 +473,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		WorkflowRegistryAddress:       r.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
 		Metering:                      r.FormatReport(),
+		CreditsConsumed:               r.balance.GetSpent().String(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)

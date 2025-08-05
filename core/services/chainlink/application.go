@@ -536,6 +536,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.workflowLimits,
 		workflows.WithBillingClient(billingClient),
 		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
+		// workflows.WithWorkflowRegistry("0xA15BB66138824a1c7167f5E85b957d04Dd34E468", "11155111"),
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -958,6 +959,7 @@ func newCREServices(
 					artifactsStore,
 					syncer.WithBillingClient(billingClient),
 					syncer.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+					//syncer.WithWorkflowRegistry("0xA15BB66138824a1c7167f5E85b957d04Dd34E468", "11155111"),
 				)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

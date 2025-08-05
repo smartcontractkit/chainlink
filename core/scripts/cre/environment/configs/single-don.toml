@@ -71,6 +71,10 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = 'host.docker.internal:2223'
+      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -98,6 +102,10 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = 'host.docker.internal:2223'
+      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -125,6 +133,11 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+
+      [Billing]
+      URL = 'host.docker.internal:2223'
+      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -152,6 +165,11 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+
+      [Billing]
+      URL = 'host.docker.internal:2223'
+      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
@@ -179,6 +197,11 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+
+      [Billing]
+      URL = 'host.docker.internal:2223'
+      TLSEnabled = false
       """
       [nodesets.node_specs.node.env_vars]
       CL_EVM_CMD=""
