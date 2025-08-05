@@ -182,7 +182,6 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		report.meteringMode = true
 	}
 
-
 	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
 	if err != nil {
 		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
