@@ -135,7 +135,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 						// do not set gateway connector dons, they will be resolved automatically
 					})
 
-					if anyDonHasCapability(cre.WebAPITriggerCapability, donsWithMetadata) {
+					if AnyDonHasCapability(donsWithMetadata, cre.VaultCapability) {
 						topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 							Outgoing: cre.Outgoing{
 								Path: "/node",
@@ -183,12 +183,10 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 	return topology, nil
 }
 
-func anyDonHasCapability(capability cre.CapabilityFlag, donMetadata []*cre.DonMetadata) bool {
+func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.CapabilityFlag) bool {
 	for _, don := range donMetadata {
-		for _, flag := range don.Flags {
-			if flag == capability {
-				return true
-			}
+		if slices.Contains(don.Flags, capability) {
+			return true
 		}
 	}
 

@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -64,7 +63,7 @@ To execute on local start the local CRE first with following command:
 go run . env start
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
-	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
+	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-gateway-capabilities-don-cache.toml", "workflow-gateway")
 	require.NoError(t, confErr, "failed to set configuration")
 
 	configurationFiles := os.Getenv("CTF_CONFIGS")
@@ -73,7 +72,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	topology := os.Getenv("CRE_TOPOLOGY")
 	require.NotEmpty(t, topology, "CRE_TOPOLOGY env var is not set")
 
-	createErr := createEnvironmentIfNotExists(configurationFiles, topology)
+	createErr := createEnvironmentIfNotExists(configurationFiles, "../../../../core/scripts/cre/environment", topology)
 	require.NoError(t, createErr, "failed to create environment")
 
 	/*
@@ -81,7 +80,6 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	*/
 	in, err := framework.Load[environment.Config](nil)
 	require.NoError(t, err, "couldn't load environment state")
-	validateEnvVars(t)
 
 	var envArtifact environment.EnvArtifact
 	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
@@ -274,9 +272,15 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 }
 
 func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact) {
+	/*
+		BUILD ENVIRONMENT FROM SAVED STATE
+	*/
 	fullCldEnvOutput, _, loadErr := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, loadErr, "failed to load environment")
 
+	/*
+		CREATE NEW VAULT SECRET
+	*/
 	framework.L.Info().Msg("Creating secret...")
 	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
 		Version: jsonrpc.JsonRpcVersion,
@@ -338,30 +342,17 @@ const (
 	AuthorizationKey = ""
 )
 
-func createEnvironmentIfNotExists(stateFile string, topology string) error {
+func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
 	split := strings.Split(stateFile, ",")
-	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
+	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
 		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
-		baseDir := filepath.Dir(split[0])
-		cmd.Dir = baseDir
+		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
 
 	return nil
-}
-
-func validateEnvVars(t *testing.T) {
-	// this is a small hack to avoid changing the reusable workflow
-	if os.Getenv("CI") == "true" {
-		// This part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
-		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
-		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
-		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
-		require.NotEmpty(t, os.Getenv(environment.E2eJobDistributorImageEnvVarName), "missing env var: "+environment.E2eJobDistributorImageEnvVarName)
-		require.NotEmpty(t, os.Getenv(environment.E2eJobDistributorVersionEnvVarName), "missing env var: "+environment.E2eJobDistributorVersionEnvVarName)
-	}
 }
 
 type configureDataFeedsCacheInput struct {

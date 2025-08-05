@@ -88,8 +88,8 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 	switch len(bootstrapNodes) {
 	case 0:
 		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
-		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
-		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
+		donBootstrapNodeHost = input.CapabilitiesPeeringData.GlobalBootstraperHost
+		donBootstrapNodePeerID = input.CapabilitiesPeeringData.GlobalBootstraperPeerID
 	case 1:
 		bootstrapNode := bootstrapNodes[0]
 
@@ -124,7 +124,7 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
 
 		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
-			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.PeeringData)
+			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.CapabilitiesPeeringData)
 		}
 	default:
 		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
@@ -179,7 +179,7 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, 5001, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
 	}
 
 	for _, factoryFn := range factoryFns {

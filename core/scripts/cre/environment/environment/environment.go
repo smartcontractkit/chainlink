@@ -878,7 +878,7 @@ func defaultCtfConfigs(topologyFlag string) error {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
 		case TopologyWorkflowGatewayCapabilities:
-			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-gateway-don.toml")
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-capabilities-don.toml")
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}

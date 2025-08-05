@@ -212,6 +212,8 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	donTopology := &cre.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
 	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
+	donTopology.CapabilitiesPeeringData = input.Topology.CapabilitiesPeeringData
+	donTopology.OCRPeeringData = input.Topology.OCRPeeringData
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{

@@ -1,12 +1,15 @@
 package vault
 
 import (
+	"strings"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -27,6 +30,16 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 		return nil, errors.New("topology is nil")
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
+
+	var donMetadata []*cre.DonMetadata
+	for _, don := range donTopology.DonsWithMetadata {
+		donMetadata = append(donMetadata, don.DonMetadata)
+	}
+
+	// return early if no DON has the vault capability
+	if !don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
+		return donToJobSpecs, nil
+	}
 
 	vaultOCR3Key := datastore.NewAddressRefKey(
 		donTopology.HomeChainSelector,
@@ -51,21 +64,34 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
 
-		// look for boostrap node and then for required values in its labels
+		// // look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
-			return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
+			// if there is no bootstrap node in this DON, we need to use the global bootstrap node
+			for _, don := range donTopology.DonsWithMetadata {
+				for _, n := range don.NodesMetadata {
+					p2pValue, p2pErr := node.FindLabelValue(n, node.NodeP2PIDKey)
+					if p2pErr != nil {
+						continue
+					}
+
+					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
+						bootstrapNode = n
+						break
+					}
+				}
+			}
 		}
 
-		donBootstrapNodePeerID, pIDErr := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
-		if pIDErr != nil {
-			return nil, errors.Wrap(pIDErr, "failed to get bootstrap node peer ID")
-		}
+		// donBootstrapNodePeerID, pIDErr := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
+		// if pIDErr != nil {
+		// 	return nil, errors.Wrap(pIDErr, "failed to get bootstrap node peer ID")
+		// }
 
-		donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
-		if hostErr != nil {
-			return nil, errors.Wrap(hostErr, "failed to get bootstrap node host from labels")
-		}
+		// donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
+		// if hostErr != nil {
+		// 	return nil, errors.Wrap(hostErr, "failed to get bootstrap node host from labels")
+		// }
 
 		bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
 		if nodeIDErr != nil {
@@ -75,11 +101,11 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 		// create job specs for the bootstrap node
 		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-		ocrPeeringData := cre.OCRPeeringData{
-			OCRBootstraperPeerID: donBootstrapNodePeerID,
-			OCRBootstraperHost:   donBootstrapNodeHost,
-			Port:                 5001,
-		}
+		// ocrPeeringData := cre.OCRPeeringData{
+		// 	OCRBootstraperPeerID: donBootstrapNodePeerID,
+		// 	OCRBootstraperHost:   donBootstrapNodeHost,
+		// 	Port:                 5001,
+		// }
 
 		for _, workerNode := range workflowNodeSet {
 			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
@@ -96,7 +122,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 			if ocr2Err != nil {
 				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 			}
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, donTopology.OCRPeeringData, chainID))
 		}
 	}
 

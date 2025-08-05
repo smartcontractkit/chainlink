@@ -38,10 +38,19 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		return donToJobSpecs, nil
 	}
 
-	// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
-	// This map will be used to configure the gateway job on the node that runs it. Currently, we support only a single gateway connector, even if CRE supports multiple
+	donsWithGatewaysCount := 0
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		// if it's a workflow DON or it has custom compute capability, it needs access to gateway connector
+		// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
+		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
+			continue
+		}
+		donsWithGatewaysCount++
+	}
+
+	// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
+	// This map will be used to configure the gateway job on the node that runs it.
+	for _, donWithMetadata := range donTopology.DonsWithMetadata {
+		// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
 		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
 			continue
 		}
@@ -61,22 +70,47 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		}
 
 		for idx := range gatewayConnectorOutput.Configurations {
-			gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
-				MembersEthAddresses: ethAddresses,
-				ID:                  donWithMetadata.ID,
-			})
+			if flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) {
+				// hack
+				var donID string
+				if donsWithGatewaysCount == 1 {
+					donID = gatewayConnectorOutput.DonID
+				} else {
+					if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
+						donID = gatewayConnectorOutput.DonID
+					} else {
+						donID = donWithMetadata.Name
+					}
+				}
+
+				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.WebAPICapabilitiesType {
+					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
+						MembersEthAddresses: ethAddresses,
+						ID:                  donID,
+					})
+				}
+			}
+
+			if don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
+				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.VaultHandlerType {
+					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
+						MembersEthAddresses: ethAddresses,
+						ID:                  gatewayConnectorOutput.DonID,
+					})
+				}
+			}
 		}
 	}
 
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
 		// create job specs for the gateway node or vault DON
-		if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) && !flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
 			continue
 		}
 
 		gatewayNode, nodeErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.ExtraRolesKey, Value: cre.GatewayNode}, node.LabelContains)
 		if nodeErr != nil {
-			return nil, errors.Wrap(nodeErr, "failed to find bootstrap node")
+			return nil, errors.Wrap(nodeErr, "failed to find gateway node")
 		}
 
 		gatewayNodeID, gatewayErr := node.FindLabelValue(gatewayNode, node.NodeIDKey)
@@ -106,11 +140,16 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			`
 
 			for _, gatewayConfiguration := range gatewayConfigurations {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput.DonID, handlerConfig, gatewayConfiguration))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
 			}
 		}
 
-		if flags.HasFlag(donWithMetadata.Flags, cre.VaultCapability) {
+		var donMetadata []*cre.DonMetadata
+		for _, don := range donTopology.DonsWithMetadata {
+			donMetadata = append(donMetadata, don.DonMetadata)
+		}
+
+		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
 			gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
 			if len(gatewayConfigurations) == 0 {
 				return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.VaultHandlerType)
@@ -128,7 +167,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			`
 
 			for _, gatewayConfiguration := range gatewayConfigurations {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput.DonID, handlerConfig, gatewayConfiguration))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
 			}
 		}
 	}

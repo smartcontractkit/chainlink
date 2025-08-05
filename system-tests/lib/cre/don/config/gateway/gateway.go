@@ -76,10 +76,25 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 				}
 			}
 
+			//hack
+			var donID string
+			var gatewayConfigurations []*cre.GatewayConfiguration
+			if flags.HasFlag(input.Flags, cre.VaultCapability) {
+				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
+				donID = input.GatewayConnectorOutput.DonID
+			} else {
+				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
+				donID = input.DonMetadata.Name
+			}
+
+			if len(gatewayConfigurations) == 0 {
+				return nil, errors.New("no gateway connector configurations found")
+			}
+
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				homeChainID,
-				input.GatewayConnectorOutput.DonID,
+				donID,
 				input.GatewayConnectorOutput.Configurations,
 			)
 		}

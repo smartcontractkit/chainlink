@@ -61,11 +61,13 @@ func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:6690']
-	DefaultBootstrappers = ['%s@%s:6690']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 `,
+		peeringData.Port,
 		peeringData.GlobalBootstraperPeerID,
 		"localhost", // bootstrap node should always point to itself as the don2don peering bootstrapper
+		peeringData.Port,
 	)
 }
 
@@ -80,7 +82,7 @@ type WorkerEVMInput struct {
 	HasForwarderContract bool
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPort int, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -133,13 +135,13 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 
 	[P2P.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:5001']
-	DefaultBootstrappers = ['%s@%s:5001']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 
 	[Capabilities.Peering.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:6690']
-	DefaultBootstrappers = ['%s@%s:6690']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 
 %s
 	# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
@@ -149,10 +151,14 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	NetworkID = 'evm'
 	ChainID = '%d'
 `,
+		ocrPort,
 		donBootstrapNodePeerID,
 		donBootstrapNodeHost,
-		peeringData.GlobalBootstraperPeerID,
-		peeringData.GlobalBootstraperHost,
+		ocrPort,
+		capabilitiesPeeringData.Port,
+		capabilitiesPeeringData.GlobalBootstraperPeerID,
+		capabilitiesPeeringData.GlobalBootstraperHost,
+		capabilitiesPeeringData.Port,
 		evmChainsConfig,
 		capabilitiesRegistryAddress,
 		homeChainID,
