@@ -483,7 +483,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			require.NoError(t, err)
 
 			deployerPrivKey := *e.BlockChains.SolanaChains()[solChain].DeployerKey
-			solanaRpcClient := e.BlockChains.SolanaChains()[solChain].Client
+			solanaRPCClient := e.BlockChains.SolanaChains()[solChain].Client
 
 			multisig, err := solana.NewRandomPrivateKey()
 			require.NoError(t, err)
@@ -494,13 +494,13 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				multisig.PublicKey(),
 				1,
 				[]solana.PublicKey{deployerKey, tokenPoolSignerPDA},
-				solanaRpcClient,
+				solanaRPCClient,
 				solRpc.CommitmentConfirmed,
 			)
 			require.NoError(t, ixErrMsig)
 
 			res := solTestUtil.SendAndConfirm(ctx, t,
-				solanaRpcClient,
+				solanaRPCClient,
 				ixMsig,
 				deployerPrivKey,
 				solRpc.CommitmentConfirmed,
