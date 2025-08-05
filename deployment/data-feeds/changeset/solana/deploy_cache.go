@@ -282,6 +282,11 @@ func (cs InitCacheDecimalReport) Apply(env cldf.Environment, req *InitCacheDecim
 	return out, nil
 }
 
+type Sender struct {
+	ProgramID solana.PublicKey
+	StateID   solana.PublicKey
+}
+
 type ConfigureCacheDecimalReportRequest struct {
 	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
@@ -289,7 +294,8 @@ type ConfigureCacheDecimalReportRequest struct {
 	Qualifier string
 	Version   string
 
-	AllowedSender        []solana.PublicKey
+	SenderList []Sender
+
 	AllowedWorkflowOwner [][20]uint8
 	AllowedWorkflowName  [][10]uint8
 	FeedAdmin            solana.PublicKey
@@ -311,8 +317,8 @@ func (cs ConfigureCacheDecimalReport) VerifyPreconditions(env cldf.Environment, 
 	}
 	// Check that AllowedSender, AllowedWorkflowOwner, and AllowedWorkflowName are all the same length
 	// This is a requirement for the ConfigureCacheDecimalFeed operation
-	if len(req.AllowedSender) != len(req.AllowedWorkflowOwner) || len(req.AllowedSender) != len(req.AllowedWorkflowName) {
-		return errors.New("AllowedSender, AllowedWorkflowOwner, and AllowedWorkflowName must all have the same length")
+	if len(req.SenderList) != len(req.AllowedWorkflowOwner) || len(req.SenderList) != len(req.AllowedWorkflowName) {
+		return errors.New("SenderList, AllowedWorkflowOwner, and AllowedWorkflowName must all have the same length")
 	}
 
 	// Check that Descriptions and DataIDs are all the same length
@@ -358,21 +364,27 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 	cacheStateKey := solana.MustPublicKeyFromBase58(cacheState.Address)
 	cacheProgramKey := solana.MustPublicKeyFromBase58(cacheProgramID.Address)
 	remainingAccounts = append(remainingAccounts, decimalReportAccounts...)
-	for idx := range req.AllowedSender {
+
+	workflowMetadatas := make([]df_cache.WorkflowMetadata, len(req.SenderList))
+
+	for idx, sender := range req.SenderList {
+		allowedSender, err := deriveForwarderAuthority(sender.StateID, cacheProgramKey, sender.ProgramID)
+		if err != nil {
+			return out, fmt.Errorf("failed to derive forwarder authority: %w", err)
+		}
+
 		permissionAccounts, err := createPermissionFlagAccounts(cacheProgramKey, cacheStateKey, req.DataIDs,
-			req.AllowedSender[idx], req.AllowedWorkflowOwner[idx], req.AllowedWorkflowName[idx])
-		remainingAccounts = append(remainingAccounts, permissionAccounts...)
+			allowedSender, req.AllowedWorkflowOwner[idx], req.AllowedWorkflowName[idx])
+
 		if err != nil {
 			return out, fmt.Errorf("failed to create permission accounts: %w", err)
 		}
-	}
+		remainingAccounts = append(remainingAccounts, permissionAccounts...)
 
-	workflowMetadatas := make([]df_cache.WorkflowMetadata, len(req.AllowedSender))
-	for i, sender := range req.AllowedSender {
-		workflowMetadatas[i] = df_cache.WorkflowMetadata{
-			AllowedSender:        sender,
-			AllowedWorkflowOwner: req.AllowedWorkflowOwner[i],
-			AllowedWorkflowName:  req.AllowedWorkflowName[i],
+		workflowMetadatas[idx] = df_cache.WorkflowMetadata{
+			AllowedSender:        allowedSender,
+			AllowedWorkflowOwner: req.AllowedWorkflowOwner[idx],
+			AllowedWorkflowName:  req.AllowedWorkflowName[idx],
 		}
 	}
 
@@ -402,6 +414,16 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 	out.MCMSTimelockProposals = execSetAuthOut.Output.Proposals
 
 	return out, nil
+}
+
+func deriveForwarderAuthority(forwarderState solana.PublicKey, receiverProgram solana.PublicKey, forwarderProgram solana.PublicKey) (solana.PublicKey, error) {
+	seeds := [][]byte{
+		[]byte("forwarder"),
+		forwarderState[:],
+		receiverProgram[:],
+	}
+	ret, _, err := solana.FindProgramAddress(seeds, forwarderProgram)
+	return ret, err
 }
 
 // createRemainingAccounts creates the remaining accounts needed for InitCacheDecimalFeed

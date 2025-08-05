@@ -127,8 +127,20 @@ func TestConfigureCache(t *testing.T) {
 	}
 
 	// For AllowedSender (slice of solana.PublicKey)
-	allowedSender := []solana.PublicKey{
+	forwarderProgramID := []solana.PublicKey{
 		solana.MustPublicKeyFromBase58("11111111111111111111111111111112"), // example public key
+	}
+
+	forwarderCacheID := []solana.PublicKey{
+		solana.MustPublicKeyFromBase58("11111111111111111111111111111114"), // example public key
+	}
+
+	senderList := make([]Sender, len(forwarderProgramID))
+	for i := range forwarderProgramID {
+		senderList[i] = Sender{
+			ProgramID: forwarderProgramID[i],
+			StateID:   forwarderCacheID[i],
+		}
 	}
 
 	// For AllowedWorkflowOwner (slice of [20]uint8 arrays)
@@ -175,7 +187,7 @@ func TestConfigureCache(t *testing.T) {
 				ChainSel:             solSel,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
-				AllowedSender:        allowedSender,
+				SenderList:           senderList,
 				AllowedWorkflowOwner: allowedWorkflowOwner,
 				AllowedWorkflowName:  allowedWorkflowName,
 				FeedAdmin:            chain.DeployerKey.PublicKey(),
@@ -209,7 +221,7 @@ func TestConfigureCache(t *testing.T) {
 				ChainSel:             solSel,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
-				AllowedSender:        allowedSender,
+				SenderList:           senderList,
 				AllowedWorkflowOwner: allowedWorkflowOwner,
 				AllowedWorkflowName:  allowedWorkflowName,
 				FeedAdmin:            chain.DeployerKey.PublicKey(),
@@ -229,7 +241,7 @@ func TestConfigureCache(t *testing.T) {
 				ChainSel:             solSel,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
-				AllowedSender:        allowedSender,
+				SenderList:           senderList,
 				AllowedWorkflowOwner: allowedWorkflowOwner,
 				AllowedWorkflowName:  allowedWorkflowName,
 				FeedAdmin:            chain.DeployerKey.PublicKey(),
