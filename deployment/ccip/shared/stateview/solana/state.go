@@ -432,7 +432,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			}
 
 			if poolType == "" {
-				poolType = shared.BurnFromMintTokenPool
+				poolType = shared.BurnMintTokenPool
 			}
 			if ccipChainState.TokenPoolLookupTable[tokenPubKey] == nil {
 				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[cldf.ContractType]map[string]solana.PublicKey)

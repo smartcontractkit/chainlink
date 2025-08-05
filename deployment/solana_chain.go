@@ -27,5 +27,5 @@ var SolanaProgramBytes = map[string]int{
 	TimelockProgramName:             1 * 1024 * 1024,
 	McmProgramName:                  1 * 1024 * 1024,
 	RMNRemoteProgramName:            3 * 1024 * 1024,
-	CCTPTokenPoolProgramName:        3 * 1024 * 1024, // TODO: confirm this value
+	CCTPTokenPoolProgramName:        3 * 1024 * 1024,
 }

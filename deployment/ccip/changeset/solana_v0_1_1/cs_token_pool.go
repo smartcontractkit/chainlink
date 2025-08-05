@@ -868,7 +868,7 @@ func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, 
 	return true, remoteChainConfigAccount, nil
 }
 
-func getNewSetuptInstructionsForBurnMint(
+func getNewSetupInstructionsForBurnMint(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
@@ -877,7 +877,7 @@ func getNewSetuptInstructionsForBurnMint(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getNewSetuptInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
+	e.Logger.Infow("getNewSetupInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
 	tokenPool := chainState.GetActiveTokenPool(cfg.SolPoolType, cfg.Metadata)
 	tokenPubKey := cfg.SolTokenPubKey
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
@@ -1064,7 +1064,7 @@ func getInstructionsForBurnMint(
 			}
 		}
 	} else {
-		ixns, err = getNewSetuptInstructionsForBurnMint(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
+		ixns, err = getNewSetupInstructionsForBurnMint(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -1073,7 +1073,7 @@ func getInstructionsForBurnMint(
 	return ixns, nil
 }
 
-func getNewSetuptInstructionsForLockRelease(
+func getNewSetupInstructionsForLockRelease(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
@@ -1082,7 +1082,7 @@ func getNewSetuptInstructionsForLockRelease(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getNewSetuptInstructionsForLockRelease", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
+	e.Logger.Infow("getNewSetupInstructionsForLockRelease", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := chainState.GetActiveTokenPool(cfg.SolPoolType, cfg.Metadata)
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
@@ -1095,7 +1095,7 @@ func getNewSetuptInstructionsForLockRelease(
 		tokenPubKey,
 		cfg.Metadata,
 	)
-	e.Logger.Infow("getNewSetuptInstructionsForLockRelease", "authority", authority.String())
+	e.Logger.Infow("getNewSetupInstructionsForLockRelease", "authority", authority.String())
 	onChainEVMPoolConfigWithoutPoolAddress := solBaseTokenPool.RemoteConfig{
 		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
 		PoolAddresses: []solBaseTokenPool.RemoteAddress{},
@@ -1262,7 +1262,7 @@ func getInstructionsForLockRelease(
 			}
 		}
 	} else {
-		ixns, err = getNewSetuptInstructionsForLockRelease(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
+		ixns, err = getNewSetupInstructionsForLockRelease(e, chain, solChainState, cfg, evmChainSelector, evmRemoteConfig.RateLimiterConfig, onChainEVMPoolConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -1283,7 +1283,7 @@ func getNewSetupInstructionsForCCTP(
 	e.Logger.Infow("getNewSetupInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := chainState.CCTPTokenPool
-	contractType := shared.USDCTokenPool
+	contractType := shared.CCTPTokenPool
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -1381,7 +1381,7 @@ func getInstructionsForCCTP(
 	e.Logger.Infow("getInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := solChainState.CCTPTokenPool
-	contractType := shared.USDCTokenPool
+	contractType := shared.CCTPTokenPool
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(

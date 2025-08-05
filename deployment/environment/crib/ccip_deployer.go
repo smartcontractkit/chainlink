@@ -563,12 +563,12 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 					SetPool: []ccipChangesetSolana.SetPoolConfig{
 						{
 							ChainSelector:   solChainSel,
+							WritableIndexes: []uint8{3, 4, 7},
 							SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 								{
 									TokenPubKey: solTokenAddress,
 									PoolType:    shared.BurnMintTokenPool,
 									Metadata:    shared.CLLMetadata,
-									WritableIndexes: []uint8{3, 4, 7},
 								},
 							},
 						},

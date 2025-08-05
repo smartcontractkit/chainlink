@@ -197,7 +197,6 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 		}
-		var poolInitErr error
 		switch tokenPoolCfg.PoolType {
 		case shared.BurnMintTokenPool:
 			solBurnMintTokenPool.SetProgramID(tokenPool)
@@ -228,7 +227,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", tokenPoolCfg.PoolType)
 		}
-		if poolInitErr != nil {
+		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 
@@ -984,17 +983,6 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 		feeTokenConfigPDA,       // 8
 		routerPoolSignerPDA,     // 9
 	}
-	typeVersion := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
-	typeVersion.Labels.Add(tokenPubKey.String())
-	typeVersion.Labels.Add(cfg.Metadata)
-	switch cfg.PoolType {
-	case shared.BurnMintTokenPool:
-		typeVersion.Labels.Add(solTestTokenPool.BurnAndMint_PoolType.String())
-	case shared.LockReleaseTokenPool:
-		typeVersion.Labels.Add(solTestTokenPool.LockAndRelease_PoolType.String())
-	default:
-		return cldf.ChangesetOutput{}, errors.New("unsupported pool type")
-	}
 	if err = solCommonUtil.ExtendLookupTable(ctx, client, table, *authorityPrivKey, list); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table for token pool (mint: %s): %w", tokenPubKey.String(), err)
 	}
@@ -1002,7 +990,11 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to await slot change while extending lookup table: %w", err)
 	}
 	newAddressBook := cldf.NewMemoryAddressBook()
-	if err := newAddressBook.Save(cfg.ChainSelector, table.String(), typeVersion); err != nil {
+	tv := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
+	tv.Labels.Add(tokenPubKey.String())
+	tv.Labels.Add(cfg.PoolType.String())
+	tv.Labels.Add(cfg.Metadata)
+	if err := newAddressBook.Save(cfg.ChainSelector, table.String(), tv); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save tokenpool address lookup table: %w", err)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
@@ -1275,8 +1267,7 @@ func (cfg LockReleaseLiquidityOpsConfig) Validate(e cldf.Environment, chainState
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, tokenPubKey, cfg.Metadata, map[cldf.ContractType]bool{}); err != nil {
 		return err
 	}
-	poolType := shared.LockReleaseTokenPool
-	return chainState.ValidatePoolDeployment(&e, poolType, cfg.SolChainSelector, tokenPubKey, true, cfg.Metadata)
+	return chainState.ValidatePoolDeployment(&e, shared.LockReleaseTokenPool, cfg.SolChainSelector, tokenPubKey, true, cfg.Metadata)
 }
 
 func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConfig) (cldf.ChangesetOutput, error) {

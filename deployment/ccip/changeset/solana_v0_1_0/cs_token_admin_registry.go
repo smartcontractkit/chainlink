@@ -522,12 +522,12 @@ type SetPoolTokenConfig struct {
 	PoolType          cldf.ContractType
 	Metadata          string
 	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
-	WritableIndexes   []uint8
 }
 
 type SetPoolConfig struct {
 	ChainSelector       uint64
 	SetPoolTokenConfigs []SetPoolTokenConfig
+	WritableIndexes     []uint8
 	MCMS                *proposalutils.TimelockConfig
 }
 
@@ -628,7 +628,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			currentAdmin = tokenAdminRegistryAccount.Administrator
 		}
 		base := solRouter.NewSetPoolInstruction(
-			tokenConfig.WritableIndexes,
+			cfg.WritableIndexes,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,

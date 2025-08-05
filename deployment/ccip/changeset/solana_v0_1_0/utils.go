@@ -59,15 +59,11 @@ func ValidateMCMSConfigSolana(
 		if tokenPoolMetadata != "" {
 			metadata = tokenPoolMetadata
 		}
-		if contractsToValidate[shared.BurnMintTokenPool] {
-			if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool, tokenAddress); err != nil {
-				return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
-			}
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool, tokenAddress); contractsToValidate[shared.BurnMintTokenPool] && err != nil {
+			return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
 		}
-		if contractsToValidate[shared.LockReleaseTokenPool] {
-			if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool, tokenAddress); err != nil {
-				return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
-			}
+		if err := solanastateview.ValidateOwnershipSolana(&e, chain, mcms != nil, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool, tokenAddress); contractsToValidate[shared.LockReleaseTokenPool] && err != nil {
+			return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
 		}
 	}
 
