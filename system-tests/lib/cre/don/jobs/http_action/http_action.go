@@ -58,7 +58,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, httpActionBinaryPath string)
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HttpActionCapability, httpActionBinaryPath, serviceConfigTemplate))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.HttpActionCapability, httpActionBinaryPath, serviceConfigTemplate, ""))
 		}
 	}
 
