@@ -542,7 +542,7 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability, cre.VaultCapability}
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
@@ -753,7 +753,7 @@ func StartCLIEnvironment(
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
-			gatewayconfig.GenerateConfig,
+			gatewayconfig.GenerateConfigFn(gatewayHandlerType),
 		},
 		S3ProviderInput: in.S3ProviderInput,
 	}
