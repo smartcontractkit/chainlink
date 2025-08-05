@@ -165,7 +165,7 @@ func getFChainValuesFromTiers(selectors []uint64, fChain uint8) map[cciptypes.Ch
 }
 
 // getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied number of high and low tier chains.
-func getTierChainSelectors(allSelectors []uint64, highTierCount, lowTierCount int) ([]uint64, []uint64) {
+func getTierChainSelectors(allSelectors []uint64, highTierCount int, lowTierCount int) ([]uint64, []uint64) {
 	// we prioritize home selector, simulated solana, and evm feed selectors
 	prioritySelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
 	orderedSelectors := make([]uint64, 0, len(allSelectors))
