@@ -478,8 +478,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 
 		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
 		// we'll only create the multisig account and run the changeset if the pool type is BnM.
-		if !config.MCMS && testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
-			tokenPoolSignerPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_signer"), tokenAddress.Bytes()}, testCase.poolAddress)
+		if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
+			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
 			require.NoError(t, err)
 
 			deployerPrivKey := *e.BlockChains.SolanaChains()[solChain].DeployerKey

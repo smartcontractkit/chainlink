@@ -656,21 +656,6 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
-	initGlobalConfigIx, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
-		poolConfig,
-		tokenPubKey,
-		tokenProgram,
-		tokenPoolSigner,
-		chain.DeployerKey.PublicKey(),
-		newMintAuthority,
-		tokenPool,
-		programData.Address).ValidateAndBuild()
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
-	}
-
-	var txns []mcmsTypes.Transaction
-
 	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -680,15 +665,45 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		cfg.Metadata,
 	)
 
-	instructions := []solana.Instruction{initGlobalConfigIx}
-
+	var txns []mcmsTypes.Transaction
 	if useMcms {
-		err := appendTxs(instructions, tokenPool, contractType, &txns)
+		timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+
+		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			timelockSigner,
+			newMintAuthority,
+			tokenPool,
+			programData.Address).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+		}
+
+		err = appendTxs([]solana.Instruction{ix}, tokenPool, contractType, &txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 	} else {
-		if err := chain.Confirm(instructions); err != nil {
+		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			chain.DeployerKey.PublicKey(),
+			newMintAuthority,
+			tokenPool,
+			programData.Address).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
+		}
+
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
