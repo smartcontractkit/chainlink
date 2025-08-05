@@ -633,6 +633,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
 	tokenPool, contractType := solChainState.GetActiveTokenPool(cfg.PoolType.String(), cfg.Metadata)
+	tokenProgram, _ := solChainState.TokenToTokenProgram(tokenPubKey)
 
 	switch *cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
@@ -656,15 +657,14 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	}
 
 	initGlobalConfigIx, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
-		newMintAuthority,
 		poolConfig,
 		tokenPubKey,
-		solana.Token2022ProgramID,
+		tokenProgram,
 		tokenPoolSigner,
 		chain.DeployerKey.PublicKey(),
+		newMintAuthority,
 		tokenPool,
 		programData.Address).ValidateAndBuild()
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
 	}
@@ -1790,7 +1790,6 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 			return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
 		}
 		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-
 		if err != nil {
 			return fmt.Errorf("remote chain config not found for (remoteSelector: %d, mint: %s, pool: %s, type: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType, err)
 		}
