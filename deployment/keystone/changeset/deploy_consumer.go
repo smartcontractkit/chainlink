@@ -7,6 +7,7 @@ import (
 )
 
 type DeployFeedsConsumerRequest struct {
+	Qualifier     string
 	ChainSelector uint64
 }
 
@@ -15,7 +16,8 @@ var _ cldf.ChangeSet[*DeployFeedsConsumerRequest] = DeployFeedsConsumer
 // DeployFeedsConsumer deploys the FeedsConsumer contract to the chain with the given chainSelector.
 func DeployFeedsConsumer(env cldf.Environment, req *DeployFeedsConsumerRequest) (cldf.ChangesetOutput, error) {
 	return DeployFeedsConsumerV2(env, &DeployRequestV2{
-		ChainSel: req.ChainSelector,
+		Qualifier: req.Qualifier,
+		ChainSel:  req.ChainSelector,
 	})
 }
 

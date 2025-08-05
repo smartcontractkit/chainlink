@@ -301,7 +301,7 @@ func TestKeystoneView(t *testing.T) {
 
 	t.Run("generates a partial view of the keystone state with OCR3 not configured", func(t *testing.T) {
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(env.Env, env.RegistrySelector)
+		resp, err := changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
