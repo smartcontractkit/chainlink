@@ -999,7 +999,12 @@ func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontyp
 	}
 
 	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
-	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
+	if r.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		chain := r.chain.(legacyevm.ChainTronSupport)
+		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
+	} else {
+		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
+	}
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {

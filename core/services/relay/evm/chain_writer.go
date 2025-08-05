@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -20,6 +21,7 @@ import (
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -33,7 +35,7 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig) (ChainWriterService, error) {
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig, tronTxm *trontxm.TronTxm) (ChainWriterService, error) {
 	if config.MaxGasPrice == nil {
 		return nil, fmt.Errorf("max gas price is required")
 	}
@@ -42,11 +44,13 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		logger:      logger,
 		client:      client,
 		txm:         txm,
+		tronTxm:     tronTxm,
 		ge:          estimator,
 		maxGasPrice: config.MaxGasPrice,
 
 		contracts:       config.Contracts,
 		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		abiMethods:      make(map[string]abi.Method),
 	}
 
 	if err := w.parseContracts(); err != nil {
@@ -67,11 +71,14 @@ type chainWriter struct {
 	logger      logger.Logger
 	client      evmclient.Client
 	txm         evmtxmgr.TxManager
+	tronTxm     *trontxm.TronTxm
 	ge          gas.EvmFeeEstimator
 	maxGasPrice *assets.Wei
 
 	contracts       map[string]*types.ContractConfig
 	parsedContracts *codec.ParsedTypes
+	// Store ABI methods for Tron transaction formatting
+	abiMethods map[string]abi.Method // key: "contract.method"
 
 	encoder commontypes.Encoder
 }
@@ -123,21 +130,53 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		gasLimit = meta.GasLimit.Uint64()
 	}
 
-	req := evmtxmgr.TxRequest{
-		FromAddress:    methodConfig.FromAddress,
-		ToAddress:      common.HexToAddress(toAddress),
-		EncodedPayload: calldata,
-		FeeLimit:       gasLimit,
-		Meta:           txMeta,
-		IdempotencyKey: &transactionID,
-		Strategy:       txmgr.NewSendEveryStrategy(),
-		Checker:        checker,
-		Value:          *v,
+	if w.tronTxm == nil {
+		req := evmtxmgr.TxRequest{
+			FromAddress:    methodConfig.FromAddress,
+			ToAddress:      common.HexToAddress(toAddress),
+			EncodedPayload: calldata,
+			FeeLimit:       gasLimit,
+			Meta:           txMeta,
+			IdempotencyKey: &transactionID,
+			Strategy:       txmgr.NewSendEveryStrategy(),
+			Checker:        checker,
+			Value:          *v,
+		}
+
+		_, err = w.txm.CreateTransaction(ctx, req)
+		if err != nil {
+			return fmt.Errorf("%w; failed to create tx", err)
+		}
+
+		return nil
 	}
 
-	_, err = w.txm.CreateTransaction(ctx, req)
+	// For Tron transactions, we need to get the ABI method and format properly
+	methodKey := fmt.Sprintf("%s.%s", contract, method)
+	abiMethod, ok := w.abiMethods[methodKey]
+	if !ok {
+		return fmt.Errorf("ABI method not found for %s", methodKey)
+	}
+
+	// Build the method signature like "mint(address,uint256)"
+	methodSignature := w.buildMethodSignature(abiMethod)
+
+	// Convert args to Tron's flattened type-value format
+	// Example: struct{Address: "0x123", Amount: 100} -> []any{"address", "0x123", "uint256", "100"}
+	tronParams, err := w.convertArgsToTronParams(abiMethod, args)
 	if err != nil {
-		return fmt.Errorf("%w; failed to create tx", err)
+		return fmt.Errorf("failed to convert args to Tron params: %w", err)
+	}
+
+	err = w.tronTxm.Enqueue(trontxm.TronTxmRequest{
+		FromAddress:     address.Address(methodConfig.FromAddress.String()),
+		ContractAddress: address.Address(toAddress),
+		Method:          methodSignature,
+		Params:          tronParams,
+	})
+
+	if err != nil {
+		return fmt.Errorf("%w: failed to enqueue Tron tx", err)
 	}
 
 	return nil
@@ -155,6 +194,10 @@ func (w *chainWriter) parseContracts() error {
 			if !ok {
 				return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, methodConfig.ChainSpecificName)
 			}
+
+			// Store ABI method for Tron transaction formatting
+			methodKey := fmt.Sprintf("%s.%s", contract, method)
+			w.abiMethods[methodKey] = abiMethod
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
 			inputMod, err := methodConfig.InputModifications.ToModifier(codec.DecoderHooks...)

@@ -56,6 +56,7 @@ type EVMFactoryConfig struct {
 	EthKeystore   keystore.Eth
 	CSAKeystore   coretypes.Keystore
 	MercuryConfig coreconfig.Mercury
+	TronChainIDs  map[string]bool
 }
 
 func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.RelayAdapter, error) {
@@ -78,7 +79,12 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 			return nil, fmt.Errorf("overrides Gen* are not available in LOOPP Plugin mode: %w", errors.ErrUnsupported)
 		}
 		for _, chain := range config.ChainConfigs {
-			relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ChainID.String()}
+			network := relay.NetworkEVM
+			if config.TronChainIDs != nil && config.TronChainIDs[chain.ChainID.String()] {
+				network = relay.NetworkTron
+			}
+
+			relayID := types.RelayID{Network: network, ChainID: chain.ChainID.String()}
 			// loopp
 			cfgTOML, err := toml.Marshal(struct {
 				EVM evmtoml.EVMConfig
@@ -110,7 +116,12 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 		return nil, err
 	}
 	for _, chain := range legacyChains {
-		relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ID().String()}
+		network := relay.NetworkEVM
+		if config.TronChainIDs != nil && config.TronChainIDs[chain.ID().String()] {
+			network = relay.NetworkTron
+		}
+
+		relayID := types.RelayID{Network: network, ChainID: chain.ID().String()}
 
 		// embedded
 		relayerOpts := evmrelay.RelayerOpts{
@@ -124,6 +135,13 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 			HTTPClient:            r.HTTPClient,
 			RetirementReportCache: r.RetirementReportCache,
 		}
+
+		// For Tron chains, inject a Tron-specific TXM
+		if network == relay.NetworkTron {
+			r.Logger.Infow("Creating EVM relayer for Tron chain", "chainID", chain.ID())
+
+		}
+
 		relayer, err2 := evmrelay.NewRelayer(logger.Named(lggr, relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
 			err = errors.Join(err, err2)

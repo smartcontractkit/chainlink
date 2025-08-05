@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -34,7 +36,7 @@ func TestChainWriter(t *testing.T) {
 	l1Oracle := rollupmocks.NewL1Oracle(t)
 
 	chainWriterConfig := newBaseChainWriterConfig()
-	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
+	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig, nil)
 	require.NoError(t, err)
 
 	t.Run("Initialization", func(t *testing.T) {
@@ -43,7 +45,7 @@ func TestChainWriter(t *testing.T) {
 			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].ContractABI = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig, nil)
 			require.Error(t, err)
 		})
 
@@ -52,7 +54,7 @@ func TestChainWriter(t *testing.T) {
 			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].Configs["report"].ChainSpecificName = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig, nil)
 			require.Error(t, err)
 		})
 	})
@@ -155,6 +157,186 @@ func TestChainWriter(t *testing.T) {
 			require.Equal(t, expectedErr, err)
 		})
 	})
+
+	t.Run("Tron Conversion Methods", func(t *testing.T) {
+		t.Run("buildMethodSignature", func(t *testing.T) {
+			t.Run("Single parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("transfer", []string{"address"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "transfer(address)", signature)
+			})
+
+			t.Run("Multiple parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address", "uint256"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "mint(address,uint256)", signature)
+			})
+
+			t.Run("No parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("pause", []string{})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "pause()", signature)
+			})
+
+			t.Run("Complex types method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("complexMethod", []string{"bytes32", "bool", "uint256[]"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "complexMethod(bytes32,bool,uint256[])", signature)
+			})
+		})
+
+		t.Run("convertArgsToTronParams", func(t *testing.T) {
+			t.Run("Slice arguments", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address", "uint256"})
+				args := []any{
+					"0x1234567890123456789012345678901234567890",
+					big.NewInt(1000),
+				}
+
+				params, err := cw.(*chainWriter).convertArgsToTronParams(abiMethod, args)
+				require.NoError(t, err)
+
+				expected := []any{"address", "0x1234567890123456789012345678901234567890", "uint256", "1000"}
+				assert.Equal(t, expected, params)
+			})
+
+			t.Run("Struct arguments", func(t *testing.T) {
+				abiMethod := createTestABIMethod("transfer", []string{"address", "uint256", "bool"})
+				args := struct {
+					To     string
+					Amount *big.Int
+					Active bool
+				}{
+					To:     "0x1234567890123456789012345678901234567890",
+					Amount: big.NewInt(500),
+					Active: true,
+				}
+
+				params, err := cw.(*chainWriter).convertArgsToTronParams(abiMethod, args)
+				require.NoError(t, err)
+
+				expected := []any{"address", "0x1234567890123456789012345678901234567890", "uint256", "500", "bool", "true"}
+				assert.Equal(t, expected, params)
+			})
+
+			t.Run("Argument count mismatch in slice", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address", "uint256"})
+				args := []any{"0x1234567890123456789012345678901234567890"}
+
+				_, err := cw.(*chainWriter).convertArgsToTronParams(abiMethod, args)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "argument count mismatch")
+			})
+
+			t.Run("Field count mismatch in struct", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address", "uint256"})
+				args := struct {
+					To     string
+					Amount *big.Int
+					Extra  bool
+				}{
+					To:     "0x1234567890123456789012345678901234567890",
+					Amount: big.NewInt(500),
+					Extra:  true,
+				}
+
+				_, err := cw.(*chainWriter).convertArgsToTronParams(abiMethod, args)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "struct field count mismatch")
+			})
+
+			t.Run("Unsupported argument type", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address"})
+				args := "invalid"
+
+				_, err := cw.(*chainWriter).convertArgsToTronParams(abiMethod, args)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unsupported args type")
+			})
+		})
+
+		t.Run("convertValueToString", func(t *testing.T) {
+			t.Run("Address types", func(t *testing.T) {
+				addressType := createTestABIType("address")
+
+				result, err := cw.(*chainWriter).convertValueToString(common.HexToAddress("0x1234567890123456789012345678901234567890"), addressType)
+				require.NoError(t, err)
+				assert.Equal(t, "0x1234567890123456789012345678901234567890", result)
+
+				result, err = cw.(*chainWriter).convertValueToString("0x1234567890123456789012345678901234567890", addressType)
+				require.NoError(t, err)
+				assert.Equal(t, "0x1234567890123456789012345678901234567890", result)
+
+				_, err = cw.(*chainWriter).convertValueToString(123, addressType)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "invalid address type")
+			})
+
+			t.Run("Integer types", func(t *testing.T) {
+				uint256Type := createTestABIType("uint256")
+
+				result, err := cw.(*chainWriter).convertValueToString(big.NewInt(12345), uint256Type)
+				require.NoError(t, err)
+				assert.Equal(t, "12345", result)
+
+				result, err = cw.(*chainWriter).convertValueToString(int64(999), uint256Type)
+				require.NoError(t, err)
+				assert.Equal(t, "999", result)
+
+				result, err = cw.(*chainWriter).convertValueToString(uint32(777), uint256Type)
+				require.NoError(t, err)
+				assert.Equal(t, "777", result)
+			})
+
+			t.Run("String types", func(t *testing.T) {
+				stringType := createTestABIType("string")
+
+				result, err := cw.(*chainWriter).convertValueToString("hello world", stringType)
+				require.NoError(t, err)
+				assert.Equal(t, "hello world", result)
+
+				result, err = cw.(*chainWriter).convertValueToString(123, stringType)
+				require.NoError(t, err)
+				assert.Equal(t, "123", result)
+			})
+
+			t.Run("Boolean types", func(t *testing.T) {
+				boolType := createTestABIType("bool")
+
+				result, err := cw.(*chainWriter).convertValueToString(true, boolType)
+				require.NoError(t, err)
+				assert.Equal(t, "true", result)
+
+				result, err = cw.(*chainWriter).convertValueToString(false, boolType)
+				require.NoError(t, err)
+				assert.Equal(t, "false", result)
+
+				result, err = cw.(*chainWriter).convertValueToString("true", boolType)
+				require.NoError(t, err)
+				assert.Equal(t, "true", result)
+			})
+
+			t.Run("Bytes types", func(t *testing.T) {
+				bytesType := createTestABIType("bytes")
+
+				result, err := cw.(*chainWriter).convertValueToString([]byte{0x12, 0x34, 0xab}, bytesType)
+				require.NoError(t, err)
+				assert.Equal(t, "0x1234ab", result)
+
+				result, err = cw.(*chainWriter).convertValueToString("0x1234ab", bytesType)
+				require.NoError(t, err)
+				assert.Equal(t, "0x1234ab", result)
+			})
+
+			t.Run("Unsupported types fallback", func(t *testing.T) {
+				functionType := createTestABIType("function")
+
+				result, err := cw.(*chainWriter).convertValueToString("some_function", functionType)
+				require.NoError(t, err)
+				assert.Equal(t, "some_function", result)
+			})
+		})
+	})
 }
 
 // Helper functions to remove redundant creation of configs
@@ -182,4 +364,24 @@ func modifyChainWriterConfig(baseConfig relayevmtypes.ChainWriterConfig, modifyF
 	modifiedConfig := baseConfig
 	modifyFn(&modifiedConfig)
 	return modifiedConfig
+}
+
+func createTestABIMethod(name string, params []string) abi.Method {
+	var inputs abi.Arguments
+	for _, param := range params {
+		abiType, _ := abi.NewType(param, "", nil)
+		inputs = append(inputs, abi.Argument{
+			Type: abiType,
+		})
+	}
+
+	return abi.Method{
+		Name:   name,
+		Inputs: inputs,
+	}
+}
+
+func createTestABIType(typeStr string) abi.Type {
+	abiType, _ := abi.NewType(typeStr, "", nil)
+	return abiType
 }
