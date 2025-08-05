@@ -43,11 +43,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, chainID int, networkFamily, 
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			if logEventTriggerBinaryPath == "" {
-				return nil, errors.New("log event trigger binary path is empty")
-			}
-
-			jobSpec := libjobs.WorkerStandardCapability(nodeID, LogEventTriggerJobName(chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
+			jobSpec := libjobs.WorkerStandardCapability(nodeID, LogEventTriggerJobName(chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily), "")
 
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)

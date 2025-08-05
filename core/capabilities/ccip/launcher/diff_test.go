@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -38,7 +37,7 @@ func Test_diff(t *testing.T) {
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{},
+					IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{},
 				},
 				newState: registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
@@ -47,7 +46,7 @@ func Test_diff(t *testing.T) {
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{},
+					IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{},
 				},
 			},
 			want: diffResult{

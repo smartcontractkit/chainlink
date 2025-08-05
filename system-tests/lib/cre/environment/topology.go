@@ -55,7 +55,7 @@ func BuildTopology(
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
 		Out:                        keysOutput,
 	}
-	keys, keysErr := cresecrets.GenereteKeys(generateKeysInput)
+	keys, keysErr := cresecrets.GenerateKeys(generateKeysInput)
 	if keysErr != nil {
 		return nil, nil, errors.Wrap(keysErr, "failed to generate keys")
 	}
