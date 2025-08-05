@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_offramp"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
+	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_ccip_receiver"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -54,11 +54,6 @@ var _ cldf.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 // use this to deploy a receiver for test
 var _ cldf.ChangeSet[DeployForTestConfig] = DeployReceiverForTest
-
-// use this to set the link token on the router and feeQuoter
-// link token is a static field, so this should not be called anymore
-// we needed this cause we redeployed the link as SPL instead of SPL-2022
-var _ cldf.ChangeSet[SetLinkTokenConfig] = SetLinkToken
 
 // The user is not required to provide all the addresses, only the ones they want to update
 type OffRampRefAddressesConfig struct {
@@ -495,60 +490,6 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
-}
-
-type SetLinkTokenConfig struct {
-	ChainSelector uint64
-}
-
-func (cfg SetLinkTokenConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
-	chainState, chainExists := state.SolChains[cfg.ChainSelector]
-	if !chainExists {
-		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
-	}
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-
-	return chainState.ValidateRouterConfig(chain)
-}
-
-func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	if err := cfg.Validate(e, state); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	feeQuoterConfigPDA, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
-
-	solRouter.SetProgramID(chainState.Router)
-	routerIx, err := solRouter.NewSetLinkTokenMintInstruction(
-		chainState.LinkToken,
-		routerConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
-	}
-
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
-	feeQuoterIx, err := solFeeQuoter.NewSetLinkTokenMintInstruction(
-		feeQuoterConfigPDA,
-		chainState.LinkToken,
-		chain.DeployerKey.PublicKey(),
-	).ValidateAndBuild()
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
-	}
-
-	if err := chain.Confirm([]solana.Instruction{routerIx, feeQuoterIx}); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-	return cldf.ChangesetOutput{}, nil
 }
 
 type SetDefaultCodeVersionConfig struct {

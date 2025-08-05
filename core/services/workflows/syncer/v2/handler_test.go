@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -96,6 +97,7 @@ func Test_Handler(t *testing.T) {
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
@@ -112,7 +114,7 @@ func Test_Handler(t *testing.T) {
 
 		store := artifacts.NewStore(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
-		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store)
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -519,9 +521,10 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary  = tc.GiveBinary
-			config  = tc.GiveConfig
-			wfOwner = tc.WFOwner
+			binary                = tc.GiveBinary
+			config                = tc.GiveConfig
+			wfOwner               = tc.WFOwner
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcherFactory = tc.fetcherFactory
 		)
@@ -550,7 +553,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		fetcher := fetcherFactory()
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, opts...)
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
@@ -594,12 +597,13 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
-			config        = []byte("")
-			binaryURL     = "http://example.com/binary"
-			configURL     = "http://example.com/config"
-			wfOwner       = []byte("0xOwner")
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			binaryURL             = "http://example.com/binary"
+			configURL             = "http://example.com/config"
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
 				binaryURL: {Body: encodedBinary, Err: nil},
@@ -630,7 +634,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -671,12 +675,13 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
-			config        = []byte("")
-			binaryURL     = "http://example.com/binary"
-			configURL     = "http://example.com/config"
-			wfOwner       = []byte("0xOwner")
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			binaryURL             = "http://example.com/binary"
+			configURL             = "http://example.com/config"
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
 				binaryURL: {Body: encodedBinary, Err: nil},
@@ -697,7 +702,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedEvent{
@@ -719,12 +724,13 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
-			config        = []byte("")
-			binaryURL     = "http://example.com/binary"
-			configURL     = "http://example.com/config"
-			wfOwner       = []byte("0xOwner")
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			binaryURL             = "http://example.com/binary"
+			configURL             = "http://example.com/config"
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
 				binaryURL: {Body: encodedBinary, Err: nil},
@@ -759,7 +765,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err =
 			h.workflowRegisteredEvent(ctx, active)

@@ -427,7 +427,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 }
 
 func serviceCfg() ServiceConfig {
-	return ServiceConfig{
+	cfg := ServiceConfig{
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
 			GlobalRPS:      100,
 			GlobalBurst:    100,
@@ -440,8 +440,8 @@ func serviceCfg() ServiceConfig {
 			PerSenderRPS:   5,
 			PerSenderBurst: 5,
 		},
-		CleanUpPeriodMs: defaultCleanUpPeriodMs,
 	}
+	return WithDefaults(cfg)
 }
 
 func createTestHandler(t *testing.T) *gatewayHandler {

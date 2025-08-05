@@ -21,7 +21,7 @@ import (
 // NOPIdentity is a node operator identity
 //
 // either by operator or registration ID must be non empty
-// it is an error to have both set
+// if both are set, registration ID is used
 type NOPIdentity struct {
 	Operator       kcr.CapabilitiesRegistryNodeOperator
 	RegistrationID uint32 // onchain registration ID; 1-indexed
@@ -31,9 +31,6 @@ func (i NOPIdentity) Validate() error {
 	dflt := kcr.CapabilitiesRegistryNodeOperator{}
 	if i.Operator == dflt && i.RegistrationID == 0 {
 		return errors.New("NOPIdentity must have either Operator or RegistrationID set, both empty")
-	}
-	if i.Operator != dflt && i.RegistrationID != 0 {
-		return fmt.Errorf("NOPIdentity must have either Operator (%v) or RegistrationID (%d) set, both set", i.Operator, i.RegistrationID)
 	}
 	return nil
 }

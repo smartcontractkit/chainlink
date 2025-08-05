@@ -17,7 +17,7 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -333,13 +333,13 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 		return fmt.Errorf("rmnRemote not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		bnmTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
+		bnmTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType.String(), bnmMetadata)
 		if bnmTokenPool.IsZero() {
 			return fmt.Errorf("burnMintTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		lrTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
+		lrTokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType.String(), lrMetadata)
 		if lrTokenPool.IsZero() {
 			return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
@@ -400,14 +400,14 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType.String(), bnmMetadata)
 		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType.String(), lrMetadata)
 		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
@@ -483,14 +483,14 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType.String(), bnmMetadata)
 		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType.String(), lrMetadata)
 		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -579,7 +579,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType, bnmMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.BurnAndMint_PoolType.String(), bnmMetadata)
 		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
@@ -589,7 +589,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType, lrMetadata)
+		tokenPool, _ := chainState.GetActiveTokenPool(solTestTokenPool.LockAndRelease_PoolType.String(), lrMetadata)
 		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)

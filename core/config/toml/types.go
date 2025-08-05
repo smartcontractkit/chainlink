@@ -1844,9 +1844,10 @@ func (eerl *EngineExecutionRateLimit) setFrom(f *EngineExecutionRateLimit) {
 }
 
 type ExternalRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address         *string
+	NetworkID       *string
+	ChainID         *string
+	ContractVersion *string
 }
 
 func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
@@ -1860,6 +1861,10 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 }
 

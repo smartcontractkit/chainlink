@@ -403,8 +403,9 @@ func Test_SecretsWorker(t *testing.T) {
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
 
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, engineRegistry,
-				emitter, rl, wl, store)
+				emitter, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -586,7 +587,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store)
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -691,8 +693,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
-		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
+		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

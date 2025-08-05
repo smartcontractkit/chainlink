@@ -28,11 +28,10 @@ var (
 	ErrEmptyWriteCapName                 = errors.New("capability labelled name must not be empty")
 	ErrInvalidWriteCapName               = errors.New("capability labelled name must start with 'write_' or 'write-' and contain a valid chain name or chain ID")
 	ErrEmptyWriteCapNetworkNameOrChainID = errors.New("network_name/chain_ID must not be empty")
-	ErrInvalidWriteCapNameFormat         = errors.New("capability labelled name is not a valid chain name or chain ID")
 
 	writeCapNameRegex                 = regexp.MustCompile(`^write[_-](.+)$`)
-	writeCapChainFamilyNameRegex      = regexp.MustCompile(`^([a-z]+)$`)
-	writeCapNetworkNameOrChainIDRegex = regexp.MustCompile(`^([a-z]+(-[a-z]+)*(-\d+)?|\d+)$`)
+	writeCapChainFamilyNameRegex      = regexp.MustCompile(`^([a-z_]+)$`)
+	writeCapNetworkNameOrChainIDRegex = regexp.MustCompile(`^([a-z_]+(-[a-z_0-9]+)*(-\d+)?|\d+)$`)
 )
 
 // AddCapabilitiesRequest is a request to add capabilities
@@ -113,7 +112,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 
 	cr, err := loadCapabilityRegistry(registryChain, env, req.RegistryRef)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: '%s' %w", req.RegistryRef.String(), err)
 	}
 	useMCMS := req.MCMSConfig != nil
 	ops, err := internal.AddCapabilities(env.Logger, cr.Contract, env.BlockChains.EVMChains()[req.RegistryChainSel], req.Capabilities, useMCMS)
@@ -166,7 +165,11 @@ func ValidateWriteTargetName(name string) error {
 		return ErrEmptyWriteCapName
 	}
 
-	// Use the same regex pattern to match `write_` or `write-` prefix
+	// Only validate write target capabilities (`write_` and `write-` prefixes)
+	if !strings.HasPrefix(name, CapabilityTypeTargetNamePrefix1) && !strings.HasPrefix(name, CapabilityTypeTargetNamePrefix2) {
+		return ErrInvalidWriteCapName
+	}
+
 	matches := writeCapNameRegex.FindStringSubmatch(name)
 	if len(matches) < 2 {
 		return ErrInvalidWriteCapName
@@ -175,6 +178,12 @@ func ValidateWriteTargetName(name string) error {
 	core := matches[1]
 	if core == "" {
 		return ErrEmptyWriteCapNetworkNameOrChainID
+	}
+
+	// Handle suffix like `:region_secondary`
+	colonIdx := strings.Index(core, ":")
+	if colonIdx != -1 {
+		core = core[:colonIdx] // Remove suffix for validation
 	}
 
 	var chainFamilyName, networkNameOrChainID string
