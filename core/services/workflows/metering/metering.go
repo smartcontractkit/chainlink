@@ -392,8 +392,9 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	// Group by resource dimension
 	for _, nodeDetail := range spendsByNode {
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
-			Peer2PeerID: nodeDetail.Peer2PeerID,
-			SpendValue:  nodeDetail.SpendValue,
+			Peer2PeerID:   nodeDetail.Peer2PeerID,
+			SpendValue:    nodeDetail.SpendValue,
+			CRESpendValue: decimal.NewFromInt(67),
 		})
 	}
 
@@ -405,7 +406,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		}
 
 		deciVals := []decimal.Decimal{}
-		for _, detail := range spendDetails {
+		for idx, detail := range spendDetails {
 			value, err := decimal.NewFromString(detail.SpendValue)
 			if err != nil {
 				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
@@ -418,6 +419,10 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 				// are converted to provide spend as big.Int fixed point values
 				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
 				value = value.Shift(18) // shift to fixed point value
+			}
+
+			if val, err := r.balance.ConvertToBalance(unit, value); err == nil {
+				resourceSpends[unit][idx].CRESpendValue = val
 			}
 
 			deciVals = append(deciVals, value)
@@ -493,9 +498,10 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		for unit, details := range step.Spends {
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
-					Peer_2PeerId: detail.Peer2PeerID,
-					SpendUnit:    unit,
-					SpendValue:   detail.SpendValue,
+					Peer_2PeerId:  detail.Peer2PeerID,
+					SpendUnit:     unit,
+					SpendValue:    detail.SpendValue,
+					SpendValueCre: detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
 				})
 			}
 

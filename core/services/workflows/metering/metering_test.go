@@ -961,9 +961,10 @@ func Test_Report_FormatReport(t *testing.T) {
 			expected[stepRef] = &eventspb.MeteringReportStep{
 				Nodes: []*eventspb.MeteringReportNodeDetail{
 					{
-						Peer_2PeerId: "xyz",
-						SpendUnit:    billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-						SpendValue:   "42",
+						Peer_2PeerId:  "xyz",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "42",
+						SpendValueCre: "84.000",
 					},
 				},
 				AggSpendValue:    "42.000",
