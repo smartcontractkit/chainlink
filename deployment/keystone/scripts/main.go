@@ -122,6 +122,7 @@ func main() {
 	// Build JD command hierarchy
 	jdCmd.AddCommand(jdCreateCmd)
 	jdCmd.AddCommand(jdAptosCmd)
+	jdCmd.AddCommand(newJDAcceptCmd())
 
 	jdCmd.Flags().StringVarP(&jdConfigPath, "jd-config", "j", "jd.toml", "Path to Job Distributor TOML config file")
 
@@ -776,3 +777,212 @@ func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chai
 
 	return nil
 }
+
+func newJDAcceptCmd() *cobra.Command {
+	var (
+		nodeURL    string
+		email      string
+		password   string
+		proposalID string
+		force      bool
+		all        bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "accept",
+		Short: "Accept job proposals on Chainlink nodes",
+		Long:  "Accepts job proposals from Job Distributors using the GraphQL API",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			nodeConfig, err := loadConfig(configPath)
+			if err != nil {
+				return fmt.Errorf("failed to load node configuration: %w", err)
+			}
+
+			// If nodeURL is specified, accept proposals for single node
+			if nodeURL != "" {
+				return acceptJobProposalsForNode(ctx, nodeURL, email, password, proposalID, force, all)
+			}
+
+			// Otherwise, accept proposals for all nodes (excluding bootstrap nodes)
+			for _, node := range nodeConfig.Nodes {
+				if node.Bootstrap {
+					log.Printf("Skipping bootstrap node: %s", node.Name)
+					continue
+				}
+
+				log.Printf("Accepting job proposals for node: %s", node.Connection.BaseURL)
+				if err := acceptJobProposalsForNode(ctx, node.Connection.BaseURL, node.Credentials.Email, node.Credentials.Password, proposalID, force, all); err != nil {
+					log.Printf("Failed to accept job proposals for node %s: %v", node.Connection.BaseURL, err)
+					continue
+				}
+				log.Printf("Successfully processed job proposals for node: %s", node.Connection.BaseURL)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&nodeURL, "node-url", "", "URL of a specific Chainlink node (optional)")
+	cmd.Flags().StringVar(&email, "email", "", "Email for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&password, "password", "", "Password for node authentication (required if using --node-url)")
+	cmd.Flags().StringVar(&proposalID, "proposal-id", "", "Specific proposal ID to accept (optional)")
+	cmd.Flags().BoolVar(&force, "force", false, "Force acceptance even if proposal is already approved")
+	cmd.Flags().BoolVar(&all, "all", false, "Accept all pending proposals")
+
+	return cmd
+}
+
+// Helper function to accept job proposals for a single node
+func acceptJobProposalsForNode(ctx context.Context, nodeURL, email, password, proposalID string, force, acceptAll bool) error {
+	// Create GraphQL client credentials
+	creds := client.Credentials{
+		Email:    email,
+		Password: password,
+	}
+
+	// Connect to the node using GraphQL client
+	gc, err := client.NewWithContext(ctx, nodeURL, creds)
+	if err != nil {
+		return fmt.Errorf("failed to connect to node %s: %w", nodeURL, err)
+	}
+
+	return acceptSingleProposal(ctx, gc, proposalID, force)
+
+}
+
+// Accept a single proposal by ID
+func acceptSingleProposal(ctx context.Context, gc client.Client, proposalID string, force bool) error {
+	log.Printf("Accepting job proposal with ID: %s", proposalID)
+
+	// Get the proposal details first
+	proposal, err := gc.GetJobProposal(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("failed to get job proposal %s: %w", proposalID, err)
+	}
+
+	if proposal == nil {
+		return fmt.Errorf("job proposal %s not found", proposalID)
+	}
+
+	log.Printf("Proposal: %s - Status: %s", proposal.LatestSpec.Definition, proposal.LatestSpec.Status)
+
+	// Check if already approved (unless force is true)
+	if !force && proposal.LatestSpec.Status == "APPROVED" {
+		log.Printf("Proposal %s is already approved, skipping", proposalID)
+		return nil
+	}
+
+	// Accept the proposal
+	result, err := gc.ApproveJobProposalSpec(ctx, proposalID, force)
+	if err != nil {
+		return fmt.Errorf("failed to approve job proposal %s: %w", proposalID, err)
+	}
+
+	if result != nil {
+		log.Printf("Successfully approved job proposal %s", proposalID)
+		fmt.Printf("Approved job proposal: %s\n", proposalID)
+	}
+
+	return nil
+}
+
+/*
+// Accept all pending proposals
+func acceptAllPendingProposals(ctx context.Context, gc client.Client, force bool) error {
+	log.Printf("Accepting all pending job proposals")
+
+	// List all job proposals
+	proposals, err := gc.ListJobProposals(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list job proposals: %w", err)
+	}
+
+	if len(proposals.FeedsManagers.Results) == 0 {
+		log.Printf("No job proposals found")
+		return nil
+	}
+
+	acceptedCount := 0
+	skippedCount := 0
+
+	// Process each proposal
+	for _, manager := range proposals.FeedsManagers.Results {
+		for _, proposal := range manager.JobProposals {
+			// Skip if already approved (unless force is true)
+			if !force && proposal.Status == "APPROVED" {
+				log.Printf("Skipping already approved proposal: %s", proposal.Id)
+				skippedCount++
+				continue
+			}
+
+			// Skip if not in pending state (PENDING, REJECTED, etc.)
+			if proposal.Status != "PENDING" && proposal.Status != "REJECTED" && !force {
+				log.Printf("Skipping proposal %s with status: %s", proposal.Id, proposal.Status)
+				skippedCount++
+				continue
+			}
+
+			log.Printf("Accepting proposal: %s (Status: %s)", proposal.Id, proposal.Status)
+
+			// Accept the proposal
+			result, err := gc.ApproveJobProposalSpec(ctx, proposal.Id, force)
+			if err != nil {
+				log.Printf("Failed to approve proposal %s: %v", proposal.Id, err)
+				continue
+			}
+
+			if result != nil {
+				acceptedCount++
+				log.Printf("Successfully approved proposal: %s", proposal.Id)
+			}
+		}
+	}
+
+	fmt.Printf("Processed job proposals: %d accepted, %d skipped\n", acceptedCount, skippedCount)
+	return nil
+}
+
+// List proposals and prompt for acceptance (interactive mode)
+func listAndPromptForProposals(ctx context.Context, gc client.Client, force bool) error {
+	log.Printf("Listing job proposals for review")
+
+	// List all job proposals
+	proposals, err := gc.ListJobProposals(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list job proposals: %w", err)
+	}
+
+	if len(proposals.FeedsManagers.Results) == 0 {
+		fmt.Println("No job proposals found")
+		return nil
+	}
+
+	// Display proposals
+	fmt.Println("\nAvailable Job Proposals:")
+	fmt.Println("========================")
+
+	proposalCount := 0
+	for _, manager := range proposals.FeedsManagers.Results {
+		for _, proposal := range manager.JobProposals {
+			proposalCount++
+			fmt.Printf("%d. ID: %s\n", proposalCount, proposal.Id)
+			fmt.Printf("   Status: %s\n", proposal.Status)
+			fmt.Printf("   Definition: %s\n", proposal.Spec.Definition)
+			fmt.Printf("   Created: %s\n", proposal.CreatedAt)
+			fmt.Println("   ---")
+		}
+	}
+
+	if proposalCount == 0 {
+		fmt.Println("No job proposals found")
+		return nil
+	}
+
+	fmt.Printf("\nFound %d job proposal(s)\n", proposalCount)
+	fmt.Println("Use --proposal-id <id> to accept a specific proposal")
+	fmt.Println("Use --all to accept all pending proposals")
+
+	return nil
+}
+*/
