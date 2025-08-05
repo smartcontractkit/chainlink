@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
@@ -496,7 +495,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				1,
 				[]solana.PublicKey{deployerKey, tokenPoolSignerPDA},
 				solanaRpcClient,
-				rpc.CommitmentConfirmed,
+				solRpc.CommitmentConfirmed,
 			)
 			require.NoError(t, ixErrMsig)
 
@@ -504,7 +503,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				solanaRpcClient,
 				ixMsig,
 				deployerPrivKey,
-				rpc.CommitmentConfirmed,
+				solRpc.CommitmentConfirmed,
 				solCommon.AddSigners(multisig, deployerPrivKey),
 			)
 			require.NotNil(t, res)
