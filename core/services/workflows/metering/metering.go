@@ -361,23 +361,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 
 	// Group by resource dimension
 	for _, nodeDetail := range spendsByNode {
-		var spendUnit string
-		switch nodeDetail.SpendUnit {
-		case "compute", "RESOURCE_TYPE_COMPUTE":
-			spendUnit = "RESOURCE_TYPE_COMPUTE"
-
-		case "payload", "RESOURCE_TYPE_NETWORK":
-			spendUnit = "RESOURCE_TYPE_NETWORK"
-
-		case "Gas":
-			spendUnit = "Gas"
-
-		default:
-			r.lggr.Error("unknown spend unit", "spendUnit", nodeDetail.SpendUnit)
-			spendUnit = nodeDetail.SpendUnit
-		}
-
-		resourceSpends[spendUnit] = append(resourceSpends[spendUnit], ReportStepDetail{
+		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
 			Peer2PeerID: nodeDetail.Peer2PeerID,
 			SpendValue:  nodeDetail.SpendValue,
 		})
