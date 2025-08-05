@@ -1,9 +1,12 @@
-package registrysyncer
+package v2
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,20 +15,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type Listener interface {
-	OnNewRegistry(ctx context.Context, registry *LocalRegistry) error
-}
-
 type Syncer interface {
 	services.Service
-	AddListener(h ...Listener)
+	AddListener(h ...registrysyncer.Listener)
 }
 
 type ContractReaderFactory interface {
@@ -34,7 +35,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddListener(listeners ...Listener)
+	AddListener(listeners ...registrysyncer.Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -46,16 +47,16 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	listeners            []Listener
+	listeners            []registrysyncer.Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
 	getPeerID            func() (p2ptypes.PeerID, error)
 
-	orm ORM
+	orm registrysyncer.ORM
 
-	updateChan chan *LocalRegistry
+	updateChan chan *registrysyncer.LocalRegistry
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -74,7 +75,7 @@ func New(
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer ContractReaderFactory,
 	registryAddress string,
-	orm ORM,
+	orm registrysyncer.ORM,
 ) (RegistrySyncer, error) {
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
@@ -84,7 +85,7 @@ func New(
 	return &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
-		updateChan: make(chan *LocalRegistry),
+		updateChan: make(chan *registrysyncer.LocalRegistry),
 		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
@@ -101,26 +102,7 @@ func New(
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error) {
-	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
-			"CapabilitiesRegistry": {
-				ContractABI: kcr.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-					"getDONs": {
-						ChainSpecificName: "getDONs",
-					},
-					"getCapabilities": {
-						ChainSpecificName: "getCapabilities",
-					},
-					"getNodes": {
-						ChainSpecificName: "getNodes",
-					},
-				},
-			},
-		},
-	}
-
-	contractReaderConfigEncoded, err := json.Marshal(contractReaderConfig)
+	contractReaderConfigEncoded, err := json.Marshal(buildV2ContractReaderConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +115,49 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 	err = cr.Bind(ctx, []types.BoundContract{capabilitiesContract})
 
 	return cr, err
+}
+
+// buildV2ContractReaderConfig creates the contract reader configuration for V2 capabilities registry
+func buildV2ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
+	return evmrelaytypes.ChainReaderConfig{
+		Contracts: map[string]evmrelaytypes.ChainContractReader{
+			"CapabilitiesRegistry": {
+				ContractABI: capabilities_registry_v2.CapabilitiesRegistryABI,
+				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+					"getDONs": {
+						ChainSpecificName: "getDONs",
+					},
+					"getCapabilities": {
+						ChainSpecificName: "getCapabilities",
+					},
+					"getNodes": {
+						ChainSpecificName: "getNodes",
+					},
+					"getDONsInFamily": {
+						ChainSpecificName: "getDONsInFamily",
+					},
+					"getHistoricalDONInfo": {
+						ChainSpecificName: "getHistoricalDONInfo",
+					},
+					"getNode": {
+						ChainSpecificName: "getNode",
+					},
+					"getNodeOperator": {
+						ChainSpecificName: "getNodeOperator",
+					},
+					"getNodeOperators": {
+						ChainSpecificName: "getNodeOperators",
+					},
+					"getNodesByP2PIds": {
+						ChainSpecificName: "getNodesByP2PIds",
+					},
+					"isCapabilityDeprecated": {
+						ChainSpecificName: "isCapabilityDeprecated",
+					},
+				},
+			},
+		},
+	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
@@ -203,89 +228,85 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
-	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToCapabilities := map[string]Capability{}
-	hashedIDsToCapabilityIDs := map[[32]byte]string{}
+	idsToCapabilities := map[string]registrysyncer.Capability{}
 	for _, c := range caps {
-		cid := fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
-		idsToCapabilities[cid] = Capability{
-			ID:             cid,
-			CapabilityType: toCapabilityType(c.CapabilityType),
+		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, parseErr)
 		}
-
-		hashedIDsToCapabilityIDs[c.HashedId] = cid
+		idsToCapabilities[c.CapabilityId] = registrysyncer.Capability{
+			ID:             c.CapabilityId,
+			CapabilityType: toCapabilityType(capabilityType),
+		}
 	}
 
-	dons := []kcr.CapabilitiesRegistryDONInfo{}
+	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{}
 
 	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToDONs := map[DonID]DON{}
+	idsToDONs := map[registrysyncer.DonID]registrysyncer.DON{}
 	for _, d := range dons {
-		cc := map[string]CapabilityConfiguration{}
+		cc := map[string]registrysyncer.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
-			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
-			if !ok {
-				return nil, fmt.Errorf("invariant violation: could not find full ID for hashed ID %s", dc.CapabilityId)
-			}
-
-			cc[cid] = CapabilityConfiguration{
+			cc[dc.CapabilityId] = registrysyncer.CapabilityConfiguration{
 				Config: dc.Config,
 			}
 		}
 
-		idsToDONs[DonID(d.Id)] = DON{
+		idsToDONs[registrysyncer.DonID(d.Id)] = registrysyncer.DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}
 	}
 
-	nodes := []kcr.INodeInfoProviderNodeInfo{}
+	nodes := []capabilities_registry_v2.INodeInfoProviderNodeInfo{}
 
 	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]NodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for _, node := range nodes {
-		nodeInfo := NodeInfo{
+		nodeInfo := registrysyncer.NodeInfo{
 			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,
 			Signer:              node.Signer,
 			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilitiesDONIds:  node.CapabilitiesDONIds,
-			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIds)),
-			CapabilityIDs:       make([]string, len(node.HashedCapabilityIds)),
+			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
+			HashedCapabilityIDs: make([][32]byte, 0, len(node.CapabilityIds)),
+			CsaKey:              node.CsaKey,
+			CapabilityIDs:       node.CapabilityIds,
 		}
-		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIds)
+		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
 
-		// Backfill capability IDs
-		for i, hashedCapID := range node.HashedCapabilityIds {
-			capabilityID, ok := hashedIDsToCapabilityIDs[hashedCapID]
-			if !ok {
-				s.lggr.Warnw("failed to find capability ID for hashed ID, skipping", "hashedID", hashedCapID)
+		// Backfill hashed capability IDs
+		for _, capID := range node.CapabilityIds {
+			hashedCapID, err := HashCapabilityID(capID)
+			if err != nil {
+				s.lggr.Warnw("failed to hash capability ID, skipping", "capabilityID", capID, "error", err)
 				continue
 			}
-			nodeInfo.CapabilityIDs[i] = capabilityID
+			nodeInfo.HashedCapabilityIDs = append(nodeInfo.HashedCapabilityIDs, hashedCapID)
 		}
 
 		idsToNodes[node.P2pId] = nodeInfo
 	}
 
-	return &LocalRegistry{
+	return &registrysyncer.LocalRegistry{
 		Logger:            s.lggr,
 		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
@@ -312,7 +333,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var latestRegistry *LocalRegistry
+	var latestRegistry *registrysyncer.LocalRegistry
 	var err error
 
 	if isInitialSync {
@@ -348,7 +369,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := DeepCopyLocalRegistry(latestRegistry)
+		lrCopy := registrysyncer.DeepCopyLocalRegistry(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -382,23 +403,26 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 	}
 }
 
-func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
+func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	peerIDs := []p2ptypes.PeerID{}
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
 	}
 
 	return &capabilities.DON{
+		Name:             don.Name,
 		ID:               don.Id,
+		Families:         don.DonFamilies,
 		ConfigVersion:    don.ConfigCount,
 		Members:          peerIDs,
 		F:                don.F,
 		IsPublic:         don.IsPublic,
 		AcceptsWorkflows: don.AcceptsWorkflows,
+		Config:           don.Config,
 	}
 }
 
-func (s *registrySyncer) AddListener(listeners ...Listener) {
+func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.listeners = append(s.listeners, listeners...)
@@ -421,4 +445,43 @@ func (s *registrySyncer) HealthReport() map[string]error {
 
 func (s *registrySyncer) Name() string {
 	return s.lggr.Name()
+}
+
+// CapabilityMetadata represents the metadata structure for V2 capabilities
+type CapabilityMetadata struct {
+	CapabilityType uint8 `json:"capabilityType"`
+	ResponseType   uint8 `json:"responseType"`
+}
+
+// parseCapabilityMetadata extracts capability type and response type from V2 metadata
+func parseCapabilityMetadata(metadata []byte) (capabilityType, responseType uint8, err error) {
+	if len(metadata) == 0 {
+		return 0, 0, errors.New("metadata is empty")
+	}
+
+	var meta CapabilityMetadata
+	if err := json.Unmarshal(metadata, &meta); err != nil {
+		return 0, 0, fmt.Errorf("invalid metadata: %w", err)
+	}
+
+	return meta.CapabilityType, meta.ResponseType, nil
+}
+
+// parseCapabilityID parses a V2 capability ID (e.g., "write-chain@1.0.1") into name and version parts
+func parseCapabilityID(capabilityID string) (name, version string, err error) {
+	parts := strings.Split(capabilityID, "@")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid capability ID format: %s (expected format: name@version)", capabilityID)
+	}
+	return parts[0], parts[1], nil
+}
+
+// hashCapabilityID creates a hashed capability ID from a V2 capability ID string
+func HashCapabilityID(capabilityID string) ([32]byte, error) {
+	name, version, err := parseCapabilityID(capabilityID)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	return common.HashedCapabilityID(name, version)
 }

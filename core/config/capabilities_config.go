@@ -9,6 +9,7 @@ type CapabilitiesExternalRegistry interface {
 	Address() string
 	NetworkID() string
 	ChainID() string
+	ContractVersion() string
 	RelayID() types.RelayID
 }
 

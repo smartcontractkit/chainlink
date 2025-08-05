@@ -13,7 +13,6 @@ import (
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -42,7 +41,7 @@ func New(
 		homeChainReader: homeChainReader,
 		regState: registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
 		tickInterval:  tickInterval,
