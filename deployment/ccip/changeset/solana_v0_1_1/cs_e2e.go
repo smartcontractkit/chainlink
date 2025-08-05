@@ -300,17 +300,18 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 		// transfer pool to timelock
 		if cfg.MCMS != nil {
-			if tokenCfg.PoolType == shared.BurnMintTokenPool {
+			switch tokenCfg.PoolType {
+			case shared.BurnMintTokenPool:
 				poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
 					poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
 					tokenCfg.TokenPubKey,
 				)
-			} else if tokenCfg.PoolType == shared.LockReleaseTokenPool {
+			case shared.LockReleaseTokenPool:
 				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
 					poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
 					tokenCfg.TokenPubKey,
 				)
-			} else if tokenCfg.PoolType == shared.CCTPTokenPool {
+			case shared.CCTPTokenPool:
 				poolsByType.CCTPTokenPoolMints = append(poolsByType.CCTPTokenPoolMints, tokenCfg.TokenPubKey)
 			}
 		}

@@ -101,9 +101,9 @@ func getPoolPDAs(
 
 type TokenPoolConfig struct {
 	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
-	PoolType    cldf.ContractType
-	TokenPubKey solana.PublicKey
-	Metadata    string // tag to identify which client/cll token pool executable to use
+	PoolType                 cldf.ContractType
+	TokenPubKey              solana.PublicKey
+	Metadata                 string           // tag to identify which client/cll token pool executable to use
 	CCTPTokenMessengerMinter solana.PublicKey // required if PoolType is CCTPTokenPool
 	CCTPMessageTransmitter   solana.PublicKey // required if PoolType is CCTPTokenPool
 }
@@ -1465,10 +1465,10 @@ func getInstructionsForCCTP(
 
 // ADD TOKEN POOL LOOKUP TABLE
 type TokenPoolLookupTableConfig struct {
-	ChainSelector uint64
-	TokenPubKey   solana.PublicKey
-	PoolType      cldf.ContractType
-	Metadata      string
+	ChainSelector            uint64
+	TokenPubKey              solana.PublicKey
+	PoolType                 cldf.ContractType
+	Metadata                 string
 	CCTPTokenMessengerMinter solana.PublicKey
 	CCTPMessageTransmitter   solana.PublicKey
 }
@@ -1783,13 +1783,13 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 		cfg.Metadata,
 	)
 	authority := GetAuthorityForIxn(
-			&e,
-			chain,
-			chainState,
-			cfg.PoolType,
-			tokenPubKey,
-			cfg.Metadata,
-		)
+		&e,
+		chain,
+		chainState,
+		cfg.PoolType,
+		tokenPubKey,
+		cfg.Metadata,
+	)
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
@@ -2148,13 +2148,13 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey, tokenPool)
 	authority := GetAuthorityForIxn(
-			&e,
-			chain,
-			chainState,
-			cfg.PoolType,
-			tokenPubKey,
-			cfg.Metadata,
-		)
+		&e,
+		chain,
+		chainState,
+		cfg.PoolType,
+		tokenPubKey,
+		cfg.Metadata,
+	)
 
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
@@ -2358,7 +2358,7 @@ type SyncDomainConfig struct {
 }
 
 type CctpChainConfig struct {
-	Domain uint32
+	Domain            uint32
 	DestinationCaller solana.PublicKey
 }
 
@@ -2415,24 +2415,24 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 
 	statePDA, err := solTokenUtil.TokenPoolConfigAddress(usdcToken, cctpTokenPool)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token pool config PDA: %w", err) 
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token pool config PDA: %w", err)
 	}
 
 	var txns []mcmsTypes.Transaction
 	cctp_token_pool.SetProgramID(cctpTokenPool)
 	for remoteChainSel, cctpConfig := range cfg.CCTPChainConfigMap {
 		e.Logger.Infow("Setting up USDC token pool CCTP config for remote chain", "remote_chain_selector", remoteChainSel, "domain", cctpConfig.Domain, "destination_caller", cctpConfig.DestinationCaller.String())
-		
+
 		chainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(remoteChainSel, usdcToken, cctpTokenPool)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token pool config PDA: %w", err) 
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token pool config PDA: %w", err)
 		}
 
 		ix, err := cctp_token_pool.NewEditChainRemoteConfigCctpInstruction(
 			remoteChainSel,
 			usdcToken,
 			cctp_token_pool.CctpChain{
-				DomainId: cctpConfig.Domain,
+				DomainId:          cctpConfig.Domain,
 				DestinationCaller: cctpConfig.DestinationCaller,
 			},
 			statePDA,

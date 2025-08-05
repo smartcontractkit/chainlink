@@ -97,9 +97,9 @@ func getPoolPDAs(
 
 type TokenPoolConfig struct {
 	// a pool pda is uniquely identified by (solTokenPubKey, poolType, metadata)
-	PoolType                 cldf.ContractType
-	TokenPubKey              solana.PublicKey
-	Metadata                 string           // tag to identify which client/cll token pool executable to use'
+	PoolType    cldf.ContractType
+	TokenPubKey solana.PublicKey
+	Metadata    string // tag to identify which client/cll token pool executable to use'
 }
 
 type AddTokenPoolAndLookupTableConfig struct {
@@ -257,10 +257,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
-			ChainSelector:            cfg.ChainSelector,
-			TokenPubKey:              tokenPoolCfg.TokenPubKey,
-			PoolType:                 tokenPoolCfg.PoolType,
-			Metadata:                 tokenPoolCfg.Metadata,
+			ChainSelector: cfg.ChainSelector,
+			TokenPubKey:   tokenPoolCfg.TokenPubKey,
+			PoolType:      tokenPoolCfg.PoolType,
+			Metadata:      tokenPoolCfg.Metadata,
 		})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
@@ -917,10 +917,10 @@ func getInstructionsForLockRelease(
 
 // ADD TOKEN POOL LOOKUP TABLE
 type TokenPoolLookupTableConfig struct {
-	ChainSelector            uint64
-	TokenPubKey              solana.PublicKey
-	PoolType                 cldf.ContractType
-	Metadata                 string
+	ChainSelector uint64
+	TokenPubKey   solana.PublicKey
+	PoolType      cldf.ContractType
+	Metadata      string
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {

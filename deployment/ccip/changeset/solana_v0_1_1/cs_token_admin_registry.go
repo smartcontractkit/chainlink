@@ -545,7 +545,7 @@ type SetPoolTokenConfig struct {
 	PoolType          cldf.ContractType
 	Metadata          string
 	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
-	WritableIndexes     []uint8
+	WritableIndexes   []uint8
 }
 
 type SetPoolConfig struct {
