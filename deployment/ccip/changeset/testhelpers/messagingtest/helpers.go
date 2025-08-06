@@ -1,6 +1,7 @@
 package messagingtest
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
@@ -191,6 +193,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			TokenAmounts: nil,
 		}
+	case chain_selectors.FamilyTon:
+		feeToken := address.NewAddressNone()
+		if len(tc.FeeToken) > 0 {
+			feeToken, err = address.ParseAddr(tc.FeeToken)
+			require.NoError(tc.T, err)
+		}
+
+		fmt.Printf("feeToken: %s\n", feeToken.String())
+
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}

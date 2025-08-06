@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -651,6 +652,17 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 			return nil, fmt.Errorf("no ccip address found in the state for Aptos chain %d", chainSelector)
 		}
 		onRampAddressBytes = ccipAddress[:]
+	case chain_selectors.FamilyTon:
+		ramp := c.TonChains[chainSelector].OnRamp
+		if ramp.IsAddrNone() {
+			return nil, fmt.Errorf("no onramp found in the state for TON chain %d", chainSelector)
+		}
+		tonAC := ccipton.AddressCodec{}
+		onRampAddressBytes, err = tonAC.AddressStringToBytes(ramp.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert TON onramp address %s to bytes: %w", ramp.String(), err)
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}

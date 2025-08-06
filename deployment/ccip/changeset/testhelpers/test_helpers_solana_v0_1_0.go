@@ -594,9 +594,19 @@ func SendRequest(
 		return SendRequestSol(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
+	case chainsel.FamilyTon:
+		return SendRequestTon(e, state, cfg)
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
+}
+
+func SendRequestTon(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *CCIPSendReqConfig) (*AnyMsgSentEvent, error) {
+	// TODO this should be replaced with the implementation from chainlink-ton
+	return &AnyMsgSentEvent{}, nil
 }
 
 func SendRequestEVM(
@@ -1177,6 +1187,8 @@ func AddLane(
 			aptosTokenPrices[aptoscs.MustParseAddress(t, address)] = price
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
+	case chainsel.FamilyTon:
+		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
 	}
 
 	switch toFamily {
@@ -1540,6 +1552,9 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		aptosState := state.AptosChains[from]
 		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
+	case chainsel.FamilyTon:
+		tonState := state.TonChains[from]
+		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 	err = AddLane(
