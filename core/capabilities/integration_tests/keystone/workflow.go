@@ -135,7 +135,7 @@ func createLLOStreamWorkflowJob(t *testing.T,
 	return workflowJobSpec.Job()
 }
 
-// TODO(gg): are config.feedIds needed? Is config.report_id needed?
+// TODO(gg): move chainSelector into a string
 const secureMintWorkflow = `
 name: "%s"
 owner: "0x%s"

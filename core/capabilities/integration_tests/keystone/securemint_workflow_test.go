@@ -17,7 +17,6 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
@@ -45,28 +44,8 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	t.Logf("Consumer contract address: %s", consumer.Address().String())
 	t.Logf("Forwarder contract address: %s", forwarder.Address().String())
 
-	// TODO(gg): change this into a proper wait so that we can find out in case the report is not forwarded to the consumer
-	go func() {
-		ch := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
-		sub, err := forwarder.WatchReportProcessed(nil, ch, nil, nil, nil)
-		require.NoError(t, err)
-		for {
-			select {
-			case err := <-sub.Err():
-				if err != nil {
-					t.Errorf("Error watching report processed: %v", err)
-				}
-				return
-			case x := <-ch:
-				t.Logf("Forwarder received report: %+v", x)
-				if !x.Result {
-					transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumer.Address(), x.WorkflowExecutionId, x.ReportId)
-					require.NoError(t, err)
-					t.Logf("Report not forwarded to consumer, info: %+v", transmissionInfo)
-				}
-			}
-		}
-	}()
+	// make sure we know about forwarder errors in case they happen
+	trackErrorsOnForwarder(t, forwarder, consumer.Address())
 
 	// generate a wf job
 	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, int64(chainID), consumer.Address())
