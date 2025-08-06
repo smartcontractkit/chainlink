@@ -159,7 +159,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				}
 
 				// cache the observed value
-				d.toCache(opts.ConfigDigest(), streamID, val, opts.OutCtx().SeqNr)
+				d.toCache(opts.ConfigDigest(), streamID, val)
 			}
 
 			mu.Lock()
@@ -215,9 +215,9 @@ func (d *dataSource) fromCache(configDigest ocrtypes.ConfigDigest, streamID llot
 	return nil
 }
 
-func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID, val llo.StreamValue, seqNr uint64) {
+func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID, val llo.StreamValue) {
 	if d.shouldCache && val != nil {
 		// Use the current sequence number as the cache key
-		GetCache(configDigest).Add(streamID, val, seqNr)
+		GetCache(configDigest).Add(streamID, val)
 	}
 }

@@ -71,7 +71,6 @@ type Cache struct {
 
 type item struct {
 	value     llo.StreamValue
-	seqNr     uint64
 	createdAt time.Time
 }
 
@@ -116,10 +115,10 @@ func (c *Cache) SetLastTransmissionSeqNr(seqNr uint64) {
 }
 
 // Add adds a stream value to the cache.
-func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, seqNr uint64) {
+func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.values[id] = item{value: value, seqNr: seqNr, createdAt: time.Now()}
+	c.values[id] = item{value: value, createdAt: time.Now()}
 }
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, bool) {
@@ -130,11 +129,6 @@ func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, bool) {
 	item, ok := c.values[id]
 	if !ok {
 		promCacheMissCount.WithLabelValues(c.configDigestStr, label, "notFound").Inc()
-		return nil, false
-	}
-
-	if item.seqNr <= c.lastTransmissionSeqNr.Load() {
-		promCacheMissCount.WithLabelValues(c.configDigestStr, label, "seqNr").Inc()
 		return nil, false
 	}
 
@@ -151,9 +145,8 @@ func (c *Cache) cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	lastTransmissionSeqNr := c.lastTransmissionSeqNr.Load()
 	for id, item := range c.values {
-		if item.seqNr <= lastTransmissionSeqNr || time.Since(item.createdAt) >= c.maxAge {
+		if time.Since(item.createdAt) >= c.maxAge {
 			delete(c.values, id)
 		}
 	}
