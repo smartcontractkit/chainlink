@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -164,16 +165,16 @@ func loadConfig(path string) (Config, error) {
 	var config Config
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return Config{}, fmt.Errorf("Config file not found: %s", path)
+		return Config{}, fmt.Errorf("config file not found: %s", path)
 	}
 
 	if _, err := toml.DecodeFile(path, &config); err != nil {
-		return Config{}, fmt.Errorf("Failed to decode config file: %w", err)
+		return Config{}, fmt.Errorf("failed to decode config file: %w", err)
 	}
 
 	// Check if we have any nodes configured
 	if len(config.Nodes) == 0 {
-		return Config{}, fmt.Errorf("No nodes configured in the config file")
+		return Config{}, errors.New("no nodes configured in the config file")
 	}
 
 	return config, nil
@@ -182,10 +183,10 @@ func loadConfig(path string) (Config, error) {
 func loadJDConfig(path string) (JobDistributorConfig, error) {
 	var jdConfig JobDistributorConfig
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return JobDistributorConfig{}, fmt.Errorf("Job Distributor config file not found: %s", path)
+		return JobDistributorConfig{}, fmt.Errorf("job Distributor config file not found: %s", path)
 	}
 	if _, err := toml.DecodeFile(path, &jdConfig); err != nil {
-		return JobDistributorConfig{}, fmt.Errorf("Failed to decode Job Distributor config file: %w", err)
+		return JobDistributorConfig{}, fmt.Errorf("failed to decode job Distributor config file: %w", err)
 	}
 	return jdConfig, nil
 }
@@ -193,7 +194,7 @@ func loadJDConfig(path string) (JobDistributorConfig, error) {
 func runInfoCommand(cmd *cobra.Command, args []string) error {
 	config, err := loadConfig(configPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load config: %w", err)
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 	// Create slice to hold all node information
 	var nodes []NodeInfo
@@ -249,12 +250,12 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	// Convert nodes to JSON
 	jsonOutput, err := json.MarshalIndent(nodes, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Failed to convert nodes to JSON: %w", err)
+		return fmt.Errorf("failed to convert nodes to JSON: %w", err)
 	}
 	// Convert bootstrap nodes to JSON
 	bootstrapJSONOutput, err := json.MarshalIndent(bootstrapNodes, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Failed to convert bootstrap nodes to JSON: %w", err)
+		return fmt.Errorf("failed to convert bootstrap nodes to JSON: %w", err)
 	}
 
 	// Write output to file or stdout
@@ -263,7 +264,7 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	} else {
 		err = os.WriteFile(outputPath, jsonOutput, 0600)
 		if err != nil {
-			return fmt.Errorf("Failed to write output to file: %w", err)
+			return fmt.Errorf("failed to write output to file: %w", err)
 		}
 		log.Printf("Output written to %s", outputPath)
 	}
@@ -274,7 +275,7 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	} else {
 		err = os.WriteFile(bootstrapOutputPath, bootstrapJSONOutput, 0600)
 		if err != nil {
-			return fmt.Errorf("Failed to write bootstrap output to file: %w", err)
+			return fmt.Errorf("failed to write bootstrap output to file: %w", err)
 		}
 		log.Printf("Bootstrap output written to %s", bootstrapOutputPath)
 	}
@@ -345,13 +346,13 @@ func nodeInfo(ctx context.Context, nodeConfig NodeConfig) (NodeInfo, error) {
 func runJDCommand(cmd *cobra.Command, args []string) error {
 	nodeConfig, err := loadConfig(configPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load node configuration: %w", err)
+		return fmt.Errorf("failed to load node configuration: %w", err)
 	}
 
 	// Load JD configuration
 	jdConfig, err := loadJDConfig(jdConfigPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load Job Distributor configuration: %w", err)
+		return fmt.Errorf("failed to load Job Distributor configuration: %w", err)
 	}
 
 	// Map node names to configurations for quick lookup
@@ -369,9 +370,7 @@ func runJDCommand(cmd *cobra.Command, args []string) error {
 
 	for _, node := range nodeConfig.Nodes {
 		log.Printf("Creating Job Distributor for node: %s", node.Name)
-
 		{
-
 			// Create client credentials
 			creds := client.Credentials{
 				Email:    node.Credentials.Email,
@@ -657,7 +656,6 @@ func newJDAptosCmd() *cobra.Command {
 	cmd.Flags().StringVar(&email, "email", "", "Email for node authentication (required if using --node-url)")
 	cmd.Flags().StringVar(&password, "password", "", "Password for node authentication (required if using --node-url)")
 	cmd.Flags().StringVar(&chainID, "chain-id", "2", "Aptos chain ID (default: 2 for testnet)")
-	//cmd.Flags().StringVar(&jdCSAKey, "jd-csa-key", "41dcc9f2d7bf9d7510d95995c1ecac09a2116f0c902a1d532cf010bfb91badf1", "Job Distributor CSA key (default: 41dcc9f2d7bf9d7510d95995c1ecac09a2116f0c902a1d532cf010bfb91badf1)")
 	cmd.Flags().StringVar(&chainName, "chain-name", "aptos-testnet", "Aptos chain name")
 	cmd.Flags().StringVar(&adminAddr, "admin-addr", "0x0000000000000000000000000000000000000000", "Admin address for Aptos chain")
 	return cmd
@@ -701,7 +699,6 @@ func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chai
 
 	jds, err := gc.ListJobDistributors(ctx)
 	if err != nil {
-		log.Printf("Warning: failed to list job distributors: %w", err)
 		return fmt.Errorf("failed to list job distributors: %w", err)
 	}
 
