@@ -31,6 +31,7 @@ const (
 	testWorkflowOwnerC = "3300000000000000000000000000000000000000"
 
 	testWorkflowNameA = "my-best-workflow"
+	testWorkflowTagA  = "test-tag"
 )
 
 func TestEngineConfig_Validate(t *testing.T) {
@@ -72,6 +73,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		WorkflowID:                    testWorkflowID,
 		WorkflowOwner:                 testWorkflowOwnerA,
 		WorkflowName:                  name,
+		WorkflowTag:                   testWorkflowTagA,
 		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		LocalLimits:                   v2.EngineLimits{},
 		GlobalLimits:                  sLimiter,

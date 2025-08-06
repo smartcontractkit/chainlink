@@ -72,6 +72,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowOwner:            c.cfg.WorkflowOwner,
 			WorkflowName:             c.cfg.WorkflowName.String(),
+			WorkflowTag:              c.cfg.WorkflowTag,
 			WorkflowDonID:            c.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
