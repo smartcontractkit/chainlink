@@ -190,7 +190,7 @@ jobs:
 
   run-core-soak-on-release:
     needs: [docker-core]
-    uses: smartcontractkit/chainlink/.github/workflows/on-demand-ocr-soak-test.yml@e5667560098cffc3304ef576dfeead94470c2b45 # 2025-07-22
+    uses: smartcontractkit/chainlink/.github/workflows/on-demand-ocr-soak-test.yml@b424e29a479e4f80f5c02216ff2f4bc3ca534eac # 2025-08-06
     with:
       chainlink_version: ${{ github.ref_name }}
       team: CRE
