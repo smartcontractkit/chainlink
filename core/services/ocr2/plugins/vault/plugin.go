@@ -47,12 +47,29 @@ type ReportingPluginConfig struct {
 	MaxIdentifierNamespaceLenBytes int
 }
 
-func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], cfg *ReportingPluginConfig) *ReportingPluginFactory {
+func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) (*ReportingPluginFactory, error) {
+	if publicKey == nil {
+		return nil, errors.New("public key cannot be nil")
+	}
+	if privateKeyShare == nil {
+		return nil, errors.New("private key share cannot be nil")
+	}
+
+	cfg := &ReportingPluginConfig{
+		PublicKey:                      publicKey,
+		PrivateKeyShare:                privateKeyShare,
+		BatchSize:                      defaultBatchSize,
+		MaxSecretsPerOwner:             100,
+		MaxCiphertextLenBytes:          2 * 1024,
+		MaxIdentifierKeyLenBytes:       64,
+		MaxIdentifierOwnerLenBytes:     64,
+		MaxIdentifierNamespaceLenBytes: 64,
+	}
 	return &ReportingPluginFactory{
-		lggr:  lggr.Named("VaultReportingPlugin"),
+		lggr:  lggr.Named("VaultReportingPluginFactory"),
 		store: store,
 		cfg:   cfg,
-	}
+	}, nil
 }
 
 type ReportingPluginFactory struct {
@@ -63,7 +80,7 @@ type ReportingPluginFactory struct {
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	return &ReportingPlugin{
-		lggr:  r.lggr.Named("ReportingPlugin"),
+		lggr:  r.lggr.Named("VaultReportingPlugin"),
 		store: r.store,
 		cfg:   r.cfg,
 	}, ocr3_1types.ReportingPluginInfo{}, nil

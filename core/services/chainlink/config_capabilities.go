@@ -141,6 +141,10 @@ func (c *capabilitiesWorkflowRegistry) ChainID() string {
 	return *c.c.ChainID
 }
 
+func (c *capabilitiesWorkflowRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
+}
+
 func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
 }

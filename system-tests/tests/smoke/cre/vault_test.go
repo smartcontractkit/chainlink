@@ -3,6 +3,8 @@ package cre
 import (
 	"bytes"
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,8 +17,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/nacl/box"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -52,6 +56,27 @@ const NodeRequestPath = "/node"
 // This key is taken from https://smartcontractkit.github.io/chainlink-testing-framework/framework/components/blockchains/evm.html#test-private-keys
 // It couldn't find a way to read keys from the blockchain node output.
 const DefaultAnvilPrivateKey = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+
+func generateKeys(t *testing.T, workflowKey string) (string, string) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err, "Failed to generate keys")
+
+	pkb, err := pk.Marshal()
+	require.NoError(t, err, "Failed to marshal public key")
+
+	share := shares[0]
+	shareb, err := share.Marshal()
+	require.NoError(t, err, "Failed to marshal private key share")
+
+	decKey, err := hex.DecodeString(workflowKey)
+	require.NoError(t, err, "Failed to decode workflow key")
+
+	decKeySized := [32]byte(decKey)
+	encryptedShare, err := box.SealAnonymous(nil, shareb, &decKeySized, cryptorand.Reader)
+	require.NoError(t, err, "Failed to encrypt private key share")
+
+	return hex.EncodeToString(pkb), hex.EncodeToString(encryptedShare)
+}
 
 func TestVault_E2E(t *testing.T) {
 	lggr, err := logger.New()
@@ -301,6 +326,13 @@ func TestVault_E2E(t *testing.T) {
 		nodeOCRKeys, err := client.MustReadOCR2Keys()
 		require.NoError(t, err, "Should be able to get OCR2 keys from vault node")
 
+		workflowKeys, _, err := client.MustReadWorkflowKeys()
+		require.NoError(t, err, "Should be able to get workflow keys from vault node")
+		require.Len(t, workflowKeys.Data, 1, "Vault node should have at least one workflow key")
+
+		workflowKey := workflowKeys.Data[0].Attributes.PublicKey
+		pubK, secretKShare := generateKeys(t, workflowKey)
+
 		var nodeOCRKeyID string
 		for _, key := range nodeOCRKeys.Data {
 			if key.Attributes.ChainType == "evm" {
@@ -328,7 +360,11 @@ func TestVault_E2E(t *testing.T) {
 
 			[pluginConfig]
 			requestExpiryDuration = "60s"
-		`, ocr3Addr, nodeOCRKeyID, nodeTransmitterAddresses[0], bootstrapP2PLocator, c.Blockchain.ChainID)
+
+			[pluginConfig.DKG]
+			masterPublicKey = "%s"
+			encryptedPrivateKeyShare = "%s"
+		`, ocr3Addr, nodeOCRKeyID, nodeTransmitterAddresses[0], bootstrapP2PLocator, c.Blockchain.ChainID, pubK, secretKShare)
 
 		job, resp, err := client.CreateJobRaw(vaultJobSpec)
 		require.NoError(t, err, "Vault job creation request must not error")

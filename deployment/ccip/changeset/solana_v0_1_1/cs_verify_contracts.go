@@ -35,6 +35,7 @@ type VerifyBuildConfig struct {
 	VerifyRMNRemote              bool
 	BurnMintTokenPoolMetadata    []string
 	LockReleaseTokenPoolMetadata []string
+	VerifyCCTPTokenPool          bool
 	VerifyAccessController       bool
 	VerifyMCM                    bool
 	VerifyTimelock               bool
@@ -342,6 +343,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
 		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
 		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
+		{"CCTPTokenPool", chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, cfg.VerifyCCTPTokenPool},
 	}
 	for _, bnmMetadata := range cfg.BurnMintTokenPoolMetadata {
 		verifications = append(verifications, struct {

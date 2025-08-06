@@ -168,7 +168,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
-	fmt.Print("To terminate Beholder stack execute: `go run . env stop-beholder`\n\n")
+	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
 	return nil
 }

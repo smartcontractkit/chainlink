@@ -115,6 +115,8 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 		tokenPoolProgram = state.BurnMintTokenPools[c.Metadata]
 	case shared.LockReleaseTokenPool:
 		tokenPoolProgram = state.LockReleaseTokenPools[c.Metadata]
+	case shared.CCTPTokenPool:
+		tokenPoolProgram = state.CCTPTokenPool
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return

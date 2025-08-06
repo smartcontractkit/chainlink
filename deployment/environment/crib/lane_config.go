@@ -7,17 +7,17 @@ import (
 	"math/rand"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/AlekSi/pointer"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
 
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -37,6 +37,7 @@ type LaneConfiguration struct {
 	// Mode determines how lanes are configured
 	// "any-to-any" - traditional full mesh (default)
 	// "random-lanes" - generate random lanes based on count
+	// "tiered-lanes" - generate lanes with priority to higher tiered chains
 	Mode *string `toml:",omitempty"`
 
 	// NumLanes - number of random lanes to generate when Mode is "random-lanes"
@@ -44,11 +45,15 @@ type LaneConfiguration struct {
 
 	// Internal fields for caching
 	generatedLanes []LaneConfig
+
+	HighTierChainCount *int `toml:",omitempty"` // Optional, used for tiered lanes to specify how many chains are in the high tier
+	LowTierChainCount  *int `toml:",omitempty"` // Optional, used for tiered lanes to specify how many chains are in the low tier
 }
 
 const (
 	LaneModeAnyToAny    = "any-to-any"
 	LaneModeRandomLanes = "random-lanes"
+	LaneModeChainTiers  = "tiered-lanes"
 )
 
 // Validate checks the lane configuration for correctness, ensuring that
@@ -67,7 +72,15 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 	case LaneModeAnyToAny:
 		// No additional validation needed
 		return nil
+	case LaneModeChainTiers:
+		if lc.HighTierChainCount == nil || lc.LowTierChainCount == nil {
+			return errors.New("HighTierChainCount and LowTierChainCount must be provided when Mode is 'tiered-lanes'")
+		}
 
+		if *lc.HighTierChainCount+*lc.LowTierChainCount != chainCount {
+			return fmt.Errorf("HighTierChainCount (%d) + LowTierChainCount (%d) must equal total chain count (%d)",
+				*lc.HighTierChainCount, *lc.LowTierChainCount, chainCount)
+		}
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil || *lc.NumLanes <= 0 {
 			return errors.New("NumLanes must be provided and greater than 0 when Mode is 'random-lanes'")
@@ -88,8 +101,8 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 		}
 
 	default:
-		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s",
-			mode, LaneModeAnyToAny, LaneModeRandomLanes)
+		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s, %s",
+			mode, LaneModeAnyToAny, LaneModeRandomLanes, LaneModeChainTiers)
 	}
 
 	return nil
@@ -125,7 +138,9 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 	case LaneModeAnyToAny:
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
-
+	case LaneModeChainTiers:
+		lc.generatedLanes = generateChainTierLanes(chains, *lc.HighTierChainCount, *lc.LowTierChainCount)
+		return lc.generatedLanes
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil {
 			return []LaneConfig{}
@@ -140,6 +155,29 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
 	}
+}
+
+// generateChainTierLanes generates lanes where chains of a 'high' tier are connected to all chains
+// chains of a 'low' tier are only connected to chains of a 'high' tier.
+func generateChainTierLanes(chains []uint64, highTierCount, lowtierCount int) []LaneConfig {
+	uniqueLanes := mapset.NewSet[LaneConfig]()
+	highTierSels, _ := getTierChainSelectors(chains, highTierCount, lowtierCount)
+	for _, src := range highTierSels {
+		for _, dst := range chains {
+			if src != dst {
+				// make lanes bidirectional
+				uniqueLanes.Add(LaneConfig{
+					SourceChain:      src,
+					DestinationChain: dst,
+				})
+				uniqueLanes.Add(LaneConfig{
+					SourceChain:      dst,
+					DestinationChain: src,
+				})
+			}
+		}
+	}
+	return uniqueLanes.ToSlice()
 }
 
 // Helper functions for lane generation
