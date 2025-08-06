@@ -177,11 +177,21 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 		if !ok {
 			return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
 		}
-		if onchainState.USDCTokenPools == nil || onchainState.USDCTokenPools[deployment.Version1_5_1] == nil {
-			return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s", sel, deployment.Version1_5_1)
+		if onchainState.USDCTokenPools == nil {
+			return fmt.Errorf("chain %d does not have any USDC token pools deployed", sel)
 		}
-		if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPools[deployment.Version1_5_1].Address() {
-			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
+
+		var sourcePoolAddress common.Address
+		if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
+			sourcePoolAddress = pool.Address()
+		} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
+			sourcePoolAddress = pool.Address()
+		} else {
+			return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s or %s", sel, deployment.Version1_5_1, deployment.Version1_6_2)
+		}
+
+		if common.HexToAddress(token.SourcePoolAddress) != sourcePoolAddress {
+			return fmt.Errorf("chain %d has latest USDC token pool deployed at %s, "+
 				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
 				sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
 		}
@@ -302,7 +312,6 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 				state.Chains[p.HomeChainSelector].CCIPHome,
 				chainSelector,
 			)
-
 			if err != nil {
 				return nil, fmt.Errorf("fetch don id for chain: %w", err)
 			}
@@ -1151,7 +1160,7 @@ func ValidateCCIPHomeConfigSetUp(
 
 	// final sanity checks on configs.
 	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		//Pending: true,
+		// Pending: true,
 	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return fmt.Errorf("get all commit configs: %w", err)
