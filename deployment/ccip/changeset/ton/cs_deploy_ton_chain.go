@@ -1,15 +1,21 @@
 package ton
 
 import (
+	"fmt"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	tonConfig "github.com/smartcontractkit/chainlink-ton/ops/ccip/config"
+	tonOps "github.com/smartcontractkit/chainlink-ton/ops/ccip/operation"
+	"github.com/smartcontractkit/chainlink-ton/ops/ccip/sequence"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 	tonaddress "github.com/xssnick/tonutils-go/address"
-
-	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 )
 
 type DeployCCIPContractsCfg struct {
-	TonChainSelector uint64
+	TonChainSelector    uint64
+	ChainContractParams tonConfig.ChainContractParams
 }
 
 func (c DeployCCIPContractsCfg) Validate() error {
@@ -28,7 +34,6 @@ func (cs DeployCCIPContracts) VerifyPreconditions(_ cldf.Environment, _ DeployCC
 }
 
 func (cs DeployCCIPContracts) Apply(env cldf.Environment, config DeployCCIPContractsCfg) (cldf.ChangesetOutput, error) {
-	// TODO: Implement logic of deploying Ton chain packages and modules
 	// - once all contracts are deployed, we can remove the hardcoded addresses from the TonTestDeployPrerequisitesChangeSet
 	// - Deploy TON MCMS, https://smartcontract-it.atlassian.net/browse/NONEVM-1939
 	// - Deploy and initialize TON CCIP Offramp, Router, Onramp, Dummy Receiver and set the contract address https://smartcontract-it.atlassian.net/browse/NONEVM-1938
@@ -40,22 +45,49 @@ func (cs DeployCCIPContracts) Apply(env cldf.Environment, config DeployCCIPContr
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	state := chains[selector]
+	tonState := chains[selector]
 
+	ab := cldf.NewMemoryAddressBook()
+	tonChains := env.BlockChains.TonChains()
+	tonChain := tonChains[config.TonChainSelector]
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state after deployment: %w", err)
+	}
+
+	deps := tonOps.TonDeps{
+		AB:               ab,
+		TonChain:         tonChain,
+		CCIPOnChainState: state,
+	}
+
+	deployInput := sequence.DeployCCIPSeqInput{
+		CCIPConfig: config.ChainContractParams,
+	}
+
+	ccipDeployOutput, err := operations.ExecuteSequence(env.OperationsBundle, sequence.DeployCCIPSequence, deps, deployInput)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute MCMS deploy sequence: %w", err)
+	}
+
+	tonState.Router = *ccipDeployOutput.Output.RouterAddress
+	tonState.OnRamp = *ccipDeployOutput.Output.OnRampAddress
+	tonState.FeeQuoter = *ccipDeployOutput.Output.FeeQuoterAddress
+
+	// TODO replace the dummy addresses with actual deployed contracts
 	address := tonaddress.MustParseAddr("EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2")
-	state.OffRamp = *address
-	address = tonaddress.MustParseAddr("UQCfQRaJr2vxgZr5NHc0CTx6tAb0jverj9QQFirNfoCkGcUy")
-	state.Router = *address
+	tonState.OffRamp = *address
 	address = tonaddress.MustParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
-	state.LinkTokenAddress = *address
-	address = tonaddress.MustParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
-	state.OnRamp = *address
+	tonState.LinkTokenAddress = *address
 	address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
-	state.ReceiverAddress = *address
+	tonState.ReceiverAddress = *address
+
 	// update chain state
-	err = tonstate.SaveOnchainState(selector, state, env)
+	err = tonstate.SaveOnchainState(selector, tonState, env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
+
 	return cldf.ChangesetOutput{}, nil
 }

@@ -519,19 +519,18 @@ func SendRequest(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
-
+		return SendRequestTon(e, state, cfg)
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
+}
+
+func SendRequestTon(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *CCIPSendReqConfig) (*AnyMsgSentEvent, error) {
+	// TODO this should be replaced with the implementation from chainlink-ton
+	return &AnyMsgSentEvent{}, nil
 }
 
 func SendRequestEVM(
@@ -1114,12 +1113,7 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
+		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
 	}
 
 	switch toFamily {
@@ -1489,10 +1483,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	case chainsel.FamilyTon:
-		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
 		tonState := state.TonChains[from]
-		gasPrices[from] = big.NewInt(1e17)
-		gasPrices[to] = big.NewInt(1e17)
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)

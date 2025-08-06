@@ -1,7 +1,7 @@
 package messagingtest
 
 import (
-	"math/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,7 +12,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
@@ -194,22 +193,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			TokenAmounts: nil,
 		}
 	case chain_selectors.FamilyTon:
-		feeToken := ops.TonTokenAddr
+		feeToken := address.NewAddressNone()
 		if len(tc.FeeToken) > 0 {
 			feeToken, err = address.ParseAddr(tc.FeeToken)
 			require.NoError(tc.T, err)
 		}
 
-		c, err := cell.FromBOC(tc.ExtraArgs)
-		require.NoError(tc.T, err)
-
-		msg = ops.TonSendRequest{
-			QueryID:   rand.Uint64(),
-			Data:      tc.MsgData,
-			Receiver:  tc.Receiver,
-			ExtraArgs: c, // TODO handle ExtraArgs properly
-			FeeToken:  feeToken,
-		}
+		fmt.Printf("feeToken: %s\n", feeToken.String())
 
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)

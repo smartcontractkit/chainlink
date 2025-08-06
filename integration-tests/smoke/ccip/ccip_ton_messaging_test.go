@@ -6,9 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"
 	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,10 +31,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	t.Logf("Loaded state: %v", state)
 	_ = state
 
-	// make evm chains sorted for deterministic test results
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
-	slices.Sort(evmChainSelectors)
-
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := allTonChainSelectors[0]
 	destChain := evmChainSelectors[0]
@@ -48,7 +44,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	tonChain := e.Env.BlockChains.TonChains()[sourceChain]
-	ac := codec.NewAddressCodec()
+	ac := ccipton.AddressCodec{}
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
@@ -57,7 +53,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		//  nonce  uint64
+		nonce  uint64
 		sender = addrBytes
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -74,22 +70,16 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
 		require.NoError(t, err)
-
-		ea := onramp.GenericExtraArgsV2{
-			GasLimit:                 big.NewInt(1000000),
-			AllowOutOfOrderExecution: true,
-		}
-		c, err := tlb.ToCell(ea)
-		require.NoError(t, err)
 		out = mt.Run(
 			t,
 			mt.TestCase{
 				Replayed:               true,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
+				Nonce:                  &nonce,
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
-				ExtraArgs:              c.ToBOC(),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
 			},
 		)

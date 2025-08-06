@@ -107,6 +107,8 @@ func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVe
 		switch tvStr.Type {
 		case commontypes.LinkToken:
 			state.LinkTokenAddress = *address
+		case shared.TonCCIP:
+			state.OnRamp = *address
 		case shared.TonReceiver:
 			state.ReceiverAddress = *address
 		case shared.OffRamp:
@@ -115,8 +117,6 @@ func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVe
 			state.Router = *address
 		case shared.OnRamp:
 			state.OnRamp = *address
-		case shared.FeeQuoter:
-			state.FeeQuoter = *address
 		default:
 			log.Warn().Str("address", addressStr).Str("type", string(tvStr.Type)).Msg("Unknown TON address type")
 			continue
