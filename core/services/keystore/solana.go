@@ -156,7 +156,7 @@ func (ks *solana) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created Solana key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

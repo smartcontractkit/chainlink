@@ -30,8 +30,9 @@ const (
 	testWorkflowOwnerB = "2200000000000000000000000000000000000000"
 	testWorkflowOwnerC = "3300000000000000000000000000000000000000"
 
-	testWorkflowNameA = "my-best-workflow"
-	testWorkflowTagA  = "test-tag"
+	testWorkflowNameA       = "my-best-workflow"
+	hashedTestWorkflowNameA = "36363037306133663637"
+	testWorkflowTagA        = "test-tag"
 )
 
 func TestEngineConfig_Validate(t *testing.T) {
