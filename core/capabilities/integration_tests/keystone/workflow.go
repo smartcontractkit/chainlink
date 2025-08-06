@@ -156,7 +156,7 @@ consensus:
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
         targetChainSelector:
-          %d # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+          "%d" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
       encoder: "EVM"
       encoder_config:
         abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
