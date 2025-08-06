@@ -137,8 +137,8 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	servicetest.Run(t, gateway)
 }
 
-func requireJSONRPCResult(t *testing.T, response []byte, expectedID string, expectedResult string) {
-	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedID, expectedResult), string(response))
+func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID string, expectedResult string) {
+	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s,"method":"%s"}`, expectedID, expectedResult, method), string(response))
 }
 
 func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedID string, expectedCode int64, expectedMsg string) {
@@ -250,9 +250,10 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 	})
 
-	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
+	method := "request"
+	req := newSignedLegacyRequest(t, "abcd", method, "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJSONRPCResult(t, response, "abcd",
+	requireJSONRPCResult(t, method, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"request","don_id":"testDON","receiver":"","payload":{"result":"OK"}}}`)
 	require.Equal(t, 200, statusCode)
 }
@@ -270,6 +271,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      request.ID,
 			Result:  &rawResult,
+			Method:  request.Method,
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
@@ -278,7 +280,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJSONRPCResult(t, response, "abcd", `{"result":"OK"}`)
+	requireJSONRPCResult(t, "testDON", response, "abcd", `{"result":"OK"}`)
 	require.Equal(t, 200, statusCode)
 }
 
