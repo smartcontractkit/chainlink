@@ -2104,9 +2104,9 @@ func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	lggr := logger.TestLogger(t)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()

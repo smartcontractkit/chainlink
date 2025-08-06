@@ -541,6 +541,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 			BillingClient:  h.billingClient,
+			WorkflowRegistryAddress: h.workflowRegistryAddress,
+			WorkflowRegistryChainID: h.workflowRegistryChainSelector,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}

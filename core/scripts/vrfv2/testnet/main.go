@@ -215,8 +215,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
@@ -307,8 +306,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 

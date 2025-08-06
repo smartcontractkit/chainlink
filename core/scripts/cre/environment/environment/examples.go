@@ -162,6 +162,11 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
 
+	// Print workflow owner and name for debugging purposes
+	workflowOwner := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266") // Default Anvil address
+	fmt.Printf("Workflow Owner: %s\n", workflowOwner.Hex())
+	fmt.Printf("Workflow Name: %s\n", workflowName)
+
 	fmt.Print(libformat.PurpleText("\n[Stage 2/3] Registered workflow in %.2f seconds\n", time.Since(start).Seconds()))
 	fmt.Print(libformat.PurpleText("[Stage 3/3] Waiting for %.2f seconds for workflow to execute successfully\n\n", timeout.Seconds()))
 
