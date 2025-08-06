@@ -232,6 +232,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			case <-d.observationLoopCh:
 				return
 			default:
+				// Sleep between rounds of observations.
+				time.Sleep(time.Millisecond)
 			}
 		}
 	}()

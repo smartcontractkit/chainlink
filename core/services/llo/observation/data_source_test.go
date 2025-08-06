@@ -24,6 +24,7 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -214,9 +215,12 @@ func Test_DataSource(t *testing.T) {
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals)
 
-			require.Len(t, tm.v3PremiumLegacyPackets, 3)
+			// We are getting the first three because those should be the ones from the first round of observations.
+			firstThreePackets := tm.v3PremiumLegacyPackets[:3]
+
+			require.Len(t, firstThreePackets, 3)
 			m := make(map[int]v3PremiumLegacyPacket)
-			for _, pkt := range tm.v3PremiumLegacyPackets {
+			for _, pkt := range firstThreePackets {
 				m[int(pkt.run.ID)] = pkt
 			}
 			pkt := m[100]
@@ -227,9 +231,17 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
 			require.NoError(t, pkt.err)
 
+			assert.Equal(t, "40602", m[101].val.(*llo.Decimal).String())
+			assert.Equal(t, "15", m[102].val.(*llo.Decimal).String())
+
 			telems := []interface{}{}
 			for p := range tm.ch {
 				telems = append(telems, p)
+
+				// We are getting the first three because those should be the ones from the first round of observations.
+				if len(telems) >= 3 {
+					break
+				}
 			}
 			require.Len(t, telems, 3)
 			sort.Slice(telems, func(i, j int) bool {
@@ -282,6 +294,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("uses cached values when available", func(t *testing.T) {
+			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// First observation to populate cache
@@ -358,6 +371,7 @@ func Test_DataSource(t *testing.T) {
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
 			// Create a new data source
+			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// Set up pipeline to return different values
