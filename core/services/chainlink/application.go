@@ -304,7 +304,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var billingClient metering.BillingClient
 
-	globalLogger.Critical("billing: ", cfg.Billing().URL(), " :: tls: ", cfg.Billing().TLSEnabled())
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
