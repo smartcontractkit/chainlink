@@ -1537,29 +1537,33 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			// Apply transfer fee config updates only to hybrid pools on 1.6 lanes
 			if tc.isHybridPool && contractVersion.Compare(&deployment.Version1_6_0) >= 0 {
 				state, _ := onChainState.EVMChainState(ctx.SourceChainSelector())
-				configs := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
-					{
-						DestChainSelector: ctx.DestinationChainSelector(),
-						TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
-							{
-								Token: sourceToken.Address(),
-								TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
-									MinFeeUSDCents:    150,
-									MaxFeeUSDCents:    4294967295,
-									DeciBps:           0,
-									DestGasOverhead:   200_000,
-									DestBytesOverhead: 640,
-									IsEnabled:         true,
+				if state.FeeQuoter != nil {
+					configs := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
+						{
+							DestChainSelector: ctx.DestinationChainSelector(),
+							TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
+								{
+									Token: sourceToken.Address(),
+									TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
+										MinFeeUSDCents:    150,
+										MaxFeeUSDCents:    4294967295,
+										DeciBps:           0,
+										DestGasOverhead:   200_000,
+										DestBytesOverhead: 640,
+										IsEnabled:         true,
+									},
 								},
 							},
 						},
-					},
+					}
+					tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(ctx.SourceChain().DeployerKey, configs, nil)
+					require.NoError(t, err, "Failed to apply token transfer fee config updates")
+					ctx.env.Logger.Infof("Applied token transfer fee config updates transaction: %s", tx.Hash().Hex())
+					_, err = ctx.SourceChain().Confirm(tx)
+					require.NoError(t, err, "Failed to confirm token transfer fee config updates transaction")
+				} else {
+					ctx.env.Logger.Infof("FeeQuoter not available on chain %d, skipping token transfer fee config updates", ctx.SourceChainSelector())
 				}
-				tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(ctx.SourceChain().DeployerKey, configs, nil)
-				require.NoError(t, err, "Failed to apply token transfer fee config updates")
-				ctx.env.Logger.Infof("Applied token transfer fee config updates transaction: %s", tx.Hash().Hex())
-				_, err = ctx.SourceChain().Confirm(tx)
-				require.NoError(t, err, "Failed to confirm token transfer fee config updates transaction")
 			}
 			// We want to ensure regular transfer works as expected
 			message := router.ClientEVM2AnyMessage{
