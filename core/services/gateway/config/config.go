@@ -27,9 +27,9 @@ type DONConfig struct {
 	Members []NodeConfig
 	F       int
 
-	// Deprecated: use HandlerConfigs instead
+	// Deprecated: use Handler instead
 	HandlerName string
-	// Deprecated: use HandlerConfigs instead
+	// Deprecated: use Handler instead
 	HandlerConfig json.RawMessage
 
 	Handlers []Handler

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -60,30 +59,26 @@ func (m *multiHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 }
 
 func (m *multiHandler) getHandler(method string) (handlers.Handler, error) {
-	// Short-circuit if there is only one handler.
-	// This preserves backwards compatibility.
+	// If there's only one handler, return it directly.
+	// This preserves backwards compatibility for cases where the method
+	// isn't specified on responses (and for cases where only one handler is registered more generally).
 	if len(m.handlers) == 1 {
-		for _, h := range m.handlers {
-			return h, nil
+		for _, handler := range m.handlers {
+			return handler, nil
 		}
 	}
 
-	// Check that the method is fully-qualified (e.g., "handler.method").
-	// Note: this requires callers to have been updated with fully-qualified method names.
-	// This change is nevertheless backwards compatible as this behaviour only applies
-	// if the job spec has been configured with multiple handlers.
-	if strings.Contains(method, ".") {
-		parts := strings.Split(method, ".")
-		handlerName := parts[0]
-		h, ok := m.handlers[handlerName]
-		if !ok {
-			return nil, fmt.Errorf("handler %s not found for method %s", handlerName, method)
-		}
-
-		return h, nil
+	handlerType, err := HandlerTypeForMethod(method)
+	if err != nil {
+		return nil, fmt.Errorf("no handler found for method: %w", err)
 	}
 
-	return nil, fmt.Errorf("no handler found for method %s", method)
+	handler, ok := m.handlers[handlerType]
+	if !ok {
+		return nil, fmt.Errorf("no handler registered for method %s (type %s)", method, handlerType)
+	}
+
+	return handler, nil
 }
 
 func (m *multiHandler) Start(ctx context.Context) error {

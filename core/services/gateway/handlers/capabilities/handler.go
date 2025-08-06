@@ -26,6 +26,8 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
+	// Any changes to this list of methods should also be reflected in the
+	// HandlerTypeForMethod function in `gateway/handler_factory.go`.
 	MethodWebAPITarget   = "web_api_target"
 	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"

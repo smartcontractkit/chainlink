@@ -3,6 +3,8 @@ package functions
 import "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 const (
+	// Note: any update to this list shuold be reflected in
+	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsSet  = "secrets_set"
 	MethodSecretsList = "secrets_list"
 	MethodHeartbeat   = "heartbeat"

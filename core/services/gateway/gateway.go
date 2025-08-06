@@ -89,6 +89,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 			})
 		}
 
+		handlers = append(handlers, donConfig.Handlers...)
 		handler, err := NewMultiHandler(handlerFactory, handlers, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
