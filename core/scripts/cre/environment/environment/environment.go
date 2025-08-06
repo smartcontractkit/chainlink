@@ -149,12 +149,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
-	var trackerErr error
-	dxTracker, trackerErr = tracking.NewDxTracker()
-	if trackerErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
-		dxTracker = &tracking.NoOpTracker{}
-	}
+	initDxTracker()
 
 	// remove all containers before starting the environment, just in case
 	_ = framework.RemoveTestContainers()
@@ -879,4 +874,17 @@ func oneLineErrorMessage(errOrPanic any) string {
 	}
 
 	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+}
+
+func initDxTracker() {
+	if dxTracker != nil {
+		return
+	}
+
+	var trackerErr error
+	dxTracker, trackerErr = tracking.NewDxTracker()
+	if trackerErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		dxTracker = &tracking.NoOpTracker{}
+	}
 }

@@ -85,7 +85,27 @@ func deployWorkflowCmd() *cobra.Command {
 		Short: "Compiles and uploads a workflow to the environment",
 		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag)
+			initDxTracker()
+			var regErr error
+
+			defer func() {
+				metaData := map[string]any{}
+				if regErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(regErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track("cre.local.workflow.deploy", metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track workflow deploy: %s\n", trackingErr)
+				}
+			}()
+
+			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag)
+
+			return regErr
 		},
 	}
 
@@ -277,16 +297,15 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	if !slices.Contains(workflowNames, workflowNameFlag) {
 		fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddressFlag)
+	} else {
+		deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowNameFlag)
+		if deleteErr != nil {
+			return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddressFlag)
+		}
 
-		return nil
+		fmt.Printf("\n✅ Workflow '%s' deleted from the workflow registry\n\n", workflowNameFlag)
 	}
 
-	deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowNameFlag)
-	if deleteErr != nil {
-		return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddressFlag)
-	}
-
-	fmt.Printf("\n✅ All workflows deleted from the workflow registry\n\n")
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
 	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, nil, &containerTargetDirFlag)
