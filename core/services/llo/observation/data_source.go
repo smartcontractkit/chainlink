@@ -78,7 +78,7 @@ type dataSource struct {
 	t           Telemeter
 	shouldCache bool
 
-	observationLoopOn bool
+	observationLoopMu sync.Mutex
 	// observationLoopCh allows us to stop a background observation loop
 	observationLoopCh chan struct{}
 }
@@ -111,19 +111,42 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		lggr.Debugw("Observing streams")
 	}
 
-	// If there's another observation loop going in the background, we want to stop it and start a new one.
-	// We are doing this in order to use the potentially updated set of streams to observe.
-	if d.observationLoopOn {
-		close(d.observationLoopCh)
-	}
+	d.observationLoopMu.Lock()
+	{
+		// If there's another observation loop going in the background, we want to stop it and start a new one.
+		// We are doing this in order to use the potentially updated set of streams to observe.
+		closeIfNotClosed(d.observationLoopCh)
 
-	// Launch the observation loop in a goroutine.
-	d.observationLoopOn = true
-	d.observationLoopCh = make(chan struct{}, 1)
+		// Launch the observation loop in a goroutine.
+		d.observationLoopCh = make(chan struct{}, 1)
+	}
+	d.observationLoopMu.Unlock()
+
 	// Wait until the first observation round is completed before returning.
 	firstRoundDoneCh := make(chan struct{})
 	go func() {
-		defer func() { d.observationLoopOn = false }()
+		defer func() {
+			closeIfNotClosed(d.observationLoopCh)
+		}()
+
+		// Telemetry
+		{
+			// Size needs to accommodate the max number of telemetry events that could be generated
+			// Standard case might be about 3 bridge requests per spec and one stream<=>spec
+			// Overallocate for safety (to avoid dropping packets)
+			telemCh := d.t.MakeObservationScopedTelemetryCh(opts, 10*len(streamValues))
+			if telemCh != nil {
+				if d.t.CaptureEATelemetry() {
+					ctx = pipeline.WithTelemetryCh(ctx, telemCh)
+				}
+				if d.t.CaptureObservationTelemetry() {
+					ctx = WithObservationTelemetryCh(ctx, telemCh)
+				}
+				// After all Observations have returned, nothing else will be sent to the
+				// telemetry channel, so it can safely be closed
+				defer close(telemCh)
+			}
+		}
 
 		for {
 			var wg sync.WaitGroup
@@ -135,25 +158,6 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 
 			// oc only lives for the duration of this Observe call
 			oc := NewObservationContext(lggr, d.registry, d.t)
-
-			// Telemetry
-			{
-				// Size needs to accommodate the max number of telemetry events that could be generated
-				// Standard case might be about 3 bridge requests per spec and one stream<=>spec
-				// Overallocate for safety (to avoid dropping packets)
-				telemCh := d.t.MakeObservationScopedTelemetryCh(opts, 10*len(streamValues))
-				if telemCh != nil {
-					if d.t.CaptureEATelemetry() {
-						ctx = pipeline.WithTelemetryCh(ctx, telemCh)
-					}
-					if d.t.CaptureObservationTelemetry() {
-						ctx = WithObservationTelemetryCh(ctx, telemCh)
-					}
-					// After all Observations have returned, nothing else will be sent to the
-					// telemetry channel, so it can safely be closed
-					defer close(telemCh)
-				}
-			}
 
 			// Observe all streams concurrently
 			for _, streamID := range maps.Keys(streamValues) {
@@ -233,19 +237,21 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				return
 			default:
 				// Sleep between rounds of observations.
-				time.Sleep(time.Millisecond)
+				time.Sleep(time.Millisecond) // TODO (ro-tex): (deltaRound/2 - loopDuration)
 			}
 		}
 	}()
 
-	select {
-	case <-firstRoundDoneCh:
-		return nil
-	}
+	_ = <-firstRoundDoneCh
+
+	return nil
 }
 
 // TODO (ro-tex): Move to a better place
 func closeIfNotClosed(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
 	select {
 	case <-ch:
 		return
