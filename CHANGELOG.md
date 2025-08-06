@@ -1,14 +1,80 @@
 # Changelog Chainlink Core
 
+## 2.27.0 - UNRELEASED
+
+### Minor Changes
+
+- [#18274](https://github.com/smartcontractkit/chainlink/pull/18274) [`99ead59`](https://github.com/smartcontractkit/chainlink/commit/99ead59050d3c9661e6fd5331c8efa762ea74da0) - #change Add keystore service to standardcapabilities, refactor integration_tests/framework to use a p2p key in the test node
+
+- [#18463](https://github.com/smartcontractkit/chainlink/pull/18463) [`85f86fa`](https://github.com/smartcontractkit/chainlink/commit/85f86fa27808ef86a3213afc3c397ad853f7d067) - #changed Add Channel Definition Opts to LLO capability_trigger report type to enable Stream Multiplication
+
+- [#18564](https://github.com/smartcontractkit/chainlink/pull/18564) [`31711ce`](https://github.com/smartcontractkit/chainlink/commit/31711ce7c7e455a134878283c824a0896efa2ba4) - #updated Make LLO capability_trigger report type Opts optional
+
+- [#18634](https://github.com/smartcontractkit/chainlink/pull/18634) [`df8ed63`](https://github.com/smartcontractkit/chainlink/commit/df8ed63c77aa0e9e5c020c8f62df63cf66616b4b) - Added Bridge Status Reporter Service that polls external adapter status endpoints and emits telemetry events for operational monitoring #nops #added
+
+- [#18171](https://github.com/smartcontractkit/chainlink/pull/18171) [`1500214`](https://github.com/smartcontractkit/chainlink/commit/15002147c51176400e923f2f6bbf5a9c53407cc0) - Updated Solana ChainWriter to use on-chain account derivation for CCIP execute transactions #internal
+
+- [#18606](https://github.com/smartcontractkit/chainlink/pull/18606) [`8651528`](https://github.com/smartcontractkit/chainlink/commit/8651528cbffd0862ec9de933c3eff1589a52e528) - #added ability for NOPs to provide a Job Distributor Display Name via config
+
+- [#18512](https://github.com/smartcontractkit/chainlink/pull/18512) [`88ad7e4`](https://github.com/smartcontractkit/chainlink/commit/88ad7e49a09675dfb81aad0f93a6f066e333472c) - #changed bump chainlink-common to remove llo aggregator 1e18 scaling
+
+- [#18430](https://github.com/smartcontractkit/chainlink/pull/18430) [`16d82c9`](https://github.com/smartcontractkit/chainlink/commit/16d82c98b509dcdc89452f2960598ec1709fb7ca) - gateway handler for http action
+
+- [#18724](https://github.com/smartcontractkit/chainlink/pull/18724) [`f8042cf`](https://github.com/smartcontractkit/chainlink/commit/f8042cf8892c355436a8018000d48ffbfe4b6a7c) - #added support for v0.1.1 version of solana token pool contracts
+
+- [#18531](https://github.com/smartcontractkit/chainlink/pull/18531) [`6048fb5`](https://github.com/smartcontractkit/chainlink/commit/6048fb56748aeba316fad88a81b71a5403294364) - add functionality to enable big blocks for Hyperliquid #added
+
+- [#18233](https://github.com/smartcontractkit/chainlink/pull/18233) [`76674d7`](https://github.com/smartcontractkit/chainlink/commit/76674d7439d8850cb497cae03027a18d384ee042) - Added Solana ChainReader configs to support reading CCTP events #internal
+
+- [#18511](https://github.com/smartcontractkit/chainlink/pull/18511) [`c7da80c`](https://github.com/smartcontractkit/chainlink/commit/c7da80c868391dab943fbe3de55d59ae0672be3f) - Bump Solana Token Pool Contracts
+
+- [#18309](https://github.com/smartcontractkit/chainlink/pull/18309) [`4d103d2`](https://github.com/smartcontractkit/chainlink/commit/4d103d2a84ba2530088dd401c1dbdfbe29e3a37e) - #internal Replaced CRE devspace invocation with crib-sdk
+
+### Patch Changes
+
+- [#18613](https://github.com/smartcontractkit/chainlink/pull/18613) [`0acb254`](https://github.com/smartcontractkit/chainlink/commit/0acb254697444f6e8a37c1b34134f07ff84e1237) - Add prometheus duplicates for `feeds_*` metrics without the `feeds_*` prefix:
+
+  - `job_proposal_requests`
+  - `workflow_requests`
+  - `workflow_approvals`
+  - `workflow_rejections`
+  - `job_proposal_count`
+
+- [#18622](https://github.com/smartcontractkit/chainlink/pull/18622) [`658f74e`](https://github.com/smartcontractkit/chainlink/commit/658f74ef6ea305188d29cee65de076e92ab07163) - #internal adding evm capability to local cre
+
+- [#18792](https://github.com/smartcontractkit/chainlink/pull/18792) [`148ed4c`](https://github.com/smartcontractkit/chainlink/commit/148ed4c48ea7b742bafac86bd219fa2e399ca4b0) - #updated chain selectors
+
+- [#18760](https://github.com/smartcontractkit/chainlink/pull/18760) [`45e24d6`](https://github.com/smartcontractkit/chainlink/commit/45e24d6cb047f59185ac473bd94514d361d501c1) - #internal Re-enable Vault smoke test
+
+- [#18543](https://github.com/smartcontractkit/chainlink/pull/18543) [`6212b61`](https://github.com/smartcontractkit/chainlink/commit/6212b6153da8f8e0a7f1c6e95eb9e6179acd37bd) - bumps chainlink-solana and chainlink-common with relayer interface patch #internal
+
+- [#18524](https://github.com/smartcontractkit/chainlink/pull/18524) [`fc50377`](https://github.com/smartcontractkit/chainlink/commit/fc503773a2e55ca6ae18cd1742e873551b9952ea) - #bugfix Fixes nethermind client compat tests
+
+- [#18478](https://github.com/smartcontractkit/chainlink/pull/18478) [`fd46f19`](https://github.com/smartcontractkit/chainlink/commit/fd46f197ff15211ba3d5597e8ee8a364e9143994) - #internal Bump chainlink-common version
+
+- [#18745](https://github.com/smartcontractkit/chainlink/pull/18745) [`d8e76b5`](https://github.com/smartcontractkit/chainlink/commit/d8e76b58d3f8a19cdf41c7b7e7edec27300bf16f) - Added empty block height validation to telemetry reporter #internal
+
+- [#18514](https://github.com/smartcontractkit/chainlink/pull/18514) [`9af582e`](https://github.com/smartcontractkit/chainlink/commit/9af582e5574a60c823286c486122e1d67a0586f3) - #internal Implement fetching encryption keys for all Workflow Nodes in the SecretsFetcher
+
+- [#18420](https://github.com/smartcontractkit/chainlink/pull/18420) [`10d02c8`](https://github.com/smartcontractkit/chainlink/commit/10d02c8890d31936cf60b103452369b95e327372) - #internal Gateway Node forwards requests to the Vault Node
+
+- [#18831](https://github.com/smartcontractkit/chainlink/pull/18831) [`3247f87`](https://github.com/smartcontractkit/chainlink/commit/3247f87d0df92e3f4334edfe08fb125afb93925d) - #updated chain selectors
+
+- [#18549](https://github.com/smartcontractkit/chainlink/pull/18549) [`ccacda4`](https://github.com/smartcontractkit/chainlink/commit/ccacda40c645558da3f0fcead365a0b10adb8ef6) - #internal Enable local workflow fetching
+
+- [#18578](https://github.com/smartcontractkit/chainlink/pull/18578) [`955e2d3`](https://github.com/smartcontractkit/chainlink/commit/955e2d3a75333c7e44ad2680f209213f2b06d66d) - #updated Configurable heartbeat interval. Production systems ought to use the default value of 1s, maintain backward compability
+
+- [#18473](https://github.com/smartcontractkit/chainlink/pull/18473) [`8a4f3c4`](https://github.com/smartcontractkit/chainlink/commit/8a4f3c4f6b8462813533e2b0342049e2d3e041f7) - #updated chainlink ccip version
+
+- [#18393](https://github.com/smartcontractkit/chainlink/pull/18393) [`67365d6`](https://github.com/smartcontractkit/chainlink/commit/67365d6927a3f548bc86859fdf35456eb95db955) - #internal Wire up Vault OCR instance
+
 ## 2.27.0
 
 ### Minor Changes
 
 - Bump to start the next version
 
-- Bump to start the next version
-
-## 2.26.0 - UNRELEASED
+## 2.26.0 - 2025-07-28
 
 ### Minor Changes
 
