@@ -3,6 +3,8 @@ package crib
 import (
 	"context"
 	"math/big"
+	"slices"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,7 +17,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -159,4 +160,26 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 		nonce++
 	}
 	return nil
+}
+
+// getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied number of high and low tier chains.
+func getTierChainSelectors(allSelectors []uint64, highTierCount int, lowTierCount int) (highTierSelectors []uint64, lowTierSelectors []uint64) {
+	// we prioritize home selector, simulated solana, and evm feed selectors
+	prioritySelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
+	orderedSelectors := make([]uint64, 0, len(allSelectors))
+	for _, sel := range prioritySelectors {
+		if slices.Contains(allSelectors, sel) {
+			orderedSelectors = append(orderedSelectors, sel)
+		}
+	}
+
+	// the remaining chains are evm and count up
+	evmChainID := 90000001
+	for len(orderedSelectors) < len(allSelectors) {
+		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(evmChainID), chainsel.FamilyEVM)
+		orderedSelectors = append(orderedSelectors, details.ChainSelector)
+		evmChainID++
+	}
+
+	return orderedSelectors[0:highTierCount], orderedSelectors[highTierCount : highTierCount+lowTierCount]
 }

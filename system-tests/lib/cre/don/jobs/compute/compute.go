@@ -43,7 +43,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology) (cre.DonsToJobSpecs, error) 
 					perSenderRPS = 1.0
 					perSenderBurst = 5
 					"""`
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.CustomComputeCapability, "__builtin_custom-compute-action", config))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.CustomComputeCapability, "__builtin_custom-compute-action", config, ""))
 		}
 	}
 

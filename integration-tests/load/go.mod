@@ -26,18 +26,18 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
-	github.com/smartcontractkit/chain-selectors v1.0.65
+	github.com/smartcontractkit/chain-selectors v1.0.66
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250731202037-a0d4a4f75964
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250707132450-d1f5f0be212a
-	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250804161133-82612124e6ef
+	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250805220154-11e6d5b3cd96
 	github.com/smartcontractkit/chainlink-deployments-framework v0.17.2
 	github.com/smartcontractkit/chainlink-evm v0.1.1-0.20250801102619-bf75f8afcd90
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.9.6
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.10
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b
 	github.com/stretchr/testify v1.10.0
 	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/atomic v1.11.0

@@ -39,6 +39,7 @@ const (
 const (
 	OCR3Capability          CapabilityFlag = "ocr3"
 	CronCapability          CapabilityFlag = "cron"
+	EVMCapability           CapabilityFlag = "evm"
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
@@ -261,6 +262,9 @@ type ConfigureKeystoneInput struct {
 
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
+
+	EVMOCR3Config  keystone_changeset.OracleConfig
+	EVMOCR3Address *common.Address
 
 	CapabilitiesRegistryAddress *common.Address
 }

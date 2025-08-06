@@ -22,6 +22,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -43,7 +44,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
@@ -196,8 +196,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
@@ -292,8 +291,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 

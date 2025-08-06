@@ -1380,6 +1380,7 @@ PerSenderBurst is the per-sender burst limit for the dispatcher.
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+ContractVersion = '1.0.0' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
@@ -1404,6 +1405,12 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### ContractVersion
+```toml
+ContractVersion = '1.0.0' # Default
+```
+ContractVersion identifies semantic version of the WorkflowRegistry contract.
 
 ### MaxBinarySize
 ```toml
