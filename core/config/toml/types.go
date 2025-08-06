@@ -176,7 +176,7 @@ func (s *SolKeys) validateMerge(f *SolKeys) (err error) {
 		}
 		for _, solKey := range f.Keys {
 			if _, ok := have[*solKey.ID]; ok {
-				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("SolKeys: %s", *solKey.ID)})
+				err = errors.Join(err, configutils.ErrOverride{Name: "SolKeys: " + *solKey.ID})
 			}
 		}
 	}
