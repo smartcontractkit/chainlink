@@ -41,7 +41,7 @@ type Connection struct {
 // JobDistributorConfig defines a job distributor configuration
 type JobDistributorConfig struct {
 	Name      string `toml:"name"`
-	Uri       string `toml:"uri"`
+	URI       string `toml:"uri"`
 	PublicKey string `toml:"public_key"`
 }
 
@@ -168,7 +168,7 @@ func loadConfig(path string) (Config, error) {
 	}
 
 	if _, err := toml.DecodeFile(path, &config); err != nil {
-		return Config{}, fmt.Errorf("Failed to decode config file: %v", err)
+		return Config{}, fmt.Errorf("Failed to decode config file: %w", err)
 	}
 
 	// Check if we have any nodes configured
@@ -180,13 +180,12 @@ func loadConfig(path string) (Config, error) {
 }
 
 func loadJDConfig(path string) (JobDistributorConfig, error) {
-
 	var jdConfig JobDistributorConfig
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return JobDistributorConfig{}, fmt.Errorf("Job Distributor config file not found: %s", path)
 	}
 	if _, err := toml.DecodeFile(path, &jdConfig); err != nil {
-		return JobDistributorConfig{}, fmt.Errorf("Failed to decode Job Distributor config file: %v", err)
+		return JobDistributorConfig{}, fmt.Errorf("Failed to decode Job Distributor config file: %w", err)
 	}
 	return jdConfig, nil
 }
@@ -194,7 +193,7 @@ func loadJDConfig(path string) (JobDistributorConfig, error) {
 func runInfoCommand(cmd *cobra.Command, args []string) error {
 	config, err := loadConfig(configPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load config: %v", err)
+		return fmt.Errorf("Failed to load config: %w", err)
 	}
 	// Create slice to hold all node information
 	var nodes []NodeInfo
@@ -250,21 +249,21 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	// Convert nodes to JSON
 	jsonOutput, err := json.MarshalIndent(nodes, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Failed to convert nodes to JSON: %v", err)
+		return fmt.Errorf("Failed to convert nodes to JSON: %w", err)
 	}
 	// Convert bootstrap nodes to JSON
 	bootstrapJSONOutput, err := json.MarshalIndent(bootstrapNodes, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Failed to convert bootstrap nodes to JSON: %v", err)
+		return fmt.Errorf("Failed to convert bootstrap nodes to JSON: %w", err)
 	}
 
 	// Write output to file or stdout
 	if outputPath == "" {
 		fmt.Println(string(jsonOutput))
 	} else {
-		err = os.WriteFile(outputPath, jsonOutput, 0644)
+		err = os.WriteFile(outputPath, jsonOutput, 0600)
 		if err != nil {
-			return fmt.Errorf("Failed to write output to file: %v", err)
+			return fmt.Errorf("Failed to write output to file: %w", err)
 		}
 		log.Printf("Output written to %s", outputPath)
 	}
@@ -273,9 +272,9 @@ func runInfoCommand(cmd *cobra.Command, args []string) error {
 	if bootstrapOutputPath == "" {
 		fmt.Println(string(bootstrapJSONOutput))
 	} else {
-		err = os.WriteFile(bootstrapOutputPath, bootstrapJSONOutput, 0644)
+		err = os.WriteFile(bootstrapOutputPath, bootstrapJSONOutput, 0600)
 		if err != nil {
-			return fmt.Errorf("Failed to write bootstrap output to file: %v", err)
+			return fmt.Errorf("Failed to write bootstrap output to file: %w", err)
 		}
 		log.Printf("Bootstrap output written to %s", bootstrapOutputPath)
 	}
@@ -329,19 +328,15 @@ func nodeInfo(ctx context.Context, nodeConfig NodeConfig) (NodeInfo, error) {
 			// Create a new OCR2 key bundle for Aptos
 			aptosKeyBundleID, err := cl.CreateOCR2KeyBundle(ctx, client.OCR2ChainTypeAptos)
 			if err != nil {
-				log.Printf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err)
-				panic(fmt.Sprintf("Failed to create OCR2 key bundle for Aptos on node %s: %v", nodeConfig.Name, err))
-			} else {
-				log.Printf("Created OCR2 key bundle for Aptos on node %s with ID: %s", nodeConfig.Name, aptosKeyBundleID)
-				// Retry fetching OCR2 key bundles
-				ocrKeyBundleIDs, err = cl.ListOCR2KeyBundles(ctx)
-				if err == nil {
-					nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
-				} else {
-					log.Printf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err)
-					panic(fmt.Sprintf("Failed to fetch OCR2 key bundles after creating new one on node %s: %v", nodeConfig.Name, err))
-				}
+				return nodeInfo, fmt.Errorf("failed to create OCR2 key bundle for Aptos on node %s: %w", nodeConfig.Name, err)
 			}
+			log.Printf("Created OCR2 key bundle for Aptos on node %s with ID: %s", nodeConfig.Name, aptosKeyBundleID)
+			// Retry fetching OCR2 key bundles
+			ocrKeyBundleIDs, err = cl.ListOCR2KeyBundles(ctx)
+			if err != nil {
+				return nodeInfo, fmt.Errorf("failed to fetch OCR2 key bundles after creating new one on node %s: %w", nodeConfig.Name, err)
+			}
+			nodeInfo.OCR2KeyBundles = ocrKeyBundleIDs
 		}
 	}
 	return nodeInfo, nil
@@ -350,13 +345,13 @@ func nodeInfo(ctx context.Context, nodeConfig NodeConfig) (NodeInfo, error) {
 func runJDCommand(cmd *cobra.Command, args []string) error {
 	nodeConfig, err := loadConfig(configPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load node configuration: %v", err)
+		return fmt.Errorf("Failed to load node configuration: %w", err)
 	}
 
 	// Load JD configuration
 	jdConfig, err := loadJDConfig(jdConfigPath)
 	if err != nil {
-		return fmt.Errorf("Failed to load Job Distributor configuration: %v", err)
+		return fmt.Errorf("Failed to load Job Distributor configuration: %w", err)
 	}
 
 	// Map node names to configurations for quick lookup
@@ -367,15 +362,15 @@ func runJDCommand(cmd *cobra.Command, args []string) error {
 
 	// for each node, check if it is already connected to the Job Distributor
 	// if it is, skip creating a new Job Distributor
-	for _, node := range nodeConfig.Nodes {
+	// Create timeout context
+	timeout := time.Duration(40) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
+	for _, node := range nodeConfig.Nodes {
 		log.Printf("Creating Job Distributor for node: %s", node.Name)
 
 		{
-			// Create timeout context
-			timeout := time.Duration(20) * time.Second
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
 
 			// Create client credentials
 			creds := client.Credentials{
@@ -411,7 +406,7 @@ func runJDCommand(cmd *cobra.Command, args []string) error {
 			if !jdFound {
 				jobID, err := cl.CreateJobDistributor(ctx, client.JobDistributorInput{
 					Name:      jdConfig.Name,
-					Uri:       jdConfig.Uri,
+					Uri:       jdConfig.URI,
 					PublicKey: jdConfig.PublicKey,
 				})
 
@@ -670,9 +665,6 @@ func newJDAptosCmd() *cobra.Command {
 
 // Helper function to enable Aptos chain for a single node
 func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chainID, chainName, adminAddr, jdCSAKey string) error {
-	// Create Chainlink client
-	// need both the graphql client and the chainlink client so use devenv.NewClient
-
 	cc, err := nodeclient.NewChainlinkClient(&nodeclient.ChainlinkConfig{
 		URL:      nodeURL,
 		Email:    email,
@@ -686,7 +678,6 @@ func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chai
 		Email:    email,
 		Password: password,
 	}
-
 	// Connect to the node
 	gc, err := client.NewWithContext(ctx, nodeURL, creds)
 	if err != nil {
@@ -710,7 +701,7 @@ func enableAptosChainForNode(ctx context.Context, nodeURL, email, password, chai
 
 	jds, err := gc.ListJobDistributors(ctx)
 	if err != nil {
-		log.Printf("Warning: failed to list job distributors: %v", err)
+		log.Printf("Warning: failed to list job distributors: %w", err)
 		return fmt.Errorf("failed to list job distributors: %w", err)
 	}
 
@@ -835,20 +826,16 @@ func newJDAcceptCmd() *cobra.Command {
 
 // Helper function to accept job proposals for a single node
 func acceptJobProposalsForNode(ctx context.Context, nodeURL, email, password, proposalID string, force, acceptAll bool) error {
-	// Create GraphQL client credentials
 	creds := client.Credentials{
 		Email:    email,
 		Password: password,
 	}
-
-	// Connect to the node using GraphQL client
 	gc, err := client.NewWithContext(ctx, nodeURL, creds)
 	if err != nil {
 		return fmt.Errorf("failed to connect to node %s: %w", nodeURL, err)
 	}
 
 	return acceptSingleProposal(ctx, gc, proposalID, force)
-
 }
 
 // Accept a single proposal by ID
@@ -860,7 +847,6 @@ func acceptSingleProposal(ctx context.Context, gc client.Client, proposalID stri
 	if err != nil {
 		return fmt.Errorf("failed to get job proposal %s: %w", proposalID, err)
 	}
-
 	if proposal == nil {
 		return fmt.Errorf("job proposal %s not found", proposalID)
 	}
@@ -878,7 +864,6 @@ func acceptSingleProposal(ctx context.Context, gc client.Client, proposalID stri
 	if err != nil {
 		return fmt.Errorf("failed to approve job proposal %s: %w", proposalID, err)
 	}
-
 	if result != nil {
 		log.Printf("Successfully approved job proposal %s", proposalID)
 		fmt.Printf("Approved job proposal: %s\n", proposalID)
@@ -886,103 +871,3 @@ func acceptSingleProposal(ctx context.Context, gc client.Client, proposalID stri
 
 	return nil
 }
-
-/*
-// Accept all pending proposals
-func acceptAllPendingProposals(ctx context.Context, gc client.Client, force bool) error {
-	log.Printf("Accepting all pending job proposals")
-
-	// List all job proposals
-	proposals, err := gc.ListJobProposals(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list job proposals: %w", err)
-	}
-
-	if len(proposals.FeedsManagers.Results) == 0 {
-		log.Printf("No job proposals found")
-		return nil
-	}
-
-	acceptedCount := 0
-	skippedCount := 0
-
-	// Process each proposal
-	for _, manager := range proposals.FeedsManagers.Results {
-		for _, proposal := range manager.JobProposals {
-			// Skip if already approved (unless force is true)
-			if !force && proposal.Status == "APPROVED" {
-				log.Printf("Skipping already approved proposal: %s", proposal.Id)
-				skippedCount++
-				continue
-			}
-
-			// Skip if not in pending state (PENDING, REJECTED, etc.)
-			if proposal.Status != "PENDING" && proposal.Status != "REJECTED" && !force {
-				log.Printf("Skipping proposal %s with status: %s", proposal.Id, proposal.Status)
-				skippedCount++
-				continue
-			}
-
-			log.Printf("Accepting proposal: %s (Status: %s)", proposal.Id, proposal.Status)
-
-			// Accept the proposal
-			result, err := gc.ApproveJobProposalSpec(ctx, proposal.Id, force)
-			if err != nil {
-				log.Printf("Failed to approve proposal %s: %v", proposal.Id, err)
-				continue
-			}
-
-			if result != nil {
-				acceptedCount++
-				log.Printf("Successfully approved proposal: %s", proposal.Id)
-			}
-		}
-	}
-
-	fmt.Printf("Processed job proposals: %d accepted, %d skipped\n", acceptedCount, skippedCount)
-	return nil
-}
-
-// List proposals and prompt for acceptance (interactive mode)
-func listAndPromptForProposals(ctx context.Context, gc client.Client, force bool) error {
-	log.Printf("Listing job proposals for review")
-
-	// List all job proposals
-	proposals, err := gc.ListJobProposals(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list job proposals: %w", err)
-	}
-
-	if len(proposals.FeedsManagers.Results) == 0 {
-		fmt.Println("No job proposals found")
-		return nil
-	}
-
-	// Display proposals
-	fmt.Println("\nAvailable Job Proposals:")
-	fmt.Println("========================")
-
-	proposalCount := 0
-	for _, manager := range proposals.FeedsManagers.Results {
-		for _, proposal := range manager.JobProposals {
-			proposalCount++
-			fmt.Printf("%d. ID: %s\n", proposalCount, proposal.Id)
-			fmt.Printf("   Status: %s\n", proposal.Status)
-			fmt.Printf("   Definition: %s\n", proposal.Spec.Definition)
-			fmt.Printf("   Created: %s\n", proposal.CreatedAt)
-			fmt.Println("   ---")
-		}
-	}
-
-	if proposalCount == 0 {
-		fmt.Println("No job proposals found")
-		return nil
-	}
-
-	fmt.Printf("\nFound %d job proposal(s)\n", proposalCount)
-	fmt.Println("Use --proposal-id <id> to accept a specific proposal")
-	fmt.Println("Use --all to accept all pending proposals")
-
-	return nil
-}
-*/
