@@ -477,6 +477,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					Status:        job.WorkflowSpecStatusActive,
 					WorkflowOwner: hex.EncodeToString(event.WorkflowOwner),
 					WorkflowName:  event.WorkflowName,
+					WorkflowTag:   workflowTag,
 					SpecType:      job.WASMFile,
 					BinaryURL:     event.BinaryURL,
 					ConfigURL:     event.ConfigURL,
