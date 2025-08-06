@@ -744,7 +744,7 @@ func StartCLIEnvironment(
 
 	// Consensus V2 (standard capability)
 	homeChainConfig := in.CapabilitiesConfig.EVM[in.Blockchains[0].ChainID]
-	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.ConsensusV2JobSpecFactoryFn(
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, creconsensus.ConsensusV2JobSpecFactoryFn(
 		testLogger,
 		libc.MustSafeUint64(int64(homeChainIDInt)),
 		homeChainConfig,

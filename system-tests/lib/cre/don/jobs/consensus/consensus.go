@@ -1,15 +1,20 @@
 package consensus
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 var ConsensusJobSpecFactoryFn = func(chainID uint64) cre.JobSpecFactoryFn {
@@ -101,4 +106,35 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 	}
 
 	return donToJobSpecs, nil
+}
+
+var ConsensusV2JobSpecFactoryFn = func(logger zerolog.Logger,
+	chainID uint64,
+	config map[string]any,
+	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
+	infraInput infra.Input,
+	evmBinaryPath string) cre.JobSpecFactoryFn {
+	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
+		configGen := func(nodeAddress string) (string, error) {
+			return fmt.Sprintf(
+				`'{"chainId":%d,"network":"evm","nodeAddress":"%s"}'`,
+				chainID,
+				nodeAddress,
+			), nil
+		}
+
+		return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
+			logger,
+			input.DonTopology,
+			input.CldEnvironment.DataStore,
+			chainID,
+			capabilitiesAwareNodeSets,
+			infraInput,
+			evmBinaryPath,
+			"capability_consensus",
+			cre.ConsensusCapability,
+			fmt.Sprintf("consensus-capability-%d", chainID),
+			configGen,
+		)
+	}
 }

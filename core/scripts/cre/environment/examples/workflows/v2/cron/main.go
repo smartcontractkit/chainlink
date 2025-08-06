@@ -3,8 +3,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 
@@ -29,17 +27,6 @@ func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], erro
 	return workflows, nil
 }
 
-func onTrigger(env *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
-	mathPromise := sdk.RunInNodeMode(env, runtime, fetchData, sdk.ConsensusIdenticalAggregation[float64]())
-	offchainValue, err := mathPromise.Await()
-	if err != nil {
-		return "", err
-	}
-	env.Logger.Info("Successfully fetched offchain value", "result", offchainValue)
-	return fmt.Sprintf("value: %f", offchainValue), nil
-}
-
-func fetchData(env *sdk.NodeEnvironment[None], nodeRuntime sdk.NodeRuntime) (float64, error) {
-	// pretend we're fetching some node-mode data
-	return 420.69, nil
+func onTrigger(wcx *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
+	return "such a lovely disaster", nil
 }

@@ -242,9 +242,6 @@ func SetupTestEnvironment(
 	ocr3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
 	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)
 
-	consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
-	testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
-
 	wfRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
 	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
 
@@ -516,8 +513,14 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
 		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
 	}
+	var consensusV2OCR3CommonAddr common.Address
+	if consensusAddrFlag {
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
+	}
+
 	capRegCommonAddr := common.HexToAddress(capRegAddr)
-	consensusV2OCR3CommonAddr := common.HexToAddress(consensusV2OCR3Addr)
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
 		ChainSelector:               homeChainOutput.ChainSelector,
 		CldEnv:                      fullCldOutput.Environment,
