@@ -51,6 +51,7 @@ import (
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -388,7 +389,7 @@ func mockAttestationResponse(isFaulty bool) *httptest.Server {
 func CCIPSendRequest(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
+	cfg *ccipclient.CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
 	r := state.MustGetEVMChainState(cfg.SourceChain).Router
@@ -415,7 +416,7 @@ func CCIPSendRequest(
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e cldf.Environment,
 	r *router.Router,
-	cfg *CCIPSendReqConfig,
+	cfg *ccipclient.CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
 	const cannotDecodeErrorReason = "could not decode error reason"
@@ -482,14 +483,6 @@ func CCIPSendCalldata(
 	return calldata, nil
 }
 
-type AnyMsgSentEvent struct {
-	SequenceNumber uint64
-	// RawEvent contains the raw event depending on the chain:
-	//  EVM:   *onramp.OnRampCCIPMessageSent
-	//  Aptos: module_onramp.CCIPMessageSent
-	RawEvent any
-}
-
 // testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)
 // opts being testRouter, sender
 // always return error
@@ -502,13 +495,13 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	msg any,
-	opts ...SendReqOpts,
-) (msgSentEvent *AnyMsgSentEvent) {
-	baseOpts := []SendReqOpts{
-		WithSourceChain(src),
-		WithDestChain(dest),
-		WithTestRouter(testRouter),
-		WithMessage(msg),
+	opts ...ccipclient.SendReqOpts,
+) (msgSentEvent *ccipclient.AnyMsgSentEvent) {
+	baseOpts := []ccipclient.SendReqOpts{
+		ccipclient.WithSourceChain(src),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(testRouter),
+		ccipclient.WithMessage(msg),
 	}
 	baseOpts = append(baseOpts, opts...)
 
@@ -517,68 +510,13 @@ func TestSendRequest(
 	return msgSentEvent
 }
 
-type CCIPSendReqConfig struct {
-	SourceChain  uint64
-	DestChain    uint64
-	IsTestRouter bool
-	Sender       *bind.TransactOpts
-	Message      any
-	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
-}
-
-type SendReqOpts func(*CCIPSendReqConfig)
-
-// WithMaxRetries sets the maximum number of retries for the CCIP send request.
-func WithMaxRetries(maxRetries int) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.MaxRetries = maxRetries
-	}
-}
-
-func WithSender(sender *bind.TransactOpts) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Sender = sender
-	}
-}
-
-// TODO: backwards compat, remove
-func WithEvm2AnyMessage(msg router.ClientEVM2AnyMessage) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Message = msg
-	}
-}
-
-func WithMessage(msg any) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Message = msg
-	}
-}
-
-func WithTestRouter(isTestRouter bool) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.IsTestRouter = isTestRouter
-	}
-}
-
-func WithSourceChain(sourceChain uint64) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.SourceChain = sourceChain
-	}
-}
-
-func WithDestChain(destChain uint64) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.DestChain = destChain
-	}
-}
-
 // SendRequest similar to TestSendRequest but returns an error.
 func SendRequest(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	opts ...SendReqOpts,
-) (*AnyMsgSentEvent, error) {
-	cfg := &CCIPSendReqConfig{}
+	opts ...ccipclient.SendReqOpts,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	cfg := &ccipclient.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -604,16 +542,16 @@ func SendRequest(
 func SendRequestTon(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// TODO this should be replaced with the implementation from chainlink-ton
-	return &AnyMsgSentEvent{}, nil
+	return &ccipclient.AnyMsgSentEvent{}, nil
 }
 
 func SendRequestEVM(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
 	// Set default sender if not provided
 	if cfg.Sender == nil {
 		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
@@ -650,7 +588,7 @@ func SendRequestEVM(
 		it.Event.Message.Sender.String(),
 		cfg.IsTestRouter,
 	)
-	return &AnyMsgSentEvent{
+	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: it.Event.SequenceNumber,
 		RawEvent:       it.Event,
 	}, nil
@@ -659,8 +597,8 @@ func SendRequestEVM(
 func SendRequestSol(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) { // TODO: chain independent return value
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) { // TODO: chain independent return value
 	ctx := e.GetContext()
 
 	s := state.SolChains[cfg.SourceChain]
@@ -906,7 +844,7 @@ func SendRequestSol(
 		cfg.IsTestRouter,
 	)
 
-	return &AnyMsgSentEvent{
+	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: ccipMessageSentEvent.SequenceNumber,
 		RawEvent: &onramp.OnRampCCIPMessageSent{
 			DestChainSelector: ccipMessageSentEvent.DestinationChainSelector,
@@ -955,8 +893,8 @@ type AptosTokenAmount struct {
 func SendRequestAptos(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
 	sender := e.BlockChains.AptosChains()[cfg.SourceChain].DeployerSigner
 	senderAddress := sender.AccountAddress()
 	client := e.BlockChains.AptosChains()[cfg.SourceChain].Client
@@ -1067,7 +1005,7 @@ func SendRequestAptos(
 				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
 			}
 			e.Logger.Debugf("CCIPMessageSentEvent: %v", msgSentEvent)
-			return &AnyMsgSentEvent{
+			return &ccipclient.AnyMsgSentEvent{
 				SequenceNumber: msgSentEvent.SequenceNumber,
 				RawEvent:       msgSentEvent,
 			}, nil
@@ -2191,7 +2129,7 @@ func Transfer(
 	useTestRouter bool,
 	data, extraArgs []byte,
 	feeToken string,
-) (*AnyMsgSentEvent, map[uint64]*uint64) {
+) (*ccipclient.AnyMsgSentEvent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
 	block, err := LatestBlock(ctx, env, destChain)
