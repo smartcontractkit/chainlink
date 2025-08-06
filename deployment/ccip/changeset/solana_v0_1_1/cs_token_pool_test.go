@@ -14,6 +14,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -238,14 +239,12 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		require.Equal(t, tokenAddress, configAccount.Config.Mint)
 		// test SetupTokenPoolForRemoteChain results
 		remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, testCase.poolAddress)
-		var remoteChainConfigAccount solTestTokenPool.ChainConfig
-		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-		require.NoError(t, err)
-		require.Equal(t, testhelpers.LocalTokenDecimals, int(remoteChainConfigAccount.Base.Remote.Decimals))
-		e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
-		require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
-		require.Equal(t, inboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
-		require.Equal(t, outboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
+		base := getTokenPoolBaseChainConfig(t, e, solChain, testCase.poolType, remoteChainConfigPDA)
+		require.Equal(t, testhelpers.LocalTokenDecimals, int(base.Remote.Decimals))
+		e.Logger.Infof("Pool addresses: %v", base.Remote.PoolAddresses)
+		require.Len(t, base.Remote.PoolAddresses, 1)
+		require.Equal(t, inboundConfig.Rate, base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, outboundConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
 
 		allowedAccount1, _ := solana.NewRandomPrivateKey()
 		allowedAccount2, _ := solana.NewRandomPrivateKey()
@@ -342,10 +341,9 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		})
 		require.NoError(t, err)
 
-		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-		require.NoError(t, err)
-		require.Equal(t, newInboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
-		require.Equal(t, newOutboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
+		base = getTokenPoolBaseChainConfig(t, e, solChain, testCase.poolType, remoteChainConfigPDA)
+		require.Equal(t, newInboundConfig.Rate, base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, newOutboundConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
 
 		if testCase.poolType == shared.LockReleaseTokenPool && tokenAddress == newTokenAddress {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -427,7 +425,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
 										BurnMintTokenPools: map[string][]solana.PublicKey{
 											tokenMetadata: {tokenAddress},
 										},
@@ -456,6 +454,23 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						),
 					})
 					require.NoError(t, err)
+				case shared.CCTPTokenPool:
+					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(
+							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
+							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								CurrentOwner:  timelockSignerPDA,
+								ProposedOwner: deployerKey,
+								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
+										CCTPTokenPoolMints: []solana.PublicKey{tokenAddress},
+									},
+								},
+							},
+						),
+					})
+					require.NoError(t, err)
 				default:
 					panic("unhandled default case")
 				}
@@ -470,6 +485,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							TransferKeys: []solana.PublicKey{
 								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+								state.SolChains[solChain].CCTPTokenPool,
 							},
 						},
 					),
@@ -481,6 +497,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							TransferKeys: []solana.PublicKey{
 								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+								state.SolChains[solChain].CCTPTokenPool,
 							},
 							MCMS: &proposalutils.TimelockConfig{
 								MinDelay: 1 * time.Second,
@@ -634,4 +651,25 @@ func getRandomPubKey(t *testing.T) solana.PublicKey {
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	return privKey.PublicKey()
+}
+
+func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint64, poolType cldf.ContractType, remoteChainConfigPDA solana.PublicKey) solBaseTokenPool.BaseChain {
+	t.Helper()
+
+	var base solBaseTokenPool.BaseChain
+	switch poolType {
+	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
+		var remoteChainConfigAccount solTestTokenPool.ChainConfig
+		err := e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(t.Context(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		require.NoError(t, err)
+		base = remoteChainConfigAccount.Base
+	case shared.CCTPTokenPool:
+		var remoteChainConfigAccount cctp_token_pool.ChainConfig
+		err := e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(t.Context(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		require.NoError(t, err)
+		base = remoteChainConfigAccount.Base
+	default:
+		require.Fail(t, "unsupported token pool type")
+	}
+	return base
 }

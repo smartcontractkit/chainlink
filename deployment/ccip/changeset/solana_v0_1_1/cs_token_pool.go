@@ -259,6 +259,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				configPDA,
 			).ValidateAndBuild()
 		case shared.CCTPTokenPool:
+			cctp_token_pool.SetProgramID(tokenPool)
+			// initialize token pool for token
 			poolInitI, err = cctp_token_pool.NewInitializeInstruction(
 				routerProgramAddress,
 				rmnRemoteAddress,
@@ -751,16 +753,16 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 	for _, remoteTokenPoolConfig := range cfg.RemoteTokenPoolConfigs {
 		tokenPubKey := remoteTokenPoolConfig.SolTokenPubKey
 		tokenPool := solChainState.GetActiveTokenPool(remoteTokenPoolConfig.SolPoolType, remoteTokenPoolConfig.Metadata)
+		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+			&e,
+			chain,
+			solChainState,
+			remoteTokenPoolConfig.SolPoolType,
+			tokenPubKey,
+			remoteTokenPoolConfig.Metadata,
+		)
 		switch remoteTokenPoolConfig.SolPoolType {
 		case shared.BurnMintTokenPool:
-			useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-				&e,
-				chain,
-				solChainState,
-				shared.BurnMintTokenPool,
-				tokenPubKey,
-				remoteTokenPoolConfig.Metadata,
-			)
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up bnm token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", remoteTokenPoolConfig.SolPoolType)
@@ -782,14 +784,6 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 
 		case shared.LockReleaseTokenPool:
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
-			useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-				&e,
-				chain,
-				solChainState,
-				shared.LockReleaseTokenPool,
-				tokenPubKey,
-				remoteTokenPoolConfig.Metadata,
-			)
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up lnr token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", remoteTokenPoolConfig.SolPoolType)
 				chainIxs, err := getInstructionsForLockRelease(e, chain, envState, solChainState, remoteTokenPoolConfig, evmChainSelector, evmRemoteConfig)
@@ -809,14 +803,6 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 			}
 		case shared.CCTPTokenPool:
 			cctp_token_pool.SetProgramID(tokenPool)
-			useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-				&e,
-				chain,
-				solChainState,
-				shared.CCTPTokenPool,
-				tokenPubKey,
-				remoteTokenPoolConfig.Metadata,
-			)
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up CCTP token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String())
 				chainIxs, err := getInstructionsForCCTP(e, chain, envState, solChainState, remoteTokenPoolConfig, evmChainSelector, evmRemoteConfig)
@@ -854,18 +840,30 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 }
 
 // checks if the evmChainSelector is supported for the given token and pool type
-func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
-	var remoteChainConfigAccount solTestTokenPool.ChainConfig
+func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, poolType cldf.ContractType, evmChainSelector uint64) (bool, solBaseTokenPool.BaseChain, error) {
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
 	if err != nil {
-		return false, solTestTokenPool.ChainConfig{}, fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", evmChainSelector, solTokenPubKey.String(), solPoolAddress.String(), err)
+		return false, solBaseTokenPool.BaseChain{}, fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", evmChainSelector, solTokenPubKey.String(), solPoolAddress.String(), err)
 	}
-	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-	if err != nil { // not a supported chain for this combination of token and pool type
-		return false, solTestTokenPool.ChainConfig{}, nil
+	var base solBaseTokenPool.BaseChain
+	switch poolType {
+	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
+		var remoteChainConfigAccount solTestTokenPool.ChainConfig
+		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		if err != nil { // not a supported chain for this combination of token and pool type
+			return false, solBaseTokenPool.BaseChain{}, nil
+		}
+		base = remoteChainConfigAccount.Base
+	case shared.CCTPTokenPool:
+		var remoteChainConfigAccount cctp_token_pool.ChainConfig
+		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		if err != nil { // not a supported chain for this combination of token and pool type
+			return false, solBaseTokenPool.BaseChain{}, nil
+		}
+		base = remoteChainConfigAccount.Base
 	}
-	return true, remoteChainConfigAccount, nil
+	return true, base, nil
 }
 
 func getNewSetupInstructionsForBurnMint(
@@ -997,7 +995,7 @@ func getInstructionsForBurnMint(
 		return nil, fmt.Errorf("failed to get onchain evm config: %w", err)
 	}
 
-	isSupportedChain, remoteChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, evmChainSelector)
+	isSupportedChain, baseChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, shared.BurnMintTokenPool, evmChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if chain is supported: %w", err)
 	}
@@ -1020,7 +1018,7 @@ func getInstructionsForBurnMint(
 		ixns = append(ixns, ixRates)
 
 		// if the token address has changed or if the override config flag is set, edit the remote config (just overwrite the existing remote config)
-		if !bytes.Equal(remoteChainConfigAccount.Base.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
+		if !bytes.Equal(baseChainConfigAccount.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
 			e.Logger.Infof("overriding remote config for chain %d", evmChainSelector)
 			ixConfigure, err := solBurnMintTokenPool.NewEditChainRemoteConfigInstruction(
 				evmChainSelector,
@@ -1037,7 +1035,7 @@ func getInstructionsForBurnMint(
 			ixns = append(ixns, ixConfigure)
 		} else {
 			// diff between [existing remote pool addresses on solana chain] vs [what was just derived from evm chain]
-			poolAddresses := remoteChainConfigAccount.Base.Remote.PoolAddresses
+			poolAddresses := baseChainConfigAccount.Remote.PoolAddresses
 			// translate to base
 			baseAddresses := make([]solBaseTokenPool.RemoteAddress, len(poolAddresses))
 			for i, cfg := range poolAddresses {
@@ -1198,7 +1196,7 @@ func getInstructionsForLockRelease(
 		return nil, fmt.Errorf("failed to get on chain evm pool config: %w", err)
 	}
 
-	isSupportedChain, remoteChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, evmChainSelector)
+	isSupportedChain, baseChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, shared.LockReleaseTokenPool, evmChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if chain is supported: %w", err)
 	}
@@ -1218,7 +1216,7 @@ func getInstructionsForLockRelease(
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		ixns = append(ixns, ixRates)
-		if !bytes.Equal(remoteChainConfigAccount.Base.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
+		if !bytes.Equal(baseChainConfigAccount.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
 			e.Logger.Infof("overriding remote config for chain %d", evmChainSelector)
 			ixConfigure, err := solLockReleaseTokenPool.NewEditChainRemoteConfigInstruction(
 				evmChainSelector,
@@ -1234,7 +1232,7 @@ func getInstructionsForLockRelease(
 			}
 			ixns = append(ixns, ixConfigure)
 		} else {
-			poolAddresses := remoteChainConfigAccount.Base.Remote.PoolAddresses
+			poolAddresses := baseChainConfigAccount.Remote.PoolAddresses
 			// translate to base
 			baseAddresses := make([]solBaseTokenPool.RemoteAddress, len(poolAddresses))
 			for i, cfg := range poolAddresses {
@@ -1398,7 +1396,7 @@ func getInstructionsForCCTP(
 		return nil, fmt.Errorf("failed to get on chain evm pool config: %w", err)
 	}
 
-	isSupportedChain, remoteChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, evmChainSelector)
+	isSupportedChain, baseChainConfigAccount, err := isSupportedChain(chain, tokenPubKey, tokenPool, shared.CCTPTokenPool, evmChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if chain is supported: %w", err)
 	}
@@ -1418,7 +1416,7 @@ func getInstructionsForCCTP(
 			return nil, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		ixns = append(ixns, ixRates)
-		if !bytes.Equal(remoteChainConfigAccount.Base.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
+		if !bytes.Equal(baseChainConfigAccount.Remote.TokenAddress.Address, onChainEVMPoolConfig.TokenAddress.Address) || evmRemoteConfig.OverrideConfig {
 			e.Logger.Infof("overriding remote config for chain %d", evmChainSelector)
 			ixConfigure, err := cctp_token_pool.NewEditChainRemoteConfigInstruction(
 				evmChainSelector,
@@ -1435,7 +1433,7 @@ func getInstructionsForCCTP(
 			ixns = append(ixns, ixConfigure)
 		} else {
 			// diff between [existing remote pool addresses on solana chain] vs [what was just derived from evm chain]
-			diff := poolDiff(remoteChainConfigAccount.Base.Remote.PoolAddresses, onChainEVMPoolConfig.PoolAddresses)
+			diff := poolDiff(baseChainConfigAccount.Remote.PoolAddresses, onChainEVMPoolConfig.PoolAddresses)
 			if len(diff) > 0 {
 				e.Logger.Infof("adding new pool addresses for chain %d", evmChainSelector)
 				ixAppend, err := cctp_token_pool.NewAppendRemotePoolAddressesInstruction(
@@ -2375,7 +2373,7 @@ func (cfg SyncDomainConfig) Validate(e cldf.Environment, chainState solanastatev
 	}
 	// Validate chain configs are initialized for each chain selector
 	for chainSel := range cfg.CCTPChainConfigMap {
-		supported, _, err := isSupportedChain(chain, chainState.USDCToken, chainState.CCTPTokenPool, chainSel)
+		supported, _, err := isSupportedChain(chain, chainState.USDCToken, chainState.CCTPTokenPool, shared.CCTPTokenPool, chainSel)
 		if err != nil {
 			return fmt.Errorf("failed to validate if remote chain %d is supported: %w", chainSel, err)
 		}
