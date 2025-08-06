@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
@@ -47,12 +47,29 @@ type ReportingPluginConfig struct {
 	MaxIdentifierNamespaceLenBytes int
 }
 
-func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], cfg *ReportingPluginConfig) *ReportingPluginFactory {
+func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) (*ReportingPluginFactory, error) {
+	if publicKey == nil {
+		return nil, errors.New("public key cannot be nil")
+	}
+	if privateKeyShare == nil {
+		return nil, errors.New("private key share cannot be nil")
+	}
+
+	cfg := &ReportingPluginConfig{
+		PublicKey:                      publicKey,
+		PrivateKeyShare:                privateKeyShare,
+		BatchSize:                      defaultBatchSize,
+		MaxSecretsPerOwner:             100,
+		MaxCiphertextLenBytes:          2 * 1024,
+		MaxIdentifierKeyLenBytes:       64,
+		MaxIdentifierOwnerLenBytes:     64,
+		MaxIdentifierNamespaceLenBytes: 64,
+	}
 	return &ReportingPluginFactory{
-		lggr:  lggr.Named("VaultReportingPlugin"),
+		lggr:  lggr.Named("VaultReportingPluginFactory"),
 		store: store,
 		cfg:   cfg,
-	}
+	}, nil
 }
 
 type ReportingPluginFactory struct {
@@ -63,7 +80,7 @@ type ReportingPluginFactory struct {
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	return &ReportingPlugin{
-		lggr:  r.lggr.Named("ReportingPlugin"),
+		lggr:  r.lggr.Named("VaultReportingPlugin"),
 		store: r.store,
 		cfg:   r.cfg,
 	}, ocr3_1types.ReportingPluginInfo{}, nil
@@ -299,7 +316,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 
 	shares := []*vault.EncryptedShares{}
 	for _, pk := range secretRequest.EncryptionKeys {
-		publicKey, err := base64.StdEncoding.DecodeString(pk)
+		publicKey, err := hex.DecodeString(pk)
 		if err != nil {
 			return nil, newUserError("failed to convert public key to bytes: " + err.Error())
 		}
@@ -317,7 +334,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		shares = append(shares, &vault.EncryptedShares{
 			EncryptionKey: pk,
 			Shares: []string{
-				base64.StdEncoding.EncodeToString(encrypted),
+				hex.EncodeToString(encrypted),
 			},
 		})
 	}
@@ -326,7 +343,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vault.SecretResponse_Data{
 			Data: &vault.SecretData{
-				EncryptedValue:               base64.StdEncoding.EncodeToString(secret.EncryptedSecret),
+				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
@@ -344,9 +361,9 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 	}
 
 	rawCiphertext := secretRequest.EncryptedValue
-	rawCiphertextB, err := base64.StdEncoding.DecodeString(rawCiphertext)
+	rawCiphertextB, err := hex.DecodeString(rawCiphertext)
 	if err != nil {
-		return id, newUserError("invalid base64 encoding for ciphertext: " + err.Error())
+		return id, newUserError("invalid hex encoding for ciphertext: " + err.Error())
 	}
 
 	if len(rawCiphertextB) > r.cfg.MaxCiphertextLenBytes {
@@ -688,9 +705,9 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return resp, nil
 	}
 
-	encryptedSecret, err := base64.StdEncoding.DecodeString(req.EncryptedValue)
+	encryptedSecret, err := hex.DecodeString(req.EncryptedValue)
 	if err != nil {
-		return nil, newUserError("could not decode secret value: invalid base64")
+		return nil, newUserError("could not decode secret value: invalid hex" + err.Error())
 	}
 
 	secret, err := store.GetSecret(req.Id)

@@ -404,9 +404,9 @@ func TestJSONParseTask(t *testing.T) {
 			assert.False(t, runInfo.IsRetryable)
 
 			if test.wantErrorCause != nil {
-				require.Equal(t, test.wantErrorCause, errors.Cause(result.Error))
+				require.ErrorIs(t, result.Error, test.wantErrorCause)
 				if test.wantErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.wantErrorContains)
+					require.ErrorContains(t, result.Error, test.wantErrorContains)
 				}
 
 				require.Nil(t, result.Value)

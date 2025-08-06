@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -96,14 +99,14 @@ type Report struct {
 	meteringMode    bool
 	meteringModeErr error
 	steps           map[string]ReportStep
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector uint64
 }
 
-func NewReport(
-	labels map[string]string,
-	lggr logger.Logger,
-	client BillingClient,
-	metrics *monitoring.WorkflowsMetricLabeler,
-) (*Report, error) {
+func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -112,23 +115,87 @@ func NewReport(
 		}
 	}
 
-	balanceStore, err := NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-	if err != nil {
-		return nil, err
+	report := Report{
+		labels:                  labels,
+		lggr:                    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
+		metrics:                 metrics,
+		workflowRegistryAddress: workflowRegistryAddress,
+
+		ready: false,
+		steps: make(map[string]ReportStep),
 	}
 
-	return &Report{
-		labels: labels,
+	// for safety in evaluating the client interface.
+	// the client could be a nil interface or a nil value that satisfies the interface.
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
+	}
 
-		balance: balanceStore,
-		client:  client,
-		lggr:    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
-		metrics: metrics,
+	if client == nil {
+		report.meteringMode = true
 
-		ready:        false,
-		meteringMode: false,
-		steps:        make(map[string]ReportStep),
-	}, nil
+		lggr.Errorf("switching to metering mode: %s", ErrNoBillingClient)
+	}
+
+	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
+	if err != nil {
+		report.meteringMode = true
+
+		lggr.Errorf("switching to metering mode: failed to parse registry chain id: %s", err)
+	}
+
+	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
+	if err != nil {
+		report.meteringMode = true
+
+		lggr.Errorf("switching to metering mode: failed to get selector for chain id: %s", err)
+	}
+
+	rateCard := make(map[string]decimal.Decimal)
+
+	if client != nil {
+		report.client = client
+
+		var resp *billing.GetWorkflowExecutionRatesResponse
+
+		resp, err = report.client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
+			WorkflowRegistryAddress: report.workflowRegistryAddress,
+			ChainSelector:           report.workflowRegistryChainSelector,
+		})
+		if err != nil {
+			lggr.Error(err)
+		}
+
+		rateCard, err = toRateCard(resp.GetRateCards())
+		if err != nil {
+			lggr.Errorf("switching to metering mode: %s", err)
+
+			report.meteringMode = true
+		}
+	}
+
+	if len(rateCard) == 0 && !report.meteringMode {
+		lggr.Error("switching to metering mode: empty rate card")
+
+		report.meteringMode = true
+	}
+
+	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
+	if err != nil {
+		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
+		report.meteringMode = true
+
+		// we can recover with an empty rate card and in metering mode
+		report.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+		if err != nil {
+			// this should never happen, but if it does, we cannot proceed
+			return nil, err
+		}
+	}
+
+	return &report, nil
 }
 
 // Reserve calls the billing service for the initial credit balance that can be used in an execution.
@@ -147,11 +214,14 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	// If there is no credit limit defined in the workflow, then open an empty reservation
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
+
 	req := billing.ReserveCreditsRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Credits:             nil,
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
+		Credits:                       nil,
 	}
 
 	resp, err := r.client.ReserveCredits(ctx, &req)
@@ -167,13 +237,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	rateCard, err := toRateCard(resp.GetRateCards())
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return nil
-	}
-
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
 		r.switchToMeteringMode(err)
@@ -181,17 +244,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	balanceStore, err := NewBalanceStore(credits, rateCard)
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return nil
-	}
-
 	r.ready = true
-	r.balance = balanceStore
 
-	return nil
+	return r.balance.Add(credits)
 }
 
 // DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
@@ -398,10 +453,13 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
 	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:       r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:          r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId: r.labels[platform.KeyWorkflowExecutionID],
-		Metering:            r.FormatReport(),
+		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
+		WorkflowId:                    r.labels[platform.KeyWorkflowID],
+		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
+		WorkflowRegistryAddress:       r.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
+		Metering:                      r.FormatReport(),
+		CreditsConsumed:               r.balance.GetSpent().String(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
@@ -524,16 +582,14 @@ func (r *Report) switchToMeteringMode(err error) {
 func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
-		unit, ok := billing.ResourceType_name[int32(rate.ResourceType)]
-		if !ok {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not find index %s in MeasurementUnit enum", rate.ResourceType)
-		}
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
 		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", unit, rate.UnitsPerCredit)
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
 		}
-		rateCard[unit] = conversionDeci
+
+		rateCard[rate.ResourceType.String()] = conversionDeci
 	}
+
 	return rateCard, nil
 }
 
@@ -561,16 +617,20 @@ type Reports struct {
 	owner      string
 	workflowID string
 	labelMap   map[string]string
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
+	workflowRegistryChainID string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(
-	client BillingClient,
-	owner, workflowID string,
-	lggr logger.Logger,
-	labels map[string]string,
-	metrics *monitoring.WorkflowsMetricLabeler,
-) *Reports {
+func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) *Reports {
+	valOf := reflect.ValueOf(client)
+	if valOf.IsValid() && valOf.IsNil() {
+		client = nil
+	}
+
 	return &Reports{
 		reports: make(map[string]*Report),
 		client:  client,
@@ -580,6 +640,9 @@ func NewReports(
 		owner:      owner,
 		workflowID: workflowID,
 		labelMap:   labels,
+
+		workflowRegistryAddress: workflowRegistryAddress,
+		workflowRegistryChainID: workflowRegistryChainID,
 	}
 }
 
@@ -606,7 +669,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(labels, s.lggr, s.client, s.metrics)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -631,13 +694,13 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 	emitErr := report.EmitReceipt(ctx)
 	if emitErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = multierr.Combine(multiErr, emitErr)
+		multiErr = errors.Join(multiErr, emitErr)
 	}
 
 	sendErr := report.SendReceipt(ctx)
 	if sendErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = multierr.Combine(multiErr, sendErr)
+		multiErr = errors.Join(multiErr, sendErr)
 	}
 
 	delete(s.reports, workflowExecutionID)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -17,14 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -122,10 +122,16 @@ type eventHandler struct {
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         *syncerlimiter.Limits
+	ratelimiter            limits.RateLimiter
+	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
+	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	workflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
 type Event struct {
@@ -159,6 +165,13 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
+func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.workflowRegistryAddress = address
+		e.workflowRegistryChainSelector = chainSelector
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowOwner string, workflowName string) (*job.WorkflowSpec, error)
@@ -184,9 +197,10 @@ func NewEventHandler(
 	dontimeStore *dontime.Store,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
-	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimits *syncerlimiter.Limits,
+	ratelimiter limits.RateLimiter,
+	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
+	workflowEncryptionKey workflowkey.Key,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -209,6 +223,7 @@ func NewEventHandler(
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
+		workflowEncryptionKey:  workflowEncryptionKey,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -530,6 +545,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 			BillingClient:  h.billingClient,
+			WorkflowRegistryAddress: h.workflowRegistryAddress,
+			WorkflowRegistryChainID: h.workflowRegistryChainSelector,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -543,9 +560,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		DonTimeStore:    h.dontimeStore,
 		ExecutionsStore: h.workflowStore,
 
-		WorkflowID:    workflowID,
-		WorkflowOwner: owner,
-		WorkflowName:  name,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:          v2.EngineLimits{}, // all defaults
 		GlobalLimits:         h.workflowLimits,
@@ -553,6 +571,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 	}
 	return v2.NewEngine(cfg)
 }

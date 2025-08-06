@@ -1,30 +1,17 @@
 package syncerlimiter
 
 import (
+	"context"
+	"fmt"
+	"strconv"
 	"strings"
-	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
-
-const (
-	defaultGlobal   = 200
-	defaultPerOwner = 200
-)
-
-type Limits struct {
-	// global tracks the count of all running workflows
-	global *int32
-
-	// perOwner tracks the count of all running workflows for an address
-	perOwner map[string]*int32
-
-	// perOwnerOverrides maps an address to a running workflow limit
-	perOwnerOverrides map[string]int32
-	config            Config
-	lggr              logger.Logger
-	mu                sync.Mutex
-}
 
 type Config struct {
 	// Global defines the maximum global number of workflows that can run on the node
@@ -39,93 +26,47 @@ type Config struct {
 	PerOwnerOverrides map[string]int32 `json:"overrides"`
 }
 
-func NewWorkflowLimits(lggr logger.Logger, config Config) (*Limits, error) {
+type keyedOwnerSettings struct {
+	key  string
+	vals map[string]string
+}
+
+func (k keyedOwnerSettings) GetScoped(ctx context.Context, scope settings.Scope, key string) (value string, err error) {
+	if k.key != key || scope != settings.ScopeOwner {
+		return "", nil
+	}
+	return k.vals[contexts.CREValue(ctx).Owner], nil
+}
+
+func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limits.ResourceLimiter[int], error) {
 	lggr = logger.Named(lggr, "WorkflowLimiter")
-	cfg := Config{
-		Global:            config.Global,
-		PerOwner:          config.PerOwner,
-		PerOwnerOverrides: normalizeOverrides(config.PerOwnerOverrides),
-	}
+	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
-	if cfg.Global == 0 {
-		cfg.Global = defaultGlobal
+	ownerLimit := cresettings.Config.PerOwner.ExecutionConcurrencyLimit
+	if cfg.PerOwner > 0 {
+		ownerLimit.DefaultValue = int(cfg.PerOwner)
 	}
-
-	if cfg.PerOwner == 0 {
-		cfg.PerOwner = defaultPerOwner
+	perOwner := make(map[string]string, len(cfg.PerOwnerOverrides))
+	for k, v := range cfg.PerOwnerOverrides {
+		perOwner[k] = strconv.Itoa(int(v))
+	}
+	lf.Settings = keyedOwnerSettings{key: ownerLimit.Key, vals: perOwner}
+	owner, err := limits.NewResourcePoolLimiter(lf, ownerLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
+	}
+	globalLimit := cresettings.Config.WorkflowLimit
+	if cfg.Global > 0 {
+		globalLimit.DefaultValue = int(cfg.Global)
+	}
+	global, err := limits.NewResourcePoolLimiter(lf, globalLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create global resource limiter: %w", err)
 	}
 
 	lggr.Debugw("workflow limits set", "perOwner", cfg.PerOwner, "global", cfg.Global, "overrides", cfg.PerOwnerOverrides)
 
-	return &Limits{
-		global:            new(int32),
-		perOwner:          make(map[string]*int32),
-		perOwnerOverrides: cfg.PerOwnerOverrides,
-		config:            cfg,
-		lggr:              lggr,
-	}, nil
-}
-
-func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	owner = normalizeOwner(owner)
-	countForOwner, ok := l.perOwner[owner]
-	if !ok {
-		l.perOwner[owner] = new(int32)
-		countForOwner = l.perOwner[owner]
-	}
-
-	limit := l.getPerOwnerLimit(owner)
-
-	l.lggr.Debugw("determined owner limit", "owner", owner, "limit", limit, "countForOwner", countForOwner)
-
-	if *countForOwner < limit {
-		ownerAllow = true
-	}
-
-	if *l.global < l.config.Global {
-		globalAllow = true
-	}
-
-	if ownerAllow && globalAllow {
-		*countForOwner++
-		*l.global++
-	}
-
-	l.lggr.Debugw("assesed if owner is allowed", "owner", owner, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
-
-	return ownerAllow, globalAllow
-}
-
-func (l *Limits) Decrement(owner string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	ownerLimiter, ok := l.perOwner[normalizeOwner(owner)]
-	if !ok || *ownerLimiter <= 0 {
-		return
-	}
-
-	*ownerLimiter--
-	*l.global--
-}
-
-// getPerOwnerLimit returns the default limit per owner if there are no overrides found
-// for the given owner.
-func (l *Limits) getPerOwnerLimit(owner string) int32 {
-	if l.perOwnerOverrides == nil {
-		return l.config.PerOwner
-	}
-	limit, found := l.perOwnerOverrides[normalizeOwner(owner)]
-	if found {
-		l.lggr.Debugw("overriding limit for owner", "owner", owner, "limit", limit)
-		return limit
-	}
-
-	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", owner, "limit", l.config.PerOwner)
-	return l.config.PerOwner
+	return limits.MultiResourcePoolLimiter[int]{owner, global}, nil
 }
 
 // normalizeOverrides ensures all incoming keys are normalized

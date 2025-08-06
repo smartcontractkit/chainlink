@@ -34,6 +34,7 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
@@ -445,7 +446,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	keyStore := NewKsa(db, lggr, csaKeyStore)
+	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Config:   config,
@@ -469,6 +470,7 @@ func setupNodeCCIP(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -1036,9 +1038,9 @@ func (k *ksa) CSA() keystore.CSA {
 	return k.csa
 }
 
-func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA) *ksa {
+func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, lggr),
+		Master: keystore.New(db, clutils.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

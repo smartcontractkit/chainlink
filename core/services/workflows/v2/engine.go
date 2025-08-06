@@ -13,11 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -122,10 +124,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
-			func(shares []string) (string, error) {
-				return "", errors.New("decryption not implemented in v2 engine")
-			},
-		)
+			cfg.WorkflowEncryptionKey)
 	}
 
 	engine := &Engine{
@@ -137,7 +136,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
 		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
 		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -148,32 +147,43 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return engine, nil
 }
 
-func (e *Engine) start(_ context.Context) error {
+func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
-	e.srvcEng.Go(e.heartbeatLoop)
-	e.srvcEng.Go(e.init)
-	e.srvcEng.Go(e.handleAllTriggerEvents)
+	ctx = context.WithoutCancel(ctx)
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
+	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
+	e.srvcEng.GoCtx(ctx, e.init)
+	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
 	return nil
 }
 
 func (e *Engine) init(ctx context.Context) {
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
-	ownerAllow, globalAllow := e.cfg.GlobalLimits.Allow(e.cfg.WorkflowOwner)
-	if !globalAllow {
-		e.lggr.Info("Global workflow count limit reached")
-		e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
-		e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
-		return
-	}
-	if !ownerAllow {
-		e.lggr.Info("Per owner workflow count limit reached")
-		e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
-		e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
+	err := e.cfg.GlobalLimits.Use(ctx, 1)
+	if err != nil {
+		var errLimited limits.ErrorResourceLimited[int]
+		if errors.As(err, &errLimited) {
+			switch errLimited.Scope {
+			case settings.ScopeOwner:
+				e.lggr.Info("Per owner workflow count limit reached", "err", err)
+				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
+				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
+			case settings.ScopeGlobal:
+				e.lggr.Info("Global workflow count limit reached", "err", err)
+				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
+				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
+			default:
+				e.lggr.Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+				e.cfg.Hooks.OnInitialized(err)
+			}
+		} else {
+			e.cfg.Hooks.OnInitialized(err)
+		}
 		return
 	}
 
-	err := e.runTriggerSubscriptionPhase(ctx)
+	err = e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
 		e.lggr.Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
@@ -196,11 +206,15 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
 	})
 
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	// TODO: Enable DON Time Provider - https://smartcontract-it.atlassian.net/browse/CAPPL-1035
+	timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr), e.cfg.SecretsFetcher))
+	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.cfg.SecretsFetcher))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -242,6 +256,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				WorkflowID:               e.cfg.WorkflowID,
 				WorkflowOwner:            e.cfg.WorkflowOwner,
 				WorkflowName:             e.cfg.WorkflowName.Hex(),
+				WorkflowTag:              e.cfg.WorkflowTag,
 				DecodedWorkflowName:      e.cfg.WorkflowName.String(),
 				WorkflowDonID:            e.localNode.WorkflowDON.ID,
 				WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
@@ -378,6 +393,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	// TODO: Enable DON Time Provider - https://smartcontract-it.atlassian.net/browse/CAPPL-1035
+	timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr)
+
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -388,7 +407,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr), SecretsFetcher: e.cfg.SecretsFetcher})
+		TimeProvider: timeProvider, SecretsFetcher: e.cfg.SecretsFetcher})
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -436,17 +455,17 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 func (e *Engine) close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
 	defer cancel()
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()
 
 	e.cfg.Module.Close()
-	e.cfg.GlobalLimits.Decrement(e.cfg.WorkflowOwner)
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
 
-	return nil
+	return e.cfg.GlobalLimits.Free(ctx, 1)
 }
 
 // NOTE: needs to be called under the triggersRegMu lock

@@ -152,7 +152,7 @@ func (ks ocr2) EnsureKeys(ctx context.Context, enabledChains ...chaintype.ChainT
 			return err
 		}
 
-		ks.logger.Infof("Created OCR2 key with ID %s for chain type %s", created.ID(), chainType)
+		ks.announce(created)
 	}
 
 	return nil

@@ -28,7 +28,7 @@ func DeployCapabilityRegistryV2(env cldf.Environment, req *DeployRequestV2) (cld
 }
 
 // DeployRequestV2 is a request to deploy the given deployFn to the given chain
-type DeployRequestV2 = struct {
+type DeployRequestV2 struct {
 	ChainSel  uint64
 	Qualifier string
 	Labels    *datastore.LabelSet

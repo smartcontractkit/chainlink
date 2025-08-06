@@ -24,12 +24,13 @@ type ChainReaderProviderOpts struct {
 
 // ChainWriterProviderOpts is a struct that contains the parameters for GetChainWriter.
 type ChainWriterProviderOpts struct {
-	ChainID               string
-	Relayer               loop.Relayer
-	Transmitters          map[types.RelayID][]string
-	ExecBatchGasLimit     uint64
-	ChainFamily           string
-	OfframpProgramAddress []byte
+	ChainID                        string
+	Relayer                        loop.Relayer
+	Transmitters                   map[types.RelayID][]string
+	ExecBatchGasLimit              uint64
+	ChainFamily                    string
+	OfframpProgramAddress          []byte
+	SolanaChainWriterConfigVersion *string
 }
 
 // ChainRWProvider is an interface that defines the methods to get a ContractReader and a ContractWriter.

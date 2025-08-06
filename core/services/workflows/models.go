@@ -51,7 +51,7 @@ type workflow struct {
 func (w *workflow) walkDo(start string, do func(s *step) error) error {
 	var outerErr error
 	err := graph.BFS(w.Graph, start, func(ref string) bool {
-		n, err := w.Graph.Vertex(ref)
+		n, err := w.Vertex(ref)
 		if err != nil {
 			outerErr = err
 			return true
@@ -75,7 +75,7 @@ func (w *workflow) walkDo(start string, do func(s *step) error) error {
 // dependents returns all steps that directly depend on the step with the given ref
 func (w *workflow) dependents(start string) ([]*step, error) {
 	var steps []*step
-	m, err := w.Graph.AdjacencyMap()
+	m, err := w.AdjacencyMap()
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 	}
 
 	for adjacentRef := range adj {
-		n, err := w.Graph.Vertex(adjacentRef)
+		n, err := w.Vertex(adjacentRef)
 		if err != nil {
 			return nil, err
 		}
@@ -146,21 +146,21 @@ func createWorkflow(wf2 *workflows.DependencyGraph) (*workflow, error) {
 		// this ensures that the intermediate representation (DependencyGraph) and the workflow
 		// representation label vertices with the same identifier, which in turn allows us to
 		// to copy the edges from the intermediate representation to the executable representation.
-		return s.Vertex.VID()
+		return s.VID()
 	}
 	g := graph.New(
 		stepHash,
 		graph.PreventCycles(),
 		graph.Directed(),
 	)
-	adjMap, err := wf2.Graph.AdjacencyMap()
+	adjMap, err := wf2.AdjacencyMap()
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert intermediate representation to adjacency map: %w", err)
 	}
 
 	// copy the all the vertices from the intermediate graph to the executable workflow graph
 	for vertexRef := range adjMap {
-		v, innerErr := wf2.Graph.Vertex(vertexRef)
+		v, innerErr := wf2.Vertex(vertexRef)
 		if innerErr != nil {
 			return nil, fmt.Errorf("failed to retrieve vertex for %s: %w", vertexRef, innerErr)
 		}

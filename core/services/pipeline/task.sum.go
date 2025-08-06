@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -33,7 +33,7 @@ func (t *SumTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
+	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)

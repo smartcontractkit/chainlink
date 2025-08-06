@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -18,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1014,21 +1014,21 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 	var errs error
 	for i, call := range calls {
 		if call.Error != nil {
-			errs = multierr.Append(errs, fmt.Errorf("checking request %s with hash %s: %w",
+			errs = stderrors.Join(errs, fmt.Errorf("checking request %s with hash %s: %w",
 				reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String(), call.Error))
 			continue
 		}
 
 		rString, ok := call.Result.(*string)
 		if !ok {
-			errs = multierr.Append(errs,
+			errs = stderrors.Join(errs,
 				fmt.Errorf("unexpected result %+v on request %s with hash %s",
 					call.Result, reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String()))
 			continue
 		}
 		result, err := hexutil.Decode(*rString)
 		if err != nil {
-			errs = multierr.Append(errs,
+			errs = stderrors.Join(errs,
 				fmt.Errorf("decoding batch call result %+v %s request %s with hash %s: %w",
 					call.Result, *rString, reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String(), err))
 			continue
@@ -1152,9 +1152,9 @@ func (lsn *listenerV2) simulateFulfillment(
 		res.err = errors.WithStack(res.run.AllErrors.ToError())
 
 		if strings.Contains(res.err.Error(), "blockhash not found in store") {
-			res.err = multierr.Combine(res.err, errBlockhashNotInStore{})
+			res.err = stderrors.Join(res.err, errBlockhashNotInStore{})
 		} else if isProofVerificationError(res.err.Error()) {
-			res.err = multierr.Combine(res.err, errProofVerificationFailed{})
+			res.err = stderrors.Join(res.err, errProofVerificationFailed{})
 		} else if strings.Contains(res.err.Error(), "execution reverted") {
 			// Even if the simulation fails, we want to get the
 			// txData for the fulfillRandomWords call, in case
@@ -1179,7 +1179,7 @@ func (lsn *listenerV2) simulateFulfillment(
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
 			}
-			res.err = multierr.Combine(res.err, errPossiblyInsufficientFunds{})
+			res.err = stderrors.Join(res.err, errPossiblyInsufficientFunds{})
 		}
 
 		return res

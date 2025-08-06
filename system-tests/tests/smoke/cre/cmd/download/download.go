@@ -9,13 +9,11 @@ import (
 	"github.com/spf13/cobra"
 
 	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
 var (
 	capabilitiesVersion   string
 	capabilityNames       []string
-	creCliVersion         string
 	outputDir             string
 	ghReadTokenEnvVarName string
 )
@@ -34,40 +32,6 @@ var downloadCapabilitiesCmd = &cobra.Command{
 	},
 }
 
-var downloadCreCliCmd = &cobra.Command{
-	Use:   "cre-cli",
-	Short: "Download CRE CLI binary",
-	Long:  `Download the CRE CLI binary from GitHub releases`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		githubToken, err := ghToken()
-		if err != nil {
-			return err
-		}
-
-		return downloadCreCLI(githubToken, creCliVersion)
-	},
-}
-
-var downloadAllCmd = &cobra.Command{
-	Use:   "all",
-	Short: "Download all binaries",
-	Long:  `Download both capabilities and CRE CLI binaries`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		githubToken, err := ghToken()
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("Downloading all binaries...")
-
-		if err := downloadCapabilities(githubToken, capabilitiesVersion, capabilityNames); err != nil {
-			return err
-		}
-
-		return downloadCreCLI(githubToken, creCliVersion)
-	},
-}
-
 var DownloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download binaries",
@@ -80,14 +44,8 @@ func init() {
 
 	downloadCapabilitiesCmd.Flags().StringSliceVar(&capabilityNames, "names", []string{}, "Names of the capabilities to download (requires GITHUB_READ_TOKEN)")
 	downloadCapabilitiesCmd.Flags().StringVar(&capabilitiesVersion, "version", "", "Version of the capabilities to download (requires GITHUB_READ_TOKEN)")
-	downloadCreCliCmd.Flags().StringVar(&creCliVersion, "version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringSliceVar(&capabilityNames, "capability-names", []string{}, "Names of the capabilities to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&capabilitiesVersion, "capability-version", "", "Version of the capabilities to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&creCliVersion, "cre-cli-version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
 
 	DownloadCmd.AddCommand(downloadCapabilitiesCmd)
-	DownloadCmd.AddCommand(downloadCreCliCmd)
-	DownloadCmd.AddCommand(downloadAllCmd)
 }
 
 func moveFile(src, dstDir string) error {
@@ -153,29 +111,6 @@ func downloadCapabilities(githubToken, version string, names []string) error {
 			}
 			fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
 		}
-	}
-
-	return nil
-}
-
-func downloadCreCLI(githubToken, version string) error {
-	if version == "" {
-		return errors.New("version flag is required")
-	}
-
-	fmt.Printf("Downloading CRE CLI binary version %s...\n", version)
-	path, err := libcrecli.DownloadAndInstallChainlinkCLI(githubToken, version)
-	if err != nil {
-		return fmt.Errorf("failed to download CRE CLI: %w", err)
-	}
-
-	fmt.Printf("CRE CLI binary downloaded to: %s\n", path)
-
-	if outputDir != "" && outputDir != "." {
-		if err := moveFile(path, outputDir); err != nil {
-			return fmt.Errorf("failed to move binary to output path: %w", err)
-		}
-		fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
 	}
 
 	return nil

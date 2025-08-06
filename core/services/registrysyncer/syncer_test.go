@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	kcr_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -330,44 +328,47 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
-	nodesInfo := []kcr_v1.INodeInfoProviderNodeInfo{
+	nodesInfo := []registrysyncer.NodeInfo{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[0],
-			P2pId:               nodeSet[0],
+			P2pID:               nodeSet[0],
 			EncryptionPublicKey: encPubKey1,
-			HashedCapabilityIds: [][32]byte{hid},
+			HashedCapabilityIDs: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIDs:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[1],
-			P2pId:               nodeSet[1],
+			P2pID:               nodeSet[1],
 			EncryptionPublicKey: encPubKey2,
-			HashedCapabilityIds: [][32]byte{hid},
+			HashedCapabilityIDs: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIDs:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
 			Signer:              signersSet[2],
-			P2pId:               nodeSet[2],
+			P2pID:               nodeSet[2],
 			EncryptionPublicKey: encPubKey3,
-			HashedCapabilityIds: [][32]byte{hid},
+			HashedCapabilityIDs: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
+			CapabilityIDs:       []string{cid},
 		},
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 		nodeSet[0]: nodesInfo[0],
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
@@ -533,29 +534,29 @@ func TestSyncer_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]kcr_v1.INodeInfoProviderNodeInfo{
+		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[0],
+				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[1],
+				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[2],
+				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId:      1,
+				NodeOperatorID:      1,
 				Signer:              randomWord(),
-				P2pId:               workflowDonNodes[3],
+				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: randomWord(),
 			},
 		},
@@ -587,48 +588,6 @@ func TestSyncer_LocalNode(t *testing.T) {
 		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
-}
-
-func TestSyncer_V2Unsupported(t *testing.T) {
-	ctx := testutils.Context(t)
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.DPanicLevel)
-	backendTH := captestutils.NewEVMBackendTH(t)
-
-	// Deploy a test V2 capabilities registry
-	regAddress, _, _, err := kcr_v2.DeployCapabilitiesRegistry(backendTH.ContractsOwner, backendTH.Backend.Client(), kcr_v2.CapabilitiesRegistryConstructorParams{})
-	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
-	backendTH.Backend.Commit()
-	backendTH.Backend.Commit()
-	backendTH.Backend.Commit()
-	require.NoError(t, err)
-
-	db := pgtest.NewSqlxDB(t)
-
-	syncerORM := registrysyncer.NewORM(db, lggr)
-	testContractReaderFactory := &testContractReaderFactory{
-		backendTH: backendTH,
-		t:         t,
-	}
-
-	syncer, err := registrysyncer.New(
-		lggr,
-		func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil },
-		testContractReaderFactory,
-		regAddress.Hex(),
-		syncerORM,
-	)
-	require.NoError(t, err)
-
-	// Add a launcher like in TestReader_Integration
-	l := &launcher{}
-	syncer.AddListener(l)
-
-	// Call Sync directly - this should return an error for V2 contracts
-	err = syncer.Sync(ctx, false)
-	require.Error(t, err)
-
-	time.Sleep(500 * time.Millisecond) // Allow some time for the syncer to start
-	require.Contains(t, err.Error(), "unsupported version 2.0.0")
 }
 
 // Add this helper struct to implement the ContractReaderFactory interface
