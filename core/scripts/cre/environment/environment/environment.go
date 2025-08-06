@@ -565,7 +565,7 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability}
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
