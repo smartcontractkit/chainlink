@@ -1471,7 +1471,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
-	lggr := logger.With(cfg.Lggr, "workflowID", cfg.WorkflowID)
+	lggr := logger.With(cfg.Lggr, "workflowID", cfg.WorkflowID, "workflowOwner", cfg.WorkflowOwner, "workflowRegistryAddress", cfg.WorkflowRegistryAddress, "workflowRegistryChainID", cfg.WorkflowRegistryChainID)
 
 	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
 

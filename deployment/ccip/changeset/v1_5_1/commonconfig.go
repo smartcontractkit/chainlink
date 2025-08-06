@@ -15,6 +15,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -221,6 +222,11 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			}
 		}
 	case shared.USDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
 		}

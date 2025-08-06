@@ -132,7 +132,7 @@ func (ks *cosmos) EnsureKey(ctx context.Context) error {
 
 	key := cosmoskey.New()
 
-	ks.logger.Infof("Created Cosmos key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

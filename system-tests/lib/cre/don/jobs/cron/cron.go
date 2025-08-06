@@ -39,7 +39,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, cronBinaryPath string) (cre.
 				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.CronCapability, cronBinaryPath, jobs.EmptyStdCapConfig))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerStandardCapability(nodeID, cre.CronCapability, cronBinaryPath, jobs.EmptyStdCapConfig, ""))
 		}
 	}
 

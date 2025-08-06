@@ -373,6 +373,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/vrf/import", auth.RequiresAdminRole(vrfkc.Import))
 		authv2.POST("/keys/vrf/export/:keyID", auth.RequiresAdminRole(vrfkc.Export))
 
+		wfkc := WorkflowKeysController{app}
+		authv2.GET("/keys/workflow", wfkc.Index)
+
 		jc := JobsController{app}
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)

@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -71,18 +71,20 @@ type master struct {
 	workflow *workflow
 }
 
-func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
-	return newMaster(ds, scryptParams, lggr)
+type Logf func(string, ...any)
+
+func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) Master {
+	return newMaster(ds, scryptParams, announce)
 }
 
-func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
+func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce Logf) *master {
 	orm := NewORM(ds)
 	km := &keyManager{
 		orm:          orm,
 		keystateORM:  orm,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
-		logger:       logger.Named(lggr, "KeyStore"),
+		announce:     announcer(announce),
 	}
 
 	return &master{
@@ -173,7 +175,7 @@ type keyManager struct {
 	keyStates    *keyStates
 	lock         *sync.RWMutex
 	password     string
-	logger       logger.Logger
+	announce     func(Key)
 }
 
 func (km *keyManager) IsEmpty(ctx context.Context) (bool, error) {
@@ -198,7 +200,6 @@ func (km *keyManager) Unlock(ctx context.Context, password string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt encrypted key ring")
 	}
-	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
 	ks, err := km.keystateORM.loadKeyStates(ctx)
@@ -302,4 +303,19 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 
 type Key interface {
 	ID() string
+}
+
+// announcer creates a new key announcer which controls logging to prevent leaking keys.
+func announcer(logf Logf) func(key Key) {
+	return func(key Key) {
+		kind, err := GetFieldNameForKey(key)
+		if err != nil {
+			kind = "[" + err.Error() + "]"
+		}
+		if ct, ok := key.(interface{ ChainType() chaintype.ChainType }); ok {
+			logf("Created %s key with ID %s for chain %s", kind, key.ID(), ct.ChainType())
+		} else {
+			logf("Created %s key with ID %s", kind, key.ID())
+		}
+	}
 }
