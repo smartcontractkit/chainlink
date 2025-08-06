@@ -143,8 +143,6 @@ triggers:
   - id: "securemint-trigger@1.0.0"
     config:
       maxFrequencyMs: 5000
-      feedIds:  
-        - "1020001001"  
 
 consensus:
   - id: "offchain_reporting@1.0.0"
