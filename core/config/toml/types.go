@@ -2258,6 +2258,9 @@ type Billing struct {
 func (b *Billing) setFrom(f *Billing) {
 	if f.URL != nil {
 		b.URL = f.URL
+	}
+
+	if f.TLSEnabled != nil {
 		b.TLSEnabled = f.TLSEnabled
 	}
 }
