@@ -30,8 +30,7 @@ type EngineConfig struct {
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
 
-	DonTimeEnabled bool
-	DonTimeStore   *dontime.Store
+	DonTimeStore *dontime.Store
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
@@ -114,7 +113,7 @@ func (c *EngineConfig) Validate() error {
 	if c.CapRegistry == nil {
 		return errors.New("capabilities registry not set")
 	}
-	if c.DonTimeStore == nil && c.DonTimeEnabled {
+	if c.DonTimeStore == nil {
 		return errors.New("dontime store not set")
 	}
 	if c.ExecutionsStore == nil {
