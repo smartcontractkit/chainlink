@@ -130,29 +130,29 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
 						HandlerType:   coregateway.WebAPICapabilitiesType,
-						AuthGatewayID: "web-api-gateway",
+						AuthGatewayID: "cre-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
 					})
 
-					if AnyDonHasCapability(donsWithMetadata, cre.VaultCapability) {
-						topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
-							Outgoing: cre.Outgoing{
-								Path: "/node",
-								Port: 15003,
-								Host: gatewayInternalHost,
-							},
-							Incoming: cre.Incoming{
-								Protocol:     "http",
-								Path:         "/",
-								InternalPort: 15002,
-								ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
-								Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
-							},
-							HandlerType:   coregateway.VaultHandlerType,
-							AuthGatewayID: "vault-gateway",
-							// do not set gateway connector dons, they will be resolved automatically
-						})
-					}
+					// if AnyDonHasCapability(donsWithMetadata, cre.VaultCapability) {
+					// 	topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
+					// 		Outgoing: cre.Outgoing{
+					// 			Path: "/node",
+					// 			Port: 15003,
+					// 			Host: gatewayInternalHost,
+					// 		},
+					// 		Incoming: cre.Incoming{
+					// 			Protocol:     "http",
+					// 			Path:         "/",
+					// 			InternalPort: 15002,
+					// 			ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
+					// 			Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
+					// 		},
+					// 		HandlerType:   coregateway.VaultHandlerType,
+					// 		AuthGatewayID: "vault-gateway",
+					// 		// do not set gateway connector dons, they will be resolved automatically
+					// 	})
+					// }
 				}
 			}
 

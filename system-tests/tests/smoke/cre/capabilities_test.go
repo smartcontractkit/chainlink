@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -49,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -63,7 +61,7 @@ To execute on local start the local CRE first with following command:
 go run . env start
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
-	confErr := setConfigurationIfMissing("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
+	confErr := setConfigurationIfMissing("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/configs/workflow-gateway-capabilities-don-cache.toml", "workflow")
 	require.NoError(t, confErr, "failed to set configuration")
 
 	configurationFiles := os.Getenv("CTF_CONFIGS")
@@ -295,9 +293,8 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	framework.L.Info().Msg("Getting gateway configuration...")
-	gatewayConfigurations := credon.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, fullCldEnvOutput.DonTopology.GatewayConnectorOutput)
-	require.NotEmpty(t, gatewayConfigurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(gatewayConfigurations[0].Incoming.Protocol + "://" + gatewayConfigurations[0].Incoming.Host + ":" + strconv.Itoa(gatewayConfigurations[0].Incoming.ExternalPort) + gatewayConfigurations[0].Incoming.Path)
+	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())

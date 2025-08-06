@@ -16,6 +16,11 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
+type Handler struct {
+	Name   string
+	Config string
+}
+
 func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
@@ -41,7 +46,7 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, handlerConfig string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, handlers []Handler, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConfiguration.Dons {
@@ -57,14 +62,22 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int,
 			)
 		}
 
+		var handlersConfig string
+		for _, handler := range handlers {
+			handlersConfig += fmt.Sprintf(`
+	[[gatewayConfig.Dons.Handlers]]
+	Name = "%s"
+	%s
+		`, handler.Name, handler.Config)
+		}
+
 		gatewayDons += fmt.Sprintf(`
-		[[gatewayConfig.Dons]]
-		DonId = "%s"
-		F = 1
-		HandlerName = "%s"
-		%s
-		%s
-		`, don.ID, gatewayConfiguration.HandlerType, handlerConfig, gatewayMembers)
+	[[gatewayConfig.Dons]]
+	DonId = "%s"
+	F = 1
+	%s
+	%s
+		`, don.ID, gatewayMembers, handlersConfig)
 	}
 
 	uuid := uuid.NewString()

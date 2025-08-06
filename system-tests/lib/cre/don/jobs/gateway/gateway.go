@@ -116,25 +116,32 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			return nil, errors.Wrap(homeChainErr, "failed to get home chain id from selector")
 		}
 
+		var handlers []jobs.Handler
+
 		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
-			gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, gatewayConnectorOutput)
-			if len(gatewayConfigurations) == 0 {
-				return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
-			}
+			// gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, gatewayConnectorOutput)
+			// if len(gatewayConfigurations) == 0 {
+			// 	return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
+			// }
 
 			handlerConfig := `
-			[gatewayConfig.Dons.HandlerConfig]
+			[gatewayConfig.Dons.Handlers.Config]
 			MaxAllowedMessageAgeSec = 1_000
-			[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+			[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 			GlobalBurst = 10
 			GlobalRPS = 50
 			PerSenderBurst = 10
 			PerSenderRPS = 10
 			`
 
-			for _, gatewayConfiguration := range gatewayConfigurations {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
-			}
+			handlers = append(handlers, jobs.Handler{
+				Name:   coregateway.WebAPICapabilitiesType,
+				Config: handlerConfig,
+			})
+
+			// for _, gatewayConfiguration := range gatewayConfigurations {
+			// 	donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
+			// }
 		}
 
 		var donMetadata []*cre.DonMetadata
@@ -143,25 +150,46 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		}
 
 		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
-			gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
-			if len(gatewayConfigurations) == 0 {
-				return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.VaultHandlerType)
-			}
+			// gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
+			// if len(gatewayConfigurations) == 0 {
+			// 	return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.VaultHandlerType)
+			// }
+
+			// handlerConfig := `
+			// MaxAllowedMessageAgeSec = 1_000
+			// [gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+			// GlobalBurst = 10
+			// GlobalRPS = 50
+			// PerSenderBurst = 10
+			// PerSenderRPS = 10
+			// `
 
 			// for some reason vault expects different field names than web API
 			handlerConfig := `
-			[gatewayConfig.Dons.HandlerConfig]
+			[gatewayConfig.Dons.Handlers.Config]
 			request_timeout_sec = 30
-			[gatewayConfig.Dons.HandlerConfig.node_rate_limiter]
+			[gatewayConfig.Dons.Handlers.Config.node_rate_limiter]
 			globalRPS = 100
 			globalBurst = 100
 			perSenderRPS = 10
 			perSenderBurst = 10
 			`
 
-			for _, gatewayConfiguration := range gatewayConfigurations {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
-			}
+			// handlerConfig := `
+			// Config = '{"request_timeout_sec": 30, "node_rate_limiter": {"globalRPS": 100, "globalBurst": 100, "perSenderRPS": 10, "perSenderBurst": 10}}'`
+
+			handlers = append(handlers, jobs.Handler{
+				Name:   coregateway.VaultHandlerType,
+				Config: handlerConfig,
+			})
+
+			// for _, gatewayConfiguration := range gatewayConfigurations {
+			// 	donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
+			// }
+		}
+
+		for _, gatewayConfiguration := range gatewayConnectorOutput.Configurations {
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlers, gatewayConfiguration))
 		}
 	}
 

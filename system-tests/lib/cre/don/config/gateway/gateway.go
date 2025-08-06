@@ -76,28 +76,37 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 				}
 			}
 
-			var gatewayConfigurations []*cre.GatewayConfiguration
-			var donID string
-			if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) {
-				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
-				if len(gatewayConfigurations) > 0 {
-					donID = input.DonMetadata.Name
-				}
-			}
+			// var gatewayConfigurations []*cre.GatewayConfiguration
+			// var donID string
+			// if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) {
+			// 	gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
+			// 	if len(gatewayConfigurations) > 0 {
+			// 		donID = input.DonMetadata.Name
+			// 	}
+			// }
 
-			if flags.HasFlag(input.Flags, cre.VaultCapability) {
-				gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
-				// we need to call the DonID "vault" because that value is used in two-fold manner:
-				// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector configuration, it uses the same DonID for all gateways.
-				// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
-				// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then only "DonID" equal to "vault" will work for all cases.
-				if len(gatewayConfigurations) > 0 {
-					donID = cre.VaultGatewayDonID
-				}
-			}
+			// if flags.HasFlag(input.Flags, cre.VaultCapability) {
+			// 	gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
+			// 	// we need to call the DonID "vault" because that value is used in two-fold manner:
+			// 	// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector configuration, it uses the same DonID for all gateways.
+			// 	// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
+			// 	// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then only "DonID" equal to "vault" will work for all cases.
+			// 	if len(gatewayConfigurations) > 0 {
+			// 		donID = cre.VaultGatewayDonID
+			// 	}
+			// }
+
+			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
 
 			if len(gatewayConfigurations) == 0 {
 				return nil, errors.New("no gateway connector configurations found")
+			}
+
+			var donID string
+			if flags.HasFlag(input.Flags, cre.VaultCapability) {
+				donID = cre.VaultGatewayDonID
+			} else {
+				donID = input.DonMetadata.Name
 			}
 
 			configOverrides[nodeIndex] += config.WorkerGateway(
