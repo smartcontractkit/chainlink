@@ -46,8 +46,47 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+
+	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_offramp"
@@ -528,9 +567,9 @@ func SendRequest(
 func SendRequestTon(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// TODO this should be replaced with the implementation from chainlink-ton
-	return &AnyMsgSentEvent{}, nil
+	return &ccipclient.AnyMsgSentEvent{}, nil
 }
 
 func SendRequestEVM(
