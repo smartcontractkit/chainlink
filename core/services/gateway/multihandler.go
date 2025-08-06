@@ -16,7 +16,6 @@ type multiHandler struct {
 }
 
 func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
-
 	handlerMap := map[string]handlers.Handler{}
 	for _, h := range hdlrs {
 		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, donConfig, connMgr)
