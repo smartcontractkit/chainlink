@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -69,6 +70,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		Lggr:                          lggr,
 		Module:                        modulemocks.NewModuleV2(t),
 		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
+		DonTimeStore:                  dontime.NewStore(dontime.DefaultRequestTimeout),
 		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		WorkflowID:                    testWorkflowID,
 		WorkflowOwner:                 testWorkflowOwnerA,
