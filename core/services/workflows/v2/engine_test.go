@@ -892,6 +892,8 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
+			assert.Equal(t, testWorkflowNameA, req.Metadata.DecodedWorkflowName)
+			assert.Equal(t, hashedTestWorkflowNameA, req.Metadata.WorkflowName)
 			// Simulate work that takes longer than the 50ms timeout
 			select {
 			case <-time.After(100 * time.Millisecond):
