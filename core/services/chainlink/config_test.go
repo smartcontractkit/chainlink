@@ -1657,11 +1657,11 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantSecrets   string
 		wantWarning   string
 	}{
-		//{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
+		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
 		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
 			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
-		//{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
-		//	wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
+		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
+			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

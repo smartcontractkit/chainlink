@@ -641,7 +641,7 @@ func TestSolKeys_TOMLSerialization(t *testing.T) {
 		var decoded SolKeys
 		err = toml.NewDecoder(strings.NewReader(buf.String())).Decode(&decoded)
 		require.NoError(t, err)
-		assert.Equal(t, len(solKeys.Keys), len(decoded.Keys))
+		assert.Len(t, solKeys.Keys, len(decoded.Keys))
 		for i, key := range solKeys.Keys {
 			assert.Equal(t, key.JSON.GoString(), decoded.Keys[i].JSON.GoString())
 			assert.Equal(t, key.Password.GoString(), decoded.Keys[i].Password.GoString())

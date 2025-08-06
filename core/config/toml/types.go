@@ -228,8 +228,8 @@ func (e *SolKey) ValidateConfig() (err error) {
 	}
 	// require valid id
 	if e.ID != nil {
-		_, err := chain_selectors.SolanaNameFromChainId(*e.ID)
-		if err != nil {
+		_, err2 := chain_selectors.SolanaNameFromChainId(*e.ID)
+		if err2 != nil {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
 		}
 	}
