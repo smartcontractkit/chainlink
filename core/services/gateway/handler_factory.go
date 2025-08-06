@@ -54,6 +54,8 @@ func HandlerTypeForMethod(method string) (HandlerType, error) {
 		return HTTPCapabilityType, nil
 	case vault.MethodSecretsCreate:
 		return VaultHandlerType, nil
+	case "dummy":
+		return DummyHandlerType, nil
 	default:
 		return HandlerType(""), fmt.Errorf("unknown handler type for method %s", method)
 	}

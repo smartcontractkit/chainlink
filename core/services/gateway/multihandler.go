@@ -12,10 +12,11 @@ import (
 )
 
 type multiHandler struct {
-	handlers map[string]handlers.Handler
+	handlers             map[string]handlers.Handler
+	handlerTypeForMethod func(string) (HandlerType, error)
 }
 
-func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
+func NewMultiHandler(handlerFactory HandlerFactory, handlerTypeForMethod func(string) (HandlerType, error), hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
 	handlerMap := map[string]handlers.Handler{}
 	for _, h := range hdlrs {
 		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, donConfig, connMgr)
@@ -27,7 +28,8 @@ func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donC
 	}
 
 	return &multiHandler{
-		handlers: handlerMap,
+		handlers:             handlerMap,
+		handlerTypeForMethod: handlerTypeForMethod,
 	}, nil
 }
 
@@ -67,7 +69,7 @@ func (m *multiHandler) getHandler(method string) (handlers.Handler, error) {
 		}
 	}
 
-	handlerType, err := HandlerTypeForMethod(method)
+	handlerType, err := m.handlerTypeForMethod(method)
 	if err != nil {
 		return nil, fmt.Errorf("no handler found for method: %w", err)
 	}

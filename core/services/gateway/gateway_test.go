@@ -42,6 +42,18 @@ func buildConfig(toAppend string) string {
 	` + toAppend
 }
 
+func handlerTypeForMethod(method string) (gateway.HandlerType, error) {
+	return method, nil
+}
+
+type handlerFactory struct {
+	handlers map[string]handlers.Handler
+}
+
+func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
+	return h.handlers[string(handlerType)], nil
+}
+
 func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +72,7 @@ Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.NoError(t, err)
 }
 
@@ -78,7 +90,7 @@ HandlerName = "dummy"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.Error(t, err)
 }
 
@@ -92,7 +104,7 @@ HandlerName = "no_such_handler"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.Error(t, err)
 }
 
@@ -106,7 +118,7 @@ SomeOtherField = "abcd"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.Error(t, err)
 }
 
@@ -124,7 +136,7 @@ Address = "0xnot_an_address"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.Error(t, err)
 }
 
@@ -132,7 +144,7 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 }
@@ -308,4 +320,71 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
 	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrInvalidRequest, "failure")
 	require.Equal(t, 400, statusCode)
+}
+
+func TestGateway_Multihandler(t *testing.T) {
+	tomlConfig := buildConfig(`
+[[dons]]
+DonId = "my_don_1"
+
+[[dons.Handlers]]
+Name = "dummy"
+
+[[dons.Handlers]]
+Name = "dummy2"
+
+[[dons.Members]]
+Name = "node one"
+Address = "0x0001020304050607080900010203040506070809"
+`)
+
+	lggr := logger.Test(t)
+	handler := handler_mocks.NewHandler(t)
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		// echo back to sender with attached payload
+		if msg.Body.Method != "dummy" {
+			require.Fail(t, "Expected method to be 'dummy', got: %s", msg.Body.Method)
+		}
+		msg.Body.Payload = []byte(`{"result":"OK"}`)
+		msg.Signature = ""
+		codec := api.JsonRPCCodec{}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+	})
+	handler2 := handler_mocks.NewHandler(t)
+	handler2.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		// echo back to sender with attached payload
+		if msg.Body.Method != "dummy2" {
+			require.Fail(t, "Expected method to be 'dummy2', got: %s", msg.Body.Method)
+		}
+		msg.Body.Payload = []byte(`{"result":"OK"}`)
+		msg.Signature = ""
+		codec := api.JsonRPCCodec{}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+	})
+	handlers := map[string]handlers.Handler{
+		"dummy":  handler,
+		"dummy2": handler2,
+	}
+	mhf := &handlerFactory{handlers: handlers}
+
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, handlerTypeForMethod, lggr)
+	require.NoError(t, err)
+
+	method := "dummy"
+	req := newSignedLegacyRequest(t, "abcd", method, "my_don_1", []byte{})
+	response, statusCode := gateway.ProcessRequest(testutils.Context(t), req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, method, response, "abcd",
+		`{"signature":"","body":{"message_id":"abcd","method":"dummy","don_id":"my_don_1","receiver":"","payload":{"result":"OK"}}}`)
+
+	method = "dummy2"
+	req = newSignedLegacyRequest(t, "abcd", method, "my_don_1", []byte{})
+	response, statusCode = gateway.ProcessRequest(testutils.Context(t), req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, method, response, "abcd",
+		`{"signature":"","body":{"message_id":"abcd","method":"dummy2","don_id":"my_don_1","receiver":"","payload":{"result":"OK"}}}`)
 }
