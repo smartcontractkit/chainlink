@@ -264,7 +264,6 @@ func deployTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-
 			}
 			var tp *token_pool.TokenPool
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)

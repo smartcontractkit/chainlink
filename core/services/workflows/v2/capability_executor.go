@@ -102,7 +102,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
-			// TODO: Set WorkflowTag from Workflow Registry V2
+			WorkflowTag:              c.cfg.WorkflowTag,
 		},
 		Config: values.EmptyMap(),
 	}

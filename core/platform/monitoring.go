@@ -13,6 +13,7 @@ const (
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"
+	KeyWorkflowTag         = "workflowTag"
 	KeyWorkflowVersion     = "workflowVersion"
 	KeyWorkflowOwner       = "workflowOwner"
 	KeyStepID              = "stepID"

@@ -302,7 +302,7 @@ func transferOwnershipOffRamp(
 	return result, nil
 }
 
-// transferOwnershipLockMintTokenPools transfers ownership of the lock mint token pools.
+// transferOwnershipBurnMintTokenPools transfers ownership of the burn mint token pools.
 func transferOwnershipBurnMintTokenPools(
 	ccipState stateview.CCIPOnChainState,
 	tokenPoolConfigPDA solana.PublicKey,
@@ -371,7 +371,7 @@ func transferOwnershipBurnMintTokenPools(
 	return result, nil
 }
 
-// transferOwnershipLockReleaseTokenPools transfers ownership of the lock mint token pools.
+// transferOwnershipLockReleaseTokenPools transfers ownership of the lock release token pools.
 func transferOwnershipLockReleaseTokenPools(
 	ccipState stateview.CCIPOnChainState,
 	tokenPoolConfigPDA solana.PublicKey,

@@ -780,6 +780,7 @@ func SendRequestSol(
 		allTokenPools := solana.PublicKeySlice{}
 		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.LockReleaseTokenPools))
 		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.BurnMintTokenPools))
+		allTokenPools = append(allTokenPools, s.CCTPTokenPool)
 
 		e.Logger.Infof("Found %d token pools in state - searching for matching token pool", len(allTokenPools))
 		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, allTokenPools)
@@ -2553,6 +2554,11 @@ func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) erro
 	if err != nil {
 		return err
 	}
+	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["cctp_token_pool"], tv)
+	if err != nil {
+		return err
+	}
 	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
 	if err != nil {
@@ -2615,7 +2621,7 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
 		}
@@ -2630,13 +2636,10 @@ func ValidateSolanaState(e cldf.Environment, solChainSelectors []uint64) error {
 		if err != nil {
 			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to deserialize offramp config for chain %d: %w", sel, err)
-		}
 
 		// Get rmn remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(context.Background(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		err = e.BlockChains.SolanaChains()[sel].GetAccountDataBorshInto(e.GetContext(), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize rmn remote config for chain %d: %w", sel, err)
 		}

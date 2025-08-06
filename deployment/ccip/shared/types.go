@@ -71,6 +71,7 @@ var (
 	RemoteSource         deployment.ContractType = "RemoteSource"
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 

@@ -35,6 +35,7 @@ type EngineConfig struct {
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
 	WorkflowName          types.WorkflowName
+	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
 	LocalLimits          EngineLimits                // local to a single workflow
@@ -133,6 +134,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.WorkflowName == nil {
 		return errors.New("workflowName not set")
+	}
+	if c.WorkflowTag == "" {
+		return errors.New("workflowTag not set")
 	}
 
 	c.LocalLimits.setDefaultLimits()

@@ -255,7 +255,6 @@ func addTokenE2EPreconditionValidation(e cldf.Environment, config AddTokensE2ECo
 				}
 				config.Tokens[token] = cfg
 			}
-
 		}
 	}
 	return nil

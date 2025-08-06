@@ -289,13 +289,30 @@ func TestEngine_Execution(t *testing.T) {
 		trigger := capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
 		eventCh := make(chan capabilities.TriggerResponse)
-		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+		var capturedTriggerRequest capabilities.TriggerRegistrationRequest
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
+			Run(func(ctx context.Context, req capabilities.TriggerRegistrationRequest) {
+				capturedTriggerRequest = req
+			}).
+			Return(eventCh, nil).Once()
 		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
+		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
+		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
+		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
+		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
+		require.Equal(t, "method", capturedTriggerRequest.Method)
+		require.Nil(t, capturedTriggerRequest.Payload)
+		require.Nil(t, capturedTriggerRequest.Config)
 
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",

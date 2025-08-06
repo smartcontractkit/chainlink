@@ -1242,7 +1242,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd6487746c2
+      E2E_FAST_FILLER_VERSION: main-amd64f226230
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5LanesWithMCMS$
@@ -1260,7 +1260,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd6487746c2
+      E2E_FAST_FILLER_VERSION: main-amd64f226230
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_6Lanes$
@@ -1278,7 +1278,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd6487746c2
+      E2E_FAST_FILLER_VERSION: main-amd64f226230
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_fast_transfer_test.go:^TestFastTransfer1_5Lanes$
@@ -1296,7 +1296,7 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_FAST_FILLER_VERSION: main-amd6487746c2
+      E2E_FAST_FILLER_VERSION: main-amd64f226230
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$

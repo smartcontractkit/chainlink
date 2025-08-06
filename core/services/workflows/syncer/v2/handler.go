@@ -32,7 +32,7 @@ type ORM interface {
 	artifacts.WorkflowSpecsDS
 }
 
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error)
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
@@ -69,7 +69,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte) (services.Service, error) {
 			return engine, nil
 		}
 	}
@@ -156,6 +156,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowTag, payload.WorkflowTag,
 		)
 
 		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
@@ -167,7 +168,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner), "type", event.Name)
+		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
@@ -294,6 +296,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		Status:        status,
 		WorkflowOwner: owner,
 		WorkflowName:  payload.WorkflowName,
+		WorkflowTag:   payload.WorkflowTag,
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
@@ -306,7 +309,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	return entry, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
@@ -356,6 +359,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
 		WorkflowName:          name,
+		WorkflowTag:           tag,
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:          v2.EngineLimits{}, // all defaults
@@ -462,6 +466,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		spec.WorkflowID,
 		spec.WorkflowOwner,
 		workflowName,
+		spec.WorkflowTag,
 		[]byte(spec.Config),
 		decodedBinary,
 	)
