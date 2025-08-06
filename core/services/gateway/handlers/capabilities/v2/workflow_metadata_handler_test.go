@@ -49,7 +49,7 @@ func TestSyncMetadata(t *testing.T) {
 
 	// Add some test data to aggregator
 	key := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "key1",
 	}
 	observation := gateway_common.WorkflowMetadata{
@@ -110,7 +110,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: key,
 					},
 				},
@@ -211,11 +211,11 @@ func TestOnMetadataPush(t *testing.T) {
 		},
 		AuthorizedKeys: []gateway_common.AuthorizedKey{
 			{
-				KeyType:   gateway_common.KeyTypeECDSA,
+				KeyType:   gateway_common.KeyTypeECDSAEVM,
 				PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 			},
 			{
-				KeyType:   gateway_common.KeyTypeECDSA,
+				KeyType:   gateway_common.KeyTypeECDSAEVM,
 				PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 			},
 		},
@@ -261,15 +261,15 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	defer handler.agg.Close()
 
 	key1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 	}
 	key2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 	}
 	key3 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0xabcdef1234567890abcdef1234567890abcdefab",
 	}
 	metadata := []gateway_common.WorkflowMetadata{
@@ -400,7 +400,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -418,7 +418,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -437,7 +437,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -456,7 +456,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -475,7 +475,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -527,7 +527,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "",
 					},
 				},
@@ -546,7 +546,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -565,7 +565,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x123456789",
 					},
 				},
@@ -584,7 +584,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef123456789",
 					},
 				},
@@ -603,7 +603,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890ABCDEF1234567890abcdef12345678",
 					},
 				},
@@ -622,11 +622,11 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
@@ -666,7 +666,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
-					KeyType:   gateway_common.KeyTypeECDSA,
+					KeyType:   gateway_common.KeyTypeECDSAEVM,
 					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 				},
 			},
@@ -694,7 +694,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
-					KeyType:   gateway_common.KeyTypeECDSA,
+					KeyType:   gateway_common.KeyTypeECDSAEVM,
 					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 				},
 			},
@@ -733,7 +733,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -747,7 +747,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
@@ -777,7 +777,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -791,7 +791,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
