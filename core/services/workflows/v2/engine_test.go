@@ -302,17 +302,17 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, "id_0", capturedTriggerRequest.TriggerID)
+		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-		require.Equal(t, cfg.WorkflowName.String(), capturedTriggerRequest.Metadata.WorkflowName)
+		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
 		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
 		require.Equal(t, "method", capturedTriggerRequest.Method)
-		require.Equal(t, nil, capturedTriggerRequest.Payload)
-		require.Equal(t, nil, capturedTriggerRequest.Config)
+		require.Nil(t, capturedTriggerRequest.Payload)
+		require.Nil(t, capturedTriggerRequest.Config)
 
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",
