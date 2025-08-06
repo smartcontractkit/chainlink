@@ -97,12 +97,12 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			WorkflowOwner:            c.cfg.WorkflowOwner,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
-			WorkflowTag:              c.cfg.WorkflowTag,
 			WorkflowDonID:            c.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
+			WorkflowTag:              c.cfg.WorkflowTag,
 		},
 		Config: values.EmptyMap(),
 	}
