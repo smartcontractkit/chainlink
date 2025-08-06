@@ -23,11 +23,21 @@ type ConnectionManagerConfig struct {
 }
 
 type DONConfig struct {
-	DonId         string
-	HandlerName   string
+	DonId   string
+	Members []NodeConfig
+	F       int
+
+	// Deprecated: use HandlerConfigs instead
+	HandlerName string
+	// Deprecated: use HandlerConfigs instead
 	HandlerConfig json.RawMessage
-	Members       []NodeConfig
-	F             int
+
+	Handlers []Handler
+}
+
+type Handler struct {
+	Name   string
+	Config json.RawMessage
 }
 
 type NodeConfig struct {

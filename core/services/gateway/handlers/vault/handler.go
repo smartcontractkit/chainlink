@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	handlerName          = "VaultHandler"
+	HandlerType          = "vault"
 	defaultCleanUpPeriod = 5 * time.Second
 )
 
