@@ -199,7 +199,7 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 	})
 
-	t.Run("status code 500 is not cached if StoreInCache is false", func(t *testing.T) {
+	t.Run("status code 500 is not cached", func(t *testing.T) {
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",

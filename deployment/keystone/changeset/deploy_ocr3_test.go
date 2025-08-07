@@ -33,16 +33,22 @@ func TestDeployOCR3(t *testing.T) {
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	qualifier := "test-ocr3-qualifier"
 
 	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := changeset.DeployOCR3(env, registrySel)
+	resp, err := changeset.DeployOCR3V2(env, &changeset.DeployRequestV2{
+		ChainSel: registrySel, Qualifier: qualifier,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// OCR3 should be deployed on chain 0
 	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
+
+	dsAddrs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier), datastore.AddressRefByChainSelector(registrySel))
+	require.Len(t, dsAddrs, 1)
 
 	// nothing on chain 1
 	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
@@ -126,7 +132,7 @@ func TestConfigureOCR3(t *testing.T) {
 		}
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
@@ -185,7 +191,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))

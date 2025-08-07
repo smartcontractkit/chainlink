@@ -134,6 +134,14 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	return cfg
 }
 
+func (h *gatewayHandler) Methods() []string {
+	return []string{
+		gateway_common.MethodHTTPAction,
+		gateway_common.MethodPushWorkflowMetadata,
+		gateway_common.MethodPullWorkflowMetadata,
+	}
+}
+
 func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	if resp.ID == "" {
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)

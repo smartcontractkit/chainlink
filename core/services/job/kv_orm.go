@@ -12,6 +12,7 @@ import (
 type KVStore interface {
 	Store(ctx context.Context, key string, val []byte) error
 	Get(ctx context.Context, key string) ([]byte, error)
+	PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error)
 }
 
 type kVStore struct {
@@ -51,4 +52,23 @@ func (kv kVStore) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 
 	return val, nil
+}
+
+// PruneExpiredEntries removes entries older than maxAge from the kv store based on updated_at timestamp.
+// Returns the number of entries deleted.
+func (kv kVStore) PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error) {
+	cutoffTime := time.Now().Add(-maxAge)
+	sql := `DELETE FROM job_kv_store WHERE job_id = $1 AND updated_at < $2`
+
+	result, err := kv.ds.ExecContext(ctx, sql, kv.jobID, cutoffTime)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prune expired entries for jobID: %d : %w", kv.jobID, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected while pruning for jobID: %d : %w", kv.jobID, err)
+	}
+
+	return rowsAffected, nil
 }

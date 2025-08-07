@@ -663,6 +663,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
+	tokenProgram, _ := solChainState.TokenToTokenProgram(tokenPubKey)
 	tokenPool := solChainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata)
 
 	switch cfg.PoolType {
@@ -686,22 +687,6 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
-	initGlobalConfigIx, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
-		newMintAuthority,
-		poolConfig,
-		tokenPubKey,
-		solana.Token2022ProgramID,
-		tokenPoolSigner,
-		chain.DeployerKey.PublicKey(),
-		tokenPool,
-		programData.Address).ValidateAndBuild()
-
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
-	}
-
-	var txns []mcmsTypes.Transaction
-
 	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -711,15 +696,45 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		cfg.Metadata,
 	)
 
-	instructions := []solana.Instruction{initGlobalConfigIx}
-
+	var txns []mcmsTypes.Transaction
 	if useMcms {
-		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
+		timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+
+		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			timelockSigner,
+			newMintAuthority,
+			tokenPool,
+			programData.Address).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
+		}
+
+		err = appendTxs([]solana.Instruction{ix}, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 	} else {
-		if err := chain.Confirm(instructions); err != nil {
+		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			chain.DeployerKey.PublicKey(),
+			newMintAuthority,
+			tokenPool,
+			programData.Address).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
+		}
+
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
@@ -2098,7 +2113,6 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 			return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
 		}
 		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-
 		if err != nil {
 			return fmt.Errorf("remote chain config not found for (remoteSelector: %d, mint: %s, pool: %s, type: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType, err)
 		}

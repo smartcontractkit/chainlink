@@ -128,6 +128,7 @@ func (h *Handler) handleSecretsCreate(ctx context.Context, gatewayID string, req
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
+		Method:  req.Method,
 		Result:  (*json.RawMessage)(&resultBytes),
 	}
 }

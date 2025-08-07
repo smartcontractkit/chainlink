@@ -13,9 +13,11 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
+	solTestUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
@@ -111,7 +113,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
 		solana.TokenProgramID,
 		newTokenAddress,
-		e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey(),
+		deployerKey,
 	)
 	rebalancer := deployerKey
 	var mcmsConfig *proposalutils.TimelockConfig
@@ -507,6 +509,52 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				})
 				require.NoError(t, err)
 			}
+		}
+
+		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
+		// we'll only create the multisig account and run the changeset if the pool type is BnM.
+		if !mcms && testCase.poolType == shared.BurnFromMintTokenPool {
+			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
+			require.NoError(t, err)
+
+			deployerPrivKey := *e.BlockChains.SolanaChains()[solChain].DeployerKey
+			solanaRPCClient := e.BlockChains.SolanaChains()[solChain].Client
+
+			multisig, err := solana.NewRandomPrivateKey()
+			require.NoError(t, err)
+
+			ixMsig, ixErrMsig := solTokenUtil.CreateMultisig(ctx,
+				deployerKey,
+				solana.TokenProgramID,
+				multisig.PublicKey(),
+				1,
+				[]solana.PublicKey{deployerKey, tokenPoolSignerPDA},
+				solanaRPCClient,
+				solRpc.CommitmentConfirmed,
+			)
+			require.NoError(t, ixErrMsig)
+
+			res := solTestUtil.SendAndConfirm(ctx, t,
+				solanaRPCClient,
+				ixMsig,
+				deployerPrivKey,
+				solRpc.CommitmentConfirmed,
+				solCommon.AddSigners(multisig, deployerPrivKey),
+			)
+			require.NotNil(t, res)
+
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+				ccipChangesetSolana.NewMintTokenPoolConfig{
+					NewMintAuthority: multisig.PublicKey(),
+					ChainSelector:    solChain,
+					TokenPubKey:      tokenAddress,
+					PoolType:         testCase.poolType,
+					MCMS:             mcmsConfig,
+					Metadata:         tokenMetadata,
+				},
+			)})
+			require.NoError(t, err)
 		}
 	}
 }
