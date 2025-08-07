@@ -96,19 +96,19 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 
 		handlers := make(map[string]string)
 
-		rateLimiterConfig := `
+		nodeRateLimiterConfig := `
 		[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-		GlobalBurst = 10
-		GlobalRPS = 50
-		PerSenderBurst = 10
-		PerSenderRPS = 10
+		globalBurst = 10
+		globalRPS = 50
+		perSenderBurst = 10
+		perSenderRPS = 10
 		`
 
 		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
-			MaxAllowedMessageAgeSec = 1_000
-			` + rateLimiterConfig
+			maxAllowedMessageAgeSec = 1_000
+			` + nodeRateLimiterConfig
 
 			handlers[coregateway.WebAPICapabilitiesType] = handlerConfig
 		}
@@ -122,8 +122,13 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		if don.AnyDonHasCapability(donMetadata, cre.HTTPActionCapability) || don.AnyDonHasCapability(donMetadata, cre.HTTPTriggerCapability) {
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
-			MaxAllowedMessageAgeSec = 1_000
-			`
+			maxTriggerRequestDurationMs = 5_000
+			` + nodeRateLimiterConfig + `
+			[gatewayConfig.Dons.Handlers.Config.UserRateLimiter]
+			globalBurst = 10
+			globalRPS = 50
+			perSenderBurst = 10
+			perSenderRPS = 10`
 
 			handlers[coregateway.HTTPCapabilityType] = handlerConfig
 		}
@@ -132,8 +137,8 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
-			RequestTimeoutSec = 30
-			` + rateLimiterConfig
+			requestTimeoutSec = 30
+			` + nodeRateLimiterConfig
 
 			handlers[coregateway.VaultHandlerType] = handlerConfig
 		}

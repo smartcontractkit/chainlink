@@ -61,7 +61,7 @@ To execute on local start the local CRE first with following command:
 go run . env start
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
-	confErr := setConfigurationIfMissing("/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/environment/configs/workflow-gateway-capabilities-don-cache.toml", "workflow")
+	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
 	require.NoError(t, confErr, "failed to set configuration")
 
 	configurationFiles := os.Getenv("CTF_CONFIGS")
@@ -86,7 +86,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	require.NoError(t, err, "failed to unmarshal artifact file")
 
 	t.Run("cron-based PoR workflow", func(t *testing.T) {
-		executePoRTest(t, in, envArtifact, 10*time.Minute)
+		executePoRTest(t, in, envArtifact, 5*time.Minute)
 	})
 
 	t.Run("vault DON test", func(t *testing.T) {
@@ -342,11 +342,27 @@ const (
 func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
 	split := strings.Split(stateFile, ",")
 	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
+		ctfConfigs := os.Getenv("CTF_CONFIGS")
+
+		// unset the CTF_CONFIGS env var to avoid using the cached environment
+		setErr := os.Setenv("CTF_CONFIGS", "")
+		if setErr != nil {
+			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+		}
+
 		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		cmdErr := cmd.Run()
+		if cmdErr != nil {
+			return errors.Wrap(cmdErr, "failed to start environment")
+		}
+
+		setErr = os.Setenv("CTF_CONFIGS", ctfConfigs)
+		if setErr != nil {
+			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+		}
 	}
 
 	return nil

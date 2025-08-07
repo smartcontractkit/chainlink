@@ -61,9 +61,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
@@ -89,9 +89,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -114,9 +114,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -139,9 +139,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -164,9 +164,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
