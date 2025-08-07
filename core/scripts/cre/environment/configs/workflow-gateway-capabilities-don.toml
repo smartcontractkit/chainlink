@@ -34,7 +34,7 @@
 
 [extra_capabilities]
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
- cron_capability_binary_path = "/Users/bartektofel/Desktop/repos/capabilities-compiled/cron"
+# cron_capability_binary_path = "./cron"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 
@@ -50,9 +50,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -85,9 +85,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -120,9 +120,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      #docker_ctx = "../../../.."
-      #docker_file = "core/chainlink.Dockerfile"
-      image = "chainlink-plugins:latest"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
