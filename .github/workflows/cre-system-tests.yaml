@@ -144,7 +144,7 @@ jobs:
         working-directory: core/scripts/cre/environment/configs
         run: |
           echo "[extra_capabilities]" >> "ci-config.toml"
-          echo 'cron_capability_binary_path = "${{ github.workspace }}/system-tests/tests/smoke/cre/cron"' >> "ci-config.toml"
+          echo 'cron_capability_binary_path = "${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron"' >> "ci-config.toml"
 
           cat "ci-config.toml"
 
@@ -160,7 +160,7 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --topology ${{ env.TOPOLOGY }}
+          go run . env start --topology ${TOPOLOGY}
 
           echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
