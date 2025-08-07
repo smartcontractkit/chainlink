@@ -166,11 +166,20 @@ func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, cons
 
 // trackInvalidPermissionEventsOnDFCache watches the DF Cache contract for invalid permission events
 func trackInvalidPermissionEventsOnDFCache(t *testing.T, dataFeedsCache *data_feeds_cache.DataFeedsCache) {
+	t.Helper()
+
 	invalidPermissionEvents := make(chan *data_feeds_cache.DataFeedsCacheInvalidUpdatePermission, 1000)
 	invalidPermissionSub, err := dataFeedsCache.WatchInvalidUpdatePermission(nil, invalidPermissionEvents, nil)
 	require.NoError(t, err)
 
-	ctx := t.Context()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	closeFunc := func() {
+		cancel()
+		<-done
+	}
+	t.Cleanup(closeFunc)
+
 	go func() {
 		for {
 			select {

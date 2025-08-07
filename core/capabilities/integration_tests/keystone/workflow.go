@@ -178,7 +178,7 @@ targets:
 type secureMintWorkflowData struct {
 	WorkflowName  string
 	WorkflowOwner string
-	ChainSelector int64
+	ChainSelector uint64
 	ConsumerAddr  string
 }
 
