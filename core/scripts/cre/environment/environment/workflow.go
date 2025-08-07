@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -36,16 +37,13 @@ func workflowCmds() *cobra.Command {
 }
 
 func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string) error {
-	var privateKey string
-	if os.Getenv("PRIVATE_KEY") != "" {
-		privateKey = os.Getenv("PRIVATE_KEY")
-	} else {
-		privateKey = blockchain.DefaultAnvilPrivateKey
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
 	}
 
 	sethClient, scErr := seth.NewClientBuilder().
 		WithRpcUrl(rpcURL).
-		WithPrivateKeys([]string{privateKey}).
+		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
 		WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
 		Build()
 	if scErr != nil {
@@ -117,16 +115,13 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	fmt.Printf("\n✅ Workflow copied to Docker containers\n")
 	fmt.Printf("\n⚙️ Creating Seth client\n\n")
 
-	var privateKey string
-	if os.Getenv("PRIVATE_KEY") != "" {
-		privateKey = os.Getenv("PRIVATE_KEY")
-	} else {
-		privateKey = blockchain.DefaultAnvilPrivateKey
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
 	}
 
 	sethClient, scErr := seth.NewClientBuilder().
 		WithRpcUrl(rpcURLFlag).
-		WithPrivateKeys([]string{privateKey}).
+		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
 		WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
 		Build()
 	if scErr != nil {

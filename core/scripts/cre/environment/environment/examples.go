@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
@@ -111,12 +112,8 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	totalStart := time.Now()
 	start := time.Now()
 
-	if os.Getenv("PRIVATE_KEY") == "" {
-		// use Anvil developer key if none is set
-		pkSetErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
-		if pkSetErr != nil {
-			return errors.Wrap(pkSetErr, "failed to set PRIVATE_KEY environment variable")
-		}
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
 	}
 
 	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
@@ -180,6 +177,10 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		fmt.Print(libformat.PurpleText("\n[CLEANUP] Deleted example workflow in %.2f seconds\n\n", time.Since(start).Seconds()))
 	}
 	defer pauseWorkflow()
+
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
+	}
 
 	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, donID, os.Getenv("PRIVATE_KEY"), *consumerContractAddress, feedID, timeout, totalStart)
 }

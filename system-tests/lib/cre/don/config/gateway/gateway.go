@@ -9,7 +9,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
@@ -61,9 +60,9 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 		}
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
-		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
+		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector.
 		// gateway is also required by various capabilities
-		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) || don.NodeNeedsGateway(coregateway.VaultHandlerType, input.Flags) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) {
 			var nodeEthAddr common.Address
 			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
 			for _, label := range workflowNodeSet[i].Labels {
@@ -75,26 +74,6 @@ func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 					break
 				}
 			}
-
-			// var gatewayConfigurations []*cre.GatewayConfiguration
-			// var donID string
-			// if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, input.Flags) {
-			// 	gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, input.GatewayConnectorOutput)...)
-			// 	if len(gatewayConfigurations) > 0 {
-			// 		donID = input.DonMetadata.Name
-			// 	}
-			// }
-
-			// if flags.HasFlag(input.Flags, cre.VaultCapability) {
-			// 	gatewayConfigurations = append(gatewayConfigurations, don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, input.GatewayConnectorOutput)...)
-			// 	// we need to call the DonID "vault" because that value is used in two-fold manner:
-			// 	// - to authenticate the caller with the gateway, and since each node can only have 1 gateway connector configuration, it uses the same DonID for all gateways.
-			// 	// - to specify which handler should be used to handle request (for "vault" it needs to be "vault", for "web-api" anything else)
-			// 	// And that introduces an unfortunate cupling. If the node is connected to "vault" gateway, then only "DonID" equal to "vault" will work for all cases.
-			// 	if len(gatewayConfigurations) > 0 {
-			// 		donID = cre.VaultGatewayDonID
-			// 	}
-			// }
 
 			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
 

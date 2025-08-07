@@ -24,8 +24,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	mock2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/mock"
@@ -44,7 +42,6 @@ import (
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
@@ -268,12 +265,8 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to set default CTF configs")
 			}
 
-			if os.Getenv("PRIVATE_KEY") == "" {
-				setErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
-				if setErr != nil {
-					return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
-				}
-				fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+			if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
@@ -344,13 +337,12 @@ func startCmd() *cobra.Command {
 			}
 
 			if withExampleFlag {
-				gatewayConfigurations := credon.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, output.DonTopology.GatewayConnectorOutput)
-				if len(gatewayConfigurations) == 0 {
-					return errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
+				if output.DonTopology.GatewayConnectorOutput == nil || len(output.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
+					return errors.New("no gateway connector configurations found")
 				}
 
 				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", gatewayConfigurations[0].Incoming.Protocol, gatewayConfigurations[0].Incoming.Host, gatewayConfigurations[0].Incoming.ExternalPort, gatewayConfigurations[0].Incoming.Path)
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
@@ -358,7 +350,7 @@ func startCmd() *cobra.Command {
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 					output.BlockchainOutput[0].ChainSelector,
 					keystone_changeset.WorkflowRegistry.String())
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, gatewayConfigurations[0].Dons[0].ID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -366,7 +358,7 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
-			// store the config with cached output
+			// store the config with cached output, so that we can use the environment again without running setup
 			_ = framework.Store(in)
 
 			saveArtifactPathsErr := saveArtifactPaths()
@@ -523,6 +515,7 @@ func StartCLIEnvironment(
 	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 
+	// TODO move this out completely to TOML config
 	switch topologyFlag {
 	case TopologyWorkflow:
 		if len(in.NodeSets) != 1 {

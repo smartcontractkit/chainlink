@@ -4,12 +4,9 @@ import (
 	"context"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -126,33 +123,12 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 							Protocol:     "http",
 							Path:         "/",
 							InternalPort: 5002,
-							ExternalPort: ExternalGatewayPort(infraInput, coregateway.WebAPICapabilitiesType),
+							ExternalPort: ExternalGatewayPort(infraInput),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
-						HandlerType:   coregateway.WebAPICapabilitiesType,
 						AuthGatewayID: "cre-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
 					})
-
-					// if AnyDonHasCapability(donsWithMetadata, cre.VaultCapability) {
-					// 	topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
-					// 		Outgoing: cre.Outgoing{
-					// 			Path: "/node",
-					// 			Port: 15003,
-					// 			Host: gatewayInternalHost,
-					// 		},
-					// 		Incoming: cre.Incoming{
-					// 			Protocol:     "http",
-					// 			Path:         "/",
-					// 			InternalPort: 15002,
-					// 			ExternalPort: ExternalGatewayPort(infraInput, coregateway.VaultHandlerType),
-					// 			Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
-					// 		},
-					// 		HandlerType:   coregateway.VaultHandlerType,
-					// 		AuthGatewayID: "vault-gateway",
-					// 		// do not set gateway connector dons, they will be resolved automatically
-					// 	})
-					// }
 				}
 			}
 
@@ -192,25 +168,9 @@ func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.Capabili
 	return false
 }
 
-func NodeNeedsGateway(handlerType coregateway.HandlerType, nodeFlags []cre.CapabilityFlag) bool {
-	switch handlerType {
-	case coregateway.WebAPICapabilitiesType:
-		return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
-			flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
-			flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
-	case coregateway.VaultHandlerType:
-		return flags.HasFlag(nodeFlags, cre.VaultCapability)
-	}
-	return false
-}
-
-func GatewayConfigurationsForHandler(handlerType coregateway.HandlerType, gatewayConnectorOutput *cre.GatewayConnectorOutput) []*cre.GatewayConfiguration {
-	gatewayConfigurations := make([]*cre.GatewayConfiguration, 0)
-	for _, configuration := range gatewayConnectorOutput.Configurations {
-		if strings.EqualFold(configuration.HandlerType, handlerType) {
-			gatewayConfigurations = append(gatewayConfigurations, configuration)
-		}
-	}
-
-	return gatewayConfigurations
+func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
+	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability) ||
+		flags.HasFlag(nodeFlags, cre.VaultCapability)
 }

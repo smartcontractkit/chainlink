@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
@@ -23,6 +26,10 @@ import (
 )
 
 func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, in *Config, envArtifact EnvArtifact) (*cre.FullCLDEnvironmentOutput, []*cre.WrappedBlockchainOutput, error) {
+	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return nil, nil, pkErr
+	}
+
 	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
 
 	for _, bc := range in.Blockchains {
@@ -82,8 +89,12 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, in *Confi
 			allNodeIDs = append(allNodeIDs, id)
 		}
 
-		// TODO get bootstrap node count from env artifact
-		nodeInfo, err := crenode.GetNodeInfo(in.NodeSets[idx].Out, in.NodeSets[idx].Name, don.DonID, 1)
+		bootstrapNodes, err := crenode.FindManyWithLabel(envArtifact.Topology.DonsWithMetadata[idx].NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.BootstrapNode}, crenode.EqualLabels)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		}
+
+		nodeInfo, err := crenode.GetNodeInfo(in.NodeSets[idx].Out, in.NodeSets[idx].Name, don.DonID, len(bootstrapNodes))
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
 		}
@@ -162,4 +173,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, in *Confi
 		Environment: cldEnv,
 		DonTopology: &envArtifact.Topology,
 	}, wrappedBlockchainOutputs, nil
+}
+
+func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
+	if os.Getenv("PRIVATE_KEY") == "" {
+		setErr := os.Setenv("PRIVATE_KEY", defaultPrivateKey)
+		if setErr != nil {
+			return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
+		}
+		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+	}
+
+	return nil
 }

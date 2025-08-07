@@ -38,19 +38,11 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 		return donToJobSpecs, nil
 	}
 
-	donsWithGatewaysCount := 0
-	for _, donWithMetadata := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
-			continue
-		}
-		donsWithGatewaysCount++
-	}
-
 	// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
 	// This map will be used to configure the gateway job on the node that runs it.
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
 		// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
-		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) && !don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
+		if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsGateway(donWithMetadata.Flags) {
 			continue
 		}
 
@@ -74,24 +66,10 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 				donID = cre.VaultGatewayDonID
 			}
 
-			if don.NodeNeedsGateway(coregateway.VaultHandlerType, donWithMetadata.Flags) {
-				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.VaultHandlerType {
-					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
-						MembersEthAddresses: ethAddresses,
-						ID:                  donID,
-					})
-				}
-			}
-
-			if flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(coregateway.WebAPICapabilitiesType, donWithMetadata.Flags) {
-				if gatewayConnectorOutput.Configurations[idx].HandlerType == coregateway.WebAPICapabilitiesType {
-					gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
-						MembersEthAddresses: ethAddresses,
-						ID:                  donID,
-					})
-				}
-			}
-
+			gatewayConnectorOutput.Configurations[idx].Dons = append(gatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
+				MembersEthAddresses: ethAddresses,
+				ID:                  donID,
+			})
 		}
 	}
 
@@ -116,14 +94,9 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			return nil, errors.Wrap(homeChainErr, "failed to get home chain id from selector")
 		}
 
-		var handlers []jobs.Handler
+		handlers := make(map[string]string)
 
 		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
-			// gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.WebAPICapabilitiesType, gatewayConnectorOutput)
-			// if len(gatewayConfigurations) == 0 {
-			// 	return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.WebAPICapabilitiesType)
-			// }
-
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
 			MaxAllowedMessageAgeSec = 1_000
@@ -134,14 +107,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			PerSenderRPS = 10
 			`
 
-			handlers = append(handlers, jobs.Handler{
-				Name:   coregateway.WebAPICapabilitiesType,
-				Config: handlerConfig,
-			})
-
-			// for _, gatewayConfiguration := range gatewayConfigurations {
-			// 	donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
-			// }
+			handlers[coregateway.WebAPICapabilitiesType] = handlerConfig
 		}
 
 		var donMetadata []*cre.DonMetadata
@@ -149,22 +115,9 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			donMetadata = append(donMetadata, don.DonMetadata)
 		}
 
+		// if any of the DONs have vault capability, we need to add a vault handler to the jobspec for the gateway node
 		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
-			// gatewayConfigurations := don.GatewayConfigurationsForHandler(coregateway.VaultHandlerType, gatewayConnectorOutput)
-			// if len(gatewayConfigurations) == 0 {
-			// 	return nil, errors.New("no gateway connector configurations found for handler type " + coregateway.VaultHandlerType)
-			// }
-
-			// handlerConfig := `
-			// MaxAllowedMessageAgeSec = 1_000
-			// [gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-			// GlobalBurst = 10
-			// GlobalRPS = 50
-			// PerSenderBurst = 10
-			// PerSenderRPS = 10
-			// `
-
-			// for some reason vault expects different field names than web API
+			//  vault expects different field names than web-api-capabilities handler ¯\_(ツ)_/¯
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
 			request_timeout_sec = 30
@@ -175,17 +128,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			perSenderBurst = 10
 			`
 
-			// handlerConfig := `
-			// Config = '{"request_timeout_sec": 30, "node_rate_limiter": {"globalRPS": 100, "globalBurst": 100, "perSenderRPS": 10, "perSenderBurst": 10}}'`
-
-			handlers = append(handlers, jobs.Handler{
-				Name:   coregateway.VaultHandlerType,
-				Config: handlerConfig,
-			})
-
-			// for _, gatewayConfiguration := range gatewayConfigurations {
-			// 	donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, handlerConfig, gatewayConfiguration))
-			// }
+			handlers[coregateway.VaultHandlerType] = handlerConfig
 		}
 
 		for _, gatewayConfiguration := range gatewayConnectorOutput.Configurations {

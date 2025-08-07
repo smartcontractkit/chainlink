@@ -10,8 +10,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -64,11 +62,6 @@ const (
 	// See: https://github.com/smartcontractkit/chainlink/blob/develop/deployment/data-feeds/offchain/jd.go#L57
 	WorkerNode NodeType = "plugin"
 )
-
-type ConfigDescription struct {
-	Flag     CapabilityFlag
-	NodeType string
-}
 
 type DonJobs = []*jobv1.ProposeJobRequest
 type DonsToJobSpecs = map[uint64]DonJobs
@@ -300,11 +293,10 @@ type GatewayConnectorOutput struct {
 }
 
 type GatewayConfiguration struct {
-	Dons          []GatewayConnectorDons  `toml:"dons" json:"dons"` // do not set, it will be set dynamically
-	Outgoing      Outgoing                `toml:"outgoing" json:"outgoing"`
-	Incoming      Incoming                `toml:"incoming" json:"incoming"`
-	HandlerType   coregateway.HandlerType `toml:"handler_type" json:"handler_type"`
-	AuthGatewayID string                  `toml:"auth_gateway_id" json:"auth_gateway_id"`
+	Dons          []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
+	Outgoing      Outgoing               `toml:"outgoing" json:"outgoing"`
+	Incoming      Incoming               `toml:"incoming" json:"incoming"`
+	AuthGatewayID string                 `toml:"auth_gateway_id" json:"auth_gateway_id"`
 }
 
 type Outgoing struct {

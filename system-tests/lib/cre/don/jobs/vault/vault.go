@@ -111,7 +111,7 @@ func GenerateJobSpecs(offchainClient deployment.OffchainClient, donTopology *cre
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
 
-		// // look for boostrap node and then for required values in its labels
+		// look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
 			// if there is no bootstrap node in this DON, we need to use the global bootstrap node
