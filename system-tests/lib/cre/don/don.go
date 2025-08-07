@@ -172,5 +172,7 @@ func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
 	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability) ||
-		flags.HasFlag(nodeFlags, cre.VaultCapability)
+		flags.HasFlag(nodeFlags, cre.VaultCapability) ||
+		flags.HasFlag(nodeFlags, cre.HTTPActionCapability) ||
+		flags.HasFlag(nodeFlags, cre.HTTPTriggerCapability)
 }

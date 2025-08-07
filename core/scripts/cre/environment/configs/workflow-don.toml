@@ -39,6 +39,8 @@
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 # evm_capability_binary_path = "./evm"
+# http_trigger_capability_binary_path = "./http_trigger"
+# http_action_capability_binary_path = "./http_action"
 
 # capabilities_configs.evm.<chain_id> section is used to configure EVM capability per chain_id only when
 # the evm_capability_binary_path is present in [extra_capabilities] section
@@ -59,9 +61,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-plugins:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
@@ -87,9 +89,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-plugins:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -112,9 +114,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-plugins:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -137,9 +139,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-plugins:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -162,9 +164,9 @@
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-plugins:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'

@@ -96,16 +96,19 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 
 		handlers := make(map[string]string)
 
+		rateLimiterConfig := `
+		[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+		GlobalBurst = 10
+		GlobalRPS = 50
+		PerSenderBurst = 10
+		PerSenderRPS = 10
+		`
+
 		if flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
 			MaxAllowedMessageAgeSec = 1_000
-			[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-			GlobalBurst = 10
-			GlobalRPS = 50
-			PerSenderBurst = 10
-			PerSenderRPS = 10
-			`
+			` + rateLimiterConfig
 
 			handlers[coregateway.WebAPICapabilitiesType] = handlerConfig
 		}
@@ -115,18 +118,22 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			donMetadata = append(donMetadata, don.DonMetadata)
 		}
 
-		// if any of the DONs have vault capability, we need to add a vault handler to the jobspec for the gateway node
-		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
-			//  vault expects different field names than web-api-capabilities handler ¯\_(ツ)_/¯
+		// if any of the DONs have http action or http trigger capability, we need to add a http handler to the jobspec for the gateway node
+		if don.AnyDonHasCapability(donMetadata, cre.HTTPActionCapability) || don.AnyDonHasCapability(donMetadata, cre.HTTPTriggerCapability) {
 			handlerConfig := `
 			[gatewayConfig.Dons.Handlers.Config]
-			request_timeout_sec = 30
-			[gatewayConfig.Dons.Handlers.Config.node_rate_limiter]
-			globalRPS = 100
-			globalBurst = 100
-			perSenderRPS = 10
-			perSenderBurst = 10
+			MaxAllowedMessageAgeSec = 1_000
 			`
+
+			handlers[coregateway.HTTPCapabilityType] = handlerConfig
+		}
+
+		// if any of the DONs have vault capability, we need to add a vault handler to the jobspec for the gateway node
+		if don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
+			handlerConfig := `
+			[gatewayConfig.Dons.Handlers.Config]
+			RequestTimeoutSec = 30
+			` + rateLimiterConfig
 
 			handlers[coregateway.VaultHandlerType] = handlerConfig
 		}

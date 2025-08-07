@@ -19,6 +19,12 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
+var GenerateConfigFn = func(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
+	return GenerateConfig(
+		input,
+	)
+}
+
 func GenerateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 

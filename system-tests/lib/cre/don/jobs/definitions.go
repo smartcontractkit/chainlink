@@ -16,6 +16,13 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
+type HandlerType string
+
+const (
+	WebAPIHandlerType HandlerType = "web-api-capabilities"
+	HTTPHandlerType   HandlerType = "http-capabilities"
+)
+
 func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 

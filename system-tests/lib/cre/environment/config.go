@@ -38,4 +38,6 @@ type ExtraCapabilitiesConfig struct {
 	EVMCapabilityBinaryPath   string `toml:"evm_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
+	HTTPTriggerBinaryPath     string `toml:"http_trigger_capability_binary_path"`
+	HTTPActionBinaryPath      string `toml:"http_action_capability_binary_path"`
 }
