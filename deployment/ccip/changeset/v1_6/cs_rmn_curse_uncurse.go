@@ -17,8 +17,8 @@ import (
 
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -205,7 +205,6 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 // Given 3 chains A, B, C
 // CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
 func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
-
 	// Bidirectional curse between two chains
 	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
@@ -695,7 +694,6 @@ func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool
 		Value: subject,
 	}
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	ix, err := solRmnRemote.NewVerifyNotCursedInstruction(
 		curseSubject,
@@ -705,7 +703,14 @@ func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	data, err := ix.Data()
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to extract data payload from verify not cursed instruction: %w", err)
+	}
+	// Manually create instruction rather than directly using the ix above
+	// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+	verifyIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), data)
+	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{verifyIx}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
 	if txErr == nil {
 		// If no error return then it's not cursed
 		return false, 0, nil
@@ -763,7 +768,6 @@ func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 	}
 
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	deployer, err := deployerGroup.GetDeployerForSVM(c.selector)
 	if err != nil {
@@ -781,12 +785,15 @@ func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 				rmnRemoteCursesPDA,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-
-			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
+			ixData, err := ix.Data()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to extract data payload from rmn remote curse instruction: %w", err)
+			}
+			curseIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), ixData)
+			return curseIx, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build curse instruction for subject %x on chain %d: %w", subject, c.selector, err)
@@ -802,7 +809,6 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 	}
 
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	deployer, err := deployerGroup.GetDeployerForSVM(c.selector)
 	if err != nil {
@@ -823,7 +829,12 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
+			ixData, err := ix.Data()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to extract data payload from rmn remote uncurse instruction: %w", err)
+			}
+			uncurseIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), ixData)
+			return uncurseIx, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build uncurse instruction for subject %x on chain %d: %w", subject, c.selector, err)

@@ -408,6 +408,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
 	}
 
+	if err2 := s.Solana.SetFrom(&f.Solana); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Solana"))
+	}
+
 	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}

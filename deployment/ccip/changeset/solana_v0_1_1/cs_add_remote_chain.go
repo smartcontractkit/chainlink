@@ -147,8 +147,6 @@ func doAddRemoteChainToRouter(
 		"",
 	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	// router setup
-	solRouter.SetProgramID(ccipRouterID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -164,7 +162,7 @@ func doAddRemoteChainToRouter(
 		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
 		if update.IsUpdate {
-			routerIx, err := solRouter.NewUpdateDestChainConfigInstruction(
+			ix, err := solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
 				// right now, the user will have to send the final version of the config.
@@ -177,6 +175,13 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate update router config instructions: %w", err)
 			}
+			routerIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			routerIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerIxData)
 			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
 				tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), shared.Router)
@@ -196,7 +201,7 @@ func doAddRemoteChainToRouter(
 				routerRemoteStatePDA,
 			)
 			// generate instructions
-			routerIx, err := solRouter.NewAddChainSelectorInstruction(
+			ix, err := solRouter.NewAddChainSelectorInstruction(
 				remoteChainSel,
 				update.RouterDestinationConfig,
 				routerRemoteStatePDA,
@@ -207,8 +212,15 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate add router config instructions: %w", err)
 			}
+			routerIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			routerIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerIxData)
 			e.Logger.Infow("add router config for remote chain", "remoteChainSel", remoteChainSel)
-			routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
+			ix, err = solRouter.NewAddOfframpInstruction(
 				remoteChainSel,
 				offRampID,
 				allowedOffRampRemotePDA,
@@ -219,6 +231,13 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			routerOfframpIxData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extra data payload from router update dest chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			routerOfframpIx := solana.NewInstruction(ccipRouterID, ix.Accounts(), routerOfframpIxData)
 			e.Logger.Infow("add offramp to router for remote chain", "remoteChainSel", remoteChainSel)
 			if routerUsingMCMS {
 				// build transactions if mcms
@@ -358,8 +377,6 @@ func doAddRemoteChainToFeeQuoter(
 		solana.PublicKey{},
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	// fee quoter setup
-	solFeeQuoter.SetProgramID(feeQuoterID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -374,7 +391,7 @@ func doAddRemoteChainToFeeQuoter(
 		var feeQuoterIx solana.Instruction
 		var err error
 		if update.IsUpdate {
-			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
+			ix, err := solFeeQuoter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				// TODO: this needs to be merged with what the user is sending in and whats their onchain.
 				// right now, the user will have to send the final version of the config.
@@ -383,12 +400,20 @@ func doAddRemoteChainToFeeQuoter(
 				fqRemoteChainPDA,
 				authority,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from fee quoter update dest chain config instruction: %w", err)
+			}
+			feeQuoterIx = solana.NewInstruction(feeQuoterID, ix.Accounts(), ixData)
 			e.Logger.Infow("update fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			lookUpTableEntries = append(lookUpTableEntries,
 				fqRemoteChainPDA,
 			)
-			feeQuoterIx, err = solFeeQuoter.NewAddDestChainInstruction(
+			ix, err := solFeeQuoter.NewAddDestChainInstruction(
 				remoteChainSel,
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
@@ -396,10 +421,15 @@ func doAddRemoteChainToFeeQuoter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+			ixData, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from fee quoter add dest chain config instruction: %w", err)
+			}
+			feeQuoterIx = solana.NewInstruction(feeQuoterID, ix.Accounts(), ixData)
 			e.Logger.Infow("add fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
-		}
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
 			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), shared.FeeQuoter)
@@ -527,7 +557,6 @@ func doAddRemoteChainToOffRamp(
 		solana.PublicKey{},
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	solOffRamp.SetProgramID(offRampID)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -548,7 +577,7 @@ func doAddRemoteChainToOffRamp(
 
 		var offRampIx solana.Instruction
 		if update.IsUpdate {
-			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
+			ix, err := solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
 				offRampRemoteStatePDA,
@@ -558,12 +587,19 @@ func doAddRemoteChainToOffRamp(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			data, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from offramp update source chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			offRampIx = solana.NewInstruction(offRampID, ix.Accounts(), data)
 			e.Logger.Infow("update offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			lookUpTableEntries = append(lookUpTableEntries,
 				offRampRemoteStatePDA,
 			)
-			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
+			ix, err := solOffRamp.NewAddSourceChainInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
 				offRampRemoteStatePDA,
@@ -574,6 +610,13 @@ func doAddRemoteChainToOffRamp(
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
+			data, err := ix.Data()
+			if err != nil {
+				return txns, fmt.Errorf("failed to extract data payload from offramp add source chain config instruction: %w", err)
+			}
+			// Manually create instruction rather than directly using the ix above
+			// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+			offRampIx = solana.NewInstruction(offRampID, ix.Accounts(), data)
 			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv := cldf.NewTypeAndVersion(shared.RemoteSource, deployment.Version1_0_0)

@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 )
 
 func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
@@ -176,8 +177,14 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 	)
 }
 
-func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData cre.GatewayConnectorOutput) string {
+func WorkerGateway(handlerType jobs.HandlerType, nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData cre.GatewayConnectorOutput) string {
 	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
+	var donIDStr string
+	if handlerType == jobs.HTTPHandlerType {
+		donIDStr = "workflows"
+	} else {
+		donIDStr = strconv.FormatUint(uint64(donID), 10)
+	}
 
 	return fmt.Sprintf(`
 	[Capabilities.GatewayConnector]
@@ -189,7 +196,7 @@ func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID uint32,
 	Id = "por_gateway"
 	URL = "%s"
 `,
-		strconv.FormatUint(uint64(donID), 10),
+		donIDStr,
 		homeChainID,
 		nodeAddress,
 		gatewayURL,

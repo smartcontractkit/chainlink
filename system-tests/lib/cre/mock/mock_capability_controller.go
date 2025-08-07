@@ -343,6 +343,43 @@ func (c *Controller) WaitForTriggerSubscribers(ctx context.Context, triggerID st
 	}
 }
 
+// HasCapability checks if a capability with the given ID exists on any node
+func (c *Controller) HasCapability(ctx context.Context, capabilityID string) (bool, error) {
+	capInfos, err := c.List(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to list capabilities: %w", err)
+	}
+
+	for _, nodeInfo := range capInfos {
+		hasCapability := false
+		for _, cap := range nodeInfo.Capabilities {
+			if cap.ID == capabilityID {
+				hasCapability = true
+				break
+			}
+		}
+		if !hasCapability {
+			// If any node doesn't have the capability, return false
+			return false, nil
+		}
+	}
+
+	// All nodes have the capability
+	return true, nil
+}
+
+func (c *Controller) DeleteCapability(ctx context.Context, capabilityID string) error {
+	for _, client := range c.Nodes {
+		_, err := client.API.RemoveCapability(ctx, &pb2.RemoveCapabilityRequest{
+			ID: capabilityID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete capability %s on %s: %w", capabilityID, client.URL, err)
+		}
+	}
+	return nil
+}
+
 func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
 	//nolint:gosec // disable G402
 	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
@@ -355,4 +392,20 @@ func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
 	}
 	client := pb2.NewMockCapabilityClient(conn)
 	return MockClient{API: client, URL: address}, nil
+}
+
+// StringToCapabilityType converts a string capability type to the corresponding integer constant
+func StringToCapabilityType(typeStr string) pb2.CapabilityType {
+	switch strings.ToUpper(typeStr) {
+	case "TRIGGER":
+		return pb2.CapabilityType_Trigger
+	case "CONSENSUS":
+		return pb2.CapabilityType_Consensus
+	case "ACTION":
+		return pb2.CapabilityType_Action
+	case "TARGET":
+		return pb2.CapabilityType_Target
+	default:
+		return pb2.CapabilityType_Unknown
+	}
 }

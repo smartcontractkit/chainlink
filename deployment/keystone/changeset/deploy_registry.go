@@ -13,7 +13,7 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ cldf.ChangeSet[uint64] = DeployCapabilityRegistry
+var _ cldf.ChangeSet[*DeployRequestV2] = DeployCapabilityRegistryV2
 
 // Depreciated: use DeployCapabilityRegistryV2 instead
 func DeployCapabilityRegistry(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
@@ -28,7 +28,7 @@ func DeployCapabilityRegistryV2(env cldf.Environment, req *DeployRequestV2) (cld
 }
 
 // DeployRequestV2 is a request to deploy the given deployFn to the given chain
-type DeployRequestV2 = struct {
+type DeployRequestV2 struct {
 	ChainSel  uint64
 	Qualifier string
 	Labels    *datastore.LabelSet

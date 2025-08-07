@@ -22,6 +22,8 @@ import (
 	"github.com/spf13/cobra"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
+	mock2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/mock"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -31,18 +33,26 @@ import (
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
+	httpcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/http"
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
+	vaultcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	evmJob "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/evm"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crehttpaction "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httpaction"
+	crehttptrigger "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httptrigger"
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -98,18 +108,25 @@ var EnvironmentCmd = &cobra.Command{
 const (
 	TopologySimplified = "simplified"
 	TopologyFull       = "full"
+	TopologyMock       = "mock"
 
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
 )
 
 type Config struct {
-	Blockchains       []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input                   `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                     `toml:"jd" validate:"required"`
-	Infra             *infra.Input                  `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input             `toml:"s3provider"`
+	Blockchains        []*cre.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
+	NodeSets           []*ns.Input                   `toml:"nodesets" validate:"required"`
+	JD                 *jd.Input                     `toml:"jd" validate:"required"`
+	Infra              *infra.Input                  `toml:"infra" validate:"required"`
+	ExtraCapabilities  ExtraCapabilitiesConfig       `toml:"extra_capabilities"`
+	CapabilitiesConfig CapabilitiesConfig            `toml:"capabilities_configs"`
+	S3ProviderInput    *s3provider.Input             `toml:"s3provider"`
+}
+
+type CapabilitiesConfig struct {
+	EVM       map[string]map[string]any `toml:"evm"`
+	Consensus map[string]any            `toml:"consensus"`
 }
 
 func (c Config) Validate() error {
@@ -120,9 +137,13 @@ func (c Config) Validate() error {
 }
 
 type ExtraCapabilitiesConfig struct {
-	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
-	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
-	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
+	CronCapabilityBinaryPath      string `toml:"cron_capability_binary_path"`
+	HTTPTriggerBinaryPath         string `toml:"http_trigger_capability_binary_path"`
+	HTTPActionBinaryPath          string `toml:"http_action_capability_binary_path"`
+	EVMCapabilityBinaryPath       string `toml:"evm_capability_binary_path"`
+	LogEventTriggerBinaryPath     string `toml:"log_event_trigger_binary_path"`
+	ReadContractBinaryPath        string `toml:"read_contract_capability_binary_path"`
+	ConsensusCapabilityBinaryPath string `toml:"consensus_capability_binary_path"`
 }
 
 // DX tracking
@@ -135,12 +156,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
-	var trackerErr error
-	dxTracker, trackerErr = tracking.NewDxTracker()
-	if trackerErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
-		dxTracker = &tracking.NoOpTracker{}
-	}
+	initDxTracker()
 
 	// remove all containers before starting the environment, just in case
 	_ = framework.RemoveTestContainers()
@@ -271,7 +287,7 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if topology != TopologySimplified && topology != TopologyFull {
+			if topology != TopologySimplified && topology != TopologyFull && topology != TopologyMock {
 				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topology, TopologySimplified, TopologyFull)
 			}
 
@@ -454,18 +470,33 @@ func StartCLIEnvironment(
 		return nil, fmt.Errorf("either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag", os.Getenv("CTF_CONFIGS"))
 	}
 
+	if evmCapErr := validateCapabilitiesConfig(in); evmCapErr != nil {
+		return nil, evmCapErr
+	}
+
 	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
-
-	if topologyFlag == TopologySimplified {
+	gatewayHandlerType := jobs.WebAPIHandlerType
+	switch topologyFlag {
+	case TopologySimplified:
 		if len(in.NodeSets) != 1 {
 			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
 		}
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.ConsensusCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ConsensusCapability)
+			capabilitiesBinaryPaths[cre.ConsensusCapability] = in.ExtraCapabilities.ConsensusCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -476,6 +507,18 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -494,7 +537,7 @@ func StartCLIEnvironment(
 				GatewayNodeIndex:   0,
 			},
 		}
-	} else {
+	case TopologyFull:
 		if len(in.NodeSets) != 3 {
 			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
 		}
@@ -504,6 +547,11 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
@@ -518,10 +566,22 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabiliitesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability}
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cre.ReadContractCapability)
+			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
@@ -533,7 +593,7 @@ func StartCLIEnvironment(
 			},
 			{
 				Input:              in.NodeSets[1],
-				Capabilities:       capabiliitesDONCapabilities,
+				Capabilities:       capabilitiesDONCapabilities,
 				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
 			},
@@ -545,6 +605,46 @@ func StartCLIEnvironment(
 				GatewayNodeIndex:   0,
 			},
 		}
+	case TopologyMock:
+		if len(in.NodeSets) != 3 {
+			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
+		}
+
+		// add support for more binaries if needed
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WebAPITriggerCapability}
+
+		capabilitiesDONCapabilities := make([]string, 0)
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
+		}
+		capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.MockCapability)
+
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
+			{
+				Input:              in.NodeSets[0],
+				Capabilities:       workflowDONCapabilities,
+				DONTypes:           []string{cre.WorkflowDON},
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              in.NodeSets[1],
+				Capabilities:       capabilitiesDONCapabilities,
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,
+			},
+			{
+				Input:              in.NodeSets[2],
+				Capabilities:       []string{},
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
+				GatewayNodeIndex:   0,
+			},
+		}
+	default:
+		return nil, fmt.Errorf("invalid topology flag: %s", topologyFlag)
 	}
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
@@ -576,7 +676,12 @@ func StartCLIEnvironment(
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
+		consensuscap.ConsensusCapabilityV2FactoryFn,
 		croncap.CronCapabilityFactoryFn,
+		vaultcap.VaultCapabilityFactoryFn,
+		mock.CapabilityFactoryFn,
+		httpcap.HTTPTriggerCapabilityFactoryFn,
+		httpcap.HTTPActionCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
@@ -594,6 +699,16 @@ func StartCLIEnvironment(
 		cronBinaryName = "cron"
 	}
 
+	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		evmBinaryName = "evm"
+	}
+
+	consensusBinaryName := filepath.Base(in.ExtraCapabilities.ConsensusCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		consensusBinaryName = "consensus"
+	}
+
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
 	if withPluginsDockerImageFlag != "" {
 		logEventTriggerBinaryName = "log-event-trigger"
@@ -604,15 +719,39 @@ func StartCLIEnvironment(
 		readContractBinaryName = "readcontract"
 	}
 
+	httpActionBinaryName := filepath.Base(in.ExtraCapabilities.HTTPActionBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		httpActionBinaryName = "http_action"
+	}
+	httpTriggerBinaryName := filepath.Base(in.ExtraCapabilities.HTTPTriggerBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		httpTriggerBinaryName = "http_trigger"
+	}
+
 	jobSpecFactoryFunctions := []cre.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
 		webapi.WebAPITriggerJobSpecFactoryFn,
 		webapi.WebAPITargetJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
-		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
+		cregateway.GatewayJobSpecFactoryFn(gatewayHandlerType, extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
+		crevault.VaultJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
+		mock2.MockJobSpecFactoryFn(7777),
+		crehttpaction.HTTPActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
+		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
 	}
+
+	// Consensus V2 (standard capability)
+	homeChainConfig := in.CapabilitiesConfig.EVM[in.Blockchains[0].ChainID]
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, creconsensus.ConsensusV2JobSpecFactoryFn(
+		testLogger,
+		libc.MustSafeUint64(int64(homeChainIDInt)),
+		homeChainConfig,
+		capabilitiesAwareNodeSets,
+		*in.Infra,
+		filepath.Join(containerPath, consensusBinaryName),
+	))
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
 
@@ -627,6 +766,17 @@ func StartCLIEnvironment(
 		}
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, evm.EVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		config := in.CapabilitiesConfig.EVM[blockchain.ChainID]
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.EVMJobSpecFactoryFn(
+			testLogger,
+			libc.MustSafeUint64(int64(chainIDInt)),
+			config,
+			capabilitiesAwareNodeSets,
+			*in.Infra,
+			filepath.Join(containerPath, evmBinaryName),
+		))
 
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, crelogevent.LogEventTriggerJobSpecFactoryFn(
 			chainIDInt,
@@ -660,7 +810,7 @@ func StartCLIEnvironment(
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
-			gatewayconfig.GenerateConfig,
+			gatewayconfig.GenerateConfigFn(gatewayHandlerType),
 		},
 		S3ProviderInput: in.S3ProviderInput,
 	}
@@ -677,6 +827,35 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
+}
+
+func validateCapabilitiesConfig(in *Config) error {
+	// if CapabilitiesConfig has values, EVM capability binary must be present
+	if len(in.CapabilitiesConfig.EVM) > 0 && in.ExtraCapabilities.EVMCapabilityBinaryPath == "" {
+		return errors.New("evm_capability_binary_path must be provided when capabilities_configs is set")
+	}
+	for chainID, config := range in.CapabilitiesConfig.EVM {
+		// check the chain exists in the blockchain list
+		found := false
+		for _, blockchain := range in.Blockchains {
+			if blockchain.ChainID == chainID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.Errorf("capabilities_configs.evm.%q does not match any configured blockchains ChainID", chainID)
+		}
+
+		// check the configs per chain is a map[string]string
+		for subK, subV := range config {
+			_, okVal := subV.(string)
+			if !okVal {
+				return errors.Errorf("capabilities_configs.evm.%q[%s] must be a map[string]string (got %T)", chainID, subK, subV)
+			}
+		}
+	}
+	return nil
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {
@@ -760,4 +939,17 @@ func oneLineErrorMessage(errOrPanic any) string {
 	}
 
 	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+}
+
+func initDxTracker() {
+	if dxTracker != nil {
+		return
+	}
+
+	var trackerErr error
+	dxTracker, trackerErr = tracking.NewDxTracker()
+	if trackerErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		dxTracker = &tracking.NoOpTracker{}
+	}
 }

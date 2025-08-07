@@ -34,8 +34,17 @@
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
 # cron_capability_binary_path = "./cron"
+# consensus_capability_binary_path = "./consensus"
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
+# evm_capability_binary_path = "./evm"
+
+# capabilities_configs.evm.<chain_id> section is used to configure EVM capability per chain_id only when
+# the evm_capability_binary_path is present in [extra_capabilities] section
+# if not present, the job for the EVM capability will pick the default values
+#[capabilities_configs.evm."1337"]
+#  logTriggerPollInterval = "1s"   # default "1s"
+#  receiverGasMinimum = "1"        # default "1"
 
 [[nodesets]]
   nodes = 5

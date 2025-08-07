@@ -247,7 +247,7 @@ func deployTokenPool(
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
 				)
 			case shared.BurnMintFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_1Dev
+				tokenPoolVersion = deployment.Version1_6_1
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
@@ -264,7 +264,6 @@ func deployTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-
 			}
 			var tp *token_pool.TokenPool
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)

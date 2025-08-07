@@ -446,7 +446,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	keyStore := NewKsa(db, lggr, csaKeyStore)
+	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
 	ctx := testutils.Context(t)
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
@@ -1010,9 +1010,9 @@ func (k *ksa) CSA() keystore.CSA {
 	return k.csa
 }
 
-func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA) *ksa {
+func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, lggr),
+		Master: keystore.New(db, clutils.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

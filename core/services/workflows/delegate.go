@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -40,6 +40,7 @@ type Delegate struct {
 	ratelimiter    limits.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
+	dontimeStore   *dontime.Store
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -110,6 +111,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
+	dontimeStore *dontime.Store,
 	store store.Store,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
@@ -124,6 +126,7 @@ func NewDelegate(
 		store:          store,
 		ratelimiter:    ratelimiter,
 		workflowLimits: workflowLimits,
+		dontimeStore:   dontimeStore,
 	}
 
 	for _, opt := range opts {

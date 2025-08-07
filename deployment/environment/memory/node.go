@@ -389,7 +389,7 @@ func NewNode(
 		}
 	}
 
-	master := keystore.New(db, utils.FastScryptParams, lggr)
+	master := keystore.New(db, utils.FastScryptParams, lggr.Infof)
 	ctx := t.Context()
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))

@@ -160,9 +160,8 @@ func TestHandleNodeMessage(t *testing.T) {
 			URL:       "https://return-cached.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000, // 10 minute TTL
+				MaxAgeMs:      600000, // 10 minute TTL
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
@@ -201,15 +200,14 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 	})
 
-	t.Run("status code 500 is not cached if StoreInCache is false", func(t *testing.T) {
+	t.Run("status code 500 is not cached if MaxAgeMs is 0", func(t *testing.T) {
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000,
+				MaxAgeMs:      0,
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
@@ -427,7 +425,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 }
 
 func serviceCfg() ServiceConfig {
-	return ServiceConfig{
+	cfg := ServiceConfig{
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
 			GlobalRPS:      100,
 			GlobalBurst:    100,
@@ -440,8 +438,8 @@ func serviceCfg() ServiceConfig {
 			PerSenderRPS:   5,
 			PerSenderBurst: 5,
 		},
-		CleanUpPeriodMs: defaultCleanUpPeriodMs,
 	}
+	return WithDefaults(cfg)
 }
 
 func createTestHandler(t *testing.T) *gatewayHandler {

@@ -40,7 +40,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
-		return nil, fmt.Errorf("trigger capability not found: %w", err)
+		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
 
 	info, err := capability.Info(ctx)
@@ -64,22 +64,6 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		c.lggr.Debugf("capability config not found: %s", err)
 	}
 
-	capReq := capabilities.CapabilityRequest{
-		Payload:      request.Payload,
-		Method:       request.Method,
-		CapabilityId: request.Id,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               c.cfg.WorkflowID,
-			WorkflowOwner:            c.cfg.WorkflowOwner,
-			WorkflowName:             c.cfg.WorkflowName.String(),
-			WorkflowDonID:            c.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
-			WorkflowExecutionID:      c.WorkflowExecutionID,
-			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
-		},
-		Config: values.EmptyMap(),
-	}
-
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
 		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
@@ -91,7 +75,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
 	userSpendLimit.Valid = false
 
-	if capReq.Metadata.SpendLimits, err = meterReport.Deduct(
+	spendLimits, err := meterReport.Deduct(
 		meteringRef,
 		metering.ByDerivedAvailability(
 			userSpendLimit,
@@ -99,8 +83,28 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			info,
 			config.RestrictedConfig,
 		),
-	); err != nil {
+	)
+	if err != nil {
 		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	}
+
+	capReq := capabilities.CapabilityRequest{
+		Payload:      request.Payload,
+		Method:       request.Method,
+		CapabilityId: request.Id,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowExecutionID:      c.WorkflowExecutionID,
+			WorkflowName:             c.cfg.WorkflowName.Hex(),
+			WorkflowDonID:            c.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
+			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
+			SpendLimits:              spendLimits,
+			WorkflowTag:              c.cfg.WorkflowTag,
+		},
+		Config: values.EmptyMap(),
 	}
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
