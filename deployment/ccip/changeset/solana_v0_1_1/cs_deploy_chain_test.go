@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -58,6 +57,7 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 		deployment.TimelockProgramName:             chainState.TimelockProgram,
 		deployment.McmProgramName:                  chainState.McmProgram,
 		deployment.RMNRemoteProgramName:            state.SolChains[solChainSelectors[0]].RMNRemote,
+		deployment.CCTPTokenPoolProgramName:        state.SolChains[solChainSelectors[0]].CCTPTokenPool,
 	}
 	for program, sizeBytes := range deployment.SolanaProgramBytes {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
@@ -258,6 +258,7 @@ func TestUpgrade(t *testing.T) {
 					NewMCMVersion:                  &deployment.Version1_1_0,
 					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
 					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+					NewCCTPTokenPoolVersion:        &deployment.Version1_1_0,
 					NewRMNRemoteVersion:            &deployment.Version1_1_0,
 					NewAccessControllerVersion:     &deployment.Version1_1_0,
 					NewTimelockVersion:             &deployment.Version1_1_0,
@@ -285,6 +286,7 @@ func TestUpgrade(t *testing.T) {
 							types.RBACTimelockProgram:      chainState.TimelockProgram.String(),
 							types.ManyChainMultisigProgram: chainState.McmProgram.String(),
 							shared.RMNRemote:               state.SolChains[solChainSelectors[0]].RMNRemote.String(),
+							shared.CCTPTokenPool:           state.SolChains[solChainSelectors[0]].CCTPTokenPool.String(),
 						},
 					},
 				},
@@ -366,15 +368,12 @@ func TestUpgrade(t *testing.T) {
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
 
-	burnMintTokenPoolType := solTestTokenPool.BurnAndMint_PoolType
-	lockReleaseTokenPoolType := solTestTokenPool.LockAndRelease_PoolType
-
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChainSelectors[0],
-				PoolType:      &burnMintTokenPoolType,
+				PoolType:      shared.BurnMintTokenPool,
 				Metadata:      shared.CLLMetadata,
 			},
 		),
@@ -382,7 +381,7 @@ func TestUpgrade(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChainSelectors[0],
-				PoolType:      &lockReleaseTokenPoolType,
+				PoolType:      shared.LockReleaseTokenPool,
 				Metadata:      shared.CLLMetadata,
 			},
 		),
@@ -410,6 +409,7 @@ func TestIDL(t *testing.T) {
 				LockReleaseTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
+				CCTPTokenPool:    true,
 				AccessController: true,
 				Timelock:         true,
 				MCM:              true,
@@ -463,6 +463,7 @@ func TestIDL(t *testing.T) {
 				LockReleaseTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
+				CCTPTokenPool:    true,
 				AccessController: true,
 				Timelock:         true,
 				MCM:              true,

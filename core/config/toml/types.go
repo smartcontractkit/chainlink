@@ -139,8 +139,101 @@ type Secrets struct {
 	Mercury    MercurySecrets           `toml:",omitempty"`
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
-	P2PKey     P2PKey                   `toml:",omitempty"`
-	CRE        CreSecrets               `toml:",omitempty"`
+	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+
+	P2PKey P2PKey     `toml:",omitempty"`
+	CRE    CreSecrets `toml:",omitempty"`
+}
+
+type SolKeys struct {
+	Keys []*SolKey
+}
+
+type SolKey struct {
+	JSON     *models.Secret
+	ID       *string
+	Password *models.Secret
+}
+
+func (s *SolKeys) SetFrom(f *SolKeys) error {
+	err := s.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	s.Keys = make([]*SolKey, len(f.Keys))
+	copy(s.Keys, f.Keys)
+	return nil
+}
+
+func (s *SolKeys) validateMerge(f *SolKeys) (err error) {
+	have := make(map[string]struct{})
+	if s != nil && f != nil {
+		for _, solKey := range s.Keys {
+			have[*solKey.ID] = struct{}{}
+		}
+		for _, solKey := range f.Keys {
+			if _, ok := have[*solKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: "SolKeys: " + *solKey.ID})
+			}
+		}
+	}
+	return err
+}
+
+func (s *SolKeys) ValidateConfig() (err error) {
+	for i, solKey := range s.Keys {
+		if err2 := solKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("SolKeys[%d]", i), Value: solKey, Msg: "invalid SolKey"})
+		}
+	}
+	return err
+}
+
+func (e *SolKey) SetFrom(f *SolKey) (err error) {
+	err = e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		e.JSON = v
+	}
+	if v := f.Password; v != nil {
+		e.Password = v
+	}
+	if v := f.ID; v != nil {
+		e.ID = v
+	}
+	return nil
+}
+
+func (e *SolKey) validateMerge(f *SolKey) (err error) {
+	if e.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "PrivateKey"})
+	}
+	if e.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Selector"})
+	}
+	if e.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (e *SolKey) ValidateConfig() (err error) {
+	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "SolKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	// require valid id
+	if e.ID != nil {
+		_, err2 := chain_selectors.SolanaNameFromChainId(*e.ID)
+		if err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
 }
 
 type EthKeys struct {
@@ -1901,6 +1994,7 @@ type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
 	ChainID                 *string
+	ContractVersion         *string
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
@@ -1918,6 +2012,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 
 	if f.MaxBinarySize != nil {
@@ -2264,6 +2362,9 @@ type Billing struct {
 func (b *Billing) setFrom(f *Billing) {
 	if f.URL != nil {
 		b.URL = f.URL
+	}
+
+	if f.TLSEnabled != nil {
 		b.TLSEnabled = f.TLSEnabled
 	}
 }
@@ -2274,7 +2375,8 @@ func (b *Billing) ValidateConfig() error {
 	}
 
 	if b.TLSEnabled == nil {
-		return configutils.ErrInvalid{Name: "TLSEnabled", Value: "", Msg: "billing service TLS option must be set"}
+		val := true
+		b.TLSEnabled = &val
 	}
 
 	return nil

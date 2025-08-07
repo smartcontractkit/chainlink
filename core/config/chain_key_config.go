@@ -2,7 +2,7 @@ package config
 
 import chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-type ImportableEthKey interface {
+type ImportableChainKey interface {
 	// ChainDetails returns the chain details for the key.
 	ChainDetails() chain_selectors.ChainDetails
 	ImportableKey
@@ -16,6 +16,6 @@ type ImportableKey interface {
 	Password() string
 }
 
-type ImportableEthKeyLister interface {
-	List() []ImportableEthKey
+type ImportableChainKeyLister interface {
+	List() []ImportableChainKey
 }

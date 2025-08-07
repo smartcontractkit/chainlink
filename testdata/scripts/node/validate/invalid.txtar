@@ -13,6 +13,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
+[Billing]
+URL = ''
+
 -- secrets.toml --
 [Database]
 URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable'
@@ -34,6 +37,9 @@ Keystore = 'xxxxx'
 # Input Configuration:
 [Log]
 Level = 'debug'
+
+[Billing]
+URL = ''
 
 [[EVM]]
 ChainID = '1'
@@ -349,6 +355,7 @@ ContractVersion = '1.0.0'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
@@ -391,7 +398,7 @@ RestURL = ''
 URL = ''
 
 [Billing]
-URL = 'localhost:4319'
+URL = ''
 TLSEnabled = true
 
 [BridgeStatusReporter]
@@ -518,7 +525,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
-Invalid configuration: invalid secrets: 2 errors:
+Invalid configuration: 2 errors:
+	- invalid configuration: Billing.URL: invalid value (): billing service url must be set
+	- invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: 
 	Expected password complexity:

@@ -208,7 +208,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	ds := sqlutil.WrapDataSource(db, appLggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
-	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr)
+	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr.Infof)
 
 	err = keyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
 	if err != nil {

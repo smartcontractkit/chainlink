@@ -834,19 +834,19 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 }
 
 // ImportedEthKeys provides a mock function with no fields
-func (_m *GeneralConfig) ImportedEthKeys() config.ImportableEthKeyLister {
+func (_m *GeneralConfig) ImportedEthKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for ImportedEthKeys")
 	}
 
-	var r0 config.ImportableEthKeyLister
-	if rf, ok := ret.Get(0).(func() config.ImportableEthKeyLister); ok {
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.ImportableEthKeyLister)
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
 		}
 	}
 
@@ -870,12 +870,12 @@ func (_c *GeneralConfig_ImportedEthKeys_Call) Run(run func()) *GeneralConfig_Imp
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -923,6 +923,53 @@ func (_c *GeneralConfig_ImportedP2PKey_Call) Return(_a0 config.ImportableKey) *G
 }
 
 func (_c *GeneralConfig_ImportedP2PKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedP2PKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ImportedSolKeys provides a mock function with no fields
+func (_m *GeneralConfig) ImportedSolKeys() config.ImportableChainKeyLister {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedSolKeys")
+	}
+
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedSolKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedSolKeys'
+type GeneralConfig_ImportedSolKeys_Call struct {
+	*mock.Call
+}
+
+// ImportedSolKeys is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedSolKeys() *GeneralConfig_ImportedSolKeys_Call {
+	return &GeneralConfig_ImportedSolKeys_Call{Call: _e.mock.On("ImportedSolKeys")}
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Run(run func()) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }

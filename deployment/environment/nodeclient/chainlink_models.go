@@ -398,6 +398,31 @@ type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
 }
 
+// AptosKey represents an Aptos key response
+type AptosKey struct {
+	Data AptosKeyData `json:"data"`
+}
+
+// AptosKeyData contains the Aptos key attributes
+type AptosKeyData struct {
+	Type       string             `json:"type"`
+	ID         string             `json:"id"`
+	Attributes AptosKeyAttributes `json:"attributes"`
+}
+
+// AptosKeys represents multiple Aptos keys
+type AptosKeys struct {
+	Data []AptosKeyData `json:"data"`
+}
+
+// AptosKeyAttributes contains the actual Aptos key information
+type AptosKeyAttributes struct {
+	Account   string `json:"account"`
+	PublicKey string `json:"publicKey"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type CosmosChainConfig struct {
 	BlockRate             null.String
 	BlocksUntilTxTimeout  null.Int

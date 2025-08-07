@@ -5,7 +5,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	timelockbindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	timelockbindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 

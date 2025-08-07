@@ -148,7 +148,7 @@ func (ks *ocr) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created OCR key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }
