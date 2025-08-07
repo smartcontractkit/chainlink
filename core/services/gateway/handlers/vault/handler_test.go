@@ -33,7 +33,7 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 	}
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
-		NodeRateLimiterConfig: ratelimit.RateLimiterConfig{
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
 			GlobalRPS:      100,
 			GlobalBurst:    100,
 			PerSenderRPS:   10,

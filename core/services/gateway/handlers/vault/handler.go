@@ -99,8 +99,8 @@ type SecretEntry struct {
 }
 
 type Config struct {
-	NodeRateLimiterConfig ratelimit.RateLimiterConfig `json:"node_rate_limiter"`
-	RequestTimeoutSec     int                         `json:"request_timeout_sec"`
+	NodeRateLimiter   ratelimit.RateLimiterConfig
+	RequestTimeoutSec int
 }
 
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (*handler, error) {
@@ -113,7 +113,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.RequestTimeoutSec = 30
 	}
 
-	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiterConfig)
+	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}

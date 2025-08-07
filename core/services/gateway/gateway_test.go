@@ -72,7 +72,7 @@ Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -90,7 +90,7 @@ HandlerName = "dummy"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -104,7 +104,7 @@ HandlerName = "no_such_handler"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -118,7 +118,7 @@ SomeOtherField = "abcd"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -136,7 +136,7 @@ Address = "0xnot_an_address"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -144,7 +144,7 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), handlerTypeForMethod, lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 }
@@ -340,6 +340,7 @@ Address = "0x0001020304050607080900010203040506070809"
 
 	lggr := logger.Test(t)
 	handler := handler_mocks.NewHandler(t)
+	handler.On("Methods").Return([]string{"dummy"})
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
 		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
@@ -353,6 +354,7 @@ Address = "0x0001020304050607080900010203040506070809"
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 	})
 	handler2 := handler_mocks.NewHandler(t)
+	handler2.On("Methods").Return([]string{"dummy2"})
 	handler2.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
 		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
@@ -371,7 +373,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	}
 	mhf := &handlerFactory{handlers: handlers}
 
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, handlerTypeForMethod, lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, lggr)
 	require.NoError(t, err)
 
 	method := "dummy"

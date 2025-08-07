@@ -53,7 +53,7 @@ type gateway struct {
 	lggr       logger.Logger
 }
 
-func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, handlerTypeForMethod func(string) (HandlerType, error), lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&cfg.UserServerConfig, lggr)
 	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), lggr)
@@ -90,7 +90,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 		}
 
 		handlers = append(handlers, donConfig.Handlers...)
-		handler, err := NewMultiHandler(handlerFactory, handlerTypeForMethod, handlers, &donConfig, donConnMgr)
+		handler, err := NewMultiHandler(handlerFactory, handlers, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
 		}

@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,23 +40,6 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 		ds,
 		lggr,
 		httpClient,
-	}
-}
-
-func HandlerTypeForMethod(method string) (HandlerType, error) {
-	switch method {
-	case functions.MethodSecretsSet, functions.MethodSecretsList, functions.MethodHeartbeat:
-		return FunctionsHandlerType, nil
-	case capabilities.MethodWebAPITarget, capabilities.MethodWebAPITrigger, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
-		return WebAPICapabilitiesType, nil
-	case gateway_common.MethodHTTPAction, gateway_common.MethodPushWorkflowMetadata, gateway_common.MethodPullWorkflowMetadata:
-		return HTTPCapabilityType, nil
-	case vault.MethodSecretsCreate:
-		return VaultHandlerType, nil
-	case "dummy":
-		return DummyHandlerType, nil
-	default:
-		return HandlerType(""), fmt.Errorf("unknown handler type for method %s", method)
 	}
 }
 

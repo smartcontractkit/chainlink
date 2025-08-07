@@ -218,6 +218,53 @@ func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// Methods provides a mock function with no fields
+func (_m *Handler) Methods() []string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Methods")
+	}
+
+	var r0 []string
+	if rf, ok := ret.Get(0).(func() []string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	return r0
+}
+
+// Handler_Methods_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Methods'
+type Handler_Methods_Call struct {
+	*mock.Call
+}
+
+// Methods is a helper method to define mock.On call
+func (_e *Handler_Expecter) Methods() *Handler_Methods_Call {
+	return &Handler_Methods_Call{Call: _e.mock.On("Methods")}
+}
+
+func (_c *Handler_Methods_Call) Run(run func()) *Handler_Methods_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Handler_Methods_Call) Return(_a0 []string) *Handler_Methods_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Handler_Methods_Call) RunAndReturn(run func() []string) *Handler_Methods_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *Handler) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)

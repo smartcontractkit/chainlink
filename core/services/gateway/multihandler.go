@@ -3,7 +3,10 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -12,25 +15,38 @@ import (
 )
 
 type multiHandler struct {
-	handlers             map[string]handlers.Handler
-	handlerTypeForMethod func(string) (HandlerType, error)
+	typeToHandler   map[string]handlers.Handler
+	methodToHandler map[string]handlers.Handler
 }
 
-func NewMultiHandler(handlerFactory HandlerFactory, handlerTypeForMethod func(string) (HandlerType, error), hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
-	handlerMap := map[string]handlers.Handler{}
+func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donConfig *config.DONConfig, connMgr *donConnectionManager) (handlers.Handler, error) {
+	methodToHandler := map[string]handlers.Handler{}
+	typeToHandler := map[string]handlers.Handler{}
 	for _, h := range hdlrs {
 		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, donConfig, connMgr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create handler: %w", err)
 		}
 
-		handlerMap[h.Name] = hdlr
+		typeToHandler[h.Name] = hdlr
+
+		for _, method := range hdlr.Methods() {
+			if _, exists := methodToHandler[method]; exists {
+				return nil, fmt.Errorf("duplicate handler for method %s: methods must be globally unique across handlers", method)
+			}
+
+			methodToHandler[method] = hdlr
+		}
 	}
 
 	return &multiHandler{
-		handlers:             handlerMap,
-		handlerTypeForMethod: handlerTypeForMethod,
+		methodToHandler: methodToHandler,
+		typeToHandler:   typeToHandler,
 	}, nil
+}
+
+func (m *multiHandler) Methods() []string {
+	return slices.Collect(maps.Keys(m.methodToHandler))
 }
 
 func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
@@ -63,27 +79,22 @@ func (m *multiHandler) getHandler(method string) (handlers.Handler, error) {
 	// If there's only one handler, return it directly.
 	// This preserves backwards compatibility for cases where the method
 	// isn't specified on responses (and for cases where only one handler is registered more generally).
-	if len(m.handlers) == 1 {
-		for _, handler := range m.handlers {
+	if len(m.typeToHandler) == 1 {
+		for _, handler := range m.typeToHandler {
 			return handler, nil
 		}
 	}
 
-	handlerType, err := m.handlerTypeForMethod(method)
-	if err != nil {
-		return nil, fmt.Errorf("no handler found for method: %w", err)
-	}
-
-	handler, ok := m.handlers[handlerType]
+	handler, ok := m.methodToHandler[method]
 	if !ok {
-		return nil, fmt.Errorf("no handler registered for method %s (type %s)", method, handlerType)
+		return nil, errors.New("no handler found for method " + method)
 	}
 
 	return handler, nil
 }
 
 func (m *multiHandler) Start(ctx context.Context) error {
-	for name, h := range m.handlers {
+	for name, h := range m.methodToHandler {
 		if err := h.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start handler %s: %w", name, err)
 		}
@@ -92,7 +103,7 @@ func (m *multiHandler) Start(ctx context.Context) error {
 }
 
 func (m *multiHandler) Close() error {
-	for name, h := range m.handlers {
+	for name, h := range m.typeToHandler {
 		if e := h.Close(); e != nil {
 			return fmt.Errorf("failed to close handler %s: %w", name, e)
 		}

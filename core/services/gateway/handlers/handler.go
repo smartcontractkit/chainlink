@@ -42,6 +42,10 @@ type Handler interface {
 	// should be non-blocking
 	// should validate the message inside the response
 	HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
+
+	// The methods support by this Handler.
+	// Should be globally unique across all handlers.
+	Methods() []string
 }
 
 // Representation of a DON from a Handler's perspective.
