@@ -310,10 +310,10 @@ flowchart LR
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/lib --> chainlink/deployment
 	chainlink/system-tests/lib --> crib-sdk
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
