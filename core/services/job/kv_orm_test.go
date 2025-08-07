@@ -136,41 +136,41 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 		maxAge := 1 * time.Hour
 		deletedCount, err := kvStore1.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)
-		assert.Equal(t, int64(2), deletedCount, "Should delete 2 old entries for job 1")
+		require.Equal(t, int64(2), deletedCount, "Should delete 2 old entries for job 1")
 
 		_, err = kvStore1.Get(ctx, "old_key_1")
-		assert.Error(t, err, "old_key_1 should be deleted")
+		require.Error(t, err, "old_key_1 should be deleted")
 		_, err = kvStore1.Get(ctx, "old_key_2")
-		assert.Error(t, err, "old_key_2 should be deleted")
+		require.Error(t, err, "old_key_2 should be deleted")
 
 		val, err := kvStore1.Get(ctx, "new_key_1")
 		require.NoError(t, err)
-		assert.Equal(t, []byte("new_value_1"), val)
+		require.Equal(t, []byte("new_value_1"), val)
 		val, err = kvStore2.Get(ctx, "old_key_1")
 		require.NoError(t, err)
-		assert.Equal(t, []byte("old_value_1"), val)
+		require.Equal(t, []byte("old_value_1"), val)
 	})
 
 	t.Run("PruneExpiredEntries for job 2", func(t *testing.T) {
 		maxAge := 1 * time.Hour
 		deletedCount, err := kvStore2.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)
-		assert.Equal(t, int64(2), deletedCount, "Should delete 2 old entries for job 2")
+		require.Equal(t, int64(2), deletedCount, "Should delete 2 old entries for job 2")
 
 		_, err = kvStore2.Get(ctx, "old_key_1")
-		assert.Error(t, err, "old_key_1 should be deleted")
+		require.Error(t, err, "old_key_1 should be deleted")
 		_, err = kvStore2.Get(ctx, "old_key_2")
-		assert.Error(t, err, "old_key_2 should be deleted")
+		require.Error(t, err, "old_key_2 should be deleted")
 		val, err := kvStore2.Get(ctx, "new_key_1")
 		require.NoError(t, err)
-		assert.Equal(t, []byte("new_value_1"), val)
+		require.Equal(t, []byte("new_value_1"), val)
 	})
 
 	t.Run("PruneExpiredEntries with no expired entries", func(t *testing.T) {
 		maxAge := 5 * time.Hour
 		deletedCount, err := kvStore1.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)
-		assert.Equal(t, int64(0), deletedCount, "Should delete no entries")
+		require.Equal(t, int64(0), deletedCount, "Should delete no entries")
 	})
 
 	// Cleanup
