@@ -35,6 +35,7 @@ import (
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	httpcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/http"
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
 	vaultcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
@@ -42,11 +43,14 @@ import (
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
 	evmJob "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/evm"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crehttpaction "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httpaction"
+	crehttptrigger "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httptrigger"
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
@@ -134,6 +138,8 @@ func (c Config) Validate() error {
 
 type ExtraCapabilitiesConfig struct {
 	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
+	HTTPTriggerBinaryPath     string `toml:"http_trigger_capability_binary_path"`
+	HTTPActionBinaryPath      string `toml:"http_action_capability_binary_path"`
 	EVMCapabilityBinaryPath   string `toml:"evm_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
@@ -474,7 +480,7 @@ func StartCLIEnvironment(
 
 	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
 	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
-
+	gatewayHandlerType := jobs.WebAPIHandlerType
 	switch topologyFlag {
 	case TopologySimplified:
 		if len(in.NodeSets) != 1 {
@@ -500,6 +506,18 @@ func StartCLIEnvironment(
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -547,10 +565,22 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.WebAPITargetCapability, cre.VaultCapability}
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
 			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+			gatewayHandlerType = jobs.HTTPHandlerType
 		}
 
 		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
@@ -648,6 +678,8 @@ func StartCLIEnvironment(
 		croncap.CronCapabilityFactoryFn,
 		vaultcap.VaultCapabilityFactoryFn,
 		mock.CapabilityFactoryFn,
+		httpcap.HTTPTriggerCapabilityFactoryFn,
+		httpcap.HTTPActionCapabilityFactoryFn,
 	}
 
 	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
@@ -680,16 +712,27 @@ func StartCLIEnvironment(
 		readContractBinaryName = "readcontract"
 	}
 
+	httpActionBinaryName := filepath.Base(in.ExtraCapabilities.HTTPActionBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		httpActionBinaryName = "http_action"
+	}
+	httpTriggerBinaryName := filepath.Base(in.ExtraCapabilities.HTTPTriggerBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		httpTriggerBinaryName = "http_trigger"
+	}
+
 	jobSpecFactoryFunctions := []cre.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
 		webapi.WebAPITriggerJobSpecFactoryFn,
 		webapi.WebAPITargetJobSpecFactoryFn,
 		creconsensus.ConsensusJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
-		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
+		cregateway.GatewayJobSpecFactoryFn(gatewayHandlerType, extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
 		crevault.VaultJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
 		mock2.MockJobSpecFactoryFn(7777),
+		crehttpaction.HTTPActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
+		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
 	}
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
@@ -750,7 +793,7 @@ func StartCLIEnvironment(
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
 		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
-			gatewayconfig.GenerateConfig,
+			gatewayconfig.GenerateConfigFn(gatewayHandlerType),
 		},
 		S3ProviderInput: in.S3ProviderInput,
 	}

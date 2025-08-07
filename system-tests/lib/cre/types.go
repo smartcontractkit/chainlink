@@ -49,6 +49,8 @@ const (
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
 	VaultCapability         CapabilityFlag = "vault"
+	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
+	HTTPActionCapability    CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
@@ -291,7 +293,7 @@ func (c *ConfigureKeystoneInput) Validate() error {
 
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string
-	ID                  uint32
+	ID                  string
 }
 
 type GatewayConnectorOutput struct {
