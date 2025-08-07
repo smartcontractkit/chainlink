@@ -39,7 +39,7 @@ func isCacheableStatusCode(statusCode int) bool {
 }
 
 // isExpiredOrNotCached returns true if the cached response is expired or not cached.
-// It does not lock the cache map.
+// IMPORTANT: this method does not lock the cache map. should be called with the cacheMu locked.
 func (rc *responseCache) isExpiredOrNotCached(workflowID string, req gateway.OutboundHTTPRequest) bool {
 	key := cacheKey(workflowID, req)
 	cachedResp, exists := rc.cache[key]
