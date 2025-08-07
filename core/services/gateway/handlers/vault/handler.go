@@ -68,7 +68,6 @@ type activeRequest struct {
 
 type handler struct {
 	services.StateMachine
-	gw_handlers.Handler
 	methodConfig Config
 	donConfig    *config.DONConfig
 	don          gw_handlers.DON
@@ -183,6 +182,12 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
+	}
+}
+
+func (h *handler) Methods() []string {
+	return []string{
+		MethodSecretsCreate,
 	}
 }
 

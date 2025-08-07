@@ -42,16 +42,12 @@ func buildConfig(toAppend string) string {
 	` + toAppend
 }
 
-func handlerTypeForMethod(method string) (gateway.HandlerType, error) {
-	return method, nil
-}
-
 type handlerFactory struct {
 	handlers map[string]handlers.Handler
 }
 
 func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
-	return h.handlers[string(handlerType)], nil
+	return h.handlers[handlerType], nil
 }
 
 func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
@@ -346,7 +342,7 @@ Address = "0x0001020304050607080900010203040506070809"
 		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
 		if msg.Body.Method != "dummy" {
-			require.Fail(t, "Expected method to be 'dummy', got: %s", msg.Body.Method)
+			require.Fail(t, "Expected method to be 'dummy1'")
 		}
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
@@ -360,7 +356,7 @@ Address = "0x0001020304050607080900010203040506070809"
 		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
 		if msg.Body.Method != "dummy2" {
-			require.Fail(t, "Expected method to be 'dummy2', got: %s", msg.Body.Method)
+			require.Fail(t, "Expected method to be 'dummy2'")
 		}
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
