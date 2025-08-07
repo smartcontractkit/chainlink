@@ -94,7 +94,7 @@ func (m *multiHandler) getHandler(method string) (handlers.Handler, error) {
 }
 
 func (m *multiHandler) Start(ctx context.Context) error {
-	for name, h := range m.methodToHandler {
+	for name, h := range m.typeToHandler {
 		if err := h.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start handler %s: %w", name, err)
 		}
