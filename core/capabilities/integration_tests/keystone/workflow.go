@@ -177,7 +177,7 @@ func createSecureMintWorkflowJob(t *testing.T,
 	workflowOwner string,
 	chainSelector int64,
 	consumerAddr common.Address) job.Job {
-	spec := fmt.Sprintf(secureMintWorkflow, workflowName, workflowOwner, chainSelector, consumerAddr.String())
+	spec := fmt.Sprintf(secureMintWorkflow, workflowName, workflowOwner, chainSelector, consumerAddr)
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
 	return workflowJobSpec.Job()
 }
