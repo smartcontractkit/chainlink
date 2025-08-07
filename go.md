@@ -40,6 +40,7 @@ flowchart LR
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
+	chainlink-common --> chainlink-protos/storage-service
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
@@ -75,6 +76,8 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/storage-service
+	click chainlink-protos/storage-service href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/workflows/go
@@ -144,6 +147,7 @@ flowchart LR
 		 chainlink-protos/billing/go
 		 chainlink-protos/orchestrator
 		 chainlink-protos/rmn/v1.6/go
+		 chainlink-protos/storage-service
 		 chainlink-protos/svr
 		 chainlink-protos/workflows/go
 	end
@@ -208,6 +212,7 @@ flowchart LR
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
+	chainlink-common --> chainlink-protos/storage-service
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
@@ -250,6 +255,8 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/rmn/v1.6/go
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/storage-service
+	click chainlink-protos/storage-service href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/workflows/go
@@ -391,6 +398,7 @@ flowchart LR
 		 chainlink-protos/job-distributor
 		 chainlink-protos/orchestrator
 		 chainlink-protos/rmn/v1.6/go
+		 chainlink-protos/storage-service
 		 chainlink-protos/svr
 		 chainlink-protos/workflows/go
 	end

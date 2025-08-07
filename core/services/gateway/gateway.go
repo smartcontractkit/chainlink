@@ -53,17 +53,17 @@ type gateway struct {
 	lggr       logger.Logger
 }
 
-func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
-	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, clockwork.NewRealClock(), lggr)
+	httpServer := gw_net.NewHttpServer(&cfg.UserServerConfig, lggr)
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}
 
 	handlerMap := make(map[string]handlers.Handler)
 
-	for _, donConfig := range config.Dons {
+	for _, donConfig := range cfg.Dons {
 		donConfig := donConfig
 		_, ok := handlerMap[donConfig.DonId]
 		if ok {
@@ -79,10 +79,22 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
-		if err != nil {
-			return nil, err
+
+		// Convert old-style handler config to the new style.
+		var handlers []config.Handler
+		if donConfig.HandlerName != "" {
+			handlers = append(handlers, config.Handler{
+				Name:   donConfig.HandlerName,
+				Config: donConfig.HandlerConfig,
+			})
 		}
+
+		handlers = append(handlers, donConfig.Handlers...)
+		handler, err := NewMultiHandler(handlerFactory, handlers, &donConfig, donConnMgr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
+		}
+
 		handlerMap[donConfig.DonId] = handler
 		donConnMgr.SetHandler(handler)
 	}

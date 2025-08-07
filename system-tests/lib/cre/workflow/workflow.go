@@ -80,6 +80,26 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	return nil
 }
 
+func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) ([]string, error) {
+	workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create workflow registry instance")
+	}
+
+	metadataList, metadataListErr := workflowRegistryInstance.GetWorkflowMetadataListByOwner(sc.NewCallOpts(), sc.MustGetRootKeyAddress(), big.NewInt(0), big.NewInt(10))
+	if metadataListErr != nil {
+		return nil, errors.Wrap(metadataListErr, "failed to get workflow metadata list")
+	}
+
+	workflows := make([]string, 0)
+
+	for _, metadata := range metadataList {
+		workflows = append(workflows, metadata.WorkflowName)
+	}
+
+	return workflows, nil
+}
+
 func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
 	workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
 	if err != nil {

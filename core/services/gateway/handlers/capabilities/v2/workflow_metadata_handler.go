@@ -205,7 +205,7 @@ func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.Workflow
 		return errors.New("no authorized keys")
 	}
 	for _, key := range metadata.AuthorizedKeys {
-		if key.KeyType != gateway.KeyTypeECDSA {
+		if key.KeyType != gateway.KeyTypeECDSAEVM {
 			return errors.New("invalid key type")
 		}
 		if key.PublicKey == "" || !strings.HasPrefix(key.PublicKey, "0x") || len(key.PublicKey) != ecdsaPubKeyHexLen {

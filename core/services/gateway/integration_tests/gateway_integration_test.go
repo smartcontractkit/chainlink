@@ -126,6 +126,7 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
 		Result:  &rawPayload,
+		Method:  req.Method,
 	}
 	// send back user's message without re-signing - should be ignored by the Gateway
 	_ = c.connector.SendToGateway(ctx, gatewayID, resp)
