@@ -49,7 +49,6 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
@@ -531,5 +530,5 @@ func setConfigurationIfMissing(configName, topology string) error {
 		}
 	}
 
-	return creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
+	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }

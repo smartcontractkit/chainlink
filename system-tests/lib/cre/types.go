@@ -285,9 +285,6 @@ type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
 }
-
-// TODO I can proably remove this one and just use []*GatewayConfiguration
-// and set DonID dynamically based on the flags and number of DONs
 type GatewayConnectorOutput struct {
 	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
 }

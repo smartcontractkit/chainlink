@@ -78,7 +78,7 @@ func GenerateJobSpecs(offchainClient deployment.OffchainClient, donTopology *cre
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
-	var donMetadata []*cre.DonMetadata
+	donMetadata := make([]*cre.DonMetadata, 0)
 	for _, don := range donTopology.DonsWithMetadata {
 		donMetadata = append(donMetadata, don.DonMetadata)
 	}
