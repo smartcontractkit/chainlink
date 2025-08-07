@@ -31,7 +31,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	if !ok {
 		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
 	}
-	changesetOutput, err := changeset.DeployCapabilityRegistry(env, chainSelector)
+	changesetOutput, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chainSelector})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy contract: %w", err)
 	}

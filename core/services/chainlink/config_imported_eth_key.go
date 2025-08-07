@@ -43,8 +43,8 @@ type importedEthKeyConfigs struct {
 	s toml.EthKeys
 }
 
-func (t *importedEthKeyConfigs) List() []config.ImportableEthKey {
-	res := make([]config.ImportableEthKey, len(t.s.Keys))
+func (t *importedEthKeyConfigs) List() []config.ImportableChainKey {
+	res := make([]config.ImportableChainKey, len(t.s.Keys))
 
 	if len(t.s.Keys) == 0 {
 		return res

@@ -136,6 +136,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	var binary = wasmtest.CreateTestBinary(binaryCmd, true, t)
 	var encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 	var workflowName = "workflow-name"
+	var workflowTag = "workflow-tag"
 
 	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, _ *mockFetcher) {
 		err := h.workflowRegisteredEvent(ctx, event)
@@ -146,6 +147,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
 		require.Equal(t, wfName, dbSpec.WorkflowName)
+		require.Equal(t, workflowTag, dbSpec.WorkflowTag)
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
@@ -172,7 +174,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					configURL: {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{}, nil
 			},
 			GiveConfig: config,
@@ -186,6 +188,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL,
 				}
@@ -200,7 +203,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					configURL: {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -221,6 +224,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL}
 			},
@@ -234,7 +238,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					configURL: {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig: config,
@@ -248,6 +252,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL}
 			},
@@ -277,6 +282,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL}
 			},
@@ -307,6 +313,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL}
 			},
@@ -341,6 +348,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL,
 				}
@@ -381,6 +389,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL,
 					ConfigURL:     configURL}
 			},
@@ -442,6 +451,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
+					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURL}
 			},
 		},
@@ -467,6 +477,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					Status:        job.WorkflowSpecStatusActive,
 					WorkflowOwner: hex.EncodeToString(event.WorkflowOwner),
 					WorkflowName:  event.WorkflowName,
+					WorkflowTag:   workflowTag,
 					SpecType:      job.WASMFile,
 					BinaryURL:     event.BinaryURL,
 					ConfigURL:     event.ConfigURL,
@@ -508,7 +519,7 @@ type testCase struct {
 	fetcherFactory  func() *mockFetcher
 	Event           func(wfID []byte) WorkflowRegisteredEvent
 	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher)
-	engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, config []byte, binary []byte) (services.Service, error)
+	engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -620,6 +631,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
+			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL}
 
@@ -749,6 +761,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
+			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL}
 

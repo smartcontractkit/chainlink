@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -402,9 +403,10 @@ func Test_SecretsWorker(t *testing.T) {
 			capRegistry := corecaps.NewRegistry(lggr)
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
+			donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, engineRegistry,
+			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, engineRegistry,
 				emitter, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
@@ -586,9 +588,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -692,9 +695,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er,
 		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 

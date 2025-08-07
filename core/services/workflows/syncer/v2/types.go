@@ -80,6 +80,7 @@ type WorkflowRegisteredEvent struct {
 	CreatedAt     uint64
 	Status        uint8
 	WorkflowName  string
+	WorkflowTag   string
 	BinaryURL     string
 	ConfigURL     string
 	Tag           string

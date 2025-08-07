@@ -16,6 +16,13 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
+type HandlerType string
+
+const (
+	WebAPIHandlerType HandlerType = "web-api-capabilities"
+	HTTPHandlerType   HandlerType = "http-capabilities"
+)
+
 func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
@@ -41,7 +48,7 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConnectorData.Dons {
@@ -57,20 +64,43 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 			)
 		}
 
-		gatewayDons += fmt.Sprintf(`
-		[[gatewayConfig.Dons]]
-		DonId = "%d"
-		F = 1
-		HandlerName = "web-api-capabilities"
-			[gatewayConfig.Dons.HandlerConfig]
-			MaxAllowedMessageAgeSec = 1_000
-				[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-				GlobalBurst = 10
-				GlobalRPS = 50
-				PerSenderBurst = 10
-				PerSenderRPS = 10
-			%s
-		`, don.ID, gatewayMembers)
+		if handlerType == HTTPHandlerType {
+			gatewayDons += fmt.Sprintf(`
+				[[gatewayConfig.Dons]]
+				DonId = "workflows"
+				F = 1
+				HandlerName = "http-capabilities"
+					[gatewayConfig.Dons.HandlerConfig]
+					MaxAllowedMessageAgeSec = 1_000
+					authPullIntervalMs = 1000
+						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+						[gatewayConfig.Dons.HandlerConfig.UserRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+					%s
+			`, gatewayMembers)
+		} else {
+			gatewayDons += fmt.Sprintf(`
+				[[gatewayConfig.Dons]]
+				DonId = "%s"
+				F = 1
+				HandlerName = "web-api-capabilities"
+					[gatewayConfig.Dons.HandlerConfig]
+					MaxAllowedMessageAgeSec = 1_000
+						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+					%s
+				`, don.ID, gatewayMembers)
+		}
 	}
 
 	uuid := uuid.NewString()

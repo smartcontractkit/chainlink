@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"strconv"
+
 	"github.com/pkg/errors"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -12,9 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-var GatewayJobSpecFactoryFn = func(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) cre.JobSpecFactoryFn {
+var GatewayJobSpecFactoryFn = func(handlerType jobs.HandlerType, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) cre.JobSpecFactoryFn {
 	return func(input *cre.JobSpecFactoryInput) (cre.DonsToJobSpecs, error) {
 		return GenerateJobSpecs(
+			handlerType,
 			input.DonTopology,
 			extraAllowedPorts,
 			extraAllowedIPs,
@@ -24,7 +27,7 @@ var GatewayJobSpecFactoryFn = func(extraAllowedPorts []int, extraAllowedIPs, ext
 	}
 }
 
-func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string, gatewayConnectorOutput *cre.GatewayConnectorOutput) (cre.DonsToJobSpecs, error) {
+func GenerateJobSpecs(handlerType jobs.HandlerType, donTopology *cre.DonTopology, extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string, gatewayConnectorOutput *cre.GatewayConnectorOutput) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -57,9 +60,15 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 				return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
 			}
 		}
+		var id string
+		if handlerType == jobs.HTTPHandlerType {
+			id = "workflows"
+		} else {
+			id = strconv.FormatUint(uint64(donWithMetadata.ID), 10)
+		}
 		gatewayConnectorOutput.Dons = append(gatewayConnectorOutput.Dons, cre.GatewayConnectorDons{
 			MembersEthAddresses: ethAddresses,
-			ID:                  donWithMetadata.ID,
+			ID:                  id,
 		})
 	}
 
@@ -88,7 +97,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			return nil, errors.Wrap(homeChainErr, "failed to get home chain id from selector")
 		}
 
-		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, *gatewayConnectorOutput))
+		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(handlerType, gatewayNodeID, homeChainID, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, *gatewayConnectorOutput))
 	}
 
 	return donToJobSpecs, nil

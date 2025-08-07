@@ -278,12 +278,13 @@ func TestVault_E2E(t *testing.T) {
 
 		[[gatewayConfig.Dons]]
 		DonId = "%s"
-		HandlerName = "%s"
 		F = 0
 
-		[gatewayConfig.Dons.HandlerConfig]
-		request_timeout_sec = 30
-		node_rate_limiter = {
+		[[gatewayConfig.Dons.Handlers]]
+		Name = "%s"
+		[gatewayConfig.Dons.Handlers.Config]
+		RequestTimeoutSec = 30
+		NodeRateLimiter = {
 			globalRPS = 100,
 			globalBurst = 100,
 			perSenderRPS = 10,
