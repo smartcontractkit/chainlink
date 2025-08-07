@@ -823,7 +823,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
 	authorizedKey := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: strings.ToLower(signerAddr.Hex()),
 	}
 	handler.authorizedKeys = map[string]map[gateway_common.AuthorizedKey]struct{}{

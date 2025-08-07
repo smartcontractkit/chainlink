@@ -342,7 +342,7 @@ func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 func registerWorkflow(t *testing.T, handler *httpTriggerHandler, workflowID string, privateKey *ecdsa.PrivateKey) {
 	handler.workflowMetadataHandler.authorizedKeys[workflowID] = map[gateway_common.AuthorizedKey]struct{}{
 		{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex()),
 		}: {},
 	}
@@ -554,7 +554,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	// Add authorized key to metadata handler
 	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
 	key := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: strings.ToLower(signerAddr.Hex()),
 	}
 	handler.workflowMetadataHandler.authorizedKeys[workflowID] = map[gateway_common.AuthorizedKey]struct{}{key: {}}
@@ -695,7 +695,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	workflowTag := "v1.0"
 
 	key := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: strings.ToLower(signerAddr.Hex()),
 	}
 	handler.workflowMetadataHandler.authorizedKeys[workflowID] = map[gateway_common.AuthorizedKey]struct{}{key: {}}

@@ -70,7 +70,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 		return nil, errors.New("workflow ID not found in authorized keys")
 	}
 	key := gateway.AuthorizedKey{
-		KeyType:   gateway.KeyTypeECDSA,
+		KeyType:   gateway.KeyTypeECDSAEVM,
 		PublicKey: strings.ToLower(signer.Hex()),
 	}
 	if _, exists = keys[key]; !exists {
