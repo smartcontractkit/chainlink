@@ -75,7 +75,7 @@ func SetupDataFeedsCacheContract(t *testing.T, backend *framework.EthBlockchain,
 	backend.Commit()
 
 	feedIDBytes := [16]byte{}
-	copy(feedIDBytes[:], common.FromHex("0x0400000000000005390000000000000000000000000000000000000000000000")) // TODO(gg): update
+	copy(feedIDBytes[:], common.FromHex("0x04de41ba4fc9d91ad900000000000000")) // Data ID for secure mint report for chain selector 16015286601757825753 (ethereum-testnet-sepolia)
 
 	tx, err := dataFeedsCache.SetDecimalFeedConfigs(backend.TransactionOpts(), [][16]byte{feedIDBytes}, []string{"securemint"},
 		[]data_feeds_cache.DataFeedsCacheWorkflowMetadata{

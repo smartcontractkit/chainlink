@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	data_feeds_cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
@@ -150,11 +151,36 @@ func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, cons
 				return
 			case report := <-reportsProcessed:
 				t.Logf("Forwarder received report: %+v", report)
+
+				transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumerAddress, report.WorkflowExecutionId, report.ReportId)
+				assert.NoError(t, err)
 				if !report.Result { // if the report is not forwarded to the consumer, we need to get the transmission info to see why
-					transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumerAddress, report.WorkflowExecutionId, report.ReportId)
-					assert.NoError(t, err)
 					t.Errorf("Report not forwarded to consumer: %+v", transmissionInfo)
+				} else {
+					t.Logf("Report successfully forwarded to consumer: %+v", transmissionInfo)
 				}
+			}
+		}
+	}()
+}
+
+// trackInvalidPermissionEventsOnDFCache watches the DF Cache contract for invalid permission events
+func trackInvalidPermissionEventsOnDFCache(t *testing.T, dataFeedsCache *data_feeds_cache.DataFeedsCache) {
+	invalidPermissionEvents := make(chan *data_feeds_cache.DataFeedsCacheInvalidUpdatePermission, 1000)
+	invalidPermissionSub, err := dataFeedsCache.WatchInvalidUpdatePermission(nil, invalidPermissionEvents, nil)
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-invalidPermissionSub.Err():
+				assert.NoError(t, err)
+				return
+			case evt := <-invalidPermissionEvents:
+				t.Logf("DF Cache received invalid permission event: %+v", evt)
 			}
 		}
 	}()

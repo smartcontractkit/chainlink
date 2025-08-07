@@ -161,7 +161,7 @@ consensus:
           "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
       encoder: "EVM"
       encoder_config:
-        abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
+        abi: "(bytes16 DataID, uint32 Timestamp, uint224 Answer)[] Reports"
 
 targets:
   - id: "write_geth-testnet@1.0.0"
@@ -185,7 +185,7 @@ type secureMintWorkflowData struct {
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowName string,
 	workflowOwner string,
-	chainSelector int64,
+	chainSelector uint64,
 	consumerAddr common.Address) job.Job {
 	tmpl, err := template.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
