@@ -12,9 +12,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/exp/maps"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -78,9 +77,14 @@ type dataSource struct {
 	t           Telemeter
 	shouldCache bool
 
-	observationLoopMu sync.Mutex
-	// observationLoopCh allows us to stop a background observation loop
-	observationLoopCh chan struct{}
+	observationLoopStarted bool
+	configDigestToStreamMu sync.Mutex
+	configDigestToStream   map[types.ConfigDigest]observableStreamValues
+}
+
+type observableStreamValues struct {
+	opts         llo.DSOpts
+	streamValues llo.StreamValues
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
@@ -93,6 +97,8 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 		registry:    registry,
 		t:           t,
 		shouldCache: shouldCache,
+
+		configDigestToStream: make(map[types.ConfigDigest]observableStreamValues),
 	}
 }
 
@@ -111,37 +117,114 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		lggr.Debugw("Observing streams")
 	}
 
-	d.observationLoopMu.Lock()
+	// Observation loop logic
 	{
-		// If there's another observation loop going in the background, we want to stop it and start a new one.
-		// We are doing this in order to use the potentially updated set of streams to observe.
-		closeIfNotClosed(d.observationLoopCh)
+		// Update the list of streams to observe for this config digest.
+		d.configDigestToStreamMu.Lock()
+		d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
+			opts,
+			streamValues,
+		}
+		d.configDigestToStreamMu.Unlock()
 
-		// Launch the observation loop in a goroutine.
-		d.observationLoopCh = make(chan struct{}, 1)
+		if !d.observationLoopStarted {
+			loopStartedCh := make(chan struct{})
+			go d.startObservationLoop(ctx, lggr, loopStartedCh)
+			<-loopStartedCh
+		}
 	}
-	d.observationLoopMu.Unlock()
 
-	// Wait until the first observation round is completed before returning.
-	firstRoundDoneCh := make(chan struct{})
-	go func() {
-		defer func() {
-			closeIfNotClosed(d.observationLoopCh)
-		}()
+	var wg sync.WaitGroup
+	wg.Add(len(streamValues))
 
-		for {
-			var wg sync.WaitGroup
-			wg.Add(len(streamValues))
+	var mu sync.Mutex
+	successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
+	var errs []ErrObservationFailed
 
-			var mu sync.Mutex
-			successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
-			var errs []ErrObservationFailed
+	// Observe all streams concurrently
+	for _, streamID := range maps.Keys(streamValues) {
+		// TODO Does this still need the goroutines if we're always reading from cache?
+		go func(streamID llotypes.StreamID) {
+			defer wg.Done()
+			var val llo.StreamValue
 
-			loopCtx := ctx
+			// check for valid cached value and fail if there is none
+			if val = d.fromCache(streamID); val == nil {
+				mu.Lock()
+				errs = append(errs, ErrObservationFailed{inner: nil, streamID: streamID, reason: "no observed stream value in cache"})
+				mu.Unlock()
+				return
+			}
 
-			// TODO (ro-tex): Where does this telemetry need to go? in the loop? outside the goroutine?
-			// oc only lives for the duration of this Observe call
-			oc := NewObservationContext(lggr, d.registry, d.t)
+			mu.Lock()
+			defer mu.Unlock()
+
+			successfulStreamIDs = append(successfulStreamIDs, streamID)
+			if val != nil {
+				streamValues[streamID] = val
+			}
+		}(streamID)
+	}
+
+	// Wait for all Observations to complete
+	wg.Wait()
+
+	// TODO rework this logging
+	// Only log on errors or if VerboseLogging is turned on
+	if len(errs) > 0 || opts.VerboseLogging() {
+		elapsed := time.Since(now)
+
+		slices.Sort(successfulStreamIDs)
+		sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
+
+		failedStreamIDs := make([]streams.StreamID, len(errs))
+		errStrs := make([]string, len(errs))
+		for i, e := range errs {
+			errStrs[i] = e.String()
+			failedStreamIDs[i] = e.streamID
+		}
+
+		lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
+			len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "errs", errStrs)
+
+		if opts.VerboseLogging() {
+			lggr = logger.With(lggr, "streamValues", streamValues)
+		}
+
+		if len(errs) == 0 && opts.VerboseLogging() {
+			lggr.Infow("Observation succeeded for all streams")
+		} else if len(errs) > 0 {
+			lggr.Warnw("Observation failed for streams")
+		}
+	}
+
+	return nil
+}
+
+func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logger, loopStartedCh chan struct{}) {
+	for {
+		now := time.Now()
+
+		d.configDigestToStreamMu.Lock()
+		var streamsToObserve []observableStreamValues
+		for _, vals := range d.configDigestToStream {
+			streamsToObserve = append(streamsToObserve, vals)
+		}
+		d.configDigestToStreamMu.Unlock()
+
+		// TODO Deduplicate streams.
+		//  Right now we have the same stream paired with different options/configDigest.
+		//  We don't want that duplication. We want to use the currently active configDigest only. <- Bruno's input will make this possible.
+
+		// TODO Increment the seqNr in the context
+		// seqNr := opts.OutCtx().SeqNr + 1 // shifting the next seqNr
+
+		oc := NewObservationContext(lggr, d.registry, d.t)
+
+		// We separately observe the sets of streams for each configDigest.
+		for _, observe := range streamsToObserve {
+			streamValues := observe.streamValues
+			opts := observe.opts
 
 			// Telemetry
 			{
@@ -151,10 +234,10 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				telemCh := d.t.MakeObservationScopedTelemetryCh(opts, 10*len(streamValues))
 				if telemCh != nil {
 					if d.t.CaptureEATelemetry() {
-						loopCtx = pipeline.WithTelemetryCh(ctx, telemCh)
+						ctx = pipeline.WithTelemetryCh(ctx, telemCh)
 					}
 					if d.t.CaptureObservationTelemetry() {
-						loopCtx = WithObservationTelemetryCh(ctx, telemCh)
+						ctx = WithObservationTelemetryCh(ctx, telemCh)
 					}
 					// After all Observations have returned, nothing else will be sent to the
 					// telemetry channel, so it can safely be closed
@@ -162,45 +245,40 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				}
 			}
 
-			// Observe all streams concurrently
+			var mu sync.Mutex
+			successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
+			var errs []ErrObservationFailed
+
+			var wg sync.WaitGroup
+			wg.Add(len(streamValues))
+
 			for _, streamID := range maps.Keys(streamValues) {
 				go func(streamID llotypes.StreamID) {
 					defer wg.Done()
 					var val llo.StreamValue
 					var err error
 
-					// check for valid cached value before observing
-					if val = d.fromCache(opts.ConfigDigest(), streamID); val == nil {
-						// no valid cached value, observe the stream
-						if val, err = oc.Observe(loopCtx, streamID, opts); err != nil {
-							strmIDStr := strconv.FormatUint(uint64(streamID), 10)
-							if errors.As(err, &MissingStreamError{}) {
-								promMissingStreamCount.WithLabelValues(strmIDStr).Inc()
-							}
-							promObservationErrorCount.WithLabelValues(strmIDStr).Inc()
-							mu.Lock()
-							errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
-							mu.Unlock()
-							return
+					// Observe the stream
+					if val, err = oc.Observe(ctx, streamID, opts); err != nil {
+						streamIDStr := strconv.FormatUint(uint64(streamID), 10)
+						if errors.As(err, &MissingStreamError{}) {
+							promMissingStreamCount.WithLabelValues(streamIDStr).Inc()
 						}
-
-						// cache the observed value
-						d.toCache(opts.ConfigDigest(), streamID, val)
+						promObservationErrorCount.WithLabelValues(streamIDStr).Inc()
+						mu.Lock()
+						errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
+						mu.Unlock()
+						return
 					}
 
-					mu.Lock()
-					defer mu.Unlock()
-
-					successfulStreamIDs = append(successfulStreamIDs, streamID)
-					if val != nil {
-						streamValues[streamID] = val
-					}
+					// cache the observed value
+					d.toCache(streamID, val)
 				}(streamID)
 			}
 
-			// Wait for all Observations to complete
 			wg.Wait()
 
+			// TODO rework this logging
 			// Only log on errors or if VerboseLogging is turned on
 			if len(errs) > 0 || opts.VerboseLogging() {
 				elapsed := time.Since(now)
@@ -223,59 +301,44 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				}
 
 				if len(errs) == 0 && opts.VerboseLogging() {
-					lggr.Infow("Observation succeeded for all streams")
+					lggr.Infow("Observation succeeded for all streamsToObserve")
 				} else if len(errs) > 0 {
-					lggr.Warnw("Observation failed for streams")
+					lggr.Warnw("Observation failed for streamsToObserve")
 				}
 			}
 
-			// The first round of observations is now done and the call to Observe() can return.
-			// We'll continue observing in a loop, in order to keep the cache warm.
-			closeIfNotClosed(firstRoundDoneCh)
-
-			d.observationLoopMu.Lock()
-			select {
-			case <-loopCtx.Done():
-				return
-			case <-d.observationLoopCh:
-				return
-			default:
-				// Sleep between rounds of observations.
-				time.Sleep(time.Millisecond) // TODO (ro-tex): (deltaRound/2 - loopDuration)
-			}
-			d.observationLoopMu.Unlock()
 		}
-	}()
 
-	<-firstRoundDoneCh
+		// Notify the caller that we've completed our first round of observations.
+		if !d.observationLoopStarted {
+			d.observationLoopStarted = true
+			close(loopStartedCh)
+		}
 
-	return nil
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// TODO Sleep between updates, if we want to.
+			// time.Sleep(time.Millisecond)
+		}
+	}
 }
 
-func (d *dataSource) fromCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID) llo.StreamValue {
+var cacheConfigDigest types.ConfigDigest = (*new([32]byte))
+
+func (d *dataSource) fromCache(streamID llotypes.StreamID) llo.StreamValue {
 	if d.shouldCache {
-		if streamValue, found := GetCache(configDigest).Get(streamID); found && streamValue != nil {
+		if streamValue, found := GetCache(cacheConfigDigest).Get(streamID); found && streamValue != nil {
 			return streamValue
 		}
 	}
 	return nil
 }
 
-func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID, val llo.StreamValue) {
+func (d *dataSource) toCache(streamID llotypes.StreamID, val llo.StreamValue) {
 	if d.shouldCache && val != nil {
 		// Use the current sequence number as the cache key
-		GetCache(configDigest).Add(streamID, val)
-	}
-}
-
-func closeIfNotClosed(ch chan struct{}) {
-	if ch == nil {
-		return
-	}
-	select {
-	case <-ch:
-		return
-	default:
-		close(ch)
+		GetCache(cacheConfigDigest).Add(streamID, val)
 	}
 }

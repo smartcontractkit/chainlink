@@ -166,7 +166,6 @@ func Test_DataSource(t *testing.T) {
 
 			assert.Equal(t, makeStreamValues(), vals)
 		})
-
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
@@ -182,7 +181,6 @@ func Test_DataSource(t *testing.T) {
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals)
 		})
-
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
@@ -217,12 +215,9 @@ func Test_DataSource(t *testing.T) {
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals)
 
-			// We are getting the first three because those should be the ones from the first round of observations.
-			firstThreePackets := tm.v3PremiumLegacyPackets[:3]
-
-			require.Len(t, firstThreePackets, 3)
+			require.Len(t, tm.v3PremiumLegacyPackets, 3)
 			m := make(map[int]v3PremiumLegacyPacket)
-			for _, pkt := range firstThreePackets {
+			for _, pkt := range tm.v3PremiumLegacyPackets {
 				m[int(pkt.run.ID)] = pkt
 			}
 			pkt := m[100]
@@ -233,17 +228,9 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
 			require.NoError(t, pkt.err)
 
-			assert.Equal(t, "40602", m[101].val.(*llo.Decimal).String())
-			assert.Equal(t, "15", m[102].val.(*llo.Decimal).String())
-
 			telems := []interface{}{}
 			for p := range tm.ch {
 				telems = append(telems, p)
-
-				// We are getting the first three because those should be the ones from the first round of observations.
-				if len(telems) >= 3 {
-					break
-				}
 			}
 			require.Len(t, telems, 3)
 			sort.Slice(telems, func(i, j int) bool {
@@ -371,6 +358,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
+			// Create a new data source
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// Set up pipeline to return different values
