@@ -134,40 +134,21 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		}
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(streamValues))
-
-	var mu sync.Mutex
 	successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
 	var errs []ErrObservationFailed
 
 	// Observe all streams concurrently
 	for _, streamID := range maps.Keys(streamValues) {
-		// TODO Does this still need the goroutines if we're always reading from cache?
-		go func(streamID llotypes.StreamID) {
-			defer wg.Done()
-			var val llo.StreamValue
+		// check for valid cached value and fail if there is none
+		val := d.fromCache(streamID)
+		if val == nil {
+			errs = append(errs, ErrObservationFailed{inner: nil, streamID: streamID, reason: "no observed stream value in cache"})
+			continue
+		}
 
-			// check for valid cached value and fail if there is none
-			if val = d.fromCache(streamID); val == nil {
-				mu.Lock()
-				errs = append(errs, ErrObservationFailed{inner: nil, streamID: streamID, reason: "no observed stream value in cache"})
-				mu.Unlock()
-				return
-			}
-
-			mu.Lock()
-			defer mu.Unlock()
-
-			successfulStreamIDs = append(successfulStreamIDs, streamID)
-			if val != nil {
-				streamValues[streamID] = val
-			}
-		}(streamID)
+		successfulStreamIDs = append(successfulStreamIDs, streamID)
+		streamValues[streamID] = val
 	}
-
-	// Wait for all Observations to complete
-	wg.Wait()
 
 	// TODO rework this logging
 	// Only log on errors or if VerboseLogging is turned on
@@ -201,6 +182,10 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	return nil
 }
 
+// startObservationLoop continuously makes observations for the streams in d.configDigestToStream and stores those in
+// the cache. It does not check for cached versions, it always calculates fresh values.
+//
+// NOTE: This method needs to be run in a goroutine.
 func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logger, loopStartedCh chan struct{}) {
 	for {
 		now := time.Now()
@@ -215,8 +200,9 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 		// TODO Deduplicate streams.
 		//  Right now we have the same stream paired with different options/configDigest.
 		//  We don't want that duplication. We want to use the currently active configDigest only. <- Bruno's input will make this possible.
+		//  The result here should ideally be a map[streamID]{streamValues, opts} or maybe map[StreamValues]Opts.
 
-		// TODO Increment the seqNr in the context
+		// TODO Increment the seqNr in the context. I'm not sure how to do this without reimplementing llo.dsOpts.
 		// seqNr := opts.OutCtx().SeqNr + 1 // shifting the next seqNr
 
 		oc := NewObservationContext(lggr, d.registry, d.t)
@@ -319,8 +305,7 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 		case <-ctx.Done():
 			return
 		default:
-			// TODO Sleep between updates, if we want to.
-			// time.Sleep(time.Millisecond)
+			// If we want to sleep between rounds, here is the place to do it.
 		}
 	}
 }
