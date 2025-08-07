@@ -168,7 +168,7 @@ targets:
     inputs:
       signed_report: $(secure-mint-consensus.outputs)
     config:
-      address: "{{.ConsumerAddr}}"
+      address: "{{.DFCacheAddr}}"
       params: ["$(report)"]
       abi: "receive(report bytes)"
       deltaStage: 1s
@@ -179,14 +179,14 @@ type secureMintWorkflowData struct {
 	WorkflowName  string
 	WorkflowOwner string
 	ChainSelector uint64
-	ConsumerAddr  string
+	DFCacheAddr   string
 }
 
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowName string,
 	workflowOwner string,
 	chainSelector uint64,
-	consumerAddr common.Address) job.Job {
+	dfCacheAddr common.Address) job.Job {
 	tmpl, err := template.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
 
@@ -194,7 +194,7 @@ func createSecureMintWorkflowJob(t *testing.T,
 		WorkflowName:  workflowName,
 		WorkflowOwner: workflowOwner,
 		ChainSelector: chainSelector,
-		ConsumerAddr:  consumerAddr.String(),
+		DFCacheAddr:   dfCacheAddr.String(),
 	}
 
 	var buf bytes.Buffer
