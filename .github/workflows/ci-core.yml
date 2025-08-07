@@ -204,7 +204,7 @@ jobs:
             setup-aptos: "true"
             use-trunk: "true"
 
-    name: Core Tests (${{ matrix.type.cmd }})
+    name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency, runner-config]
@@ -292,7 +292,7 @@ jobs:
         run: |
           run_url=$(
             gh run view --repo "$GH_REPO" "$GH_RUN_ID" --json jobs |
-              jq -r --arg matrix "$MATRIX_TYPE_CMD" '.jobs[] | select(.name | contains($matrix)) | .url'
+              jq -r --arg matrix "($MATRIX_TYPE_CMD)" '.jobs[] | select(.name | contains($matrix)) | .url'
           )
           echo "run_url=$run_url" | tee -a "$GITHUB_OUTPUT"
 
