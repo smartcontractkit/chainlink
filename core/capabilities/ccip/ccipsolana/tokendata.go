@@ -7,7 +7,7 @@ import (
 
 	bin "github.com/gagliardetto/binary"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/cctp_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/cctp_token_pool"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 

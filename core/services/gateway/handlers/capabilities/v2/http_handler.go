@@ -234,12 +234,10 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 				Headers:    resp.Headers,
 				Body:       resp.Body,
 			}
-			if req.CacheSettings.StoreInCache && isCacheableStatusCode(resp.StatusCode) {
-				cacheTTLMs := req.CacheSettings.TTLMs
-				if cacheTTLMs > 0 {
-					h.responseCache.Set(req, outboundResp, time.Duration(cacheTTLMs)*time.Millisecond)
-					l.Debugw("Cached HTTP response", "ttlMs", cacheTTLMs)
-				}
+			maxAgeMs := req.CacheSettings.MaxAgeMs
+			if maxAgeMs > 0 {
+				h.responseCache.Set(req, outboundResp, time.Duration(maxAgeMs)*time.Millisecond)
+				l.Debugw("Cached HTTP response", "ttlMs", maxAgeMs)
 			}
 		}
 		err = h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)

@@ -44,6 +44,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
@@ -465,6 +466,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 		EVMFactoryConfigFn:       evmFactoryConfigFn,
+		DonTimeStore:             dontime.NewStore(dontime.DefaultRequestTimeout),
 		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 

@@ -9,8 +9,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"

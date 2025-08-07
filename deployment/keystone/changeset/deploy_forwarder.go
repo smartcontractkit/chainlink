@@ -20,6 +20,7 @@ import (
 var _ cldf.ChangeSet[DeployForwarderRequest] = DeployForwarder
 
 type DeployForwarderRequest struct {
+	Qualifier      string
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
 }
 
@@ -64,8 +65,9 @@ func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Cha
 
 	for _, sel := range selectors {
 		req := &DeployRequestV2{
-			ChainSel: sel,
-			deployFn: internal.DeployForwarder,
+			ChainSel:  sel,
+			Qualifier: cfg.Qualifier,
+			deployFn:  internal.DeployForwarder,
 		}
 		csOut, err := deploy(env, req)
 		if err != nil {

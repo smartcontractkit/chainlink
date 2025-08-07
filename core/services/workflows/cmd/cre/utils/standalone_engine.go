@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -150,11 +151,13 @@ func NewStandaloneEngine(
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     registry,
+		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
 		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
 		WorkflowName:  name,
+		WorkflowTag:   "workflowTag",
 
 		LocalLimits:          v2.EngineLimits{},
 		GlobalLimits:         workflowLimits,
@@ -178,7 +181,7 @@ func NewStandaloneEngine(
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
 		Config:          config,
-	}, v2.NewDisallowedExecutionHelper(lggr, nil, v2.TimeProvider{}, secretsFetcher))
+	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}

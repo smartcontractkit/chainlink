@@ -7,10 +7,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -148,7 +148,7 @@ func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, 
 type E2ETokenConfig struct {
 	TokenPubKey solana.PublicKey
 	Metadata    string
-	PoolType    *solTestTokenPool.PoolType
+	PoolType    cldf.ContractType
 	// evm chain id -> evm remote config
 	SolanaToEVMRemoteConfigs map[uint64]EVMRemoteConfig
 	// solana remote config for evm pool
@@ -156,7 +156,7 @@ type E2ETokenConfig struct {
 }
 
 func (cfg E2ETokenConfig) Validate() error {
-	if cfg.PoolType == nil {
+	if cfg.PoolType == "" {
 		return errors.New("pool type is required")
 	}
 	if cfg.TokenPubKey.IsZero() {
@@ -222,7 +222,6 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	setPoolCfg := SetPoolConfig{
 		ChainSelector:       cfg.ChainSelector,
 		SetPoolTokenConfigs: make([]SetPoolTokenConfig, 0),
-		WritableIndexes:     []uint8{3, 4, 7},
 		MCMS:                cfg.MCMS,
 	}
 
@@ -247,6 +246,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 				cfg.ChainSelector: {
 					BurnMintTokenPools:    map[string][]solana.PublicKey{},
 					LockReleaseTokenPools: map[string][]solana.PublicKey{},
+					CCTPTokenPoolMints:    []solana.PublicKey{},
 				},
 			},
 		}
@@ -283,6 +283,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			Metadata:    tokenCfg.Metadata,
 			// registering in the same changeset so skip registry check
 			SkipRegistryCheck: true,
+			WritableIndexes:   []uint8{3, 4, 7},
 		})
 		// setup evm remote pool on solana
 		if len(tokenCfg.SolanaToEVMRemoteConfigs) > 0 {
@@ -299,21 +300,24 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 		// transfer pool to timelock
 		if cfg.MCMS != nil {
-			if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+			switch tokenCfg.PoolType {
+			case shared.BurnMintTokenPool:
 				poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
 					poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
 					tokenCfg.TokenPubKey,
 				)
-			} else { // lock and release pool
+			case shared.LockReleaseTokenPool:
 				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
 					poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
 					tokenCfg.TokenPubKey,
 				)
+			case shared.CCTPTokenPool:
+				poolsByType.CCTPTokenPoolMints = append(poolsByType.CCTPTokenPoolMints, tokenCfg.TokenPubKey)
 			}
 		}
 		isUniquePoolType := true
 		for _, uniqueCfg := range uniquePoolTypeConfigs {
-			if *uniqueCfg.PoolType == *tokenCfg.PoolType {
+			if uniqueCfg.PoolType == tokenCfg.PoolType {
 				isUniquePoolType = false
 			}
 		}

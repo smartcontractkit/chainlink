@@ -476,6 +476,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.SolanaEnabled() {
+		for _, k := range s.Config.ImportedSolKeys().List() {
+			lggr.Debug("Importing sol key")
+			_, err2 := app.GetKeyStore().Solana().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Sol key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(errors.Wrap(err2, "error importing sol key"))
+			}
+			lggr.Debugf("Imported sol key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
 		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
