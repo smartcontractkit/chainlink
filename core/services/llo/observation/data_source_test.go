@@ -166,6 +166,7 @@ func Test_DataSource(t *testing.T) {
 
 			assert.Equal(t, makeStreamValues(), vals)
 		})
+
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
@@ -181,6 +182,7 @@ func Test_DataSource(t *testing.T) {
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals)
 		})
+
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)

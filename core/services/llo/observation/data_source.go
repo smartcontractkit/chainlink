@@ -233,6 +233,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			// We'll continue observing in a loop, in order to keep the cache warm.
 			closeIfNotClosed(firstRoundDoneCh)
 
+			d.observationLoopMu.Lock()
 			select {
 			case <-loopCtx.Done():
 				return
@@ -242,25 +243,13 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				// Sleep between rounds of observations.
 				time.Sleep(time.Millisecond) // TODO (ro-tex): (deltaRound/2 - loopDuration)
 			}
+			d.observationLoopMu.Unlock()
 		}
 	}()
 
 	<-firstRoundDoneCh
 
 	return nil
-}
-
-// TODO (ro-tex): Move to a better place
-func closeIfNotClosed(ch chan struct{}) {
-	if ch == nil {
-		return
-	}
-	select {
-	case <-ch:
-		return
-	default:
-		close(ch)
-	}
 }
 
 func (d *dataSource) fromCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID) llo.StreamValue {
@@ -276,5 +265,17 @@ func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotyp
 	if d.shouldCache && val != nil {
 		// Use the current sequence number as the cache key
 		GetCache(configDigest).Add(streamID, val)
+	}
+}
+
+func closeIfNotClosed(ch chan struct{}) {
+	if ch == nil {
+		return
+	}
+	select {
+	case <-ch:
+		return
+	default:
+		close(ch)
 	}
 }
