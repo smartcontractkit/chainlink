@@ -294,7 +294,6 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("uses cached values when available", func(t *testing.T) {
-			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// First observation to populate cache
@@ -370,8 +369,6 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
-			// Create a new data source
-			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// Set up pipeline to return different values
