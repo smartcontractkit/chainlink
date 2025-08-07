@@ -187,7 +187,6 @@ func createSecureMintWorkflowJob(t *testing.T,
 	workflowOwner string,
 	chainSelector int64,
 	consumerAddr common.Address) job.Job {
-
 	tmpl, err := template.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
 
