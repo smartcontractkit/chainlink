@@ -40,6 +40,10 @@ func (s *SolanaLooppSigner) Accounts(ctx context.Context) (accounts []string, er
 	return
 }
 
+func (ks *SolanaLooppSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("SolanaLooppSigner does not support decryption")
+}
+
 type solana struct {
 	*keyManager
 }

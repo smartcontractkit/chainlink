@@ -178,3 +178,7 @@ func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err
 	}
 	return
 }
+
+func (s *AptosLooppSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("AptosLooppSigner does not support decryption")
+}

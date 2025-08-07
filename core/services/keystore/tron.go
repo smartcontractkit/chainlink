@@ -185,3 +185,7 @@ func (lk *TronLOOPSigner) Accounts(ctx context.Context) ([]string, error) {
 
 	return accounts, nil
 }
+
+func (s *TronLOOPSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("TronLOOPSigner does not support decryption")
+}

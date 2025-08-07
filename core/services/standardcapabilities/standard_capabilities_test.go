@@ -70,6 +70,9 @@ func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err err
 func (k *keystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
+func (k *keystoreMock) Decrypt(ctx context.Context, account string, data []byte) (decrypted []byte, err error) {
+	return nil, nil
+}
 
 type errorLogMock struct{}
 

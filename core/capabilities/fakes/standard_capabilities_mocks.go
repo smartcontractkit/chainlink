@@ -33,6 +33,10 @@ func (k *KeystoreMock) Sign(ctx context.Context, account string, data []byte) (s
 	return nil, nil
 }
 
+func (k *KeystoreMock) Decrypt(ctx context.Context, account string, encrypted []byte) (decrypted []byte, err error) {
+	return nil, nil
+}
+
 type ErrorLogMock struct{}
 
 func (e *ErrorLogMock) SaveError(ctx context.Context, msg string) error {

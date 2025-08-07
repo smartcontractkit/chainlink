@@ -166,6 +166,10 @@ func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([
 	return k.Sign(hash)
 }
 
+func (lk *CosmosLoopSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("CosmosLoopSigner does not support decryption")
+}
+
 func (lk *CosmosLoopSigner) Accounts(ctx context.Context) ([]string, error) {
 	keys, err := lk.GetAll()
 	if err != nil {

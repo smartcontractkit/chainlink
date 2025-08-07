@@ -186,3 +186,7 @@ func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
 	}
 	return as, nil
 }
+
+func (lk *StarknetLooppSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("StarknetLooppSigner does not support decryption")
+}

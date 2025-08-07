@@ -178,3 +178,7 @@ func (s *TONLooppSigner) Accounts(ctx context.Context) (accounts []string, err e
 	}
 	return
 }
+
+func (s *TONLooppSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
+	return nil, errors.New("TONLooppSigner does not support decryption")
+}
