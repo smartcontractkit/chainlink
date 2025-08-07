@@ -96,7 +96,6 @@ type secureMintReport struct {
 
 // createSecureMintTriggerEvent creates a secure mint trigger event in the format sent by the secure mint transmitter
 // Excerpt from securemint/transmitter.go:
-// ```
 //
 //	var report ocr3types.ReportWithInfo[por.ChainSelector]
 //	outputs, err := values.NewMap(map[string]any{
@@ -114,9 +113,7 @@ type secureMintReport struct {
 //
 //	triggerResponse := capabilities.TriggerResponse{
 //		Event: event,
-//	} // this is sent to trigger subscribers
-//
-// ```
+//	}
 func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64, mintable *big.Int, blockNumber uint64) *values.Map {
 	// Create mock signatures (in a real scenario, these would be actual OCR signatures)
 	sigs := []commoncap.OCRAttributedOnchainSignature{
