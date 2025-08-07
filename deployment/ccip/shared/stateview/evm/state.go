@@ -740,7 +740,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
-				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Infow("generated burn with from mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}
@@ -755,7 +755,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
-				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Infow("generated burn from mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			})
 		}

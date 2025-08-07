@@ -14,7 +14,6 @@ import (
 
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -520,7 +519,7 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 
 type SetPoolTokenConfig struct {
 	TokenPubKey       solana.PublicKey
-	PoolType          *solTestTokenPool.PoolType
+	PoolType          cldf.ContractType
 	Metadata          string
 	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
 }
@@ -551,14 +550,14 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 			return err
 		}
-		if tokenConfig.PoolType == nil {
+		if tokenConfig.PoolType == "" {
 			return errors.New("pool type must be defined")
 		}
 
 		if tokenConfig.Metadata == "" {
 			return errors.New("metadata must be defined")
 		}
-		if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType.String()][tokenConfig.Metadata]; !ok || lut.IsZero() {
+		if lut, ok := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType][tokenConfig.Metadata]; !ok || lut.IsZero() {
 			return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
 		}
 		if tokenConfig.SkipRegistryCheck {
@@ -614,7 +613,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	for _, tokenConfig := range cfg.SetPoolTokenConfigs {
 		tokenPubKey := tokenConfig.TokenPubKey
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-		lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType.String()][tokenConfig.Metadata]
+		lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType][tokenConfig.Metadata]
 
 		var currentAdmin solana.PublicKey
 		// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin

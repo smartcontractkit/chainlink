@@ -7,43 +7,43 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-type importedEthKeyConfig struct {
-	s toml.EthKey
+type importedSolKeyConfig struct {
+	s toml.SolKey
 }
 
-func (t *importedEthKeyConfig) JSON() string {
+func (t *importedSolKeyConfig) JSON() string {
 	if t.s.JSON == nil {
 		return ""
 	}
 	return string(*t.s.JSON)
 }
 
-func (t *importedEthKeyConfig) ChainDetails() chain_selectors.ChainDetails {
+func (t *importedSolKeyConfig) ChainDetails() chain_selectors.ChainDetails {
 	if t.s.ID == nil {
 		return chain_selectors.ChainDetails{}
 	}
-	d, ok := chain_selectors.ChainByEvmChainID(uint64(*t.s.ID)) //nolint:gosec // disable G115
+	d, ok := chain_selectors.SolanaChainIdToChainSelector()[*t.s.ID]
 	if !ok {
 		return chain_selectors.ChainDetails{}
 	}
 	return chain_selectors.ChainDetails{
-		ChainSelector: d.Selector,
-		ChainName:     d.Name,
+		ChainSelector: d,
+		ChainName:     "solana",
 	}
 }
 
-func (t *importedEthKeyConfig) Password() string {
+func (t *importedSolKeyConfig) Password() string {
 	if t.s.Password == nil {
 		return ""
 	}
 	return string(*t.s.Password)
 }
 
-type importedEthKeyConfigs struct {
-	s toml.EthKeys
+type importedSolKeyConfigs struct {
+	s toml.SolKeys
 }
 
-func (t *importedEthKeyConfigs) List() []config.ImportableChainKey {
+func (t *importedSolKeyConfigs) List() []config.ImportableChainKey {
 	res := make([]config.ImportableChainKey, len(t.s.Keys))
 
 	if len(t.s.Keys) == 0 {
@@ -51,7 +51,7 @@ func (t *importedEthKeyConfigs) List() []config.ImportableChainKey {
 	}
 
 	for i, v := range t.s.Keys {
-		res[i] = &importedEthKeyConfig{s: *v}
+		res[i] = &importedSolKeyConfig{s: *v}
 	}
 	return res
 }

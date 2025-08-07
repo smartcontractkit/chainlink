@@ -7,10 +7,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -143,7 +143,7 @@ func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, 
 type E2ETokenConfig struct {
 	TokenPubKey solana.PublicKey
 	Metadata    string
-	PoolType    *solTestTokenPool.PoolType
+	PoolType    cldf.ContractType
 	// evm chain id -> evm remote config
 	SolanaToEVMRemoteConfigs map[uint64]EVMRemoteConfig
 	// solana remote config for evm pool
@@ -151,7 +151,7 @@ type E2ETokenConfig struct {
 }
 
 func (cfg E2ETokenConfig) Validate() error {
-	if cfg.PoolType == nil {
+	if cfg.PoolType == "" {
 		return errors.New("pool type is required")
 	}
 	if cfg.TokenPubKey.IsZero() {
@@ -294,7 +294,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 		// transfer pool to timelock
 		if cfg.MCMS != nil {
-			if *tokenCfg.PoolType == solTestTokenPool.BurnAndMint_PoolType {
+			if tokenCfg.PoolType == shared.BurnMintTokenPool {
 				poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
 					poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
 					tokenCfg.TokenPubKey,
@@ -308,7 +308,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 		isUniquePoolType := true
 		for _, uniqueCfg := range uniquePoolTypeConfigs {
-			if *uniqueCfg.PoolType == *tokenCfg.PoolType {
+			if uniqueCfg.PoolType == tokenCfg.PoolType {
 				isUniquePoolType = false
 			}
 		}

@@ -799,6 +799,7 @@ enum OCR2ChainType {
     STARKNET
     APTOS
     TRON
+    TON
 }
 
 type OCR2KeyBundle {
@@ -1073,6 +1074,15 @@ type TaskRun {
     error: String
     createdAt: Time!
     finishedAt: Time
+}
+type TONKey {
+	id: ID!
+	addressBase64: String!
+	rawAddress: String!
+}
+
+type TONKeysPayload {
+	results: [TONKey!]!
 }
 type TronKey {
 	id: ID!

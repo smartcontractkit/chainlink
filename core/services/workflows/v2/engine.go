@@ -256,6 +256,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				WorkflowID:               e.cfg.WorkflowID,
 				WorkflowOwner:            e.cfg.WorkflowOwner,
 				WorkflowName:             e.cfg.WorkflowName.Hex(),
+				WorkflowTag:              e.cfg.WorkflowTag,
 				DecodedWorkflowName:      e.cfg.WorkflowName.String(),
 				WorkflowDonID:            e.localNode.WorkflowDON.ID,
 				WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,

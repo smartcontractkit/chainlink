@@ -9,15 +9,17 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog/log"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
-	rmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	rmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -38,6 +40,8 @@ type CCIPChainState struct {
 	WSOL          solana.PublicKey
 	SPL2022Tokens []solana.PublicKey
 	SPLTokens     []solana.PublicKey
+	CCTPTokenPool solana.PublicKey
+	USDCToken     solana.PublicKey
 
 	// ccip programs
 	Router                solana.PublicKey
@@ -54,7 +58,7 @@ type CCIPChainState struct {
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
 	DestChainStatePDAs   map[uint64]solana.PublicKey
-	TokenPoolLookupTable map[solana.PublicKey]map[string]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
+	TokenPoolLookupTable map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
@@ -63,7 +67,7 @@ type CCIPChainState struct {
 }
 
 func (s CCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
-	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) {
+	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) || tokenAddress.Equals(s.USDCToken) {
 		return solana.TokenProgramID, nil
 	}
 	for _, spl2022Token := range s.SPL2022Tokens {
@@ -91,33 +95,38 @@ func (s CCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKe
 }
 
 func (s CCIPChainState) GetActiveTokenPool(
-	poolType string,
+	poolType cldf.ContractType,
 	metadata string,
-) (solana.PublicKey, cldf.ContractType) {
+) solana.PublicKey {
 	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType.String():
+	case shared.BurnMintTokenPool:
 		if metadata == "" {
-			return s.BurnMintTokenPools[shared.CLLMetadata], shared.BurnMintTokenPool
+			return s.BurnMintTokenPools[shared.CLLMetadata]
 		}
-		return s.BurnMintTokenPools[metadata], shared.BurnMintTokenPool
-	case solTestTokenPool.LockAndRelease_PoolType.String():
+		return s.BurnMintTokenPools[metadata]
+	case shared.LockReleaseTokenPool:
 		if metadata == "" {
-			return s.LockReleaseTokenPools[shared.CLLMetadata], shared.LockReleaseTokenPool
+			return s.LockReleaseTokenPools[shared.CLLMetadata]
 		}
-		return s.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool
+		return s.LockReleaseTokenPools[metadata]
+	case shared.CCTPTokenPool:
+		return s.CCTPTokenPool
 	default:
-		return solana.PublicKey{}, ""
+		return solana.PublicKey{}
 	}
 }
 
 func (s CCIPChainState) ValidatePoolDeployment(
 	e *cldf.Environment,
-	poolType string,
+	poolType cldf.ContractType,
 	selector uint64,
 	tokenPubKey solana.PublicKey,
 	validatePoolConfig bool,
 	metadata string,
 ) error {
+	if poolType == "" {
+		return errors.New("pool type must be set")
+	}
 	chain := e.BlockChains.SolanaChains()[selector]
 
 	var tokenPool solana.PublicKey
@@ -126,17 +135,20 @@ func (s CCIPChainState) ValidatePoolDeployment(
 	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
 		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
 	}
-	tokenPool, _ = s.GetActiveTokenPool(poolType, metadata)
-	if tokenPool.IsZero() {
-		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, chain.Selector)
-	}
+
+	tokenPool = s.GetActiveTokenPool(poolType, metadata)
 	switch poolType {
-	case solTestTokenPool.BurnAndMint_PoolType.String():
+	case shared.BurnMintTokenPool:
 		poolConfigAccount = solBurnMintTokenPool.State{}
-	case solTestTokenPool.LockAndRelease_PoolType.String():
+	case shared.LockReleaseTokenPool:
 		poolConfigAccount = solLockReleaseTokenPool.State{}
+	case shared.CCTPTokenPool:
+		poolConfigAccount = cctp_token_pool.State{}
 	default:
 		return fmt.Errorf("invalid pool type: %s", poolType)
+	}
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", poolType, chain.Selector)
 	}
 
 	if validatePoolConfig {
@@ -144,7 +156,7 @@ func (s CCIPChainState) ValidatePoolDeployment(
 		if err != nil {
 			return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 		}
-		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
+		if err := chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &poolConfigAccount); err != nil {
 			return fmt.Errorf("token pool config not found (mint: %s, pool: %s, type: %s): %w", tokenPubKey.String(), tokenPool.String(), poolType, err)
 		}
 	}
@@ -271,7 +283,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, solTestTokenPool.BurnAndMint_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, shared.BurnMintTokenPool.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", tokenPool, err)
 		}
@@ -281,11 +293,19 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		if tokenPool.IsZero() {
 			continue
 		}
-		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, solTestTokenPool.LockAndRelease_PoolType.String(), metadata)
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], tokenPool, remoteChains, allTokens, shared.LockReleaseTokenPool.String(), metadata)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", tokenPool, err)
 		}
 		chainView.TokenPool[tokenPool.String()] = tokenPoolView
+	}
+	// Generate token pool view for USDC
+	if !s.CCTPTokenPool.IsZero() && !s.USDCToken.IsZero() {
+		tokenPoolView, err := solanaview.GenerateTokenPoolView(e.BlockChains.SolanaChains()[selector], s.CCTPTokenPool, remoteChains, []solana.PublicKey{s.USDCToken}, shared.CCTPTokenPool.String(), shared.CLLMetadata)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", s.CCTPTokenPool, err)
+		}
+		chainView.TokenPool[s.CCTPTokenPool.String()] = tokenPoolView
 	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
 	if err != nil {
@@ -329,7 +349,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 		SPL2022Tokens:         make([]solana.PublicKey, 0),
 		SPLTokens:             make([]solana.PublicKey, 0),
 		WSOL:                  solana.SolMint,
-		TokenPoolLookupTable:  make(map[solana.PublicKey]map[string]map[string]solana.PublicKey),
+		TokenPoolLookupTable:  make(map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey),
 	}
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
@@ -387,7 +407,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			}
 		case shared.TokenPoolLookupTable:
 			lookupTablePubKey := solana.MustPublicKeyFromBase58(address)
-			var poolType *solTestTokenPool.PoolType
+			var poolType cldf.ContractType
 			var tokenPubKey solana.PublicKey
 			var poolMetadata string
 			for label := range tvStr.Labels {
@@ -396,12 +416,12 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 					tokenPubKey = maybeTokenPubKey
 				} else {
 					switch label {
-					case solTestTokenPool.BurnAndMint_PoolType.String():
-						t := solTestTokenPool.BurnAndMint_PoolType
-						poolType = &t
-					case solTestTokenPool.LockAndRelease_PoolType.String():
-						t := solTestTokenPool.LockAndRelease_PoolType
-						poolType = &t
+					case solTestTokenPool.BurnAndMint_PoolType.String(), shared.BurnMintTokenPool.String():
+						poolType = shared.BurnMintTokenPool
+					case solTestTokenPool.LockAndRelease_PoolType.String(), shared.LockReleaseTokenPool.String():
+						poolType = shared.LockReleaseTokenPool
+					case shared.CCTPTokenPool.String():
+						poolType = shared.CCTPTokenPool
 					default:
 						poolMetadata = label
 					}
@@ -410,17 +430,17 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			if poolMetadata == "" {
 				poolMetadata = shared.CLLMetadata
 			}
-			if poolType == nil {
-				t := solTestTokenPool.BurnAndMint_PoolType
-				poolType = &t
+
+			if poolType == "" {
+				poolType = shared.BurnMintTokenPool
 			}
 			if ccipChainState.TokenPoolLookupTable[tokenPubKey] == nil {
-				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[string]map[string]solana.PublicKey)
+				ccipChainState.TokenPoolLookupTable[tokenPubKey] = make(map[cldf.ContractType]map[string]solana.PublicKey)
 			}
-			if ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] == nil {
-				ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()] = make(map[string]solana.PublicKey)
+			if ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType] == nil {
+				ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType] = make(map[string]solana.PublicKey)
 			}
-			ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType.String()][poolMetadata] = lookupTablePubKey
+			ccipChainState.TokenPoolLookupTable[tokenPubKey][poolType][poolMetadata] = lookupTablePubKey
 		case shared.FeeQuoter:
 			pub := solana.MustPublicKeyFromBase58(address)
 			ccipChainState.FeeQuoter = pub
@@ -482,6 +502,12 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 				return ccipChainState, err
 			}
 			ccipChainState.RMNRemoteCursesPDA = rmnRemoteCursesPDA
+		case shared.CCTPTokenPool:
+			pub := solana.MustPublicKeyFromBase58(address)
+			ccipChainState.CCTPTokenPool = pub
+		case shared.USDCToken:
+			pub := solana.MustPublicKeyFromBase58(address)
+			ccipChainState.USDCToken = pub
 		default:
 			continue
 		}
@@ -550,7 +576,7 @@ func ValidateOwnershipSolana(
 			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
 		}
 	case shared.BurnMintTokenPool:
-		programData := solTestTokenPool.State{}
+		programData := solBurnMintTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
@@ -560,7 +586,7 @@ func ValidateOwnershipSolana(
 			return fmt.Errorf("failed to validate ownership for burnmint_token_pool: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
-		programData := solTestTokenPool.State{}
+		programData := solLockReleaseTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
@@ -577,6 +603,16 @@ func ValidateOwnershipSolana(
 		}
 		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
+		}
+	case shared.CCTPTokenPool:
+		programData := cctp_token_pool.State{}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return nil
+		}
+		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for cctp_token_pool: %w", err)
 		}
 	default:
 		return fmt.Errorf("unsupported contract type: %s", contractType)
@@ -636,7 +672,7 @@ func IsSolanaProgramOwnedByTimelock(
 		}
 		return programData.Owner.Equals(timelockSignerPDA)
 	case shared.BurnMintTokenPool:
-		programData := solTestTokenPool.State{}
+		programData := solBurnMintTokenPool.State{}
 		metadata := shared.CLLMetadata
 		if tokenPoolMetadata != "" {
 			metadata = tokenPoolMetadata
@@ -648,12 +684,20 @@ func IsSolanaProgramOwnedByTimelock(
 		}
 		return programData.Config.Owner.Equals(timelockSignerPDA)
 	case shared.LockReleaseTokenPool:
-		programData := solTestTokenPool.State{}
+		programData := solLockReleaseTokenPool.State{}
 		metadata := shared.CLLMetadata
 		if tokenPoolMetadata != "" {
 			metadata = tokenPoolMetadata
 		}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.LockReleaseTokenPools[metadata])
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			return false
+		}
+		return programData.Config.Owner.Equals(timelockSignerPDA)
+	case shared.CCTPTokenPool:
+		programData := cctp_token_pool.State{}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, chainState.CCTPTokenPool)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
 			return false

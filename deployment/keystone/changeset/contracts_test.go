@@ -126,7 +126,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		evmChains := env.BlockChains.EVMChains()
 		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
-		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		err = env.ExistingAddresses.Merge(resp.AddressBook)
@@ -166,7 +166,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		evmChains := env.BlockChains.EVMChains()
 		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
-		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		err = env.ExistingAddresses.Merge(resp.AddressBook)
@@ -206,7 +206,7 @@ func TestNewOwnable(t *testing.T) {
 		evmChains := env.BlockChains.EVMChains()
 		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
-		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		err = env.ExistingAddresses.Merge(resp.AddressBook)
@@ -252,7 +252,7 @@ func TestNewOwnable(t *testing.T) {
 		evmChains := env.BlockChains.EVMChains()
 		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
-		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		err = env.ExistingAddresses.Merge(resp.AddressBook)
@@ -297,7 +297,7 @@ func TestNewOwnable(t *testing.T) {
 		evmChains := env.BlockChains.EVMChains()
 		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
-		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		err = env.ExistingAddresses.Merge(resp.AddressBook)

@@ -157,6 +157,7 @@ func NewStandaloneEngine(
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
 		WorkflowName:  name,
+		WorkflowTag:   "workflowTag",
 
 		LocalLimits:          v2.EngineLimits{},
 		GlobalLimits:         workflowLimits,

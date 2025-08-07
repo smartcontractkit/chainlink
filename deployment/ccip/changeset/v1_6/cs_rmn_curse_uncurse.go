@@ -17,8 +17,8 @@ import (
 
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -205,7 +205,6 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 // Given 3 chains A, B, C
 // CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
 func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
-
 	// Bidirectional curse between two chains
 	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
