@@ -1,11 +1,14 @@
 package keystone
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"testing"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -135,9 +138,9 @@ func createLLOStreamWorkflowJob(t *testing.T,
 	return workflowJobSpec.Job()
 }
 
-const secureMintWorkflow = `
-name: "%s"
-owner: "0x%s"
+const secureMintWorkflowTemplate = `
+name: "{{.WorkflowName}}"
+owner: "0x{{.WorkflowOwner}}"
 triggers:
   - id: "securemint-trigger@1.0.0"
     config:
@@ -155,7 +158,7 @@ consensus:
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
         targetChainSelector:
-          "%d" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+          "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
       encoder: "EVM"
       encoder_config:
         abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
@@ -165,19 +168,41 @@ targets:
     inputs:
       signed_report: $(secure-mint-consensus.outputs)
     config:
-      address: "%s"
+      address: "{{.ConsumerAddr}}"
       params: ["$(report)"]
       abi: "receive(report bytes)"
       deltaStage: 1s
       schedule: oneAtATime
 `
 
+type secureMintWorkflowData struct {
+	WorkflowName  string
+	WorkflowOwner string
+	ChainSelector int64
+	ConsumerAddr  string
+}
+
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowName string,
 	workflowOwner string,
 	chainSelector int64,
 	consumerAddr common.Address) job.Job {
-	spec := fmt.Sprintf(secureMintWorkflow, workflowName, workflowOwner, chainSelector, consumerAddr)
+
+	tmpl, err := template.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
+	require.NoError(t, err)
+
+	data := secureMintWorkflowData{
+		WorkflowName:  workflowName,
+		WorkflowOwner: workflowOwner,
+		ChainSelector: chainSelector,
+		ConsumerAddr:  consumerAddr.String(),
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	require.NoError(t, err)
+
+	spec := buf.String()
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
 	return workflowJobSpec.Job()
 }
