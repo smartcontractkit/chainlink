@@ -16,6 +16,13 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
+type HandlerType string
+
+const (
+	WebAPIHandlerType HandlerType = "web-api-capabilities"
+	HTTPHandlerType   HandlerType = "http-capabilities"
+)
+
 func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
@@ -41,7 +48,7 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConnectorData.Dons {
@@ -57,20 +64,43 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 			)
 		}
 
-		gatewayDons += fmt.Sprintf(`
-		[[gatewayConfig.Dons]]
-		DonId = "%d"
-		F = 1
-		HandlerName = "web-api-capabilities"
-			[gatewayConfig.Dons.HandlerConfig]
-			MaxAllowedMessageAgeSec = 1_000
-				[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-				GlobalBurst = 10
-				GlobalRPS = 50
-				PerSenderBurst = 10
-				PerSenderRPS = 10
-			%s
-		`, don.ID, gatewayMembers)
+		if handlerType == HTTPHandlerType {
+			gatewayDons += fmt.Sprintf(`
+				[[gatewayConfig.Dons]]
+				DonId = "workflows"
+				F = 1
+				HandlerName = "http-capabilities"
+					[gatewayConfig.Dons.HandlerConfig]
+					MaxAllowedMessageAgeSec = 1_000
+					authPullIntervalMs = 1000
+						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+						[gatewayConfig.Dons.HandlerConfig.UserRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+					%s
+			`, gatewayMembers)
+		} else {
+			gatewayDons += fmt.Sprintf(`
+				[[gatewayConfig.Dons]]
+				DonId = "%s"
+				F = 1
+				HandlerName = "web-api-capabilities"
+					[gatewayConfig.Dons.HandlerConfig]
+					MaxAllowedMessageAgeSec = 1_000
+						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+					%s
+				`, don.ID, gatewayMembers)
+		}
 	}
 
 	uuid := uuid.NewString()
@@ -166,9 +196,7 @@ const (
 	EmptyStdCapConfig = "\"\""
 )
 
-func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.ProposeJobRequest {
-	uuid := uuid.NewString()
-
+func WorkerStandardCapability(nodeID, name, command, config, oracleFactoryConfig string) *jobv1.ProposeJobRequest {
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
 		Spec: fmt.Sprintf(`
@@ -179,11 +207,13 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	forwardingAllowed = false
 	command = "%s"
 	config = %s
+	%s
 `,
-			uuid,
+			uuid.NewString(),
 			name,
 			command,
-			config),
+			config,
+			oracleFactoryConfig),
 	}
 }
 
@@ -231,7 +261,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBun
 	}
 }
 
-func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64, masterPublicKey string, encryptedPrivateKeyShare string) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -253,6 +283,9 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 	chainID = "%d"
 	[pluginConfig]
 	requestExpiryDuration = "60s"
+	[pluginConfig.dkg]
+	masterPublicKey = "%s"
+	encryptedPrivateKeyShare = "%s"
 `,
 			uuid,
 			"Vault OCR3 Capability",
@@ -263,6 +296,8 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 			types.VaultPlugin,
 			nodeEthAddress,
 			chainID,
+			masterPublicKey,
+			encryptedPrivateKeyShare,
 		),
 	}
 }

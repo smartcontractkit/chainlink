@@ -38,7 +38,9 @@ const (
 // Capabilities
 const (
 	OCR3Capability          CapabilityFlag = "ocr3"
+	ConsensusCapability     CapabilityFlag = "consensus" // v2
 	CronCapability          CapabilityFlag = "cron"
+	EVMCapability           CapabilityFlag = "evm"
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
@@ -48,6 +50,8 @@ const (
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
 	VaultCapability         CapabilityFlag = "vault"
+	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
+	HTTPActionCapability    CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
@@ -262,6 +266,12 @@ type ConfigureKeystoneInput struct {
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
 
+	EVMOCR3Config  keystone_changeset.OracleConfig
+	EVMOCR3Address *common.Address
+
+	ConsensusV2OCR3Config  keystone_changeset.OracleConfig
+	ConsensusV2OCR3Address *common.Address
+
 	CapabilitiesRegistryAddress *common.Address
 }
 
@@ -287,7 +297,7 @@ func (c *ConfigureKeystoneInput) Validate() error {
 
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string
-	ID                  uint32
+	ID                  string
 }
 
 type GatewayConnectorOutput struct {

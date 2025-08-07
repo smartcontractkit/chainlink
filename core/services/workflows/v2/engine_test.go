@@ -4,14 +4,15 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -288,13 +289,30 @@ func TestEngine_Execution(t *testing.T) {
 		trigger := capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
 		eventCh := make(chan capabilities.TriggerResponse)
-		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+		var capturedTriggerRequest capabilities.TriggerRegistrationRequest
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
+			Run(func(ctx context.Context, req capabilities.TriggerRegistrationRequest) {
+				capturedTriggerRequest = req
+			}).
+			Return(eventCh, nil).Once()
 		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
+		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
+		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
+		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
+		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
+		require.Equal(t, "method", capturedTriggerRequest.Method)
+		require.Nil(t, capturedTriggerRequest.Payload)
+		require.Nil(t, capturedTriggerRequest.Config)
 
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",
@@ -891,6 +909,8 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
+			assert.Equal(t, testWorkflowNameA, req.Metadata.DecodedWorkflowName)
+			assert.Equal(t, hashedTestWorkflowNameA, req.Metadata.WorkflowName)
 			// Simulate work that takes longer than the 50ms timeout
 			select {
 			case <-time.After(100 * time.Millisecond):
@@ -1171,6 +1191,50 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
 	}
 
+	billingClient := setupMockBillingClient(t)
+	cfg := defaultTestConfig(t)
+	cfg.WorkflowConfig = config
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+
+	rawSecret := "Original Secret Text"
+	f, n := 2, 3
+	_, vaultPublicKey, privateShares, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+
+	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+
+	decryptionShare0, err := tdh2easy.Decrypt(cipher, privateShares[0])
+	require.NoError(t, err)
+	decryptionShare0Bytes, err := decryptionShare0.Marshal()
+	require.NoError(t, err)
+	decryptionShare1, err := tdh2easy.Decrypt(cipher, privateShares[1])
+	require.NoError(t, err)
+	decryptionShare1Bytes, err := decryptionShare1.Marshal()
+	require.NoError(t, err)
+	decryptionShare2, err := tdh2easy.Decrypt(cipher, privateShares[2])
+	require.NoError(t, err)
+	decryptionShare2Bytes, err := decryptionShare2.Marshal()
+	require.NoError(t, err)
+
+	// Sanity testing that we can decrypt the secret with just 2 shares
+	twoDecryptionShares := []*tdh2easy.DecryptionShare{decryptionShare0, decryptionShare1}
+	decryptedSecret, err := tdh2easy.Aggregate(cipher, twoDecryptionShares, n)
+	require.NoError(t, err)
+	assert.Equal(t, rawSecret, string(decryptedSecret))
+
+	// Encrypt the decryption shares with the workflow key. This is the expected output from Vault capability.
+	encryptedDecryptionShare0, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare0Bytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare1, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare1Bytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare2, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare2Bytes)
+	require.NoError(t, err)
+	workflowKeyBytes := cfg.WorkflowEncryptionKey.PublicKey()
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -1183,9 +1247,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
-										Shares: req.Requests[0].GetEncryptionKeys(),
+										Shares: []string{
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare2),
+											hex.EncodeToString([]byte("blabbermouth")),
+											hex.EncodeToString(encryptedDecryptionShare1),
+										},
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -1196,14 +1267,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		},
 	}
 	capreg.EXPECT().GetExecutable(matches.AnyContext, vault.CapabilityID).Return(mc, nil)
-
-	billingClient := setupMockBillingClient(t)
-
-	cfg := defaultTestConfig(t)
-	cfg.WorkflowConfig = config
-	cfg.Module = module
-	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	valueMap, err := values.NewMap[string](map[string]string{
+		"VaultPublicKey": hex.EncodeToString(vaultPublicKeyBytes),
+	})
+	require.NoError(t, err)
+	capConfig := capabilities.CapabilityConfiguration{
+		DefaultConfig: valueMap,
+	}
+	capreg.EXPECT().ConfigForCapability(matches.AnyContext, vault.CapabilityID, localNode.WorkflowDON.ID).Return(capConfig, nil)
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1236,13 +1309,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
-		func(shares []string) (string, error) {
-			var result string
-			for _, share := range shares {
-				result = result + share + ", "
-			}
-			return result, nil
-		},
+		cfg.WorkflowEncryptionKey,
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
@@ -1271,16 +1338,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		require.NoError(t, execErr)
 		unwrapped, execErr = value.Unwrap()
 		require.NoError(t, execErr)
-		var expectedSecret string
-		secretList := make([]string, 0, len(localRegistry.IDsToNodes))
-		for _, peers := range localRegistry.IDsToNodes {
-			secretList = append(secretList, string(peers.EncryptionPublicKey[:]))
-		}
-		sort.Strings(secretList)
-		for _, secret := range secretList {
-			expectedSecret = expectedSecret + secret + ", "
-		}
-		require.Equal(t, expectedSecret, unwrapped)
+		require.Equal(t, rawSecret, unwrapped)
 	default:
 		t.Fatalf("unexpected response type %T: %v", output, output)
 	}

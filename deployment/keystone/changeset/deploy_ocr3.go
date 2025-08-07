@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ cldf.ChangeSet[uint64] = DeployOCR3
+var _ cldf.ChangeSet[*DeployRequestV2] = DeployOCR3V2
 
 // Deprecated: use DeployOCR3V2 instead
 func DeployOCR3(env cldf.Environment, registryChainSel uint64) (cldf.ChangesetOutput, error) {

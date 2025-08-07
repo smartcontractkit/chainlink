@@ -198,6 +198,10 @@ func NewFunctionsHandler(
 	}
 }
 
+func (h *functionsHandler) Methods() []string {
+	return []string{MethodSecretsSet, MethodSecretsList, MethodHeartbeat}
+}
+
 func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
 	return errors.New("functions handler does not support JSON-RPC user messages")
 }

@@ -68,7 +68,6 @@ func ValidatePreReqContractsInState(e cldf.Environment, cfg TranslateEVM2EVMOnRa
 				return fmt.Errorf("tokenAdminRegistry not found for source chain %d, cannot process 1.5.0 OnRamps", sourceChainSel)
 			}
 		}
-
 	}
 
 	return nil

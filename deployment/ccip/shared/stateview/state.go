@@ -9,11 +9,12 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
@@ -22,7 +23,6 @@ import (
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 
@@ -32,27 +32,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -65,24 +49,39 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	registryModuleOwnerCustomv15 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
@@ -733,6 +732,26 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 	return nil
 }
 
+func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector uint64) (cldf_evm.Chain, evm.CCIPChainState, error) {
+	err := cldf.IsValidChainSelector(chainSelector)
+	if err != nil {
+		return cldf_evm.Chain{}, evm.CCIPChainState{}, fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
+	}
+	chain, ok := env.BlockChains.EVMChains()[chainSelector]
+	if !ok {
+		return cldf_evm.Chain{}, evm.CCIPChainState{}, fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
+	}
+	chainState, ok := c.Chains[chainSelector]
+	if !ok {
+		return cldf_evm.Chain{}, evm.CCIPChainState{}, fmt.Errorf("chain with selector %d does not exist in state", chainSelector)
+	}
+	if chainState.RMNProxy == nil {
+		return cldf_evm.Chain{}, evm.CCIPChainState{}, fmt.Errorf("missing rmnProxy on %s", chain)
+	}
+
+	return chain, chainState, nil
+}
+
 func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
@@ -920,6 +939,17 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				ccipshared.USDCSymbol: ut,
 			}
 			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
+		case cldf.NewTypeAndVersion(ccipshared.CCTPMessageTransmitterProxy, deployment.Version1_6_2).String():
+			cmtp, err := cctp_message_transmitter_proxy.NewCCTPMessageTransmitterProxy(
+				common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.CCTPMessageTransmitterProxies == nil {
+				state.CCTPMessageTransmitterProxies = make(map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy)
+			}
+			state.CCTPMessageTransmitterProxies[deployment.Version1_6_2] = cmtp
+			state.ABIByAddress[address] = cctp_message_transmitter_proxy.CCTPMessageTransmitterProxyABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -929,6 +959,16 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
+			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_6_2).String():
+			utp, err := usdc_token_pool_v1_6_2.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPoolsV1_6 == nil {
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
+			}
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
 		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -939,6 +979,16 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPools[deployment.Version1_5_1] = utp
 			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2).String():
+			utp, err := usdc_token_pool_v1_6_2.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPoolsV1_6 == nil {
+				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
+			}
+			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
+			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1232,25 +1282,49 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
 	}
-	chain, ok := env.BlockChains.EVMChains()[chainSel]
-	if !ok {
-		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
+	family, err := chain_selectors.GetSelectorFamily(chainSel)
+	if err != nil {
+		return fmt.Errorf("failed to find family for chain selector %d: %w", chainSel, err)
 	}
-	chainState, ok := state.EVMChainState(chainSel)
-	if !ok {
-		return fmt.Errorf("%s does not exist in state", chain)
-	}
-	if mcmsCfg != nil {
-		err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
-			CancellerMcm: chainState.CancellerMcm,
-			ProposerMcm:  chainState.ProposerMcm,
-			BypasserMcm:  chainState.BypasserMcm,
-			Timelock:     chainState.Timelock,
-			CallProxy:    chainState.CallProxy,
-		})
-		if err != nil {
-			return err
+	switch family {
+	case chain_selectors.FamilyEVM:
+		chain, ok := env.BlockChains.EVMChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("evm chain with selector %d does not exist in environment", chainSel)
 		}
+		chainState, ok := state.EVMChainState(chainSel)
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain)
+		}
+		if mcmsCfg != nil {
+			err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
+				CancellerMcm: chainState.CancellerMcm,
+				ProposerMcm:  chainState.ProposerMcm,
+				BypasserMcm:  chainState.BypasserMcm,
+				Timelock:     chainState.Timelock,
+				CallProxy:    chainState.CallProxy,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	case chain_selectors.FamilySolana:
+		chain, ok := env.BlockChains.SolanaChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("solana chain with selector %d does not exist in environment", chainSel)
+		}
+		_, ok = state.SolChains[chainSel]
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain)
+		}
+		if mcmsCfg != nil {
+			err = mcmsCfg.ValidateSolana(env, chainSel)
+			if err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("%s family not support", family)
 	}
 	return nil
 }

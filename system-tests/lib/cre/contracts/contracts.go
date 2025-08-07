@@ -334,25 +334,68 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		return errors.Wrap(err, "failed to configure OCR3 contract")
 	}
 
-	_, err = operations.ExecuteOperation(
-		input.CldEnv.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress:  input.VaultOCR3Address,
-			RegistryChainSel: input.ChainSelector,
-			DONs:             configDONs,
-			Config:           &input.VaultOCR3Config,
-			DryRun:           false,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure Vault OCR3 contract")
+	if input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env:      input.CldEnv,
+				Registry: capReg.Contract,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress:  input.VaultOCR3Address,
+				RegistryChainSel: input.ChainSelector,
+				DONs:             configDONs,
+				Config:           &input.VaultOCR3Config,
+				DryRun:           false,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
+		}
 	}
 
+	if input.EVMOCR3Address.Cmp(common.Address{}) != 0 {
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env:      input.CldEnv,
+				Registry: capReg.Contract,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress:  input.EVMOCR3Address,
+				RegistryChainSel: input.ChainSelector,
+				DONs:             configDONs,
+				Config:           &input.EVMOCR3Config,
+				DryRun:           false,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure EVM OCR3 contract")
+		}
+	}
+
+	if input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env:      input.CldEnv,
+				Registry: capReg.Contract,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress:  input.ConsensusV2OCR3Address,
+				RegistryChainSel: input.ChainSelector,
+				DONs:             configDONs,
+				Config:           &input.ConsensusV2OCR3Config,
+				DryRun:           false,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Consensus OCR3 contract")
+		}
+	}
 	return nil
 }
 
