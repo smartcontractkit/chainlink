@@ -40,4 +40,5 @@ type ExtraCapabilitiesConfig struct {
 	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 	HTTPTriggerBinaryPath     string `toml:"http_trigger_capability_binary_path"`
 	HTTPActionBinaryPath      string `toml:"http_action_capability_binary_path"`
+	ConsensusCapabilityBinaryPath string `toml:"consensus_capability_binary_path"`
 }

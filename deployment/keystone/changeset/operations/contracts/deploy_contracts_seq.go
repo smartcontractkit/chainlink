@@ -19,6 +19,7 @@ type DeployKeystoneContractsSequenceInput struct {
 	ForwardersSelectors   []uint64
 	DeployVaultOCR3       bool
 	DeployEVMOCR3         bool
+	DeployConsensusOCR3   bool
 }
 
 type DeployKeystoneContractsSequenceOutput struct {
@@ -105,6 +106,16 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 		if input.DeployEVMOCR3 {
 			// EVM cap OCR3 Contract
 			evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_evm"})
+			if err != nil {
+				return DeployKeystoneContractsSequenceOutput{}, err
+			}
+			err = updateAddresses(as.Addresses(), evmOCR3DeployReport.Output.Addresses, ab, evmOCR3DeployReport.Output.AddressBook)
+			if err != nil {
+				return DeployKeystoneContractsSequenceOutput{}, err
+			}
+		}
+		if input.DeployConsensusOCR3 {
+			evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_consensus"})
 			if err != nil {
 				return DeployKeystoneContractsSequenceOutput{}, err
 			}

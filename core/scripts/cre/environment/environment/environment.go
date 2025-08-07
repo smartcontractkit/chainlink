@@ -16,8 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
-
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -36,6 +34,7 @@ import (
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
 	httpcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/http"
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
@@ -531,6 +530,11 @@ func StartCLIEnvironment(
 			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
 		}
 
+		if in.ExtraCapabilities.ConsensusCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ConsensusCapability)
+			capabilitiesBinaryPaths[cre.ConsensusCapability] = in.ExtraCapabilities.ConsensusCapabilityBinaryPath
+		}
+
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
 			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
@@ -748,6 +752,7 @@ func StartCLIEnvironment(
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
+		consensuscap.ConsensusCapabilityV2FactoryFn,
 		croncap.CronCapabilityFactoryFn,
 		vaultcap.VaultCapabilityFactoryFn,
 		mock.CapabilityFactoryFn,
@@ -773,6 +778,11 @@ func StartCLIEnvironment(
 	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
 	if withPluginsDockerImageFlag != "" {
 		evmBinaryName = "evm"
+	}
+
+	consensusBinaryName := filepath.Base(in.ExtraCapabilities.ConsensusCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		consensusBinaryName = "consensus"
 	}
 
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
@@ -808,6 +818,17 @@ func StartCLIEnvironment(
 		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
 	}
 
+	// Consensus V2 (standard capability)
+	homeChainConfig := in.CapabilitiesConfig.EVM[in.Blockchains[0].ChainID]
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, creconsensus.ConsensusV2JobSpecFactoryFn(
+		testLogger,
+		libc.MustSafeUint64(int64(homeChainIDInt)),
+		homeChainConfig,
+		capabilitiesAwareNodeSets,
+		*in.Infra,
+		filepath.Join(containerPath, consensusBinaryName),
+	))
+
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
 
 	for _, blockchain := range in.Blockchains {
@@ -827,7 +848,6 @@ func StartCLIEnvironment(
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.EVMJobSpecFactoryFn(
 			testLogger,
 			libc.MustSafeUint64(int64(chainIDInt)),
-			"evm",
 			config,
 			capabilitiesAwareNodeSets,
 			*in.Infra,
