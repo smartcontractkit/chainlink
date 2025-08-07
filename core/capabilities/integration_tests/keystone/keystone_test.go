@@ -125,12 +125,22 @@ func waitForConsumerReports(t *testing.T, consumer *feeds_consumer.KeystoneFeeds
 
 // trackErrorsOnForwarder watches the forwarder contract for report processed events and fails the test if the report is not forwarded to the consumer
 func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, consumerAddress common.Address) {
+	t.Helper()
+
 	reportsProcessed := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
 	reportsSub, err := forwarder.WatchReportProcessed(nil, reportsProcessed, nil, nil, nil)
 	require.NoError(t, err)
 
-	ctx := t.Context()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	closeFunc := func() {
+		cancel()
+		<-done
+	}
+	t.Cleanup(closeFunc)
+
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case <-ctx.Done():
