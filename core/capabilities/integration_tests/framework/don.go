@@ -147,7 +147,6 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 	don := &DON{t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
 		workflowRegistry: donContext.workflowRegistry}
 
-	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
 		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
@@ -174,6 +173,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		}
 		don.nodes = append(don.nodes, cn)
 
+		var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 		if supportsOCR {
 			factory := newFakeOracleFactoryFactory(t, lggr, donConfig.KeyBundles[i], len(donConfig.Members), donConfig.F,
 				protocolRoundInterval)
