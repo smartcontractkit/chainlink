@@ -98,8 +98,8 @@ type SecretEntry struct {
 }
 
 type Config struct {
-	NodeRateLimiter   ratelimit.RateLimiterConfig
-	RequestTimeoutSec int
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (*handler, error) {

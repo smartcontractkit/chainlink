@@ -18,10 +18,11 @@ import (
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 )
 
-func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
+func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint64, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
 	workFlowData, workFlowErr := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
 	if workFlowErr != nil {
 		return errors.Wrap(workFlowErr, "failed to download and decode workflow binary")
@@ -71,7 +72,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	}
 
 	// use non-encoded workflow name
-	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), binaryURLToUse, configURLToUse, secretsURLToUse))
+	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), libc.MustSafeUint32FromUint64(donID), uint8(0), binaryURLToUse, configURLToUse, secretsURLToUse))
 	if decodeErr != nil {
 		return errors.Wrap(decodeErr, "failed to register workflow")
 	}

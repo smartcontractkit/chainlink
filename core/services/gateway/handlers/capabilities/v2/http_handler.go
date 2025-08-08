@@ -81,11 +81,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	cfg = WithDefaults(cfg)
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 	userRateLimiter, err := ratelimit.NewRateLimiter(cfg.UserRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig)
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter)

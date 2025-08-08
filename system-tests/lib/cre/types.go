@@ -55,11 +55,6 @@ const (
 	// Add more capabilities as needed
 )
 
-// Job names for which there are no specific capabilities
-const (
-	GatewayJobName = "gateway"
-)
-
 type NodeType = string
 
 const (
@@ -71,13 +66,8 @@ const (
 	WorkerNode NodeType = "plugin"
 )
 
-type ConfigDescription struct {
-	Flag     CapabilityFlag
-	NodeType string
-}
-
 type DonJobs = []*jobv1.ProposeJobRequest
-type DonsToJobSpecs = map[uint32]DonJobs
+type DonsToJobSpecs = map[uint64]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
@@ -86,7 +76,7 @@ type WorkflowRegistryInput struct {
 	ContractAddress common.Address          `toml:"_"`
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
-	AllowedDonIDs   []uint32                `toml:"-"`
+	AllowedDonIDs   []uint64                `toml:"-"`
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -295,41 +285,48 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	return nil
 }
 
+const VaultGatewayDonID = "vault"
+
 type GatewayConnectorDons struct {
-	MembersEthAddresses []string
-	ID                  string
+	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
+	ID                  string   `toml:"id" json:"id"`
+}
+type GatewayConnectorOutput struct {
+	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
 }
 
-type GatewayConnectorOutput struct {
-	Dons     []GatewayConnectorDons // do not set, it will be set dynamically
-	Outgoing Outgoing
-	Incoming Incoming
+type GatewayConfiguration struct {
+	Dons          []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
+	Outgoing      Outgoing               `toml:"outgoing" json:"outgoing"`
+	Incoming      Incoming               `toml:"incoming" json:"incoming"`
+	AuthGatewayID string                 `toml:"auth_gateway_id" json:"auth_gateway_id"`
 }
 
 type Outgoing struct {
-	Host string // do not set, it will be set dynamically
-	Path string
-	Port int
+	Host string `toml:"host" json:"host"` // do not set, it will be set dynamically
+	Path string `toml:"path" json:"path"`
+	Port int    `toml:"port" json:"port"`
 }
 
 type Incoming struct {
-	Protocol     string // do not set, it will be set dynamically
-	Host         string // do not set, it will be set dynamically
-	Path         string
-	InternalPort int
-	ExternalPort int
+	Protocol     string `toml:"protocol" json:"protocol"` // do not set, it will be set dynamically
+	Host         string `toml:"host" json:"host"`         // do not set, it will be set dynamically
+	Path         string `toml:"path" json:"path"`
+	InternalPort int    `toml:"internal_port" json:"internal_port"`
+	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
 
 type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
 
 type GenerateConfigsInput struct {
-	DonMetadata            *DonMetadata
-	BlockchainOutput       map[uint64]*WrappedBlockchainOutput
-	HomeChainSelector      uint64
-	Flags                  []string
-	PeeringData            CapabilitiesPeeringData
-	AddressBook            cldf.AddressBook
-	GatewayConnectorOutput *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	DonMetadata             *DonMetadata
+	BlockchainOutput        map[uint64]*WrappedBlockchainOutput
+	HomeChainSelector       uint64
+	Flags                   []string
+	CapabilitiesPeeringData CapabilitiesPeeringData
+	OCRPeeringData          OCRPeeringData
+	AddressBook             cldf.AddressBook
+	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -345,8 +342,11 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
 	}
-	if g.PeeringData == (CapabilitiesPeeringData{}) {
+	if g.CapabilitiesPeeringData == (CapabilitiesPeeringData{}) {
 		return errors.New("peering data not set")
+	}
+	if g.OCRPeeringData == (OCRPeeringData{}) {
+		return errors.New("ocr peering data not set")
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {
@@ -361,21 +361,21 @@ type ToplogyInput struct {
 }
 
 type DonWithMetadata struct {
-	DON *devenv.DON
+	DON *devenv.DON `toml:"-" json:"-"`
 	*DonMetadata
 }
 
 type DonMetadata struct {
-	NodesMetadata   []*NodeMetadata
-	Flags           []string
-	ID              uint32
-	Name            string
-	SupportedChains []uint64 // chain IDs that the DON supports, empty means all chains
+	NodesMetadata   []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags           []string        `toml:"flags" json:"flags"`
+	ID              uint64          `toml:"id" json:"id"`
+	Name            string          `toml:"name" json:"name"`
+	SupportedChains []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
 }
 
 type Label struct {
-	Key   string
-	Value string
+	Key   string `toml:"key" json:"key"`
+	Value string `toml:"value" json:"value"`
 }
 
 func LabelFromProto(p *ptypes.Label) (*Label, error) {
@@ -389,21 +389,25 @@ func LabelFromProto(p *ptypes.Label) (*Label, error) {
 }
 
 type NodeMetadata struct {
-	Labels []*Label
+	Labels []*Label `toml:"labels" json:"labels"`
 }
 
 type Topology struct {
-	WorkflowDONID          uint32
-	HomeChainSelector      uint64
-	DonsMetadata           []*DonMetadata
-	GatewayConnectorOutput *GatewayConnectorOutput
+	WorkflowDONID           uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
+	HomeChainSelector       uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
+	DonsMetadata            []*DonMetadata          `toml:"dons_metadata" json:"dons_metadata"`
+	CapabilitiesPeeringData CapabilitiesPeeringData `toml:"capabilities_peering_data" json:"capabilities_peering_data"`
+	OCRPeeringData          OCRPeeringData          `toml:"ocr_peering_data" json:"ocr_peering_data"`
+	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
 }
 
 type DonTopology struct {
-	WorkflowDonID          uint32
-	HomeChainSelector      uint64
-	DonsWithMetadata       []*DonWithMetadata
-	GatewayConnectorOutput *GatewayConnectorOutput
+	WorkflowDonID           uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
+	HomeChainSelector       uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
+	CapabilitiesPeeringData CapabilitiesPeeringData `toml:"capabilities_peering_data" json:"capabilities_peering_data"`
+	OCRPeeringData          OCRPeeringData          `toml:"ocr_peering_data" json:"ocr_peering_data"`
+	DonsWithMetadata        []*DonWithMetadata      `toml:"dons_with_metadata" json:"dons_with_metadata"`
+	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
 }
 
 type CapabilitiesAwareNodeSet struct {
@@ -417,15 +421,15 @@ type CapabilitiesAwareNodeSet struct {
 }
 
 type CapabilitiesPeeringData struct {
-	GlobalBootstraperPeerID string
-	GlobalBootstraperHost   string
-	Port                    int
+	GlobalBootstraperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"`
+	GlobalBootstraperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`
+	Port                    int    `toml:"port" json:"port"`
 }
 
 type OCRPeeringData struct {
-	OCRBootstraperPeerID string
-	OCRBootstraperHost   string
-	Port                 int
+	OCRBootstraperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"`
+	OCRBootstraperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`
+	Port                 int    `toml:"port" json:"port"`
 }
 
 type GenerateKeysInput struct {
@@ -453,10 +457,10 @@ func (g *GenerateKeysInput) Validate() error {
 type ChainIDToEVMKeys = map[int]*crypto.EVMKeys
 
 // donID -> chainID -> EVMKeys
-type DonsToEVMKeys = map[uint32]ChainIDToEVMKeys
+type DonsToEVMKeys = map[uint64]ChainIDToEVMKeys
 
 // donID -> P2PKeys
-type DonsToP2PKeys = map[uint32]*crypto.P2PKeys
+type DonsToP2PKeys = map[uint64]*crypto.P2PKeys
 
 type GenerateKeysOutput struct {
 	EVMKeys DonsToEVMKeys
