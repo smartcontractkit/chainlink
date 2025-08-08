@@ -137,7 +137,7 @@ func (ks *starknet) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created StarkNet key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

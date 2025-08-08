@@ -2,7 +2,7 @@ package v2
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -113,7 +113,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
 	}
-	vaultPublicKeyBytes, err := base64.StdEncoding.DecodeString(vaultPublicKeyStr)
+	vaultPublicKeyBytes, err := hex.DecodeString(vaultPublicKeyStr)
 	if err != nil {
 		return nil, errors.New("failed to decode vault public key from registry: " + err.Error())
 	}
@@ -216,19 +216,18 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, names
 	}
 
 	var localNodeShares []string
-	workflowNodeEncryptionPublicKey := s.workflowEncryptionKey.PublicKey()
-	workflowNodeEncryptionPublicKeyBase64 := base64.StdEncoding.EncodeToString(workflowNodeEncryptionPublicKey[:])
+	workflowNodeEncryptionPublicKeyStr := s.workflowEncryptionKey.PublicKeyString()
 	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
-		if share.EncryptionKey == workflowNodeEncryptionPublicKeyBase64 {
+		if share.EncryptionKey == workflowNodeEncryptionPublicKeyStr {
 			localNodeShares = share.Shares
 		}
 	}
 	if len(localNodeShares) == 0 {
-		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyBase64
+		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyStr
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	encryptedSecretBytes, err := base64.StdEncoding.DecodeString(response.GetData().GetEncryptedValue())
+	encryptedSecretBytes, err := hex.DecodeString(response.GetData().GetEncryptedValue())
 	if err != nil {
 		errorMessage := "failed to decode the secret string: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -277,9 +276,9 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
 	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
-		encryptedDecryptionShareBytes, err := base64.StdEncoding.DecodeString(encryptedDecryptionShare)
+		encryptedDecryptionShareBytes, err := hex.DecodeString(encryptedDecryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to base64 decode the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
 			continue
 		}
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
@@ -324,7 +323,7 @@ func (s *secretsFetcher) getEncryptionKeys(ctx context.Context) ([]string, error
 		if err != nil {
 			return nil, errors.New("failed to get node info for peerID: " + peerID.String() + " - " + err.Error())
 		}
-		encryptionKeys = append(encryptionKeys, base64.StdEncoding.EncodeToString(peerNode.EncryptionPublicKey[:]))
+		encryptionKeys = append(encryptionKeys, hex.EncodeToString(peerNode.EncryptionPublicKey[:]))
 	}
 	// Sort the encryption keys to ensure consistent ordering across all nodes.
 	sort.Strings(encryptionKeys)

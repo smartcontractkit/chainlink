@@ -1,6 +1,7 @@
 package solana
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,7 +21,11 @@ import (
 
 var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
-var ccipCommonIDL = idl.FetchCommonIDL()
+
+// TODO: Remove IDL once V2 execute configs are live
+//
+//go:embed ccip_common.json
+var ccipCommonIDL string
 
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"

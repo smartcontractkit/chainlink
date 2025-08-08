@@ -31,11 +31,11 @@ func TestAcceptAllOwnership(t *testing.T) {
 
 	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	env, err := commonchangeset.Apply(t, env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
-		registrySel,
+		cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2),
+		&changeset.DeployRequestV2{ChainSel: registrySel},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployOCR3),
-		registrySel,
+		cldf.CreateLegacyChangeSet(changeset.DeployOCR3V2),
+		&changeset.DeployRequestV2{ChainSel: registrySel},
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployForwarder),
 		changeset.DeployForwarderRequest{},

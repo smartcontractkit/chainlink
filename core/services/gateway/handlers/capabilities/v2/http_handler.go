@@ -81,14 +81,14 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	cfg = WithDefaults(cfg)
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 	userRateLimiter, err := ratelimit.NewRateLimiter(cfg.UserRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter)
 	return &gatewayHandler{
 		config:          cfg,
 		don:             don,
@@ -127,6 +127,14 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 		cfg.RetryConfig.Multiplier = defaultMultiplier
 	}
 	return cfg
+}
+
+func (h *gatewayHandler) Methods() []string {
+	return []string{
+		gateway_common.MethodHTTPAction,
+		gateway_common.MethodPushWorkflowMetadata,
+		gateway_common.MethodPullWorkflowMetadata,
+	}
 }
 
 func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
@@ -226,12 +234,10 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 				Headers:    resp.Headers,
 				Body:       resp.Body,
 			}
-			if req.CacheSettings.StoreInCache && isCacheableStatusCode(resp.StatusCode) {
-				cacheTTLMs := req.CacheSettings.TTLMs
-				if cacheTTLMs > 0 {
-					h.responseCache.Set(req, outboundResp, time.Duration(cacheTTLMs)*time.Millisecond)
-					l.Debugw("Cached HTTP response", "ttlMs", cacheTTLMs)
-				}
+			maxAgeMs := req.CacheSettings.MaxAgeMs
+			if maxAgeMs > 0 {
+				h.responseCache.Set(req, outboundResp, time.Duration(maxAgeMs)*time.Millisecond)
+				l.Debugw("Cached HTTP response", "ttlMs", maxAgeMs)
 			}
 		}
 		err = h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)

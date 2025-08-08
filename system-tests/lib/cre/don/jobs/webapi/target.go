@@ -43,7 +43,7 @@ func GenerateWebAPITargetJobSpecs(donTopology *cre.DonTopology) (cre.DonsToJobSp
 						PerSenderBurst = 1000
 						"""`
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, cre.WebAPITargetCapability, "__builtin_web-api-target", config))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, cre.WebAPITargetCapability, "__builtin_web-api-target", config, ""))
 		}
 	}
 

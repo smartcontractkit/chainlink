@@ -22,6 +22,5 @@ compose/
 
 logs/
 
-cre.yaml
-*.state.yaml
+*.yaml
 env_artifact/

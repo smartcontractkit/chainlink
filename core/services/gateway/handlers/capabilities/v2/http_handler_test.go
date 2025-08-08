@@ -41,6 +41,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		require.NotNil(t, handler)
 		require.Equal(t, "test-don", handler.donConfig.DonId)
 		require.NotNil(t, handler.responseCache)
+		require.NotNil(t, handler.triggerHandler)
+		require.NotNil(t, handler.metadataHandler)
 	})
 
 	t.Run("invalid config JSON", func(t *testing.T) {
@@ -160,9 +162,8 @@ func TestHandleNodeMessage(t *testing.T) {
 			URL:       "https://return-cached.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000, // 10 minute TTL
+				MaxAgeMs:      600000, // 10 minute TTL
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
@@ -201,15 +202,14 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 	})
 
-	t.Run("status code 500 is not cached if StoreInCache is false", func(t *testing.T) {
+	t.Run("status code 500 is not cached if MaxAgeMs is 0", func(t *testing.T) {
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000,
+				MaxAgeMs:      0,
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)

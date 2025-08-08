@@ -3,8 +3,10 @@ package v2
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, *mocks.DON, *config.DONConfig) {
@@ -49,7 +52,7 @@ func TestSyncMetadata(t *testing.T) {
 
 	// Add some test data to aggregator
 	key := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "key1",
 	}
 	observation := gateway_common.WorkflowMetadata{
@@ -110,7 +113,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: key,
 					},
 				},
@@ -211,11 +214,11 @@ func TestOnMetadataPush(t *testing.T) {
 		},
 		AuthorizedKeys: []gateway_common.AuthorizedKey{
 			{
-				KeyType:   gateway_common.KeyTypeECDSA,
+				KeyType:   gateway_common.KeyTypeECDSAEVM,
 				PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 			},
 			{
-				KeyType:   gateway_common.KeyTypeECDSA,
+				KeyType:   gateway_common.KeyTypeECDSAEVM,
 				PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 			},
 		},
@@ -261,15 +264,15 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	defer handler.agg.Close()
 
 	key1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 	}
 	key2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 	}
 	key3 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "0xabcdef1234567890abcdef1234567890abcdefab",
 	}
 	metadata := []gateway_common.WorkflowMetadata{
@@ -400,7 +403,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -418,7 +421,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -437,7 +440,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -456,7 +459,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -475,7 +478,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -527,7 +530,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "",
 					},
 				},
@@ -546,7 +549,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -565,7 +568,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x123456789",
 					},
 				},
@@ -584,7 +587,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef123456789",
 					},
 				},
@@ -603,7 +606,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890ABCDEF1234567890abcdef12345678",
 					},
 				},
@@ -622,11 +625,11 @@ func TestValidateAuthMetadata(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
@@ -666,7 +669,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
-					KeyType:   gateway_common.KeyTypeECDSA,
+					KeyType:   gateway_common.KeyTypeECDSAEVM,
 					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 				},
 			},
@@ -694,7 +697,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
-					KeyType:   gateway_common.KeyTypeECDSA,
+					KeyType:   gateway_common.KeyTypeECDSAEVM,
 					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 				},
 			},
@@ -733,7 +736,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -747,7 +750,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
@@ -777,7 +780,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
 					},
 				},
@@ -791,7 +794,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
-						KeyType:   gateway_common.KeyTypeECDSA,
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
 						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
 					},
 				},
@@ -809,5 +812,205 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 		err = handler.OnMetadataPullResponse(ctx, resp, "node1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid workflow metadata")
+	})
+}
+
+func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	signerAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
+
+	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	authorizedKey := gateway_common.AuthorizedKey{
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
+		PublicKey: strings.ToLower(signerAddr.Hex()),
+	}
+	handler.authorizedKeys = map[string]map[gateway_common.AuthorizedKey]struct{}{
+		workflowID: {authorizedKey: {}},
+	}
+
+	t.Run("successful authorization", func(t *testing.T) {
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		token, err := utils.CreateRequestJWT(*req)
+		require.NoError(t, err)
+
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key, err := handler.Authorize(workflowID, tokenString, req)
+		require.NoError(t, err)
+		require.NotNil(t, key)
+		require.Equal(t, authorizedKey.KeyType, key.KeyType)
+		require.Equal(t, authorizedKey.PublicKey, key.PublicKey)
+	})
+
+	t.Run("invalid JWT token", func(t *testing.T) {
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-2",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		key, err := handler.Authorize(workflowID, "invalid.jwt.token", req)
+		require.Error(t, err)
+		require.Nil(t, key)
+	})
+
+	t.Run("workflow not found in authorized keys", func(t *testing.T) {
+		nonExistentWorkflowID := "0x123456"
+
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-3",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		token, err := utils.CreateRequestJWT(*req)
+		require.NoError(t, err)
+
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key, err := handler.Authorize(nonExistentWorkflowID, tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "workflow ID not found in authorized keys")
+		require.Nil(t, key)
+	})
+
+	t.Run("unauthorized signer", func(t *testing.T) {
+		unauthorizedKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-4",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		token, err := utils.CreateRequestJWT(*req)
+		require.NoError(t, err)
+
+		tokenString, err := token.SignedString(unauthorizedKey)
+		require.NoError(t, err)
+
+		key, err := handler.Authorize(workflowID, tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signer not found in authorized keys")
+		require.Nil(t, key)
+	})
+
+	t.Run("JWT digest mismatch", func(t *testing.T) {
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-5",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		differentParams := json.RawMessage(`{"different": "data"}`)
+		differentReq := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "different-request-id",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &differentParams,
+		}
+
+		token, err := utils.CreateRequestJWT(*differentReq)
+		require.NoError(t, err)
+
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key, err := handler.Authorize(workflowID, tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JWT digest does not match request digest")
+		require.Nil(t, key)
+	})
+}
+
+func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+
+	workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+	workflowName := "test-workflow"
+	workflowTag := "v1.0"
+	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+
+	workflowRef := workflowReference{
+		workflowOwner: workflowOwner,
+		workflowName:  workflowName,
+		workflowTag:   workflowTag,
+	}
+	handler.workflowRefToID = map[workflowReference]string{
+		workflowRef: workflowID,
+	}
+
+	t.Run("successful workflow lookup", func(t *testing.T) {
+		id, found := handler.GetWorkflowID(workflowOwner, workflowName, workflowTag)
+		require.True(t, found)
+		require.Equal(t, workflowID, id)
+	})
+
+	t.Run("workflow not found", func(t *testing.T) {
+		id, found := handler.GetWorkflowID(workflowOwner, "nonexistent-workflow", workflowTag)
+		require.False(t, found)
+		require.Empty(t, id)
+	})
+
+	t.Run("workflow not found - different owner", func(t *testing.T) {
+		id, found := handler.GetWorkflowID("0xdifferentowner", workflowName, workflowTag)
+		require.False(t, found)
+		require.Empty(t, id)
+	})
+
+	t.Run("workflow not found - different tag", func(t *testing.T) {
+		id, found := handler.GetWorkflowID(workflowOwner, workflowName, "v2.0")
+		require.False(t, found)
+		require.Empty(t, id)
+	})
+}
+
+func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
+	handler, _, _ := createTestWorkflowMetadataHandler(t)
+
+	workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+	workflowName := "test-workflow"
+	workflowTag := "v1.0"
+	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+
+	expectedRef := workflowReference{
+		workflowOwner: workflowOwner,
+		workflowName:  workflowName,
+		workflowTag:   workflowTag,
+	}
+	handler.workflowIDToRef = map[string]workflowReference{
+		workflowID: expectedRef,
+	}
+
+	t.Run("successful reference lookup", func(t *testing.T) {
+		ref, found := handler.GetWorkflowReference(workflowID)
+		require.True(t, found)
+		require.Equal(t, expectedRef, ref)
+	})
+
+	t.Run("reference not found", func(t *testing.T) {
+		nonExistentID := "0x123456"
+		_, found := handler.GetWorkflowReference(nonExistentID)
+		require.False(t, found)
 	})
 }

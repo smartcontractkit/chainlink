@@ -144,7 +144,7 @@ func (ks *p2p) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created P2P key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }
@@ -162,7 +162,6 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if id != (p2pkey.PeerID{}) {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
-		ks.logger.Warn("No P2P.PeerID set, defaulting to first key in database")
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}

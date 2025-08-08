@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -20,7 +21,6 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -220,7 +220,7 @@ func Test_Transmitter_With_StatusChecker_CreateEthTransaction(t *testing.T) {
 
 func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
 	ctx := testutils.Context(t)
-	keystore := keystore.NewInMemory(ds, utils.FastScryptParams, logger.TestLogger(t))
+	keystore := keystore.NewInMemory(ds, utils.FastScryptParams, logger.Test(t).Infof)
 	require.NoError(t, keystore.Unlock(ctx, Password))
 	return keystore
 }

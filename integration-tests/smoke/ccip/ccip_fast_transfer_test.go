@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	evmChain "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
@@ -1531,6 +1533,38 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 
 		if !tc.expectNoExecutionError && !tc.expectRevert {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
+
+			// Apply transfer fee config updates only to hybrid pools on 1.6 lanes
+			if tc.isHybridPool && contractVersion.Compare(&deployment.Version1_6_0) >= 0 {
+				state, _ := onChainState.EVMChainState(ctx.SourceChainSelector())
+				if state.FeeQuoter != nil {
+					configs := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
+						{
+							DestChainSelector: ctx.DestinationChainSelector(),
+							TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
+								{
+									Token: sourceToken.Address(),
+									TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
+										MinFeeUSDCents:    150,
+										MaxFeeUSDCents:    4294967295,
+										DeciBps:           0,
+										DestGasOverhead:   200_000,
+										DestBytesOverhead: 640,
+										IsEnabled:         true,
+									},
+								},
+							},
+						},
+					}
+					tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(ctx.SourceChain().DeployerKey, configs, nil)
+					require.NoError(t, err, "Failed to apply token transfer fee config updates")
+					ctx.env.Logger.Infof("Applied token transfer fee config updates transaction: %s", tx.Hash().Hex())
+					_, err = ctx.SourceChain().Confirm(tx)
+					require.NoError(t, err, "Failed to confirm token transfer fee config updates transaction")
+				} else {
+					ctx.env.Logger.Infof("FeeQuoter not available on chain %d, skipping token transfer fee config updates", ctx.SourceChainSelector())
+				}
+			}
 			// We want to ensure regular transfer works as expected
 			message := router.ClientEVM2AnyMessage{
 				Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),

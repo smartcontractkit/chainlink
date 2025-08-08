@@ -171,6 +171,10 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
+	if slices.Contains([]Type{DirectRequest, FluxMonitor, LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
+		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
+	}
+
 	p := jb.Pipeline
 	if err := o.AssertBridgesExist(ctx, p); err != nil {
 		return err

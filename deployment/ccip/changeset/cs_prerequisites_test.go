@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"

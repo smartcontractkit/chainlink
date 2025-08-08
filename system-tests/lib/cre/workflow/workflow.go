@@ -18,10 +18,11 @@ import (
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 )
 
-func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
+func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint64, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
 	workFlowData, workFlowErr := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
 	if workFlowErr != nil {
 		return errors.Wrap(workFlowErr, "failed to download and decode workflow binary")
@@ -71,12 +72,32 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	}
 
 	// use non-encoded workflow name
-	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), binaryURLToUse, configURLToUse, secretsURLToUse))
+	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), libc.MustSafeUint32FromUint64(donID), uint8(0), binaryURLToUse, configURLToUse, secretsURLToUse))
 	if decodeErr != nil {
 		return errors.Wrap(decodeErr, "failed to register workflow")
 	}
 
 	return nil
+}
+
+func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) ([]string, error) {
+	workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create workflow registry instance")
+	}
+
+	metadataList, metadataListErr := workflowRegistryInstance.GetWorkflowMetadataListByOwner(sc.NewCallOpts(), sc.MustGetRootKeyAddress(), big.NewInt(0), big.NewInt(10))
+	if metadataListErr != nil {
+		return nil, errors.Wrap(metadataListErr, "failed to get workflow metadata list")
+	}
+
+	workflows := make([]string, 0)
+
+	for _, metadata := range metadataList {
+		workflows = append(workflows, metadata.WorkflowName)
+	}
+
+	return workflows, nil
 }
 
 func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
@@ -106,6 +127,31 @@ func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistr
 		if deleteErr != nil {
 			return errors.Wrap(deleteErr, "failed to delete workflow named "+metadata.WorkflowName)
 		}
+	}
+
+	return nil
+}
+
+func DeleteWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, workflowName string) error {
+	workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
+	if err != nil {
+		return errors.Wrap(err, "failed to create workflow registry instance")
+	}
+
+	var computeHashKey = func(owner common.Address, workflowName string) [32]byte {
+		ownerBytes := owner.Bytes()
+		nameBytes := []byte(workflowName)
+		data := make([]byte, len(ownerBytes)+len(nameBytes))
+		copy(data, ownerBytes)
+		copy(data[len(ownerBytes):], nameBytes)
+
+		return crypto.Keccak256Hash(data)
+	}
+
+	workflowHashKey := computeHashKey(sc.MustGetRootKeyAddress(), workflowName)
+	_, deleteErr := sc.Decode(workflowRegistryInstance.DeleteWorkflow(sc.NewTXOpts(), workflowHashKey))
+	if deleteErr != nil {
+		return errors.Wrap(deleteErr, "failed to delete workflow named "+workflowName)
 	}
 
 	return nil
