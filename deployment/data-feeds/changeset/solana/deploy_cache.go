@@ -16,7 +16,6 @@ import (
 	seq "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
-
 )
 
 const (

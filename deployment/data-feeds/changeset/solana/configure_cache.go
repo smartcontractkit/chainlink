@@ -5,15 +5,15 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence/operation"
 
-	"github.com/gagliardetto/solana-go"
+	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
 )
 
 type Sender struct {
