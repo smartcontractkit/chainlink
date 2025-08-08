@@ -4,7 +4,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
@@ -19,7 +18,7 @@ type DeployCapabilitiesRegistryInput struct {
 }
 
 type DeployCapabilitiesRegistryDeps struct {
-	Env *deployment.Environment
+	Env *cldf.Environment
 }
 
 type DeployCapabilitiesRegistry struct{}
