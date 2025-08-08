@@ -20,6 +20,7 @@ var DeployAggregatorProxyChangeset = cldf.CreateChangeSet(deployAggregatorProxyL
 func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ds := datastore.NewMemoryDataStore()
+	ab := cldf.NewMemoryAddressBook()
 
 	for index, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.EVMChains()[chainSelector]
@@ -48,8 +49,12 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
+		err = ab.Save(chain.Selector, proxyResponse.Address.String(), proxyResponse.Tv)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save DataFeedsCache: %w", err)
+		}
 	}
-	return cldf.ChangesetOutput{DataStore: ds}, nil
+	return cldf.ChangesetOutput{DataStore: ds, AddressBook: ab}, nil
 }
 
 func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggregatorProxyConfig) error {
