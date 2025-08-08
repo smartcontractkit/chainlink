@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -30,7 +30,7 @@ type JobDistributor struct {
 }
 
 // NewJDClient creates a new Job Distributor client with the provided configuration.
-func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, error) {
+func NewJDClient(ctx context.Context, cfg JDConfig) (cldf_offchain.Client, error) {
 	jdConfig := jd.JDConfig{
 		GRPC:  cfg.GRPC,
 		WSRPC: cfg.WSRPC,

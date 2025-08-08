@@ -30,7 +30,7 @@ const (
 
 // WebAPITriggerValue triggers a workflow with web API trigger with random value (0 - 1000000) and topic "sendValue"
 // It will keep retrying until the workflow is triggered successfully or the timeout is reached
-func WebAPITriggerValue(gatewayURL, privateKey string, timeout time.Duration) error {
+func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Duration) error {
 	valueInt, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
 		return errors.Wrap(err, "error generating random value")
@@ -67,7 +67,7 @@ func WebAPITriggerValue(gatewayURL, privateKey string, timeout time.Duration) er
 		Body: api.MessageBody{
 			MessageId: uuid.New().String(),
 			Method:    Method,
-			DonId:     "1",
+			DonId:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 			Sender:    publicAddress.String(),
 		},

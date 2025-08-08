@@ -44,7 +44,7 @@ type Settings struct {
 }
 
 type DevPlatform struct {
-	DonID uint32 `yaml:"don-id,omitempty"`
+	DonID uint64 `yaml:"don-id,omitempty"`
 }
 
 type UserWorkflow struct {
@@ -119,7 +119,7 @@ func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
 	addressBook cldf.AddressBook,
-	donID uint32,
+	donID uint64,
 	homeChainSelector uint64,
 	rpcs map[uint64]string,
 	s3ProviderOutput *s3provider.Output,
