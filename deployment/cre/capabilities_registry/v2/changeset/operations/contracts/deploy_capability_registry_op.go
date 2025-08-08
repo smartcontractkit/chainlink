@@ -1,15 +1,11 @@
 package contracts
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -48,13 +44,6 @@ var DeployCapabilitiesRegistryOp = operations.NewOperation[DeployCapabilitiesReg
 		if !ok {
 			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
-
-		// Estimate gas for deployment
-		est, err := estimateDeploymentGas(chain.Client, capabilities_registry_v2.CapabilitiesRegistryABI)
-		if err != nil {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to estimate gas: %w", err)
-		}
-		lggr.Debugf("Capabilities Registry V2 estimated gas: %d", est)
 
 		// Deploy the V2 CapabilitiesRegistry contract
 		capabilitiesRegistryAddr, tx, capabilitiesRegistry, err := capabilities_registry_v2.DeployCapabilitiesRegistry(
@@ -95,19 +84,3 @@ var DeployCapabilitiesRegistryOp = operations.NewOperation[DeployCapabilitiesReg
 		}, nil
 	},
 )
-
-func estimateDeploymentGas(client cldf_evm.OnchainClient, bytecode string) (uint64, error) {
-	// fake contract address required for gas estimation, otherwise it will fail
-	contractAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
-
-	msg := ethereum.CallMsg{
-		To:   &contractAddress,
-		Gas:  0,
-		Data: []byte(bytecode),
-	}
-	gasEstimate, err := client.EstimateGas(context.Background(), msg)
-	if err != nil {
-		return 0, fmt.Errorf("failed to estimate gas: %w", err)
-	}
-	return gasEstimate, nil
-}
