@@ -16,7 +16,6 @@ import (
 )
 
 func Create(ctx context.Context, offChainClient cldf_offchain.Client, jobSpecs cre.DonJobs) error {
-
 	if len(jobSpecs) == 0 {
 		return nil
 	}
