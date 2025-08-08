@@ -152,11 +152,26 @@ type UpdateDataIDProxyConfig struct {
 	McmsConfig     *MCMSConfig
 }
 
+type UpdateDataIDProxyTronConfig struct {
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	ProxyAddresses []address.Address
+	DataIDs        []string
+	TriggerOptions cldf_tron.TriggerOptions
+}
+
 type RemoveFeedProxyConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
 	McmsConfig     *MCMSConfig
+}
+
+type RemoveFeedProxyTronConfig struct {
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	ProxyAddresses []address.Address
+	TriggerOptions cldf_tron.TriggerOptions
 }
 
 type ImportAddressesConfig struct {

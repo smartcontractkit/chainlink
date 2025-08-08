@@ -12,6 +12,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func TestDeployAggregatorProxy(t *testing.T) {
+func TestUpdateDataIDProxy(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -39,24 +40,43 @@ func TestDeployAggregatorProxy(t *testing.T) {
 		tron.DeployCacheChangeset,
 		types.DeployTronConfig{
 			ChainsToDeploy: []uint64{chainSelector},
-			Qualifier:      "tron",
 			Labels:         []string{"data-feeds"},
+			Qualifier:      "tron",
 			DeployOptions:  deployOptions,
 		},
 	))
 	require.NoError(t, err)
 
-	accessControllerAddress, err := address.Base58ToAddress("TYS5HCEnSU23FgSirvxqVqfwDoD5xHd9Bz")
+	cacheAddressStr, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
+
+	cacheAddress, err := address.Base58ToAddress(cacheAddressStr)
+	require.NoError(t, err)
+
+	proxyAddress, err := address.Base58ToAddress("TYS5HCEnSU23FgSirvxqVqfwDoD5xHd9Bz")
+	require.NoError(t, err)
+
+	dataID := "0x01bb0467f50003040000000000000000"
 
 	resp, err := commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
-			tron.DeployAggregatorProxyChangeset,
-			types.DeployAggregatorProxyTronConfig{
-				ChainsToDeploy:   []uint64{chainSelector},
-				AccessController: []address.Address{accessControllerAddress},
-				Qualifier:        "tron",
-				DeployOptions:    deployOptions,
+			tron.SetFeedAdminChangeset,
+			types.SetFeedAdminTronConfig{
+				ChainSelector:  chainSelector,
+				CacheAddress:   cacheAddress,
+				AdminAddress:   env.BlockChains.TronChains()[chainSelector].Address,
+				IsAdmin:        true,
+				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
+			},
+		),
+		commonChangesets.Configure(
+			tron.UpdateDataIDProxyChangeset,
+			types.UpdateDataIDProxyTronConfig{
+				ChainSelector:  chainSelector,
+				CacheAddress:   cacheAddress,
+				ProxyAddresses: []address.Address{proxyAddress},
+				DataIDs:        []string{dataID},
+				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
 			},
 		),
 	)

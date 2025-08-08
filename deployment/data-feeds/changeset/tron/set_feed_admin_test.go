@@ -49,12 +49,8 @@ func TestSetCacheAdmin(t *testing.T) {
 
 	cacheAddressStr, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
-	t.Logf("cacheAddress: %s", cacheAddressStr)
 
 	cacheAddress, err := address.Base58ToAddress(cacheAddressStr)
-	require.NoError(t, err)
-
-	adminAddress, err := address.Base58ToAddress("TF5h8p7iDXCZQyHmKdTosSDx9pAUdaYVXS")
 	require.NoError(t, err)
 
 	resp, err := commonChangesets.Apply(t, newEnv,
@@ -63,7 +59,7 @@ func TestSetCacheAdmin(t *testing.T) {
 			types.SetFeedAdminTronConfig{
 				ChainSelector:  chainSelector,
 				CacheAddress:   cacheAddress,
-				AdminAddress:   adminAddress,
+				AdminAddress:   env.BlockChains.TronChains()[chainSelector].Address,
 				IsAdmin:        true,
 				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
 			},
