@@ -20,7 +20,7 @@ func TestDeployCapabilitiesRegistry(t *testing.T) {
 
 	// Create a minimal environment with one EVM chain
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
+		Nodes:  0,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
