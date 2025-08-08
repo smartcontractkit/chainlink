@@ -22,7 +22,7 @@ func deployCacheLogic(env cldf.Environment, c types.DeployTronConfig) (cldf.Chan
 
 	for _, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.TronChains()[chainSelector]
-		cacheResponse, err := DeployCache(chain, c.Labels)
+		cacheResponse, err := DeployCache(chain, c.DeployOptions, c.Labels)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy DataFeedsCache: %w", err)
 		}

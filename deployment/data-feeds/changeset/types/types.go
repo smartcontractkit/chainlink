@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
@@ -43,6 +44,14 @@ type DeployAggregatorProxyConfig struct {
 	Labels           []string         // Labels for the cache, applies to all chains
 }
 
+type DeployAggregatorProxyTronConfig struct {
+	ChainsToDeploy   []uint64          // Chain Selectors
+	AccessController []address.Address // AccessController address per chain
+	Labels           []string          // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier        string            // Data Store qualifier for the deployed contracts, applies to all chains
+	DeployOptions    cldf_tron.DeployOptions
+}
+
 type DeployBundleAggregatorProxyConfig struct {
 	ChainsToDeploy []uint64 // Chain Selectors
 	Owners         map[uint64]common.Address
@@ -73,10 +82,11 @@ type SetFeedAdminConfig struct {
 }
 
 type SetFeedAdminTronConfig struct {
-	ChainSelector uint64
-	CacheAddress  address.Address
-	AdminAddress  address.Address
-	IsAdmin       bool
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	AdminAddress   address.Address
+	IsAdmin        bool
+	TriggerOptions cldf_tron.TriggerOptions
 }
 
 type ProposeConfirmAggregatorConfig struct {
@@ -272,4 +282,5 @@ type DeployTronConfig struct {
 	ChainsToDeploy []uint64 // Chain Selectors
 	Labels         []string // Data Store labels for the deployed contracts, applies to all chains
 	Qualifier      string   // Data Store qualifier for the deployed contracts, applies to all chains
+	DeployOptions  cldf_tron.DeployOptions
 }

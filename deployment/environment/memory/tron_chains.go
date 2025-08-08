@@ -14,7 +14,7 @@ import (
 )
 
 func getTestTronChainSelectors() []uint64 {
-	return []uint64{chainsel.TON_LOCALNET.Selector}
+	return []uint64{chainsel.TRON_TESTNET_NILE.Selector}
 }
 
 func generateChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
