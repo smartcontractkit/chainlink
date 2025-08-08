@@ -79,7 +79,7 @@ func generateKeys(t *testing.T, workflowKey string) (string, string) {
 	return hex.EncodeToString(pkb), hex.EncodeToString(encryptedShare)
 }
 
-func TestVault_E2E(t *testing.T) {
+func TestVault_E2E_New(t *testing.T) {
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
