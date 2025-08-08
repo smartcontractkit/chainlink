@@ -10,6 +10,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf_deployment "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
@@ -86,7 +87,7 @@ func DumpArtifact(
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
 	donTopology cre.DonTopology,
-	offchainClient cldf_deployment.OffchainClient,
+	offchainClient cldf_offchain.Client,
 	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
 ) (string, error) {
 	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
@@ -107,7 +108,7 @@ func GenerateArtifact(
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
 	donTopology cre.DonTopology,
-	offchainClient cldf_deployment.OffchainClient,
+	offchainClient cldf_offchain.Client,
 	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
 ) (*EnvArtifact, error) {
 	var err error

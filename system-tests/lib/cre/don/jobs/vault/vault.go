@@ -12,8 +12,9 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -70,7 +71,7 @@ func dkgKeys(n, t int) (string, []*tdh2easy.PrivateShare, error) {
 	return pks, shares, nil
 }
 
-func GenerateJobSpecs(offchainClient deployment.OffchainClient, donTopology *cre.DonTopology, ds datastore.DataStore, chainID uint64) (cre.DonsToJobSpecs, error) {
+func GenerateJobSpecs(offchainClient cldf_offchain.Client, donTopology *cre.DonTopology, ds datastore.DataStore, chainID uint64) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
@@ -162,7 +163,7 @@ func GenerateJobSpecs(offchainClient deployment.OffchainClient, donTopology *cre
 	return donToJobSpecs, nil
 }
 
-func encryptPrivateShare(offchain deployment.OffchainClient, nodeID string, sk *tdh2easy.PrivateShare) (string, error) {
+func encryptPrivateShare(offchain cldf_offchain.Client, nodeID string, sk *tdh2easy.PrivateShare) (string, error) {
 	nodeResp, err := offchain.GetNode(context.Background(), &nodev1.GetNodeRequest{
 		Id: nodeID,
 	})
