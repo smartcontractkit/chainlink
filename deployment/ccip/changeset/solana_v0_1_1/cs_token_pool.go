@@ -1521,7 +1521,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	tokenPool := chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata)
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-	tokenPoolChainConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+	tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 	tokenProgram, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgram, tokenPubKey, tokenPoolSigner)
@@ -1535,30 +1535,27 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create lookup table for token pool (mint: %s): %w", tokenPubKey.String(), err)
 	}
-	list := solana.PublicKeySlice{
-		table,                   // 0
-		tokenAdminRegistryPDA,   // 1
-		tokenPool,               // 2
-		tokenPoolChainConfigPDA, // 3 - writable
-		poolTokenAccount,        // 4 - writable
-		tokenPoolSigner,         // 5
-		tokenProgram,            // 6
-		tokenPubKey,             // 7 - writable
-		feeTokenConfigPDA,       // 8
-		routerPoolSignerPDA,     // 9
-	}
 	typeVersion := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
 	typeVersion.Labels.Add(tokenPubKey.String())
 	typeVersion.Labels.Add(cfg.Metadata)
 	typeVersion.Labels.Add(cfg.PoolType.String())
+
+	var list solana.PublicKeySlice
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
-		// no-op for BurnMint and LockRelease token pools since their token pools do not need any more accounts
-	case shared.CCTPTokenPool:
-		tokenMessageMinterAuthority, _, err := solana.FindProgramAddress([][]byte{[]byte("sender_authority")}, cfg.CCTPTokenMessengerMinter)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token message minter authority: %w", err)
+		list = solana.PublicKeySlice{
+			table,                 // 0
+			tokenAdminRegistryPDA, // 1
+			tokenPool,             // 2
+			tokenPoolConfigPDA,    // 3 - writable
+			poolTokenAccount,      // 4 - writable
+			tokenPoolSigner,       // 5
+			tokenProgram,          // 6
+			tokenPubKey,           // 7 - writable
+			feeTokenConfigPDA,     // 8
+			routerPoolSignerPDA,   // 9
 		}
+	case shared.CCTPTokenPool:
 		messageTransmitterPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("message_transmitter")}, cfg.CCTPMessageTransmitter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate message transmitter: %w", err)
@@ -1580,16 +1577,25 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token message minter authority: %w", err)
 		}
 		list = append(list,
+			table,                 // 0
+			tokenAdminRegistryPDA, // 1
+			tokenPool,             // 2
+			tokenPoolConfigPDA,    // 3
+			poolTokenAccount,      // 4 - writable
+			tokenPoolSigner,       // 5 - writable
+			tokenProgram,          // 6
+			tokenPubKey,           // 7 - writable
+			feeTokenConfigPDA,     // 8
+			routerPoolSignerPDA,   // 9
 			// -- CCTP custom entries --
-			tokenMessageMinterAuthority,  // 10
-			messageTransmitterPDA,        // 11 - writable
-			tokenMessenger,               // 12
-			tokenMinter,                  // 13
-			minterLocalToken,             // 14 - writable
-			cfg.CCTPMessageTransmitter,   // 15
-			cfg.CCTPTokenMessengerMinter, // 16
-			solana.SystemProgramID,       // 17
-			eventAuthority,               // 18
+			messageTransmitterPDA,        // 10 - writable
+			cfg.CCTPTokenMessengerMinter, // 11
+			solana.SystemProgramID,       // 12
+			cfg.CCTPMessageTransmitter,   // 13
+			tokenMessenger,               // 14
+			tokenMinter,                  // 15
+			minterLocalToken,             // 16 - writable
+			eventAuthority,               // 17
 		)
 	default:
 		return cldf.ChangesetOutput{}, errors.New("unsupported pool type")

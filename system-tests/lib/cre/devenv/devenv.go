@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -141,7 +142,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		}
 	}
 
-	var jd cldf.OffchainClient
+	var jd cldf_offchain.Client
 
 	if len(input.NodeSetOutput) > 0 {
 		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
