@@ -488,7 +488,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							TransferKeys: []solana.PublicKey{
 								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-								// state.SolChains[solChain].CCTPTokenPool, // Fails while setting upgrade authority for CCTP token pool. Temporary commenting out and shared this with @amit.monin
+								state.SolChains[solChain].CCTPTokenPool, // Fails while setting upgrade authority for CCTP token pool. Temporary commenting out and shared this with @amit.monin
 							},
 						},
 					),
@@ -500,7 +500,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							TransferKeys: []solana.PublicKey{
 								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-								// state.SolChains[solChain].CCTPTokenPool, // Fails while setting upgrade authority for CCTP token pool. Temporary commenting out and shared this with @amit.monin
+								state.SolChains[solChain].CCTPTokenPool, // Fails while setting upgrade authority for CCTP token pool. Temporary commenting out and shared this with @amit.monin
 							},
 							MCMS: &proposalutils.TimelockConfig{
 								MinDelay: 1 * time.Second,
@@ -521,8 +521,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			deployerPrivKey := *e.BlockChains.SolanaChains()[solChain].DeployerKey
 			solanaRPCClient := e.BlockChains.SolanaChains()[solChain].Client
 
-			multisig1 := createMultiSig(t, ctx, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
-			multisig2 := createMultiSig(t, ctx, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
+			multisig1 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
+			multisig2 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
 
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
@@ -555,7 +555,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 	}
 }
 
-func createMultiSig(t *testing.T, ctx context.Context, deployerKey solana.PublicKey, tokenPoolSignerPDA solana.PublicKey, solanaRPCClient *solRpc.Client, deployerPrivateKey solana.PrivateKey) solana.PrivateKey {
+func createMultiSig(ctx context.Context, t *testing.T, deployerKey solana.PublicKey, tokenPoolSignerPDA solana.PublicKey, solanaRPCClient *solRpc.Client, deployerPrivateKey solana.PrivateKey) solana.PrivateKey {
 	multisig, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 
