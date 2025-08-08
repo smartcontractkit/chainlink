@@ -280,7 +280,6 @@ func (cs InitCacheDecimalReport) Apply(env cldf.Environment, req *InitCacheDecim
 	return out, nil
 }
 
-
 // createRemainingAccounts creates the remaining accounts needed for InitCacheDecimalFeed
 // by deriving the decimal report PDAs for each DataID
 func createRemainingAccounts(ds datastore.DataStore, seed string, chainSel uint64, qualifier, version string, dataIDs [][16]uint8) ([]solana.AccountMeta, error) {
