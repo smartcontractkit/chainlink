@@ -7,6 +7,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -71,6 +72,13 @@ type SetFeedAdminConfig struct {
 	McmsConfig    *MCMSConfig
 }
 
+type SetFeedAdminTronConfig struct {
+	ChainSelector uint64
+	CacheAddress  address.Address
+	AdminAddress  address.Address
+	IsAdmin       bool
+}
+
 type ProposeConfirmAggregatorConfig struct {
 	ChainSelector        uint64
 	ProxyAddress         common.Address
@@ -85,6 +93,20 @@ type SetFeedDecimalConfig struct {
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
+}
+
+type DataFeedsCacheTronWorkflowMetadata struct {
+	AllowedSender        address.Address
+	AllowedWorkflowOwner address.Address
+	AllowedWorkflowName  [10]byte
+}
+
+type SetFeedDecimalTronConfig struct {
+	ChainSelector    uint64
+	CacheAddress     address.Address
+	DataIDs          []string
+	Descriptions     []string
+	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 }
 
 type SetFeedBundleConfig struct {
@@ -238,4 +260,16 @@ type DeployAptosConfig struct {
 	OwnerAddress             string   // Owner of the deployed contracts
 	PlatformAddress          string   // Address of the ChainLinkPlatform package
 	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
+}
+
+type DeployTronCacheResponse struct {
+	Address address.Address
+	Tx      string
+	Tv      cldf.TypeAndVersion
+}
+
+type DeployTronConfig struct {
+	ChainsToDeploy []uint64 // Chain Selectors
+	Labels         []string // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier      string   // Data Store qualifier for the deployed contracts, applies to all chains
 }
