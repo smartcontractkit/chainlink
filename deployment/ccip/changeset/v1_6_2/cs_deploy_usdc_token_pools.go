@@ -257,7 +257,7 @@ func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Cha
 			return cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool]{
 				Address:  poolAddress,
 				Contract: usdcTokenPool,
-				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2),
+				Tv:       cldf.NewTypeAndVersion(shared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2),
 				Tx:       tx,
 				Err:      err,
 			}
