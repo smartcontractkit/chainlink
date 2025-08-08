@@ -17,6 +17,7 @@ var DeployCacheChangeset = cldf.CreateChangeSet(deployCacheLogic, deployCachePre
 func deployCacheLogic(env cldf.Environment, c types.DeployConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
 	ds := datastore.NewMemoryDataStore()
+	ab := cldf.NewMemoryAddressBook()
 
 	for _, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.EVMChains()[chainSelector]
@@ -38,9 +39,13 @@ func deployCacheLogic(env cldf.Environment, c types.DeployConfig) (cldf.Changese
 		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
+		err = ab.Save(chain.Selector, cacheResponse.Address.String(), cacheResponse.Tv)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save DataFeedsCache: %w", err)
+		}
 	}
 
-	return cldf.ChangesetOutput{DataStore: ds}, nil
+	return cldf.ChangesetOutput{DataStore: ds, AddressBook: ab}, nil
 }
 
 func deployCachePrecondition(env cldf.Environment, c types.DeployConfig) error {
