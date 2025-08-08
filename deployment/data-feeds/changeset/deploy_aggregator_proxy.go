@@ -6,18 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 // DeployAggregatorProxyChangeset deploys an AggregatorProxy contract on the given chains. It uses the address of DataFeedsCache contract
-// from addressbook to set it in the AggregatorProxy constructor. Returns a new addressbook with deploy AggregatorProxy contract addresses.
+// from DataStore to set it in the AggregatorProxy constructor. Returns a new DataStore with deployed AggregatorProxy contract addresses.
 var DeployAggregatorProxyChangeset = cldf.CreateChangeSet(deployAggregatorProxyLogic, deployAggregatorProxyPrecondition)
 
 func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorProxyConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for index, chainSelector := range c.ChainsToDeploy {
 		chain := env.BlockChains.EVMChains()[chainSelector]
@@ -34,12 +36,20 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 
 		lggr.Infof("Deployed %s chain selector %d addr %s", proxyResponse.Tv.String(), chain.Selector, proxyResponse.Address.String())
 
-		err = ab.Save(chain.Selector, proxyResponse.Address.String(), proxyResponse.Tv)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save AggregatorProxy: %w", err)
+		if err = ds.Addresses().Add(
+			datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Address:       proxyResponse.Address.String(),
+				Type:          datastore.ContractType(proxyResponse.Tv.Type),
+				Version:       &proxyResponse.Tv.Version,
+				Qualifier:     c.Qualifier,
+				Labels:        datastore.NewLabelSet(c.Labels...),
+			},
+		); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
 	}
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{DataStore: ds}, nil
 }
 
 func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggregatorProxyConfig) error {
@@ -51,10 +61,6 @@ func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggre
 		_, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return errors.New("chain not found in environment")
-		}
-		_, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return fmt.Errorf("failed to get addessbook for chain %d: %w", chainSelector, err)
 		}
 	}
 
