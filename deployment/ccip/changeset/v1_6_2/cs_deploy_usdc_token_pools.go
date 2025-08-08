@@ -97,6 +97,10 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		return fmt.Errorf("failed to fetch message body version from address %s on %s: %w", i.TokenMessenger, chain, err)
 	}
 
+	if i.PoolType != shared.USDCTokenPool && i.PoolType != shared.HybridLockReleaseUSDCTokenPool {
+		return fmt.Errorf("unsupported pool type %s", i.PoolType)
+	}
+
 	return nil
 }
 
