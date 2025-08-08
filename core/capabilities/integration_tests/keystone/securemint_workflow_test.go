@@ -74,7 +74,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	// The price is packed from Mintable (99) and block number (10)
 	expectedUpdates := []secureMintUpdate{
 		{
-			feedID:         "0x04de41ba4fc9d91ad900000000000000", // 0x4 + 16015286601757825753 as bytes + right padded with 0s
+			dataID:         "0x04de41ba4fc9d91ad900000000000000", // 0x4 + 16015286601757825753 as bytes + right padded with 0s
 			mintableAmount: mintableAmount,
 			blockNumber:    blockNumber,
 		},
@@ -84,7 +84,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 }
 
 type secureMintUpdate struct {
-	feedID         string
+	dataID         string
 	mintableAmount *big.Int
 	blockNumber    *big.Int
 }
@@ -174,7 +174,7 @@ type secureMintHandler struct {
 func newSecureMintHandler(expected []secureMintUpdate, ts *big.Int) *secureMintHandler {
 	found := make(map[string]struct{})
 	for _, update := range expected {
-		found[update.feedID] = struct{}{}
+		found[update.dataID] = struct{}{}
 	}
 	return &secureMintHandler{
 		expected: expected,
@@ -194,7 +194,7 @@ func (h *secureMintHandler) handleDecimalReportUpdated(t *testing.T, event *data
 	// Find the expected update for this data ID
 	var expectedUpdate *secureMintUpdate
 	for _, update := range h.expected {
-		if update.feedID == dataIDStr {
+		if update.dataID == dataIDStr {
 			expectedUpdate = &update
 			break
 		}
@@ -217,9 +217,10 @@ func (h *secureMintHandler) handleDecimalReportUpdated(t *testing.T, event *data
 	assert.Equalf(t, h.ts, event.Timestamp, "timestamp mismatch: expected %d, got %d", h.ts, event.Timestamp)
 
 	// Mark this feed as found
-	delete(h.found, expectedUpdate.feedID)
+	delete(h.found, expectedUpdate.dataID)
 
 	// Return true if all expected feeds have been found
+	t.Logf("found %d of %d expected feeds, left: %+v, expected: %+v", len(h.expected)-len(h.found), len(h.expected), h.found, h.expected)
 	return len(h.found) == 0
 }
 
@@ -236,7 +237,6 @@ type dataFeedsCacheHandler interface {
 
 // waitForDataFeedsCacheReports waits for DecimalReportUpdated events from DataFeedsCache contract
 func waitForDataFeedsCacheReports(t *testing.T, dataFeedsCache *data_feeds_cache.DataFeedsCache, h dataFeedsCacheHandler) {
-
 	reportsReceived := make(chan *data_feeds_cache.DataFeedsCacheDecimalReportUpdated, 1000)
 	reportsSub, err := dataFeedsCache.WatchDecimalReportUpdated(&bind.WatchOpts{}, reportsReceived, nil, nil, nil)
 	require.NoError(t, err)

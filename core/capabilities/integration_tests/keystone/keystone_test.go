@@ -125,7 +125,7 @@ func waitForConsumerReports(t *testing.T, consumer *feeds_consumer.KeystoneFeeds
 }
 
 // trackErrorsOnForwarder watches the forwarder contract for report processed events and fails the test if the report is not forwarded to the consumer
-func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, consumerAddress common.Address) {
+func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, dfCacheAddress common.Address) {
 	t.Helper()
 
 	reportsProcessed := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
@@ -152,12 +152,12 @@ func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, cons
 			case report := <-reportsProcessed:
 				t.Logf("Forwarder received report: %+v", report)
 
-				transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumerAddress, report.WorkflowExecutionId, report.ReportId)
+				transmissionInfo, err := forwarder.GetTransmissionInfo(nil, dfCacheAddress, report.WorkflowExecutionId, report.ReportId)
 				assert.NoError(t, err)
 				if !report.Result { // if the report is not forwarded to the consumer, we need to get the transmission info to see why
-					t.Errorf("Report not forwarded to consumer: %+v", transmissionInfo)
+					t.Errorf("Report not forwarded to DataFeeds Cache: %+v", transmissionInfo)
 				} else {
-					t.Logf("Report successfully forwarded to consumer: %+v", transmissionInfo)
+					t.Logf("Report successfully forwarded to DataFeeds Cache: %+v", transmissionInfo)
 				}
 			}
 		}
@@ -181,6 +181,7 @@ func trackInvalidPermissionEventsOnDFCache(t *testing.T, dataFeedsCache *data_fe
 	t.Cleanup(closeFunc)
 
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case <-ctx.Done():
