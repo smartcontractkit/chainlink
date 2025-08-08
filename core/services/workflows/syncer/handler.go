@@ -532,19 +532,19 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		}
 
 		cfg := workflows.Config{
-			Lggr:                    h.lggr,
-			Workflow:                *sdkSpec,
-			WorkflowID:              workflowID,
-			WorkflowOwner:           owner, // this gets hex encoded in the engine.
-			WorkflowName:            name,
-			Registry:                h.capRegistry,
-			Store:                   h.workflowStore,
-			Config:                  config,
-			Binary:                  binary,
-			SecretsFetcher:          h.workflowArtifactsStore.SecretsFor,
-			RateLimiter:             h.ratelimiter,
-			WorkflowLimits:          h.workflowLimits,
-			BillingClient:           h.billingClient,
+			Lggr:           h.lggr,
+			Workflow:       *sdkSpec,
+			WorkflowID:     workflowID,
+			WorkflowOwner:  owner, // this gets hex encoded in the engine.
+			WorkflowName:   name,
+			Registry:       h.capRegistry,
+			Store:          h.workflowStore,
+			Config:         config,
+			Binary:         binary,
+			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
+			RateLimiter:    h.ratelimiter,
+			WorkflowLimits: h.workflowLimits,
+			BillingClient:  h.billingClient,
 			WorkflowRegistryAddress: h.workflowRegistryAddress,
 			WorkflowRegistryChainID: h.workflowRegistryChainSelector,
 		}
