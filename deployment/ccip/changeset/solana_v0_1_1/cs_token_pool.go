@@ -151,6 +151,7 @@ type NewMintTokenPoolConfig struct {
 	Metadata         string
 	MCMS             *proposalutils.TimelockConfig
 	NewMintAuthority solana.PublicKey // new mint authority to set for the token pool
+	OldMintAuthority solana.PublicKey // Only require when the current mint authority is a multisig
 }
 
 func (cfg NewMintTokenPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -712,6 +713,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			newMintAuthority,
 			tokenPool,
 			programData.Address).ValidateAndBuild()
+
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
@@ -721,7 +723,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 	} else {
-		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+		builder := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
 			poolConfig,
 			tokenPubKey,
 			tokenProgram,
@@ -729,7 +731,15 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			chain.DeployerKey.PublicKey(),
 			newMintAuthority,
 			tokenPool,
-			programData.Address).ValidateAndBuild()
+			programData.Address)
+
+		// Old mint authority is required only if the current mint authority is a multisig
+		if (cfg.OldMintAuthority != solana.PublicKey{}) {
+			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
+		}
+
+		ix, err := builder.ValidateAndBuild()
+
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
