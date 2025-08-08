@@ -142,6 +142,8 @@ jobs:
       - name: Enable cron capability
         shell: bash
         working-directory: core/scripts/cre/environment/configs
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
           echo "[extra_capabilities]" >> "ci-config.toml"
           echo 'cron_capability_binary_path = "${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron"' >> "ci-config.toml"
