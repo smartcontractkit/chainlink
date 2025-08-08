@@ -142,11 +142,9 @@ jobs:
       - name: Enable cron capability
         shell: bash
         working-directory: core/scripts/cre/environment/configs
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
           echo "[extra_capabilities]" >> "ci-config.toml"
-          echo 'cron_capability_binary_path = "${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron"' >> "ci-config.toml"
+          echo "cron_capability_binary_path = \"${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron\"" >> "ci-config.toml"
 
           cat "ci-config.toml"
 
@@ -174,10 +172,11 @@ jobs:
           ENV_ARTIFACT_PATH: ${{ steps.start-local-cre.outputs.env_artifact_path }}
           CTF_CONFIGS: ${{ steps.start-local-cre.outputs.env_config_path }}
           CRE_TOPOLOGY: ${{ matrix.tests.topology }}
+          TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
 
       - name: Upload all artifacts as single package
         if: failure()

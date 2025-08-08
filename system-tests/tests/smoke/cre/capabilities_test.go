@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -85,6 +84,8 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	err = json.Unmarshal(artFile, &envArtifact)
 	require.NoError(t, err, "failed to unmarshal artifact file")
 
+	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
+	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("cron-based PoR workflow", func(t *testing.T) {
 		executePoRTest(t, in, envArtifact, 5*time.Minute)
 	})
@@ -312,7 +313,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "failed to read response body")
-	framework.L.Info().Msgf("Response Body: %s", string(body))
+	framework.L.Debug().Msgf("Response Body: %s", string(body))
 
 	framework.L.Info().Msg("Checking response status...")
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
@@ -343,6 +344,12 @@ func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) er
 	split := strings.Split(stateFile, ",")
 	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
 		ctfConfigs := os.Getenv("CTF_CONFIGS")
+		defer func() {
+			setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+			if setErr != nil {
+				framework.L.Error().Err(setErr).Msg("failed to set CTF_CONFIGS env var")
+			}
+		}()
 
 		// unset the CTF_CONFIGS env var to avoid using the cached environment
 		setErr := os.Setenv("CTF_CONFIGS", "")
@@ -357,11 +364,6 @@ func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) er
 		cmdErr := cmd.Run()
 		if cmdErr != nil {
 			return errors.Wrap(cmdErr, "failed to start environment")
-		}
-
-		setErr = os.Setenv("CTF_CONFIGS", ctfConfigs)
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
 		}
 	}
 
@@ -487,15 +489,7 @@ func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Confi
 				return
 			}
 
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
+			_, saveErr := framework.SaveContainerLogs(os.TempDir())
 			if saveErr != nil {
 				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
 				return

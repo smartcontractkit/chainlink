@@ -108,6 +108,7 @@ func BuildTopology(
 					BlockchainOutput:        blockchainOutput,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
 					AddressBook:             addressBook,
 					HomeChainSelector:       topology.HomeChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectorOutput,

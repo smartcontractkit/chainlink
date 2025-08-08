@@ -25,14 +25,25 @@ import (
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, in *Config, envArtifact EnvArtifact) (*cre.FullCLDEnvironmentOutput, []*cre.WrappedBlockchainOutput, error) {
+// BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
+// artifacts produced by a previous local CRE run.
+// Inputs:
+//   - cachedInput: outputs from starting the environment via CTFv2 configs
+//     (node sets, Job Distributor, blockchain nodes).
+//   - envArtifact: CLDF deployment output including JD config and DON
+//     topology/metadata.
+//
+// Artifact paths are recorded in `artifact_paths.json` in the environment
+// directory (typically `core/scripts/cre/environment`).
+// Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *Config, envArtifact EnvArtifact) (*cre.FullCLDEnvironmentOutput, []*cre.WrappedBlockchainOutput, error) {
 	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return nil, nil, pkErr
 	}
 
 	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
 
-	for _, bc := range in.Blockchains {
+	for _, bc := range cachedInput.Blockchains {
 		if bc.ReadOnly {
 			continue
 		}
@@ -94,7 +105,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, in *Confi
 			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := crenode.GetNodeInfo(in.NodeSets[idx].Out, in.NodeSets[idx].Name, don.DonID, len(bootstrapNodes))
+		nodeInfo, err := crenode.GetNodeInfo(cachedInput.NodeSets[idx].Out, cachedInput.NodeSets[idx].Name, don.DonID, len(bootstrapNodes))
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
 		}

@@ -355,7 +355,15 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
-			// store the config with cached output, so that we can use the environment again without running setup
+			// Store the config with cached output so subsequent runs can reuse the
+			// environment without full setup. Then persist absolute paths to the
+			// generated artifacts (env artifact JSON and the cached CTF config) in
+			// `artifact_paths.json`. System tests use these to reload environment
+			// state across runs (see `system-tests/tests/smoke/cre/capabilities_test.go`),
+			// where the cached config and env artifact are consumed to reconstruct
+			// the in-memory CLDF environment without re-provisioning.
+			//
+			// This makes local iteration and CI reruns faster and deterministic.
 			_ = framework.Store(in)
 
 			saveArtifactPathsErr := saveArtifactPaths()

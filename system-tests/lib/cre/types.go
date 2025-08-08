@@ -324,6 +324,7 @@ type GenerateConfigsInput struct {
 	HomeChainSelector       uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
+	OCRPeeringData          OCRPeeringData
 	AddressBook             cldf.AddressBook
 	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
@@ -343,6 +344,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	}
 	if g.CapabilitiesPeeringData == (CapabilitiesPeeringData{}) {
 		return errors.New("peering data not set")
+	}
+	if g.OCRPeeringData == (OCRPeeringData{}) {
+		return errors.New("ocr peering data not set")
 	}
 	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
 	if addrErr != nil {

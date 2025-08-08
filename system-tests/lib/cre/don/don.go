@@ -10,6 +10,7 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -116,13 +117,13 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 						Outgoing: cre.Outgoing{
 							Path: "/node",
-							Port: 5003,
+							Port: config.GatewayOutgoingPort,
 							Host: gatewayInternalHost,
 						},
 						Incoming: cre.Incoming{
 							Protocol:     "http",
 							Path:         "/",
-							InternalPort: 5002,
+							InternalPort: config.GatewayIncomingPort,
 							ExternalPort: ExternalGatewayPort(infraInput),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},

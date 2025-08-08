@@ -82,7 +82,7 @@ type WorkerEVMInput struct {
 	HasForwarderContract bool
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPort int, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -151,10 +151,10 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPort int,
 	NetworkID = 'evm'
 	ChainID = '%d'
 `,
-		ocrPort,
+		ocrPeeringData.Port,
 		donBootstrapNodePeerID,
 		donBootstrapNodeHost,
-		ocrPort,
+		ocrPeeringData.Port,
 		capabilitiesPeeringData.Port,
 		capabilitiesPeeringData.GlobalBootstraperPeerID,
 		capabilitiesPeeringData.GlobalBootstraperHost,
