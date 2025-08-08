@@ -49,6 +49,8 @@ type ErrObservationFailed struct {
 	run      *pipeline.Run
 }
 
+const observationLoopSleepDuration = 10 * time.Millisecond
+
 func (e *ErrObservationFailed) Error() string {
 	s := fmt.Sprintf("StreamID: %d; Reason: %s", e.streamID, e.reason)
 	if e.inner != nil {
@@ -306,6 +308,7 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 			return
 		default:
 			// If we want to sleep between rounds, here is the place to do it.
+			time.Sleep(observationLoopSleepDuration)
 		}
 	}
 }
