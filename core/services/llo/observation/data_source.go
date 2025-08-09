@@ -267,11 +267,9 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 
 			// After all Observations have returned, nothing else will be sent to the
 			// telemetry channel, so it can safely be closed
-			defer func() {
-				if telemCh != nil {
-					close(telemCh)
-				}
-			}()
+			if telemCh != nil {
+				close(telemCh)
+			}
 
 			// TODO rework this logging
 			// Only log on errors or if VerboseLogging is turned on
