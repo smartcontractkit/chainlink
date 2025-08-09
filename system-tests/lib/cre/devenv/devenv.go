@@ -69,7 +69,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, uint64(input.Topology.DonsMetadata[idx].ID), len(bootstrapNodes))
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -213,6 +213,8 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	donTopology := &cre.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
 	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
+	donTopology.CapabilitiesPeeringData = input.Topology.CapabilitiesPeeringData
+	donTopology.OCRPeeringData = input.Topology.OCRPeeringData
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{
