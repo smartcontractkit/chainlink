@@ -157,13 +157,14 @@ func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { 
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
-	ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
 
 	t.Run("Observe", func(t *testing.T) {
 		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {
+			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
 			assert.NoError(t, err)
@@ -172,6 +173,9 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
+			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
 			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
 			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, big.NewInt(15), nil)
@@ -309,6 +313,7 @@ func Test_DataSource(t *testing.T) {
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
 			// Create a new data source
+			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
 
 			// Set up pipeline to return different values

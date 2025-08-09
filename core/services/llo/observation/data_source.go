@@ -213,23 +213,22 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 		for _, observe := range streamsToObserve {
 			streamValues := observe.streamValues
 			opts := observe.opts
+			localCtx := ctx
 
 			// Telemetry
+			var telemCh chan<- interface{}
 			{
 				// Size needs to accommodate the max number of telemetry events that could be generated
 				// Standard case might be about 3 bridge requests per spec and one stream<=>spec
 				// Overallocate for safety (to avoid dropping packets)
-				telemCh := d.t.MakeObservationScopedTelemetryCh(opts, 10*len(streamValues))
+				telemCh = d.t.MakeObservationScopedTelemetryCh(opts, 10*len(streamValues))
 				if telemCh != nil {
 					if d.t.CaptureEATelemetry() {
-						ctx = pipeline.WithTelemetryCh(ctx, telemCh)
+						localCtx = pipeline.WithTelemetryCh(ctx, telemCh)
 					}
 					if d.t.CaptureObservationTelemetry() {
-						ctx = WithObservationTelemetryCh(ctx, telemCh)
+						localCtx = WithObservationTelemetryCh(ctx, telemCh)
 					}
-					// After all Observations have returned, nothing else will be sent to the
-					// telemetry channel, so it can safely be closed
-					defer close(telemCh)
 				}
 			}
 
@@ -247,7 +246,7 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 					var err error
 
 					// Observe the stream
-					if val, err = oc.Observe(ctx, streamID, opts); err != nil {
+					if val, err = oc.Observe(localCtx, streamID, opts); err != nil {
 						streamIDStr := strconv.FormatUint(uint64(streamID), 10)
 						if errors.As(err, &MissingStreamError{}) {
 							promMissingStreamCount.WithLabelValues(streamIDStr).Inc()
@@ -265,6 +264,14 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 			}
 
 			wg.Wait()
+
+			// After all Observations have returned, nothing else will be sent to the
+			// telemetry channel, so it can safely be closed
+			defer func() {
+				if telemCh != nil {
+					close(telemCh)
+				}
+			}()
 
 			// TODO rework this logging
 			// Only log on errors or if VerboseLogging is turned on
@@ -294,7 +301,6 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 					lggr.Warnw("Observation failed for streamsToObserve")
 				}
 			}
-
 		}
 
 		// Notify the caller that we've completed our first round of observations.
@@ -313,7 +319,7 @@ func (d *dataSource) startObservationLoop(ctx context.Context, lggr logger.Logge
 	}
 }
 
-var cacheConfigDigest types.ConfigDigest = (*new([32]byte))
+var cacheConfigDigest types.ConfigDigest = [32]byte{}
 
 func (d *dataSource) fromCache(streamID llotypes.StreamID) llo.StreamValue {
 	if d.shouldCache {
