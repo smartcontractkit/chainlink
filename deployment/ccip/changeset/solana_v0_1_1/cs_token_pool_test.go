@@ -41,6 +41,8 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
+const PartnerMetadata = "partner_testing"
+
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
@@ -171,6 +173,9 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		if testCase.poolType == shared.CCTPTokenPool {
 			cctpMessengerMinter = getRandomPubKey(t)    // using mock minter
 			cctpMessageTransmitter = getRandomPubKey(t) // using mock transmitter
+			if config.TokenMetadata == PartnerMetadata {
+				continue // CCTP token pool not supported for partner metadata
+			}
 		}
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
@@ -477,6 +482,15 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					panic("unhandled default case")
 				}
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
+				transferKeys := []solana.PublicKey{}
+				switch testCase.poolType {
+				case shared.BurnMintTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].BurnMintTokenPools[tokenMetadata])
+				case shared.LockReleaseTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata])
+				case shared.CCTPTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].CCTPTokenPool)
+				}
 				e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 					// upgrade authority
 					commonchangeset.Configure(
@@ -484,11 +498,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						ccipChangesetSolana.SetUpgradeAuthorityConfig{
 							ChainSelector:       solChain,
 							NewUpgradeAuthority: timelockSignerPDA,
-							TransferKeys: []solana.PublicKey{
-								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
-								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-								state.SolChains[solChain].CCTPTokenPool,
-							},
+							TransferKeys:        transferKeys,
 						},
 					),
 					commonchangeset.Configure(
@@ -496,11 +506,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						ccipChangesetSolana.SetUpgradeAuthorityConfig{
 							ChainSelector:       solChain,
 							NewUpgradeAuthority: e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey(),
-							TransferKeys: []solana.PublicKey{
-								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
-								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-								state.SolChains[solChain].CCTPTokenPool,
-							},
+							TransferKeys:        transferKeys,
 							MCMS: &proposalutils.TimelockConfig{
 								MinDelay: 1 * time.Second,
 							},
@@ -513,7 +519,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 
 		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
 		// we'll only create the multisig account and run the changeset if the pool type is BnM.
-		if !mcms && testCase.poolType == shared.BurnFromMintTokenPool {
+		if !mcms && testCase.poolType == shared.BurnMintTokenPool {
 			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
 			require.NoError(t, err)
 
@@ -669,7 +675,7 @@ func TestPartnerTokenPools(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	metadata := "partner_testing"
+
 	e, _, err := commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 		ccipChangesetSolana.DeployChainContractsConfig{
@@ -682,16 +688,16 @@ func TestPartnerTokenPools(t *testing.T) {
 					BuildLocally: true,
 				},
 			},
-			LockReleaseTokenPoolMetadata: metadata,
-			BurnMintTokenPoolMetadata:    metadata,
+			LockReleaseTokenPoolMetadata: PartnerMetadata,
+			BurnMintTokenPoolMetadata:    PartnerMetadata,
 		},
 	)})
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
-	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: false, TokenMetadata: metadata})
-	doTestPoolLookupTable(t, e, false, metadata)
-	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: metadata})
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: false, TokenMetadata: PartnerMetadata})
+	doTestPoolLookupTable(t, e, false, PartnerMetadata)
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: PartnerMetadata})
 }
 
 func getRandomPubKey(t *testing.T) solana.PublicKey {
