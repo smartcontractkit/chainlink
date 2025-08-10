@@ -1985,8 +1985,7 @@ func (r *Limits) setFrom(f *Limits) {
 	}
 
 	if f.Overrides != nil {
-		r.Overrides = make(map[string]int32)
-		maps.Copy(r.Overrides, f.Overrides)
+		r.Overrides = maps.Clone(f.Overrides)
 	}
 }
 
