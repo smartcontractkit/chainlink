@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -238,6 +239,10 @@ func TestValidateWhitelist(t *testing.T) {
 	}
 	require.Len(t, chainSelectors, 2)
 
+	sort.Slice(chainSelectors, func(i, j int) bool {
+		return chainSelectors[i] < chainSelectors[j]
+	})
+
 	chain1 := chainSelectors[0]
 	chain2 := chainSelectors[1]
 
@@ -306,13 +311,18 @@ func TestValidateWhitelist(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, validationErrors, 2)
 
-		require.Equal(t, chain1, validationErrors[0].ChainSelector)
-		require.Equal(t, nonWhitelistedAddr, validationErrors[0].Address)
-		require.Contains(t, validationErrors[0].Error, "address not in whitelist")
+		errorsByChain := make(map[uint64]types.TransferValidationError)
+		for _, err := range validationErrors {
+			errorsByChain[err.ChainSelector] = err
+		}
 
-		require.Equal(t, chain2, validationErrors[1].ChainSelector)
-		require.Equal(t, nonWhitelistedAddr, validationErrors[1].Address)
-		require.Contains(t, validationErrors[1].Error, "address not in whitelist")
+		require.Contains(t, errorsByChain, chain1)
+		require.Equal(t, nonWhitelistedAddr, errorsByChain[chain1].Address)
+		require.Contains(t, errorsByChain[chain1].Error, "address not in whitelist")
+
+		require.Contains(t, errorsByChain, chain2)
+		require.Equal(t, nonWhitelistedAddr, errorsByChain[chain2].Address)
+		require.Contains(t, errorsByChain[chain2].Error, "address not in whitelist")
 	})
 }
 
