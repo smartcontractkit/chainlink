@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
@@ -72,7 +70,7 @@ func TestNewCache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := NewCache(ocr2types.ConfigDigest{}, tt.maxAge, tt.cleanupInterval)
+			cache := NewCache(tt.maxAge, tt.cleanupInterval)
 			require.NotNil(t, cache)
 			assert.Equal(t, tt.maxAge, cache.maxAge)
 			assert.Equal(t, tt.cleanupInterval, cache.cleanupInterval)
@@ -123,7 +121,7 @@ func TestCache_Add_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := NewCache(ocr2types.ConfigDigest{}, tt.maxAge, 0)
+			cache := NewCache(tt.maxAge, 0)
 
 			if tt.wantFound {
 				cache.Add(tt.streamID, tt.value)
@@ -143,7 +141,7 @@ func TestCache_Add_Get(t *testing.T) {
 }
 
 func TestCache_Cleanup(t *testing.T) {
-	cache := NewCache(ocr2types.ConfigDigest{}, time.Nanosecond*100, time.Millisecond)
+	cache := NewCache(time.Nanosecond*100, time.Millisecond)
 	streamID := llotypes.StreamID(1)
 	value := &mockStreamValue{value: []byte{42}}
 
@@ -156,7 +154,7 @@ func TestCache_Cleanup(t *testing.T) {
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {
-	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
+	cache := NewCache(time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
@@ -187,7 +185,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestCache_ConcurrentReadWrite(t *testing.T) {
-	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
+	cache := NewCache(time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
@@ -220,7 +218,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 }
 
 func TestCache_ConcurrentAddGet(t *testing.T) {
-	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
+	cache := NewCache(time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
