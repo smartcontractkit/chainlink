@@ -9,9 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
@@ -199,6 +202,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			require.NoError(tc.T, err)
 		}
 
+		msg = ops.TonSendRequest{
+			Data:      tc.MsgData,
+			Receiver:  tc.Receiver,
+			ExtraArgs: cell.BeginCell().EndCell(), // TODO handle ExtraArgs properly
+			FeeToken:  feeToken,
+		}
+
 		fmt.Printf("feeToken: %s\n", feeToken.String())
 
 	default:
@@ -232,7 +242,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		if !ok {
 			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 		}
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
+		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3common.SeqNum(expectedSeqNumRange[sourceDest].Start()),
 			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 
 		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)

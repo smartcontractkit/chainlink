@@ -1005,12 +1005,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	if len(tonChains) != 0 {
 		// Currently only one ton chain is supported in test environment
-		_, err := memory.GetTONSha()
-		require.NoError(t, err, "failed to get TON commit sha")
-		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "ecb89d8b6794"))
-		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
-		require.NoError(t, err, "failed to deploy TON ccip contracts")
+		tonCs := ops.DeployChainContractsToTonCS(t, e.Env, tonChains[0])
+		if tonCs != nil {
+			e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
+			require.NoError(t, err)
+		} else {
+			t.Log("Ton chain contracts deployment is not implemented yet")
+		}
 	}
 
 	state, err := stateview.LoadOnchainState(e.Env)

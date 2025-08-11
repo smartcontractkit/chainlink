@@ -17,14 +17,7 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	solbinary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/token"
-	"github.com/gagliardetto/solana-go/rpc"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -569,7 +562,7 @@ func SendRequestTon(
 	state stateview.CCIPOnChainState,
 	cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// TODO this should be replaced with the implementation from chainlink-ton
-	return &ccipclient.AnyMsgSentEvent{}, nil
+	return ops.SendTonRequest(e, state, cfg)
 }
 
 func SendRequestEVM(
@@ -1152,7 +1145,7 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
 	}
 
 	switch toFamily {
@@ -1163,12 +1156,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
@@ -2318,7 +2306,7 @@ func TransferMultiple(
 			seqNr, ok := expectedSeqNums[pairId]
 			if ok {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
-					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
+					cciptypes.SeqNum(seqNr.Start()), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
