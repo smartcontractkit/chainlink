@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -36,17 +35,29 @@ func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.C
 		}
 	}
 
-	deps := VaultDeps{
-		DataStore: ds,
-	}
+	for chainSelector, addresses := range cfg.WhitelistByChain {
+		lggr.Infow("Setting whitelist for chain",
+			"chain", chainSelector,
+			"address_count", len(addresses))
 
-	opInput := SetWhitelistInput{
-		WhitelistByChain: cfg.WhitelistByChain,
-	}
+		for _, addr := range addresses {
+			lggr.Infow("Whitelist address",
+				"chain", chainSelector,
+				"address", addr.Address,
+				"description", addr.Description)
+		}
 
-	_, err := operations.ExecuteOperation(e.OperationsBundle, SetWhitelistOp, deps, opInput)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set whitelist state: %w", err)
+		whitelistMetadata := types.WhitelistMetadata{
+			Addresses: addresses,
+		}
+
+		err := ds.ChainMetadata().Upsert(datastore.ChainMetadata{
+			ChainSelector: chainSelector,
+			Metadata:      whitelistMetadata,
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set whitelist chain metadata for chain %d: %w", chainSelector, err)
+		}
 	}
 
 	lggr.Infow("Whitelist state set successfully")

@@ -70,14 +70,6 @@ type ExecuteNativeTransferOutput struct {
 	TxHash        common.Hash `json:"tx_hash"`
 }
 
-// SetWhitelistInput sets the whitelist state
-type SetWhitelistInput struct {
-	WhitelistByChain map[uint64][]types.WhitelistAddress `json:"whitelist_by_chain"`
-}
-
-// SetWhitelistOutput contains whitelist operation results
-type SetWhitelistOutput struct{}
-
 var ValidateTransferOp = operations.NewOperation(
 	"validate-transfer",
 	semver.MustParse("1.0.0"),
@@ -243,44 +235,6 @@ var ExecuteNativeTransferOp = operations.NewOperation(
 			"tx", signedTx.Hash().Hex())
 
 		return output, nil
-	},
-)
-
-// SetWhitelistOp sets whitelist state for all specified chains
-var SetWhitelistOp = operations.NewOperation(
-	"set-whitelist",
-	semver.MustParse("1.0.0"),
-	"Sets the vault whitelist state",
-	func(b operations.Bundle, deps VaultDeps, input SetWhitelistInput) (SetWhitelistOutput, error) {
-		b.Logger.Infow("Setting vault whitelist state", "chains", len(input.WhitelistByChain))
-
-		for chainSelector, addresses := range input.WhitelistByChain {
-			b.Logger.Infow("Setting whitelist for chain",
-				"chain", chainSelector,
-				"address_count", len(addresses))
-
-			for _, addr := range addresses {
-				b.Logger.Infow("Whitelist address",
-					"chain", chainSelector,
-					"address", addr.Address,
-					"description", addr.Description)
-			}
-
-			whitelistMetadata := types.WhitelistMetadata{
-				Addresses: addresses,
-			}
-
-			err := deps.DataStore.ChainMetadata().Upsert(datastore.ChainMetadata{
-				ChainSelector: chainSelector,
-				Metadata:      whitelistMetadata,
-			})
-			if err != nil {
-				return SetWhitelistOutput{}, fmt.Errorf("failed to set whitelist chain metadata for chain %d: %w", chainSelector, err)
-			}
-		}
-
-		b.Logger.Infow("Successfully set vault whitelist state")
-		return SetWhitelistOutput{}, nil
 	},
 )
 
