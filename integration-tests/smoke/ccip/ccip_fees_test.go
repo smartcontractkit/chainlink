@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 
 	"github.com/stretchr/testify/require"
 
@@ -316,7 +317,7 @@ func Test_CCIPFees(t *testing.T) {
 		_, _, err = testhelpers.CCIPSendRequest(
 			e,
 			state,
-			&testhelpers.CCIPSendReqConfig{
+			&ccipclient.CCIPSendReqConfig{
 				Sender:       e.BlockChains.EVMChains()[sourceChain].DeployerKey,
 				IsTestRouter: true,
 				SourceChain:  sourceChain,

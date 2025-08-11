@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -766,7 +767,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState stateview.CCIPOnCh
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
-			}, testhelpers.WithMaxRetries(5))
+			}, ccipclient.WithMaxRetries(5))
 			seqNumCommit[testhelpers.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,

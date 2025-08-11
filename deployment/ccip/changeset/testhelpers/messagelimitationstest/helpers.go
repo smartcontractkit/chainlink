@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -118,7 +119,7 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
-	var msgOpt testhelpers.SendReqOpts
+	var msgOpt ccipclient.SendReqOpts
 
 	family, err := chain_selectors.GetSelectorFamily(tc.SrcChain)
 	require.NoError(tc.T, err)
@@ -127,20 +128,20 @@ func Run(tc TestCase) TestCaseOutput {
 	case chain_selectors.FamilyEVM:
 		evmMsg, ok := tc.Msg.(router.ClientEVM2AnyMessage)
 		require.True(tc.T, ok, "expected EVM message type")
-		msgOpt = testhelpers.WithEvm2AnyMessage(evmMsg)
+		msgOpt = ccipclient.WithMessage(evmMsg)
 	case chain_selectors.FamilyAptos:
 		aptosMsg, ok := tc.Msg.(testhelpers.AptosSendRequest)
 		require.True(tc.T, ok, "expected Aptos message type")
-		msgOpt = testhelpers.WithMessage(aptosMsg)
+		msgOpt = ccipclient.WithMessage(aptosMsg)
 	default:
 		tc.T.Fatalf("unsupported source chain family %v", family)
 	}
 
 	out, err := testhelpers.SendRequest(
 		tc.Env, tc.OnchainState,
-		testhelpers.WithSourceChain(tc.SrcChain),
-		testhelpers.WithDestChain(tc.DestChain),
-		testhelpers.WithTestRouter(tc.TestRouter),
+		ccipclient.WithSourceChain(tc.SrcChain),
+		ccipclient.WithDestChain(tc.DestChain),
+		ccipclient.WithTestRouter(tc.TestRouter),
 		msgOpt)
 
 	var errorMsg string

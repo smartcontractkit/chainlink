@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/sync/errgroup"
 
@@ -544,7 +545,7 @@ func SendRequestTon(
 	state stateview.CCIPOnChainState,
 	cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// TODO this should be replaced with the implementation from chainlink-ton
-	return &ccipclient.AnyMsgSentEvent{}, nil
+	return ops.SendTonRequest(e, state, cfg)
 }
 
 func SendRequestEVM(
@@ -1126,7 +1127,7 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
 	}
 
 	switch toFamily {
@@ -1137,7 +1138,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, AddLaneTONChangesets(e, from, to, fromFamily, toFamily))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
@@ -2286,7 +2287,7 @@ func TransferMultiple(
 			seqNr, ok := expectedSeqNums[pairId]
 			if ok {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
-					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
+					cciptypes.SeqNum(seqNr.Start()), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(

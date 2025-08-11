@@ -9,8 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
@@ -109,7 +113,7 @@ const (
 type TestCaseOutput struct {
 	Replayed     bool
 	Nonce        uint64
-	MsgSentEvent *testhelpers.AnyMsgSentEvent
+	MsgSentEvent *ccipclient.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -200,6 +204,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			require.NoError(tc.T, err)
 		}
 
+		msg = ops.TonSendRequest{
+			Data:      tc.MsgData,
+			Receiver:  tc.Receiver,
+			ExtraArgs: cell.BeginCell().EndCell(), // TODO handle ExtraArgs properly
+			FeeToken:  feeToken,
+		}
+
 		fmt.Printf("feeToken: %s\n", feeToken.String())
 
 	default:
@@ -212,7 +223,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
 	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
-	msgSentEvents := make([]*testhelpers.AnyMsgSentEvent, tc.NumberOfMessages)
+	msgSentEvents := make([]*ccipclient.AnyMsgSentEvent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
@@ -233,7 +244,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		if !ok {
 			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 		}
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
+		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3common.SeqNum(expectedSeqNumRange[sourceDest].Start()),
 			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 
 		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)

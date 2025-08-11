@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -1008,7 +1009,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	if len(tonChains) != 0 {
 		// Currently only one ton chain is supported in test environment
-		tonCs := DeployChainContractsToTonCS(t, e, tonChains[0])
+		tonCs := ops.DeployChainContractsToTonCS(t, e.Env, tonChains[0])
 		if tonCs != nil {
 			e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
 			require.NoError(t, err)
