@@ -136,9 +136,6 @@ func (c *EngineConfig) Validate() error {
 	if c.WorkflowName == nil {
 		return errors.New("workflowName not set")
 	}
-	if c.WorkflowTag == "" {
-		return errors.New("workflowTag not set")
-	}
 
 	c.LocalLimits.setDefaultLimits()
 	if c.GlobalLimits == nil {
