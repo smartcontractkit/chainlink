@@ -117,6 +117,7 @@ type SetFeedDecimalTronConfig struct {
 	DataIDs          []string
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	TriggerOptions   cldf_tron.TriggerOptions
 }
 
 type SetFeedBundleConfig struct {
