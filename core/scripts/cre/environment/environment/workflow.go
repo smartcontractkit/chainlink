@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -295,7 +296,6 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	var secretsPath *string
 	if secretsFilePathFlag != "" {
-
 		fmt.Printf("\n⚙️ Loading workflow secrets\n")
 
 		secretsConfig, err := newSecretsConfig(secretsFilePathFlag)
@@ -423,7 +423,6 @@ func loadSecretsFromEnvironment(config *secretsUtils.SecretsConfig) (map[string]
 }
 
 func encryptSecrets(c *seth.Client, capabilitiesRegistry common.Address, donID uint32, workflowOwner string, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
-
 	cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
 	if err != nil {
 		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
@@ -464,8 +463,8 @@ func encryptSecrets(c *seth.Client, capabilitiesRegistry common.Address, donID u
 
 	// Convert encryptionPublicKey to hex strings for including in the metadata
 	nodePublicEncryptionKeys := make(map[string]string)
-	for p2pId, encryptionPublicKey := range encryptionPublicKeys {
-		nodePublicEncryptionKeys[p2pId] = hex.EncodeToString(encryptionPublicKey[:])
+	for p2pID, encryptionPublicKey := range encryptionPublicKeys {
+		nodePublicEncryptionKeys[p2pID] = hex.EncodeToString(encryptionPublicKey[:])
 	}
 
 	result := secretsUtils.EncryptedSecretsResult{
@@ -473,7 +472,7 @@ func encryptSecrets(c *seth.Client, capabilitiesRegistry common.Address, donID u
 		Metadata: secretsUtils.Metadata{
 			WorkflowOwner:            workflowOwner,
 			CapabilitiesRegistry:     capabilitiesRegistry.String(),
-			DonId:                    fmt.Sprintf("%d", donID),
+			DonId:                    strconv.FormatUint(uint64(donID), 10),
 			DateEncrypted:            time.Now().Format(time.RFC3339),
 			NodePublicEncryptionKeys: nodePublicEncryptionKeys,
 			EnvVarsAssignedToNodes:   secretsEnvVarsByNode,
