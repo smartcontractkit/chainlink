@@ -15,15 +15,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	frameworkGrafana "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 )
 
 func Ptr[T any](value T) *T { return &value }
 
-func a(ns, text string, dashboardUIDs []string, from, to *time.Time) frameworkGrafana.Annotation {
-	a := frameworkGrafana.Annotation{
+func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.Annotation {
+	a := framework.Annotation{
 		Text:         fmt.Sprintf("Namespace: %s, Test: %s", ns, text),
 		StartTime:    from,
 		Tags:         []string{"chaos"},
@@ -36,7 +35,7 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) frameworkGr
 }
 
 // prepareChaos creates a namespace scoped chaos runner and Grafana client
-func prepareChaos(t *testing.T) (*havoc.NamespaceScopedChaosRunner, *frameworkGrafana.Client, error) {
+func prepareChaos(t *testing.T) (*havoc.NamespaceScopedChaosRunner, *framework.GrafanaClient, error) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
 	if err != nil {
@@ -47,7 +46,7 @@ func prepareChaos(t *testing.T) (*havoc.NamespaceScopedChaosRunner, *frameworkGr
 	if gURL == "" || gToken == "" {
 		return nil, nil, errors.New("GRAFANA_URL or GRAFANA_TOKEN environment variables not set")
 	}
-	return havoc.NewNamespaceRunner(l, c, false), frameworkGrafana.NewGrafanaClient(gURL, gToken), nil
+	return havoc.NewNamespaceRunner(l, c, false), framework.NewGrafanaClient(gURL, gToken), nil
 }
 
 func TestChaos(t *testing.T) {

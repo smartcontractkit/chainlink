@@ -1,7 +1,6 @@
 package deploy
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -12,20 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
+
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 )
 
 func PermissionlessFeedsConsumer(rpcURL string) (*common.Address, error) {
-	var privateKey string
-	if os.Getenv("PRIVATE_KEY") == "" {
-		privateKey = blockchain.DefaultAnvilPrivateKey
-		fmt.Printf("Since PRIVATE_KEY environment variable was empty, will use default value: %s\n", privateKey)
-	} else {
-		privateKey = os.Getenv("PRIVATE_KEY")
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return nil, pkErr
 	}
 
 	sethClient, sethErr := seth.NewClientBuilder().
 		WithRpcUrl(rpcURL).
-		WithPrivateKeys([]string{privateKey}).
+		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()

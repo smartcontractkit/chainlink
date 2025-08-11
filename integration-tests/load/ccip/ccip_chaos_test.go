@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 
-	framework "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -35,7 +35,7 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.A
 	return a
 }
 
-func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner, *framework.Client) {
+func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner, *framework.GrafanaClient) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
 	if err != nil {

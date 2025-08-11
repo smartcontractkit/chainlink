@@ -88,12 +88,11 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/common @smartcontractkit/devex-tooling
 /deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
-/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/core @smartcontractkit/cld-team
-/deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/vault @smartcontractkit/cld-vault @smartcontractkit/core @smartcontractkit/cld-team
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

@@ -459,6 +459,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		WorkflowRegistryAddress:       r.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
 		Metering:                      r.FormatReport(),
+		CreditsConsumed:               r.balance.GetSpent().String(),
 	}
 
 	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)

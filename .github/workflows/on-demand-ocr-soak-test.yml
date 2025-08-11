@@ -1,5 +1,35 @@
 name: On Demand OCR Soak Test
 on:
+  workflow_call:
+    inputs:
+      testToRun:
+        description: Test to run (from .github/e2e-tests.yml)
+        required: false
+        default: soak/ocr_test.go:TestOCRv2Soak
+        type: string
+      chainlink_version:
+        description: Version to test (e.g. "v2.25.0-beta.0", "develop", etc.)
+        required: true
+        type: string
+      test_config_override_path:
+        description: Path to the override test config TOML (defaults to OCR2 on Eth Sepolia, 12h soak)
+        required: false
+        default: "integration-tests/testconfig/ocr2/overrides/ethereum_sepolia_12h.toml"
+        type: string
+      test_secrets_override_key:
+        description: Test secrets (defaults to EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
+        required: false
+        type: string
+      team:
+        description: Team (e.g. BIX, CCIP, CRE, etc.)
+        required: true
+        type: string
+      slackMemberID:
+        description: Slack Member ID (to tag when results published in `#test-run-notifications` Slack channel).
+        required: false
+        default: U01A2B2C3D4
+        type: string
+
   workflow_dispatch:
     inputs:
       testToRun:
@@ -26,7 +56,7 @@ on:
       test_config_override_path:
         description: Path to the override test config TOML (defaults to OCR2 on Eth Sepolia, 12h soak)
         required: false
-        default: 'integration-tests/testconfig/ocr2/overrides/ethereum_sepolia_12h.toml'
+        default: "integration-tests/testconfig/ocr2/overrides/ethereum_sepolia_12h.toml"
         type: string
       test_secrets_override_key:
         description: Test secrets (defaults to EOA - 0x663d14907663dC0D2bC3A3b9Ad61c10fa9B0fc08 on Eth Sepolia)
@@ -123,15 +153,14 @@ jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
     needs:
-      - wait-for-workflows
       - setup-test-parameters
-    # Run this job only if:
-    # - optional wait-for-workflows did not fail (published release image might not be required),
-    # - and the other dependencies were successful.
-    if: >-
-      always() &&
-      needs.wait-for-workflows.result != 'failure' && 
-      needs.setup-test-parameters.result == 'success'
+    if: needs.setup-test-parameters.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      checks: write
+      pull-requests: write
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c82f8c4d2599c4c7d4e5045bcc0a28f0bf34272
     with:
       chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
@@ -139,7 +168,7 @@ jobs:
       test_ids: ${{ inputs.testToRun }}
       test_secrets_override_key: ${{ needs.setup-test-parameters.outputs.test_secrets_override_key }}
       test_config_override_path: ${{ inputs.test_config_override_path }}
-      # Fallback is used to properly convert a string to boolean 
+      # Fallback is used to properly convert a string to boolean
       skip_image_build: ${{ needs.setup-test-parameters.outputs.skip_image_build == 'true' && true || false }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       team: ${{ inputs.team }}

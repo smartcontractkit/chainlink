@@ -622,6 +622,67 @@ Password = 'something'`
 	})
 }
 
+func TestSolKeys_TOMLSerialization(t *testing.T) {
+	t.Parallel()
+
+	t.Run("encode", func(t *testing.T) {
+		solKeys := SolKeys{
+			Keys: []*SolKey{
+				{JSON: ptr(models.Secret("solkey1")), Password: ptr(models.Secret("pass1")), ID: ptr("devnet")},
+				{JSON: ptr(models.Secret("solkey2")), Password: ptr(models.Secret("pass2")), ID: ptr("mainnet")},
+			},
+		}
+
+		var buf bytes.Buffer
+		enc := toml.NewEncoder(&buf)
+		err := enc.Encode(solKeys)
+		require.NoError(t, err)
+
+		var decoded SolKeys
+		err = toml.NewDecoder(strings.NewReader(buf.String())).Decode(&decoded)
+		require.NoError(t, err)
+		assert.Len(t, solKeys.Keys, len(decoded.Keys))
+		for i, key := range solKeys.Keys {
+			assert.Equal(t, key.JSON.GoString(), decoded.Keys[i].JSON.GoString())
+			assert.Equal(t, key.Password.GoString(), decoded.Keys[i].Password.GoString())
+			assert.Equal(t, *key.ID, *decoded.Keys[i].ID)
+		}
+	})
+
+	t.Run("decode", func(t *testing.T) {
+		var decoded SolKeys
+		btoml := `[[Keys]]
+JSON = '{k:v}'
+ID = "devnet"
+Password = 'secret'`
+		err := toml.Unmarshal([]byte(btoml), &decoded)
+		require.NoError(t, err)
+		assert.Len(t, decoded.Keys, 1)
+		assert.Equal(t, "devnet", *decoded.Keys[0].ID)
+		assert.Equal(t, models.NewSecret("secret"), decoded.Keys[0].Password)
+		assert.Equal(t, models.NewSecret("{k:v}"), decoded.Keys[0].JSON)
+	})
+}
+
+func TestSolKeys_SetFrom(t *testing.T) {
+	t.Parallel()
+
+	solKeysWrapper1 := &SolKeys{}
+	solKeysWrapper2 := SolKeys{
+		Keys: []*SolKey{
+			{
+				JSON:     ptr(models.Secret("solkey1")),
+				Password: ptr(models.Secret("pass1")),
+				ID:       ptr("devnet"),
+			},
+		},
+	}
+
+	err := solKeysWrapper1.SetFrom(&solKeysWrapper2)
+	require.NoError(t, err)
+	assert.Equal(t, solKeysWrapper2, *solKeysWrapper1)
+}
+
 func TestEthKeys_SetFrom(t *testing.T) {
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{

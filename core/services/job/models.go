@@ -903,6 +903,7 @@ type WorkflowSpec struct {
 	WorkflowID    string             `toml:"-" db:"workflow_id"` // Derived. Do not modify. the CID of the workflow.
 	WorkflowOwner string             `toml:"workflow_owner" db:"workflow_owner"`
 	WorkflowName  string             `toml:"workflow_name" db:"workflow_name"`
+	WorkflowTag   string             `toml:"workflow_tag" db:"workflow_tag"`
 	Status        WorkflowSpecStatus `db:"status"`
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`

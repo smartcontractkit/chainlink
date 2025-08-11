@@ -13,7 +13,7 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ cldf.ChangeSet[uint64] = DeployCapabilityRegistry
+var _ cldf.ChangeSet[*DeployRequestV2] = DeployCapabilityRegistryV2
 
 // Depreciated: use DeployCapabilityRegistryV2 instead
 func DeployCapabilityRegistry(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {

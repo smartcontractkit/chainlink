@@ -42,6 +42,14 @@ func buildConfig(toAppend string) string {
 	` + toAppend
 }
 
+type handlerFactory struct {
+	handlers map[string]handlers.Handler
+}
+
+func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
+	return h.handlers[handlerType], nil
+}
+
 func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
 	t.Parallel()
 
@@ -137,8 +145,8 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	servicetest.Run(t, gateway)
 }
 
-func requireJSONRPCResult(t *testing.T, response []byte, expectedID string, expectedResult string) {
-	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedID, expectedResult), string(response))
+func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID string, expectedResult string) {
+	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s,"method":"%s"}`, expectedID, expectedResult, method), string(response))
 }
 
 func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedID string, expectedCode int64, expectedMsg string) {
@@ -250,9 +258,10 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
 	})
 
-	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
+	method := "request"
+	req := newSignedLegacyRequest(t, "abcd", method, "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJSONRPCResult(t, response, "abcd",
+	requireJSONRPCResult(t, method, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"request","don_id":"testDON","receiver":"","payload":{"result":"OK"}}}`)
 	require.Equal(t, 200, statusCode)
 }
@@ -270,6 +279,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      request.ID,
 			Result:  &rawResult,
+			Method:  request.Method,
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
@@ -278,7 +288,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
-	requireJSONRPCResult(t, response, "abcd", `{"result":"OK"}`)
+	requireJSONRPCResult(t, "testDON", response, "abcd", `{"result":"OK"}`)
 	require.Equal(t, 200, statusCode)
 }
 
@@ -306,4 +316,73 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
 	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrInvalidRequest, "failure")
 	require.Equal(t, 400, statusCode)
+}
+
+func TestGateway_Multihandler(t *testing.T) {
+	tomlConfig := buildConfig(`
+[[dons]]
+DonId = "my_don_1"
+
+[[dons.Handlers]]
+Name = "dummy"
+
+[[dons.Handlers]]
+Name = "dummy2"
+
+[[dons.Members]]
+Name = "node one"
+Address = "0x0001020304050607080900010203040506070809"
+`)
+
+	lggr := logger.Test(t)
+	handler := handler_mocks.NewHandler(t)
+	handler.On("Methods").Return([]string{"dummy"})
+	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		// echo back to sender with attached payload
+		if msg.Body.Method != "dummy" {
+			require.Fail(t, "Expected method to be 'dummy1'")
+		}
+		msg.Body.Payload = []byte(`{"result":"OK"}`)
+		msg.Signature = ""
+		codec := api.JsonRPCCodec{}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+	})
+	handler2 := handler_mocks.NewHandler(t)
+	handler2.On("Methods").Return([]string{"dummy2"})
+	handler2.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		// echo back to sender with attached payload
+		if msg.Body.Method != "dummy2" {
+			require.Fail(t, "Expected method to be 'dummy2'")
+		}
+		msg.Body.Payload = []byte(`{"result":"OK"}`)
+		msg.Signature = ""
+		codec := api.JsonRPCCodec{}
+		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+	})
+	handlers := map[string]handlers.Handler{
+		"dummy":  handler,
+		"dummy2": handler2,
+	}
+	mhf := &handlerFactory{handlers: handlers}
+
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, lggr)
+	require.NoError(t, err)
+
+	method := "dummy"
+	req := newSignedLegacyRequest(t, "abcd", method, "my_don_1", []byte{})
+	response, statusCode := gateway.ProcessRequest(testutils.Context(t), req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, method, response, "abcd",
+		`{"signature":"","body":{"message_id":"abcd","method":"dummy","don_id":"my_don_1","receiver":"","payload":{"result":"OK"}}}`)
+
+	method = "dummy2"
+	req = newSignedLegacyRequest(t, "abcd", method, "my_don_1", []byte{})
+	response, statusCode = gateway.ProcessRequest(testutils.Context(t), req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, method, response, "abcd",
+		`{"signature":"","body":{"message_id":"abcd","method":"dummy2","don_id":"my_don_1","receiver":"","payload":{"result":"OK"}}}`)
 }

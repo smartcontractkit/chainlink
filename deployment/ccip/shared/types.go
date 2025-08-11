@@ -52,6 +52,7 @@ var (
 	USDCToken                                       deployment.ContractType = "USDCToken"
 	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
 	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
+	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 
@@ -70,6 +71,7 @@ var (
 	RemoteSource         deployment.ContractType = "RemoteSource"
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 

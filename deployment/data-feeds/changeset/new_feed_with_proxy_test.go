@@ -1,10 +1,11 @@
 package changeset_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -51,11 +52,13 @@ func TestNewFeedWithProxy(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	require.Len(t, records, 1)
+	cacheAddress := records[0].Address
 
-	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
-	require.NoError(t, err)
+	records = newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	require.Len(t, records, 1)
+	timeLockAddress := records[0].Address
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
 		changeset.SetFeedAdminChangeset,
@@ -78,6 +81,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 
 	dataid := "0x01bb0467f50003040000000000000000"
 	dataid2 := "0x01475851f90003320000000000000000"
+	dataid3 := "0x01465851f90003320000000000000000"
 
 	newEnv, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
@@ -85,8 +89,8 @@ func TestNewFeedWithProxy(t *testing.T) {
 			types.NewFeedWithProxyConfig{
 				ChainSelector:    chainSelector,
 				AccessController: common.HexToAddress("0x00"),
-				DataIDs:          []string{dataid, dataid2},
-				Descriptions:     []string{"feed1", "feed2"},
+				DataIDs:          []string{dataid, dataid2, dataid3},
+				Descriptions:     []string{"feed1", "feed2", "feed3"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					{
 						AllowedSender:        common.HexToAddress("0x22"),
@@ -94,6 +98,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
+				Qualifiers: []string{"qualifier1", "qualifier2", "qualifier3"},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 0,
 				},
@@ -102,9 +107,8 @@ func TestNewFeedWithProxy(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	addrs, err := newEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	fmt.Println(addrs)
+	addrs, err := newEnv.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
-	// 2 AggregatorProxy, DataFeedsCache, CallProxy, RBACTimelock, ProposerManyChainMultiSig, BypasserManyChainMultiSig, CancellerManyChainMultiSig
-	require.Len(t, addrs, 8)
+	// 3 AggregatorProxy, DataFeedsCache, CallProxy, RBACTimelock, ProposerManyChainMultiSig, BypasserManyChainMultiSig, CancellerManyChainMultiSig
+	require.Len(t, addrs, 9)
 }

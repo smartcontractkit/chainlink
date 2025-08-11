@@ -19,7 +19,6 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -785,7 +784,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 
 	e, tokenAddress, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
-	pool := solTestTokenPool.LockAndRelease_PoolType
+	pool := shared.LockReleaseTokenPool
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// add token pool lookup table
@@ -793,7 +792,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 			ccipChangesetSolana.TokenPoolLookupTableConfig{
 				ChainSelector: solChain,
 				TokenPubKey:   tokenAddress,
-				PoolType:      &pool,
+				PoolType:      pool,
 				Metadata:      tokenMetadata,
 			},
 		),
@@ -801,7 +800,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool.String()][tokenMetadata]
+	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress][pool][tokenMetadata]
 
 	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.BlockChains.SolanaChains()[solChain].Client, lookupTablePubKey)
 	require.NoError(t, err)
@@ -841,13 +840,13 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 			ChainSelector: solChain,
 			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 				{
-					TokenPubKey: tokenAddress,
-					PoolType:    &pool,
-					Metadata:    tokenMetadata,
+					TokenPubKey:     tokenAddress,
+					PoolType:        pool,
+					Metadata:        tokenMetadata,
+					WritableIndexes: []uint8{3, 4, 7},
 				},
 			},
-			WritableIndexes: []uint8{3, 4, 7},
-			MCMS:            mcmsConfig,
+			MCMS: mcmsConfig,
 		},
 	))
 	require.NoError(t, err)

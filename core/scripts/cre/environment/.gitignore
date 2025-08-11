@@ -11,6 +11,7 @@ cre_v*
 
 # crib-specific CL node configuration and secrets that will be used to override the default configuration
 crib-configs/
+configs/*-cache.toml
 cache/
 
 logs/
@@ -24,3 +25,5 @@ examples/**/*.yaml
 # dumped data
 env_artifact/
 bin/
+artifact_paths.json
+*.b64

@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -289,13 +289,30 @@ func TestEngine_Execution(t *testing.T) {
 		trigger := capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
 		eventCh := make(chan capabilities.TriggerResponse)
-		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+		var capturedTriggerRequest capabilities.TriggerRegistrationRequest
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
+			Run(func(ctx context.Context, req capabilities.TriggerRegistrationRequest) {
+				capturedTriggerRequest = req
+			}).
+			Return(eventCh, nil).Once()
 		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+		require.Equal(t, fmt.Sprintf("trigger_reg_%s_%d", cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
+		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
+		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
+		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
+		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
+		require.Equal(t, "method", capturedTriggerRequest.Method)
+		require.Nil(t, capturedTriggerRequest.Payload)
+		require.Nil(t, capturedTriggerRequest.Config)
 
 		mockTriggerEvent := capabilities.TriggerEvent{
 			TriggerType: "basic-trigger@1.0.0",
@@ -892,6 +909,8 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	// Mock capability that takes longer than the 50ms timeout
 	slowCapability.EXPECT().Execute(matches.AnyContext, mock.Anything).
 		Run(func(ctx context.Context, req capabilities.CapabilityRequest) {
+			assert.Equal(t, testWorkflowNameA, req.Metadata.DecodedWorkflowName)
+			assert.Equal(t, hashedTestWorkflowNameA, req.Metadata.WorkflowName)
 			// Simulate work that takes longer than the 50ms timeout
 			select {
 			case <-time.After(100 * time.Millisecond):
@@ -1228,16 +1247,16 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
-								EncryptedValue: base64.StdEncoding.EncodeToString(cipherBytes),
+								EncryptedValue: hex.EncodeToString(cipherBytes),
 								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
 									{
 										Shares: []string{
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare0),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare2),
-											base64.StdEncoding.EncodeToString([]byte("blabbermouth")),
-											base64.StdEncoding.EncodeToString(encryptedDecryptionShare1),
+											hex.EncodeToString(encryptedDecryptionShare0),
+											hex.EncodeToString(encryptedDecryptionShare2),
+											hex.EncodeToString([]byte("blabbermouth")),
+											hex.EncodeToString(encryptedDecryptionShare1),
 										},
-										EncryptionKey: base64.StdEncoding.EncodeToString(workflowKeyBytes[:]),
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
 									},
 								},
 							},
@@ -1251,7 +1270,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": base64.StdEncoding.EncodeToString(vaultPublicKeyBytes),
+		"VaultPublicKey": hex.EncodeToString(vaultPublicKeyBytes),
 	})
 	require.NoError(t, err)
 	capConfig := capabilities.CapabilityConfiguration{
