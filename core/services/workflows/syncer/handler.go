@@ -498,7 +498,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		Status:        status,
 		WorkflowOwner: owner,
 		WorkflowName:  payload.WorkflowName,
-		WorkflowTag:   "", // V1 workflows don't have tags, so set empty string
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
