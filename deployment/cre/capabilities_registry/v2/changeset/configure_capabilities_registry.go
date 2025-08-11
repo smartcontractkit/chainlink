@@ -17,6 +17,8 @@ type ConfigureCapabilitiesRegistryInput struct {
 	ChainSelector               uint64                                                      `json:"chainSelector"`
 	CapabilitiesRegistryAddress string                                                      `json:"capabilitiesRegistryAddress"`
 	Nops                        []capabilities_registry_v2.CapabilitiesRegistryNodeOperator `json:"nops,omitempty"`
+	Capabilities                []capabilities_registry_v2.CapabilitiesRegistryCapability   `json:"capabilities,omitempty"`
+	Nodes                       []capabilities_registry_v2.CapabilitiesRegistryNodeParams   `json:"nodes,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -46,6 +48,8 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 			UseMCMS:          false, // Assuming MCMS is not used in this context
 			ContractAddress:  config.CapabilitiesRegistryAddress,
 			Nops:             config.Nops,
+			Capabilities:     config.Capabilities,
+			Nodes:            config.Nodes,
 		},
 	)
 	if err != nil {

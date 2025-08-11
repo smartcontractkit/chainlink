@@ -22,6 +22,8 @@ type ConfigureCapabilitiesRegistrySeqInput struct {
 	UseMCMS         bool
 	ContractAddress string
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
+	Nodes           []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
 }
 
 func (c ConfigureCapabilitiesRegistrySeqInput) Validate() error {
@@ -32,7 +34,9 @@ func (c ConfigureCapabilitiesRegistrySeqInput) Validate() error {
 }
 
 type ConfigureCapabilitiesRegistrySeqOutput struct {
-	Nops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
+	Nops         []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
+	Nodes        []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
+	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
 }
 
 var ConfigureCapabilitiesRegistrySequence = operations.NewSequence(
@@ -40,8 +44,8 @@ var ConfigureCapabilitiesRegistrySequence = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Configures the capabilities registry by registering node operators, nodes, dons and capabilities",
 	func(b operations.Bundle, deps ConfigureCapabilitiesRegistrySeqDeps, input ConfigureCapabilitiesRegistrySeqInput) (ConfigureCapabilitiesRegistrySeqOutput, error) {
-		// Execute operations in sequence
-		deployReport, err := operations.ExecuteOperation(b, contracts.RegisterNopsOp, contracts.RegisterNopsOpDeps{Env: deps.Env}, contracts.RegisterNopsOpInput{
+		// Register Node Operators
+		registerNopsReport, err := operations.ExecuteOperation(b, contracts.RegisterNopsOp, contracts.RegisterNopsOpDeps{Env: deps.Env}, contracts.RegisterNopsOpInput{
 			ChainSelector: input.RegistryChainSel,
 			Address:       input.ContractAddress,
 			Nops:          input.Nops,
@@ -50,8 +54,30 @@ var ConfigureCapabilitiesRegistrySequence = operations.NewSequence(
 			return ConfigureCapabilitiesRegistrySeqOutput{}, err
 		}
 
+		// Register capabilities
+		registerCapabilitiesReport, err := operations.ExecuteOperation(b, contracts.RegisterCapabilitiesOp, contracts.RegisterCapabilitiesOpDeps{Env: deps.Env}, contracts.RegisterCapabilitiesOpInput{
+			ChainSelector: input.RegistryChainSel,
+			Address:       input.ContractAddress,
+			Capabilities:  input.Capabilities,
+		})
+		if err != nil {
+			return ConfigureCapabilitiesRegistrySeqOutput{}, err
+		}
+
+		// Register Nodes
+		registerNodesReport, err := operations.ExecuteOperation(b, contracts.RegisterNodesOp, contracts.RegisterNodesOpDeps{Env: deps.Env}, contracts.RegisterNodesOpInput{
+			ChainSelector: input.RegistryChainSel,
+			Address:       input.ContractAddress,
+			Nodes:         input.Nodes,
+		})
+		if err != nil {
+			return ConfigureCapabilitiesRegistrySeqOutput{}, err
+		}
+
 		return ConfigureCapabilitiesRegistrySeqOutput{
-			Nops: deployReport.Output.Nops,
+			Nops:         registerNopsReport.Output.Nops,
+			Nodes:        registerNodesReport.Output.Nodes,
+			Capabilities: registerCapabilitiesReport.Output.Capabilities,
 		}, nil
 	},
 )
