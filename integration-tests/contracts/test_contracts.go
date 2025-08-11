@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 

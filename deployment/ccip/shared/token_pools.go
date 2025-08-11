@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

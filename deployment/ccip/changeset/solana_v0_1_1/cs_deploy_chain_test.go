@@ -35,7 +35,7 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	ShaV0_1_0 = "d1f5f0be212a94abe514fd3bb1baf13af25c3b61"
+	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
 	ShaV0_1_1 = "7f8a0f403c3acbf740fa6d50d71bfb80a8b12ab8"
 )
 
