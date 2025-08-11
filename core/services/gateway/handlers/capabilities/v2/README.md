@@ -68,7 +68,7 @@ The HTTP Handlers V2 is responsible for:
 - **Cache TTL**: Configurable, default 10 minutes
 - **Cache Key**: Generated from workflow ID and request hash
 - **Cache Invalidation**: Time-based expiration with periodic cleanup
-- **Cache Strategy**: All cacheable responses are cached; `CacheSettings.ReadFromCache` determines whether to return cached value or make fresh request
+- **Cache Strategy**: All cacheable responses are cached; `CacheSettings.ReadFromCache` determines whether to return a cached value or make a fresh request
 - **Workflow Isolation**: Cache entries are scoped by workflow ID to prevent cross-workflow data leakage
 ---
 
