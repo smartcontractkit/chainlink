@@ -80,8 +80,8 @@ func (e *evmService) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (u
 	return e.chain.Client().EstimateGas(ctx, toEthMsg(call))
 }
 
-func (e *evmService) GetTransactionByHash(ctx context.Context, request evmtypes.GetTransactionByHashRequest) (*evmtypes.Transaction, error) {
-	tx, err := e.chain.Client().TransactionByHashWithOpts(ctx, request.Hash, types.TransactionByHashOpts{IsExternalRequest: request.IsExternal})
+func (e *evmService) GetTransactionByHash(ctx context.Context, request evm.GetTransactionByHashRequest) (*evmtypes.Transaction, error) {
+	tx, err := e.chain.Client().TransactionByHash(ctx, request.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (e *evmService) GetTransactionByHash(ctx context.Context, request evmtypes.
 	return convertTransaction(tx), nil
 }
 
-func (e *evmService) GetTransactionReceipt(ctx context.Context, request evmtypes.GeTransactionReceiptRequest) (*evmtypes.Receipt, error) {
-	receipt, err := e.chain.Client().TransactionReceiptWithOpts(ctx, request.Hash, types.TransactionReceiptOpts{IsExternalRequest: request.IsExternal})
+func (e *evmService) GetTransactionReceipt(ctx context.Context, request evm.GeTransactionReceiptRequest) (*evmtypes.Receipt, error) {
+	receipt, err := e.chain.Client().TransactionReceipt(ctx, request.Hash)
 	if err != nil {
 		return nil, err
 	}
