@@ -102,7 +102,7 @@ func (m *mockOpts) SeqNr() uint64 {
 }
 func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
 	if m.outCtx.SeqNr == 0 {
-		return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
+		return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: []byte("foo")}
 	}
 	return m.outCtx
 }
@@ -119,7 +119,18 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	return m.observationTimestamp
 }
 func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
-	return nil
+	return mockOutputCodec{}
+}
+
+type mockOutputCodec struct{}
+
+func (oc mockOutputCodec) Encode(outcome llo.Outcome) (ocr3types.Outcome, error) {
+	return ocr3types.Outcome{}, nil
+}
+func (oc mockOutputCodec) Decode(encoded ocr3types.Outcome) (outcome llo.Outcome, err error) {
+	return llo.Outcome{
+		LifeCycleStage: llo.LifeCycleStageProduction,
+	}, nil
 }
 
 type mockTelemeter struct {
@@ -159,6 +170,7 @@ func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
+	observationLoopSleepDuration := 10 * time.Millisecond
 
 	t.Run("Observe", func(t *testing.T) {
 		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {

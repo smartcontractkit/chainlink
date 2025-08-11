@@ -48,8 +48,6 @@ type ErrObservationFailed struct {
 	run      *pipeline.Run
 }
 
-const observationLoopSleepDuration = 10 * time.Millisecond
-
 func (e *ErrObservationFailed) Error() string {
 	s := fmt.Sprintf("StreamID: %d; Reason: %s", e.streamID, e.reason)
 	if e.inner != nil {
@@ -105,19 +103,6 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
-	now := time.Now()
-	lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
-
-	if opts.VerboseLogging() {
-		streamIDs := make([]streams.StreamID, 0, len(streamValues))
-		for streamID := range streamValues {
-			streamIDs = append(streamIDs, streamID)
-		}
-		sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
-		lggr = logger.With(lggr, "streamIDs", streamIDs)
-		lggr.Debugw("Observing streams")
-	}
-
 	// Observation loop logic
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
@@ -131,14 +116,13 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		if !ok {
 			d.timeout = 100 * time.Millisecond
 		} else {
-			d.timeout = deadline.Sub(now)
+			d.timeout = deadline.Sub(time.Now())
 		}
-
 		d.configDigestToStreamMu.Unlock()
 
 		if !d.observationLoopStarted {
 			loopStartedCh := make(chan struct{})
-			go d.startObservationLoop(lggr, loopStartedCh)
+			go d.startObservationLoop(loopStartedCh)
 			<-loopStartedCh
 		}
 	}
@@ -159,35 +143,6 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		streamValues[streamID] = val
 	}
 
-	// TODO rework this logging
-	// Only log on errors or if VerboseLogging is turned on
-	if len(errs) > 0 || opts.VerboseLogging() {
-		elapsed := time.Since(now)
-
-		slices.Sort(successfulStreamIDs)
-		sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
-
-		failedStreamIDs := make([]streams.StreamID, len(errs))
-		errStrs := make([]string, len(errs))
-		for i, e := range errs {
-			errStrs[i] = e.String()
-			failedStreamIDs[i] = e.streamID
-		}
-
-		lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
-			len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "errs", errStrs)
-
-		if opts.VerboseLogging() {
-			lggr = logger.With(lggr, "streamValues", streamValues)
-		}
-
-		if len(errs) == 0 && opts.VerboseLogging() {
-			lggr.Infow("Observation succeeded for all streams")
-		} else if len(errs) > 0 {
-			lggr.Warnw("Observation failed for streams")
-		}
-	}
-
 	return nil
 }
 
@@ -195,15 +150,25 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // the cache. It does not check for cached versions, it always calculates fresh values.
 //
 // NOTE: This method needs to be run in a goroutine.
-func (d *dataSource) startObservationLoop(lggr logger.Logger, loopStartedCh chan struct{}) {
+func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	for {
 		now := time.Now()
 		opts, streamValues := d.getObservableStreams()
 
-		oc := NewObservationContext(lggr, d.registry, d.t)
+		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
+
+		if opts.VerboseLogging() {
+			streamIDs := make([]streams.StreamID, 0, len(streamValues))
+			for streamID := range streamValues {
+				streamIDs = append(streamIDs, streamID)
+			}
+			sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
+			lggr = logger.With(lggr, "streamIDs", streamIDs)
+			lggr.Debugw("Observing streams")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
 		defer cancel()
-
 		// Telemetry
 		var telemCh chan<- interface{}
 		{
@@ -227,6 +192,8 @@ func (d *dataSource) startObservationLoop(lggr logger.Logger, loopStartedCh chan
 
 		var wg sync.WaitGroup
 		wg.Add(len(streamValues))
+
+		oc := NewObservationContext(lggr, d.registry, d.t)
 
 		for streamID := range streamValues {
 			go func(streamID llotypes.StreamID) {
@@ -260,7 +227,6 @@ func (d *dataSource) startObservationLoop(lggr logger.Logger, loopStartedCh chan
 			close(telemCh)
 		}
 
-		// TODO rework this logging
 		// Only log on errors or if VerboseLogging is turned on
 		if len(errs) > 0 || opts.VerboseLogging() {
 			elapsed := time.Since(now)
@@ -300,12 +266,10 @@ func (d *dataSource) startObservationLoop(lggr logger.Logger, loopStartedCh chan
 			return
 		default:
 			// If we want to sleep between rounds, here is the place to do it.
-			time.Sleep(observationLoopSleepDuration)
+			time.Sleep(d.timeout / 20) // turn this know if the EAs are under too much pressure
 		}
 	}
 }
-
-var cacheConfigDigest types.ConfigDigest = [32]byte{}
 
 func (d *dataSource) fromCache(streamID llotypes.StreamID) llo.StreamValue {
 	if streamValue, found := d.cache.Get(streamID); found && streamValue != nil {
@@ -349,7 +313,6 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues) {
 				activeOpts = vals.opts
 			}
 		}
-
 	}
 
 	return activeOpts, activeStreamValues
