@@ -72,8 +72,8 @@ func (e *evmService) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (u
 	return e.chain.Client().EstimateGas(ctx, toEthMsg(call))
 }
 
-func (e *evmService) GetTransactionByHash(ctx context.Context, hash evmtypes.Hash) (*evmtypes.Transaction, error) {
-	tx, err := e.chain.Client().TransactionByHash(ctx, hash)
+func (e *evmService) GetTransactionByHash(ctx context.Context, request evm.GetTransactionByHashRequest) (*evmtypes.Transaction, error) {
+	tx, err := e.chain.Client().TransactionByHash(ctx, request.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func (e *evmService) GetTransactionByHash(ctx context.Context, hash evmtypes.Has
 	return convertTransaction(tx), nil
 }
 
-func (e *evmService) GetTransactionReceipt(ctx context.Context, txHash evmtypes.Hash) (*evmtypes.Receipt, error) {
-	receipt, err := e.chain.Client().TransactionReceipt(ctx, txHash)
+func (e *evmService) GetTransactionReceipt(ctx context.Context, request evm.GeTransactionReceiptRequest) (*evmtypes.Receipt, error) {
+	receipt, err := e.chain.Client().TransactionReceipt(ctx, request.Hash)
 	if err != nil {
 		return nil, err
 	}
