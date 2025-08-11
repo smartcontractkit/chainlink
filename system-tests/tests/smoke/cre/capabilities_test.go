@@ -141,6 +141,7 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 
 		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 		require.NoError(t, mergeErr, "failed to merge address book")
+		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
 
 		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 

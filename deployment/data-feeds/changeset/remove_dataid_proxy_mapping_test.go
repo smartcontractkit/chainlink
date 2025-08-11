@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -47,8 +49,9 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	require.Len(t, records, 1)
+	cacheAddress := records[0].Address
 
 	dataid := "0x01bb0467f50003040000000000000000"
 
@@ -80,8 +83,9 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 	require.NoError(t, err)
 
 	// with MCMS
-	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
-	require.NoError(t, err)
+	records = newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	require.Len(t, records, 1)
+	timeLockAddress := records[0].Address
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
 		changeset.SetFeedAdminChangeset,
