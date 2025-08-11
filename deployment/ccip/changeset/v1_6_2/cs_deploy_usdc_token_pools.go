@@ -190,17 +190,10 @@ func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses 
 
 			case utils.ZeroAddress:
 				// If the previous pool address is not set, we try to find the latest deployed pool address
-				switch {
-				case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
-				case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
-				case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
-				default:
-					return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-						Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chain.Name()),
-					}
+				var err error
+				previousPoolAddress, err = getPreviousPoolAddress(chainState, chain.Name())
+				if err != nil {
+					return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{Err: err}
 				}
 			}
 
@@ -235,17 +228,10 @@ func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Cha
 
 			case utils.ZeroAddress:
 				// If the previous pool address is not set, we try to find the latest deployed pool address
-				switch {
-				case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
-				case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
-				case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
-					previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
-				default:
-					return cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool]{
-						Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chain.Name()),
-					}
+				var err error
+				previousPoolAddress, err = getPreviousPoolAddress(chainState, chain.Name())
+				if err != nil {
+					return cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool]{Err: err}
 				}
 			}
 
@@ -264,4 +250,19 @@ func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Cha
 		},
 	)
 	return err
+}
+
+func getPreviousPoolAddress(chainState evm.CCIPChainState, chainName string) (common.Address, error) {
+	var previousPoolAddress common.Address
+	switch {
+	case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
+		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
+	case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
+		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
+	case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
+		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
+	default:
+		return common.Address{}, fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chainName)
+	}
+	return previousPoolAddress, nil
 }
