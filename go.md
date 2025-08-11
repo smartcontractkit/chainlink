@@ -340,15 +340,8 @@ flowchart LR
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
-<<<<<<< HEAD
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
-||||||| parent of d0c9106f89 (Use plugin config from new plugin repo repo)
-	chainlink/v2 --> chainlink-tron/relayer
-=======
-	chainlink/v2 --> chainlink-tron/relayer
-	chainlink/v2 --> por_mock_ocr3plugin
->>>>>>> d0c9106f89 (Use plugin config from new plugin repo repo)
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb

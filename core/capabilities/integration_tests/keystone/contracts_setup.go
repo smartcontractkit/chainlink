@@ -22,7 +22,6 @@ func SetupForwarderContract(t *testing.T, reportCreator *framework.DON,
 		signers = append(signers, common.HexToAddress(p.Signer))
 	}
 
-	t.Logf("Setting config for forwarder: %s with reportCreator: %d and signers: %v and version: %d and f: %d", addr.String(), reportCreator.GetID(), signers, reportCreator.GetConfigVersion(), reportCreator.GetF())
 	_, err = fwd.SetConfig(backend.TransactionOpts(), reportCreator.GetID(), reportCreator.GetConfigVersion(), reportCreator.GetF(), signers)
 	require.NoError(t, err)
 	backend.Commit()
@@ -41,7 +40,6 @@ func SetupConsumerContract(t *testing.T, backend *framework.EthBlockchain,
 
 	ownerAddr := common.HexToAddress(workflowOwner)
 
-	t.Logf("Setting config for consumer: %s with forwarder: %s and owner: %s and workflow name: %s", addr.String(), forwarderAddress.String(), ownerAddr.String(), workflowName)
 	_, err = consumer.SetConfig(backend.TransactionOpts(), []common.Address{forwarderAddress}, []common.Address{ownerAddr}, [][10]byte{nameBytes})
 	require.NoError(t, err)
 

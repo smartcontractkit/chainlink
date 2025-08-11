@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -73,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -1117,29 +1115,30 @@ func newCREServices(
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
-	// enable hack unless it's specifically disabled on the environment (e.g. for tests)
-	secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
-	if !ok || secureMintTransmitterHackDisabled != "true" {
-		globalLogger.Infow("HACK: initializing Secure Mint transmitter for sending mock secure mint trigger events")
-		transmitterConfig := securemint.TransmitterConfig{
-			Logger:                       globalLogger,
-			CapabilitiesRegistry:         opts.CapabilitiesRegistry,
-			DonID:                        1,
-			TriggerCapabilityName:        "securemint-trigger",
-			TriggerCapabilityVersion:     "1.0.0",
-			TriggerTickerMinResolutionMs: 1000,
-			TriggerSendChannelBufferSize: 1000,
-		}
-		transmitter, err := transmitterConfig.NewTransmitter("securemint-transmitter")
-		if err != nil {
-			globalLogger.Errorw("could not create Secure Mint transmitter, skipping", "error", err)
-		} else {
-			srvcs = append(srvcs, transmitter)
-			globalLogger.Infow("HACK: successfully created Secure Mint transmitter")
-		}
-	} else {
-		globalLogger.Infow("HACK: Secure Mint transmitter hack disabled, skipping")
-	}
+	// TODO(gg): remove
+	// // enable hack unless it's specifically disabled on the environment (e.g. for tests)
+	// secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
+	// if !ok || secureMintTransmitterHackDisabled != "true" {
+	// 	globalLogger.Infow("HACK: initializing Secure Mint transmitter for sending mock secure mint trigger events")
+	// 	transmitterConfig := securemint.TransmitterConfig{
+	// 		Logger:                       globalLogger,
+	// 		CapabilitiesRegistry:         opts.CapabilitiesRegistry,
+	// 		DonID:                        1,
+	// 		TriggerCapabilityName:        "securemint-trigger",
+	// 		TriggerCapabilityVersion:     "1.0.0",
+	// 		TriggerTickerMinResolutionMs: 1000,
+	// 		TriggerSendChannelBufferSize: 1000,
+	// 	}
+	// 	transmitter, err := transmitterConfig.NewTransmitter("securemint-transmitter")
+	// 	if err != nil {
+	// 		globalLogger.Errorw("could not create Secure Mint transmitter, skipping", "error", err)
+	// 	} else {
+	// 		srvcs = append(srvcs, transmitter)
+	// 		globalLogger.Infow("HACK: successfully created Secure Mint transmitter")
+	// 	}
+	// } else {
+	// 	globalLogger.Infow("HACK: Secure Mint transmitter hack disabled, skipping")
+	// }
 
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
