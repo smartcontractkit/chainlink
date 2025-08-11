@@ -98,7 +98,8 @@ flowchart LR
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> chainlink-tron/relayer
+	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
+	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> por_mock_ocr3plugin
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
@@ -342,6 +343,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
+	chainlink/v2 --> por_mock_ocr3plugin
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
