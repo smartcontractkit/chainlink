@@ -59,7 +59,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		return fmt.Errorf("CCTP message transmitter proxy for version %s not found on %s", deployment.Version1_6_2, chain)
 	}
 	if i.PreviousPoolAddress == utils.ZeroAddress {
-		if len(state.USDCTokenPools) == 0 {
+		if len(state.USDCTokenPools) == 0 && len(state.USDCTokenPoolsV1_6) == 0 {
 			return fmt.Errorf("unable to find a previous pool address, specify address or use USDCTokenPoolSentinelAddress (%s) if this is the first USDC token pool", USDCTokenPoolSentinelAddress)
 		}
 	}
@@ -78,7 +78,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 	}
 
 	// Check if a USDC token pool with the given version already exists
-	if _, ok := state.USDCTokenPools[deployment.Version1_6_2]; ok {
+	if _, ok := state.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
 		return fmt.Errorf("USDC token pool with version %s already exists on %s", deployment.Version1_6_2, chain)
 	}
 
@@ -257,7 +257,7 @@ func getPreviousPoolAddress(chainState evm.CCIPChainState, chainName string) (co
 	var previousPoolAddress common.Address
 	switch {
 	case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
-		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
+		previousPoolAddress = chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2].Address()
 	case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
 		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
 	case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
