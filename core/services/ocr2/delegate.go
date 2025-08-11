@@ -25,7 +25,6 @@ import (
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
@@ -76,6 +75,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint"
 	sm_adapter "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/keyringadapter"
