@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -117,6 +118,7 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	dontimeStore           *dontime.Store
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
@@ -192,6 +194,7 @@ func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
+	dontimeStore *dontime.Store,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	ratelimiter limits.RateLimiter,
@@ -214,6 +217,7 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		dontimeStore:           dontimeStore,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		ratelimiter:            ratelimiter,
@@ -553,6 +557,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		Module:          module,
 		WorkflowConfig:  config,
 		CapRegistry:     h.capRegistry,
+		DonTimeStore:    h.dontimeStore,
 		ExecutionsStore: h.workflowStore,
 
 		WorkflowID:            workflowID,

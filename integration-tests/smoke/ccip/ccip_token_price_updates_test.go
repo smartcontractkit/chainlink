@@ -16,11 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -142,7 +144,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	}, tests.WaitTimeout(t), 500*time.Millisecond)
 }
 
-func disableOracles(ctx context.Context, t *testing.T, client cldf.OffchainClient) []string {
+func disableOracles(ctx context.Context, t *testing.T, client cldf_offchain.Client) []string {
 	var disabledOracleIDs []string
 	listNodesResp, err := client.ListNodes(ctx, &node.ListNodesRequest{})
 	require.NoError(t, err)
@@ -160,7 +162,7 @@ func disableOracles(ctx context.Context, t *testing.T, client cldf.OffchainClien
 	return disabledOracleIDs
 }
 
-func enableOracles(ctx context.Context, t *testing.T, client cldf.OffchainClient, oracleIDs []string) {
+func enableOracles(ctx context.Context, t *testing.T, client cldf_offchain.Client, oracleIDs []string) {
 	for _, n := range oracleIDs {
 		_, err := client.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)

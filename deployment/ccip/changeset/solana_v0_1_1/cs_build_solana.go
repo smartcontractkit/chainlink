@@ -39,6 +39,7 @@ var programToFileMap = map[cldf.ContractType]string{
 	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
 	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
+	shared.CCTPTokenPool:           "programs/cctp-token-pool/src/lib.rs",
 }
 
 var programToVanityKey = map[cldf.ContractType]string{

@@ -44,7 +44,7 @@ func TestAdapter_Integration(t *testing.T) {
 	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().DriverName(), cfg.Database())
 	require.NoError(t, err)
 
-	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger)
+	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger.Infof)
 	pipelineORM := pipeline.NewORM(db, logger, cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	jobORM := job.NewORM(db, pipelineORM, bridgesORM, keystore, logger)

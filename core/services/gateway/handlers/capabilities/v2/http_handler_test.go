@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -41,6 +40,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		require.NotNil(t, handler)
 		require.Equal(t, "test-don", handler.donConfig.DonId)
 		require.NotNil(t, handler.responseCache)
+		require.NotNil(t, handler.triggerHandler)
+		require.NotNil(t, handler.metadataHandler)
 	})
 
 	t.Run("invalid config JSON", func(t *testing.T) {
@@ -160,9 +161,8 @@ func TestHandleNodeMessage(t *testing.T) {
 			URL:       "https://return-cached.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000, // 10 minute TTL
+				MaxAgeMs:      600000, // 10 minute TTL
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
@@ -201,15 +201,14 @@ func TestHandleNodeMessage(t *testing.T) {
 		handler.wg.Wait()
 	})
 
-	t.Run("status code 500 is not cached if StoreInCache is false", func(t *testing.T) {
+	t.Run("status code 500 is not cached", func(t *testing.T) {
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",
 			TimeoutMs: 5000,
 			CacheSettings: gateway_common.CacheSettings{
-				StoreInCache:  true,
 				ReadFromCache: true,
-				TTLMs:         600000,
+				MaxAgeMs:      600000,
 			},
 		}
 		reqBytes, err := json.Marshal(outboundReq)
@@ -270,32 +269,6 @@ func TestHandleNodeMessage(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to unmarshal HTTP request")
 		handler.wg.Wait()
 	})
-}
-
-func TestIsCacheableStatusCode(t *testing.T) {
-	tests := []struct {
-		statusCode int
-		expected   bool
-	}{
-		{200, true},  // Success
-		{201, true},  // Created
-		{299, true},  // Last 2xx
-		{300, false}, // Redirect (not cacheable)
-		{400, true},  // Bad Request (cacheable)
-		{404, true},  // Not Found (cacheable)
-		{499, true},  // Last 4xx
-		{500, false}, // Server Error (not cacheable)
-		{503, false}, // Service Unavailable (not cacheable)
-		{100, false}, // Informational (not cacheable)
-		{600, false}, // Invalid status code
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("status_%d", tt.statusCode), func(t *testing.T) {
-			result := isCacheableStatusCode(tt.statusCode)
-			require.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestServiceLifecycle(t *testing.T) {
@@ -378,11 +351,11 @@ func newMockResponseCache() *mockResponseCache {
 	}
 }
 
-func (m *mockResponseCache) Set(gateway_common.OutboundHTTPRequest, gateway_common.OutboundHTTPResponse, time.Duration) {
+func (m *mockResponseCache) Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse) {
 }
 
-func (m *mockResponseCache) Get(gateway_common.OutboundHTTPRequest) *gateway_common.OutboundHTTPResponse {
-	return nil
+func (m *mockResponseCache) CachedFetch(workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse {
+	return fetchFn()
 }
 
 func (m *mockResponseCache) DeleteExpired() int {

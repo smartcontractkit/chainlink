@@ -211,6 +211,7 @@ func SetupTestEnvironment(
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
+	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
 
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
@@ -223,6 +224,7 @@ func SetupTestEnvironment(
 			ForwardersSelectors:   forwardersSelectors,
 			DeployVaultOCR3:       vaultOCR3AddrFlag,
 			DeployEVMOCR3:         evmOCR3AddrFlag,
+			DeployConsensusOCR3:   consensusAddrFlag,
 		},
 	)
 	if err != nil {
@@ -339,7 +341,7 @@ func SetupTestEnvironment(
 			ChainSelector:   homeChainOutput.ChainSelector,
 			// TODO, here we might need to pass new environment that doesn't have chains that do not have forwarders deployed
 			CldEnv:         nonEmptyChainsCLDEnvironment,
-			AllowedDonIDs:  []uint32{topology.WorkflowDONID},
+			AllowedDonIDs:  []uint64{topology.WorkflowDONID},
 			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 		}
 
@@ -366,6 +368,14 @@ func SetupTestEnvironment(
 	if jobsSeqErr != nil {
 		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to setup jobs")
 	}
+
+	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	for idx, nsOut := range nodeSetOutput {
+		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+	}
+
+	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	input.JdInput.Out = jdOutput
 
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯
@@ -511,6 +521,13 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
 		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
 	}
+	var consensusV2OCR3CommonAddr common.Address
+	if consensusAddrFlag {
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
+	}
+
 	capRegCommonAddr := common.HexToAddress(capRegAddr)
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
 		ChainSelector:               homeChainOutput.ChainSelector,
@@ -520,6 +537,7 @@ func SetupTestEnvironment(
 		OCR3Address:                 &ocr3CommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
 		EVMOCR3Address:              &evmOCR3CommonAddr,
+		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 	}
 
 	if input.OCR3Config != nil {
@@ -538,11 +556,12 @@ func SetupTestEnvironment(
 	}
 	configureKeystoneInput.VaultOCR3Config = *ocr3Config
 
-	evmOcr3Config, evmOcr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
-	if evmOcr3ConfigErr != nil {
-		return nil, pkgerrors.Wrap(evmOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
+	defaultOcr3Config, defaultOcr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
+	if defaultOcr3ConfigErr != nil {
+		return nil, pkgerrors.Wrap(defaultOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
 	}
-	configureKeystoneInput.EVMOCR3Config = *evmOcr3Config
+	configureKeystoneInput.EVMOCR3Config = *defaultOcr3Config
+	configureKeystoneInput.ConsensusV2OCR3Config = *defaultOcr3Config
 
 	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
 	if keystoneErr != nil {

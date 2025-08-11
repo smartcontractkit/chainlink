@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -33,13 +35,15 @@ type savedCallback struct {
 
 type httpTriggerHandler struct {
 	services.StateMachine
-	config      ServiceConfig
-	don         handlers.DON
-	donConfig   *config.DONConfig
-	lggr        logger.Logger
-	callbacksMu sync.Mutex
-	callbacks   map[string]savedCallback // requestID -> savedCallback
-	stopCh      services.StopChan
+	config                  ServiceConfig
+	don                     handlers.DON
+	donConfig               *config.DONConfig
+	lggr                    logger.Logger
+	callbacksMu             sync.Mutex
+	callbacks               map[string]savedCallback // requestID -> savedCallback
+	stopCh                  services.StopChan
+	workflowMetadataHandler *WorkflowMetadataHandler
+	userRateLimiter         *ratelimit.RateLimiter
 }
 
 type HTTPTriggerHandler interface {
@@ -48,36 +52,192 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter *ratelimit.RateLimiter) *httpTriggerHandler {
 	return &httpTriggerHandler{
-		lggr:      logger.Named(lggr, "RequestCallbacks"),
-		callbacks: make(map[string]savedCallback),
-		config:    cfg,
-		don:       don,
-		donConfig: donConfig,
-		stopCh:    make(services.StopChan),
+		lggr:                    logger.Named(lggr, "RequestCallbacks"),
+		callbacks:               make(map[string]savedCallback),
+		config:                  cfg,
+		don:                     don,
+		donConfig:               donConfig,
+		stopCh:                  make(services.StopChan),
+		workflowMetadataHandler: workflowMetadataHandler,
+		userRateLimiter:         userRateLimiter,
 	}
 }
 
 func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) error {
-	// TODO: PRODCRE-305 validate JWT against authorized keys.
 	triggerReq, err := h.validatedTriggerRequest(req, callbackCh)
 	if err != nil {
 		return err
 	}
-	// TODO: PRODCRE-475 support look-up of workflowID using workflowOwner/Label/Name. Rate-limiting using workflowOwner
-	workflowID := triggerReq.Workflow.WorkflowID
+
+	workflowID, err := h.resolveWorkflowID(triggerReq, req.ID, callbackCh)
+	if err != nil {
+		return err
+	}
+
+	key, err := h.authorizeRequest(workflowID, req, callbackCh)
+	if err != nil {
+		return err
+	}
+
+	if err = h.checkRateLimit(workflowID, req.ID, callbackCh); err != nil {
+		return err
+	}
+
 	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
 	if err != nil {
 		h.handleUserError(req.ID, jsonrpc.ErrInternal, internalErrorMessage, callbackCh)
 		return errors.New("error generating execution ID: " + err.Error())
 	}
+
+	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
+	if err != nil {
+		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
+		return errors.Join(errors.New("auth failure"), err)
+	}
+
+	if err := h.setupCallback(req.ID, callbackCh); err != nil {
+		return err
+	}
+
+	return h.sendWithRetries(ctx, executionID, reqWithKey)
+}
+
+func (h *httpTriggerHandler) validatedTriggerRequest(req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
+	if req.Params == nil {
+		h.handleUserError("", jsonrpc.ErrInvalidRequest, "request params is nil", callbackCh)
+		return nil, errors.New("request params is nil")
+	}
+
+	triggerReq, err := h.parseTriggerRequest(req, callbackCh)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.validateRequestID(req.ID, callbackCh); err != nil {
+		return nil, err
+	}
+
+	if err := h.validateMethod(req.Method, req.ID, callbackCh); err != nil {
+		return nil, err
+	}
+
+	if err := h.validateTriggerParams(triggerReq, req.ID, callbackCh); err != nil {
+		return nil, err
+	}
+
+	return &jsonrpc.Request[gateway_common.HTTPTriggerRequest]{
+		Version: req.Version,
+		ID:      req.ID,
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  triggerReq,
+	}, nil
+}
+
+func (h *httpTriggerHandler) parseTriggerRequest(req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.HTTPTriggerRequest, error) {
+	var triggerReq gateway_common.HTTPTriggerRequest
+	err := json.Unmarshal(*req.Params, &triggerReq)
+	if err != nil {
+		h.handleUserError(req.ID, jsonrpc.ErrParse, "error decoding payload: "+err.Error(), callbackCh)
+		return nil, err
+	}
+	return &triggerReq, nil
+}
+
+func (h *httpTriggerHandler) validateRequestID(requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+	if requestID == "" {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "empty request ID", callbackCh)
+		return errors.New("empty request ID")
+	}
+	// Request IDs from users must not contain "/", since this character is reserved
+	// for internal node-to-node message routing (e.g., "http_action/{workflowID}/{uuid}").
+	if strings.Contains(requestID, "/") {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "request ID must not contain '/'", callbackCh)
+		return errors.New("request ID must not contain '/'")
+	}
+	return nil
+}
+
+func (h *httpTriggerHandler) validateMethod(method, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+	if method != gateway_common.MethodWorkflowExecute {
+		h.handleUserError(requestID, jsonrpc.ErrMethodNotFound, "invalid method: "+method, callbackCh)
+		return errors.New("invalid method: " + method)
+	}
+	return nil
+}
+
+func (h *httpTriggerHandler) validateTriggerParams(triggerReq *gateway_common.HTTPTriggerRequest, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+	if !isValidJSON(triggerReq.Input) {
+		h.lggr.Errorw("invalid params JSON", "params", triggerReq.Input)
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "invalid params JSON", callbackCh)
+		return errors.New("invalid params JSON")
+	}
+
+	return h.validateWorkflowFields(triggerReq.Workflow, requestID, callbackCh)
+}
+
+func (h *httpTriggerHandler) validateWorkflowFields(workflow gateway_common.WorkflowSelector, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+	if workflow.WorkflowID != "" && !strings.HasPrefix(workflow.WorkflowID, "0x") {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callbackCh)
+		return errors.New("workflowID must be prefixed with '0x'")
+	}
+	if workflow.WorkflowOwner != "" && !strings.HasPrefix(workflow.WorkflowOwner, "0x") {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callbackCh)
+		return errors.New("workflowOwner must be prefixed with '0x'")
+	}
+	return nil
+}
+
+func (h *httpTriggerHandler) resolveWorkflowID(triggerReq *jsonrpc.Request[gateway_common.HTTPTriggerRequest], requestID string, callbackCh chan<- handlers.UserCallbackPayload) (string, error) {
+	workflowID := triggerReq.Params.Workflow.WorkflowID
+	if workflowID != "" {
+		return workflowID, nil
+	}
+
+	workflowName := "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(triggerReq.Params.Workflow.WorkflowName)))
+	workflowID, found := h.workflowMetadataHandler.GetWorkflowID(
+		triggerReq.Params.Workflow.WorkflowOwner,
+		workflowName,
+		triggerReq.Params.Workflow.WorkflowTag,
+	)
+	if !found {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflow not found", callbackCh)
+		return "", errors.New("workflow not found")
+	}
+	return workflowID, nil
+}
+
+func (h *httpTriggerHandler) authorizeRequest(workflowID string, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.AuthorizedKey, error) {
+	key, err := h.workflowMetadataHandler.Authorize(workflowID, req.Auth, req)
+	if err != nil {
+		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
+		return nil, errors.Join(errors.New("auth failure"), err)
+	}
+	return key, nil
+}
+
+func (h *httpTriggerHandler) checkRateLimit(workflowID, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+	workflowRef, found := h.workflowMetadataHandler.GetWorkflowReference(workflowID)
+	if !found {
+		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callbackCh)
+		return errors.New("workflow reference not found")
+	}
+
+	if !h.userRateLimiter.Allow(workflowRef.workflowOwner) {
+		h.handleUserError(requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callbackCh)
+		return errors.New("rate limit exceeded")
+	}
+	return nil
+}
+
+func (h *httpTriggerHandler) setupCallback(requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
 	h.callbacksMu.Lock()
-	_, found := h.callbacks[executionID]
-	if found {
-		h.callbacksMu.Unlock()
-		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "request ID already used: "+req.ID, callbackCh)
-		return errors.New("request ID already used: " + req.ID)
+	defer h.callbacksMu.Unlock()
+
+	if _, found := h.callbacks[requestID]; found {
+		h.handleUserError(requestID, jsonrpc.ErrConflict, "in-flight request", callbackCh)
+		return errors.New("in-flight request ID: " + requestID)
 	}
 
 	// 2f + 1 is chosen to ensure that majority of honest nodes are executing the request
@@ -85,51 +245,17 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 	if err != nil {
 		return errors.New("failed to create response aggregator: " + err.Error())
 	}
-	h.callbacks[executionID] = savedCallback{
+
+	h.callbacks[requestID] = savedCallback{
 		callbackCh:         callbackCh,
 		createdAt:          time.Now(),
 		responseAggregator: agg,
 	}
-	h.callbacksMu.Unlock()
-
-	return h.sendWithRetries(ctx, executionID, req)
-}
-
-func (h *httpTriggerHandler) validatedTriggerRequest(req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.HTTPTriggerRequest, error) {
-	if req.Params == nil {
-		h.handleUserError("", jsonrpc.ErrInvalidRequest, "request params is nil", callbackCh)
-		return nil, errors.New("request params is nil")
-	}
-	var triggerReq gateway_common.HTTPTriggerRequest
-	err := json.Unmarshal(*req.Params, &triggerReq)
-	if err != nil {
-		h.handleUserError(req.ID, jsonrpc.ErrParse, "error decoding payload: "+err.Error(), callbackCh)
-		return nil, err
-	}
-	if req.ID == "" {
-		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "empty request ID", callbackCh)
-		return nil, errors.New("empty request ID")
-	}
-	// Request IDs from users must not contain "/", since this character is reserved
-	// for internal node-to-node message routing (e.g., "http_action/{workflowID}/{uuid}").
-	if strings.Contains(req.ID, "/") {
-		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "request ID must not contain '/'", callbackCh)
-		return nil, errors.New("request ID must not contain '/'")
-	}
-	if req.Method != gateway_common.MethodWorkflowExecute {
-		h.handleUserError(req.ID, jsonrpc.ErrMethodNotFound, "invalid method: "+req.Method, callbackCh)
-		return nil, errors.New("invalid method: " + req.Method)
-	}
-	if !isValidJSON(triggerReq.Input) {
-		h.lggr.Errorw("invalid params JSON", "params", triggerReq.Input)
-		h.handleUserError(req.ID, jsonrpc.ErrInvalidRequest, "invalid params JSON", callbackCh)
-		return nil, errors.New("invalid params JSON")
-	}
-	return &triggerReq, nil
+	return nil
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", resp.Result)
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 	saved, exists := h.callbacks[resp.ID]
@@ -155,7 +281,6 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		RawResponse: rawResp,
 		ErrorCode:   api.NoError,
 	}:
-		close(saved.callbackCh)
 		delete(h.callbacks, resp.ID)
 	}
 	return nil
@@ -194,9 +319,9 @@ func (h *httpTriggerHandler) reapExpiredCallbacks() {
 	defer h.callbacksMu.Unlock()
 	now := time.Now()
 	var expiredCount int
-	for executionID, callback := range h.callbacks {
+	for reqID, callback := range h.callbacks {
 		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
-			delete(h.callbacks, executionID)
+			delete(h.callbacks, reqID)
 			expiredCount++
 		}
 	}
@@ -299,4 +424,21 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 				executionID, len(successfulNodes), len(h.donConfig.Members))
 		}
 	}
+}
+
+func reqWithAuthorizedKey(req *jsonrpc.Request[gateway_common.HTTPTriggerRequest], key gateway_common.AuthorizedKey) (*jsonrpc.Request[json.RawMessage], error) {
+	params := *req.Params
+	params.Key = key
+	msg, err := json.Marshal(params)
+	if err != nil {
+		return nil, errors.New("error marshaling trigger request")
+	}
+	rawMsg := json.RawMessage(msg)
+	r := &jsonrpc.Request[json.RawMessage]{
+		Version: req.Version,
+		ID:      req.ID,
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawMsg,
+	}
+	return r, err
 }

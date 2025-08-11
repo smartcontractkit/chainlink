@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	handlerName          = "VaultHandler"
+	HandlerType          = "vault"
 	defaultCleanUpPeriod = 5 * time.Second
 )
 
@@ -68,7 +68,6 @@ type activeRequest struct {
 
 type handler struct {
 	services.StateMachine
-	gw_handlers.Handler
 	methodConfig Config
 	donConfig    *config.DONConfig
 	don          gw_handlers.DON
@@ -99,8 +98,8 @@ type SecretEntry struct {
 }
 
 type Config struct {
-	NodeRateLimiterConfig ratelimit.RateLimiterConfig `json:"node_rate_limiter"`
-	RequestTimeoutSec     int                         `json:"request_timeout_sec"`
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (*handler, error) {
@@ -113,7 +112,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.RequestTimeoutSec = 30
 	}
 
-	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiterConfig)
+	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
@@ -183,6 +182,12 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
+	}
+}
+
+func (h *handler) Methods() []string {
+	return []string{
+		MethodSecretsCreate,
 	}
 }
 

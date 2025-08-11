@@ -138,7 +138,7 @@ func (ks *aptos) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created Aptos key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

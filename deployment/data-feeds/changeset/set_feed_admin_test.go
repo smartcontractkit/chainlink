@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -49,8 +51,9 @@ func TestSetCacheAdmin(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	require.Len(t, records, 1)
+	cacheAddress := records[0].Address
 
 	// without MCMS
 	resp, err := commonChangesets.Apply(t, newEnv,

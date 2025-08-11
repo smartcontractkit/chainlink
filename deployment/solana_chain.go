@@ -12,6 +12,7 @@ const (
 	RMNRemoteProgramName            = "rmn_remote"
 	ReceiverProgramName             = "test_ccip_receiver"
 	KeystoneForwarderProgramName    = "keystone_forwarder"
+	CCTPTokenPoolProgramName        = "cctp_token_pool"
 )
 
 // https://docs.google.com/document/d/1Fk76lOeyS2z2X6MokaNX_QTMFAn5wvSZvNXJluuNV1E/edit?tab=t.0#heading=h.uij286zaarkz
@@ -26,4 +27,5 @@ var SolanaProgramBytes = map[string]int{
 	TimelockProgramName:             1 * 1024 * 1024,
 	McmProgramName:                  1 * 1024 * 1024,
 	RMNRemoteProgramName:            3 * 1024 * 1024,
+	CCTPTokenPoolProgramName:        3 * 1024 * 1024,
 }

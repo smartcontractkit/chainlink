@@ -1,6 +1,7 @@
 package solana_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -13,11 +14,14 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
+	solTestUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -37,6 +41,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
+
+const PartnerMetadata = "partner_testing"
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
@@ -110,7 +116,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
 		solana.TokenProgramID,
 		newTokenAddress,
-		e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey(),
+		deployerKey,
 	)
 	rebalancer := deployerKey
 	var mcmsConfig *proposalutils.TimelockConfig
@@ -137,17 +143,21 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 	outboundConfig := rateLimitConfig
 
 	type poolTestType struct {
-		poolType    solTestTokenPool.PoolType
+		poolType    cldf.ContractType
 		poolAddress solana.PublicKey
 	}
 	testCases := []poolTestType{
 		{
-			poolType:    solTestTokenPool.BurnAndMint_PoolType,
+			poolType:    shared.BurnMintTokenPool,
 			poolAddress: state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
 		},
 		{
-			poolType:    solTestTokenPool.LockAndRelease_PoolType,
+			poolType:    shared.LockReleaseTokenPool,
 			poolAddress: state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
+		},
+		{
+			poolType:    shared.CCTPTokenPool,
+			poolAddress: state.SolChains[solChain].CCTPTokenPool,
 		},
 	}
 
@@ -159,15 +169,22 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 
 	// svm deployment
 	for _, testCase := range testCases {
-		typePtr := &testCase.poolType
-
+		var cctpMessengerMinter, cctpMessageTransmitter solana.PublicKey
+		// only set for CCTP token pool migrations
+		if testCase.poolType == shared.CCTPTokenPool {
+			cctpMessengerMinter = getRandomPubKey(t)    // using mock minter
+			cctpMessageTransmitter = getRandomPubKey(t) // using mock transmitter
+			if config.TokenMetadata == PartnerMetadata {
+				continue // CCTP token pool not supported for partner metadata
+			}
+		}
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 				ccipChangesetSolana.TokenPoolConfigWithMCM{
 					ChainSelector: solChain,
 					TokenPubKey:   tokenAddress,
-					PoolType:      typePtr,
+					PoolType:      testCase.poolType,
 					Metadata:      tokenMetadata,
 					MCMS:          mcmsConfig,
 				},
@@ -178,14 +195,18 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					ChainSelector: solChain,
 					TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 						{
-							TokenPubKey: tokenAddress,
-							PoolType:    typePtr,
-							Metadata:    tokenMetadata,
+							TokenPubKey:              tokenAddress,
+							PoolType:                 testCase.poolType,
+							Metadata:                 tokenMetadata,
+							CCTPTokenMessengerMinter: cctpMessengerMinter,
+							CCTPMessageTransmitter:   cctpMessageTransmitter,
 						},
 						{
-							TokenPubKey: newTokenAddress2,
-							PoolType:    typePtr,
-							Metadata:    tokenMetadata,
+							TokenPubKey:              newTokenAddress2,
+							PoolType:                 testCase.poolType,
+							Metadata:                 tokenMetadata,
+							CCTPTokenMessengerMinter: cctpMessengerMinter,
+							CCTPMessageTransmitter:   cctpMessageTransmitter,
 						},
 					},
 				},
@@ -197,7 +218,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					RemoteTokenPoolConfigs: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
 						{
 							SolTokenPubKey: tokenAddress,
-							SolPoolType:    typePtr,
+							SolPoolType:    testCase.poolType,
 							Metadata:       tokenMetadata,
 							EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 								evmChain: {
@@ -226,14 +247,12 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		require.Equal(t, tokenAddress, configAccount.Config.Mint)
 		// test SetupTokenPoolForRemoteChain results
 		remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, testCase.poolAddress)
-		var remoteChainConfigAccount solTestTokenPool.ChainConfig
-		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-		require.NoError(t, err)
-		require.Equal(t, testhelpers.LocalTokenDecimals, int(remoteChainConfigAccount.Base.Remote.Decimals))
-		e.Logger.Infof("Pool addresses: %v", remoteChainConfigAccount.Base.Remote.PoolAddresses)
-		require.Len(t, remoteChainConfigAccount.Base.Remote.PoolAddresses, 1)
-		require.Equal(t, inboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
-		require.Equal(t, outboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
+		base := getTokenPoolBaseChainConfig(t, e, solChain, testCase.poolType, remoteChainConfigPDA)
+		require.Equal(t, testhelpers.LocalTokenDecimals, int(base.Remote.Decimals))
+		e.Logger.Infof("Pool addresses: %v", base.Remote.PoolAddresses)
+		require.Len(t, base.Remote.PoolAddresses, 1)
+		require.Equal(t, inboundConfig.Rate, base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, outboundConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
 
 		allowedAccount1, _ := solana.NewRandomPrivateKey()
 		allowedAccount2, _ := solana.NewRandomPrivateKey()
@@ -249,7 +268,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		if mcms {
 			e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
 			switch testCase.poolType {
-			case solTestTokenPool.BurnAndMint_PoolType:
+			case shared.BurnMintTokenPool:
 				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -257,13 +276,19 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							tokenMetadata: {tokenAddress},
 						},
 					})
-			case solTestTokenPool.LockAndRelease_PoolType:
+			case shared.LockReleaseTokenPool:
 				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
 					t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						LockReleaseTokenPools: map[string][]solana.PublicKey{
 							tokenMetadata: {tokenAddress},
 						},
+					})
+			case shared.CCTPTokenPool:
+				_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(
+					t, &e, solChain, false,
+					ccipChangesetSolana.CCIPContractsToTransfer{
+						CCTPTokenPoolMints: []solana.PublicKey{tokenAddress},
 					})
 			default:
 				panic("unhandled default case")
@@ -277,7 +302,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				ccipChangesetSolana.ConfigureTokenPoolAllowListConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress.String(),
-					PoolType:         typePtr,
+					PoolType:         testCase.poolType,
 					Metadata:         tokenMetadata,
 					Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
 					Enabled:          true,
@@ -289,7 +314,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				ccipChangesetSolana.RemoveFromAllowListConfig{
 					SolChainSelector: solChain,
 					SolTokenPubKey:   tokenAddress.String(),
-					PoolType:         typePtr,
+					PoolType:         testCase.poolType,
 					Metadata:         tokenMetadata,
 					Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
 					MCMS:             mcmsConfig,
@@ -304,7 +329,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					RemoteTokenPoolConfigs: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
 						{
 							SolTokenPubKey: tokenAddress,
-							SolPoolType:    typePtr,
+							SolPoolType:    testCase.poolType,
 							Metadata:       tokenMetadata,
 							EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 								evmChain: {
@@ -324,12 +349,11 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		})
 		require.NoError(t, err)
 
-		err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-		require.NoError(t, err)
-		require.Equal(t, newInboundConfig.Rate, remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate)
-		require.Equal(t, newOutboundConfig.Rate, remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate)
+		base = getTokenPoolBaseChainConfig(t, e, solChain, testCase.poolType, remoteChainConfigPDA)
+		require.Equal(t, newInboundConfig.Rate, base.InboundRateLimit.Cfg.Rate)
+		require.Equal(t, newOutboundConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
 
-		if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
+		if testCase.poolType == shared.LockReleaseTokenPool && tokenAddress == newTokenAddress {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
@@ -400,7 +424,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				require.NoError(t, err)
 				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)
 				switch testCase.poolType {
-				case solTestTokenPool.BurnAndMint_PoolType:
+				case shared.BurnMintTokenPool:
 					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
@@ -409,7 +433,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-									solChain: ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
 										BurnMintTokenPools: map[string][]solana.PublicKey{
 											tokenMetadata: {tokenAddress},
 										},
@@ -419,7 +443,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						),
 					})
 					require.NoError(t, err)
-				case solTestTokenPool.LockAndRelease_PoolType:
+				case shared.LockReleaseTokenPool:
 					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
@@ -438,10 +462,36 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						),
 					})
 					require.NoError(t, err)
+				case shared.CCTPTokenPool:
+					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(
+							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
+							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								CurrentOwner:  timelockSignerPDA,
+								ProposedOwner: deployerKey,
+								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
+									solChain: {
+										CCTPTokenPoolMints: []solana.PublicKey{tokenAddress},
+									},
+								},
+							},
+						),
+					})
+					require.NoError(t, err)
 				default:
 					panic("unhandled default case")
 				}
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
+				transferKeys := []solana.PublicKey{}
+				switch testCase.poolType {
+				case shared.BurnMintTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].BurnMintTokenPools[tokenMetadata])
+				case shared.LockReleaseTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata])
+				case shared.CCTPTokenPool:
+					transferKeys = append(transferKeys, state.SolChains[solChain].CCTPTokenPool)
+				}
 				e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 					// upgrade authority
 					commonchangeset.Configure(
@@ -449,10 +499,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						ccipChangesetSolana.SetUpgradeAuthorityConfig{
 							ChainSelector:       solChain,
 							NewUpgradeAuthority: timelockSignerPDA,
-							TransferKeys: []solana.PublicKey{
-								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
-								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-							},
+							TransferKeys:        transferKeys,
 						},
 					),
 					commonchangeset.Configure(
@@ -460,10 +507,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						ccipChangesetSolana.SetUpgradeAuthorityConfig{
 							ChainSelector:       solChain,
 							NewUpgradeAuthority: e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey(),
-							TransferKeys: []solana.PublicKey{
-								state.SolChains[solChain].BurnMintTokenPools[tokenMetadata],
-								state.SolChains[solChain].LockReleaseTokenPools[tokenMetadata],
-							},
+							TransferKeys:        transferKeys,
 							MCMS: &proposalutils.TimelockConfig{
 								MinDelay: 1 * time.Second,
 							},
@@ -473,7 +517,74 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				require.NoError(t, err)
 			}
 		}
+
+		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
+		// we'll only create the multisig account and run the changeset if the pool type is BnM.
+		if !mcms && testCase.poolType == shared.BurnMintTokenPool {
+			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
+			require.NoError(t, err)
+
+			deployerPrivKey := *e.BlockChains.SolanaChains()[solChain].DeployerKey
+			solanaRPCClient := e.BlockChains.SolanaChains()[solChain].Client
+
+			multisig1 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
+			multisig2 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
+
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+				ccipChangesetSolana.NewMintTokenPoolConfig{
+					NewMintAuthority: multisig1.PublicKey(),
+					ChainSelector:    solChain,
+					TokenPubKey:      tokenAddress,
+					PoolType:         testCase.poolType,
+					MCMS:             mcmsConfig,
+					Metadata:         tokenMetadata,
+				},
+			)})
+			require.NoError(t, err)
+
+			// When changing the mint authority when the current is a multisig, we need to add the previous one as a remaining account. https://github.com/smartcontractkit/chainlink-ccip/blob/c01850356f7f653f46e6f36ac04443122c49d04b/chains/solana/contracts/programs/burnmint-token-pool/src/lib.rs#L165C13-L176C18
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
+				ccipChangesetSolana.NewMintTokenPoolConfig{
+					NewMintAuthority: multisig2.PublicKey(),
+					OldMintAuthority: multisig1.PublicKey(),
+					ChainSelector:    solChain,
+					TokenPubKey:      tokenAddress,
+					PoolType:         testCase.poolType,
+					MCMS:             mcmsConfig,
+					Metadata:         tokenMetadata,
+				},
+			)})
+			require.NoError(t, err)
+		}
 	}
+}
+
+func createMultiSig(ctx context.Context, t *testing.T, deployerKey solana.PublicKey, tokenPoolSignerPDA solana.PublicKey, solanaRPCClient *solRpc.Client, deployerPrivateKey solana.PrivateKey) solana.PrivateKey {
+	multisig, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+
+	ixMsig, ixErrMsig := solTokenUtil.CreateMultisig(ctx,
+		deployerKey,
+		solana.TokenProgramID,
+		multisig.PublicKey(),
+		1,
+		[]solana.PublicKey{deployerKey, tokenPoolSignerPDA},
+		solanaRPCClient,
+		solRpc.CommitmentConfirmed,
+	)
+	require.NoError(t, ixErrMsig)
+
+	res := solTestUtil.SendAndConfirm(ctx, t,
+		solanaRPCClient,
+		ixMsig,
+		deployerPrivateKey,
+		solRpc.CommitmentConfirmed,
+		solCommon.AddSigners(multisig, deployerPrivateKey),
+	)
+	require.NotNil(t, res)
+	return multisig
 }
 
 var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
@@ -495,7 +606,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
-	poolType := solTestTokenPool.BurnAndMint_PoolType
+	poolType := shared.BurnMintTokenPool
 	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()}, "TEST_TOKEN")
 	require.NoError(t, err)
 	e, newTokenAddress2, err := deployTokenAndMint(t, e, solChain, []string{deployerKey.String()}, "TEST_TOKEN_2")
@@ -521,7 +632,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 				E2ETokens: []ccipChangesetSolana.E2ETokenConfig{
 					{
 						TokenPubKey: newTokenAddress,
-						PoolType:    &poolType,
+						PoolType:    poolType,
 						Metadata:    shared.CLLMetadata,
 						SolanaToEVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 							evmChain: {
@@ -563,7 +674,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 					},
 					{
 						TokenPubKey: newTokenAddress2,
-						PoolType:    &poolType,
+						PoolType:    poolType,
 						Metadata:    shared.CLLMetadata,
 						SolanaToEVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 							evmChain: {
@@ -586,7 +697,7 @@ func TestPartnerTokenPools(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	metadata := "partner_testing"
+
 	e, _, err := commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 		ccipChangesetSolana.DeployChainContractsConfig{
@@ -599,14 +710,42 @@ func TestPartnerTokenPools(t *testing.T) {
 					BuildLocally: true,
 				},
 			},
-			LockReleaseTokenPoolMetadata: metadata,
-			BurnMintTokenPoolMetadata:    metadata,
+			LockReleaseTokenPoolMetadata: PartnerMetadata,
+			BurnMintTokenPoolMetadata:    PartnerMetadata,
 		},
 	)})
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
-	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: false, TokenMetadata: metadata})
-	doTestPoolLookupTable(t, e, false, metadata)
-	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: metadata})
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: false, TokenMetadata: PartnerMetadata})
+	doTestPoolLookupTable(t, e, false, PartnerMetadata)
+	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: PartnerMetadata})
+}
+
+func getRandomPubKey(t *testing.T) solana.PublicKey {
+	t.Helper()
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	return privKey.PublicKey()
+}
+
+func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint64, poolType cldf.ContractType, remoteChainConfigPDA solana.PublicKey) solBaseTokenPool.BaseChain {
+	t.Helper()
+
+	var base solBaseTokenPool.BaseChain
+	switch poolType {
+	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
+		var remoteChainConfigAccount solTestTokenPool.ChainConfig
+		err := e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(t.Context(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		require.NoError(t, err)
+		base = remoteChainConfigAccount.Base
+	case shared.CCTPTokenPool:
+		var remoteChainConfigAccount cctp_token_pool.ChainConfig
+		err := e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(t.Context(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		require.NoError(t, err)
+		base = remoteChainConfigAccount.Base
+	default:
+		require.Fail(t, "unsupported token pool type")
+	}
+	return base
 }

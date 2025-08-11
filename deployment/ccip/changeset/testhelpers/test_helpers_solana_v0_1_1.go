@@ -16,7 +16,7 @@ import (
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -164,7 +164,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 		},
 		solAddresses,
 	)
-	bnm := solTestTokenPoolV0_1_1.BurnAndMint_PoolType
+	bnm := shared.BurnMintTokenPool
 
 	// deploy and configure solana token pool
 	e, err = commoncs.Apply(nil, e,
@@ -176,7 +176,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 					{
 						ChainSelector: solChainSel,
 						TokenPubKey:   solTokenAddress,
-						PoolType:      &bnm,
+						PoolType:      bnm,
 						Metadata:      shared.CLLMetadata,
 					},
 				},
@@ -186,7 +186,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 						TokenPoolConfigs: []ccipChangeSetSolanaV0_1_1.TokenPoolConfig{
 							{
 								TokenPubKey: solTokenAddress,
-								PoolType:    &bnm,
+								PoolType:    bnm,
 								Metadata:    shared.CLLMetadata,
 							},
 						},
@@ -219,12 +219,12 @@ func DeployTransferableTokenSolanaV0_1_1(
 						ChainSelector: solChainSel,
 						SetPoolTokenConfigs: []ccipChangeSetSolanaV0_1_1.SetPoolTokenConfig{
 							{
-								TokenPubKey: solTokenAddress,
-								PoolType:    &bnm,
-								Metadata:    shared.CLLMetadata,
+								TokenPubKey:     solTokenAddress,
+								PoolType:        bnm,
+								Metadata:        shared.CLLMetadata,
+								WritableIndexes: []uint8{3, 4, 7},
 							},
 						},
-						WritableIndexes: []uint8{3, 4, 7},
 					},
 				},
 				RemoteChainTokenPool: []ccipChangeSetSolanaV0_1_1.SetupTokenPoolForRemoteChainConfig{
@@ -233,7 +233,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 						RemoteTokenPoolConfigs: []ccipChangeSetSolanaV0_1_1.RemoteChainTokenPoolConfig{
 							{
 								SolTokenPubKey: solTokenAddress,
-								SolPoolType:    &bnm,
+								SolPoolType:    bnm,
 								Metadata:       shared.CLLMetadata,
 								EVMRemoteConfigs: map[uint64]ccipChangeSetSolanaV0_1_1.EVMRemoteConfig{
 									evmChainSel: {

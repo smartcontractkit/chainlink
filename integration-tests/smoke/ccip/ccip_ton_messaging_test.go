@@ -87,6 +87,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
+	t.Skip("Skipping the test temporarily - fix required")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))

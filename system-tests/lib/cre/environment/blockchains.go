@@ -77,14 +77,15 @@ func CreateBlockchains(
 			}
 		}
 
-		pkey := os.Getenv("PRIVATE_KEY")
-		if pkey == "" {
-			return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
+		if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+			return nil, pkErr
 		}
+
+		privateKey := os.Getenv("PRIVATE_KEY")
 
 		sethClient, err := seth.NewClientBuilder().
 			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{pkey}).
+			WithPrivateKeys([]string{privateKey}).
 			// do not check if there's a pending nonce nor check node's health
 			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 			Build()
@@ -106,7 +107,7 @@ func CreateBlockchains(
 			ChainID:            chainID,
 			BlockchainOutput:   bcOut,
 			SethClient:         sethClient,
-			DeployerPrivateKey: pkey,
+			DeployerPrivateKey: privateKey,
 			ReadOnly:           bi.ReadOnly,
 		})
 	}
