@@ -54,12 +54,12 @@ func WithSubject(subject string) Option {
 
 type SigningMethodEth struct{}
 
-var signingMethodETH = &SigningMethodEth{}
+var EthereumSigningMethod = &SigningMethodEth{}
 
 func init() {
 	// registering a custom implementation of the ETH signing method here
-	jwt.RegisterSigningMethod(signingMethodETH.Alg(), func() jwt.SigningMethod {
-		return signingMethodETH
+	jwt.RegisterSigningMethod(EthereumSigningMethod.Alg(), func() jwt.SigningMethod {
+		return EthereumSigningMethod
 	})
 }
 
@@ -213,7 +213,7 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTCl
 		return nil, gethcommon.Address{}, err
 	}
 	verifiedToken, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if token.Method.Alg() != signingMethodETH.Alg() {
+		if token.Method.Alg() != EthereumSigningMethod.Alg() {
 			return nil, jwt.ErrSignatureInvalid
 		}
 		if _, ok := token.Method.(*SigningMethodEth); !ok {
