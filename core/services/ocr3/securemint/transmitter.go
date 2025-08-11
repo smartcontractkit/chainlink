@@ -176,7 +176,7 @@ func (t *transmitter) Transmit(
 		}
 	}
 
-	// TODO(gg): should we use commoncap.OCRTriggerEvent instead?
+	// TODO(gg): should we use commoncap.OCRTriggerEvent instead? Probably better to enforce field names
 	outputs, err := values.NewMap(map[string]any{
 		"report":       report,
 		"sigs":         capSigs,
