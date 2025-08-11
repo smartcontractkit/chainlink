@@ -45,7 +45,7 @@ The HTTP Handlers V2 is responsible for:
 
 #### 2.1.4 Response Cache (`responseCache`)
 - **Purpose**: Caches HTTP responses to avoid redundant outbound requests
-- **Functions**: TTL-based caching, Optionally returns cached value based on max age parameter
+- **Functions**: TTL-based caching that optionally returns cached values based on max age parameter
 - **Key Features**: Workflow-scoped caching
 
 ---
