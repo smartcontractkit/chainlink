@@ -11,7 +11,7 @@
 The HTTP Handlers V2 is responsible for:
 - Dispatching outbound HTTP requests originating from HTTP Action capabilities
 - Receiving inbound HTTP trigger requests and forwarding to HTTP Trigger capabilities to initiate workflows
-- Receiving workflow metadata from HTTP Trigger capabilities and aggregating the metadata for authentication and workflow look-up 
+- Receiving workflow metadata from HTTP Trigger capabilities and aggregating the metadata for authentication and workflow lookup 
 
 ### 1.2 Core Functionality
 
