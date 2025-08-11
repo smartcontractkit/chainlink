@@ -214,6 +214,7 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
+			PoolType:            shared.USDCTokenPool,
 		}
 	}
 
