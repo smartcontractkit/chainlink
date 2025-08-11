@@ -299,7 +299,7 @@ The workflow ID is the second segment after splitting by "/".
 
 ```bash
 # Run all tests
-go test ./... -v
+go test ./...
 
 # Run tests with coverage
 go test ./... -coverpkg=./... -coverprofile=coverage.txt
