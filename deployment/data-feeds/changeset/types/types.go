@@ -34,12 +34,14 @@ type DeployCacheResponse struct {
 type DeployConfig struct {
 	ChainsToDeploy []uint64 // Chain Selectors
 	Labels         []string // Labels for the cache, applies to all chains
+	Qualifier      string   // Qualifier for the contract, applies to all chains
 }
 
 type DeployAggregatorProxyConfig struct {
 	ChainsToDeploy   []uint64         // Chain Selectors
 	AccessController []common.Address // AccessController addresses per chain
-	Labels           []string         // Labels for the cache, applies to all chains
+	Labels           []string         // Labels for the contract, applies to all chains
+	Qualifier        string           // Qualifier for the contract, applies to all chains
 }
 
 type DeployBundleAggregatorProxyConfig struct {
@@ -47,6 +49,7 @@ type DeployBundleAggregatorProxyConfig struct {
 	Owners         map[uint64]common.Address
 	Labels         []string // Labels for the BundleAggregatorProxy, applies to all chains
 	CacheLabel     string   // Label to find the DataFeedsCache contract address in addressbook
+	Qualifier      string   // Qualifier for the contract, applies to all chains
 }
 
 type DeployBundleAggregatorProxyResponse struct {
@@ -151,6 +154,7 @@ type NewFeedWithProxyConfig struct {
 	ChainSelector    uint64
 	AccessController common.Address
 	Labels           []string // labels for AggregatorProxy
+	Qualifiers       []string // Qualifiers for AggregatorProxy
 	DataIDs          []string
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
