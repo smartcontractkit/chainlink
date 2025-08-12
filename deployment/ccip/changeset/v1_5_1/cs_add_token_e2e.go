@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
@@ -187,6 +188,9 @@ type DeployTokenConfig struct {
 	// MintTokenForRecipients is a map of recipient address to amount to be transferred or minted
 	// and provided the minting role after token deployment.
 	MintTokenForRecipients map[common.Address]*big.Int `json:"mintTokenForRecipients,omitempty"`
+
+	// PreMint is the amount of tokens to pre-mint for the token.
+	PreMint *big.Int `json:"preMint,omitempty"`
 }
 
 func (c *DeployTokenConfig) Validate() error {
@@ -204,6 +208,13 @@ func (c *DeployTokenConfig) Validate() error {
 	}
 	if _, ok := shared.TokenTypes[c.Type]; !ok {
 		return fmt.Errorf("token type not supported %s", c.Type)
+	}
+
+	if c.Type == shared.BurnMintERC20Token && c.MaxSupply != nil && c.PreMint != nil {
+		if c.PreMint.Cmp(c.MaxSupply) > 0 {
+			return fmt.Errorf("preMint amount %s cannot be greater than max supply %s for BurnMintERC20Token type",
+				c.PreMint.String(), c.MaxSupply.String())
+		}
 	}
 	return nil
 }
@@ -573,6 +584,47 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				}
 			}
 			tokenAddresses[selector] = token.Address
+		case shared.BurnMintERC20Token:
+			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+					tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
+						e.BlockChains.EVMChains()[selector].DeployerKey,
+						e.BlockChains.EVMChains()[selector].Client,
+						cfg.TokenName,
+						string(cfg.TokenSymbol),
+						cfg.TokenDecimals,
+						cfg.MaxSupply,
+						cfg.PreMint,
+					)
+					return cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20]{
+						Address:  tokenAddress,
+						Contract: token,
+						Tv:       cldf.NewTypeAndVersion(shared.BurnMintERC20Token, deployment.Version1_0_0),
+						Tx:       tx,
+						Err:      err,
+					}
+				},
+			)
+			if err != nil {
+				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC20Token "+
+					"%s on chain %d: %w", cfg.TokenName, selector, err)
+			}
+			if err := addMinterAndMintBurnMintERC20(e, selector, token.Contract, e.BlockChains.EVMChains()[selector].DeployerKey.From,
+				cfg.PreMint); err != nil {
+				return nil, ab, fmt.Errorf("failed to add minter and mint token "+
+					"%s on chain %d: %w", cfg.TokenName, selector, err)
+			}
+			if len(cfg.MintTokenForRecipients) > 0 {
+				for recipient, amount := range cfg.MintTokenForRecipients {
+					if err := addMinterAndMintBurnMintERC20(e, selector, token.Contract, recipient,
+						amount); err != nil {
+						return nil, ab, fmt.Errorf("failed to add minter and mint "+
+							"token %s on chain %d: %w", cfg.TokenName, selector, err)
+					}
+				}
+			}
+
+			tokenAddresses[selector] = token.Address
 		default:
 			return nil, ab, fmt.Errorf("unsupported token %s type %s for deployment on chain %d", cfg.TokenName, cfg.Type, selector)
 		}
@@ -672,6 +724,80 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 		return fmt.Errorf("failed to get token symbol for %s on chain %d: %w",
 			token.Address().Hex(), selector, err)
 	}
+	env.Logger.Infow("Recipient added as minter and token minted",
+		"Address", recipient.Hex(),
+		"Balance", balance.String(), "Token Symbol", symbol,
+		"Token address", token.Address().Hex())
+
+	return nil
+}
+
+// addMinterAndMintBurnMintERC20 adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
+func addMinterAndMintBurnMintERC20(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
+	return addMinterAndMintBurnMintERC20Helper(env, selector, token, recipient, amount)
+}
+
+func addMinterAndMintBurnMintERC20Helper(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
+	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
+	ctx := env.GetContext()
+
+	mintRole, err := token.MINTERROLE(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get minter role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+
+	hasRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, mintRole, deployerKey.From)
+	if err != nil {
+		return fmt.Errorf("failed to check if deployer key has minter role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+
+	if hasRole {
+		env.Logger.Infow("Deployer key already has minter role for token", "Token", token.Address().Hex(), "Selector", selector)
+	} else {
+		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
+
+		if err != nil {
+			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", recipient.Hex(), selector, err)
+		}
+
+		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
+			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
+		}
+
+		env.Logger.Infow("Transaction granting mint role mined successfully",
+			"Hash", tx.Hash().Hex(), "Selector", selector)
+	}
+
+	tx, err := token.Mint(deployerKey, recipient, amount)
+	if err != nil {
+		return fmt.Errorf("failed to mint %s tokens to %s on chain %d: %w",
+			token.Address().Hex(), recipient.Hex(), selector, err)
+	}
+
+	if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
+		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w",
+			tx.Hash().Hex(), selector, err)
+	}
+
+	env.Logger.Infow("Transaction minting token mined successfully", "Hash", tx.Hash().Hex())
+
+	balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
+	if err != nil {
+		return fmt.Errorf("failed to get balance of %s on chain %d: %w",
+			recipient.Hex(), selector, err)
+	}
+
+	if balance.Cmp(amount) != 0 {
+		return fmt.Errorf("expected balance of %s, got %s",
+			amount.String(), balance.String())
+	}
+
+	symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get token symbol for %s on chain %d: %w",
+			token.Address().Hex(), selector, err)
+	}
+
 	env.Logger.Infow("Recipient added as minter and token minted",
 		"Address", recipient.Hex(),
 		"Balance", balance.String(), "Token Symbol", symbol,
