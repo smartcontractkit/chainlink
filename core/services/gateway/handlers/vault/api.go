@@ -9,6 +9,7 @@ const (
 type SecretsCreateRequest struct {
 	ID    string `json:"id"`
 	Value string `json:"value"`
+	Owner string `json:"owner"`
 }
 
 type ResponseBase struct {

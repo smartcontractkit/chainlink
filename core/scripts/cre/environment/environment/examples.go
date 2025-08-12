@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
@@ -27,6 +28,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	var (
 		rpcURLFlag                  string
 		gatewayURLFlag              string
+		donIDFlag                   string
 		exampleWorkflowTriggerFlag  string
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
@@ -41,7 +43,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddressFlag)
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, donIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddressFlag)
 		},
 	}
 
@@ -49,14 +51,15 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
+	cmd.Flags().StringVarP(&donIDFlag, "don-id", "d", "vault", "DON ID (only for web API trigger-based workflow)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
 
 	return cmd
 }
 
-type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error
+type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, donID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error
 
-func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
+func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, donID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
 	ticker := 5 * time.Second
 	for {
 		select {
@@ -67,6 +70,7 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		case <-time.Tick(ticker):
 			triggerErr := trigger.WebAPITriggerValue(
 				gatewayURL,
+				donID,
 				privateKey,
 				5*time.Minute,
 			)
@@ -89,7 +93,7 @@ func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	}
 }
 
-func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
+func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, _, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
 	// we ignore return as if verification failed it will print that info
 	verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), feedID, true, waitTime)
 	if verifyErr != nil {
@@ -104,16 +108,12 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, privateKey 
 	return nil
 }
 
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL string, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, donID string, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string) error {
 	totalStart := time.Now()
 	start := time.Now()
 
-	if os.Getenv("PRIVATE_KEY") == "" {
-		// use Anvil developer key if none is set
-		pkSetErr := os.Setenv("PRIVATE_KEY", blockchain.DefaultAnvilPrivateKey)
-		if pkSetErr != nil {
-			return errors.Wrap(pkSetErr, "failed to set PRIVATE_KEY environment variable")
-		}
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
 	}
 
 	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
@@ -183,7 +183,11 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	}
 	defer pauseWorkflow()
 
-	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, os.Getenv("PRIVATE_KEY"), *consumerContractAddress, feedID, timeout, totalStart)
+	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+		return pkErr
+	}
+
+	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, donID, os.Getenv("PRIVATE_KEY"), *consumerContractAddress, feedID, timeout, totalStart)
 }
 
 func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, feedID, folder string) (string, error) {

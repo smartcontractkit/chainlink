@@ -121,7 +121,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
 
-	r.lggr.Infof("Debugging: VaultOCR Observation. Batch-size: %d", len(batch))
+	if len(batch) > 0 {
+		r.lggr.Infof("Debugging: VaultOCR Observation. Batch-size: %d", len(batch))
+	}
 	ids := []string{}
 	obs := []*vault.Observation{}
 	newSecretsByOwner := map[string]map[string]bool{}
@@ -407,6 +409,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return errors.New("failed to unmarshal observations: " + err.Error())
 	}
 
+	r.lggr.Infof("Debugging: VaultOCR ValidateObservation. Batch-size: %d", len(obs.Observations))
 	seen := map[string]bool{}
 	for _, o := range obs.Observations {
 		err := validateObservation(o)
@@ -500,6 +503,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	store := NewWriteStore(keyValueReadWriter)
 
 	obsMap := map[string][]*vault.Observation{}
+	if len(aos) > 0 {
+		r.lggr.Infof("Debugging: VaultOCR StateTransition. aos-size: %d", len(aos))
+	}
 	for _, ao := range aos {
 		obs := &vault.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {

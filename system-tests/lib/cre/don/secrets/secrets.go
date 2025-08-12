@@ -255,7 +255,7 @@ func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.Genera
 			}
 		}
 		// +1 because we use 1-based indexing in the CRE
-		donIndexToUse := uint32(donIdx + 1) // #nosec G115
+		donIndexToUse := libc.MustSafeUint64FromInt(donIdx + 1)
 		output.P2PKeys[donIndexToUse] = &p2pKeys
 		output.EVMKeys[donIndexToUse] = evmKeysPerChainID
 	}

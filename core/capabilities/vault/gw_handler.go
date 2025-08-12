@@ -115,7 +115,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id: &vault.SecretIdentifier{
-					Owner:     "", // TBD
+					Owner:     requestData.Owner,
 					Namespace: "", // TBD
 					Key:       requestData.ID,
 				},

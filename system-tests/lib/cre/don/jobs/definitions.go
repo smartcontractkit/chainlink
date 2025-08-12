@@ -48,10 +48,10 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData cre.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, handlers map[string]string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
-	for _, don := range gatewayConnectorData.Dons {
+	for _, don := range gatewayConfiguration.Dons {
 		var gatewayMembers string
 
 		for i := 0; i < len(don.MembersEthAddresses); i++ {
@@ -64,43 +64,22 @@ func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64,
 			)
 		}
 
-		if handlerType == HTTPHandlerType {
-			gatewayDons += fmt.Sprintf(`
-				[[gatewayConfig.Dons]]
-				DonId = "workflows"
-				F = 1
-				HandlerName = "http-capabilities"
-					[gatewayConfig.Dons.HandlerConfig]
-					MaxAllowedMessageAgeSec = 1_000
-					authPullIntervalMs = 1000
-						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-						GlobalBurst = 10
-						GlobalRPS = 50
-						PerSenderBurst = 10
-						PerSenderRPS = 10
-						[gatewayConfig.Dons.HandlerConfig.UserRateLimiter]
-						GlobalBurst = 10
-						GlobalRPS = 50
-						PerSenderBurst = 10
-						PerSenderRPS = 10
-					%s
-			`, gatewayMembers)
-		} else {
-			gatewayDons += fmt.Sprintf(`
-				[[gatewayConfig.Dons]]
-				DonId = "%s"
-				F = 1
-				HandlerName = "web-api-capabilities"
-					[gatewayConfig.Dons.HandlerConfig]
-					MaxAllowedMessageAgeSec = 1_000
-						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-						GlobalBurst = 10
-						GlobalRPS = 50
-						PerSenderBurst = 10
-						PerSenderRPS = 10
-					%s
-				`, don.ID, gatewayMembers)
+		var handlersConfig string
+		for name, config := range handlers {
+			handlersConfig += fmt.Sprintf(`
+	[[gatewayConfig.Dons.Handlers]]
+	Name = "%s"
+	%s
+		`, name, config)
 		}
+
+		gatewayDons += fmt.Sprintf(`
+	[[gatewayConfig.Dons]]
+	DonId = "%s"
+	F = 1
+	%s
+	%s
+		`, don.ID, gatewayMembers, handlersConfig)
 	}
 
 	uuid := uuid.NewString()
@@ -113,7 +92,7 @@ func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64,
 	forwardingAllowed = false
 	[gatewayConfig.ConnectionManagerConfig]
 	AuthChallengeLen = 10
-	AuthGatewayId = "por_gateway"
+	AuthGatewayId = "%s"
 	AuthTimestampToleranceSec = 5
 	HeartbeatIntervalSec = 20
 	%s
@@ -141,12 +120,13 @@ func AnyGateway(handlerType HandlerType, bootstrapNodeID string, chainID uint64,
 	MaxResponseBytes = 100_000_000
 `,
 		uuid,
-		cre.GatewayJobName,
+		"cre-gateway",
+		gatewayConfiguration.AuthGatewayID,
 		gatewayDons,
-		gatewayConnectorData.Outgoing.Path,
-		gatewayConnectorData.Outgoing.Port,
-		gatewayConnectorData.Incoming.Path,
-		gatewayConnectorData.Incoming.InternalPort,
+		gatewayConfiguration.Outgoing.Path,
+		gatewayConfiguration.Outgoing.Port,
+		gatewayConfiguration.Incoming.Path,
+		gatewayConfiguration.Incoming.InternalPort,
 	)
 
 	if len(extraAllowedPorts) != 0 {

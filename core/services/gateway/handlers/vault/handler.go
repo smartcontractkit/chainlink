@@ -98,8 +98,8 @@ type SecretEntry struct {
 }
 
 type Config struct {
-	NodeRateLimiter   ratelimit.RateLimiterConfig
-	RequestTimeoutSec int
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (*handler, error) {
@@ -196,7 +196,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("handling vault request", "method", req.Method, "id", req.ID)
+	h.lggr.Debugw("Debugging: handling vault request", "method", req.Method, "id", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
@@ -279,7 +279,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
-	h.lggr.Debugf("Forwarded request to Vault nodes: %v", ar.req)
+	h.lggr.Debugf("Debugging: Forwarded request to Vault nodes: %v", ar.req)
 	return nil
 }
 
