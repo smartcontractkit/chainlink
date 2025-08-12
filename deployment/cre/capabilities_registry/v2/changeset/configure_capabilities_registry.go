@@ -42,9 +42,9 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config ConfigureCapabilitiesRegistryInput) (cldf.ChangesetOutput, error) {
 	capabilitiesRegistryConfigurationReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
-		sequences.ConfigureCapabilitiesRegistrySequence,
-		sequences.ConfigureCapabilitiesRegistrySeqDeps{Env: &e},
-		sequences.ConfigureCapabilitiesRegistrySeqInput{
+		sequences.ConfigureCapabilitiesRegistry,
+		sequences.ConfigureCapabilitiesRegistryDeps{Env: &e},
+		sequences.ConfigureCapabilitiesRegistryInput{
 			RegistryChainSel: config.ChainSelector,
 			UseMCMS:          false, // Assuming MCMS is not used in this context
 			ContractAddress:  config.CapabilitiesRegistryAddress,

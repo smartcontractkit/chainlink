@@ -13,32 +13,32 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
-type RegisterCapabilitiesOpDeps struct {
+type RegisterCapabilitiesDeps struct {
 	Env *cldf.Environment
 }
 
-type RegisterCapabilitiesOpInput struct {
+type RegisterCapabilitiesInput struct {
 	Address       string
 	ChainSelector uint64
 	Capabilities  []capabilities_registry_v2.CapabilitiesRegistryCapability
 }
 
-type RegisterCapabilitiesOpOutput struct {
+type RegisterCapabilitiesOutput struct {
 	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
 }
 
-// RegisterCapabilitiesOp is an operation that registers nodes in the V2 Capabilities Registry contract.
-var RegisterCapabilitiesOp = operations.NewOperation[RegisterCapabilitiesOpInput, RegisterCapabilitiesOpOutput, RegisterCapabilitiesOpDeps](
+// RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
+var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, RegisterCapabilitiesOutput, RegisterCapabilitiesDeps](
 	"register-capabilities-op",
 	semver.MustParse("1.0.0"),
 	"Register Capabilities in Capabilities Registry",
-	func(b operations.Bundle, deps RegisterCapabilitiesOpDeps, input RegisterCapabilitiesOpInput) (RegisterCapabilitiesOpOutput, error) {
+	func(b operations.Bundle, deps RegisterCapabilitiesDeps, input RegisterCapabilitiesInput) (RegisterCapabilitiesOutput, error) {
 		// Validate input
 
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
 		// Get the CapabilitiesRegistryTransactor contract
@@ -47,27 +47,27 @@ var RegisterCapabilitiesOp = operations.NewOperation[RegisterCapabilitiesOpInput
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
 		}
 
 		tx, err := capabilityRegistryTransactor.AddCapabilities(chain.DeployerKey, input.Capabilities)
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to call AddCapabilities: %w", err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to call AddCapabilities: %w", err)
 		}
 
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
 		}
 
 		ctx := b.GetContext()
 		receipt, err := bind.WaitMined(ctx, chain.Client, tx)
 		if err != nil {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to mine AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to mine AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 		if len(receipt.Logs) != len(input.Capabilities) {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("expected %d log entries for AddCapabilities, got %d", len(input.Capabilities), len(receipt.Logs))
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("expected %d log entries for AddCapabilities, got %d", len(input.Capabilities), len(receipt.Logs))
 		}
 
 		// Get the CapabilitiesRegistryFilterer contract
@@ -76,10 +76,10 @@ var RegisterCapabilitiesOp = operations.NewOperation[RegisterCapabilitiesOpInput
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
 		}
 
-		resp := RegisterCapabilitiesOpOutput{
+		resp := RegisterCapabilitiesOutput{
 			Capabilities: make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs)),
 		}
 		// Parse the logs to get the added capabilities
@@ -87,10 +87,10 @@ var RegisterCapabilitiesOp = operations.NewOperation[RegisterCapabilitiesOpInput
 			if log == nil {
 				continue
 			}
-			
+
 			o, err := capabilityRegistryFilterer.ParseCapabilityConfigured(*log)
 			if err != nil {
-				return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
+				return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
 			}
 			resp.Capabilities = append(resp.Capabilities, o)
 		}

@@ -12,30 +12,30 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
-type RegisterDonsOpDeps struct {
+type RegisterDonsDeps struct {
 	Env *cldf.Environment
 }
 
-type RegisterDonsOpInput struct {
+type RegisterDonsInput struct {
 	Address       string
 	ChainSelector uint64
 	DONs          []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }
 
-type RegisterDonsOpOutput struct {
+type RegisterDonsOutput struct {
 	DONs []capabilities_registry_v2.CapabilitiesRegistryDONInfo
 }
 
-// RegisterDonsOp is an operation that registers DONs in the V2 Capabilities Registry contract.
-var RegisterDonsOp = operations.NewOperation[RegisterDonsOpInput, RegisterDonsOpOutput, RegisterDonsOpDeps](
+// RegisterDons is an operation that registers DONs in the V2 Capabilities Registry contract.
+var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput, RegisterDonsDeps](
 	"register-dons-op",
 	semver.MustParse("1.0.0"),
 	"Register DONs in Capabilities Registry",
-	func(b operations.Bundle, deps RegisterDonsOpDeps, input RegisterDonsOpInput) (RegisterDonsOpOutput, error) {
+	func(b operations.Bundle, deps RegisterDonsDeps, input RegisterDonsInput) (RegisterDonsOutput, error) {
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return RegisterDonsOpOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
+			return RegisterDonsOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
 		// Get the CapabilitiesRegistryTransactor contract
@@ -44,21 +44,21 @@ var RegisterDonsOp = operations.NewOperation[RegisterDonsOpInput, RegisterDonsOp
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterDonsOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
+			return RegisterDonsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
 		}
 
 		tx, err := capabilityRegistryTransactor.AddDONs(chain.DeployerKey, input.DONs)
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-			return RegisterDonsOpOutput{}, fmt.Errorf("failed to call AddDONs: %w", err)
+			return RegisterDonsOutput{}, fmt.Errorf("failed to call AddDONs: %w", err)
 		}
 
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return RegisterDonsOpOutput{}, fmt.Errorf("failed to confirm AddDONs transaction %s: %w", tx.Hash().String(), err)
+			return RegisterDonsOutput{}, fmt.Errorf("failed to confirm AddDONs transaction %s: %w", tx.Hash().String(), err)
 		}
 
-		resp := RegisterDonsOpOutput{}
+		resp := RegisterDonsOutput{}
 
 		// Get the CapabilitiesRegistryCaller contract
 		capabilityRegistryCaller, err := capabilities_registry_v2.NewCapabilitiesRegistryCaller(
@@ -66,11 +66,11 @@ var RegisterDonsOp = operations.NewOperation[RegisterDonsOpInput, RegisterDonsOp
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterDonsOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
+			return RegisterDonsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
 		}
 		donInfo, err := capabilityRegistryCaller.GetDONs(nil)
 		if err != nil {
-			return RegisterDonsOpOutput{}, fmt.Errorf("failed to get DONs: %w", err)
+			return RegisterDonsOutput{}, fmt.Errorf("failed to get DONs: %w", err)
 		}
 
 		resp.DONs = donInfo

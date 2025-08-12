@@ -144,10 +144,6 @@ func TestConfigureCapabilitiesRegistry(t *testing.T) {
 		},
 	}
 
-	if len(nops) == 0 && len(nodes) == 0 {
-		t.Skip("No NOPs or Nodes provided, skipping configuration test")
-	}
-
 	configureOutput, err := ConfigureCapabilitiesRegistry{}.Apply(env, ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               chainSelector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,

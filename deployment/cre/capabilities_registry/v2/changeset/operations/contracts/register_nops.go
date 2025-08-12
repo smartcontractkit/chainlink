@@ -13,30 +13,30 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
-type RegisterNopsOpDeps struct {
+type RegisterNopsDeps struct {
 	Env *cldf.Environment
 }
 
-type RegisterNopsOpInput struct {
+type RegisterNopsInput struct {
 	Address       string
 	ChainSelector uint64
 	Nops          []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
 }
 
-type RegisterNopsOpOutput struct {
+type RegisterNopsOutput struct {
 	Nops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
 }
 
-// RegisterNopsOp is an operation that registers node operators in the V2 Capabilities Registry contract.
-var RegisterNopsOp = operations.NewOperation[RegisterNopsOpInput, RegisterNopsOpOutput, RegisterNopsOpDeps](
+// RegisterNops is an operation that registers node operators in the V2 Capabilities Registry contract.
+var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput, RegisterNopsDeps](
 	"register-nops-op",
 	semver.MustParse("1.0.0"),
 	"Register Node Operators in Capabilities Registry",
-	func(b operations.Bundle, deps RegisterNopsOpDeps, input RegisterNopsOpInput) (RegisterNopsOpOutput, error) {
+	func(b operations.Bundle, deps RegisterNopsDeps, input RegisterNopsInput) (RegisterNopsOutput, error) {
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return RegisterNopsOpOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
+			return RegisterNopsOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
 		// Get the CapabilitiesRegistryTransactor contract
@@ -45,27 +45,27 @@ var RegisterNopsOp = operations.NewOperation[RegisterNopsOpInput, RegisterNopsOp
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterNopsOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
+			return RegisterNopsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
 		}
 
 		tx, err := capabilityRegistryTransactor.AddNodeOperators(chain.DeployerKey, input.Nops)
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-			return RegisterNopsOpOutput{}, fmt.Errorf("failed to call AddNodeOperators: %w", err)
+			return RegisterNopsOutput{}, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 		}
 
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return RegisterNopsOpOutput{}, fmt.Errorf("failed to confirm AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
+			return RegisterNopsOutput{}, fmt.Errorf("failed to confirm AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 
 		ctx := b.GetContext()
 		receipt, err := bind.WaitMined(ctx, chain.Client, tx)
 		if err != nil {
-			return RegisterNopsOpOutput{}, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
+			return RegisterNopsOutput{}, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 		if len(receipt.Logs) != len(input.Nops) {
-			return RegisterNopsOpOutput{}, fmt.Errorf("expected %d log entries for AddNodeOperators, got %d", len(input.Nops), len(receipt.Logs))
+			return RegisterNopsOutput{}, fmt.Errorf("expected %d log entries for AddNodeOperators, got %d", len(input.Nops), len(receipt.Logs))
 		}
 
 		// Get the CapabilitiesRegistryFilterer contract
@@ -74,10 +74,10 @@ var RegisterNopsOp = operations.NewOperation[RegisterNopsOpInput, RegisterNopsOp
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterNopsOpOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
+			return RegisterNopsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
 		}
 
-		resp := RegisterNopsOpOutput{
+		resp := RegisterNopsOutput{
 			Nops: make([]*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded, 0, len(receipt.Logs)),
 		}
 		// Parse the logs to get the added node operators
@@ -88,7 +88,7 @@ var RegisterNopsOp = operations.NewOperation[RegisterNopsOpInput, RegisterNopsOp
 
 			o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
 			if err != nil {
-				return RegisterNopsOpOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
+				return RegisterNopsOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
 			}
 			resp.Nops = append(resp.Nops, o)
 		}
