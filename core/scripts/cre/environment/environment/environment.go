@@ -252,8 +252,8 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if topology != TopologyWorkflow && topology != TopologyWorkflowGatewayCapabilities && topology != TopologyWorkflowGateway {
-				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s, %s", topology, TopologyWorkflow, TopologyWorkflowGatewayCapabilities, TopologyWorkflowGateway)
+			if topology != TopologyWorkflow && topology != TopologyWorkflowGatewayCapabilities && topology != TopologyWorkflowGateway && topology != TopologyMock {
+				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s, %s, %s", topology, TopologyWorkflow, TopologyWorkflowGatewayCapabilities, TopologyWorkflowGateway, TopologyMock)
 			}
 
 			PrintCRELogo()
@@ -997,6 +997,13 @@ func defaultCtfConfigs(topologyFlag string) error {
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
+		case TopologyMock:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-load.toml")
+			if setErr != nil {
+				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			}
+		default:
+			return fmt.Errorf("invalid topology flag: %s", topologyFlag)
 		}
 		fmt.Printf("Set CTF_CONFIGS environment variable to default value: %s\n", os.Getenv("CTF_CONFIGS"))
 	}
