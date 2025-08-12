@@ -2,10 +2,12 @@ package tron
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -18,7 +20,7 @@ type ConfigureForwarder struct{}
 
 func (cs ConfigureForwarder) VerifyPreconditions(env cldf.Environment, req *ConfigureForwarderRequest) error {
 	if len(req.WFNodeIDs) == 0 {
-		return fmt.Errorf("WFNodeIDs must not be empty")
+		return errors.New("WFNodeIDs must not be empty")
 	}
 	return nil
 }
@@ -71,7 +73,7 @@ func configureForwarderContracts(env cldf.Environment, req *ConfigureForwarderRe
 
 func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress address.Address, dons []internal.RegisteredDon, triggerOpts cldf_tron.TriggerOptions) error {
 	if fwdrAddress == nil {
-		return fmt.Errorf("nil forwarder contract")
+		return errors.New("nil forwarder contract")
 	}
 
 	for _, dn := range dons {

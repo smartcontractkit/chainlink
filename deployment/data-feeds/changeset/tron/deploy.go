@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
+
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"

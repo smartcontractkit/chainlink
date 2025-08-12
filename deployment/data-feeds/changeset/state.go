@@ -82,7 +82,7 @@ func LoadTronOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 		TronChains: make(map[uint64]DataFeedsTronChainState),
 	}
 
-	for chainSelector, _ := range e.BlockChains.TronChains() {
+	for chainSelector := range e.BlockChains.TronChains() {
 		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 		chainState, err := LoadTronChainState(e.Logger, records)
 		if err != nil {

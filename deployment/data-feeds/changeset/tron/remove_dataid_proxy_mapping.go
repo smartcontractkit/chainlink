@@ -2,6 +2,7 @@ package tron
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -31,7 +32,7 @@ func removeFeedProxyMappingPrecondition(env cldf.Environment, c types.RemoveFeed
 	}
 
 	if len(c.ProxyAddresses) == 0 {
-		return fmt.Errorf("proxy addresses must not be empty")
+		return errors.New("proxy addresses must not be empty")
 	}
 
 	return changeset.ValidateCacheForTronChain(env, c.ChainSelector, c.CacheAddress)

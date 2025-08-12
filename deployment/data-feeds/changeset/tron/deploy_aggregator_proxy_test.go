@@ -39,8 +39,8 @@ func TestDeployAggregatorProxy(t *testing.T) {
 		tron.DeployCacheChangeset,
 		types.DeployTronConfig{
 			ChainsToDeploy: []uint64{chainSelector},
-			Qualifier:      "tron",
 			Labels:         []string{"data-feeds"},
+			Qualifier:      "tron",
 			DeployOptions:  deployOptions,
 		},
 	))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -50,8 +51,6 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
 		}
 
-		lggr.Infof("Before DataStore: %+v", dataStore.Addresses())
-
 		if err = dataStore.Addresses().Add(
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
@@ -64,8 +63,6 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
-
-		lggr.Infof("After DataStore: %+v", dataStore.Addresses())
 	}
 
 	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil

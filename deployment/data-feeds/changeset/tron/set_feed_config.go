@@ -2,12 +2,14 @@ package tron
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	fullnode "github.com/fbsobreira/gotron-sdk/pkg/http/fullnode"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
@@ -47,7 +49,7 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalTronConfig) 
 	tcRequest := fullnode.TriggerSmartContractRequest{
 		OwnerAddress:    chain.Address.String(),
 		ContractAddress: c.CacheAddress.String(),
-		Data:            fmt.Sprintf("%x", calldata),
+		Data:            hex.EncodeToString(calldata),
 		FeeLimit:        c.TriggerOptions.FeeLimit,
 		CallValue:       c.TriggerOptions.TAmount,
 		Visible:         true,

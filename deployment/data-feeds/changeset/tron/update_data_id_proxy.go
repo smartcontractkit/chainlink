@@ -2,6 +2,7 @@ package tron
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -36,10 +37,10 @@ func updateDataIDProxyPrecondition(env cldf.Environment, c types.UpdateDataIDPro
 	}
 
 	if len(c.ProxyAddresses) == 0 || len(c.DataIDs) == 0 {
-		return fmt.Errorf("empty proxies or dataIds")
+		return errors.New("empty proxies or dataIds")
 	}
 	if len(c.DataIDs) != len(c.ProxyAddresses) {
-		return fmt.Errorf("dataIds and proxies length mismatch")
+		return errors.New("dataIds and proxies length mismatch")
 	}
 	_, err := changeset.FeedIDsToBytes16(c.DataIDs)
 	if err != nil {

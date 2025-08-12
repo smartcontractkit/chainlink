@@ -2,6 +2,7 @@ package tron
 
 import (
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -20,7 +21,7 @@ func LoadTronOnchainState(e cldf.Environment) (KeystoneTronChainState, error) {
 		Chains: make(map[uint64]ContractsState),
 	}
 
-	for chainSelector, _ := range e.BlockChains.TronChains() {
+	for chainSelector := range e.BlockChains.TronChains() {
 		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 		e.Logger.Infof("Records: %+v, Datastore: %+v", records, e.DataStore.Addresses())
 		contractsState, err := LoadTronContractsState(e.Logger, records)

@@ -3,9 +3,11 @@ package changeset
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"math/big"
+	"strings"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
@@ -71,7 +73,7 @@ func ExtractTypeAndVersion(hexStr string) (string, error) {
 	}
 
 	if len(data) < 64 {
-		return "", fmt.Errorf("Data too short to be ABI-encoded")
+		return "", errors.New("Data too short to be ABI-encoded")
 	}
 
 	// Extract the length (32 bytes from offset 32)
@@ -79,11 +81,11 @@ func ExtractTypeAndVersion(hexStr string) (string, error) {
 	strLen := new(big.Int).SetBytes(lengthBytes).Int64()
 
 	if strLen < 0 {
-		return "", fmt.Errorf("Negative string length")
+		return "", errors.New("Negative string length")
 	}
 
 	if len(data) < 64+int(strLen) {
-		return "", fmt.Errorf("Data too short for expected string length")
+		return "", errors.New("Data too short for expected string length")
 	}
 
 	strBytes := data[64 : 64+int(strLen)]
@@ -156,7 +158,7 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRe
 	}
 
 	for addr, tv := range address {
-		if tv.String() == cacheTV.String() {
+		if strings.Contains(tv.String(), cacheTV.String()) {
 			dataFeedsCacheAddress = addr
 		}
 	}
