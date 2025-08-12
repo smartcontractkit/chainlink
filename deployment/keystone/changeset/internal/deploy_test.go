@@ -516,7 +516,7 @@ func Test_RegisterDons(t *testing.T) {
 					setupResp.Chain.Selector: setupResp.Chain,
 				}),
 		}
-		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
+		req := internal.RegisterDonsRequest{
 			Env:                   env,
 			RegistryChainSelector: setupResp.Chain.Selector,
 			DonToCapabilities: map[string][]internal.RegisteredCapability{
@@ -526,15 +526,34 @@ func Test_RegisterDons(t *testing.T) {
 				{
 					Name: "test-don",
 					F:    1,
+
+					Nodes: []deployment.Node{
+						{
+							NodeID: "test-node-id",
+						},
+					},
 				},
 			},
 			NodeIDToP2PID: map[string][32]byte{
 				"test-node-id": testPeerID(t, "0x1"),
 			},
 			UseMCMS: true,
-		})
+		}
+		resp, err := internal.RegisterDons(lggr, req)
 		require.NoError(t, err)
 		require.Nil(t, resp.Ops)
+		assert.Empty(t, resp.DonInfos)
+
+		// the previous call shows that no ops are created by default when trying to register a DON with identical nodes
+		// to an existing DON. Now we enable AllowDuplicateDons and verify that registration works.
+		t.Run("enable duplicate DON registration and register again", func(t *testing.T) {
+			req.AllowDuplicateDons = true
+			resp, err := internal.RegisterDons(lggr, req)
+			require.NoError(t, err)
+			require.NotNil(t, resp.Ops)
+			require.Len(t, resp.Ops.Transactions, 1)
+			assert.Empty(t, resp.DonInfos)
+		})
 	})
 
 	t.Run("success create add DONs mcms proposal with multiple DONs", func(t *testing.T) {
@@ -579,6 +598,56 @@ func Test_RegisterDons(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
 		require.Len(t, resp.Ops.Transactions, 2)
+	})
+	t.Run("error: AllowDuplicateDons with non-empty capabilities should fail", func(t *testing.T) {
+		env := &cldf.Environment{
+			Logger: lggr,
+			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
+				chain.Selector: {
+					registry.Address().String(): cldf.TypeAndVersion{
+						Type:    internal.CapabilitiesRegistry,
+						Version: deployment.Version1_0_0,
+					},
+				},
+			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
+		}
+
+		// Create a capability for the DON
+		testCapability := internal.RegisteredCapability{
+			CapabilitiesRegistryCapability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "test-capability",
+				Version:        "1.0.0",
+				CapabilityType: 0,
+			},
+			ID: [32]byte{1: 1}, // some test ID
+		}
+
+		_, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
+			Env:                   env,
+			RegistryChainSelector: chain.Selector,
+			DonToCapabilities: map[string][]internal.RegisteredCapability{
+				"test-don-with-caps": {testCapability}, // DON has capabilities
+			},
+			DonsToRegister: []internal.DONToRegister{
+				{
+					Name: "test-don-with-caps",
+					F:    2,
+				},
+			},
+			NodeIDToP2PID: map[string][32]byte{
+				"test-node-id": testPeerID(t, "0x1"),
+			},
+			AllowDuplicateDons: true, // This should cause validation to fail
+			UseMCMS:            false,
+		})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "has capabilities but AllowDuplicateDons is true")
+		require.Contains(t, err.Error(), "only placeholder dons without capabilities can be registered as duplicates")
 	})
 }
 

@@ -72,6 +72,21 @@ func TestAddDONs(t *testing.T) {
 					},
 				},
 				{
+					name: "ok, empty capability",
+					input: input{
+						te: te,
+						dons: []*changeset.RegisterableDon{
+							{
+								Name:              "a_new_don_empty_cap",
+								F:                 1,
+								P2PIDs:            virtualDon,
+								CapabilityConfigs: nil,
+							},
+						},
+						mcmsConfig: mc.mcmsConfig,
+					},
+				},
+				{
 					name: "node not exists",
 					input: input{
 						te: te,
@@ -137,7 +152,7 @@ func TestAddDONs(t *testing.T) {
 
 					csOut, err := changeset.AddDons(te.Env, &cfg)
 					if err != nil && tc.checkErr == nil {
-						t.Errorf("non nil err from AddDons %v but no checkErr func defined", err)
+						t.Errorf("non nil err from AddDons '%v' but no checkErr func defined", err)
 					}
 					useMCMS := cfg.MCMSConfig != nil
 					if !useMCMS {

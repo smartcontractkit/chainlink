@@ -88,6 +88,10 @@ type AddDonsRequest struct {
 	DONs []*RegisterableDon
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+	// If true, allows registering new DON with the identical nodes as an existing DON
+	// This is only validate as place holder dons. As such, they cannot have any capabilities
+	// It is an error to set this to true and attempt to register a DON with capabilities
+	AllowDuplicateDons bool
 
 	RegistryRef datastore.AddressRefKey
 }
@@ -165,6 +169,7 @@ func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, e
 		NodeIDToP2PID:         nodeIDToP2PID,
 		DonToCapabilities:     donToCapabilities,
 		DonsToRegister:        donsToRegister,
+		AllowDuplicateDons:    req.AllowDuplicateDons,
 		UseMCMS:               req.UseMCMS(),
 	})
 	if err != nil {

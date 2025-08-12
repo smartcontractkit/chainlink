@@ -818,7 +818,11 @@ type RegisterDonsRequest struct {
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
 	DonsToRegister    []DONToRegister
-	UseMCMS           bool
+	// if true, allows registering new DON with the same nodes as an existing DON
+	// this is only validate as place holder dons. As such, they cannot have any capabilities
+	// It is an error to set this to true and attempt to register a DON with capabilities
+	AllowDuplicateDons bool
+	UseMCMS            bool
 }
 
 func (r *RegisterDonsRequest) Validate() error {
@@ -835,6 +839,17 @@ func (r *RegisterDonsRequest) Validate() error {
 	}
 	if len(r.DonToCapabilities) == 0 {
 		return errors.New("no dons to capabilities mapping")
+	}
+	if r.AllowDuplicateDons {
+		for _, don := range r.DonsToRegister {
+			caps, ok := r.DonToCapabilities[don.Name]
+			if !ok {
+				return fmt.Errorf("capabilities not found for don %s", don.Name)
+			}
+			if len(caps) > 0 {
+				return fmt.Errorf("don %s has capabilities but AllowDuplicateDons is true; only placeholder dons without capabilities can be registered as duplicates", don.Name)
+			}
+		}
 	}
 	return nil
 }
@@ -881,11 +896,14 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		err = cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
-	existingDONs := make(map[string]struct{})
+	originalDonCount := len(donInfos)
+	lggr.Infow("fetched DONs from registry", "count", originalDonCount)
+	existingDONsByPeers := make(map[string]struct{})
 	for _, donInfo := range donInfos {
-		existingDONs[sortedHash(donInfo.NodeP2PIds)] = struct{}{}
+		existingDONsByPeers[sortedHash(donInfo.NodeP2PIds)] = struct{}{}
 	}
-	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
+
+	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONsByPeers))
 
 	transactions := make([]mcmstypes.Transaction, 0)
 	for _, don := range req.DonsToRegister {
@@ -904,9 +922,12 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		p2pSortedHash := sortedHash(p2pIds)
 		p2pIdsToDon[p2pSortedHash] = don.Name
 
-		if _, ok := existingDONs[p2pSortedHash]; ok {
-			lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
-			continue
+		if !req.AllowDuplicateDons {
+			lggr.Debugw("checking for existing DON with identical nodes", "don", don.Name, "p2p sorted hash", p2pSortedHash)
+			if _, ok := existingDONsByPeers[p2pSortedHash]; ok {
+				lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
+				continue
+			}
 		}
 
 		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
@@ -984,12 +1005,23 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	for i := 0; i < 10; i++ {
 		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = registry.GetDONs(&bind.CallOpts{})
-		if !containsAllDONs(donInfos, p2pIdsToDon) {
-			lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
-			time.Sleep(2 * time.Second)
+		if !req.AllowDuplicateDons {
+			if !containsAllDONs(donInfos, p2pIdsToDon) {
+				lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
+				time.Sleep(2 * time.Second)
+			} else {
+				foundAll = true
+				break
+			}
 		} else {
-			foundAll = true
-			break
+			// when allowing duplicate dons, we cannot verify by contents, so we just check that the count has increased
+			if len(donInfos) <= originalDonCount+addedDons {
+				lggr.Debugw("not all expected dons registered yet (by count), re-checking after a delay ...", "expectedMin", originalDonCount+addedDons, "got", len(donInfos))
+				time.Sleep(2 * time.Second)
+			} else {
+				foundAll = true
+				break
+			}
 		}
 	}
 	if err != nil {
