@@ -20,6 +20,77 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	rpf, err := NewReportingPluginFactory(lggr, store, pk, shares[0])
+	require.NoError(t, err)
+
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil)
+	require.NoError(t, err)
+
+	typedRP := rp.(*ReportingPlugin)
+	assert.Equal(t, typedRP.cfg.BatchSize, 20)
+	assert.NotNil(t, typedRP.cfg.PublicKey)
+	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
+	assert.Equal(t, typedRP.cfg.MaxSecretsPerOwner, 100)
+	assert.Equal(t, typedRP.cfg.MaxCiphertextLengthBytes, 2048)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierOwnerLengthBytes, 64)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierNamespaceLengthBytes, 64)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierKeyLengthBytes, 64)
+
+	assert.Equal(t, info.Name, "VaultReportingPlugin")
+	assert.Equal(t, info.Limits.MaxQueryLength, 1024)
+	assert.Equal(t, info.Limits.MaxObservationLength, 1024)
+	assert.Equal(t, info.Limits.MaxReportsPlusPrecursorLength, 1024)
+	assert.Equal(t, info.Limits.MaxReportLength, 1024)
+	assert.Equal(t, info.Limits.MaxReportCount, 10)
+	assert.Equal(t, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength, 1024)
+	assert.Equal(t, info.Limits.MaxBlobPayloadLength, 1024*1024)
+
+	cfg := vault.ReportingPluginConfig{
+		BatchSize:                                     2,
+		MaxSecretsPerOwner:                            2,
+		MaxCiphertextLengthBytes:                      2,
+		MaxIdentifierOwnerLengthBytes:                 2,
+		MaxIdentifierNamespaceLengthBytes:             2,
+		MaxIdentifierKeyLengthBytes:                   2,
+		LimitsMaxQueryLength:                          2,
+		LimitsMaxObservationLength:                    2,
+		LimitsMaxReportsPlusPrecursorLength:           2,
+		LimitsMaxReportLength:                         2,
+		LimitsMaxReportCount:                          2,
+		LimitsMaxKeyValueModifiedKeysPlusValuesLength: 2,
+		LimitsMaxBlobPayloadLength:                    2,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+
+	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	typedRP = rp.(*ReportingPlugin)
+	assert.Equal(t, typedRP.cfg.BatchSize, 2)
+	assert.Equal(t, typedRP.cfg.MaxSecretsPerOwner, 2)
+	assert.Equal(t, typedRP.cfg.MaxCiphertextLengthBytes, 2)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierOwnerLengthBytes, 2)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierNamespaceLengthBytes, 2)
+	assert.Equal(t, typedRP.cfg.MaxIdentifierKeyLengthBytes, 2)
+
+	assert.Equal(t, info.Name, "VaultReportingPlugin")
+	assert.Equal(t, info.Limits.MaxQueryLength, 2)
+	assert.Equal(t, info.Limits.MaxObservationLength, 2)
+	assert.Equal(t, info.Limits.MaxReportsPlusPrecursorLength, 2)
+	assert.Equal(t, info.Limits.MaxReportLength, 2)
+	assert.Equal(t, info.Limits.MaxReportCount, 2)
+	assert.Equal(t, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength, 2)
+	assert.Equal(t, info.Limits.MaxBlobPayloadLength, 2)
+}
+
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*Request]()
@@ -27,14 +98,14 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -100,14 +171,14 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			lggr:  lggr,
 			store: store,
 			cfg: &ReportingPluginConfig{
-				BatchSize:                      10,
-				PublicKey:                      nil,
-				PrivateKeyShare:                nil,
-				MaxSecretsPerOwner:             1,
-				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
+				BatchSize:                         10,
+				PublicKey:                         nil,
+				PrivateKeyShare:                   nil,
+				MaxSecretsPerOwner:                1,
+				MaxCiphertextLengthBytes:          1024,
+				MaxIdentifierOwnerLengthBytes:     maxIDLen / 3,
+				MaxIdentifierNamespaceLengthBytes: maxIDLen / 3,
+				MaxIdentifierKeyLengthBytes:       maxIDLen / 3,
 			},
 		}
 
@@ -157,14 +228,14 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -236,14 +307,14 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -297,14 +368,14 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -373,14 +444,14 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -447,14 +518,14 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -590,14 +661,14 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			lggr:  lggr,
 			store: store,
 			cfg: &ReportingPluginConfig{
-				BatchSize:                      10,
-				PublicKey:                      nil,
-				PrivateKeyShare:                nil,
-				MaxSecretsPerOwner:             1,
-				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
+				BatchSize:                         10,
+				PublicKey:                         nil,
+				PrivateKeyShare:                   nil,
+				MaxSecretsPerOwner:                1,
+				MaxCiphertextLengthBytes:          1024,
+				MaxIdentifierOwnerLengthBytes:     maxIDLen / 3,
+				MaxIdentifierNamespaceLengthBytes: maxIDLen / 3,
+				MaxIdentifierKeyLengthBytes:       maxIDLen / 3,
 			},
 		}
 
@@ -645,14 +716,14 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     30,
-			MaxIdentifierNamespaceLenBytes: 30,
-			MaxIdentifierKeyLenBytes:       30,
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
 		},
 	}
 
@@ -714,14 +785,14 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     30,
-			MaxIdentifierNamespaceLenBytes: 30,
-			MaxIdentifierKeyLenBytes:       30,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
 		},
 	}
 
@@ -825,14 +896,14 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -885,14 +956,14 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          10,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          10,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -952,14 +1023,14 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1020,14 +1091,14 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1108,14 +1179,14 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1190,14 +1261,14 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 		lggr:  lggr,
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1308,14 +1379,14 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1380,14 +1451,14 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1467,14 +1538,14 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1548,14 +1619,14 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1625,14 +1696,14 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1767,14 +1838,14 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
@@ -1936,14 +2007,14 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 		store: store,
 		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
 		},
 	}
 
