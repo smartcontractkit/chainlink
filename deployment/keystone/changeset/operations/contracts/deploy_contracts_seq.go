@@ -62,16 +62,6 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
 
-		// DON Time Contract - Copy of OCR3Capability
-		donTimeDeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "DONTime"})
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-		err = updateAddresses(as.Addresses(), donTimeDeployReport.Output.Addresses, ab, donTimeDeployReport.Output.AddressBook)
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-
 		// Capabilities Registry contract
 		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, DeployCapabilityRegistryOp, DeployCapabilityRegistryOpDeps(deps), DeployCapabilityRegistryInput{ChainSelector: input.RegistryChainSelector})
 		if err != nil {
@@ -98,6 +88,16 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
 		err = updateAddresses(as.Addresses(), keystoneForwarderDeployReport.Output.Addresses, ab, keystoneForwarderDeployReport.Output.AddressBook)
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
+
+		// DON Time Contract - Copy of OCR3Capability
+		donTimeDeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "DONTime"})
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
+		err = updateAddresses(as.Addresses(), donTimeDeployReport.Output.Addresses, ab, donTimeDeployReport.Output.AddressBook)
 		if err != nil {
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
