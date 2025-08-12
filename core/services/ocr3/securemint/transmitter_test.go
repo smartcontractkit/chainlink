@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func TestTransmitter_NewTransmitter(t *testing.T) {
@@ -113,7 +114,7 @@ func TestTransmitter_FromAccount(t *testing.T) {
 		TriggerSendChannelBufferSize: 1000,
 	}
 
-	transmitter, err := config.NewTransmitter("test-transmitter")
+	transmitter, err := config.NewTransmitter("0x11234")
 	require.NoError(t, err)
 
 	account, err := transmitter.FromAccount(context.Background())
@@ -122,7 +123,7 @@ func TestTransmitter_FromAccount(t *testing.T) {
 
 	// Verify account format includes logger name and don ID
 	assert.Contains(t, string(account), lggr.Name())
-	assert.Contains(t, string(account), "1")
+	assert.Equal(t, "0x11234", string(account))
 }
 
 // Mock capabilities registry for testing
@@ -158,4 +159,8 @@ func (m *mockCapabilitiesRegistry) LocalNode(ctx context.Context) (capabilities.
 
 func (m *mockCapabilitiesRegistry) GetTrigger(ctx context.Context, ID string) (capabilities.TriggerCapability, error) {
 	return nil, nil
+}
+
+func (m *mockCapabilitiesRegistry) NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error) {
+	return capabilities.Node{}, nil
 }

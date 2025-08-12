@@ -2,10 +2,9 @@ package securemint
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -116,37 +115,8 @@ func (t *transmitter) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to add transmitter to registry: %w", err)
 	}
-	secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
-	if !ok || secureMintTransmitterHackDisabled != "true" {
-		go t.sendTriggerEvents(ctx)
-	}
 	t.eng.Infow("SecureMintTransmitter registered", "triggerCapabilityInfo", t.CapabilityInfo)
 	return nil
-}
-
-func (t *transmitter) sendTriggerEvents(ctx context.Context) {
-	t.eng.Infow("Sending mock trigger events in a loop", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Second):
-			t.eng.Infow("Sending trigger event", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-			outputs, err := values.NewMap(map[string]any{
-				"report": "test",
-			})
-			if err != nil {
-				t.eng.Errorw("failed to create outputs map", "error", err)
-				continue
-			}
-			t.processNewEvent(ctx, &capabilities.TriggerEvent{
-				TriggerType: t.CapabilityInfo.ID,
-				ID:          "securemint-trigger",
-				Outputs:     outputs,
-			})
-			t.eng.Infow("Trigger event sent", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
-		}
-	}
 }
 
 func (t *transmitter) close() error {
@@ -163,10 +133,10 @@ func (t *transmitter) Transmit(
 	ctx context.Context,
 	cd ocr2types.ConfigDigest,
 	seqNr uint64,
-	report ocr3types.ReportWithInfo[por.ChainSelector],
+	ocr3Report ocr3types.ReportWithInfo[por.ChainSelector],
 	sigs []types.AttributedOnchainSignature,
 ) error {
-	t.eng.Debugw("Transmit called", "cd", cd, "seqNr", seqNr, "report", report, "sigs", sigs)
+	t.eng.Debugw("Transmit called", "cd", cd, "seqNr", seqNr, "report", ocr3Report, "sigs", sigs)
 	// Process the secure mint report and convert it to a trigger event
 	capSigs := make([]capabilities.OCRAttributedOnchainSignature, len(sigs))
 	for i, sig := range sigs {
@@ -176,9 +146,13 @@ func (t *transmitter) Transmit(
 		}
 	}
 
-	// TODO(gg): should we use commoncap.OCRTriggerEvent instead? Probably better to enforce field names
+	jsonOcr3Report, err := json.Marshal(ocr3Report)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ocr3 report: %w", err)
+	}
+
 	outputs, err := values.NewMap(map[string]any{
-		"report":       report,
+		"report":       jsonOcr3Report,
 		"sigs":         capSigs,
 		"seqNr":        seqNr,
 		"configDigest": cd,
@@ -186,9 +160,13 @@ func (t *transmitter) Transmit(
 	if err != nil {
 		return fmt.Errorf("failed to create outputs map: %w", err)
 	}
+
+	// use the seqNr as eventID
+	eventID := fmt.Sprintf("securemint_%d", seqNr)
+
 	ev := &capabilities.TriggerEvent{
-		TriggerType: t.CapabilityInfo.ID,  // TODO(gg): is this correct? type != ID I would assume
-		ID:          "securemint-trigger", // TODO(gg): probably we should use a more unique ID
+		TriggerType: t.CapabilityInfo.ID,
+		ID:          eventID,
 		Outputs:     outputs,
 	}
 	return t.processNewEvent(ctx, ev)
