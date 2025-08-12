@@ -56,7 +56,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 				Type:          cs.DataFeedsCache,
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     c.Qualifier,
-				Labels:        datastore.NewLabelSet(c.Labels...),
+				Labels:        datastore.NewLabelSet(proxyResponse.Tv.Labels.List()...),
 			},
 		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)

@@ -3,7 +3,6 @@ package tron_test
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	"github.com/stretchr/testify/require"
@@ -15,8 +14,6 @@ import (
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
-
-	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -56,44 +53,54 @@ func TestSetFeedConfig(t *testing.T) {
 	cacheAddress, err := address.Base58ToAddress(cacheAddressStr)
 	require.NoError(t, err)
 
-	dataID := "0x01bb0467f50003040000000000000000"
+	dataID := "0x01cb0467f50003040000000000000000"
 
-	workflowMetadata := []cache.DataFeedsCacheWorkflowMetadata{
+	allowedSender1, err := address.Base58ToAddress("TYS5HCEnSU23FgSirvxqVqfwDoD5xHd9Bz")
+	require.NoError(t, err)
+	allowedWorkflowOwner1, err := address.Base58ToAddress("TJatHg7jd3BJ21czkeA1WM76nfaLQ1RUFr")
+	require.NoError(t, err)
+
+	allowedSender2, err := address.Base58ToAddress("TSvJFKyg8ZrFyt46mEQTUfwQmY5rTAoCHY")
+	require.NoError(t, err)
+	allowedWorkflowOwner2, err := address.Base58ToAddress("TV3xgF64Q5bWD4rZjXB2MbKKuXqZuE71Nc")
+	require.NoError(t, err)
+
+	workflowMetadata := []types.DataFeedsCacheTronWorkflowMetadata{
 		{
-			AllowedSender:        common.HexToAddress("0x1111111111111111111111111111111111111111"),
-			AllowedWorkflowOwner: common.HexToAddress("0x2222222222222222222222222222222222222222"),
-			AllowedWorkflowName:  [10]byte{'T', 'e', 's', 't', 'W', 'o', 'r', 'k', '1'},
+			AllowedSender:        allowedSender1,
+			AllowedWorkflowOwner: allowedWorkflowOwner1,
+			AllowedWorkflowName:  [10]byte{'T', 'e', 's', 't', 'W', 'o', 'r', 'd', '1'},
 		},
 		{
-			AllowedSender:        common.HexToAddress("0x3333333333333333333333333333333333333333"),
-			AllowedWorkflowOwner: common.HexToAddress("0x4444444444444444444444444444444444444444"),
-			AllowedWorkflowName:  [10]byte{'T', 'e', 's', 't', 'W', 'o', 'r', 'k', '2'},
+			AllowedSender:        allowedSender2,
+			AllowedWorkflowOwner: allowedWorkflowOwner2,
+			AllowedWorkflowName:  [10]byte{'T', 'e', 's', 't', 'W', 'o', 'r', 'd', '2'},
 		},
 	}
+
+	triggerOpts := cldf_tron.DefaultTriggerOptions()
+	triggerOpts.FeeLimit = 1_000_000_000
 
 	resp, err := commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			tron.SetFeedAdminChangeset,
 			types.SetFeedAdminTronConfig{
-				ChainSelector: chainSelector,
-				CacheAddress:  cacheAddress,
-				AdminAddress:  env.BlockChains.TronChains()[chainSelector].Address,
-				IsAdmin:       true,
+				ChainSelector:  chainSelector,
+				CacheAddress:   cacheAddress,
+				AdminAddress:   env.BlockChains.TronChains()[chainSelector].Address,
+				IsAdmin:        true,
+				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
 			},
 		),
-	)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	resp, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			tron.SetFeedConfigChangeset,
 			types.SetFeedDecimalTronConfig{
 				ChainSelector:    chainSelector,
 				CacheAddress:     cacheAddress,
 				DataIDs:          []string{dataID},
-				Descriptions:     []string{"Test description"},
+				Descriptions:     []string{"test description"},
 				WorkflowMetadata: workflowMetadata,
+				TriggerOptions:   triggerOpts,
 			},
 		),
 	)

@@ -13,7 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func DeployCache(chain cldf_tron.Chain, deployOptions cldf_tron.DeployOptions, labels []string) (*types.DeployTronCacheResponse, error) {
+const (
+	DeploymentBlockLabel = "deployment-block"
+	DeploymentHashLabel  = "deployment-hash"
+)
+
+func DeployCache(chain cldf_tron.Chain, deployOptions cldf_tron.DeployOptions, labels []string) (*types.DeployTronResponse, error) {
 	cacheAddress, txInfo, err := chain.DeployContractAndConfirm(context.Background(), "DataFeedsCache", cache.DataFeedsCacheABI, cache.DataFeedsCacheBin, nil, deployOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm ChainlinkDataFeedsCache: %+v, %w", txInfo, err)
@@ -38,7 +43,10 @@ func DeployCache(chain cldf_tron.Chain, deployOptions cldf_tron.DeployOptions, l
 		tv.Labels.Add(label)
 	}
 
-	resp := &types.DeployTronCacheResponse{
+	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentHashLabel, txInfo.ID))
+	tv.Labels.Add(fmt.Sprintf("%s: %d", DeploymentBlockLabel, txInfo.BlockNumber))
+
+	resp := &types.DeployTronResponse{
 		Address: cacheAddress,
 		Tx:      txInfo.ID,
 		Tv:      tv,
@@ -46,7 +54,7 @@ func DeployCache(chain cldf_tron.Chain, deployOptions cldf_tron.DeployOptions, l
 	return resp, nil
 }
 
-func DeployAggregatorProxy(chain cldf_tron.Chain, aggregator address.Address, accessController address.Address, deployOptions cldf_tron.DeployOptions, labels []string) (*types.DeployTronCacheResponse, error) {
+func DeployAggregatorProxy(chain cldf_tron.Chain, aggregator address.Address, accessController address.Address, deployOptions cldf_tron.DeployOptions, labels []string) (*types.DeployTronResponse, error) {
 	proxyAddress, txInfo, err := chain.DeployContractAndConfirm(context.Background(), "AggregatorProxy", proxy.AggregatorProxyABI, proxy.AggregatorProxyBin, []interface{}{aggregator.EthAddress(), accessController.EthAddress()}, deployOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %+v, %w", txInfo, err)
@@ -63,7 +71,10 @@ func DeployAggregatorProxy(chain cldf_tron.Chain, aggregator address.Address, ac
 		tv.Labels.Add(label)
 	}
 
-	resp := &types.DeployTronCacheResponse{
+	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentHashLabel, txInfo.ID))
+	tv.Labels.Add(fmt.Sprintf("%s: %d", DeploymentBlockLabel, txInfo.BlockNumber))
+
+	resp := &types.DeployTronResponse{
 		Address: proxyAddress,
 		Tx:      txInfo.ID,
 		Tv:      tv,

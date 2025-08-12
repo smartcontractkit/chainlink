@@ -116,7 +116,7 @@ type SetFeedDecimalTronConfig struct {
 	CacheAddress     address.Address
 	DataIDs          []string
 	Descriptions     []string
-	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	WorkflowMetadata []DataFeedsCacheTronWorkflowMetadata
 	TriggerOptions   cldf_tron.TriggerOptions
 }
 
@@ -288,7 +288,7 @@ type DeployAptosConfig struct {
 	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
 }
 
-type DeployTronCacheResponse struct {
+type DeployTronResponse struct {
 	Address address.Address
 	Tx      string
 	Tv      cldf.TypeAndVersion

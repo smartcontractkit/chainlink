@@ -1,10 +1,15 @@
 package tron
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	fullnode "github.com/fbsobreira/gotron-sdk/pkg/http/fullnode"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 
@@ -15,7 +20,7 @@ import (
 var SetFeedConfigChangeset = cldf.CreateChangeSet(setFeedConfigLogic, setFeedConfigPrecondition)
 
 func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalTronConfig) (cldf.ChangesetOutput, error) {
-	/*chain := env.BlockChains.TronChains()[c.ChainSelector]
+	chain := env.BlockChains.TronChains()[c.ChainSelector]
 
 	parsedABI, err := abi.JSON(strings.NewReader(cache.DataFeedsCacheABI))
 	if err != nil {
@@ -27,31 +32,42 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalTronConfig) 
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data ids: %s, %w", c.DataIDs, err)
 	}
 
+	workflowMetadata := parseWorkflowMetadata(c.WorkflowMetadata)
+
 	calldata, err := parsedABI.Pack(
 		"setDecimalFeedConfigs",
 		dataIDs,
 		c.Descriptions,
-		c.WorkflowMetadata,
+		workflowMetadata,
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to pack calldata: %w", err)
 	}
 
-	triggerResp, err := chain.Client.TriggerSmartContractWithData(chain.Address, c.CacheAddress, fmt.Sprintf("%x", calldata), c.TriggerOptions.FeeLimit, c.TriggerOptions.TAmount)
+	tcRequest := fullnode.TriggerSmartContractRequest{
+		OwnerAddress:    chain.Address.String(),
+		ContractAddress: c.CacheAddress.String(),
+		Data:            fmt.Sprintf("%x", calldata),
+		FeeLimit:        c.TriggerOptions.FeeLimit,
+		CallValue:       c.TriggerOptions.TAmount,
+		Visible:         true,
+	}
+	contractResponse := fullnode.TriggerSmartContractResponse{}
+	err = chain.Client.FullNodeClient().Post("/triggersmartcontract", tcRequest, &contractResponse)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	txInfo, err := chain.SendAndConfirm(context.Background(), triggerResp.Transaction, c.TriggerOptions.ConfirmRetryOptions)
+	txInfo, err := chain.SendAndConfirm(context.Background(), contractResponse.Transaction, c.TriggerOptions.ConfirmRetryOptions)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", txInfo.ID, err)
-	}*/
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %+v, %w", txInfo, err)
+	}
 
 	return cldf.ChangesetOutput{}, nil
 }
 
 func setFeedConfigPrecondition(env cldf.Environment, c types.SetFeedDecimalTronConfig) error {
-	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
+	_, ok := env.BlockChains.TronChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
@@ -68,4 +84,18 @@ func setFeedConfigPrecondition(env cldf.Environment, c types.SetFeedDecimalTronC
 	}
 
 	return changeset.ValidateCacheForTronChain(env, c.ChainSelector, c.CacheAddress)
+}
+
+func parseWorkflowMetadata(tronWorkflowMetadata []types.DataFeedsCacheTronWorkflowMetadata) []cache.DataFeedsCacheWorkflowMetadata {
+	workflowMetadata := make([]cache.DataFeedsCacheWorkflowMetadata, len(tronWorkflowMetadata))
+
+	for i, tronMeta := range tronWorkflowMetadata {
+		workflowMetadata[i] = cache.DataFeedsCacheWorkflowMetadata{
+			AllowedSender:        tronMeta.AllowedSender.EthAddress(),
+			AllowedWorkflowOwner: tronMeta.AllowedWorkflowOwner.EthAddress(),
+			AllowedWorkflowName:  tronMeta.AllowedWorkflowName,
+		}
+	}
+
+	return workflowMetadata
 }
