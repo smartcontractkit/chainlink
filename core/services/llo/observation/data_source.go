@@ -110,6 +110,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
 		d.configDigestToStreamMu.Lock()
+		// StreamValues  needs a copy to avoid concurrent access
 		values := make(llo.StreamValues, len(streamValues))
 		for streamID := range streamValues {
 			values[streamID] = nil
