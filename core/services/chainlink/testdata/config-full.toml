@@ -482,6 +482,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 10
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

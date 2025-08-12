@@ -220,7 +220,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			handler, exists := c.handlers[req.ServiceName()]
+			handler, exists := c.handlers[req.Method]
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
 				break

@@ -22,8 +22,7 @@ import (
 var (
 	_ connector.GatewayConnectorHandler = (*GatewayHandler)(nil)
 
-	ConnectorMethod = "vault"
-	HandlerName     = "VaultHandler"
+	HandlerName = "VaultHandler"
 )
 
 type metrics struct {

@@ -46,11 +46,12 @@ type HandlerFactory interface {
 type gateway struct {
 	services.StateMachine
 
-	codec      api.Codec
-	httpServer gw_net.HttpServer
-	handlers   map[string]handlers.Handler
-	connMgr    ConnectionManager
-	lggr       logger.Logger
+	codec              api.Codec
+	httpServer         gw_net.HttpServer
+	handlers           map[string]handlers.Handler
+	serviceNameToDonID map[string]string
+	connMgr            ConnectionManager
+	lggr               logger.Logger
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
@@ -62,6 +63,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 	}
 
 	handlerMap := make(map[string]handlers.Handler)
+	serviceNameToDonID := make(map[string]string)
 
 	for _, donConfig := range cfg.Dons {
 		donConfig := donConfig
@@ -96,18 +98,31 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 		}
 
 		handlerMap[donConfig.DonId] = handler
+
+		for _, h := range handlers {
+			if h.ServiceName != "" {
+				_, ok := serviceNameToDonID[h.ServiceName]
+				if ok {
+					return nil, fmt.Errorf("duplicate service name %s for DON ID %s", h.ServiceName, donConfig.DonId)
+				}
+
+				serviceNameToDonID[h.ServiceName] = donConfig.DonId
+			}
+		}
+
 		donConnMgr.SetHandler(handler)
 	}
-	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
+	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
-		codec:      codec,
-		httpServer: httpServer,
-		handlers:   handlers,
-		connMgr:    connMgr,
-		lggr:       logger.Named(lggr, "Gateway"),
+		codec:              codec,
+		httpServer:         httpServer,
+		handlers:           handlers,
+		serviceNameToDonID: serviceNameToDonID,
+		connMgr:            connMgr,
+		lggr:               logger.Named(lggr, "Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
@@ -155,7 +170,12 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {
 		// if no DON ID is specified, it is a new JsonRPC request. Use the service name as handler key
-		handlerKey = jsonRequest.ServiceName()
+		// Let's map the service name to the DON ID and find the handler
+		hk, ok := g.serviceNameToDonID[jsonRequest.ServiceName()]
+		if !ok {
+			return newError(jsonRequest.ID, api.HandlerError, "Service name not found: "+jsonRequest.ServiceName())
+		}
+		handlerKey = hk
 	} else {
 		// Means legacy request. Proceed to validate it and fetch DonId
 		isLegacyRequest = true
