@@ -69,11 +69,11 @@ func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 func ExtractTypeAndVersion(hexStr string) (string, error) {
 	data, err := hex.DecodeString(hexStr)
 	if err != nil {
-		return "", fmt.Errorf("Invalid hex: %w", err)
+		return "", fmt.Errorf("invalid hex: %w", err)
 	}
 
 	if len(data) < 64 {
-		return "", errors.New("Data too short to be ABI-encoded")
+		return "", errors.New("data too short to be ABI-encoded")
 	}
 
 	// Extract the length (32 bytes from offset 32)
@@ -81,11 +81,11 @@ func ExtractTypeAndVersion(hexStr string) (string, error) {
 	strLen := new(big.Int).SetBytes(lengthBytes).Int64()
 
 	if strLen < 0 {
-		return "", errors.New("Negative string length")
+		return "", errors.New("negative string length")
 	}
 
 	if len(data) < 64+int(strLen) {
-		return "", errors.New("Data too short for expected string length")
+		return "", errors.New("data too short for expected string length")
 	}
 
 	strBytes := data[64 : 64+int(strLen)]

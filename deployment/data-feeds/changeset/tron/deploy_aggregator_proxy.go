@@ -11,7 +11,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
-	cs "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -34,7 +33,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 
 		cacheAddress, err := address.Base58ToAddress(cacheAddressStr)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to parse DataFeedsCache contract address %s", cacheAddressStr)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse DataFeedsCache contract address %s", cacheAddressStr)
 		}
 
 		proxyResponse, err := DeployAggregatorProxy(chain, cacheAddress, c.AccessController[index], c.DeployOptions, c.Labels)
@@ -53,7 +52,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
 				Address:       proxyResponse.Address.String(),
-				Type:          cs.DataFeedsCache,
+				Type:          changeset.DataFeedsCache,
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     c.Qualifier,
 				Labels:        datastore.NewLabelSet(proxyResponse.Tv.Labels.List()...),

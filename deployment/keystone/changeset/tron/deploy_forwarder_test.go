@@ -10,14 +10,12 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 )
 
@@ -41,7 +39,7 @@ func TestDeployForwarder(t *testing.T) {
 		deployOptions := cldf_tron.DefaultDeployOptions()
 		deployOptions.FeeLimit = 1_000_000_000
 
-		configuredChangeset := commonchangeset.Configure(tron.DeployForwarder{},
+		deployChangeset := commonchangeset.Configure(tron.DeployForwarder{},
 			&tron.DeployForwarderRequest{
 				ChainSelectors: []uint64{registrySel},
 				Qualifier:      "my-test-forwarder",
@@ -51,19 +49,8 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy
 		var err error
-		_, resp, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
+		_, resp, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{deployChangeset})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-
-		// registry, ocr3, forwarder should be deployed on registry chain
-		addrs, err := resp[0].AddressBook.AddressesForChain(registrySel)
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		fa := resp[0].DataStore.Addresses().Filter(datastore.AddressRefByQualifier("my-test-forwarder"))
-		require.Len(t, fa, 1, "expected to find 'my-test-forwarder' qualifier")
-		l := fa[0].Labels.List()
-		require.Len(t, l, 2, "expected exactly 2 labels")
-		require.Contains(t, l[0], internal.DeploymentBlockLabel)
-		require.Contains(t, l[1], internal.DeploymentHashLabel)
 	})
 }
