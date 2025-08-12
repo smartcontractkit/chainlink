@@ -26,7 +26,7 @@ type DeployTronResponse struct {
 	Tv      cldf.TypeAndVersion
 }
 
-func DeployKeystoneForwarder(chain cldf_tron.Chain, deployOptions cldf_tron.DeployOptions, labels []string) (*DeployTronResponse, error) {
+func DeployKeystoneForwarder(chain cldf_tron.Chain, deployOptions *cldf_tron.DeployOptions, labels []string) (*DeployTronResponse, error) {
 	forwarderAddress, txInfo, err := chain.DeployContractAndConfirm(context.Background(), ForwarderContract.String(), forwarder.KeystoneForwarderABI, forwarder.KeystoneForwarderBin, nil, deployOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm KeystoneForwarder: %+v, %w", txInfo, err)

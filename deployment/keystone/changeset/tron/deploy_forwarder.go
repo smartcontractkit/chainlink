@@ -30,7 +30,7 @@ type DeployForwarderRequest struct {
 	ChainSelectors []uint64
 	Labels         []string
 	Qualifier      string
-	DeployOptions  cldf_tron.DeployOptions
+	DeployOptions  *cldf_tron.DeployOptions
 }
 
 func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderRequest) (cldf.ChangesetOutput, error) {

@@ -30,7 +30,7 @@ type ConfigureForwarderRequest struct {
 	WFNodeIDs        []string
 	RegistryChainSel uint64
 	Chains           map[uint64]struct{}
-	TriggerOptions   cldf_tron.TriggerOptions
+	TriggerOptions   *cldf_tron.TriggerOptions
 }
 
 func (cs ConfigureForwarder) Apply(env cldf.Environment, req *ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
@@ -71,7 +71,7 @@ func configureForwarderContracts(env cldf.Environment, req *ConfigureForwarderRe
 	return nil
 }
 
-func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress address.Address, dons []internal.RegisteredDon, triggerOpts cldf_tron.TriggerOptions) error {
+func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress address.Address, dons []internal.RegisteredDon, triggerOpts *cldf_tron.TriggerOptions) error {
 	if fwdrAddress == nil {
 		return errors.New("nil forwarder contract")
 	}
