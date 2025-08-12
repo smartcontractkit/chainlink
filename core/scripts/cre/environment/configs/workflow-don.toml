@@ -35,7 +35,6 @@
 [extra_capabilities]
 # uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
-cron_capability_binary_path = "./cron"
 # cron_capability_binary_path = "./cron"
 # consensus_capability_binary_path = "./consensus"
 # log_event_trigger_binary_path = "./logtrigger"
