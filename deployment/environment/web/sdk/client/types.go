@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
 )
 
 type JobDistributorInput struct {
@@ -58,3 +60,15 @@ func DecodeInput(in, out any) error {
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(out)
 }
+
+type OCR2ChainType = string
+
+const (
+	OCR2ChainTypeEvm      = string(generated.OCR2ChainTypeEvm)
+	OCR2ChainTypeCosmos   = string(generated.OCR2ChainTypeCosmos)
+	OCR2ChainTypeSolana   = string(generated.OCR2ChainTypeSolana)
+	OCR2ChainTypeStarknet = string(generated.OCR2ChainTypeStarknet)
+	OCR2ChainTypeAptos    = string(generated.OCR2ChainTypeAptos)
+	OCR2ChainTypeTron     = string(generated.OCR2ChainTypeTron)
+	OCR2ChainTypeTon      = string(generated.OCR2ChainTypeTon)
+)

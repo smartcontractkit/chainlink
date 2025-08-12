@@ -1,23 +1,23 @@
-package dontime
+package http
 
 import (
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-var DonTimeCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+var HTTPTriggerCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, types.DonTimeCapability) {
+	if flags.HasFlag(donFlags, cre.HTTPTriggerCapability) {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "offchain_reporting",
-				Version:        "1.0.0",
-				CapabilityType: 2, // CONSENSUS
-				ResponseType:   0, // REPORT
+				LabelledName:   "http-trigger",
+				Version:        "1.0.0-alpha",
+				CapabilityType: 0, // TRIGGER
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		})

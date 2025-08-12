@@ -437,6 +437,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionLogger.Errorw("Workflow execution failed", "err", err, "status", executionStatus, "durationMs", executionDuration.Milliseconds())
 		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionError(err.Error())
 		return
 	}
 

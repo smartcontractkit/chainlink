@@ -206,7 +206,7 @@ func MapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[stri
 		for _, c := range don.Capabilities {
 			id, err := registry.GetHashedCapabilityId(nil, c.Capability.LabelledName, c.Capability.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
+				return nil, fmt.Errorf("failed to call GetHashedCapabilityId for %s: %w", c.Capability.LabelledName, err)
 			}
 			caps = append(caps, RegisteredCapability{
 				ID:                             id,
@@ -339,7 +339,7 @@ func JoinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons 
 	// all maps should have the same keys
 	nodes, err := MapDonsToNodes(dons, true, registryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to map dons to capabilities: %w", err)
+		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
 	if len(donInfos) != len(nodes) {
 		return nil, fmt.Errorf("mismatched lengths don infos %d,  nodes %d", len(donInfos), len(nodes))

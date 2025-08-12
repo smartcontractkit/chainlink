@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -68,7 +69,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, uint64(input.Topology.DonsMetadata[idx].ID), len(bootstrapNodes))
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -141,7 +142,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		}
 	}
 
-	var jd cldf.OffchainClient
+	var jd cldf_offchain.Client
 
 	if len(input.NodeSetOutput) > 0 {
 		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
@@ -212,6 +213,8 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	donTopology := &cre.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
 	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
+	donTopology.CapabilitiesPeeringData = input.Topology.CapabilitiesPeeringData
+	donTopology.OCRPeeringData = input.Topology.OCRPeeringData
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{

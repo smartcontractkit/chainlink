@@ -99,6 +99,7 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
+	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 }
@@ -212,6 +213,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}
+	}
+	if h.OnExecutionError == nil {
+		h.OnExecutionError = func(msg string) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}

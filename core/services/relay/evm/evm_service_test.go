@@ -204,8 +204,8 @@ func TestEVMService(t *testing.T) {
 		data := []byte("kitties")
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-		mocks.EvmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.GetTransactionByHash(ctx, hash)
+		mocks.EvmClient.EXPECT().TransactionByHashWithOpts(ctx, hash, types.TransactionByHashOpts{}).Return(transaction, nil)
+		tx, err := relayer.GetTransactionByHash(ctx, evm.GetTransactionByHashRequest{Hash: hash})
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)

@@ -26,6 +26,8 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
+	// Any changes to this list of methods should be reflected in the
+	// handler's Methods() function.
 	MethodWebAPITarget   = "web_api_target"
 	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"
@@ -211,6 +213,15 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		l.Debugw("sent response to node", "to", nodeAddr)
 	}()
 	return nil
+}
+
+func (h *handler) Methods() []string {
+	return []string{
+		MethodWebAPITrigger,
+		MethodWebAPITarget,
+		MethodComputeAction,
+		MethodWorkflowSyncer,
+	}
 }
 
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {

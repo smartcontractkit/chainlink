@@ -59,7 +59,7 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
 
 	authorizedKey := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
@@ -116,12 +116,12 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
@@ -164,17 +164,17 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	publicKey3 := getRandomECDSAPublicKey(t)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey1,
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey2,
 	}
 
 	authorizedKey3 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey3,
 	}
 
@@ -224,12 +224,12 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-1",
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-2",
 	}
 
@@ -258,7 +258,7 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
 
 	authorizedKey := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-1",
 	}
 
@@ -295,7 +295,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -309,7 +309,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -323,7 +323,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -337,7 +337,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -351,7 +351,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
