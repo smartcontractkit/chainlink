@@ -1,3 +1,7 @@
+/*
+We will keep this file for now, because we want to be able to create the `cre.yaml` file used by the CRE CLI v0.2.x,
+when local CRE is started or when sandboxes are created.
+*/
 package crecli
 
 import (
@@ -18,9 +22,8 @@ import (
 )
 
 const (
-	CRECLISettingsFileName     = "cre.yaml"
-	CRECLIWorkflowSettingsFile = "workflow.yaml"
-	CRECLIProfile              = "test"
+	CRECLISettingsFileName = "cre.yaml"
+	CRECLIProfile          = "test"
 )
 
 type Profiles struct {
@@ -41,7 +44,7 @@ type Settings struct {
 }
 
 type DevPlatform struct {
-	DonID uint32 `yaml:"don-id,omitempty"`
+	DonID uint64 `yaml:"don-id,omitempty"`
 }
 
 type UserWorkflow struct {
@@ -92,14 +95,6 @@ type MinioStorageSettings struct {
 	Region          string `yaml:"region"`
 }
 
-type PoRWorkflowConfig struct {
-	FeedID            string  `json:"feed_id"`
-	URL               string  `json:"url"`
-	ConsumerAddress   string  `json:"consumer_address"`
-	WriteTargetName   string  `json:"write_target_name"`
-	AuthKeySecretName *string `json:"auth_key_secret_name,omitempty"`
-}
-
 func setProfile(profile string, settings Settings) (Profiles, error) {
 	var profiles Profiles
 
@@ -124,7 +119,7 @@ func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
 	addressBook cldf.AddressBook,
-	donID uint32,
+	donID uint64,
 	homeChainSelector uint64,
 	rpcs map[uint64]string,
 	s3ProviderOutput *s3provider.Output,
@@ -233,37 +228,6 @@ func PrepareCRECLISettingsFile(
 	_, writeErr := settingsFile.Write(settingsMarshalled)
 	if writeErr != nil {
 		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLISettingsFileName)
-	}
-
-	return settingsFile, nil
-}
-
-func PrepareCRECLIWorkflowSettingsFile(profile string, workflowOwner common.Address, workflowName string) (*os.File, error) {
-	settingsFile, err := os.CreateTemp("", CRECLIWorkflowSettingsFile)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create CRE CLI workflow settings file")
-	}
-
-	profileSettings := Settings{
-		UserWorkflow: UserWorkflow{
-			WorkflowOwnerAddress: workflowOwner.Hex(),
-			WorkflowName:         workflowName,
-		},
-	}
-
-	settings, settingsErr := setProfile(profile, profileSettings)
-	if settingsErr != nil {
-		return nil, errors.Wrap(settingsErr, "failed to set profile")
-	}
-
-	settingsMarshalled, marshallErr := yaml.Marshal(settings)
-	if marshallErr != nil {
-		return nil, errors.Wrap(marshallErr, "failed to marshal CRE CLI settings")
-	}
-
-	_, writeErr := settingsFile.Write(settingsMarshalled)
-	if writeErr != nil {
-		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLIWorkflowSettingsFile)
 	}
 
 	return settingsFile, nil

@@ -15,6 +15,7 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -39,7 +40,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
 	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
-		return nil, fmt.Errorf("trigger capability not found: %w", err)
+		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
 
 	info, err := capability.Info(ctx)
@@ -63,17 +64,6 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		c.lggr.Debugf("capability config not found: %s", err)
 	}
 
-	capReq := capabilities.CapabilityRequest{
-		Payload:      request.Payload,
-		Method:       request.Method,
-		CapabilityId: request.Id,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowExecutionID: c.WorkflowExecutionID,
-			ReferenceID:         strconv.Itoa(int(request.CallbackId)),
-		},
-		Config: values.EmptyMap(),
-	}
-
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
 		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
@@ -85,18 +75,36 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
 	userSpendLimit.Valid = false
 
-	spendLimit, err := meterReport.GetMaxSpendForInvocation(userSpendLimit, int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow)-c.capCallsSemaphore.Len())
+	spendLimits, err := meterReport.Deduct(
+		meteringRef,
+		metering.ByDerivedAvailability(
+			userSpendLimit,
+			int(c.cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow)-c.capCallsSemaphore.Len(),
+			info,
+			config.RestrictedConfig,
+		),
+	)
 	if err != nil {
-		c.lggr.Errorw("could not reserve for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 	}
 
-	if spendLimit.Valid {
-		if err = meterReport.Deduct(meteringRef, spendLimit.Decimal); err != nil {
-			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-		}
-
-		// the nil case for config.RestrictedConfig is and should be handled by CreditToSpendingLimits
-		capReq.Metadata.SpendLimits = meterReport.CreditToSpendingLimits(info, config.RestrictedConfig, spendLimit.Decimal)
+	capReq := capabilities.CapabilityRequest{
+		Payload:      request.Payload,
+		Method:       request.Method,
+		CapabilityId: request.Id,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowExecutionID:      c.WorkflowExecutionID,
+			WorkflowName:             c.cfg.WorkflowName.Hex(),
+			WorkflowDonID:            c.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
+			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
+			SpendLimits:              spendLimits,
+			WorkflowTag:              c.cfg.WorkflowTag,
+		},
+		Config: values.EmptyMap(),
 	}
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)

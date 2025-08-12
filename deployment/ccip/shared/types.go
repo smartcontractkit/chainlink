@@ -38,6 +38,7 @@ var (
 
 	// Pools
 	BurnMintToken                                   deployment.ContractType = "BurnMintToken"
+	BurnMintERC20Token                              deployment.ContractType = "BurnMintERC20Token"
 	FactoryBurnMintERC20Token                       deployment.ContractType = "FactoryBurnMintERC20Token"
 	ERC20Token                                      deployment.ContractType = "ERC20Token"
 	ERC677Token                                     deployment.ContractType = "ERC677Token"
@@ -51,6 +52,7 @@ var (
 	USDCToken                                       deployment.ContractType = "USDCToken"
 	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
 	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
+	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
 
@@ -69,6 +71,7 @@ var (
 	RemoteSource         deployment.ContractType = "RemoteSource"
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 

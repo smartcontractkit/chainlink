@@ -43,6 +43,7 @@ type AppConfig interface {
 	Feature() Feature
 	FluxMonitor() FluxMonitor
 	Insecure() Insecure
+	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
 	Keeper() Keeper
 	Log() Log
@@ -61,6 +62,7 @@ type AppConfig interface {
 	Telemetry() Telemetry
 	CRE() CRE
 	Billing() Billing
+	BridgeStatusReporter() BridgeStatusReporter
 }
 
 type DatabaseBackupMode string

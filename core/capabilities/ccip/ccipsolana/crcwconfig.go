@@ -26,7 +26,7 @@ func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.
 	}
 
 	transmitter := pararms.Transmitters[types.NewRelayID(pararms.ChainFamily, pararms.ChainID)]
-	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0])
+	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0], pararms.SolanaChainWriterConfigVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 	}

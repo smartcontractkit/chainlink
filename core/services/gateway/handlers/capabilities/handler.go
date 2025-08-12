@@ -10,7 +10,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -27,6 +26,8 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
+	// Any changes to this list of methods should be reflected in the
+	// handler's Methods() function.
 	MethodWebAPITarget   = "web_api_target"
 	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"
@@ -214,6 +215,15 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	return nil
 }
 
+func (h *handler) Methods() []string {
+	return []string{
+		MethodWebAPITrigger,
+		MethodWebAPITarget,
+		MethodComputeAction,
+		MethodWorkflowSyncer,
+	}
+}
+
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := common.ValidatedMessageFromResp(resp)
 	if err != nil {
@@ -333,7 +343,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 	// Send original request to all nodes
 	for _, member := range h.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

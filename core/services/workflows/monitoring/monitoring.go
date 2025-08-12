@@ -43,6 +43,7 @@ type EngineMetrics struct {
 	workflowTimeoutDurationSeconds   metric.Int64Histogram
 	workflowStepDurationSeconds      metric.Int64Histogram
 	workflowMissingMeteringReport    metric.Int64Counter
+	workflowMeteringMode             metric.Int64Gauge
 
 	getSecretsDuration metric.Int64Histogram
 }
@@ -186,6 +187,13 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering missing counter: %w", err)
+	}
+
+	em.workflowMeteringMode, err = beholder.GetMeter().Int64Gauge(
+		"platform_engine_workflow_metering_mode",
+		metric.WithUnit("active"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow metering mode gauge: %w", err)
 	}
 
 	em.getSecretsDuration, err = beholder.GetMeter().Int64Histogram(
@@ -367,7 +375,18 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowMissingMeteringReport(ctx conte
 	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) UpdateWorkflowMeteringModeGauge(ctx context.Context, on bool) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+
+	var val int64
+	if on {
+		val = 1
+	}
+
+	c.em.workflowMeteringMode.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }

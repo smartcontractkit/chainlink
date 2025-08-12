@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -20,13 +19,13 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type Launcher interface {
-	Launch(ctx context.Context, registry *LocalRegistry) error
+type Listener interface {
+	OnNewRegistry(ctx context.Context, registry *LocalRegistry) error
 }
 
 type Syncer interface {
 	services.Service
-	AddLauncher(h ...Launcher)
+	AddListener(h ...Listener)
 }
 
 type ContractReaderFactory interface {
@@ -35,7 +34,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddLauncher(launchers ...Launcher)
+	AddListener(listeners ...Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -47,7 +46,7 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	launchers            []Launcher
+	listeners            []Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
@@ -258,14 +257,37 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]NodeInfo{}
 	for _, node := range nodes {
-		idsToNodes[node.P2pId] = node
+		nodeInfo := NodeInfo{
+			NodeOperatorID:      node.NodeOperatorId,
+			ConfigCount:         node.ConfigCount,
+			WorkflowDONId:       node.WorkflowDONId,
+			Signer:              node.Signer,
+			P2pID:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
+			CapabilitiesDONIds:  node.CapabilitiesDONIds,
+			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIds)),
+			CapabilityIDs:       make([]string, len(node.HashedCapabilityIds)),
+		}
+		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIds)
+
+		// Backfill capability IDs
+		for i, hashedCapID := range node.HashedCapabilityIds {
+			capabilityID, ok := hashedIDsToCapabilityIDs[hashedCapID]
+			if !ok {
+				s.lggr.Warnw("failed to find capability ID for hashed ID, skipping", "hashedID", hashedCapID)
+				continue
+			}
+			nodeInfo.CapabilityIDs[i] = capabilityID
+		}
+
+		idsToNodes[node.P2pId] = nodeInfo
 	}
 
 	return &LocalRegistry{
-		lggr:              s.lggr,
-		getPeerID:         s.getPeerID,
+		Logger:            s.lggr,
+		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
@@ -276,8 +298,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if len(s.launchers) == 0 {
-		s.lggr.Warn("sync called, but no launchers are registered; nooping")
+	if len(s.listeners) == 0 {
+		s.lggr.Warn("sync called, but no listeners are registered; nooping")
 		return nil
 	}
 
@@ -299,8 +321,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
-			latestRegistry.lggr = s.lggr
-			latestRegistry.getPeerID = s.getPeerID
+			latestRegistry.Logger = s.lggr
+			latestRegistry.GetPeerID = s.getPeerID
 		}
 	}
 
@@ -325,68 +347,15 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		}
 	}
 
-	for _, h := range s.launchers {
-		lrCopy := deepCopyLocalRegistry(latestRegistry)
-		if err := h.Launch(ctx, &lrCopy); err != nil {
+	for _, listener := range s.listeners {
+		lrCopy := DeepCopyLocalRegistry(latestRegistry)
+		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
 		}
 	}
 
 	return nil
-}
-
-func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
-	var lrCopy LocalRegistry
-	lrCopy.lggr = lr.lggr
-	lrCopy.getPeerID = lr.getPeerID
-	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
-	for id, don := range lr.IDsToDONs {
-		d := capabilities.DON{
-			ID:               don.ID,
-			ConfigVersion:    don.ConfigVersion,
-			Members:          make([]p2ptypes.PeerID, len(don.Members)),
-			F:                don.F,
-			IsPublic:         don.IsPublic,
-			AcceptsWorkflows: don.AcceptsWorkflows,
-		}
-		copy(d.Members, don.Members)
-		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
-		for capID, capCfg := range don.CapabilityConfigurations {
-			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config,
-			}
-		}
-		lrCopy.IDsToDONs[id] = DON{
-			DON:                      d,
-			CapabilityConfigurations: capCfgs,
-		}
-	}
-
-	lrCopy.IDsToCapabilities = make(map[string]Capability, len(lr.IDsToCapabilities))
-	for id, capability := range lr.IDsToCapabilities {
-		cp := capability
-		lrCopy.IDsToCapabilities[id] = cp
-	}
-
-	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo, len(lr.IDsToNodes))
-	for id, node := range lr.IDsToNodes {
-		nodeInfo := kcr.INodeInfoProviderNodeInfo{
-			NodeOperatorId:      node.NodeOperatorId,
-			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
-			Signer:              node.Signer,
-			P2pId:               node.P2pId,
-			EncryptionPublicKey: node.EncryptionPublicKey,
-			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
-			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
-		}
-		copy(nodeInfo.HashedCapabilityIds, node.HashedCapabilityIds)
-		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
-		lrCopy.IDsToNodes[id] = nodeInfo
-	}
-
-	return lrCopy
 }
 
 type ContractCapabilityType uint8
@@ -429,10 +398,10 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 }
 
-func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
+func (s *registrySyncer) AddListener(listeners ...Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.launchers = append(s.launchers, launchers...)
+	s.listeners = append(s.listeners, listeners...)
 }
 
 func (s *registrySyncer) Close() error {

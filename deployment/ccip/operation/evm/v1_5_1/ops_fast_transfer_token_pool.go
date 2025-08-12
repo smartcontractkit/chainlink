@@ -25,6 +25,11 @@ type UpdateFillerAllowlistInput struct {
 	RemoveFillers []common.Address
 }
 
+// WithdrawPoolFeesInput defines the input for withdrawing pool fees
+type WithdrawPoolFeesInput struct {
+	Recipient common.Address
+}
+
 var (
 	// BurnMint Fast Transfer Token Pool Operations
 	BurnMintFastTransferTokenPoolUpdateDestChainConfigOp = opsutil.NewEVMCallOperation(
@@ -88,6 +93,38 @@ var (
 		},
 	)
 
+	// BurnMint Fast Transfer Token Pool Withdraw Operations
+	BurnMintFastTransferTokenPoolWithdrawPoolFeesOp = opsutil.NewEVMCallOperation(
+		"BurnMintFastTransferTokenPoolWithdrawPoolFeesOp",
+		semver.MustParse("1.0.0"),
+		"Withdraw pool fees from BurnMint fast transfer token pool contract",
+		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
+		shared.BurnMintFastTransferTokenPool,
+		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintFastTransferTokenPool)
+		},
+		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
+			return wrapper.WithdrawPoolFees(opts, input.Recipient)
+		},
+	)
+
+	// BurnMintWithExternalMinter Fast Transfer Token Pool Withdraw Operations
+	BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsutil.NewEVMCallOperation(
+		"BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp",
+		semver.MustParse("1.0.0"),
+		"Withdraw pool fees from BurnMintWithExternalMinter fast transfer token pool contract",
+		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
+		shared.BurnMintWithExternalMinterFastTransferTokenPool,
+		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintWithExternalMinterFastTransferTokenPool)
+		},
+		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
+			return wrapper.WithdrawPoolFees(opts, input.Recipient)
+		},
+	)
+
 	// HybridWithExternalMinter Fast Transfer Token Pool Operations
 	HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp = opsutil.NewEVMCallOperation(
 		"HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp",
@@ -116,6 +153,21 @@ var (
 		func(pool interface{}, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateFillerAllowList(opts, input.AddFillers, input.RemoveFillers)
+		},
+	)
+
+	HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsutil.NewEVMCallOperation(
+		"HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp",
+		semver.MustParse("1.0.0"),
+		"Withdraw pool fees from HybridWithExternalMinter fast transfer token pool contract",
+		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
+		shared.HybridWithExternalMinterFastTransferTokenPool,
+		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.HybridWithExternalMinterFastTransferTokenPool)
+		},
+		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
+			return wrapper.WithdrawPoolFees(opts, input.Recipient)
 		},
 	)
 )

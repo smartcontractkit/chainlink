@@ -138,6 +138,8 @@ func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context
 	return ocrtypes.ConfigDigest{}, 0, fmt.Errorf("unimplemented for this relayer")
 }
 
+var _ commontypes.EVMService = (*Relayer)(nil)
+
 type Relayer struct {
 	commontypes.UnimplementedRelayer
 	ds                   sqlutil.DataSource
@@ -147,6 +149,7 @@ type Relayer struct {
 	evmKeystore          keys.Store
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
+	evmService
 
 	// Mercury
 	mercuryCfg        MercuryConfig
@@ -225,6 +228,10 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryORM:            mercuryORM,
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
+		evmService: evmService{
+			chain:  chain,
+			logger: sugared,
+		},
 	}, nil
 }
 
@@ -311,7 +318,7 @@ func (r *Relayer) Chain() legacyevm.Chain {
 	return r.chain
 }
 
-func newOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
@@ -333,7 +340,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
-	configWatcher, err := newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	configWatcher, err := NewOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -683,7 +690,7 @@ func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.Re
 	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.evmKeystore, functions.FunctionsPlugin)
 }
 
-// NewConfigProvider is called by bootstrap jobs and by the secure mint plugin
+// NewConfigProvider is called by bootstrap jobs
 func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
 	lggr := r.lggr.Named(args.ExternalJobID.String()).Named("ConfigProvider")
 	relayOpts := types.NewRelayOpts(args)
@@ -719,10 +726,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		// performance hit no matter how minor.
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
-		configProvider, err = newOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
-	case "securemint":
-		// secure mint uses the OCR3 Configurator contract for onchain config, the LLO config provider works with that out of the box
-		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
+		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

@@ -24,30 +24,27 @@ import (
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 )
 
 func ConfirmGasPriceUpdatedForAll(
@@ -586,7 +583,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
+	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -992,22 +989,38 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	startVersion *uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
+	if startVersion != nil {
+		t.Logf("[DEBUG] startVersion = %d", *startVersion)
+	} else {
+		t.Log("[DEBUG] startVersion = nil (streaming from latest)")
+	}
+
 	if len(expectedSeqNrs) == 0 {
+		t.Log("[DEBUG] expectedSeqNrs is empty")
 		return nil, errors.New("no expected sequence numbers provided")
 	}
+
+	t.Logf("[DEBUG] Binding OffRamp at address %s", offRampAddress.String())
 	boundOffRamp := aptos_ccip_offramp.Bind(offRampAddress, dest.Client)
+	t.Log("[DEBUG] Fetching OffRamp state address...")
 	offRampStateAddress, err := boundOffRamp.Offramp().GetStateAddress(nil)
 	require.NoError(t, err)
+	t.Logf("[DEBUG] Got OffRamp state address: %s", offRampStateAddress.String())
 
 	done := make(chan any)
 	defer close(done)
+
+	t.Log("[DEBUG] Subscribing to Aptos events...")
 	sink, errChan := AptosEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampStateAddress, offRampAddress.StringLong()+"::offramp::OffRampState", "execution_state_changed_events", startVersion, done)
+
+	t.Log("[DEBUG] Event subscription established")
 
 	executionStates = make(map[uint64]int)
 	seqNrsToWatch := make(map[uint64]bool)
 	for _, seqNr := range expectedSeqNrs {
 		seqNrsToWatch[seqNr] = true
 	}
+	t.Logf("[DEBUG] Watching for sequence numbers: %+v", seqNrsToWatch)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -1015,6 +1028,19 @@ func ConfirmExecWithExpectedSeqNrsAptos(
 	for {
 		select {
 		case event := <-sink:
+			t.Logf("[DEBUG] Received event: %+v", event)
+
+			if !seqNrsToWatch[event.Event.SequenceNumber] {
+				t.Logf("[DEBUG] Ignoring event with unexpected sequence number: %d", event.Event.SequenceNumber)
+				continue
+			}
+
+			if event.Event.SourceChainSelector != srcSelector {
+				t.Logf("[DEBUG] Ignoring event with unexpected source chain selector: got %d, expected %d",
+					event.Event.SourceChainSelector, srcSelector)
+				continue
+			}
+
 			if seqNrsToWatch[event.Event.SequenceNumber] && event.Event.SourceChainSelector == srcSelector {
 				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,

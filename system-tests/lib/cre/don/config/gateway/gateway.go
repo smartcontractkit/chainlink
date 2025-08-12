@@ -15,19 +15,21 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateConfig(input types.GenerateConfigsInput) (types.NodeIndexToConfigOverride, error) {
-	configOverrides := make(types.NodeIndexToConfigOverride)
+var GenerateConfigFn = generateConfig
 
-	if input.GatewayConnectorOutput == nil {
-		return configOverrides, errors.New("gateway connector output is not set")
+func generateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
+	configOverrides := make(cre.NodeIndexToConfigOverride)
+
+	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
+		return configOverrides, errors.New("gateway connector output or configurations are empty")
 	}
 
 	// find worker nodes
-	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
@@ -54,15 +56,15 @@ func GenerateConfig(input types.GenerateConfigsInput) (types.NodeIndexToConfigOv
 		}
 
 		// we need to configure workflow registry
-		if flags.HasFlag(input.Flags, types.WorkflowDON) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
 				workflowRegistryAddress, homeChainID)
 		}
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
-		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
+		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector.
 		// gateway is also required by various capabilities
-		if flags.HasFlag(input.Flags, types.WorkflowDON) || don.NodeNeedsGateway(input.Flags) {
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) {
 			var nodeEthAddr common.Address
 			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
 			for _, label := range workflowNodeSet[i].Labels {
@@ -75,11 +77,24 @@ func GenerateConfig(input types.GenerateConfigsInput) (types.NodeIndexToConfigOv
 				}
 			}
 
+			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
+
+			if len(gatewayConfigurations) == 0 {
+				return nil, errors.New("no gateway connector configurations found")
+			}
+
+			var donID string
+			if flags.HasFlag(input.Flags, cre.VaultCapability) {
+				donID = cre.VaultGatewayDonID
+			} else {
+				donID = input.DonMetadata.Name
+			}
+
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				homeChainID,
-				input.DonMetadata.ID,
-				*input.GatewayConnectorOutput,
+				donID,
+				gatewayConfigurations,
 			)
 		}
 	}

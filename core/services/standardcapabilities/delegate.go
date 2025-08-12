@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
@@ -164,37 +163,18 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
-	ethKeyBundles, err := d.ks.Eth().GetAll(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var ethKeyBundle ethkey.KeyV2
-	if len(ethKeyBundles) == 0 {
-		ethKeyBundle, err = d.ks.Eth().Create(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create ETH key bundle")
-		}
-	} else {
-		if len(ethKeyBundles) > 1 {
-			log.Infof("found %d ETH key bundles, which may cause unexpected behavior if using the OracleFactory", len(ethKeyBundles))
-		}
-		ethKeyBundle = ethKeyBundles[0]
-	}
-
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:        log,
-			JobORM:        d.jobORM,
-			JobID:         spec.ID,
-			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrEvmKeyBundle,
-			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.ocrPeerWrapper,
-			RelayerSet:    relayerSet,
-			TransmitterID: ethKeyBundle.Address.String(),
+			Logger:      log,
+			JobORM:      d.jobORM,
+			JobID:       spec.ID,
+			JobName:     spec.Name.ValueOrZero(),
+			KB:          ocrEvmKeyBundle,
+			Config:      spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper: d.ocrPeerWrapper,
+			RelayerSet:  relayerSet,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
@@ -207,15 +187,17 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 
 		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
-			Logger:        log,
-			JobORM:        d.jobORM,
-			JobID:         spec.ID,
-			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrEvmKeyBundle,
-			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.ocrPeerWrapper,
-			RelayerSet:    relayerSet,
-			TransmitterID: ethKeyBundle.Address.String(),
+			Logger:                 log,
+			JobORM:                 d.jobORM,
+			JobID:                  spec.ID,
+			JobName:                spec.Name.ValueOrZero(),
+			KB:                     ocrEvmKeyBundle,
+			Config:                 spec.StandardCapabilitiesSpec.OracleFactory,
+			OnchainSigningStrategy: spec.StandardCapabilitiesSpec.OracleFactory.OnchainSigning,
+			PeerWrapper:            d.ocrPeerWrapper,
+			RelayerSet:             relayerSet,
+			OcrKeystore:            d.ks.OCR2(),
+			EthKeystore:            d.ks.Eth(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)

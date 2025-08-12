@@ -145,7 +145,7 @@ func (t *transmitter) Transmit(
 		}
 	}
 
-	// TODO(gg): should we use commoncap.OCRTriggerEvent instead?
+	// TODO(gg): should we use commoncap.OCRTriggerEvent instead? Probably better to enforce field names
 	outputs, err := values.NewMap(map[string]any{
 		"report":       report,
 		"sigs":         capSigs,
@@ -156,8 +156,8 @@ func (t *transmitter) Transmit(
 		return fmt.Errorf("failed to create outputs map: %w", err)
 	}
 	ev := &capabilities.TriggerEvent{
-		TriggerType: t.CapabilityInfo.ID,
-		ID:          "securemint-trigger",
+		TriggerType: t.CapabilityInfo.ID,  // TODO(gg): is this correct? type != ID I would assume
+		ID:          "securemint-trigger", // TODO(gg): probably we should use a more unique ID
 		Outputs:     outputs,
 	}
 	return t.processNewEvent(ctx, ev)

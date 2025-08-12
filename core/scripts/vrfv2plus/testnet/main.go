@@ -22,6 +22,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -43,7 +44,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
@@ -196,8 +196,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
@@ -292,8 +291,7 @@ func main() {
 
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
-
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
@@ -389,9 +387,13 @@ func main() {
 		bhsAddr := cmd.String("bhs-address", "", "address of the bhs contract")
 		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
 		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
-		batchSize := cmd.Int64("batch-size", -1, "batch size")
+
+		// Defaults to the largest safe value for the command to successfully execute.
+		// On Ronin: it's 162 with a 131072 bytes limit.
+		// It's unknown whether the byte limit is a blockchain config or RPC node config.
+		batchSize := cmd.Int64("batch-size", 162, "batch size")
 		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
-		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "bhs-address", "end-block", "batch-size")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "bhs-address", "end-block")
 
 		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), e.Ec)
 		helpers.PanicErr(err)

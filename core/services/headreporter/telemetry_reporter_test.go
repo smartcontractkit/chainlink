@@ -135,9 +135,9 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 		Hash:      blockHash[:],
 		Timestamp: 1000,
 	}
-	relay := mockRelayer{latestHead: head}
+	relay := &mockRelayer{latestHead: head}
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		types.RelayID{Network: "Solana", ChainID: "testchain"}: relay,
+		{Network: "Solana", ChainID: "testchain"}: relay,
 	}
 
 	request := telem.HeadReportRequest{
@@ -165,6 +165,29 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
+	head := types.Head{
+		Height:    "",
+		Hash:      nil,
+		Timestamp: 1000,
+	}
+	relay := &mockRelayer{latestHead: head}
+	solanaRelays := map[types.RelayID]loop.Relayer{
+		{Network: "Solana", ChainID: "testchain"}: relay,
+	}
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
+	monitoringEndpointGen.
+		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
+		Return(monitoringEndpoint)
+
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
+
+	err := reporter.ReportPeriodic(testutils.Context(t))
+	assert.ErrorContains(t, err, "latest block height returned by relayer is empty for chainID")
+}
+
 func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 
@@ -174,7 +197,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 		Return(monitoringEndpoint)
 
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		types.RelayID{Network: "Solana", ChainID: "testchain"}: testutils2.MockRelayer{},
+		{Network: "Solana", ChainID: "testchain"}: &testutils2.MockRelayer{},
 	}
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)

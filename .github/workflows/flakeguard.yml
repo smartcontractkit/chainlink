@@ -787,25 +787,3 @@ jobs:
                 }
               ]
             }
-
-  llm-analysis:
-    name: LLM Analysis
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [report, get-tests]
-    steps:
-      - name: Download all test result artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: context
-          pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
-      - name: Analyze
-        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.2.0
-        with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
-      - name: Upload Analysis
-        uses: actions/upload-artifact@v4
-        with:
-          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
-          path: ${{ github.workspace }}/analysis.jsonl

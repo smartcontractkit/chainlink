@@ -1475,3 +1475,74 @@ func TestExecutionReportingPlugin_getConsensusThreshold(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutionReportingPlugin_SnoozeLogicWithTokenDataNotReady(t *testing.T) {
+	testCases := []struct {
+		name          string
+		msgExecStates []messageExecStatus
+		shouldSnooze  bool
+		description   string
+	}{
+		{
+			name: "all messages have TokenDataNotReady - should NOT snooze",
+			msgExecStates: []messageExecStatus{
+				{SeqNr: 1, MessageId: "0x1", Status: TokenDataNotReady},
+				{SeqNr: 2, MessageId: "0x2", Status: TokenDataNotReady},
+				{SeqNr: 3, MessageId: "0x3", Status: TokenDataNotReady},
+			},
+			shouldSnooze: false,
+			description:  "When all messages are waiting for token data, retry quickly instead of snoozing",
+		},
+		{
+			name: "mixed harmless statuses including TokenDataNotReady - should NOT snooze",
+			msgExecStates: []messageExecStatus{
+				{SeqNr: 1, MessageId: "0x1", Status: TokenDataNotReady},
+				{SeqNr: 2, MessageId: "0x2", Status: AlreadyExecuted},
+				{SeqNr: 3, MessageId: "0x3", Status: TokenDataNotReady},
+			},
+			shouldSnooze: false,
+			description:  "When messages have only harmless issues including TokenDataNotReady, don't snooze",
+		},
+		{
+			name: "mixed statuses with processing errors - should snooze",
+			msgExecStates: []messageExecStatus{
+				{SeqNr: 1, MessageId: "0x1", Status: TokenDataNotReady},
+				{SeqNr: 2, MessageId: "0x2", Status: InvalidNonce},
+				{SeqNr: 3, MessageId: "0x3", Status: TokenDataNotReady},
+			},
+			shouldSnooze: true,
+			description:  "When messages have processing errors alongside TokenDataNotReady, snooze as before",
+		},
+		{
+			name: "no TokenDataNotReady statuses - should snooze",
+			msgExecStates: []messageExecStatus{
+				{SeqNr: 1, MessageId: "0x1", Status: AlreadyExecuted},
+				{SeqNr: 2, MessageId: "0x2", Status: InvalidNonce},
+				{SeqNr: 3, MessageId: "0x3", Status: InsufficientRemainingBatchGas},
+			},
+			shouldSnooze: true,
+			description:  "When messages have other issues, snooze as before",
+		},
+		{
+			name: "single message with TokenDataNotReady - should NOT snooze",
+			msgExecStates: []messageExecStatus{
+				{SeqNr: 1, MessageId: "0x1", Status: TokenDataNotReady},
+			},
+			shouldSnooze: false,
+			description:  "Single message waiting for token data should retry quickly",
+		},
+		{
+			name:          "empty message states - should snooze",
+			msgExecStates: []messageExecStatus{},
+			shouldSnooze:  true,
+			description:   "No messages means unknown issue, should snooze",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			shouldSkipSnooze := shouldSkipSnoozeForTokenDataNotReady(tc.msgExecStates)
+			require.Equal(t, tc.shouldSnooze, !shouldSkipSnooze)
+		})
+	}
+}

@@ -139,7 +139,7 @@ func (ks *tron) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created Tron key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

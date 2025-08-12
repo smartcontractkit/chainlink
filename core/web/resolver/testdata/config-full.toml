@@ -131,6 +131,9 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.37'
 
+[JobDistributor]
+DisplayName = 'test-node'
+
 [JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
@@ -163,6 +166,7 @@ AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = true
@@ -303,11 +307,13 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
@@ -334,6 +340,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
+HeartbeatInterval = '1s'
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -349,8 +356,19 @@ PerOwner = 200
 WsURL = 'streams.url'
 RestURL = 'streams.url'
 
+[CRE.WorkflowFetcher]
+URL = 'https://workflow.fetcher.url'
+
 [Billing]
 URL = 'localhost:4319'
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
 
 [[EVM]]
 ChainID = '1'
@@ -443,6 +461,7 @@ SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

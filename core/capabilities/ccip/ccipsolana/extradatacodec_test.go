@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
@@ -81,7 +81,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 
 		gasLimit, exist := output["GasLimit"]
 		require.True(t, exist)
-		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}, gasLimit)
+		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}.BigInt(), gasLimit)
 
 		ooe, exist := output["AllowOutOfOrderExecution"]
 		require.True(t, exist)

@@ -17,12 +17,11 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
 // Test_runSecureMintWorkflow can be run with:
-// `time SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'; tail all.log`
+// `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^Test_runSecureMintWorkflow$ github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }'; tail all.log`
 func Test_runSecureMintWorkflow(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
@@ -45,26 +44,8 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	t.Logf("Consumer contract address: %s", consumer.Address().String())
 	t.Logf("Forwarder contract address: %s", forwarder.Address().String())
 
-	// TODO(gg): change this into a proper wait so that we can find out in case the report is not forwarded to the consumer
-	go func() {
-		ch := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
-		sub, err := forwarder.WatchReportProcessed(nil, ch, nil, nil, nil)
-		require.NoError(t, err)
-		for {
-			select {
-			case <-sub.Err():
-				t.Logf("Error watching report processed: %v", err)
-				return
-			case x := <-ch:
-				t.Logf("Forwarder received report: %+v", x)
-				if !x.Result {
-					transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumer.Address(), x.WorkflowExecutionId, x.ReportId)
-					require.NoError(t, err)
-					t.Logf("Report not forwarded to consumer, info: %+v", transmissionInfo)
-				}
-			}
-		}
-	}()
+	// make sure we know about forwarder errors in case they happen
+	trackErrorsOnForwarder(t, forwarder, consumer.Address())
 
 	// generate a wf job
 	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, int64(chainID), consumer.Address())
@@ -92,7 +73,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 			blockNumber:    blockNumber,
 		},
 	}
-	h := newSecureMintHandler(expectedUpdates, uint32(blockNumber)) // TODO(gg): the sm aggregator uses the block number as timestamp, not sure if we want that
+	h := newSecureMintHandler(expectedUpdates, uint32(blockNumber)) // currently the secure mint aggregator uses the block number as timestamp
 	waitForConsumerReports(t, consumer, h)
 }
 
@@ -115,7 +96,6 @@ type secureMintReport struct {
 
 // createSecureMintTriggerEvent creates a secure mint trigger event in the format sent by the secure mint transmitter
 // Excerpt from securemint/transmitter.go:
-// ```
 //
 //	var report ocr3types.ReportWithInfo[por.ChainSelector]
 //	outputs, err := values.NewMap(map[string]any{
@@ -133,9 +113,7 @@ type secureMintReport struct {
 //
 //	triggerResponse := capabilities.TriggerResponse{
 //		Event: event,
-//	} // this is sent to trigger subscribers
-//
-// ```
+//	}
 func createSecureMintTriggerEvent(t *testing.T, chainID chainSelector, seqNr uint64, mintable *big.Int, blockNumber uint64) *values.Map {
 	// Create mock signatures (in a real scenario, these would be actual OCR signatures)
 	sigs := []commoncap.OCRAttributedOnchainSignature{
@@ -216,8 +194,6 @@ func (h *secureMintHandler) handleFeedReceived(t *testing.T, event *feeds_consum
 		}
 	}
 
-	// TODO(gg): update the assertions to properly verify the decimal value
-
 	require.NotNil(t, expectedUpdate, "feedID %s not found in expected updates", feedIDStr)
 
 	mintableMask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
@@ -230,20 +206,7 @@ func (h *secureMintHandler) handleFeedReceived(t *testing.T, event *feeds_consum
 	extractedBlockNumber := new(big.Int).And(event.Price, blockNumberMask)
 	extractedBlockNumber = new(big.Int).Rsh(extractedBlockNumber, 128)
 	t.Logf("extractedBlockNumber: %d", extractedBlockNumber)
-
 	assert.Equalf(t, expectedUpdate.blockNumber, extractedBlockNumber.Uint64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, extractedBlockNumber.Uint64())
-
-	// Verify the decimal value
-	// the block number and mintables are packed into a single uint224 for evm as follows:
-	// (top 32 - not used / middle 64 - block number / lower 128 - mintable amount)
-	// unpack first and then assert
-	// price := big.NewInt(0).SetBytes(event.Price.Bytes())
-	// price.Rsh(price, 192)
-	// assert.Equalf(t, expectedUpdate.mintableAmount, price.Int64(), "mintable amount mismatch: expected %d, got %d", expectedUpdate.mintableAmount, price.Int64())
-
-	// blockNumber := big.NewInt(0).SetBytes(event.Price.Bytes())
-	// blockNumber.Rsh(blockNumber, 128)
-	// assert.Equalf(t, expectedUpdate.blockNumber, blockNumber.Int64(), "block number mismatch: expected %d, got %d", expectedUpdate.blockNumber, blockNumber.Int64())
 
 	assert.Equalf(t, h.ts, event.Timestamp, "timestamp mismatch: expected %d, got %d", h.ts, event.Timestamp)
 

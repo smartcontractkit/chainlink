@@ -1,6 +1,8 @@
 package vault
 
 const (
+	// Note: any addition to this list should be reflected in
+	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsCreate = "vault.secrets.create"
 )
 
@@ -16,5 +18,5 @@ type ResponseBase struct {
 
 type SecretsCreateResponse struct {
 	ResponseBase
-	ID string `json:"id,omitempty"`
+	SecretID string `json:"secret_id,omitempty"`
 }

@@ -181,7 +181,7 @@ func (ks *csa) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created CSA key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }

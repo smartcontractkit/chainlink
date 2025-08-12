@@ -9,6 +9,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -16,14 +17,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestIntegration_Launcher(t *testing.T) {
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	uni := it.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap
 	var arr []int64
@@ -51,12 +52,12 @@ func TestIntegration_Launcher(t *testing.T) {
 	launcher := New(
 		it.CapabilityID,
 		p2pIDs[0],
-		logger.TestLogger(t),
+		logger.Test(t),
 		uni.HomeChainReader,
 		1*time.Second,
 		oracleCreator,
 	)
-	regSyncer.AddLauncher(launcher)
+	regSyncer.AddListener(launcher)
 
 	require.NoError(t, launcher.Start(ctx))
 	require.NoError(t, regSyncer.Start(ctx))

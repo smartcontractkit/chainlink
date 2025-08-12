@@ -66,6 +66,10 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
+func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
+	return 5 * time.Second
+}
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }

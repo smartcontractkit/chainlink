@@ -25,16 +25,18 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	evmChain "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
@@ -87,6 +89,8 @@ type fastTransferE2ETestCase struct {
 	hybridPool                          v1_5_1.Group
 	settlementGasOverhead               uint32 // Used for fast transfer lane config
 	expectNoExecutionError              bool
+	customMaxFastTransferFee            *big.Int // Optional custom max fast transfer fee for negative testing
+	expectRevert                        bool     // Whether the ccipSendToken call should revert
 }
 
 var (
@@ -257,6 +261,20 @@ func withExternalMinter() fastTransferE2ETestCaseOption {
 	}
 }
 
+func withCustomMaxFastTransferFee(fee *big.Int) fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.customMaxFastTransferFee = fee
+		return tc
+	}
+}
+
+func withExpectRevert() fastTransferE2ETestCaseOption {
+	return func(tc *fastTransferE2ETestCase) *fastTransferE2ETestCase {
+		tc.expectRevert = true
+		return tc
+	}
+}
+
 var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("fee token", withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
 	ftfTc("fee token and no filler", withFeeTokenType(feeTokenLink), withFastFillNoFillerSuccessAmountAssertions(), withFillerDisabled()),
@@ -269,6 +287,7 @@ var fastTransferTestCases = []*fastTransferE2ETestCase{
 	ftfTc("external minter", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenNative)),
 	ftfTc("external minter feeToken", withExternalMinter(), withFastFillSuccessAmountAssertions(), withFeeTokenType(feeTokenLink)),
 	ftfTc("settlement gas overhead too low", withSettlementGasOverhead(1), withExpectNoExecutionError(), withFeeTokenType(feeTokenNative)),
+	ftfTc("max fast transfer fee too low", withCustomMaxFastTransferFee(big.NewInt(50)), withExpectRevert()),
 	ftfTc("hybrid pool lock release", withHybridPool(v1_5_1.LockAndRelease), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertionsWithPoolAmount(big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1000)), true)),
 	ftfTc("hybrid pool", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenNative), withFastFillSuccessAmountAssertions()),
 	ftfTc("hybrid pool with link fee", withHybridPool(v1_5_1.BurnAndMint), withFeeTokenType(feeTokenLink), withFastFillSuccessAmountAssertions()),
@@ -297,6 +316,64 @@ func assertDestinationBalanceEqual(expectedBalance *big.Int) balanceAssertion {
 		balance, err := destinationToken.BalanceOf(nil, address)
 		require.NoError(t, err)
 		require.Equal(t, expectedBalance.Int64(), balance.Int64(), description+" - Balance should be equal to expected value")
+	}
+}
+
+func withdrawPoolFeesUsingChangeset(t *testing.T, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, recipientAddress common.Address, useMCMS bool) error {
+	config := v1_5_1.FastTransferWithdrawPoolFeesConfig{
+		TokenSymbol:     shared.TokenSymbol(tokenSymbol),
+		ContractType:    contractType,
+		ContractVersion: contractVersion,
+		Withdrawals: map[uint64]common.Address{
+			chainSelector: recipientAddress,
+		},
+	}
+
+	if useMCMS {
+		config.MCMS = &proposalutils.TimelockConfig{
+			MinDelay:   0 * time.Second,
+			MCMSAction: mcmstypes.TimelockActionSchedule,
+		}
+	}
+
+	_, _, err := commonchangeset.ApplyChangesets(t, env,
+		[]commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+			v1_5_1.FastTransferWithdrawPoolFeesChangeset,
+			config,
+		)}, commonchangeset.WithRealBackend())
+
+	return err
+}
+
+func assertPoolFeeWithdrawal(expectedWithdrawnAmount *big.Int, env cldf.Environment, tokenSymbol string, contractType cldf.ContractType, contractVersion semver.Version, chainSelector uint64, destinationToken balanceToken, useMCMS bool, withdrawLock *sync.Mutex) balanceAssertion {
+	return func(t *testing.T, sourceToken balanceToken, destinationTokenParam balanceToken, address common.Address, description string) {
+		withdrawLock.Lock()
+		defer withdrawLock.Unlock()
+
+		recipientAddress, _, _ := createAccount(t, destinationChainID)
+
+		pool, err := bindings.GetFastTransferTokenPoolContract(env, shared.TokenSymbol(tokenSymbol), contractType, contractVersion, chainSelector)
+		require.NoError(t, err)
+
+		accumulatedFees, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, expectedWithdrawnAmount.Int64(), accumulatedFees.Int64(), description+" - Accumulated pool fees should match expected amount")
+
+		recipientBalanceBefore, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		err = withdrawPoolFeesUsingChangeset(t, env, tokenSymbol, contractType, contractVersion, chainSelector, recipientAddress, useMCMS)
+		require.NoError(t, err)
+
+		recipientBalanceAfter, err := destinationToken.BalanceOf(nil, recipientAddress)
+		require.NoError(t, err)
+
+		expectedRecipientBalance := big.NewInt(0).Add(recipientBalanceBefore, expectedWithdrawnAmount)
+		require.Equal(t, expectedRecipientBalance.Int64(), recipientBalanceAfter.Int64(), description+" - Recipient should receive the withdrawn pool fees")
+
+		accumulatedFeesAfter, err := pool.GetAccumulatedPoolFees(nil)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), accumulatedFeesAfter.Int64(), description+" - Pool accumulated fees should be zero after withdrawal")
 	}
 }
 
@@ -1010,9 +1087,10 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 		},
 		Listeners: []devenv.ListenerConfig{
 			{
-				ChainSelector:    strconv.FormatUint(sourceChainSelector, 10),
-				TokenPoolAddress: sourceTokenPoolAddress.Hex(),
-				RPCURL:           sourceChainNetwork.HTTPURLs[0],
+				ChainSelector:        strconv.FormatUint(sourceChainSelector, 10),
+				TokenPoolAddress:     sourceTokenPoolAddress.Hex(),
+				RPCURL:               sourceChainNetwork.HTTPURLs[0],
+				DestinationTokenPool: destinationTokenPoolAddress.Hex(),
 			},
 		},
 		Fillers: []devenv.FillerConfig{
@@ -1021,6 +1099,7 @@ func startRelayer(t *testing.T, sourceChainSelector, destinationChainSelector ui
 				TokenPoolAddress: destinationTokenPoolAddress.Hex(),
 				RPCURL:           destinationChainNetwork.HTTPURLs[0],
 				SignerProvider:   "filler",
+				SourceTokenPool:  sourceTokenPoolAddress.Hex(),
 			},
 		},
 	}
@@ -1320,7 +1399,7 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 		sourceToken := deployTokenAndGrantAllRoles(t, ctx.SourceChain(), tc.tokenSymbol, tokenDecimals, ctx.sourceLock, tc.externalMinter || tc.isHybridPool)
 		destinationToken := deployTokenAndGrantAllRoles(t, ctx.DestinationChain(), tc.tokenSymbol, tokenDecimals, ctx.destinationLock, tc.externalMinter || tc.isHybridPool)
 
-		sourceTokenPoolAddress, destinationTokenPoolAddress, _, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
+		sourceTokenPoolAddress, destinationTokenPoolAddress, contractVersion, _, sourceMinter, destinationMinter := configureTokenPoolContractsWithMCMS(t, ctx.env, tc.tokenSymbol, ctx.SourceChainSelector(), ctx.DestinationChainSelector(), sourceToken.Address(), destinationToken.Address(), tokenDecimals, fillerAddress, tc, ctx.sourceLock, ctx.destinationLock, ctx.useMCMS)
 		var contractType cldf.ContractType
 		switch {
 		case tc.isHybridPool:
@@ -1394,7 +1473,22 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			seqNum, err = ctx.sequenceNumberRetriever(nil, ctx.DestinationChainSelector())
 			require.NoError(t, err)
 			ctx.env.Logger.Infof("Sending transaction from user address: %s", userTransac.From.Hex())
-			tx, err := pool.CcipSendToken(userTransac, ctx.DestinationChainSelector(), transferAmount, fees.FastTransferFee, userEncodedAddress, feeTokenAddress, []byte{})
+
+			// Determine max fast transfer fee - use custom fee if set, otherwise use calculated fee
+			maxFastTransferFee := fees.FastTransferFee
+			if tc.customMaxFastTransferFee != nil {
+				maxFastTransferFee = tc.customMaxFastTransferFee
+			}
+
+			tx, err := pool.CcipSendToken(userTransac, ctx.DestinationChainSelector(), transferAmount, maxFastTransferFee, userEncodedAddress, feeTokenAddress, []byte{})
+
+			if tc.expectRevert {
+				// Expect the transaction to fail
+				require.Error(t, err, "Expected ccipSendToken to revert when maxFastTransferFee is too low")
+				ctx.env.Logger.Infof("Transaction correctly reverted as expected: %v", err)
+				return
+			}
+
 			ctx.env.Logger.Infof("Sending transaction: %s", tx.Hash().Hex())
 			require.NoError(t, err)
 			_, err = ctx.SourceChain().Confirm(tx)
@@ -1408,22 +1502,69 @@ func runFastTransferTestCase(t *testing.T, ctx *fastTransferTestContext, tc *fas
 			}
 		}()
 
-		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postFastTransferFillerAssertions, "Post Fast Transfer Filler Assertions")
-		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postFastTransferUserAssertions, "Post Fast Transfer User Assertions")
-		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postFastTransferPoolAssertions, "Post Fast Transfer Pool Assertions")
+		// Skip post-transaction logic if we expect the transaction to revert
+		if !tc.expectRevert {
+			runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postFastTransferFillerAssertions, "Post Fast Transfer Filler Assertions")
+			runAssertions(t, sourceToken, destinationToken, userAddress, tc.postFastTransferUserAssertions, "Post Fast Transfer User Assertions")
+			runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postFastTransferPoolAssertions, "Post Fast Transfer Pool Assertions")
 
-		if tc.expectNoExecutionError {
-			ctx.waitForExecutionError(t, seqNum)
-		} else {
-			ctx.waitForExecution(t, seqNum)
+			if tc.expectNoExecutionError {
+				ctx.waitForExecutionError(t, seqNum)
+			} else {
+				ctx.waitForExecution(t, seqNum)
+			}
+
+			runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
+			runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
+			runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
+
+			if tc.enableFiller {
+				expectedPoolFee := big.NewInt(0).Mul(transferAmount, big.NewInt(int64(tc.fastTransferPoolFeeBps)))
+				expectedPoolFee = big.NewInt(0).Div(expectedPoolFee, big.NewInt(10000))
+				// Pool fees are only accumulated during fast fills
+				poolFeeAssertion := assertPoolFeeWithdrawal(expectedPoolFee, ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+				poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test")
+			} else {
+				// When no filler was used, pool fees should be 0
+				poolFeeAssertion := assertPoolFeeWithdrawal(big.NewInt(0), ctx.env, tc.tokenSymbol, contractType, contractVersion, ctx.DestinationChainSelector(), destinationToken, ctx.useMCMS, ctx.destinationLock)
+				poolFeeAssertion(t, destinationToken, destinationToken, destinationTokenPoolAddress, "Pool Fee Withdrawal Test (No Filler)")
+			}
 		}
 
-		runAssertions(t, sourceToken, destinationToken, fillerAddress, tc.postRegularTransferFillerAssertions, "Post Regular Transfer Filler Assertions")
-		runAssertions(t, sourceToken, destinationToken, userAddress, tc.postRegularTransferUserAssertions, "Post Regular Transfer User Assertions")
-		runAssertions(t, sourceToken, destinationToken, destinationTokenPoolAddress, tc.postRegularTransferPoolAssertions, "Post Regular Transfer Pool Assertions")
-
-		if !tc.expectNoExecutionError {
+		if !tc.expectNoExecutionError && !tc.expectRevert {
 			ctx.env.Logger.Info("Sanity check regular token transfer (slow-path)")
+
+			// Apply transfer fee config updates only to hybrid pools on 1.6 lanes
+			if tc.isHybridPool && contractVersion.Compare(&deployment.Version1_6_0) >= 0 {
+				state, _ := onChainState.EVMChainState(ctx.SourceChainSelector())
+				if state.FeeQuoter != nil {
+					configs := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{
+						{
+							DestChainSelector: ctx.DestinationChainSelector(),
+							TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
+								{
+									Token: sourceToken.Address(),
+									TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
+										MinFeeUSDCents:    150,
+										MaxFeeUSDCents:    4294967295,
+										DeciBps:           0,
+										DestGasOverhead:   200_000,
+										DestBytesOverhead: 640,
+										IsEnabled:         true,
+									},
+								},
+							},
+						},
+					}
+					tx, err := state.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(ctx.SourceChain().DeployerKey, configs, nil)
+					require.NoError(t, err, "Failed to apply token transfer fee config updates")
+					ctx.env.Logger.Infof("Applied token transfer fee config updates transaction: %s", tx.Hash().Hex())
+					_, err = ctx.SourceChain().Confirm(tx)
+					require.NoError(t, err, "Failed to confirm token transfer fee config updates transaction")
+				} else {
+					ctx.env.Logger.Infof("FeeQuoter not available on chain %d, skipping token transfer fee config updates", ctx.SourceChainSelector())
+				}
+			}
 			// We want to ensure regular transfer works as expected
 			message := router.ClientEVM2AnyMessage{
 				Receiver: common.LeftPadBytes(userAddress.Bytes(), 32),

@@ -81,11 +81,11 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	evmKs := keys.NewChainStore(keystore.NewEthSigner(ks.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
 	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, evmKs, nil, nil, nil)
-	orm := heads.NewORM(*testutils.FixtureChainID, db)
+	orm := heads.NewORM(*testutils.FixtureChainID, db, 0)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
@@ -574,7 +574,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
@@ -602,7 +602,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string

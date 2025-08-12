@@ -17,29 +17,36 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func Set(t *testing.T, nodeInput *types.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*types.WrappedNodeOutput, error) {
+const (
+	OCRPeeringPort          = 5001
+	CapabilitiesPeeringPort = 6690
+	GatewayIncomingPort     = 5002
+	GatewayOutgoingPort     = 5003
+)
+
+func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*cre.WrappedNodeOutput, error) {
 	nodeset, err := ns.UpgradeNodeSet(t, nodeInput.Input, bc, 5*time.Second)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to upgrade node set")
 	}
 
-	return &types.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
+	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
 }
 
-func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactoryFn) (types.NodeIndexToConfigOverride, error) {
+func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) (cre.NodeIndexToConfigOverride, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
-	configOverrides := make(types.NodeIndexToConfigOverride)
+	configOverrides := make(cre.NodeIndexToConfigOverride)
 
 	// if it's only a gateway DON, we don't need to generate any extra configuration, the default one will do
-	if flags.HasFlag(input.Flags, types.GatewayDON) && (!flags.HasFlag(input.Flags, types.WorkflowDON) && !flags.HasFlag(input.Flags, types.CapabilitiesDON)) {
+	if flags.HasFlag(input.Flags, cre.GatewayDON) && (!flags.HasFlag(input.Flags, cre.WorkflowDON) && !flags.HasFlag(input.Flags, cre.CapabilitiesDON)) {
 		return configOverrides, nil
 	}
 
@@ -51,26 +58,22 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*WorkerEVMInput, 0)
 	for chainSelector, bcOut := range input.BlockchainOutput {
-		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return configOverrides, errors.Wrapf(err, "failed to parse chain ID %s", bcOut.ChainID)
-		}
-
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, cID) {
+		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
 			continue
 		}
 
-		c, exists := chain_selectors.ChainByEvmChainID(cID)
+		c, exists := chain_selectors.ChainByEvmChainID(bcOut.ChainID)
 		if !exists {
-			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", cID)
+			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", bcOut.ChainID)
 		}
 		workerEVMInputs = append(workerEVMInputs, &WorkerEVMInput{
-			Name:          fmt.Sprintf("node-%d", chainSelector),
-			ChainID:       bcOut.ChainID,
-			ChainSelector: c.Selector,
-			HTTPRPC:       bcOut.Nodes[0].InternalHTTPUrl,
-			WSRPC:         bcOut.Nodes[0].InternalWSUrl,
+			Name:                 fmt.Sprintf("node-%d", chainSelector),
+			ChainID:              bcOut.ChainID,
+			ChainSelector:        c.Selector,
+			HTTPRPC:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			WSRPC:                bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			HasForwarderContract: !bcOut.ReadOnly,
 		})
 	}
 
@@ -84,7 +87,7 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	var donBootstrapNodeHost string
 	var donBootstrapNodePeerID string
 
-	bootstrapNodes, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.BootstrapNode}, node.EqualLabels)
+	bootstrapNodes, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 	}
@@ -92,8 +95,8 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 	switch len(bootstrapNodes) {
 	case 0:
 		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
-		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
-		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
+		donBootstrapNodeHost = input.OCRPeeringData.OCRBootstraperHost
+		donBootstrapNodePeerID = input.OCRPeeringData.OCRBootstraperPeerID
 	case 1:
 		bootstrapNode := bootstrapNodes[0]
 
@@ -127,15 +130,15 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 		// generate configuration for the bootstrap node
 		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
 
-		if flags.HasFlag(input.Flags, types.WorkflowDON) {
-			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.PeeringData)
+		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
+			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.CapabilitiesPeeringData)
 		}
 	default:
 		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
 	}
 
 	// find worker nodes
-	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
@@ -153,12 +156,16 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 
 		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
 		for _, wi := range workerEVMInputs {
+			if !wi.HasForwarderContract {
+				continue
+			}
+
 			addrsForChains, err := input.AddressBook.AddressesForChain(wi.ChainSelector)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get addresses from address book")
 			}
 			for addr, addrValue := range addrsForChains {
-				if addrValue.Type == "KeystoneForwarder" {
+				if addrValue.Type == keystone_changeset.KeystoneForwarder {
 					wi.ForwarderAddress = addr
 					expectedAddressKey := node.AddressKeyFromSelector(wi.ChainSelector)
 					for _, label := range workflowNodeSet[i].Labels {
@@ -179,7 +186,7 @@ func Generate(input types.GenerateConfigsInput, factoryFns []types.ConfigFactory
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
 	}
 
 	for _, factoryFn := range factoryFns {

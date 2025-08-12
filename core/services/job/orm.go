@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -15,7 +16,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -171,6 +171,10 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
+	if slices.Contains([]Type{DirectRequest, FluxMonitor, LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
+		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
+	}
+
 	p := jb.Pipeline
 	if err := o.AssertBridgesExist(ctx, p); err != nil {
 		return err
@@ -1494,7 +1498,7 @@ func (o *orm) loadAllJobsTypes(ctx context.Context, jobs []Job) error {
 }
 
 func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
-	return multierr.Combine(
+	return stderrors.Join(
 		o.loadJobPipelineSpec(ctx, job, &job.PipelineSpecID),
 		o.loadJobType(ctx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		o.loadJobType(ctx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),

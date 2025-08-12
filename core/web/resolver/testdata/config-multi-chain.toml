@@ -14,6 +14,9 @@ Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and 
 Level = 'panic'
 JSONConsole = true
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '30s'

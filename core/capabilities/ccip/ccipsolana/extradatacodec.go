@@ -11,11 +11,12 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 )
 
 const (
 	svmDestExecDataKey = "destGasAmount"
+	evmGasLimitKey     = "GasLimit"
 )
 
 var (
@@ -67,6 +68,15 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
 		fieldValue := val.Field(i).Interface()
+		if field.Name == evmGasLimitKey {
+			// convert SVM Borsh specific type uint128 to *big.Int for EVM gas limit
+			gl, ok := fieldValue.(agbinary.Uint128)
+			if !ok {
+				return nil, fmt.Errorf("expected field %s to be of type agbinary.Uint128, got %T", field.Name, fieldValue)
+			}
+
+			fieldValue = gl.BigInt()
+		}
 		outputMap[field.Name] = fieldValue
 	}
 

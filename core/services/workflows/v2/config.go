@@ -7,15 +7,17 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -28,18 +30,27 @@ type EngineConfig struct {
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
 
-	WorkflowID    string // hex-encoded [32]byte, no "0x" prefix
-	WorkflowOwner string // hex-encoded [20]byte, no "0x" prefix
-	WorkflowName  types.WorkflowName
+	DonTimeStore *dontime.Store
 
-	LocalLimits          EngineLimits             // local to a single workflow
-	GlobalLimits         *syncerlimiter.Limits    // global to all workflows
-	ExecutionRateLimiter *ratelimiter.RateLimiter // global + per owner
+	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
+	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
+	WorkflowName          types.WorkflowName
+	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
+	WorkflowEncryptionKey workflowkey.Key
+
+	LocalLimits          EngineLimits                // local to a single workflow
+	GlobalLimits         limits.ResourceLimiter[int] // global to all workflows
+	ExecutionRateLimiter limits.RateLimiter          // global + per owner
 
 	BeholderEmitter custmsg.MessageEmitter
 
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
+
+	// WorkflowRegistryAddress is the address of the workflow registry contract
+	WorkflowRegistryAddress string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	WorkflowRegistryChainSelector string
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
@@ -89,6 +100,7 @@ type LifecycleHooks struct {
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
+	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 }
@@ -102,6 +114,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.CapRegistry == nil {
 		return errors.New("capabilities registry not set")
+	}
+	if c.DonTimeStore == nil {
+		return errors.New("dontime store not set")
 	}
 	if c.ExecutionsStore == nil {
 		return errors.New("executions store not set")
@@ -120,6 +135,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.WorkflowName == nil {
 		return errors.New("workflowName not set")
+	}
+	if c.WorkflowTag == "" {
+		return errors.New("workflowTag not set")
 	}
 
 	c.LocalLimits.setDefaultLimits()
@@ -196,6 +214,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}
+	}
+	if h.OnExecutionError == nil {
+		h.OnExecutionError = func(msg string) {}
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}

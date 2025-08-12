@@ -3,18 +3,20 @@ package crib
 import (
 	"context"
 	"math/big"
+	"slices"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -24,7 +26,7 @@ import (
 )
 
 const (
-	solFundingLamports = 100000
+	solFunds = 1000
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment, evmFundingEth uint64) error {
@@ -72,7 +74,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 						return err
 					}
 					base58Addr := n.AccountAddr[chainID]
-					lggr.Debugf("Found %v solana transmitter address", base58Addr)
+					lggr.Infof("Found %v solana transmitter address", base58Addr)
 
 					pk, err := solana.PublicKeyFromBase58(base58Addr)
 					if err != nil {
@@ -82,10 +84,19 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					solanaAddrs = append(solanaAddrs, pk)
 				}
 
-				err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+				err := memory.FundSolanaAccountsWithLogging(env.GetContext(), solanaAddrs, solFunds, chain.Client, lggr)
 				if err != nil {
 					lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
 					return err
+				}
+				for _, addr := range solanaAddrs {
+					res, err := chain.Client.GetBalance(env.GetContext(), addr, rpc.CommitmentFinalized)
+					if err != nil {
+						lggr.Errorw("failed to fetch transmitter balance", "transmitter", addr, "err", err)
+						return err
+					} else if res != nil {
+						lggr.Infow("got balance for transmitter", "transmitter", addr, "balance", res.Value)
+					}
 				}
 				return nil
 			})
@@ -149,4 +160,26 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 		nonce++
 	}
 	return nil
+}
+
+// getTierChainSelectors organizes the provided chain selectors into deterministic tiers based on the supplied number of high and low tier chains.
+func getTierChainSelectors(allSelectors []uint64, highTierCount int, lowTierCount int) (highTierSelectors []uint64, lowTierSelectors []uint64) {
+	// we prioritize home selector, simulated solana, and evm feed selectors
+	prioritySelectors := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802}
+	orderedSelectors := make([]uint64, 0, len(allSelectors))
+	for _, sel := range prioritySelectors {
+		if slices.Contains(allSelectors, sel) {
+			orderedSelectors = append(orderedSelectors, sel)
+		}
+	}
+
+	// the remaining chains are evm and count up
+	evmChainID := 90000001
+	for len(orderedSelectors) < len(allSelectors) {
+		details, _ := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(evmChainID), chainsel.FamilyEVM)
+		orderedSelectors = append(orderedSelectors, details.ChainSelector)
+		evmChainID++
+	}
+
+	return orderedSelectors[0:highTierCount], orderedSelectors[highTierCount : highTierCount+lowTierCount]
 }

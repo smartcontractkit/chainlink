@@ -11,9 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Integration/load test that combines Data Feeds Consensus Aggregator and Streams Codec.
@@ -34,7 +34,7 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	}
 
 	config := newAggConfig(t, feeds)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	codec := streams.NewCodec(lggr)
 	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec)
 	require.NoError(t, err)

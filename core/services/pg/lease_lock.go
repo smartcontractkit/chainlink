@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 	"sync"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -116,7 +116,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		} else if err != nil {
 			err = errors.Wrap(err, "failed to get lease lock")
 			if l.conn != nil {
-				err = multierr.Combine(err, l.conn.Close())
+				err = stderrors.Join(err, l.conn.Close())
 			}
 			return err
 		}
@@ -130,7 +130,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		case <-ctx.Done():
 			err = errors.New("stopped")
 			if l.conn != nil {
-				err = multierr.Combine(err, l.conn.Close())
+				err = stderrors.Join(err, l.conn.Close())
 			}
 			return err
 		case <-time.After(utils.WithJitter(l.cfg.LeaseRefreshInterval)):
@@ -164,7 +164,7 @@ func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
 	}
 	l.conn = newConn
 	if err = l.setInitialTimeouts(ctx); err != nil {
-		return multierr.Combine(
+		return stderrors.Join(
 			errors.Wrap(err, "failed to set initial timeouts"),
 			l.conn.Close(),
 		)
@@ -178,7 +178,7 @@ func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
 	// the transaction - we do not want to leave rows locked if this process is
 	// dead
 	ms := l.cfg.LeaseDuration.Milliseconds()
-	return multierr.Combine(
+	return stderrors.Join(
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION lock_timeout = %d`, ms))),
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION idle_in_transaction_session_timeout = %d`, ms))),
 	)
@@ -200,7 +200,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DefaultQueryTimeout)
-			err := multierr.Combine(
+			err := stderrors.Join(
 				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
 				l.conn.Close(),
 			)

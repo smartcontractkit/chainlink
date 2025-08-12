@@ -43,7 +43,7 @@ import (
 //  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
 var (
 	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
-	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(configureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
+	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(ConfigureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
 )
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
@@ -115,6 +115,8 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 		tokenPoolProgram = state.BurnMintTokenPools[c.Metadata]
 	case shared.LockReleaseTokenPool:
 		tokenPoolProgram = state.LockReleaseTokenPools[c.Metadata]
+	case shared.CCTPTokenPool:
+		tokenPoolProgram = state.CCTPTokenPool
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
 		return
@@ -621,7 +623,7 @@ func configureMultiplePoolPreconditionValidation(env cldf.Environment, c Configu
 	return nil
 }
 
-func configureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) (cldf.ChangesetOutput, error) {
+func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {

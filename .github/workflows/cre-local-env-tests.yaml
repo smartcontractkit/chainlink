@@ -39,7 +39,7 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           github.event_name == 'workflow_call' ||
           github.event_name == 'schedule' ||
-          steps.changes.outputs.core_or_cre_changes == 'true' ||
+          steps.changes.outputs.ci_changes == 'true' ||
           github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-local-cre-env-tests')
         }}
     timeout-minutes: 5
@@ -53,13 +53,8 @@ jobs:
         id: changes
         with:
           filters: |
-            core_or_cre_changes:
+            ci_changes:
               - '.github/workflows/cre-local-env-tests.yaml'
-              - '**/*Dockerfile'
-              - 'core/**'
-              - 'deployment/keystone/**'
-              - 'system-tests/**'
-              - 'core/scripts/cre/environment/**'
 
   test-cli:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
@@ -143,7 +138,7 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
-          CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
+          CTF_CONFIGS: "./configs/workflow-don.toml,./configs/ci-override.toml"
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.9.0"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"

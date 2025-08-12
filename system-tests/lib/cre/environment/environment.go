@@ -2,35 +2,34 @@ package environment
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"math/big"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -40,16 +39,16 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	libdevenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/devenv"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 const (
@@ -61,31 +60,48 @@ const (
 )
 
 type SetupOutput struct {
-	WorkflowRegistryConfigurationOutput *cretypes.WorkflowRegistryOutput
+	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CldEnvironment                      *cldf.Environment
-	BlockchainOutput                    []*BlockchainOutput
-	DonTopology                         *cretypes.DonTopology
-	NodeOutput                          []*cretypes.WrappedNodeOutput
-	InfraInput                          libtypes.InfraInput
+	BlockchainOutput                    []*cre.WrappedBlockchainOutput
+	DonTopology                         *cre.DonTopology
+	NodeOutput                          []*cre.WrappedNodeOutput
+	InfraInput                          infra.Input
 	S3ProviderOutput                    *s3provider.Output
 }
 
 type SetupInput struct {
-	CapabilitiesAwareNodeSets            []*cretypes.CapabilitiesAwareNodeSet
-	CapabilitiesContractFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
-	ConfigFactoryFunctions               []cretypes.ConfigFactoryFn
-	JobSpecFactoryFunctions              []cretypes.JobSpecFactoryFn
-	BlockchainsInput                     []*blockchain.Input
+	CapabilitiesAwareNodeSets            []*cre.CapabilitiesAwareNodeSet
+	CapabilitiesContractFactoryFunctions []func([]cre.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+	ConfigFactoryFunctions               []cre.ConfigFactoryFn
+	JobSpecFactoryFunctions              []cre.JobSpecFactoryFn
+	BlockchainsInput                     []*cre.WrappedBlockchainInput
 	JdInput                              jd.Input
-	InfraInput                           libtypes.InfraInput
-	CustomBinariesPaths                  map[cretypes.CapabilityFlag]string
+	InfraInput                           infra.Input
+	CustomBinariesPaths                  map[cre.CapabilityFlag]string
 	OCR3Config                           *keystone_changeset.OracleConfig
+	VaultOCR3Config                      *keystone_changeset.OracleConfig
 	S3ProviderInput                      *s3provider.Input
 }
 
 type backgroundStageResult struct {
 	err            error
 	successMessage string
+	panicValue     any
+	panicStack     []byte
+}
+
+func mustGetAddress(dataStore datastore.MutableDataStore, chainSel uint64, contractType string, version string, qualifier string) string {
+	key := datastore.NewAddressRefKey(
+		chainSel,
+		datastore.ContractType(contractType),
+		semver.MustParse(version),
+		qualifier,
+	)
+	addrRef, err := dataStore.Addresses().Get(key)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get %s (qualifier=%s) address for chain %d: %s", contractType, qualifier, chainSel, err.Error()))
+	}
+	return addrRef.Address
 }
 
 func SetupTestEnvironment(
@@ -102,8 +118,8 @@ func SetupTestEnvironment(
 	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
 	// We need to have this reference in the outer scope, because subsequent functions will need it
 	var nixShell *libnix.Shell
-	if input.InfraInput.InfraType == libtypes.CRIB {
-		startNixShellInput := &cretypes.StartNixShellInput{
+	if input.InfraInput.Type == infra.CRIB {
+		startNixShellInput := &cre.StartNixShellInput{
 			InfraInput:     &input.InfraInput,
 			CribConfigsDir: cribConfigsDir,
 			PurgeNamespace: true,
@@ -113,6 +129,11 @@ func SetupTestEnvironment(
 		nixShell, nixErr = crib.StartNixShell(startNixShellInput)
 		if nixErr != nil {
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
+		}
+		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
+		err := crib.Bootstrap(&input.InfraInput)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to create namespace")
 		}
 	}
 
@@ -124,19 +145,18 @@ func SetupTestEnvironment(
 
 	stageGen := NewStageGen(7, "STAGE")
 
-	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
-
 	var s3ProviderOutput *s3provider.Output
 	if input.S3ProviderInput != nil {
+		stageGen = NewStageGen(8, "STAGE")
+		fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 		var s3ProviderErr error
 		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
 		if s3ProviderErr != nil {
 			return nil, pkgerrors.Wrap(s3ProviderErr, "minio provider creation failed")
 		}
+		testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
 	}
-	testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
-
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	bi := BlockchainsInput{
 		infra:    &input.InfraInput,
@@ -166,18 +186,32 @@ func SetupTestEnvironment(
 		GetContext: func() context.Context {
 			return ctx
 		},
-		BlockChains: chain.NewBlockChains(blockChains),
+		BlockChains: cldf_chain.NewBlockChains(blockChains),
 	}
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	forwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range blockchainOutputs {
+		if bcOut.ReadOnly {
+			continue
+		}
 		forwardersSelectors = append(forwardersSelectors, bcOut.ChainSelector)
 	}
+
+	var allNodeFlags []string
+	for i := range input.CapabilitiesAwareNodeSets {
+		nodeFlags, err := flags.NodeSetFlags(input.CapabilitiesAwareNodeSets[i])
+		if err != nil {
+			continue
+		}
+		allNodeFlags = append(allNodeFlags, nodeFlags...)
+	}
+	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
+	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
+	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
 
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
@@ -188,6 +222,9 @@ func SetupTestEnvironment(
 		ks_contracts_op.DeployKeystoneContractsSequenceInput{
 			RegistryChainSelector: homeChainOutput.ChainSelector,
 			ForwardersSelectors:   forwardersSelectors,
+			DeployVaultOCR3:       vaultOCR3AddrFlag,
+			DeployEVMOCR3:         evmOCR3AddrFlag,
+			DeployConsensusOCR3:   consensusAddrFlag,
 		},
 	)
 	if err != nil {
@@ -200,31 +237,32 @@ func SetupTestEnvironment(
 	if err = memoryDatastore.Merge(deployKeystoneReport.Output.Datastore); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
-
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
-	ocr3Addr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String())         //nolint:staticcheck // won't migrate now
-	wfRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String())      //nolint:staticcheck // won't migrate now
-	capRegAddr := libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String()) //nolint:staticcheck // won't migrate now
-
+	ocr3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
 	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)
-	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+
+	wfRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
 	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
+
+	capRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+
 	for _, forwarderSelector := range forwardersSelectors {
-		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, forwarderSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), "1.0.0", "")
+		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, forwarderAddr)
 	}
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	// and also for creating the CLD environment
 	chainIDs := make([]int, 0)
-	bcOuts := make(map[uint64]*blockchain.Output)
+	bcOuts := make(map[uint64]*cre.WrappedBlockchainOutput)
 	sethClients := make(map[uint64]*seth.Client)
 	for _, bcOut := range blockchainOutputs {
 		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
-		bcOuts[bcOut.ChainSelector] = bcOut.BlockchainOutput
+		bcOuts[bcOut.ChainSelector] = bcOut
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
@@ -234,7 +272,8 @@ func SetupTestEnvironment(
 		homeChainOutput.ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		chainIDs, bcOuts,
+		chainIDs,
+		bcOuts,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		input.ConfigFactoryFunctions,
 		input.CustomBinariesPaths,
@@ -252,20 +291,58 @@ func SetupTestEnvironment(
 	backgroundStagesWaitGroup.Add(1)
 
 	// configure workflow registry contract in the background, so that we can continue with the next stage
-	var workflowRegistryInput *cretypes.WorkflowRegistryInput
+	var workflowRegistryInput *cre.WorkflowRegistryInput
 	var startTime time.Time
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 		startTime = time.Now()
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 1/3] Configuring Workflow Registry contract\n"))
 
+		allAddresses, addrErr := allChainsCLDEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+		if addrErr != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(addrErr, "failed to get addresses from address book")}
+			return
+		}
+
+		chainsWithContracts := make(map[uint64]bool)
+		for chainSelector, addresses := range allAddresses {
+			chainsWithContracts[chainSelector] = len(addresses) > 0
+		}
+
+		nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
+		for chainSelector, chain := range allChainsCLDEnvironment.BlockChains.EVMChains() {
+			if chainsWithContracts[chain.Selector] {
+				nonEmptyBlockchains[chainSelector] = chain
+			}
+		}
+
+		nonEmptyChainsCLDEnvironment := &cldf.Environment{
+			Logger:            singleFileLogger,
+			ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+			GetContext: func() context.Context {
+				return ctx
+			},
+			DataStore:   allChainsCLDEnvironment.DataStore,
+			BlockChains: cldf_chain.NewBlockChains(nonEmptyBlockchains),
+		}
+		nonEmptyChainsCLDEnvironment.OperationsBundle = operations.NewBundle(nonEmptyChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
+
 		// Configure Workflow Registry contract
-		workflowRegistryInput = &cretypes.WorkflowRegistryInput{
-			ContractAddress: wfRegAddr,
+		workflowRegistryInput = &cre.WorkflowRegistryInput{
+			ContractAddress: common.HexToAddress(wfRegAddr),
 			ChainSelector:   homeChainOutput.ChainSelector,
-			CldEnv:          allChainsCLDEnvironment,
-			AllowedDonIDs:   []uint32{topology.WorkflowDONID},
-			WorkflowOwners:  []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+			// TODO, here we might need to pass new environment that doesn't have chains that do not have forwarders deployed
+			CldEnv:         nonEmptyChainsCLDEnvironment,
+			AllowedDonIDs:  []uint64{topology.WorkflowDONID},
+			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 		}
 
 		_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
@@ -285,16 +362,24 @@ func SetupTestEnvironment(
 		nixShell,
 		homeChainOutput.BlockchainOutput,
 		topology,
-		input.InfraInput.InfraType,
+		input.InfraInput,
 		updatedNodeSets,
 	)
 	if jobsSeqErr != nil {
 		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to setup jobs")
 	}
 
+	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	for idx, nsOut := range nodeSetOutput {
+		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+	}
+
+	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	input.JdInput.Out = jdOutput
+
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯
-	fullCldInput := &cretypes.FullCLDEnvironmentInput{
+	fullCldInput := &cre.FullCLDEnvironmentInput{
 		JdOutput:          jdOutput,
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
@@ -305,17 +390,7 @@ func SetupTestEnvironment(
 		OperationsBundle:  allChainsCLDEnvironment.OperationsBundle,
 	}
 
-	// We need to use TLS for CRIB, because it exposes HTTPS endpoints
-	var creds credentials.TransportCredentials
-	if input.InfraInput.InfraType == libtypes.CRIB {
-		creds = credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-		})
-	} else {
-		creds = insecure.NewCredentials()
-	}
-
-	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, creds)
+	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(ctx, singleFileLogger, fullCldInput, insecure.NewCredentials())
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
@@ -343,6 +418,14 @@ func SetupTestEnvironment(
 	backgroundStagesWaitGroup.Add(1)
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 
 		startTime = time.Now()
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 2/3] Funding Chainlink nodes\n\n"))
@@ -364,7 +447,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	for idx, nodeSetOut := range nodeSetOutput {
-		if !flags.HasFlag(updatedNodeSets[idx].Capabilities, cretypes.OCR3Capability) {
+		if !flags.HasFlag(updatedNodeSets[idx].Capabilities, cre.OCR3Capability) || !flags.HasFlag(updatedNodeSets[idx].Capabilities, cre.VaultCapability) {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
@@ -377,8 +460,8 @@ func SetupTestEnvironment(
 				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
 			})
 		}
-		if err := eg.Wait(); err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to wait for ConfigWatcher health check")
+		if waitErr := eg.Wait(); waitErr != nil {
+			return nil, pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
 		}
 	}
 
@@ -388,11 +471,19 @@ func SetupTestEnvironment(
 	backgroundStagesWaitGroup.Add(1)
 	go func() {
 		defer backgroundStagesWaitGroup.Done()
+		defer func() {
+			if p := recover(); p != nil {
+				backgroundStagesCh <- backgroundStageResult{
+					panicValue: p,
+					panicStack: debug.Stack(),
+				}
+			}
+		}()
 
-		if input.InfraInput.InfraType != libtypes.CRIB {
+		if input.InfraInput.Type != infra.CRIB {
 			hasGateway := false
 			for _, don := range fullCldOutput.DonTopology.DonsWithMetadata {
-				if flags.HasFlag(don.Flags, cretypes.GatewayDON) {
+				if flags.HasFlag(don.Flags, cre.GatewayDON) {
 					hasGateway = true
 					break
 				}
@@ -416,12 +507,37 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
-	configureKeystoneInput := cretypes.ConfigureKeystoneInput{
+	ocr3CommonAddr := common.HexToAddress(ocr3Addr)
+
+	var vaultOCR3CommonAddr common.Address
+	if vaultOCR3AddrFlag {
+		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
+		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
+		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
+	}
+	var evmOCR3CommonAddr common.Address
+	if evmOCR3AddrFlag {
+		evmOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_evm")
+		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
+		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
+	}
+	var consensusV2OCR3CommonAddr common.Address
+	if consensusAddrFlag {
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
+	}
+
+	capRegCommonAddr := common.HexToAddress(capRegAddr)
+	configureKeystoneInput := cre.ConfigureKeystoneInput{
 		ChainSelector:               homeChainOutput.ChainSelector,
 		CldEnv:                      fullCldOutput.Environment,
 		Topology:                    topology,
-		CapabilitiesRegistryAddress: &capRegAddr,
-		OCR3Address:                 &ocr3Addr,
+		CapabilitiesRegistryAddress: &capRegCommonAddr,
+		OCR3Address:                 &ocr3CommonAddr,
+		VaultOCR3Address:            &vaultOCR3CommonAddr,
+		EVMOCR3Address:              &evmOCR3CommonAddr,
+		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 	}
 
 	if input.OCR3Config != nil {
@@ -434,12 +550,43 @@ func SetupTestEnvironment(
 		configureKeystoneInput.OCR3Config = *ocr3Config
 	}
 
+	ocr3Config, ocr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
+	if ocr3ConfigErr != nil {
+		return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
+	}
+	configureKeystoneInput.VaultOCR3Config = *ocr3Config
+
+	defaultOcr3Config, defaultOcr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
+	if defaultOcr3ConfigErr != nil {
+		return nil, pkgerrors.Wrap(defaultOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
+	}
+	configureKeystoneInput.EVMOCR3Config = *defaultOcr3Config
+	configureKeystoneInput.ConsensusV2OCR3Config = *defaultOcr3Config
+
 	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
 	if keystoneErr != nil {
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
+
+	artifactPath, artifactErr := DumpArtifact(
+		memoryDatastore.AddressRefStore,
+		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		*jdOutput,
+		*fullCldOutput.DonTopology,
+		fullCldOutput.Environment.Offchain,
+		input.CapabilitiesContractFactoryFunctions,
+	)
+	if artifactErr != nil {
+		testLogger.Error().Err(artifactErr).Msg("failed to generate artifact")
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Failed to write bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
+	} else {
+		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
+		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Wrote bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
+	}
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()
@@ -448,6 +595,13 @@ func SetupTestEnvironment(
 	for result := range backgroundStagesCh {
 		if result.err != nil {
 			return nil, pkgerrors.Wrap(result.err, "background stage failed")
+		}
+		if result.panicValue != nil {
+			// Print the original stack trace from the background goroutine
+			if result.panicStack != nil {
+				fmt.Fprintf(os.Stderr, "Original panic stack trace from background goroutine:\n%s\n", result.panicStack)
+			}
+			panic(result.panicValue)
 		}
 		fmt.Print(result.successMessage)
 	}
@@ -477,7 +631,7 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-func mergeJobSpecSlices(from, to cretypes.DonsToJobSpecs) {
+func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 	for fromDonID, fromJobSpecs := range from {
 		if _, ok := to[fromDonID]; !ok {
 			to[fromDonID] = make([]*jobv1.ProposeJobRequest, 0)
@@ -491,7 +645,7 @@ type ConcurrentNonceMap struct {
 	nonceByChainID map[uint64]uint64
 }
 
-func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*BlockchainOutput) (*ConcurrentNonceMap, error) {
+func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cre.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
 		var err error
@@ -523,13 +677,13 @@ func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
 const NumberOfTrackedWorkflowRegistryEvents = 6
 
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
-func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology cretypes.DonTopology, nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) error {
+func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology cre.DonTopology, nodeSetInput []*cre.CapabilitiesAwareNodeSet) error {
 	for donIdx, don := range donTopology.DonsWithMetadata {
-		if !flags.HasFlag(don.Flags, cretypes.WorkflowDON) {
+		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
 		}
 
-		workderNodes, workersErr := crenode.FindManyWithLabel(don.NodesMetadata, &cretypes.Label{Key: crenode.NodeTypeKey, Value: cretypes.WorkerNode}, crenode.EqualLabels)
+		workderNodes, workersErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.WorkerNode}, crenode.EqualLabels)
 		if workersErr != nil {
 			return pkgerrors.Wrap(workersErr, "failed to find worker nodes")
 		}

@@ -14,15 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 type FundCLNodesOpDeps struct {
 	Env               *cldf.Environment
-	BlockchainOutputs []*BlockchainOutput
-	DonTopology       *types.DonTopology
+	BlockchainOutputs []*cre.WrappedBlockchainOutput
+	DonTopology       *cre.DonTopology
 }
 
 type FundCLNodesOpInput struct {
@@ -52,6 +51,9 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 		errGroup := &errgroup.Group{}
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
 			for _, bcOut := range deps.BlockchainOutputs {
+				if bcOut.ReadOnly {
+					continue
+				}
 				for _, node := range metaDon.DON.Nodes {
 					errGroup.Go(func() error {
 						nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
@@ -61,7 +63,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 
 						nonce := concurrentNonceMap.Increment(bcOut.ChainID)
 
-						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libtypes.FundsToSend{
+						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
 							ToAddress:  common.HexToAddress(nodeAddress),
 							Amount:     big.NewInt(input.FundAmount),
 							PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),

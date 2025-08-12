@@ -49,9 +49,8 @@ linters:
               desc: Use github.com/stretchr/testify/mock instead
             - pkg: github.com/test-go/testify/require
               desc: Use github.com/stretchr/testify/require instead
-            # TODO https://smartcontract-it.atlassian.net/browse/BCI-2589
-            #          - pkg: go.uber.org/multierr
-            #            desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
+            - pkg: go.uber.org/multierr
+              desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
             - pkg: gopkg.in/guregu/null.v1
               desc: Use gopkg.in/guregu/null.v4 instead
             - pkg: gopkg.in/guregu/null.v2
@@ -72,6 +71,13 @@ linters:
 #              desc: Tron only runs as a LOOPP
             - pkg: github.com/consul/sdk/freeport
               desc: Use github.com/smartcontractkit/freeport instead
+        keystore:
+          list-mode: lax
+          files:
+            - "github.com/smartcontractkit/chainlink/core/services/keystore/**/*.go"
+          deny:
+            - pkg: github.com/smartcontractkit/chainlink-common/pkg/logger
+            - pkg: github.com/smartcontractkit/chainlink/core/logger
     exhaustive:
       default-signifies-exhaustive: true
     gosec:
@@ -189,6 +195,8 @@ linters:
           - gosec
         path: test
         text: "^G404:"
+    paths:
+      - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
 formatters:

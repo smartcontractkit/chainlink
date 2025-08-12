@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
+func TestGenerateBidirectionalRandomLanesWithMinConnectivity(t *testing.T) {
 	tests := []struct {
 		name         string
 		chains       []uint64
@@ -43,7 +43,7 @@ func TestGenerateRandomLanesWithMinConnectivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lanes := generateRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
+			lanes := generateBidirectionalRandomLanesWithMinConnectivity(tt.chains, tt.numLanes)
 			tt.validateFunc(t, lanes, tt.chains, tt.numLanes)
 		})
 	}
@@ -53,7 +53,7 @@ func TestBidirectionalPairGeneration(t *testing.T) {
 	chains := []uint64{1, 2, 3, 4}
 	numLanes := 12 // full connectivity
 
-	lanes := generateRandomLanesWithMinConnectivity(chains, numLanes)
+	lanes := generateBidirectionalRandomLanesWithMinConnectivity(chains, numLanes)
 
 	// Validate that we have complete bidirectional pairs
 	bidirectionalPairs := findBidirectionalPairs(lanes)
@@ -278,4 +278,40 @@ func TestLaneConfiguration_GenerateLanes_BidirectionalMode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_generateChainTierLanes(t *testing.T) {
+	chains := []uint64{3379446385462418246, 12463857294658392847, 12922642891491394802, 909606746561742123, 5548718428018410741}
+
+	t.Run("happy path", func(t *testing.T) {
+		lanes := generateChainTierLanes(chains, 2, 3)
+		// Only 3379446385462418246 and 2 are sources, all are destinations except self
+		expected := []LaneConfig{
+			// chain 3379446385462418246 should have bidirectional lanes to all other chains
+			{SourceChain: 3379446385462418246, DestinationChain: 12463857294658392847},
+			{SourceChain: 3379446385462418246, DestinationChain: 12922642891491394802},
+			{SourceChain: 3379446385462418246, DestinationChain: 909606746561742123},
+			{SourceChain: 3379446385462418246, DestinationChain: 5548718428018410741},
+			{SourceChain: 12922642891491394802, DestinationChain: 3379446385462418246},
+			{SourceChain: 909606746561742123, DestinationChain: 3379446385462418246},
+			{SourceChain: 5548718428018410741, DestinationChain: 3379446385462418246},
+			// chain 2 should have bidirectional lanes to all other chains
+			{SourceChain: 12463857294658392847, DestinationChain: 3379446385462418246},
+			{SourceChain: 12463857294658392847, DestinationChain: 12922642891491394802},
+			{SourceChain: 12463857294658392847, DestinationChain: 909606746561742123},
+			{SourceChain: 12463857294658392847, DestinationChain: 5548718428018410741},
+			{SourceChain: 12922642891491394802, DestinationChain: 12463857294658392847},
+			{SourceChain: 909606746561742123, DestinationChain: 12463857294658392847},
+			{SourceChain: 5548718428018410741, DestinationChain: 12463857294658392847},
+		}
+		require.ElementsMatch(t, expected, lanes)
+		for _, lane := range lanes {
+			require.NotEqual(t, lane.SourceChain, lane.DestinationChain, "no self-loops")
+		}
+	})
+
+	t.Run("empty chains returns empty", func(t *testing.T) {
+		lanes := generateChainTierLanes([]uint64{}, 0, 0)
+		require.Empty(t, lanes)
+	})
 }

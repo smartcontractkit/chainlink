@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/multierr"
-
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -41,6 +39,10 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 	}, nil
 }
 
+func (d *dummyHandler) Methods() []string {
+	return []string{"dummy"}
+}
+
 func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- UserCallbackPayload) error {
 	return errors.New("dummy handler does not support JSON-RPC user messages")
 }
@@ -62,7 +64,7 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 		Params:  &rawParams,
 	}
 	for _, member := range d.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, req))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

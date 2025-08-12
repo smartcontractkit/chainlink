@@ -115,7 +115,6 @@ jobs:
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
-      docker-tag-custom-suffix: "-ccip"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -188,3 +187,10 @@ jobs:
               )
             }}
           docker-image-digest: ${{ steps.docker-outputs.outputs.digest }}
+
+  run-core-soak-on-release:
+    needs: docker-core
+    uses: smartcontractkit/chainlink/.github/workflows/on-demand-ocr-soak-test.yml@e8fa774450995fd45442a2e8e778f3a7eefc7af9 # 2025-08-08
+    with:
+      chainlink_version: ${{ github.ref_name }}
+      team: CRE

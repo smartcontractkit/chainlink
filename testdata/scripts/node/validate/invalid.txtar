@@ -13,6 +13,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
+[Billing]
+URL = ''
+
 -- secrets.toml --
 [Database]
 URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable'
@@ -34,6 +37,9 @@ Keystore = 'xxxxx'
 # Input Configuration:
 [Log]
 Level = 'debug'
+
+[Billing]
+URL = ''
 
 [[EVM]]
 ChainID = '1'
@@ -171,6 +177,9 @@ HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
 
+[JobDistributor]
+DisplayName = ''
+
 [JobPipeline]
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
@@ -203,6 +212,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = false
@@ -339,11 +349,13 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
@@ -370,6 +382,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+HeartbeatInterval = '1s'
 
 [Workflows]
 [Workflows.Limits]
@@ -381,8 +394,19 @@ PerOwner = 200
 WsURL = ''
 RestURL = ''
 
+[CRE.WorkflowFetcher]
+URL = ''
+
 [Billing]
-URL = 'localhost:4319'
+URL = ''
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false
 
 [[EVM]]
 ChainID = '1'
@@ -463,6 +487,7 @@ SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
 PersistenceEnabled = false
+PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -500,7 +525,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
-Invalid configuration: invalid secrets: 2 errors:
+Invalid configuration: 2 errors:
+	- invalid configuration: Billing.URL: invalid value (): billing service url must be set
+	- invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: 
 	Expected password complexity:

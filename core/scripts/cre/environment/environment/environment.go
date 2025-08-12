@@ -5,9 +5,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -17,46 +17,50 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
+	mock2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/mock"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	computecap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
 	consensuscap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus"
 	croncap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
+	httpcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/http"
 	logeventtriggercap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logevent"
 	readcontractcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
-	securemintcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/securemint"
+	vaultcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	webapicap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapi"
 	writeevmcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
+	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gatewayconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/gateway"
 	crecompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/compute"
 	creconsensus "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	crecron "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/cron"
+	evmJob "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/evm"
 	cregateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
+	crehttpaction "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httpaction"
+	crehttptrigger "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/httptrigger"
 	crelogevent "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/logevent"
 	crereadcontract "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/readcontract"
-	cresecuremint "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/securemint"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -64,70 +68,47 @@ const manualCtfCleanupMsg = `unexpected startup error. this may have stranded re
 const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
 
 var (
-	topologyFlag                 string
-	waitOnErrorTimeoutFlag       string
-	extraAllowedGatewayPortsFlag []int
-	withExampleFlag              bool
-	exampleWorkflowTriggerFlag   string
-	exampleWorkflowTimeoutFlag   string
-	withPluginsDockerImageFlag   string
-	rpcURLFlag                   string
-	chainIDFlag                  uint64
-	gatewayURLFlag               string
-	withSetupFlag                bool
-	stateFilePathFlag            string
+	binDir string
+)
+
+// DX tracking
+var (
+	dxTracker             tracking.Tracker
+	provisioningStartTime time.Time
+)
+
+const (
+	TopologyWorkflow                    = "workflow"
+	TopologyWorkflowGateway             = "workflow-gateway"
+	TopologyWorkflowGatewayCapabilities = "workflow-gateway-capabilities"
+	TopologyMock                        = "mock"
+
+	WorkflowTriggerWebTrigger = "web-trigger"
+	WorkflowTriggerCron       = "cron"
 )
 
 func init() {
-	EnvironmentCmd.AddCommand(startCmd)
+	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd)
-	EnvironmentCmd.AddCommand(deployAndVerifyExampleWorkflowCmd)
-	EnvironmentCmd.AddCommand(startBeholderCmd)
-	EnvironmentCmd.AddCommand(stopBeholderCmd)
-	EnvironmentCmd.AddCommand(createKafkaTopicsCmd)
-	EnvironmentCmd.AddCommand(fetchAndRegisterProtosCmd)
+	EnvironmentCmd.AddCommand(workflowCmds())
+	EnvironmentCmd.AddCommand(beholderCmds())
 
-	startCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simplified or full)")
-	startCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
-	startCmd.Flags().IntSliceVarP(&extraAllowedGatewayPortsFlag, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
-	startCmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
-	startCmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
-	startCmd.Flags().StringVarP(&withPluginsDockerImageFlag, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
-	startCmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	startCmd.Flags().BoolVarP(&withBeholderFlag, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
-	startCmd.Flags().StringArrayVarP(&protoConfigsFlag, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
-	startCmd.Flags().BoolVarP(&withSetupFlag, "auto-setup", "a", false, "Run setup before starting the environment")
-
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	deployAndVerifyExampleWorkflowCmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "c", 1337, "Chain ID")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
-	deployAndVerifyExampleWorkflowCmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
-
-	startBeholderCmd.Flags().StringVarP(&topologyFlag, "topology", "t", "simplified", "Topology to use for the environment (simplified or full)")
-	startBeholderCmd.Flags().StringArrayVarP(&protoConfigsFlag, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
-	startBeholderCmd.Flags().StringVarP(&waitOnErrorTimeoutFlag, "wait-on-error-timeout", "w", "", "Wait on error timeout (e.g. 10s, 1m, 1h)")
-	startBeholderCmd.Flags().StringVarP(&stateFilePathFlag, "state-file-path", "s", "", "Path to the environment state file (if empty state.toml will be used)")
-
-	createKafkaTopicsCmd.Flags().StringVarP(&redPandaKafkaURLFlag, "red-panda-kafka-url", "k", "localhost:"+chipingressset.DEFAULT_RED_PANDA_KAFKA_PORT, "Red Panda Kafka URL")
-	createKafkaTopicsCmd.Flags().StringArrayVarP(&kafkaCreateTopicsFlag, "topics", "t", []string{}, "Kafka topics to create (e.g. 'topic1,topic2')")
-	createKafkaTopicsCmd.Flags().BoolVarP(&kafkaRemoveTopicsFlag, "purge-topics", "p", false, "Remove existing Kafka topics")
-	_ = createKafkaTopicsCmd.MarkFlagRequired("topics")
-
-	fetchAndRegisterProtosCmd.Flags().StringVarP(&redPandaSchemaRegistryURLFlag, "red-panda-schema-registry-url", "s", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
-	fetchAndRegisterProtosCmd.Flags().StringArrayVarP(&protoConfigsFlag, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
+	rootPath, rootPathErr := os.Getwd()
+	if rootPathErr != nil {
+		fmt.Fprintf(os.Stderr, "Error getting working directory: %v\n", rootPathErr)
+		os.Exit(1)
+	}
+	binDir = filepath.Join(rootPath, "bin")
+	if _, err := os.Stat(binDir); os.IsNotExist(err) {
+		if err := os.Mkdir(binDir, 0755); err != nil {
+			panic(fmt.Errorf("failed to create bin directory: %w", err))
+		}
+	}
 }
 
-var WaitOnErrorTimeoutDurationFn = func(waitOnErrorTimeoutFlag string) {
-	if waitOnErrorTimeoutFlag != "" {
-		waitOnErrorTimeoutDuration, err := time.ParseDuration(waitOnErrorTimeoutFlag)
-		if err != nil {
-			return
-		}
-
-		fmt.Printf("Waiting %s on error before cleanup\n", waitOnErrorTimeoutFlag)
-		time.Sleep(waitOnErrorTimeoutDuration)
-	}
+func waitToCleanUp(d time.Duration) {
+	fmt.Printf("Waiting %s before cleanup\n", d)
+	time.Sleep(d)
 }
 
 var EnvironmentCmd = &cobra.Command{
@@ -136,53 +117,11 @@ var EnvironmentCmd = &cobra.Command{
 	Long:  `Commands to manage the environment`,
 }
 
-const (
-	TopologySimplified = "simplified"
-	TopologyFull       = "full"
-
-	WorkflowTriggerWebTrigger = "web-trigger"
-	WorkflowTriggerCron       = "cron"
-)
-
-type Config struct {
-	Blockchains       []*blockchain.Input     `toml:"blockchains" validate:"required"`
-	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
-	JD                *jd.Input               `toml:"jd" validate:"required"`
-	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
-	S3ProviderInput   *s3provider.Input       `toml:"s3provider"`
-}
-
-func (c Config) Validate() error {
-	if c.JD.CSAEncryptionKey == "" {
-		return errors.New("jd.csa_encryption_key must be provided")
-	}
-	return nil
-}
-
-type ExtraCapabilitiesConfig struct {
-	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
-	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
-	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
-	SecureMintBinaryPath      string `toml:"secure_mint_capability_binary_path"`
-}
-
-// DX tracking
-var (
-	dxTracker             tracking.Tracker
-	provisioningStartTime time.Time
-)
-
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
-	var trackerErr error
-	dxTracker, trackerErr = tracking.NewDxTracker()
-	if trackerErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
-		dxTracker = &tracking.NoOpTracker{}
-	}
+	initDxTracker()
 
 	// remove all containers before starting the environment, just in case
 	_ = framework.RemoveTestContainers()
@@ -203,7 +142,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	}()
 }
 
-var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag string) {
+var StartCmdRecoverHandlerFunc = func(p interface{}, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -230,7 +169,7 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag stri
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
 		}
 
-		WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
+		waitToCleanUp(cleanupWait)
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
@@ -239,7 +178,7 @@ var StartCmdRecoverHandlerFunc = func(p interface{}, waitOnErrorTimeoutFlag stri
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
 	for _, bcOut := range output.BlockchainOutput {
 		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
@@ -280,126 +219,210 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *creenv.BlockchainOutput, o
 	return nil
 }
 
-var startCmd = &cobra.Command{
-	Use:              "start",
-	Short:            "Start the environment",
-	Long:             `Start the local CRE environment with all supported capabilities`,
-	PersistentPreRun: StartCmdPreRunFunc,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		defer func() {
-			p := recover()
-			StartCmdRecoverHandlerFunc(p, waitOnErrorTimeoutFlag)
-		}()
+func startCmd() *cobra.Command {
+	var (
+		topology                 string
+		extraAllowedGatewayPorts []int
+		withExampleFlag          bool
+		exampleWorkflowTrigger   string
+		exampleWorkflowTimeout   time.Duration
+		withPluginsDockerImage   string
+		doSetup                  bool
+		cleanupWait              time.Duration
+		withBeholder             bool
+		protoConfigs             []string
+	)
 
-		if withSetupFlag {
-			setupErr := RunSetup(cmd.Context(), SetupConfig{})
-			if setupErr != nil {
-				return errors.Wrap(setupErr, "failed to run setup")
+	cmd := &cobra.Command{
+		Use:              "start",
+		Short:            "Start the environment",
+		Long:             `Start the local CRE environment with all supported capabilities`,
+		Aliases:          []string{"restart"},
+		PersistentPreRun: StartCmdPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			defer func() {
+				p := recover()
+				StartCmdRecoverHandlerFunc(p, cleanupWait)
+			}()
+
+			if doSetup {
+				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
+				if setupErr != nil {
+					return errors.Wrap(setupErr, "failed to run setup")
+				}
 			}
-		}
 
-		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
-			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
-		}
+			if topology != TopologyWorkflow && topology != TopologyWorkflowGatewayCapabilities && topology != TopologyWorkflowGateway {
+				return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s, %s", topology, TopologyWorkflow, TopologyWorkflowGatewayCapabilities, TopologyWorkflowGateway)
+			}
 
-		PrintCRELogo()
+			PrintCRELogo()
 
-		if err := defaultCtfConfigs(topologyFlag); err != nil {
-			return errors.Wrap(err, "failed to set default CTF configs")
-		}
+			if err := defaultCtfConfigs(topology); err != nil {
+				return errors.Wrap(err, "failed to set default CTF configs")
+			}
 
-		if os.Getenv("PRIVATE_KEY") == "" {
-			setErr := os.Setenv("PRIVATE_KEY", "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+			if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+				return errors.Wrap(pkErr, "failed to set default private key")
+			}
+
+			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
+			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
-				return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
+				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
-			fmt.Printf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
-		}
 
-		// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
-		setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		if setErr != nil {
-			return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
-		}
+			cmdContext := cmd.Context()
+			// Load and validate test configuration
+			in, err := framework.Load[creenv.Config](nil)
+			if err != nil {
+				return errors.Wrap(err, "failed to load test configuration")
+			}
+			if err := in.Validate(); err != nil {
+				return errors.Wrap(err, "failed to validate test configuration")
+			}
 
-		cmdContext := cmd.Context()
-		// Load and validate test configuration
-		in, err := framework.Load[Config](nil)
-		if err != nil {
-			return errors.Wrap(err, "failed to load test configuration")
-		}
-		if err := in.Validate(); err != nil {
-			return errors.Wrap(err, "failed to validate test configuration")
-		}
+			extraAllowedGatewayPorts = append(extraAllowedGatewayPorts, in.Fake.Port)
 
-		output, startErr := StartCLIEnvironment(cmdContext, in, topologyFlag, exampleWorkflowTriggerFlag, withPluginsDockerImageFlag, withExampleFlag, extraAllowedGatewayPortsFlag, nil, nil)
-		if startErr != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			output, startErr := StartCLIEnvironment(cmdContext, in, topology, exampleWorkflowTrigger, withPluginsDockerImage, withExampleFlag, extraAllowedGatewayPorts, nil, nil)
+			if startErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
+				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-			dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImageFlag), in.Infra.InfraType, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImage), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				if dxErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
+				}
+
+				waitToCleanUp(cleanupWait)
+				removeErr := framework.RemoveTestContainers()
+				if removeErr != nil {
+					return errors.Wrap(removeErr, manualCtfCleanupMsg)
+				}
+
+				return errors.Wrap(startErr, "failed to start environment")
+			}
+
+			homeChainOut := output.BlockchainOutput[0]
+
+			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
+
+			if sErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
+			}
+
+			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.Type, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
 
-			WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
-			removeErr := framework.RemoveTestContainers()
-			if removeErr != nil {
-				return errors.Wrap(removeErr, manualCtfCleanupMsg)
-			}
-
-			return errors.Wrap(startErr, "failed to start environment")
-		}
-
-		homeChainOut := output.BlockchainOutput[0]
-
-		sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
-
-		if sErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-		}
-
-		dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImageFlag), output.InfraInput.InfraType, nil, nil)
-		if dxErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
-		}
-
-		if withBeholderFlag {
-			startBeholderErr := startBeholder(
-				cmdContext,
-				protoConfigsFlag,
-				nil, // extra Docker network is not required, since chip-ingress will connect to default Framework network
-			)
-			if startBeholderErr != nil {
-				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
-					beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-					if beholderRemoveErr != nil {
-						fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+			if withBeholder {
+				startBeholderErr := startBeholder(
+					cmdContext,
+					cleanupWait,
+					protoConfigs,
+				)
+				if startBeholderErr != nil {
+					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
+						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+						if beholderRemoveErr != nil {
+							fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+						}
 					}
+					return errors.Wrap(startBeholderErr, "failed to start Beholder")
 				}
-				return errors.Wrap(startBeholderErr, "failed to start Beholder")
-			}
-		}
-
-		if withExampleFlag {
-			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
-			if timeoutErr != nil {
-				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Incoming.Host, output.DonTopology.GatewayConnectorOutput.Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Incoming.Path)
+			if withExampleFlag {
+				if output.DonTopology.GatewayConnectorOutput == nil || len(output.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
+					return errors.New("no gateway connector configurations found")
+				}
 
-			fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-			deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, homeChainOut.ChainID, timeout, exampleWorkflowTriggerFlag)
-			if deployErr != nil {
-				fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
+				// use first gateway for example workflow
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+
+				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
+
+				wfRegAddr := libcontracts.MustFindAddressesForChain(
+					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+					output.BlockchainOutput[0].ChainSelector,
+					keystone_changeset.WorkflowRegistry.String())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				if deployErr != nil {
+					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
+				}
 			}
-		}
-		fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
-		fmt.Print("To terminate execute:`go run . env stop`\n\n")
+			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
+			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
+			// Store the config with cached output so subsequent runs can reuse the
+			// environment without full setup. Then persist absolute paths to the
+			// generated artifacts (env artifact JSON and the cached CTF config) in
+			// `artifact_paths.json`. System tests use these to reload environment
+			// state across runs (see `system-tests/tests/smoke/cre/capabilities_test.go`),
+			// where the cached config and env artifact are consumed to reconstruct
+			// the in-memory CLDF environment without re-provisioning.
+			//
+			// This makes local iteration and CI reruns faster and deterministic.
+			_ = framework.Store(in)
+
+			saveArtifactPathsErr := saveArtifactPaths()
+			if saveArtifactPathsErr != nil {
+				return errors.Wrap(saveArtifactPathsErr, "failed to save artifact paths")
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&topology, "topology", "t", TopologyWorkflow, "Topology to use for the environment (workflow, workflow-gateway, workflow-gateway-capabilities)")
+	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
+	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
+	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
+	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds")
+	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
+	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
+	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
+	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
+	return cmd
+}
+
+func saveArtifactPaths() error {
+	artifactAbsPath, artifactAbsPathErr := filepath.Abs(filepath.Join(creenv.ArtifactDirName, creenv.ArtifactFileName))
+	if artifactAbsPathErr != nil {
+		return artifactAbsPathErr
+	}
+
+	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	if ctfConfigs == "" {
+		return errors.New("CTF_CONFIGS env var is not set")
+	}
+
+	splitConfigs := strings.Split(ctfConfigs, ",")
+	baseConfigPath := splitConfigs[0]
+	newCacheName := strings.ReplaceAll(baseConfigPath, ".toml", "")
+	if strings.Contains(newCacheName, "cache") {
 		return nil
-	},
+	}
+	cachedOutName := strings.ReplaceAll(baseConfigPath, ".toml", "") + "-cache.toml"
+
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(cachedOutName)
+	if ctfConfigsAbsPathErr != nil {
+		return ctfConfigsAbsPathErr
+	}
+
+	artifactPaths := map[string]string{
+		"env_artifact": artifactAbsPath,
+		"env_config":   ctfConfigsAbsPath,
+	}
+
+	marshalled, mErr := json.Marshal(artifactPaths)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal artifact paths")
+	}
+
+	return os.WriteFile("artifact_paths.json", marshalled, 0600)
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
@@ -440,9 +463,31 @@ var stopCmd = &cobra.Command{
 	Short: "Stops the environment",
 	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := removeAllContainers()
+		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
 			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
+		}
+
+		framework.L.Info().Msg("Removing environment state files")
+		// remove cache config files
+		cacheConfigPattern := "configs/*-cache.toml"
+		cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
+		if globErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
+		} else {
+			for _, file := range cacheFiles {
+				if removeFileErr := os.Remove(file); removeFileErr != nil {
+					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
+				} else {
+					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
+				}
+			}
+		}
+
+		if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
+			framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
+		} else {
+			framework.L.Debug().Msg("Removed env_artifact folder")
 		}
 
 		fmt.Println("Environment stopped successfully")
@@ -450,30 +495,16 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-func removeAllContainers() error {
-	ctfRemoveErr := framework.RemoveTestContainers()
-	if ctfRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(ctfRemoveErr, manualCtfCleanupMsg).Error())
-	}
-
-	beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-	if beholderRemoveErr != nil {
-		fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
-	}
-
-	return nil
-}
-
 func StartCLIEnvironment(
 	cmdContext context.Context,
-	in *Config,
+	in *creenv.Config,
 	topologyFlag string,
 	workflowTrigger,
 	withPluginsDockerImageFlag string,
 	withExampleFlag bool,
 	extraAllowedGatewayPorts []int,
 	extraBinaries map[string]string,
-	extraJobFactoryFns []cretypes.JobSpecFactoryFn,
+	extraJobFactoryFns []cre.JobSpecFactoryFn,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -482,33 +513,54 @@ func StartCLIEnvironment(
 		return nil, fmt.Errorf("either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag", os.Getenv("CTF_CONFIGS"))
 	}
 
-	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
-	var capabilitiesAwareNodeSets []*cretypes.CapabilitiesAwareNodeSet
+	if evmCapErr := validateCapabilitiesConfig(in); evmCapErr != nil {
+		return nil, evmCapErr
+	}
 
-	if topologyFlag == TopologySimplified {
+	capabilitiesBinaryPaths := map[cre.CapabilityFlag]string{}
+	var capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
+
+	// TODO move this out completely to TOML config
+	switch topologyFlag {
+	case TopologyWorkflow:
 		if len(in.NodeSets) != 1 {
-			return nil, fmt.Errorf("expected 1 nodeset, got %d", len(in.NodeSets))
+			return nil, fmt.Errorf("expected 1 nodeset for topology %s, got %d", topologyFlag, len(in.NodeSets))
 		}
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WriteEVMCapability, cretypes.WebAPITriggerCapability, cretypes.WebAPITargetCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
-			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
+			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.ConsensusCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ConsensusCapability)
+			capabilitiesBinaryPaths[cre.ConsensusCapability] = in.ExtraCapabilities.ConsensusCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
-			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
+			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
 		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.ReadContractCapability)
-			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
+			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
-		if in.ExtraCapabilities.SecureMintBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.SecureMintCapability)
-			capabilitiesBinaryPaths[cretypes.SecureMintCapability] = in.ExtraCapabilities.SecureMintBinaryPath
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -518,35 +570,34 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
 				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cretypes.WorkflowDON, cretypes.GatewayDON},
+				DONTypes:           []string{cre.WorkflowDON, cre.GatewayDON},
 				BootstrapNodeIndex: 0,
 				GatewayNodeIndex:   0,
 			},
 		}
-	} else {
-		if len(in.NodeSets) != 3 {
-			return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
+	case TopologyWorkflowGateway:
+		if len(in.NodeSets) != 2 {
+			return nil, fmt.Errorf("expected 2 nodesets for topology %s, got %d", topologyFlag, len(in.NodeSets))
 		}
-
 		// add support for more binaries if needed
-		workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WriteEVMCapability, cre.WebAPITriggerCapability, cre.WebAPITargetCapability, cre.VaultCapability}
 		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
-			capabilitiesBinaryPaths[cretypes.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
+			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.LogTriggerCapability)
-			capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
+			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
 		}
 
-		if in.ExtraCapabilities.SecureMintBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cretypes.SecureMintCapability)
-			capabilitiesBinaryPaths[cretypes.SecureMintCapability] = in.ExtraCapabilities.SecureMintBinaryPath
+		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.ReadContractCapability)
+			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 		}
 
 		for capabilityName, binaryPath := range extraBinaries {
@@ -556,33 +607,128 @@ func StartCLIEnvironment(
 			}
 		}
 
-		capabiliitesDONCapabilities := []string{cretypes.WriteEVMCapability, cretypes.WebAPITargetCapability}
-		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.ReadContractCapability)
-			capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
-		}
-
-		capabilitiesAwareNodeSets = []*cretypes.CapabilitiesAwareNodeSet{
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
 			{
 				Input:              in.NodeSets[0],
 				Capabilities:       workflowDONCapabilities,
-				DONTypes:           []string{cretypes.WorkflowDON},
+				DONTypes:           []string{cre.WorkflowDON},
+				BootstrapNodeIndex: 0,
+				GatewayNodeIndex:   -1,
+			},
+			{
+				Input:              in.NodeSets[1],
+				Capabilities:       []string{},
+				DONTypes:           []string{cre.GatewayDON},
+				BootstrapNodeIndex: -1,
+				GatewayNodeIndex:   0,
+			},
+		}
+	case TopologyWorkflowGatewayCapabilities:
+		if len(in.NodeSets) != 3 {
+			return nil, fmt.Errorf("expected 3 nodesets for topology %s, got %d", topologyFlag, len(in.NodeSets))
+		}
+
+		// add support for more binaries if needed
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WebAPITriggerCapability}
+		if in.ExtraCapabilities.CronCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.CronCapability)
+			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		}
+
+		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
+			capabilitiesBinaryPaths[cre.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+		}
+
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				workflowDONCapabilities = append(workflowDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
+		}
+
+		capabilitiesDONCapabilities := []string{cre.WriteEVMCapability, cre.VaultCapability}
+		if in.ExtraCapabilities.ReadContractBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.ReadContractCapability)
+			capabilitiesBinaryPaths[cre.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPTriggerCapability)
+			capabilitiesBinaryPaths[cre.HTTPTriggerCapability] = in.ExtraCapabilities.HTTPTriggerBinaryPath
+		}
+
+		if in.ExtraCapabilities.HTTPActionBinaryPath != "" || withPluginsDockerImageFlag != "" {
+			workflowDONCapabilities = append(workflowDONCapabilities, cre.HTTPActionCapability)
+			capabilitiesBinaryPaths[cre.HTTPActionCapability] = in.ExtraCapabilities.HTTPActionBinaryPath
+		}
+
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
+			{
+				Input:              in.NodeSets[0],
+				Capabilities:       workflowDONCapabilities,
+				DONTypes:           []string{cre.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},
 			{
 				Input:              in.NodeSets[1],
-				Capabilities:       capabiliitesDONCapabilities,
-				DONTypes:           []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node
+				Capabilities:       capabilitiesDONCapabilities,
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
 			},
 			{
 				Input:              in.NodeSets[2],
 				Capabilities:       []string{},
-				DONTypes:           []string{cretypes.GatewayDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
 				GatewayNodeIndex:   0,
 			},
 		}
+	case TopologyMock:
+		if len(in.NodeSets) != 3 {
+			return nil, fmt.Errorf("expected 3 nodesets for topology %s, got %d", topologyFlag, len(in.NodeSets))
+		}
+
+		// add support for more binaries if needed
+		workflowDONCapabilities := []string{cre.OCR3Capability, cre.CustomComputeCapability, cre.WebAPITriggerCapability}
+
+		capabilitiesDONCapabilities := make([]string, 0)
+		for capabilityName, binaryPath := range extraBinaries {
+			if binaryPath != "" || withPluginsDockerImageFlag != "" {
+				capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, capabilityName)
+				capabilitiesBinaryPaths[capabilityName] = binaryPath
+			}
+		}
+		capabilitiesDONCapabilities = append(capabilitiesDONCapabilities, cre.MockCapability)
+
+		capabilitiesAwareNodeSets = []*cre.CapabilitiesAwareNodeSet{
+			{
+				Input:              in.NodeSets[0],
+				Capabilities:       workflowDONCapabilities,
+				DONTypes:           []string{cre.WorkflowDON},
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              in.NodeSets[1],
+				Capabilities:       capabilitiesDONCapabilities,
+				DONTypes:           []string{cre.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,
+			},
+			{
+				Input:              in.NodeSets[2],
+				Capabilities:       []string{},
+				DONTypes:           []string{cre.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                       // <----- it's crucial to indicate there's no bootstrap node
+				GatewayNodeIndex:   0,
+			},
+		}
+	default:
+		return nil, fmt.Errorf("invalid topology flag: %s", topologyFlag)
 	}
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
@@ -609,16 +755,20 @@ func StartCLIEnvironment(
 	}
 
 	// add support for more capabilities if needed
-	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
+	capabilityFactoryFns := []cre.DONCapabilityWithConfigFactoryFn{
 		webapicap.WebAPITriggerCapabilityFactoryFn,
 		webapicap.WebAPITargetCapabilityFactoryFn,
 		computecap.ComputeCapabilityFactoryFn,
 		consensuscap.OCR3CapabilityFactoryFn,
+		consensuscap.ConsensusCapabilityV2FactoryFn,
 		croncap.CronCapabilityFactoryFn,
-		securemintcap.SecureMintCapabilityFactoryFn,
+		vaultcap.VaultCapabilityFactoryFn,
+		mock.CapabilityFactoryFn,
+		httpcap.HTTPTriggerCapabilityFactoryFn,
+		httpcap.HTTPActionCapabilityFactoryFn,
 	}
 
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.InfraType)
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(in.Infra.Type)
 	if pathErr != nil {
 		return nil, fmt.Errorf("failed to get default container directory: %w", pathErr)
 	}
@@ -633,6 +783,16 @@ func StartCLIEnvironment(
 		cronBinaryName = "cron"
 	}
 
+	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		evmBinaryName = "evm"
+	}
+
+	consensusBinaryName := filepath.Base(in.ExtraCapabilities.ConsensusCapabilityBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		consensusBinaryName = "consensus"
+	}
+
 	logEventTriggerBinaryName := filepath.Base(in.ExtraCapabilities.LogEventTriggerBinaryPath)
 	if withPluginsDockerImageFlag != "" {
 		logEventTriggerBinaryName = "log-event-trigger"
@@ -643,12 +803,16 @@ func StartCLIEnvironment(
 		readContractBinaryName = "readcontract"
 	}
 
-	secureMintBinaryName := filepath.Base(in.ExtraCapabilities.SecureMintBinaryPath)
+	httpActionBinaryName := filepath.Base(in.ExtraCapabilities.HTTPActionBinaryPath)
 	if withPluginsDockerImageFlag != "" {
-		secureMintBinaryName = "secure-mint"
+		httpActionBinaryName = "http_action"
+	}
+	httpTriggerBinaryName := filepath.Base(in.ExtraCapabilities.HTTPTriggerBinaryPath)
+	if withPluginsDockerImageFlag != "" {
+		httpTriggerBinaryName = "http_trigger"
 	}
 
-	jobSpecFactoryFunctions := []cretypes.JobSpecFactoryFn{
+	jobSpecFactoryFunctions := []cre.JobSpecFactoryFn{
 		// add support for more job spec factory functions if needed
 		webapi.WebAPITriggerJobSpecFactoryFn,
 		webapi.WebAPITargetJobSpecFactoryFn,
@@ -656,8 +820,22 @@ func StartCLIEnvironment(
 		crecron.CronJobSpecFactoryFn(filepath.Join(containerPath, cronBinaryName)),
 		cregateway.GatewayJobSpecFactoryFn(extraAllowedGatewayPorts, []string{}, []string{"0.0.0.0/0"}),
 		crecompute.ComputeJobSpecFactoryFn,
-		cresecuremint.SecureMintJobSpecFactoryFn(filepath.Join(containerPath, secureMintBinaryName)),
+		crevault.VaultJobSpecFactoryFn(libc.MustSafeUint64(int64(homeChainIDInt))),
+		mock2.MockJobSpecFactoryFn(7777),
+		crehttpaction.HTTPActionJobSpecFactoryFn(filepath.Join(containerPath, httpActionBinaryName)),
+		crehttptrigger.HTTPTriggerJobSpecFactoryFn(filepath.Join(containerPath, httpTriggerBinaryName)),
 	}
+
+	// Consensus V2 (standard capability)
+	homeChainConfig := in.CapabilitiesConfig.EVM[in.Blockchains[0].ChainID]
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, creconsensus.ConsensusV2JobSpecFactoryFn(
+		testLogger,
+		libc.MustSafeUint64(int64(homeChainIDInt)),
+		homeChainConfig,
+		capabilitiesAwareNodeSets,
+		*in.Infra,
+		filepath.Join(containerPath, consensusBinaryName),
+	))
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, extraJobFactoryFns...)
 
@@ -666,9 +844,23 @@ func StartCLIEnvironment(
 		if chainErr != nil {
 			return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 		}
-		capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+
+		if !blockchain.ReadOnly {
+			capabilityFactoryFns = append(capabilityFactoryFns, writeevmcap.WriteEVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))))
+		}
 		capabilityFactoryFns = append(capabilityFactoryFns, readcontractcap.ReadContractCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
 		capabilityFactoryFns = append(capabilityFactoryFns, logeventtriggercap.LogEventTriggerCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+		capabilityFactoryFns = append(capabilityFactoryFns, evm.EVMCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)), "evm"))
+
+		config := in.CapabilitiesConfig.EVM[blockchain.ChainID]
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, evmJob.EVMJobSpecFactoryFn(
+			testLogger,
+			libc.MustSafeUint64(int64(chainIDInt)),
+			config,
+			capabilitiesAwareNodeSets,
+			*in.Infra,
+			filepath.Join(containerPath, evmBinaryName),
+		))
 
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, crelogevent.LogEventTriggerJobSpecFactoryFn(
 			chainIDInt,
@@ -701,8 +893,8 @@ func StartCLIEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFunctions,
-		ConfigFactoryFunctions: []cretypes.ConfigFactoryFn{
-			gatewayconfig.GenerateConfig,
+		ConfigFactoryFunctions: []cre.ConfigFactoryFn{
+			gatewayconfig.GenerateConfigFn,
 		},
 		S3ProviderInput: in.S3ProviderInput,
 	}
@@ -721,78 +913,33 @@ func StartCLIEnvironment(
 	return universalSetupOutput, nil
 }
 
-func isCRECLIIsAvailable() bool {
-	if _, statErr := os.Stat(creCLI); statErr == nil {
-		return true
+func validateCapabilitiesConfig(in *creenv.Config) error {
+	// if CapabilitiesConfig has values, EVM capability binary must be present
+	if len(in.CapabilitiesConfig.EVM) > 0 && in.ExtraCapabilities.EVMCapabilityBinaryPath == "" {
+		return errors.New("evm_capability_binary_path must be provided when capabilities_configs is set")
 	}
+	for chainID, config := range in.CapabilitiesConfig.EVM {
+		// check the chain exists in the blockchain list
+		found := false
+		for _, blockchain := range in.Blockchains {
+			if blockchain.ChainID == chainID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.Errorf("capabilities_configs.evm.%q does not match any configured blockchains ChainID", chainID)
+		}
 
-	pathCmd := exec.Command("which", creCLI)
-	if err := pathCmd.Run(); err == nil {
-		return true
+		// check the configs per chain is a map[string]string
+		for subK, subV := range config {
+			_, okVal := subV.(string)
+			if !okVal {
+				return errors.Errorf("capabilities_configs.evm.%q[%s] must be a map[string]string (got %T)", chainID, subK, subV)
+			}
+		}
 	}
-
-	return false
-}
-
-func tryToDownloadCRECLI() error {
-	start := time.Now()
-	fmt.Print(libformat.PurpleText("\n[Stage 2a/3] Downloading CRE CLI\n"))
-	commandArgs := []string{"release", "download", "v0.2.0", "--repo", "smartcontractkit/dev-platform", "--pattern", "*darwin_arm64*", "--skip-existing"}
-
-	ghCmd := exec.Command("gh", commandArgs...) // #nosec G204
-	ghCmd.Stdout = os.Stdout
-	ghCmd.Stderr = os.Stderr
-	if startErr := ghCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start gh cli command")
-	}
-
-	if waitErr := ghCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for gh cli command")
-	}
-
-	archiveName := "cre_v0.2.0_darwin_arm64.tar.gz"
-	tarArgs := []string{"-xf", archiveName}
-	tarCmd := exec.Command("tar", tarArgs...)
-
-	tarCmd.Stdout = os.Stdout
-	tarCmd.Stderr = os.Stderr
-	if startErr := tarCmd.Start(); startErr != nil {
-		return errors.Wrap(startErr, "failed to start tar command")
-	}
-
-	if waitErr := tarCmd.Wait(); waitErr != nil {
-		return errors.Wrap(waitErr, "failed to wait for tar command")
-	}
-
-	removeErr := os.Remove(archiveName)
-	if removeErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to remove %s. Please remove it manually.\n", archiveName)
-	}
-
-	fmt.Print(libformat.PurpleText("[Stage 2a/3] CRE CLI downloaded in %.2f seconds\n\n", time.Since(start).Seconds()))
-
 	return nil
-}
-
-func creCLIAbsPath() (string, error) {
-	var CRECLIAbsPath string
-
-	_, statErr := os.Stat(creCLI)
-	if statErr != nil {
-		path, lookErr := exec.LookPath(creCLI)
-		if lookErr != nil {
-			return "", errors.Wrap(lookErr, "failed to find absolute path of the CRE CLI binary in PATH")
-		}
-		CRECLIAbsPath = path
-	} else {
-		var CRECLIAbsPathErr error
-		CRECLIAbsPath, CRECLIAbsPathErr = filepath.Abs(creCLI)
-		if CRECLIAbsPathErr != nil {
-			return "", errors.Wrap(CRECLIAbsPathErr, "failed to find absolute path of the CRE CLI binary in current directory")
-		}
-	}
-
-	return CRECLIAbsPath, nil
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {
@@ -834,13 +981,19 @@ func PrintCRELogo() {
 func defaultCtfConfigs(topologyFlag string) error {
 	if os.Getenv("CTF_CONFIGS") == "" {
 		// use default config
-		if topologyFlag == TopologySimplified {
-			setErr := os.Setenv("CTF_CONFIGS", "configs/single-don.toml")
+		switch topologyFlag {
+		case TopologyWorkflow:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml")
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
-		} else {
-			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-capabilities-don.toml")
+		case TopologyWorkflowGateway:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml")
+			if setErr != nil {
+				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+			}
+		case TopologyWorkflowGatewayCapabilities:
+			setErr := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-capabilities-don.toml")
 			if setErr != nil {
 				return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 			}
@@ -851,7 +1004,7 @@ func defaultCtfConfigs(topologyFlag string) error {
 	return nil
 }
 
-func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
+func hasBuiltDockerImage(in *creenv.Config, withPluginsDockerImageFlag string) bool {
 	if withPluginsDockerImageFlag != "" {
 		return false
 	}
@@ -870,49 +1023,23 @@ func hasBuiltDockerImage(in *Config, withPluginsDockerImageFlag string) bool {
 	return hasBuilt
 }
 
-func getCtfDockerNetworks() ([]string, error) {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create Docker client")
-	}
-	defer dockerClient.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// List all containers with the "ctf" label
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", "framework=ctf")),
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to list containers")
+func oneLineErrorMessage(errOrPanic any) string {
+	if err, ok := errOrPanic.(error); ok {
+		return strings.SplitN(err.Error(), "\n", 1)[0]
 	}
 
-	// Use a map to store unique network names
-	networkMap := make(map[string]bool)
-	var networkNames []string
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+}
 
-	for _, container := range containers {
-		// Get container details to access network settings
-		containerDetails, err := dockerClient.ContainerInspect(ctx, container.ID)
-		if err != nil {
-			// Log the error but continue with other containers
-			fmt.Fprintf(os.Stderr, "failed to inspect container %s: %s\n", container.ID, err)
-			continue
-		}
-
-		// Extract network names from container's network settings
-		for networkName := range containerDetails.NetworkSettings.Networks {
-			if networkName == "bridge" {
-				continue
-			}
-			if !networkMap[networkName] {
-				networkMap[networkName] = true
-				networkNames = append(networkNames, networkName)
-			}
-		}
+func initDxTracker() {
+	if dxTracker != nil {
+		return
 	}
 
-	return networkNames, nil
+	var trackerErr error
+	dxTracker, trackerErr = tracking.NewDxTracker()
+	if trackerErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
+		dxTracker = &tracking.NoOpTracker{}
+	}
 }

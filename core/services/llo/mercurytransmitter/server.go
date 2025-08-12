@@ -294,7 +294,7 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*rpc.TransmitRe
 	switch t.Report.Info.ReportFormat {
 	case llotypes.ReportFormatJSON:
 		payload, err = s.jsonPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
-	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked, llotypes.ReportFormatEVMABIEncodeUnpackedExpr:
 		payload, err = s.evmPremiumLegacyPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	case llotypes.ReportFormatEVMStreamlined:
 		payload, err = s.evmStreamlinedPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)

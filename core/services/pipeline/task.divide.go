@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 	"math"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -42,7 +42,7 @@ func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		b              DecimalParam
 		maybePrecision MaybeInt32Param
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Divisor, vars), NonemptyString(t.Divisor))), "divisor"),
 		errors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),

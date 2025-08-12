@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 )
@@ -247,7 +247,7 @@ func deployTokenPool(
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
 				)
 			case shared.BurnMintFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_1Dev
+				tokenPoolVersion = deployment.Version1_6_1
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
@@ -255,16 +255,15 @@ func deployTokenPool(
 			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = burn_mint_with_external_minter_fast_transfer_token_pool.DeployBurnMintWithExternalMinterFastTransferTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.HybridWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = hybrid_with_external_minter_fast_transfer_token_pool.DeployHybridWithExternalMinterFastTransferTokenPool(
-					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.LocalTokenDecimals,
+					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-
 			}
 			var tp *token_pool.TokenPool
 			if err == nil { // prevents overwriting the error (also, if there were an error with deployment, converting to an abstract token pool wouldn't be useful)

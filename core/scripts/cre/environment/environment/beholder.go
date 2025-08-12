@@ -6,26 +6,16 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/google/go-github/v72/github"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-)
-
-var (
-	withBeholderFlag              bool
-	protoConfigsFlag              []string
-	redPandaKafkaURLFlag          string
-	redPandaSchemaRegistryURLFlag string
-	kafkaCreateTopicsFlag         []string
-	kafkaRemoveTopicsFlag         bool
 )
 
 type ChipIngressConfig struct {
@@ -37,45 +27,62 @@ type KafkaConfig struct {
 	Topics []string `toml:"topics"`
 }
 
-var startBeholderCmd = &cobra.Command{
-	Use:   "start-beholder",
-	Short: "Start the Beholder",
-	Long:  `Start the Beholder`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if topologyFlag != TopologySimplified && topologyFlag != TopologyFull {
-			return fmt.Errorf("invalid topology: %s. Valid topologies are: %s, %s", topologyFlag, TopologySimplified, TopologyFull)
-		}
+func beholderCmds() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "beholder",
+		Short: "Beholder commands",
+		Long:  `Commands to manage the Beholder stack`,
+	}
 
-		// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
-		setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		if setErr != nil {
-			return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
-		}
+	cmd.AddCommand(startBeholderCmd())
+	cmd.AddCommand(stopBeholderCmd)
+	cmd.AddCommand(createKafkaTopicsCmd())
+	cmd.AddCommand(fetchAndRegisterProtosCmd())
 
-		dockerNetworks, dockerNetworksErr := getCtfDockerNetworks()
-		if dockerNetworksErr != nil {
-			return errors.Wrap(dockerNetworksErr, "failed to get CTF Docker networks")
-		}
+	return cmd
+}
 
-		startBeholderErr := startBeholder(cmd.Context(), protoConfigsFlag, dockerNetworks)
-		if startBeholderErr != nil {
-			// remove the stack if the error is not related to proto registration
-			if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
-				WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
-				beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-				if beholderRemoveErr != nil {
-					fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
-				}
+func startBeholderCmd() *cobra.Command {
+	var (
+		//		withBeholderFlag2             bool
+		protoConfigs []string
+		timeout      time.Duration
+	)
+	cmd := &cobra.Command{
+		Use:   "start",
+		Short: "Start the Beholder",
+		Long:  `Start the Beholder`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
+			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+			if setErr != nil {
+				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
-			return errors.Wrap(startBeholderErr, "failed to start Beholder")
-		}
 
-		return nil
-	},
+			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
+			if startBeholderErr != nil {
+				// remove the stack if the error is not related to proto registration
+				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
+					waitToCleanUp(timeout)
+					beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+					if beholderRemoveErr != nil {
+						fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+					}
+				}
+				return errors.Wrap(startBeholderErr, "failed to start Beholder")
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
+	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
+
+	return cmd
 }
 
 var stopBeholderCmd = &cobra.Command{
-	Use:   "stop-beholder",
+	Use:   "stop",
 	Short: "Stop the Beholder",
 	Long:  `Stop the Beholder`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -85,7 +92,7 @@ var stopBeholderCmd = &cobra.Command{
 
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, protoConfigsFlag []string, dockerNetworks []string) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -107,7 +114,7 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 				startupErr = fmt.Errorf("panic: %v", p)
 			}
 
-			WaitOnErrorTimeoutDurationFn(waitOnErrorTimeoutFlag)
+			time.Sleep(cleanupWait)
 
 			beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 			if beholderRemoveErr != nil {
@@ -128,11 +135,6 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 	in, err := framework.Load[ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load test configuration")
-	}
-
-	// connect to existing network if provided, that should only be used, when chip-ingress is started for an already running environment
-	if len(dockerNetworks) > 0 {
-		in.ChipIngress.ExtraDockerNetworks = append(in.ChipIngress.ExtraDockerNetworks, dockerNetworks...)
 	}
 
 	out, startErr := chipingressset.New(in.ChipIngress)
@@ -166,7 +168,7 @@ func startBeholder(cmdContext context.Context, protoConfigsFlag []string, docker
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
-	fmt.Print("To terminate Beholder stack execute: `go run . env stop-beholder`\n\n")
+	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
 	return nil
 }
@@ -176,7 +178,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	for _, protoConfig := range protoConfigsFlag {
 		file, fileErr := os.ReadFile(protoConfig)
 		if fileErr != nil {
-			return errors.Wrap(fileErr, protoRegistrationErrMsg+"failed to read proto config file: "+protoConfig)
+			return errors.Wrap(fileErr, protoRegistrationErrMsg+": failed to read proto config file: "+protoConfig)
 		}
 
 		type wrappedProtoSchemaSets struct {
@@ -198,71 +200,91 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 	}
 
 	for _, protoSchemaSet := range protoSchemaSets {
-		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.Repository)
+		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
-	var client *github.Client
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-		tc := oauth2.NewClient(ctx, ts)
-		client = github.NewClient(tc)
-	} else {
-		framework.L.Warn().Msg("GITHUB_TOKEN is not set, using unauthenticated GitHub client. This may cause rate limiting issues when downloading proto files")
-		client = github.NewClient(nil)
-	}
-
-	reposErr := chipingressset.DefaultRegisterAndFetchProtos(ctx, client, protoSchemaSets, schemaRegistryExternalURL)
+	reposErr := chipingressset.DefaultRegisterAndFetchProtos(
+		ctx,
+		nil, // GH client will be created dynamically, if needed
+		protoSchemaSets,
+		schemaRegistryExternalURL,
+	)
 	if reposErr != nil {
 		return errors.Wrap(reposErr, protoRegistrationErrMsg+"failed to fetch and register protos")
 	}
 	return nil
 }
 
-var createKafkaTopicsCmd = &cobra.Command{
-	Use:   "create-kafka-topics",
-	Short: "Create Kafka topics",
-	Long:  `Create Kafka topics (with or without removing existing topics)`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if redPandaKafkaURLFlag == "" {
-			return errors.New("red-panda-kafka-url cannot be empty")
-		}
-
-		if len(kafkaCreateTopicsFlag) == 0 {
-			return errors.New("kafka topics list cannot be empty")
-		}
-
-		if kafkaRemoveTopicsFlag {
-			topicsErr := chipingressset.DeleteAllTopics(cmd.Context(), redPandaKafkaURLFlag)
-			if topicsErr != nil {
-				return errors.Wrap(topicsErr, "failed to remove topics")
+func createKafkaTopicsCmd() *cobra.Command {
+	var (
+		url    string
+		topics []string
+		purge  bool
+	)
+	cmd := &cobra.Command{
+		Use:   "create-topics",
+		Short: "Create Kafka topics",
+		Long:  `Create Kafka topics (with or without removing existing topics)`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if url == "" {
+				return errors.New("red-panda-kafka-url cannot be empty")
 			}
-		}
 
-		topicsErr := chipingressset.CreateTopics(cmd.Context(), redPandaKafkaURLFlag, kafkaCreateTopicsFlag)
-		if topicsErr != nil {
-			return errors.Wrap(topicsErr, "failed to create topics")
-		}
+			if len(topics) == 0 {
+				return errors.New("kafka topics list cannot be empty")
+			}
 
-		return nil
-	},
-}
+			if purge {
+				topicsErr := chipingressset.DeleteAllTopics(cmd.Context(), url)
+				if topicsErr != nil {
+					return errors.Wrap(topicsErr, "failed to remove topics")
+				}
+			}
 
-var fetchAndRegisterProtosCmd = &cobra.Command{
-	Use:   "fetch-and-register-protos",
-	Short: "Fetch and register protos",
-	Long:  `Fetch and register protos`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if redPandaSchemaRegistryURLFlag == "" {
-			return errors.New("red-panda-schema-registry-url cannot be empty")
-		}
-
-		if len(protoConfigsFlag) == 0 {
-			framework.L.Warn().Msg("no proto configs provided, skipping proto registration")
+			topicsErr := chipingressset.CreateTopics(cmd.Context(), url, topics)
+			if topicsErr != nil {
+				return errors.Wrap(topicsErr, "failed to create topics")
+			}
 
 			return nil
-		}
+		},
+	}
+	cmd.Flags().StringVarP(&url, "red-panda-kafka-url", "k", "localhost:"+chipingressset.DEFAULT_RED_PANDA_KAFKA_PORT, "Red Panda Kafka URL")
+	cmd.Flags().StringArrayVarP(&topics, "topics", "t", []string{}, "Kafka topics to create (e.g. 'topic1,topic2')")
+	cmd.Flags().BoolVarP(&purge, "purge-topics", "p", false, "Remove existing Kafka topics")
+	_ = cmd.MarkFlagRequired("topics")
+	_ = cmd.MarkFlagRequired("red-panda-kafka-url")
 
-		return parseConfigsAndRegisterProtos(cmd.Context(), protoConfigsFlag, redPandaSchemaRegistryURLFlag)
-	},
+	return cmd
+}
+
+func fetchAndRegisterProtosCmd() *cobra.Command {
+	var (
+		schemaURL    string
+		protoConfigs []string
+	)
+	cmd := &cobra.Command{
+		Use:   "register-protos",
+		Short: "Fetch and register protos",
+		Long:  `Fetch and register protos`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if schemaURL == "" {
+				return errors.New("red-panda-schema-registry-url cannot be empty")
+			}
+
+			if len(protoConfigs) == 0 {
+				framework.L.Warn().Msg("no proto configs provided, skipping proto registration")
+
+				return nil
+			}
+
+			return parseConfigsAndRegisterProtos(cmd.Context(), protoConfigs, schemaURL)
+		},
+	}
+	cmd.Flags().StringVarP(&schemaURL, "red-panda-schema-registry-url", "r", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
+	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
+	_ = cmd.MarkFlagRequired("red-panda-schema-registry-url")
+	_ = cmd.MarkFlagRequired("with-proto-configs")
+	return cmd
 }

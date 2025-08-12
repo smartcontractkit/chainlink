@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -100,21 +99,16 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
+	blockChains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
 
-	blockChains := make(map[uint64]chain.BlockChain)
-	for sel, c := range chains {
-		blockChains[sel] = c
-	}
-
-	l.DeployedEnv.Users = users
-	l.DeployedEnv.Env.BlockChains = chain.NewBlockChains(blockChains)
-	l.DeployedEnv.FeedChainSel = feedSel
-	l.DeployedEnv.HomeChainSel = homeChainSel
-	l.DeployedEnv.ReplayBlocks = replayBlocks
+	l.Users = users
+	l.Env.BlockChains = blockChains
+	l.FeedChainSel = feedSel
+	l.HomeChainSel = homeChainSel
+	l.ReplayBlocks = replayBlocks
 }
 
 func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {

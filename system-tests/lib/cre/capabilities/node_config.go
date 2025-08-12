@@ -7,12 +7,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func MakeBinariesExecutable(customBinariesPaths map[types.CapabilityFlag]string) error {
+func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) error {
 	for capabilityFlag, binaryPath := range customBinariesPaths {
 		if binaryPath == "" {
 			return fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
@@ -32,7 +32,7 @@ func MakeBinariesExecutable(customBinariesPaths map[types.CapabilityFlag]string)
 	return nil
 }
 
-func AppendBinariesPathsNodeSpec(nodeSetInput *types.CapabilitiesAwareNodeSet, donMetadata *types.DonMetadata, customBinariesPaths map[types.CapabilityFlag]string) (*types.CapabilitiesAwareNodeSet, error) {
+func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, donMetadata *cre.DonMetadata, customBinariesPaths map[cre.CapabilityFlag]string) (*cre.CapabilitiesAwareNodeSet, error) {
 	if len(customBinariesPaths) == 0 {
 		return nodeSetInput, nil
 	}
@@ -54,9 +54,9 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *types.CapabilitiesAwareNodeSet, d
 			}
 
 			if flags.HasFlag(donMetadata.Flags, capabilityFlag) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
+				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
 					Key:   libnode.NodeTypeKey,
-					Value: types.WorkerNode,
+					Value: cre.WorkerNode,
 				}, libnode.EqualLabels)
 				if wErr != nil {
 					return nil, errors.Wrap(wErr, "failed to find worker nodes")

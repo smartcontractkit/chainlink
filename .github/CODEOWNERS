@@ -15,11 +15,10 @@
 /common @smartcontractkit/bix-framework @smartcontractkit/core
 /core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
 /core/chains/evm/txm @dimriou @smartcontractkit/bix-framework @smartcontractkit/core
-/evm @jmank88 @pavel-raykov @DylanTinianov
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
+/core/services/feeds @smartcontractkit/core @smartcontractkit/devex-tooling
 /core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -74,9 +73,8 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/scripts/keystone @smartcontractkit/keystone
 
 # GQL API
-/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
-/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
-
+/core/web/resolver @smartcontractkit/foundations @smartcontractkit/core
+/core/web/schema @smartcontractkit/foundations @smartcontractkit/core
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
@@ -86,15 +84,15 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/common @smartcontractkit/devex-tooling
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
-/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/vault @smartcontractkit/cld-vault @smartcontractkit/core @smartcontractkit/cld-team
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
@@ -111,11 +109,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
 # Dependencies
-contracts/scripts/requirements.txt @smartcontractkit/core
 .tool-versions @smartcontractkit/core
-.nvmrc @smartcontractkit/core
-contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
-contracts/pnpm.lock @smartcontractkit/core
 go.md @smartcontractkit/core @smartcontractkit/foundations
 go.mod @smartcontractkit/core @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/foundations
@@ -127,7 +121,6 @@ flake.lock @smartcontractkit/core
 # Config
 ./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
 ./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
-
 
 # Runs-On
 ./github/runs-on.yml @smartcontractkit/prodsec-public

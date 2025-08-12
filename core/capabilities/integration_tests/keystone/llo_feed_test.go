@@ -99,12 +99,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	streams := make([]llotypes.Stream, len(reports.Payload))
 	// Create multipliers based on the actual StreamIDs from the payload
 	multipliers := make([]cre.ReportCodecCapabilityTriggerMultiplier, len(reports.Payload))
-	// We currently only use a multiplier of 1 in this test, as this test uses a value from
-	// the KeystoneFeedsConsumer contract which is already 18 decimals as the source for the StreamValue.
-	// In practice this value will be sourced from an EA + LLO jobspec and will often be non-scaled or up to 18 decimals.
-	// The Opts.Multipliers are used to scale the values post EA + LLO jobspec up to the required 18 decimal values
-	// the LLO Asset DON is expected to output to the Capability Trigger at.
-	multiplier, err := decimal.NewFromString("1")
+	multiplier, err := decimal.NewFromString("1000000000000000000")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to parse multiplier string: %w", err)
 	}

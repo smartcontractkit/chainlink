@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -18,7 +18,7 @@ import (
 )
 
 var CurrentTokenPoolVersion = deployment.Version1_5_1
-var FastTransferTokenPoolVersion = deployment.Version1_6_1Dev
+var FastTransferTokenPoolVersion = deployment.Version1_6_1
 var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
