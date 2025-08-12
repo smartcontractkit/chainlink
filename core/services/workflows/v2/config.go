@@ -31,8 +31,6 @@ type EngineConfig struct {
 	Clock           clockwork.Clock
 	SecretsFetcher  SecretsFetcher
 
-	DonTimeStore *dontime.Store
-
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
 	WorkflowName          types.WorkflowName
