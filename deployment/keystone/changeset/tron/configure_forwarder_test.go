@@ -37,11 +37,10 @@ func TestConfigureForwarder(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				lggr := logger.Test(t)
-				t.Logf("Starting test")
+
 				env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
 					TronChains: nChains,
 				})
-				t.Logf("Env loaded: %+v", env)
 				tronSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTron))[0]
 
 				// configure don for solana chain
@@ -51,14 +50,16 @@ func TestConfigureForwarder(t *testing.T) {
 					WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 					NumChains:       nChains,
 				})
-				t.Logf("Test setup: %+v", te)
+
+				tronChain := env.BlockChains.TronChains()[tronSel]
 				blockchains := make(map[uint64]cldf_chain.BlockChain)
+
+				blockchains[tronSel] = tronChain
 
 				for _, ch := range te.Env.BlockChains.All() {
 					blockchains[ch.ChainSelector()] = ch
 				}
-				t.Logf("Tron Sel: %d", tronSel)
-				t.Logf("Chains: %+v", blockchains)
+
 				te.Env.BlockChains = cldf_chain.NewBlockChains(blockchains)
 
 				deployOptions := cldf_tron.DefaultDeployOptions()
@@ -77,19 +78,19 @@ func TestConfigureForwarder(t *testing.T) {
 					wfNodes = append(wfNodes, id.String())
 				}
 
+				triggerOptions := cldf_tron.DefaultTriggerOptions()
+				triggerOptions.FeeLimit = 1_000_000_000
+
 				configureChangeset := commonchangeset.Configure(tron.ConfigureForwarder{},
 					&tron.ConfigureForwarderRequest{
 						WFDonName:        "test-wf-don",
 						WFNodeIDs:        wfNodes,
 						RegistryChainSel: te.RegistrySelector,
-						TriggerOptions:   cldf_tron.DefaultTriggerOptions(),
+						TriggerOptions:   triggerOptions,
 					},
 				)
 
-				env, _, err := commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset})
-				require.NoError(t, err)
-
-				_, _, err = commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{configureChangeset})
+				env, _, err := commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, configureChangeset})
 				require.NoError(t, err)
 			})
 		}
