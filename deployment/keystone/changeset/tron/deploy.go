@@ -6,10 +6,13 @@ import (
 
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 )
+
+const ForwarderContract datastore.ContractType = "KeystoneForwarder"
 
 const (
 	DeploymentBlockLabel = "deployment-block"

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -83,9 +82,9 @@ func LoadTronOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 		TronChains: make(map[uint64]DataFeedsTronChainState),
 	}
 
-	for chainSelector, chain := range e.BlockChains.TronChains() {
+	for chainSelector, _ := range e.BlockChains.TronChains() {
 		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
-		chainState, err := LoadTronChainState(e.Logger, chain, records)
+		chainState, err := LoadTronChainState(e.Logger, records)
 		if err != nil {
 			return state, err
 		}
@@ -187,7 +186,7 @@ func LoadAptosChainState(logger logger.Logger, chain cldf_aptos.Chain, addresses
 }
 
 // LoadTronChainState Loads all state for tron chain into state
-func LoadTronChainState(logger logger.Logger, chain cldf_tron.Chain, addresses []datastore.AddressRef) (*DataFeedsTronChainState, error) {
+func LoadTronChainState(logger logger.Logger, addresses []datastore.AddressRef) (*DataFeedsTronChainState, error) {
 	var state DataFeedsTronChainState
 
 	state.DataFeeds = make(map[string]bool)

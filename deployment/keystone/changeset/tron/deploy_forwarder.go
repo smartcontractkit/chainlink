@@ -10,8 +10,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-const ForwarderContract datastore.ContractType = "Forwarder"
-
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
 
 type DeployForwarder struct{}
