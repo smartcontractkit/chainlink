@@ -24,6 +24,7 @@ type ConfigureCapabilitiesRegistrySeqInput struct {
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
 	Nodes           []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
+	DONs            []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }
 
 func (c ConfigureCapabilitiesRegistrySeqInput) Validate() error {
@@ -37,6 +38,7 @@ type ConfigureCapabilitiesRegistrySeqOutput struct {
 	Nops         []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
 	Nodes        []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
 	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+	DONs         []capabilities_registry_v2.CapabilitiesRegistryDONInfo
 }
 
 var ConfigureCapabilitiesRegistrySequence = operations.NewSequence(
@@ -74,10 +76,21 @@ var ConfigureCapabilitiesRegistrySequence = operations.NewSequence(
 			return ConfigureCapabilitiesRegistrySeqOutput{}, err
 		}
 
+		// Register DONs
+		registerDONsReport, err := operations.ExecuteOperation(b, contracts.RegisterDonsOp, contracts.RegisterDonsOpDeps{Env: deps.Env}, contracts.RegisterDonsOpInput{
+			ChainSelector: input.RegistryChainSel,
+			Address:       input.ContractAddress,
+			DONs:          input.DONs,
+		})
+		if err != nil {
+			return ConfigureCapabilitiesRegistrySeqOutput{}, err
+		}
+
 		return ConfigureCapabilitiesRegistrySeqOutput{
 			Nops:         registerNopsReport.Output.Nops,
 			Nodes:        registerNodesReport.Output.Nodes,
 			Capabilities: registerCapabilitiesReport.Output.Capabilities,
+			DONs:         registerDONsReport.Output.DONs,
 		}, nil
 	},
 )

@@ -19,6 +19,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	Nops                        []capabilities_registry_v2.CapabilitiesRegistryNodeOperator `json:"nops,omitempty"`
 	Capabilities                []capabilities_registry_v2.CapabilitiesRegistryCapability   `json:"capabilities,omitempty"`
 	Nodes                       []capabilities_registry_v2.CapabilitiesRegistryNodeParams   `json:"nodes,omitempty"`
+	DONs                        []capabilities_registry_v2.CapabilitiesRegistryNewDONParams `json:"dons,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -50,6 +51,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 			Nops:             config.Nops,
 			Capabilities:     config.Capabilities,
 			Nodes:            config.Nodes,
+			DONs:             config.DONs,
 		},
 	)
 	if err != nil {
