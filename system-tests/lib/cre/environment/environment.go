@@ -512,6 +512,7 @@ func SetupTestEnvironment(
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	ocr3CommonAddr := common.HexToAddress(ocr3Addr)
+	donTimeCommonAddr := common.HexToAddress(donTimeAddr)
 
 	var vaultOCR3CommonAddr common.Address
 	if vaultOCR3AddrFlag {
@@ -539,6 +540,7 @@ func SetupTestEnvironment(
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: &capRegCommonAddr,
 		OCR3Address:                 &ocr3CommonAddr,
+		DONTimeAddress:              &donTimeCommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
 		EVMOCR3Address:              &evmOCR3CommonAddr,
 		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
