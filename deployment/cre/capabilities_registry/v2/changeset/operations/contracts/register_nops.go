@@ -64,9 +64,6 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 		if err != nil {
 			return RegisterNopsOutput{}, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 		}
-		if len(receipt.Logs) != len(input.Nops) {
-			return RegisterNopsOutput{}, fmt.Errorf("expected %d log entries for AddNodeOperators, got %d", len(input.Nops), len(receipt.Logs))
-		}
 
 		// Get the CapabilitiesRegistryFilterer contract
 		capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(

@@ -66,9 +66,6 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if err != nil {
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to mine AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 		}
-		if len(receipt.Logs) != len(input.Capabilities) {
-			return RegisterCapabilitiesOutput{}, fmt.Errorf("expected %d log entries for AddCapabilities, got %d", len(input.Capabilities), len(receipt.Logs))
-		}
 
 		// Get the CapabilitiesRegistryFilterer contract
 		capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(

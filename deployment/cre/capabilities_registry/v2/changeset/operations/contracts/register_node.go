@@ -80,9 +80,6 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		if err != nil {
 			return RegisterNodesOutput{}, fmt.Errorf("failed to mine AddNodes confirm transaction %s: %w", tx.Hash().String(), err)
 		}
-		if len(receipt.Logs) != len(input.Nodes) {
-			return RegisterNodesOutput{}, fmt.Errorf("expected %d log entries for AddNodes, got %d", len(input.Nodes), len(receipt.Logs))
-		}
 
 		// Get the CapabilitiesRegistryFilterer contract
 		capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
