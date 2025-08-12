@@ -823,7 +823,7 @@ func (d *Delegate) newDonTimePlugin(
 		return nil, ErrJobSpecNoRelayer{PluginName: "dontime", Err: err}
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "dontime"}
 	}
