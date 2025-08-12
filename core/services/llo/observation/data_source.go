@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"sort"
 	"strconv"
@@ -78,9 +79,12 @@ type dataSource struct {
 	timeout  time.Duration
 
 	observationLoopStarted bool
+	observationLoopCloseCh chan struct{}
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
 }
+
+var _ io.Closer = dataSource{}
 
 type observableStreamValues struct {
 	opts         llo.DSOpts
@@ -145,10 +149,9 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	for {
 		now := time.Now()
-		// This slice of clean-up functions acts as a loop-level defer list.
-		loopCleanUpFns := []func(){}
 		opts, streamValues := d.getObservableStreams()
 
+		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
@@ -161,8 +164,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			lggr.Debugw("Observing streams")
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
-		loopCleanUpFns = append(loopCleanUpFns, cancel)
 		// Telemetry
 		var telemCh chan<- interface{}
 		{
@@ -215,6 +216,12 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		wg.Wait()
 
+		// Notify the caller that we've completed our first round of observations.
+		if !d.observationLoopStarted {
+			d.observationLoopStarted = true
+			close(loopStartedCh)
+		}
+
 		// After all Observations have returned, nothing else will be sent to the
 		// telemetry channel, so it can safely be closed
 		if telemCh != nil {
@@ -249,25 +256,28 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 		}
 
-		// Notify the caller that we've completed our first round of observations.
-		if !d.observationLoopStarted {
-			d.observationLoopStarted = true
-			close(loopStartedCh)
-		}
+		// Cancel the context, so the linter doesn't complain.
+		cancel()
 
-		// Clean up anything that came up during the loop.
-		for _, fn := range loopCleanUpFns {
-			fn()
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			// If we want to sleep between rounds, here is the place to do it.
-			time.Sleep(d.timeout / 20) // turn this know if the EAs are under too much pressure
-		}
+		// If we want to sleep between rounds, here is the place to do it.
+		time.Sleep(d.timeout / 20) // turn this know if the EAs are under too much pressure
 	}
+}
+
+func (d dataSource) Close() error {
+	if !d.observationLoopStarted {
+		return nil
+	}
+	if d.observationLoopCloseCh == nil {
+		return nil
+	}
+	select {
+	case <-d.observationLoopCloseCh:
+		return nil
+	default:
+	}
+	close(d.observationLoopCloseCh)
+	return nil
 }
 
 func (d *dataSource) fromCache(streamID llotypes.StreamID) llo.StreamValue {
