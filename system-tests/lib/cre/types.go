@@ -290,6 +290,7 @@ const VaultGatewayDonID = "vault"
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
+	Handlers            map[string]string
 }
 type GatewayConnectorOutput struct {
 	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
