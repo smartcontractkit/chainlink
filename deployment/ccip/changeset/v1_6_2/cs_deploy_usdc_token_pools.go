@@ -11,12 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/hybrid_lock_release_usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -37,6 +39,8 @@ type DeployUSDCTokenPoolInput struct {
 	TokenMessenger common.Address
 	// USDCTokenAddress is the address of the USDC token for which we are deploying a token pool.
 	TokenAddress common.Address
+	// PoolType is used to determine which type of USDC token pool to deploy.
+	PoolType cldf.ContractType
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
 	// If omitted, all addresses will be permitted to transfer the token.
 	AllowList []common.Address
@@ -55,7 +59,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		return fmt.Errorf("CCTP message transmitter proxy for version %s not found on %s", deployment.Version1_6_2, chain)
 	}
 	if i.PreviousPoolAddress == utils.ZeroAddress {
-		if len(state.USDCTokenPools) == 0 {
+		if len(state.USDCTokenPools) == 0 && len(state.USDCTokenPoolsV1_6) == 0 {
 			return fmt.Errorf("unable to find a previous pool address, specify address or use USDCTokenPoolSentinelAddress (%s) if this is the first USDC token pool", USDCTokenPoolSentinelAddress)
 		}
 	}
@@ -74,7 +78,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 	}
 
 	// Check if a USDC token pool with the given version already exists
-	if _, ok := state.USDCTokenPools[deployment.Version1_6_2]; ok {
+	if _, ok := state.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
 		return fmt.Errorf("USDC token pool with version %s already exists on %s", deployment.Version1_6_2, chain)
 	}
 
@@ -92,6 +96,10 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 	_, err = messenger.MessageBodyVersion(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to fetch message body version from address %s on %s: %w", i.TokenMessenger, chain, err)
+	}
+
+	if i.PoolType != shared.USDCTokenPool && i.PoolType != shared.HybridLockReleaseUSDCTokenPool {
+		return fmt.Errorf("unsupported pool type %s", i.PoolType)
 	}
 
 	return nil
@@ -149,48 +157,17 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		if c.IsTestRouter {
 			router = chainState.TestRouter
 		}
-		_, err = cldf.DeployContract(env.Logger, chain, newAddresses,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
-				previousPoolAddress := poolConfig.PreviousPoolAddress
 
-				switch previousPoolAddress {
-				case USDCTokenPoolSentinelAddress:
-					// If the previous pool address is USDCTokenPoolSentinelAddress, this is the first usdc token
-					// pool and the address should be set to the ZeroAddress.
-					// set the previous address to zero address.
-					previousPoolAddress = utils.ZeroAddress
-
-				case utils.ZeroAddress:
-					// If the previous pool address is not set, we try to find the latest deployed pool address
-					switch {
-					case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_6_2].Address()
-					case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
-					case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
-						previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
-					default:
-						return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-							Err: fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chain.Name()),
-						}
-					}
-				}
-
-				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(chain.DeployerKey,
-					chain.Client, poolConfig.TokenMessenger,
-					chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
-					poolConfig.TokenAddress, poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),
-					previousPoolAddress)
-				return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
-					Address:  poolAddress,
-					Contract: usdcTokenPool,
-					Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2),
-					Tx:       tx,
-					Err:      err,
-				}
-			},
-		)
-		if err != nil {
+		var deployErr error
+		switch poolConfig.PoolType {
+		case shared.USDCTokenPool:
+			deployErr = deployUSDCTokenPool(env.Logger, chain, newAddresses, poolConfig, chainState, router.Address())
+		case shared.HybridLockReleaseUSDCTokenPool:
+			deployErr = deployHybridLockReleaseUSDCTokenPool(env.Logger, chain, newAddresses, poolConfig, chainState, router.Address())
+		default:
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", poolConfig.PoolType, chain, err)
+		}
+		if deployErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy USDC token pool on %s: %w", chain, err)
 		}
 	}
@@ -198,4 +175,95 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses, // TODO: this is deprecated, how do I use the DataStore instead?
 	}, nil
+}
+
+func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
+	_, err := cldf.DeployContract(lggr, chain, newAddresses,
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			previousPoolAddress := poolConfig.PreviousPoolAddress
+
+			switch previousPoolAddress {
+			case USDCTokenPoolSentinelAddress:
+				// If the previous pool address is USDCTokenPoolSentinelAddress, this is the first usdc token
+				// pool and the address should be set to the ZeroAddress.
+				// set the previous address to zero address.
+				previousPoolAddress = utils.ZeroAddress
+
+			case utils.ZeroAddress:
+				// If the previous pool address is not set, we try to find the latest deployed pool address
+				var err error
+				previousPoolAddress, err = getPreviousPoolAddress(chainState, chain.Name())
+				if err != nil {
+					return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{Err: err}
+				}
+			}
+
+			poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(chain.DeployerKey,
+				chain.Client, poolConfig.TokenMessenger,
+				chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
+				poolConfig.TokenAddress, poolConfig.AllowList, chainState.RMNProxy.Address(), routerAddr,
+				previousPoolAddress)
+			return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				Address:  poolAddress,
+				Contract: usdcTokenPool,
+				Tv:       cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2),
+				Tx:       tx,
+				Err:      err,
+			}
+		},
+	)
+	return err
+}
+
+func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
+	_, err := cldf.DeployContract(lggr, chain, newAddresses,
+		func(chain cldf_evm.Chain) cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool] {
+			previousPoolAddress := poolConfig.PreviousPoolAddress
+
+			switch previousPoolAddress {
+			case USDCTokenPoolSentinelAddress:
+				// If the previous pool address is USDCTokenPoolSentinelAddress, this is the first usdc token
+				// pool and the address should be set to the ZeroAddress.
+				// set the previous address to zero address.
+				previousPoolAddress = utils.ZeroAddress
+
+			case utils.ZeroAddress:
+				// If the previous pool address is not set, we try to find the latest deployed pool address
+				var err error
+				previousPoolAddress, err = getPreviousPoolAddress(chainState, chain.Name())
+				if err != nil {
+					return cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool]{Err: err}
+				}
+			}
+
+			poolAddress, tx, usdcTokenPool, err := hybrid_lock_release_usdc_token_pool.DeployHybridLockReleaseUSDCTokenPool(chain.DeployerKey,
+				chain.Client, poolConfig.TokenMessenger,
+				chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
+				poolConfig.TokenAddress, poolConfig.AllowList, chainState.RMNProxy.Address(), routerAddr,
+				previousPoolAddress)
+			return cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool]{
+				Address:  poolAddress,
+				Contract: usdcTokenPool,
+				Tv:       cldf.NewTypeAndVersion(shared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2),
+				Tx:       tx,
+				Err:      err,
+			}
+		},
+	)
+	return err
+}
+
+func getPreviousPoolAddress(chainState evm.CCIPChainState, chainName string) (common.Address, error) {
+	var previousPoolAddress common.Address
+	switch {
+	case chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2] == nil:
+		previousPoolAddress = chainState.USDCTokenPoolsV1_6[deployment.Version1_6_2].Address()
+	case chainState.USDCTokenPools[deployment.Version1_5_1] == nil:
+		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_1].Address()
+	case chainState.USDCTokenPools[deployment.Version1_5_0] == nil:
+		previousPoolAddress = chainState.USDCTokenPools[deployment.Version1_5_0].Address()
+	default:
+		return common.Address{}, fmt.Errorf("previous USDC pool address (%s) not found on %s", previousPoolAddress.Hex(), chainName)
+	}
+	return previousPoolAddress, nil
 }

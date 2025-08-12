@@ -1487,8 +1487,8 @@ github.com/smartcontractkit/chainlink-aptos v0.0.0-20250808192428-8281f27c5fe3 h
 github.com/smartcontractkit/chainlink-aptos v0.0.0-20250808192428-8281f27c5fe3/go.mod h1:zNZ5rtLkbqsGCjDWb1y8n7BRk2zgflkzmj2GjnLnj08=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250805180409-111ef75e9257 h1:AjAw7ZtUgdfyot6Ib81N5pYGPTohoZk61QTDPnynHC4=
-github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250805180409-111ef75e9257/go.mod h1:4e+IBu7TJVlmL31sTDYyYEbwJXjFDbv0jot7QQmBZ9E=
+github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250811210745-6b815a3f06f7 h1:GGmVVWb05lqryDMsjsjusILF6zxXtk0q4ZA/AUKeGxk=
+github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250811210745-6b815a3f06f7/go.mod h1:4e+IBu7TJVlmL31sTDYyYEbwJXjFDbv0jot7QQmBZ9E=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a h1:kQ8Zs6OzXizScIK8PEb8THxDUziGttGT9D6tTTAwmZk=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a/go.mod h1:Ve1xD71bl193YIZQEoJMmBqLGQJdNs29bwbuObwvbhQ=
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250805210128-7f8a0f403c3a h1:38dAlTPRUQHZus5dCnBnQyf/V4oYn0p2svWlbPgHDQ4=
@@ -1507,8 +1507,8 @@ github.com/smartcontractkit/chainlink-data-streams v0.1.2 h1:g/UmFJa/E1Zmc7NO20o
 github.com/smartcontractkit/chainlink-data-streams v0.1.2/go.mod h1:lxY97sDlDorQAmLGFo6x1tl8SQ2E7adsS0/wU8+mmTc=
 github.com/smartcontractkit/chainlink-deployments-framework v0.21.0 h1:6cJiEoYSQgas8GurjWB+5ZRQXCDKYM1sF5f4/n8JHCs=
 github.com/smartcontractkit/chainlink-deployments-framework v0.21.0/go.mod h1:Swdqi5chVer3urFnfQzLHsJjW/ZWkv8+bMJdur5Sjvs=
-github.com/smartcontractkit/chainlink-evm v0.3.0 h1:Hu9BCtCdxYHMWyuCD+9D45bQp8tV2SEL9f7H5022H34=
-github.com/smartcontractkit/chainlink-evm v0.3.0/go.mod h1:6y5OTe7zEVXKyVWzXWR/VlIrO/UDqcCrQJPmb5ms6RM=
+github.com/smartcontractkit/chainlink-evm v0.3.1 h1:o4DSoeHGxNCW2c9Xd0Qmu7rYQ8+Zf9Stv8Md+dHtqgg=
+github.com/smartcontractkit/chainlink-evm v0.3.1/go.mod h1:6y5OTe7zEVXKyVWzXWR/VlIrO/UDqcCrQJPmb5ms6RM=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3 h1:SRMNzCdQnF2x6+QlL5YSzVeWyJb/BXqMrg+zSGaBPVg=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3/go.mod h1:3Lsp38qxen9PABVF+O5eocveQev+hyo9HLAgRodBD4Q=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
@@ -1533,8 +1533,8 @@ github.com/smartcontractkit/chainlink-protos/svr v1.1.0 h1:79Z9N9dMbMVRGaLoDPAQ+
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-d98d7674da89 h1:CHsQxEuORDrotvweFi4nOQuzwJ6u5tdrxEMwQpyuCkI=
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-d98d7674da89/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250804223734-02018e687bcd h1:w8G34i6+oYFgn3C8bJ+9PHL7q+P6NzVgKp5wzjhLYYk=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250804223734-02018e687bcd/go.mod h1:v6SXJpswr6T8gUDib/KK1XpkIgiUtmFO7fO2XI5fr7A=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250807150237-50f8f67eb21e h1:/AHGb8EHWKIHiP6Te0tfRr6lLKWBenj2lvm5tVjypDA=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250807150237-50f8f67eb21e/go.mod h1:v6SXJpswr6T8gUDib/KK1XpkIgiUtmFO7fO2XI5fr7A=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.10 h1:6r7X3BA/hFYE3FIUaOv6S04P3g5pH2PEyzJn7FO0n20=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.10/go.mod h1:47sm4C5wBxR8VBAZoDRGSt5wJwDJN3vVeE36l5vQs1g=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 h1:S5HND0EDtlA+xp2E+mD11DlUTp2wD6uojwixye8ZB/k=

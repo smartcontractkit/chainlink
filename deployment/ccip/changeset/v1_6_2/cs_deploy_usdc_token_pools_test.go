@@ -238,6 +238,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 			Msg: "Token address is not defined",
 			Input: v1_6_2.DeployUSDCTokenPoolInput{
 				TokenAddress: utils.ZeroAddress,
+				PoolType:     shared.USDCTokenPool,
 			},
 			ErrStr: "token address must be defined",
 		},
@@ -246,6 +247,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 			Input: v1_6_2.DeployUSDCTokenPoolInput{
 				TokenMessenger: utils.ZeroAddress,
 				TokenAddress:   utils.RandomAddress(),
+				PoolType:       shared.USDCTokenPool,
 			},
 			ErrStr: "token messenger must be defined",
 		},
@@ -255,6 +257,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				PreviousPoolAddress: utils.ZeroAddress,
 				TokenMessenger:      utils.RandomAddress(),
 				TokenAddress:        utils.RandomAddress(),
+				PoolType:            shared.USDCTokenPool,
 			},
 			ErrStr: "unable to find a previous pool",
 		},
@@ -264,6 +267,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        utils.RandomAddress(),
 				TokenMessenger:      utils.RandomAddress(),
+				PoolType:            shared.USDCTokenPool,
 			},
 			ErrStr: "failed to fetch symbol from token",
 		},
@@ -273,6 +277,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        nonUsdcToken.Address,
 				TokenMessenger:      utils.RandomAddress(),
+				PoolType:            shared.USDCTokenPool,
 			},
 			ErrStr: "is not USDC",
 		},
@@ -282,8 +287,19 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        usdcToken.Address,
 				TokenMessenger:      utils.RandomAddress(),
+				PoolType:            shared.USDCTokenPool,
 			},
 			ErrStr: "failed to fetch local message transmitter from address",
+		},
+		{
+			Msg: "Invalid pool type",
+			Input: v1_6_2.DeployUSDCTokenPoolInput{
+				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
+				TokenAddress:        usdcToken.Address,
+				TokenMessenger:      tokenMessenger.Address,
+				PoolType:            "bad pool type",
+			},
+			ErrStr: "unsupported pool type",
 		},
 		{
 			Msg: "No error",
@@ -291,6 +307,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 				PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 				TokenAddress:        usdcToken.Address,
 				TokenMessenger:      tokenMessenger.Address,
+				PoolType:            shared.USDCTokenPool,
 			},
 			ErrStr: "",
 		},
@@ -328,6 +345,65 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
+			PoolType:            shared.USDCTokenPool,
+		}
+	}
+
+	env, err := commoncs.Apply(t, env,
+		commoncs.Configure(
+			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
+			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+				USDCProxies: newUSDCMsgProxies,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	env, err = commoncs.Apply(t, env,
+		commoncs.Configure(
+			v1_6_2.DeployUSDCTokenPoolNew,
+			v1_6_2.DeployUSDCTokenPoolContractsConfig{
+				USDCPools: newUSDCTokenPools,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	state, err := stateview.LoadOnchainState(env)
+	require.NoError(t, err)
+	for _, selector := range selectors {
+		usdcTokenPools := state.Chains[selector].USDCTokenPoolsV1_6
+		require.Len(t, usdcTokenPools, 1, selector)
+
+		owner, err := usdcTokenPools[deployment.Version1_6_2].Owner(nil)
+		require.NoError(t, err)
+
+		deployer := env.BlockChains.EVMChains()[selector].DeployerKey.From
+		require.Equal(t, deployer, owner)
+	}
+}
+
+func TestDeployHybridLockReleaseUSDCTokenPool(t *testing.T) {
+	t.Parallel()
+
+	env, selectors := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
+	addrBook := cldf.NewMemoryAddressBook()
+
+	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
+	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
+	for _, selector := range selectors {
+		blockchain := env.BlockChains.EVMChains()[selector]
+		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForDeploy(t, env.Logger, blockchain, addrBook)
+
+		newUSDCMsgProxies[selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
+			TokenMessenger: tokenMessenger.Address,
+		}
+
+		newUSDCTokenPools[selector] = v1_6_2.DeployUSDCTokenPoolInput{
+			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
+			TokenMessenger:      tokenMessenger.Address,
+			TokenAddress:        usdcToken.Address,
+			PoolType:            shared.HybridLockReleaseUSDCTokenPool,
 		}
 	}
 
