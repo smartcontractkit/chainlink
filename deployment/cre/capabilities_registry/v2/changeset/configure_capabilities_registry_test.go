@@ -190,6 +190,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	configureInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               chainSelector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
+		UseMCMS:                     false,
 		Nops:                        nops,
 		Capabilities:                capabilities,
 		Nodes:                       nodes,

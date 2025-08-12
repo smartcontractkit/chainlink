@@ -16,6 +16,7 @@ var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabiliti
 type ConfigureCapabilitiesRegistryInput struct {
 	ChainSelector               uint64                                                      `json:"chainSelector"`
 	CapabilitiesRegistryAddress string                                                      `json:"capabilitiesRegistryAddress"`
+	UseMCMS                     bool                                                        `json:"useMCMS"`
 	Nops                        []capabilities_registry_v2.CapabilitiesRegistryNodeOperator `json:"nops,omitempty"`
 	Capabilities                []capabilities_registry_v2.CapabilitiesRegistryCapability   `json:"capabilities,omitempty"`
 	Nodes                       []capabilities_registry_v2.CapabilitiesRegistryNodeParams   `json:"nodes,omitempty"`
@@ -46,7 +47,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		sequences.ConfigureCapabilitiesRegistryDeps{Env: &e},
 		sequences.ConfigureCapabilitiesRegistryInput{
 			RegistryChainSel: config.ChainSelector,
-			UseMCMS:          false, // Assuming MCMS is not used in this context
+			UseMCMS:          config.UseMCMS,
 			ContractAddress:  config.CapabilitiesRegistryAddress,
 			Nops:             config.Nops,
 			Capabilities:     config.Capabilities,
