@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"sort"
 	"strconv"
@@ -83,8 +82,6 @@ type dataSource struct {
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
 }
-
-var _ io.Closer = dataSource{}
 
 type observableStreamValues struct {
 	opts         llo.DSOpts
@@ -264,7 +261,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	}
 }
 
-func (d dataSource) Close() error {
+func (d *dataSource) Close() error {
 	if !d.observationLoopStarted {
 		return nil
 	}
