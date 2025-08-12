@@ -916,7 +916,6 @@ func (d *Delegate) newDonTimePlugin(
 		return nil, err
 	}
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
-	fmt.Println("CREATED NEW DON TIME PLUGIN")
 	return srvs, nil
 }
 

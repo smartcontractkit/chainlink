@@ -578,8 +578,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, errors.New("P2P stack required for OCR or OCR2")
 	}
 
-	// TODO: DO I need this peerWrapper or anything to start DonTime Plugin?
-
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
 		globalLogger,
@@ -645,16 +643,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			ocr2DelegateConfig,
 		)
 		delegates[job.OffchainReporting2] = ocr2Delegate
-
-		// TODO: Run Local CRE Environment and ensure plugin is running
-		// TODO: In Application let's hard code the contract Addr for now and use OCR3Capability addr.
-		/*
-			err := ocr2Delegate.StartDonTimePlugin(ctx, globalLogger, nil)
-			if err != nil {
-				return nil, err
-			}
-		*/
-
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,

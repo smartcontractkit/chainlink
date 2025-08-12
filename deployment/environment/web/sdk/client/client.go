@@ -335,7 +335,6 @@ func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bo
 			return &cmd, nil
 		}
 	}
-	fmt.Println("FAILED TO APPROVE JOB PROPOSAL SEPC", id)
 	return nil, errors.New("failed to approve job proposal spec")
 }
 

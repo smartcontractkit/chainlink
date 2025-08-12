@@ -41,6 +41,7 @@ type Delegate struct {
 	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
 	dontimeStore   *dontime.Store
+
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainID is the chain ID for the workflow registry
