@@ -55,7 +55,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		},
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy chain contracts: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure capabilities registry: %w", err)
 	}
 
 	reports := make([]operations.Report[any, any], 0)
