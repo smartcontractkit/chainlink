@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -48,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -288,7 +290,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 		Method:  vault.MethodSecretsCreate,
 		Params: &vault.SecretsCreateRequest{
 			ID:    "testsecret1",
-			Value: hex.EncodeToString([]byte("testsecretvalue1")),
+			Value: encryptSecret(t, "VaultTestCreateSecret value"),
 			Owner: "testowner1",
 		},
 		ID: "1",
@@ -334,6 +336,19 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	require.Empty(t, response.Result.ErrorMessage)
 
 	framework.L.Info().Msg("Secret created successfully")
+}
+
+func encryptSecret(t *testing.T, secret string) string {
+	masterPublicKey := tdh2easy.PublicKey{}
+	masterPublicKeyBytes, err := hex.DecodeString(crevault.MasterPublicKeyStr)
+	require.NoError(t, err)
+	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
+	require.NoError(t, err)
+	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+	return hex.EncodeToString(cipherBytes)
 }
 
 const (

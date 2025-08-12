@@ -201,6 +201,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 						Error:   errorMsg,
 					})
 				} else {
+					r.lggr.Infof("Debugging: VaultOCR Observation successful. Create secret request validated: %s", validatedID)
 					resps = append(resps, &vault.CreateSecretResponse{
 						Id: validatedID,
 						// false because it hasn't been processed yet.
@@ -409,7 +410,9 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return errors.New("failed to unmarshal observations: " + err.Error())
 	}
 
-	r.lggr.Infof("Debugging: VaultOCR ValidateObservation. Batch-size: %d", len(obs.Observations))
+	if len(obs.Observations) > 0 {
+		r.lggr.Infof("Debugging: VaultOCR ValidateObservation. Batch-size: %d", len(obs.Observations))
+	}
 	seen := map[string]bool{}
 	for _, o := range obs.Observations {
 		err := validateObservation(o)
@@ -514,6 +517,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 
+		r.lggr.Infof("Debugging: VaultOCR StateTransition. obs.Observations: %d", len(obs.Observations))
 		for _, o := range obs.Observations {
 			if _, ok := obsMap[o.Id]; !ok {
 				obsMap[o.Id] = []*vault.Observation{}
@@ -524,6 +528,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
+	if len(aos) > 0 {
+		r.lggr.Infof("Debugging: VaultOCR StateTransition. obsMap-size: %d", len(obsMap))
+	}
 	os := &vault.Outcomes{
 		Outcomes: []*vault.Outcome{},
 	}
@@ -658,6 +665,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				idToReqs[keyFor(r.Id)] = r
 			}
 
+			r.lggr.Debugw("Debugging: StateTransition entered RequestType_CREATE_SECRETS")
+
 			newReqs := []*vault.EncryptedSecret{}
 			for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 				newReqs = append(newReqs, idToReqs[sreq])
@@ -669,6 +678,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				},
 			}
 
+			r.lggr.Debugw("Debugging: StateTransition total requests to process", "count", len(newReqs))
+
 			// Next let's aggregate the responses.
 			// We do this by taking the first response, and determine if
 			// there was a validation error. If not, we write it to the key value store.
@@ -678,6 +689,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			for _, r := range resp.Responses {
 				idToResps[keyFor(r.Id)] = r
 			}
+			r.lggr.Debugw("Debugging: StateTransition total responses to process", "count", len(resp.Responses))
 
 			sortedResps := []*vault.CreateSecretResponse{}
 			for _, id := range slices.Sorted(maps.Keys(idToResps)) {
