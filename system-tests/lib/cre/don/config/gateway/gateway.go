@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
@@ -20,20 +19,13 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
-var GenerateConfigFn = func(handlerType jobs.HandlerType) cre.ConfigFactoryFn {
-	return func(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
-		return GenerateConfig(
-			input,
-			handlerType,
-		)
-	}
-}
+var GenerateConfigFn = generateConfig
 
-func GenerateConfig(input cre.GenerateConfigsInput, handlerType jobs.HandlerType) (cre.NodeIndexToConfigOverride, error) {
+func generateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
-	if input.GatewayConnectorOutput == nil {
-		return configOverrides, errors.New("gateway connector output is not set")
+	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
+		return configOverrides, errors.New("gateway connector output or configurations are empty")
 	}
 
 	// find worker nodes
@@ -70,7 +62,7 @@ func GenerateConfig(input cre.GenerateConfigsInput, handlerType jobs.HandlerType
 		}
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
-		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
+		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector.
 		// gateway is also required by various capabilities
 		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsGateway(input.Flags) {
 			var nodeEthAddr common.Address
@@ -85,12 +77,24 @@ func GenerateConfig(input cre.GenerateConfigsInput, handlerType jobs.HandlerType
 				}
 			}
 
+			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
+
+			if len(gatewayConfigurations) == 0 {
+				return nil, errors.New("no gateway connector configurations found")
+			}
+
+			var donID string
+			if flags.HasFlag(input.Flags, cre.VaultCapability) {
+				donID = cre.VaultGatewayDonID
+			} else {
+				donID = input.DonMetadata.Name
+			}
+
 			configOverrides[nodeIndex] += config.WorkerGateway(
-				handlerType,
 				nodeEthAddr,
 				homeChainID,
-				input.DonMetadata.ID,
-				*input.GatewayConnectorOutput,
+				donID,
+				gatewayConfigurations,
 			)
 		}
 	}

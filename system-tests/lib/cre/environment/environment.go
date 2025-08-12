@@ -341,7 +341,7 @@ func SetupTestEnvironment(
 			ChainSelector:   homeChainOutput.ChainSelector,
 			// TODO, here we might need to pass new environment that doesn't have chains that do not have forwarders deployed
 			CldEnv:         nonEmptyChainsCLDEnvironment,
-			AllowedDonIDs:  []uint32{topology.WorkflowDONID},
+			AllowedDonIDs:  []uint64{topology.WorkflowDONID},
 			WorkflowOwners: []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
 		}
 
@@ -368,6 +368,14 @@ func SetupTestEnvironment(
 	if jobsSeqErr != nil {
 		return nil, pkgerrors.Wrap(jobsSeqErr, "failed to setup jobs")
 	}
+
+	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	for idx, nsOut := range nodeSetOutput {
+		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+	}
+
+	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
+	input.JdInput.Out = jdOutput
 
 	// Prepare the CLD environment that's required by the keystone changeset
 	// Ugly glue hack ¯\_(ツ)_/¯

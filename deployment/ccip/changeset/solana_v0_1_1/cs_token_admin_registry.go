@@ -700,6 +700,7 @@ type SetTokenPoolSupportAutoDerivationConfig struct {
 	TokenPubKey            solana.PublicKey
 	SupportsAutoDerivation bool
 	MCMS                   *proposalutils.TimelockConfig
+	SkipRegistryCheck      bool // set to true when you want to register, set pool, and set auto derivation flag in the same proposal
 }
 
 func (cfg SetTokenPoolSupportAutoDerivationConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -725,25 +726,6 @@ func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSuppo
 
 	chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
 
-	var ix solana.Instruction
-	tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-		&e,
-		chain,
-		chainState,
-		shared.CCTPTokenPool,
-		cfg.TokenPubKey,
-		shared.CLLMetadata,
-	)
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.CCTPTokenPool,
-		cfg.TokenPubKey,
-		shared.CLLMetadata,
-	)
-
 	routerProgramAddress, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch router info from state: %w", err)
@@ -754,13 +736,31 @@ func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSuppo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token admin registry PDA: %w", err)
 	}
 
-	ix, err = solRouter.NewSetPoolSupportsAutoDerivationInstruction(cfg.TokenPubKey, cfg.SupportsAutoDerivation, routerConfigPDA, tokenAdminRegistryPDA, authority).ValidateAndBuild()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.SolChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
+	var ix solana.Instruction
+	var currentAdmin solana.PublicKey
+	// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin
+	if cfg.SkipRegistryCheck {
+		currentAdmin = timelockSignerPDA
+	} else {
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(e.GetContext(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool auto derivation", cfg.TokenPubKey.String(), routerProgramAddress.String())
+		}
+		currentAdmin = tokenAdminRegistryAccount.Administrator
+	}
+
+	ix, err = solRouter.NewSetPoolSupportsAutoDerivationInstruction(cfg.TokenPubKey, cfg.SupportsAutoDerivation, routerConfigPDA, tokenAdminRegistryPDA, currentAdmin).ValidateAndBuild()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 
-	if tokenPoolUsingMcms {
-		tx, err := BuildMCMSTxn(ix, tokenPool.String(), shared.CCTPTokenPool)
+	if currentAdmin.Equals(timelockSignerPDA) {
+		tx, err := BuildMCMSTxn(ix, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

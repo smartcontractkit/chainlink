@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -35,13 +37,17 @@ func ValidateCacheForChain(env cldf.Environment, chainSelector uint64, cacheAddr
 	return nil
 }
 
-func ValidateMCMSAddresses(ab cldf.AddressBook, chainSelector uint64) error {
-	if _, err := cldf.SearchAddressBook(ab, chainSelector, commonTypes.RBACTimelock); err != nil {
-		return fmt.Errorf("timelock not present on the chain %w", err)
+func ValidateMCMSAddresses(addressStore datastore.AddressRefStore, chainSelector uint64) error {
+	records := addressStore.Filter(datastore.AddressRefByType(datastore.ContractType(commonTypes.RBACTimelock)))
+	if len(records) == 0 {
+		return fmt.Errorf("timelock not present on the chain %d", chainSelector)
 	}
-	if _, err := cldf.SearchAddressBook(ab, chainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
-		return fmt.Errorf("mcms proposer not present on the chain %w", err)
+
+	records = addressStore.Filter(datastore.AddressRefByType(datastore.ContractType(commonTypes.ProposerManyChainMultisig)))
+	if len(records) == 0 {
+		return fmt.Errorf("mcms proposer not present on the chain %d", chainSelector)
 	}
+
 	return nil
 }
 

@@ -2,12 +2,10 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 )
 
 func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
@@ -63,11 +61,13 @@ func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:6690']
-	DefaultBootstrappers = ['%s@%s:6690']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 `,
+		peeringData.Port,
 		peeringData.GlobalBootstraperPeerID,
 		"localhost", // bootstrap node should always point to itself as the don2don peering bootstrapper
+		peeringData.Port,
 	)
 }
 
@@ -82,7 +82,7 @@ type WorkerEVMInput struct {
 	HasForwarderContract bool
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -135,13 +135,13 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 
 	[P2P.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:5001']
-	DefaultBootstrappers = ['%s@%s:5001']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 
 	[Capabilities.Peering.V2]
 	Enabled = true
-	ListenAddresses = ['0.0.0.0:6690']
-	DefaultBootstrappers = ['%s@%s:6690']
+	ListenAddresses = ['0.0.0.0:%d']
+	DefaultBootstrappers = ['%s@%s:%d']
 
 %s
 	# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
@@ -151,10 +151,14 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 	NetworkID = 'evm'
 	ChainID = '%d'
 `,
+		ocrPeeringData.Port,
 		donBootstrapNodePeerID,
 		donBootstrapNodeHost,
-		peeringData.GlobalBootstraperPeerID,
-		peeringData.GlobalBootstraperHost,
+		ocrPeeringData.Port,
+		capabilitiesPeeringData.Port,
+		capabilitiesPeeringData.GlobalBootstraperPeerID,
+		capabilitiesPeeringData.GlobalBootstraperHost,
+		capabilitiesPeeringData.Port,
 		evmChainsConfig,
 		capabilitiesRegistryAddress,
 		homeChainID,
@@ -177,28 +181,29 @@ func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uin
 	)
 }
 
-func WorkerGateway(handlerType jobs.HandlerType, nodeAddress common.Address, homeChainID uint64, donID uint32, gatewayConnectorData cre.GatewayConnectorOutput) string {
-	gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
-	var donIDStr string
-	if handlerType == jobs.HTTPHandlerType {
-		donIDStr = "workflows"
-	} else {
-		donIDStr = strconv.FormatUint(uint64(donID), 10)
-	}
-
-	return fmt.Sprintf(`
+func WorkerGateway(nodeAddress common.Address, homeChainID uint64, donID string, gatewayConfiguration []*cre.GatewayConfiguration) string {
+	config := fmt.Sprintf(`
 	[Capabilities.GatewayConnector]
 	DonID = "%s"
 	ChainIDForNodeKey = "%d"
 	NodeAddress = '%s'
-
-	[[Capabilities.GatewayConnector.Gateways]]
-	Id = "por_gateway"
-	URL = "%s"
 `,
-		donIDStr,
+		donID,
 		homeChainID,
 		nodeAddress,
-		gatewayURL,
 	)
+
+	for _, gatewayConnectorData := range gatewayConfiguration {
+		gatewayURL := fmt.Sprintf("ws://%s:%d%s", gatewayConnectorData.Outgoing.Host, gatewayConnectorData.Outgoing.Port, gatewayConnectorData.Outgoing.Path)
+		config += fmt.Sprintf(`
+	[[Capabilities.GatewayConnector.Gateways]]
+	Id = "%s"
+	URL = "%s"
+`,
+			gatewayConnectorData.AuthGatewayID,
+			gatewayURL,
+		)
+	}
+
+	return config
 }

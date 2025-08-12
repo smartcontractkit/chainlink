@@ -4,6 +4,7 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/hex"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
@@ -17,6 +18,7 @@ import (
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault/sanmarinodkg/dummydkg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault/sanmarinodkg/tdh2shim"
@@ -77,6 +79,16 @@ func GenerateJobSpecs(offchainClient cldf_offchain.Client, donTopology *cre.DonT
 	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
+	donMetadata := make([]*cre.DonMetadata, 0)
+	for _, don := range donTopology.DonsWithMetadata {
+		donMetadata = append(donMetadata, don.DonMetadata)
+	}
+
+	// return early if no DON has the vault capability
+	if !don.AnyDonHasCapability(donMetadata, cre.VaultCapability) {
+		return donToJobSpecs, nil
+	}
+
 	vaultOCR3Key := datastore.NewAddressRefKey(
 		donTopology.HomeChainSelector,
 		datastore.ContractType(keystone_changeset.OCR3Capability.String()),
@@ -103,17 +115,20 @@ func GenerateJobSpecs(offchainClient cldf_offchain.Client, donTopology *cre.DonT
 		// look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
-			return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
-		}
+			// if there is no bootstrap node in this DON, we need to use the global bootstrap node
+			for _, don := range donTopology.DonsWithMetadata {
+				for _, n := range don.NodesMetadata {
+					p2pValue, p2pErr := node.FindLabelValue(n, node.NodeP2PIDKey)
+					if p2pErr != nil {
+						continue
+					}
 
-		donBootstrapNodePeerID, pIDErr := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
-		if pIDErr != nil {
-			return nil, errors.Wrap(pIDErr, "failed to get bootstrap node peer ID")
-		}
-
-		donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
-		if hostErr != nil {
-			return nil, errors.Wrap(hostErr, "failed to get bootstrap node host from labels")
+					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
+						bootstrapNode = n
+						break
+					}
+				}
+			}
 		}
 
 		bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
@@ -123,12 +138,6 @@ func GenerateJobSpecs(offchainClient cldf_offchain.Client, donTopology *cre.DonT
 
 		// create job specs for the bootstrap node
 		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
-
-		ocrPeeringData := cre.OCRPeeringData{
-			OCRBootstraperPeerID: donBootstrapNodePeerID,
-			OCRBootstraperHost:   donBootstrapNodeHost,
-			Port:                 5001,
-		}
 
 		pk, sks, err := dkgKeys(len(workflowNodeSet), 1)
 		if err != nil {
@@ -156,7 +165,7 @@ func GenerateJobSpecs(offchainClient cldf_offchain.Client, donTopology *cre.DonT
 				return nil, errors.Wrap(encErr, "failed to encrypt private share")
 			}
 
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID, pk, encryptedShare))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, donTopology.OCRPeeringData, chainID, pk, encryptedShare))
 		}
 	}
 

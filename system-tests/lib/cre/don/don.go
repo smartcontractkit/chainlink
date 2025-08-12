@@ -10,6 +10,7 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -23,7 +24,7 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 
 	for _, don := range input.DonTopology.DonsWithMetadata {
 		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
-			createErr := jobs.Create(ctx, input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
+			createErr := jobs.Create(ctx, input.CldEnv.Offchain, jobSpecs)
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 			}
@@ -74,7 +75,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 		}
 
 		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint32(i + 1),
+			ID:              libc.MustSafeUint64FromInt(i + 1),
 			Flags:           flags,
 			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
 			Name:            nodeSetInput[i].Name,
@@ -107,21 +108,28 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 
 					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
-					topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+					if topology.GatewayConnectorOutput == nil {
+						topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+							Configurations: make([]*cre.GatewayConfiguration, 0),
+						}
+					}
+
+					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 						Outgoing: cre.Outgoing{
 							Path: "/node",
-							Port: 5003,
+							Port: config.GatewayOutgoingPort,
 							Host: gatewayInternalHost,
 						},
 						Incoming: cre.Incoming{
 							Protocol:     "http",
 							Path:         "/",
-							InternalPort: 5002,
+							InternalPort: config.GatewayIncomingPort,
 							ExternalPort: ExternalGatewayPort(infraInput),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
+						AuthGatewayID: "cre-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
-					}
+					})
 				}
 			}
 
@@ -151,10 +159,21 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 	return topology, nil
 }
 
+func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.CapabilityFlag) bool {
+	for _, don := range donMetadata {
+		if slices.Contains(don.Flags, capability) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
 	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability) ||
+		flags.HasFlag(nodeFlags, cre.VaultCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPActionCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPTriggerCapability)
 }

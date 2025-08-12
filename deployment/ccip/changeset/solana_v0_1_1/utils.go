@@ -30,7 +30,7 @@ const (
 
 var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
 	SolanaContractV0_1_0: "0ee732e80586",
-	SolanaContractV0_1_1: "ee587a6c0562",
+	SolanaContractV0_1_1: "7f8a0f403c3a",
 }
 
 func ValidateMCMSConfigSolana(

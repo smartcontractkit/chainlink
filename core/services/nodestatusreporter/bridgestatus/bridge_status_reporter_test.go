@@ -291,6 +291,47 @@ func TestService_pollBridge_InvalidURL(t *testing.T) {
 	jobORM.AssertExpectations(t)
 }
 
+func TestService_pollBridge_EmptyURL(t *testing.T) {
+	httpClient := &http.Client{}
+	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
+
+	// Mock job ORM call that now happens at the start of pollBridge
+	jobORM.On("FindJobIDsWithBridge", mock.Anything, "test-bridge").Return([]int32{}, nil)
+
+	ctx := context.Background()
+
+	assert.NotPanics(t, func() {
+		service.pollBridge(ctx, "test-bridge", "")
+	})
+
+	emitter.AssertNotCalled(t, "Emit", mock.Anything, mock.Anything, mock.Anything)
+	emitter.AssertNotCalled(t, "With", mock.Anything)
+
+	jobORM.AssertExpectations(t)
+}
+
+func TestService_pollBridge_URLPathPreservation(t *testing.T) {
+	// Create mock that expects the exact URL with preserved path + status
+	httpClient := mocks.NewMockHTTPClientWithExpectedURL(
+		loadFixture(t, "bridge_status_response.json"),
+		http.StatusOK,
+		"http://localhost:8080/bridge/v1/status",
+	)
+	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
+
+	// Mock job ORM calls
+	jobORM.On("FindJobIDsWithBridge", mock.Anything, "test-bridge").Return([]int32{}, nil)
+	emitter.On("Emit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	ctx := context.Background()
+
+	// If URL path joining is broken, this will fail with "unexpected URL" error
+	service.pollBridge(ctx, "test-bridge", "http://localhost:8080/bridge/v1")
+
+	jobORM.AssertExpectations(t)
+	emitter.AssertExpectations(t)
+}
+
 func TestService_pollBridge_Non200Status(t *testing.T) {
 	httpClient := mocks.NewMockHTTPClient("Not Found", http.StatusNotFound)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)

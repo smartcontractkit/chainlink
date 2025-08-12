@@ -25,7 +25,7 @@ func NewMultiHandler(handlerFactory HandlerFactory, hdlrs []config.Handler, donC
 	for _, h := range hdlrs {
 		hdlr, err := handlerFactory.NewHandler(h.Name, h.Config, donConfig, connMgr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create handler: %w", err)
+			return nil, fmt.Errorf("failed to create handler %s: %w", h.Name, err)
 		}
 
 		typeToHandler[h.Name] = hdlr
