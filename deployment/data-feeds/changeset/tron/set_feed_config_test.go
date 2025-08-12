@@ -85,11 +85,10 @@ func TestSetFeedConfig(t *testing.T) {
 		commonChangesets.Configure(
 			tron.SetFeedAdminChangeset,
 			types.SetFeedAdminTronConfig{
-				ChainSelector:  chainSelector,
-				CacheAddress:   cacheAddress,
-				AdminAddress:   env.BlockChains.TronChains()[chainSelector].Address,
-				IsAdmin:        true,
-				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
+				ChainSelector: chainSelector,
+				CacheAddress:  cacheAddress,
+				AdminAddress:  env.BlockChains.TronChains()[chainSelector].Address,
+				IsAdmin:       true,
 			},
 		),
 		commonChangesets.Configure(

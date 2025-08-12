@@ -65,8 +65,8 @@ jobs:
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
-          # Get the list of tests and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
+          # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -82,7 +82,7 @@ jobs:
     needs: [define-test-matrix]
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -93,6 +93,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
+          persist-credentials: false
 
       - name: Set up Go
         id: setup-go
@@ -125,6 +126,7 @@ jobs:
           go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
+      # TODO: checkout that repo and build each capability instead
       - name: Download test dependencies
         uses: ./.github/actions/setup-cre-e2e-test-dependencies
         with:
@@ -137,19 +139,44 @@ jobs:
       # TODO
       # Add Flakeguard support
 
-      - name: Run CRE system tests
+      - name: Enable cron capability
         shell: bash
-        working-directory: system-tests/tests
+        working-directory: core/scripts/cre/environment/configs
+        run: |
+          echo "[extra_capabilities]" >> "ci-config.toml"
+          echo "cron_capability_binary_path = \"${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron\"" >> "ci-config.toml"
+
+          cat "ci-config.toml"
+
+      - name: Start local CRE
+        shell: bash
+        id: start-local-cre
         env:
+          TOPOLOGY: ${{ matrix.tests.topology }}
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_CONFIGS: ${{ matrix.tests.configs }}
+        run: |
+          cd core/scripts/cre/environment
+          go run . env start --topology ${TOPOLOGY}
+
+          echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
+          echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
+      - name: Run CRE system tests
+        shell: bash
+        working-directory: system-tests/tests
+        env:
           TEST_NAME: ${{ matrix.tests.test_name }}
+          ENV_ARTIFACT_PATH: ${{ steps.start-local-cre.outputs.env_artifact_path }}
+          CTF_CONFIGS: ${{ steps.start-local-cre.outputs.env_config_path }}
+          CRE_TOPOLOGY: ${{ matrix.tests.topology }}
+          TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
 
       - name: Upload all artifacts as single package
         if: failure()

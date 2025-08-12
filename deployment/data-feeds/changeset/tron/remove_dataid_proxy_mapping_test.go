@@ -62,11 +62,10 @@ func TestRemoveDataIDProxyMapping(t *testing.T) {
 		commonChangesets.Configure(
 			tron.SetFeedAdminChangeset,
 			types.SetFeedAdminTronConfig{
-				ChainSelector:  chainSelector,
-				CacheAddress:   cacheAddress,
-				AdminAddress:   env.BlockChains.TronChains()[chainSelector].Address,
-				IsAdmin:        true,
-				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
+				ChainSelector: chainSelector,
+				CacheAddress:  cacheAddress,
+				AdminAddress:  env.BlockChains.TronChains()[chainSelector].Address,
+				IsAdmin:       true,
 			},
 		),
 		commonChangesets.Configure(
@@ -76,7 +75,6 @@ func TestRemoveDataIDProxyMapping(t *testing.T) {
 				CacheAddress:   cacheAddress,
 				ProxyAddresses: []address.Address{proxyAddress},
 				DataIDs:        []string{dataID},
-				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
 			},
 		),
 	)
@@ -90,7 +88,6 @@ func TestRemoveDataIDProxyMapping(t *testing.T) {
 				ChainSelector:  chainSelector,
 				CacheAddress:   cacheAddress,
 				ProxyAddresses: []address.Address{proxyAddress},
-				TriggerOptions: cldf_tron.DefaultTriggerOptions(),
 			},
 		),
 	)

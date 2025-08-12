@@ -723,17 +723,18 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold:       ptr[uint32](5),
-					PollInterval:               &minute,
-					SelectionMode:              &selectionMode,
-					SyncThreshold:              ptr[uint32](13),
-					LeaseDuration:              &zeroSeconds,
-					NodeIsSyncingEnabled:       ptr(true),
-					FinalizedBlockPollInterval: &second,
-					EnforceRepeatableRead:      ptr(true),
-					DeathDeclarationDelay:      &minute,
-					VerifyChainID:              ptr(true),
-					NewHeadsPollInterval:       &zeroSeconds,
+					PollFailureThreshold:           ptr[uint32](5),
+					PollInterval:                   &minute,
+					SelectionMode:                  &selectionMode,
+					SyncThreshold:                  ptr[uint32](13),
+					LeaseDuration:                  &zeroSeconds,
+					NodeIsSyncingEnabled:           ptr(true),
+					FinalizedBlockPollInterval:     &second,
+					EnforceRepeatableRead:          ptr(true),
+					DeathDeclarationDelay:          &minute,
+					VerifyChainID:                  ptr(true),
+					NewHeadsPollInterval:           &zeroSeconds,
+					ExternalRequestMaxResponseSize: ptr[uint32](10),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -1244,6 +1245,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 10
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

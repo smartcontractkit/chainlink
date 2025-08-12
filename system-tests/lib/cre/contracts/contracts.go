@@ -487,6 +487,11 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowReg
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
+	allowedDonIDs := make([]uint32, len(input.AllowedDonIDs))
+	for i, donID := range input.AllowedDonIDs {
+		allowedDonIDs[i] = libc.MustSafeUint32FromUint64(donID)
+	}
+
 	report, err := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigWorkflowRegistrySeq,
@@ -496,7 +501,7 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowReg
 		ks_contracts_op.ConfigWorkflowRegistrySeqInput{
 			ContractAddress:       input.ContractAddress,
 			RegistryChainSelector: input.ChainSelector,
-			AllowedDonIDs:         input.AllowedDonIDs,
+			AllowedDonIDs:         allowedDonIDs,
 			WorkflowOwners:        input.WorkflowOwners,
 		},
 	)
