@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -10,7 +9,7 @@ import (
 
 type TimeProvider interface {
 	GetNodeTime() time.Time
-	GetDONTime(ctx context.Context) (time.Time, error)
+	GetDONTime() (time.Time, error)
 }
 
 var _ TimeProvider = &DonTimeProvider{}
@@ -36,7 +35,7 @@ func (tp *DonTimeProvider) GetNodeTime() time.Time {
 }
 
 // GetDONTime makes a request to the WorkflowLib plugin store for DON Time
-func (tp *DonTimeProvider) GetDONTime(ctx context.Context) (time.Time, error) {
+func (tp *DonTimeProvider) GetDONTime() (time.Time, error) {
 	defer func() {
 		tp.timeSeqNum++
 	}()
@@ -55,8 +54,6 @@ func (tp *DonTimeProvider) GetDONTime(ctx context.Context) (time.Time, error) {
 			return tp.GetNodeTime(), nil
 		}
 		return fromUnixMilli(donTimeResp.Timestamp), nil
-	case <-ctx.Done():
-		return time.Time{}, ctx.Err()
 	}
 }
 
