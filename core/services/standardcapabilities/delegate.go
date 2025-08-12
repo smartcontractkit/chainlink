@@ -120,7 +120,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	var ks core.Keystore
 	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
-		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+		signingKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
 			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
 		}
@@ -128,13 +128,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if err != nil {
 			return nil, fmt.Errorf("failed to get default workflow key: %w", err)
 		}
-		ks, err = core.NewSignerDecrypter(&core.P2PAccountKey, key, &core.WorkflowAccountKey, workflowKey)
+		ks, err = core.NewSignerDecrypter(&core.StandardCapabilityAccount, signingKey, workflowKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
 		}
 	} else {
 		var err error
-		ks, err = core.NewSignerDecrypter(nil, nil, nil, nil)
+		ks, err = core.NewSignerDecrypter(nil, nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
 		}
