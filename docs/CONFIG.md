@@ -2467,6 +2467,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -2582,6 +2583,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -2697,6 +2699,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -2812,6 +2815,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -2932,6 +2936,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -3048,6 +3053,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3163,6 +3169,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3277,6 +3284,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3391,6 +3399,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3506,6 +3515,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3621,6 +3631,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3737,6 +3748,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3852,6 +3864,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -3967,6 +3980,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4087,6 +4101,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4202,6 +4217,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4317,6 +4333,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4432,6 +4449,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4552,6 +4570,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -4669,6 +4688,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -4786,6 +4806,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -4906,6 +4927,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5024,6 +5046,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5143,6 +5166,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5258,6 +5282,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5372,6 +5397,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5492,6 +5518,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -5611,6 +5638,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5727,6 +5755,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5843,6 +5872,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -5962,6 +5992,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -6081,6 +6112,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -6201,6 +6233,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -6321,6 +6354,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -6436,6 +6470,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -6552,6 +6587,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -6672,6 +6708,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -6786,6 +6823,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -6906,6 +6944,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -7023,6 +7062,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -7139,6 +7179,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -7255,6 +7296,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -7370,6 +7412,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -7484,6 +7527,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -7604,6 +7648,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -7724,6 +7769,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -7838,6 +7884,7 @@ EnforceRepeatableRead = false
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -7958,6 +8005,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -8078,6 +8126,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -8193,6 +8242,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -8308,6 +8358,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -8428,6 +8479,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -8545,6 +8597,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -8659,6 +8712,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -8774,6 +8828,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -8889,6 +8944,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9004,6 +9060,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9120,6 +9177,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -9240,6 +9298,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9361,6 +9420,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9482,6 +9542,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9596,6 +9657,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -9716,6 +9778,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -9830,6 +9893,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -9946,6 +10010,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -10065,6 +10130,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -10184,6 +10250,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -10299,6 +10366,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -10419,6 +10487,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -10538,6 +10607,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [NodePool.Errors]
 TerminallyUnderpriced = '(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. (?:P|p)lease contact developers and provide transaction details that caused this error. Error description: (?:The operator included transaction with an unacceptable gas price|Assertion error: Fair pubdata price too high))$'
@@ -10660,6 +10730,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -10776,6 +10847,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -10895,6 +10967,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -11010,6 +11083,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -11125,6 +11199,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -11241,6 +11316,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -11363,6 +11439,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -11485,6 +11562,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -11600,6 +11678,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -11720,6 +11799,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -11834,6 +11914,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -11951,6 +12032,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12068,6 +12150,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12188,6 +12271,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -12308,6 +12392,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12426,6 +12511,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12541,6 +12627,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12656,6 +12743,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12771,6 +12859,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -12886,6 +12975,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -13006,6 +13096,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -13125,6 +13216,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -13245,6 +13337,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -13359,6 +13452,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -13473,6 +13567,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -13592,6 +13687,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -13706,6 +13802,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -13820,6 +13917,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -13939,6 +14037,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -14054,6 +14153,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -14169,6 +14269,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -14288,6 +14389,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -14407,6 +14509,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -14526,6 +14629,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -14647,6 +14751,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -14768,6 +14873,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -14884,6 +14990,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -15003,6 +15110,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -15122,6 +15230,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15242,6 +15351,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15362,6 +15472,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15480,6 +15591,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15595,6 +15707,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15715,6 +15828,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 1
@@ -15834,6 +15948,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -15953,6 +16068,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -16073,6 +16189,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -16188,6 +16305,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -16303,6 +16421,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [OCR]
 ContractConfirmations = 4
@@ -17194,6 +17313,7 @@ EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
 NewHeadsPollInterval = '0s' # Default
 VerifyChainID = true # Default
+ExternalRequestMaxResponseSize = 0 # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -17300,6 +17420,16 @@ Set to 0 to disable.
 VerifyChainID = true # Default
 ```
 VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
+
+### ExternalRequestMaxResponseSize
+```toml
+ExternalRequestMaxResponseSize = 0 # Default
+```
+ExternalRequestMaxResponseSize sets the maximum allowed size (in bytes) for responses to external requests.
+Responses larger than this value will be rejected to prevent the node from being overloaded.
+Only CRE workflow requests are considered external requests.
+Only applies for RPCs configured with HTTP urls. There is no limit for WS only RPCs.
+Set to 0 to disable the size check and allow responses of any size.
 
 ## EVM.NodePool.Errors
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
