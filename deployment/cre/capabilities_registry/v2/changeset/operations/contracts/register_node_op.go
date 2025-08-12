@@ -98,6 +98,10 @@ var RegisterNodesOp = operations.NewOperation[RegisterNodesOpInput, RegisterNode
 		}
 		// Parse the logs to get the added nodes
 		for i, log := range receipt.Logs {
+			if log == nil {
+				continue
+			}
+
 			o, err := capabilityRegistryFilterer.ParseNodeAdded(*log)
 			if err != nil {
 				return RegisterNodesOpOutput{}, fmt.Errorf("failed to parse log %d for node added: %w", i, err)

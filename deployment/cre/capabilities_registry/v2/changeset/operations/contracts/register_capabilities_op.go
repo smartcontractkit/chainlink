@@ -84,6 +84,10 @@ var RegisterCapabilitiesOp = operations.NewOperation[RegisterCapabilitiesOpInput
 		}
 		// Parse the logs to get the added capabilities
 		for i, log := range receipt.Logs {
+			if log == nil {
+				continue
+			}
+			
 			o, err := capabilityRegistryFilterer.ParseCapabilityConfigured(*log)
 			if err != nil {
 				return RegisterCapabilitiesOpOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)

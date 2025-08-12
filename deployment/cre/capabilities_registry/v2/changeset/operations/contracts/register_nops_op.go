@@ -82,6 +82,10 @@ var RegisterNopsOp = operations.NewOperation[RegisterNopsOpInput, RegisterNopsOp
 		}
 		// Parse the logs to get the added node operators
 		for i, log := range receipt.Logs {
+			if log == nil {
+				continue
+			}
+
 			o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
 			if err != nil {
 				return RegisterNopsOpOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
