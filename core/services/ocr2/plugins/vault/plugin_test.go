@@ -1953,9 +1953,9 @@ func TestPlugin_Reports(t *testing.T) {
 	assert.Len(t, rs, 2)
 
 	o1 := rs[0]
-	info1 := &vault.ReportInfo{}
-	err = proto.Unmarshal(o1.ReportWithInfo.Info, info1)
+	info1, err := extractReportInfo(o1.ReportWithInfo)
 	require.NoError(t, err)
+
 	assert.True(t, proto.Equal(&vault.ReportInfo{
 		Id:          keyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
@@ -1967,8 +1967,7 @@ func TestPlugin_Reports(t *testing.T) {
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
 	o2 := rs[1]
-	info2 := &vault.ReportInfo{}
-	err = proto.Unmarshal(o2.ReportWithInfo.Info, info2)
+	info2, err := extractReportInfo(o2.ReportWithInfo)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(&vault.ReportInfo{
 		Id:          keyFor(id2),
