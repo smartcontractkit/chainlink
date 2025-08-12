@@ -116,7 +116,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		if !ok {
 			d.timeout = 100 * time.Millisecond
 		} else {
-			d.timeout = deadline.Sub(time.Now())
+			d.timeout = time.Until(deadline)
 		}
 		d.configDigestToStreamMu.Unlock()
 
@@ -127,20 +127,12 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		}
 	}
 
-	successfulStreamIDs := make([]streams.StreamID, 0, len(streamValues))
-	var errs []ErrObservationFailed
-
-	// Observe all streams concurrently
+	// Fetch the cached observations for all streams.
 	for streamID := range streamValues {
-		// check for valid cached value and fail if there is none
 		val := d.fromCache(streamID)
-		if val == nil {
-			errs = append(errs, ErrObservationFailed{inner: nil, streamID: streamID, reason: "no observed stream value in cache"})
-			continue
+		if val != nil {
+			streamValues[streamID] = val
 		}
-
-		successfulStreamIDs = append(successfulStreamIDs, streamID)
-		streamValues[streamID] = val
 	}
 
 	return nil
@@ -153,6 +145,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	for {
 		now := time.Now()
+		// This slice of clean-up functions acts as a loop-level defer list.
+		loopCleanUpFns := []func(){}
 		opts, streamValues := d.getObservableStreams()
 
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
@@ -168,7 +162,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
-		defer cancel()
+		loopCleanUpFns = append(loopCleanUpFns, cancel)
 		// Telemetry
 		var telemCh chan<- interface{}
 		{
@@ -261,6 +255,11 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			close(loopStartedCh)
 		}
 
+		// Clean up anything that came up during the loop.
+		for _, fn := range loopCleanUpFns {
+			fn()
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -286,7 +285,7 @@ func (d *dataSource) toCache(streamID llotypes.StreamID, val llo.StreamValue) {
 
 func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues) {
 	d.configDigestToStreamMu.Lock()
-	var streamsToObserve []observableStreamValues
+	streamsToObserve := make([]observableStreamValues, 0, len(d.configDigestToStream))
 	for _, vals := range d.configDigestToStream {
 		streamsToObserve = append(streamsToObserve, vals)
 	}
