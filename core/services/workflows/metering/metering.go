@@ -168,7 +168,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 			lggr.Error(err)
 		}
 
-		rateCard, err = toRateCard(resp.GetRateCards())
+		rateCard, err = toRateCard(resp)
 		if err != nil {
 			lggr.Errorf("switching to metering mode: %s", err)
 
@@ -579,7 +579,9 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
+func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {
+	rates := resp.GetRateCards()
+
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
@@ -588,6 +590,19 @@ func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 		}
 
 		rateCard[rate.ResourceType.String()] = conversionDeci
+	}
+
+	// credits per gas are provided in the form of map[chainselector] -> <gasRate>string
+	// each entry should be converted to a usable rate card with form of GAS.[chainselector] -> <unitsPerCredit>decimal
+	gasCredits := resp.GetGasTokensPerCredit()
+
+	for chainSelector, gasRate := range gasCredits {
+		conversionDeci, err := decimal.NewFromString(gasRate)
+		if err != nil {
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
+		}
+
+		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
 	}
 
 	return rateCard, nil
