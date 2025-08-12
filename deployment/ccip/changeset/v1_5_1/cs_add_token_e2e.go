@@ -587,6 +587,12 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 		case shared.BurnMintERC20Token:
 			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
+					if cfg.MaxSupply == nil {
+						cfg.MaxSupply = big.NewInt(0)
+					}
+					if cfg.PreMint == nil {
+						cfg.PreMint = big.NewInt(0)
+					}
 					tokenAddress, tx, token, err := burn_mint_erc20.DeployBurnMintERC20(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
 						e.BlockChains.EVMChains()[selector].Client,
