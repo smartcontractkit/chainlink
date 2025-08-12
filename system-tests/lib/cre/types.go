@@ -253,6 +253,9 @@ type ConfigureKeystoneInput struct {
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address
 
+	DONTimeConfig  keystone_changeset.OracleConfig
+	DONTimeAddress *common.Address
+
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
 
