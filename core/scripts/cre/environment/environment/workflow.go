@@ -83,6 +83,7 @@ func deployWorkflowCmd() *cobra.Command {
 		workflowOwnerAddressFlag        string
 		workflowRegistryAddressFlag     string
 		capabilitiesRegistryAddressFlag string
+		donIDFlag                       uint32
 		chainIDFlag                     uint64
 		rpcURLFlag                      string
 	)
@@ -110,7 +111,7 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}()
 
-			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag)
+			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag)
 
 			return regErr
 		},
@@ -126,6 +127,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
 	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", "Capabilities registry address")
+	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 
 	return cmd
@@ -244,7 +246,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	return cmd
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32) error {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
 	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
@@ -312,7 +314,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 		fmt.Printf("\n⚙️ Encrypting workflow secrets\n")
 
-		encryptSecrets, err := encryptSecrets(sethClient, common.HexToAddress(capabilitiesRegistryAddressFlag), 1, workflowOwnerAddressFlag, envSecrets, secretsConfig)
+		encryptSecrets, err := encryptSecrets(sethClient, common.HexToAddress(capabilitiesRegistryAddressFlag), donIDFlag, workflowOwnerAddressFlag, envSecrets, secretsConfig)
 		if err != nil {
 			return err
 		}
@@ -375,7 +377,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, secretsPath, &containerTargetDirFlag)
+	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
