@@ -2,11 +2,14 @@ package environment
 
 import (
 	"maps"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/crypto"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -93,13 +97,29 @@ func CreateBlockchains(
 			return nil, pkgerrors.Wrap(err, "failed to create seth client")
 		}
 
-		chainSelector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
-		}
 		chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+		}
+
+		chainSelector, err = chainselectors.SelectorFromChainId(chainID)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", chainID)
+		}
+
+		if bi.Type == "tron" {
+			// skip seth client
+			sethClient = nil
+		} else {
+			sethClient, err = seth.NewClientBuilder().
+				WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+				WithPrivateKeys([]string{pkey}).
+				// do not check if there's a pending nonce nor check node's health
+				WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+				Build()
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "failed to create seth client")
+			}
 		}
 
 		blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
@@ -133,6 +153,43 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 	chainsConfigs := make([]devenv.ChainConfig, 0)
 
 	for _, bcOut := range blockchainsOutput {
+		if bcOut.BlockchainOutput.Type == "tron" {
+			// Create a deployer key for Tron contract deployment
+			pkey := os.Getenv("PRIVATE_KEY")
+			if pkey == "" {
+				return StartBlockchainsOutput{}, pkgerrors.New("PRIVATE_KEY env var must be set for Tron deployment")
+			}
+
+			privateKey, err := crypto.HexToECDSA(pkey)
+			if err != nil {
+				return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to parse private key for Tron")
+			}
+
+			chainID, err := strconv.ParseInt(bcOut.BlockchainOutput.ChainID, 10, 64)
+			if err != nil {
+				return StartBlockchainsOutput{}, pkgerrors.Wrapf(err, "failed to parse Tron chain ID %s", bcOut.BlockchainOutput.ChainID)
+			}
+
+			deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
+			if err != nil {
+				return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create transactor for Tron")
+			}
+
+			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
+				ChainID:   bcOut.BlockchainOutput.ChainID,
+				ChainName: "Tron",
+				ChainType: "EVM",
+				WSRPCs:    []devenv.CribRPCs{{}},
+				HTTPRPCs: []devenv.CribRPCs{{
+					External: "http://127.0.0.1:16671/jsonrpc",
+					Internal: "http://127.0.0.1:16671/jsonrpc",
+				}},
+				DeployerKey:        deployerKey,
+				PreferredURLScheme: deployment.URLSchemePreferenceHTTP,
+			})
+			continue
+		}
+
 		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
 			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
 			ChainName: bcOut.SethClient.Cfg.Network.Name,

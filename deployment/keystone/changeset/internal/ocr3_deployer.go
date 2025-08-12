@@ -26,7 +26,7 @@ func NewOCR3Deployer() (*OCR3Deployer, error) {
 }
 
 func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, ocr3_capability.OCR3CapabilityABI)
+	est, err := estimateDeploymentGas(req.Chain.Client, ocr3_capability.OCR3CapabilityBin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}

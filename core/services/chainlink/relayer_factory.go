@@ -86,6 +86,9 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 
 			relayID := types.RelayID{Network: network, ChainID: chain.ChainID.String()}
 			// loopp
+			if network == relay.NetworkTron {
+				r.Logger.Infow("Creating EVM relayer for Tron chain", "chainID", chain.ChainID.String())
+			}
 			cfgTOML, err := toml.Marshal(struct {
 				EVM evmtoml.EVMConfig
 			}{EVM: *chain})
@@ -139,7 +142,7 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 		// For Tron chains, inject a Tron-specific TXM
 		if network == relay.NetworkTron {
 			r.Logger.Infow("Creating EVM relayer for Tron chain", "chainID", chain.ID())
-
+			// TODO(sdk): wire Tron TXM into relayerOpts once available
 		}
 
 		relayer, err2 := evmrelay.NewRelayer(logger.Named(lggr, relayID.ChainID), chain, relayerOpts)
