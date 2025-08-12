@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -71,14 +72,13 @@ func (e *ErrObservationFailed) Unwrap() error {
 var _ llo.DataSource = &dataSource{}
 
 type dataSource struct {
-	lggr     logger.Logger
-	registry Registry
-	t        Telemeter
-	cache    *Cache
-	timeout  time.Duration
-
-	observationLoopStarted bool
+	lggr                   logger.Logger
+	registry               Registry
+	t                      Telemeter
+	cache                  *Cache
+	observationLoopStarted atomic.Bool
 	observationLoopCloseCh chan struct{}
+
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
 }
@@ -86,6 +86,7 @@ type dataSource struct {
 type observableStreamValues struct {
 	opts         llo.DSOpts
 	streamValues llo.StreamValues
+	timeout      time.Duration
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
@@ -94,11 +95,12 @@ func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataS
 
 func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCache bool) *dataSource {
 	return &dataSource{
-		lggr:                 logger.Named(lggr, "DataSource"),
-		registry:             registry,
-		t:                    t,
-		cache:                NewCache(500*time.Millisecond, time.Minute),
-		configDigestToStream: make(map[types.ConfigDigest]observableStreamValues),
+		lggr:                   logger.Named(lggr, "DataSource"),
+		registry:               registry,
+		t:                      t,
+		cache:                  NewCache(500*time.Millisecond, time.Minute),
+		configDigestToStream:   make(map[types.ConfigDigest]observableStreamValues),
+		observationLoopCloseCh: make(chan struct{}),
 	}
 }
 
@@ -108,20 +110,24 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
 		d.configDigestToStreamMu.Lock()
-		d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
-			opts,
-			streamValues,
+		values := make(llo.StreamValues, len(streamValues))
+		for streamID := range streamValues {
+			values[streamID] = nil
 		}
 
 		deadline, ok := ctx.Deadline()
 		if !ok {
-			d.timeout = 100 * time.Millisecond
-		} else {
-			d.timeout = time.Until(deadline)
+			deadline = time.Now().Add(100 * time.Millisecond)
+		}
+
+		d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
+			opts:         opts,
+			streamValues: values,
+			timeout:      time.Until(deadline),
 		}
 		d.configDigestToStreamMu.Unlock()
 
-		if !d.observationLoopStarted {
+		if !d.observationLoopStarted.Load() {
 			loopStartedCh := make(chan struct{})
 			go d.startObservationLoop(loopStartedCh)
 			<-loopStartedCh
@@ -145,10 +151,16 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // NOTE: This method needs to be run in a goroutine.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	for {
-		now := time.Now()
-		opts, streamValues := d.getObservableStreams()
+		select {
+		case <-d.observationLoopCloseCh:
+			return
+		default:
+		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
+		now := time.Now()
+		opts, streamValues, timeout := d.getObservableStreams()
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
@@ -214,8 +226,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		wg.Wait()
 
 		// Notify the caller that we've completed our first round of observations.
-		if !d.observationLoopStarted {
-			d.observationLoopStarted = true
+		if !d.observationLoopStarted.Load() {
+			d.observationLoopStarted.Store(true)
 			close(loopStartedCh)
 		}
 
@@ -257,12 +269,12 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		cancel()
 
 		// If we want to sleep between rounds, here is the place to do it.
-		time.Sleep(d.timeout / 20) // turn this know if the EAs are under too much pressure
+		time.Sleep(timeout / 20) // turn this know if the EAs are under too much pressure
 	}
 }
 
 func (d *dataSource) Close() error {
-	if !d.observationLoopStarted {
+	if !d.observationLoopStarted.Load() {
 		return nil
 	}
 	if d.observationLoopCloseCh == nil {
@@ -273,6 +285,7 @@ func (d *dataSource) Close() error {
 		return nil
 	default:
 	}
+
 	close(d.observationLoopCloseCh)
 	return nil
 }
@@ -290,7 +303,7 @@ func (d *dataSource) toCache(streamID llotypes.StreamID, val llo.StreamValue) {
 	}
 }
 
-func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues) {
+func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.Duration) {
 	d.configDigestToStreamMu.Lock()
 	streamsToObserve := make([]observableStreamValues, 0, len(d.configDigestToStream))
 	for _, vals := range d.configDigestToStream {
@@ -300,6 +313,7 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues) {
 
 	var activeOpts llo.DSOpts
 	activeStreamValues := make(llo.StreamValues)
+	var timeout time.Duration
 
 	// deduplicate streams and get the active ocr instance options
 	for _, vals := range streamsToObserve {
@@ -317,9 +331,10 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues) {
 
 			if outcome.LifeCycleStage == llo.LifeCycleStageProduction {
 				activeOpts = vals.opts
+				timeout = vals.timeout
 			}
 		}
 	}
 
-	return activeOpts, activeStreamValues
+	return activeOpts, activeStreamValues, timeout
 }

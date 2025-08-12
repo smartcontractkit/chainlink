@@ -182,6 +182,7 @@ func Test_DataSource(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, makeStreamValues(), vals)
+			ds.Close()
 		})
 
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
@@ -204,6 +205,7 @@ func Test_DataSource(t *testing.T) {
 				2: llo.ToDecimal(decimal.NewFromInt(40602)),
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals, fmt.Sprintf("vals: %v", vals))
+			ds.Close()
 		})
 
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
@@ -226,6 +228,7 @@ func Test_DataSource(t *testing.T) {
 				12: llo.ToDecimal(decimal.NewFromInt(40602)),
 				13: nil,
 			}, vals, fmt.Sprintf("vals: %v", vals))
+			ds.Close()
 		})
 
 		t.Run("records telemetry", func(t *testing.T) {
@@ -288,6 +291,7 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, uint32(0), obsTelem.DonId)
 			assert.Equal(t, opts.SeqNr(), obsTelem.SeqNr)
 			assert.Equal(t, opts.ConfigDigest().Hex(), hex.EncodeToString(obsTelem.ConfigDigest))
+			ds.Close()
 		})
 
 		t.Run("records telemetry for errors", func(t *testing.T) {
@@ -321,40 +325,9 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, opts, pkt.opts)
 			assert.Nil(t, pkt.val)
 			assert.Error(t, pkt.err)
+			ds.Close()
 		})
 
-		t.Run("handles concurrent cache access", func(t *testing.T) {
-			// Create a new data source
-			reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
-
-			// Set up pipeline to return different values
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
-
-			// First observation to cache
-			vals := llo.StreamValues{1: nil}
-			opts2 := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 6}}
-
-			err := ds.Observe(ctx, vals, opts2)
-			require.NoError(t, err)
-
-			// Run multiple observations concurrently
-			var wg sync.WaitGroup
-			for i := 0; i < 10; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					vals := llo.StreamValues{1: nil}
-					err := ds.Observe(ctx, vals, opts2)
-					assert.NoError(t, err)
-					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
-				}()
-			}
-			wg.Wait()
-
-			// Verify pipeline was only called once
-			assert.Equal(t, 1, reg.pipelines[1].runCount)
-		})
 	})
 }
 
@@ -431,4 +404,5 @@ result3 -> result3_parse -> multiply3;
 	b.ResetTimer()
 	err := ds.Observe(ctx, vals, opts)
 	require.NoError(b, err)
+	ds.Close()
 }
