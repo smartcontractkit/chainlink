@@ -589,7 +589,7 @@ func CreateKeys(t *testing.T,
 		case chainsel.FamilyTron:
 			keystore := app.GetKeyStore().Tron()
 			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for aptos")
+			require.NoError(t, err, "failed to create key for tron")
 
 			keys, err := keystore.GetAll()
 			require.NoError(t, err)
