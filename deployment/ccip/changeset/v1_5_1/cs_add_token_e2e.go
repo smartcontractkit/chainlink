@@ -151,7 +151,6 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 			TokenType:          p.TokenDeploymentConfig.Type,
 			AllowList:          p.TokenDeploymentConfig.PoolAllowList,
 			AcceptLiquidity:    p.TokenDeploymentConfig.AcceptLiquidity,
-			CCIPAdmin:          p.TokenDeploymentConfig.CCIPAdmin,
 		}
 		deployTokenCfg[chain] = tp // Add the pool configuration for the chain to the deployment config.
 		p.DeployPoolConfig = &tp
