@@ -628,7 +628,7 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 			}
 
 			if err := grantDefaultAdminRoleForBurnMintERC20Token(e, selector, token.Contract, cfg.CCIPAdmin); err != nil {
-				return nil, ab, fmt.Errorf("failed to grant default admin role for BurnMintERC20Token %s on chain %d: %w",
+				return nil, ab, fmt.Errorf("failed to grant default admin role for BurnMintERC20 token %s on chain %d: %w",
 					cfg.TokenName, selector, err)
 			}
 
@@ -745,6 +745,7 @@ func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint
 	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, poolAddress)
 }
 
+// addMinterAndBurnerForBurnMintERC20TokenHelper is a helper function that adds the minter and burner role to the specified address for BurnMintERC20 token.
 func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
@@ -794,6 +795,8 @@ func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selecto
 	return nil
 }
 
+// setCCIPAdminForBurnMintERC20Token sets the CCIP admin for the BurnMintERC20 token. Expectation is that the CCIP admin is
+// timelock or customer (multi-sig) address.
 func setCCIPAdminForBurnMintERC20Token(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, address common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 
@@ -810,6 +813,8 @@ func setCCIPAdminForBurnMintERC20Token(env cldf.Environment, selector uint64, to
 	return nil
 }
 
+// grantDefaultAdminRoleForBurnMintERC20Token grants the default admin role for the BurnMintERC20 token to the specified address
+// which is expected to be the pool address.
 func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, address common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()

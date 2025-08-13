@@ -42,7 +42,8 @@ type DeployTokenPoolInput struct {
 	Type cldf.ContractType
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
-	// TokenType is the type of token that is being deployed.
+	// TokenType is the type of token that is being deployed. This is used to determine if we should grant burn and mint
+	// permissions to the token pool contract (BurnMintERC20).
 	TokenType cldf.ContractType
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
 	// If omitted, all addresses will be permitted to transfer the token.
