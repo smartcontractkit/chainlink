@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -166,6 +168,286 @@ func TestUpdateDon(t *testing.T) {
 		assert.Equal(t, want.DonInfo.ConfigCount, got.DonInfo.ConfigCount)
 		assert.Equal(t, sortedP2Pids(want.DonInfo.NodeP2PIds), sortedP2Pids(got.DonInfo.NodeP2PIds))
 		assert.Equal(t, capIds(want.DonInfo.CapabilityConfigurations), capIds(got.DonInfo.CapabilityConfigurations))
+	})
+}
+
+func TestUpdateDon_ChangeComposition(t *testing.T) {
+	var (
+		// Initial nodes (n1-n4)
+		p2p_1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
+		pubKey_1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7"
+		admin_1   = common.HexToAddress("0x1111567890123456789012345678901234567890")
+		signing_1 = "11117293a4cc2621b61193135a95928735e4795f"
+		node_1    = newNode(t, minimalNodeCfg{
+			id:            "test node 1",
+			pubKey:        pubKey_1,
+			registryChain: registryChain,
+			p2p:           p2p_1,
+			signingAddr:   signing_1,
+			admin:         admin_1,
+		})
+
+		p2p_2     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(200))
+		pubKey_2  = "22224981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e109000"
+		admin_2   = common.HexToAddress("0x2222567890123456789012345678901234567891")
+		signing_2 = "22227293a4cc2621b61193135a95928735e4ffff"
+		node_2    = newNode(t, minimalNodeCfg{
+			id:            "test node 2",
+			pubKey:        pubKey_2,
+			registryChain: registryChain,
+			p2p:           p2p_2,
+			signingAddr:   signing_2,
+			admin:         admin_2,
+		})
+
+		p2p_3     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(300))
+		pubKey_3  = "33334981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e109111"
+		admin_3   = common.HexToAddress("0x3333567890123456789012345678901234567892")
+		signing_3 = "33337293a4cc2621b61193135a959287aaaaffff"
+		node_3    = newNode(t, minimalNodeCfg{
+			id:            "test node 3",
+			pubKey:        pubKey_3,
+			registryChain: registryChain,
+			p2p:           p2p_3,
+			signingAddr:   signing_3,
+			admin:         admin_3,
+		})
+
+		p2p_4     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(400))
+		pubKey_4  = "44444981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e109222"
+		admin_4   = common.HexToAddress("0x4444567890123456789012345678901234567893")
+		signing_4 = "44447293a4cc2621b61193135a959287aaaaffff"
+		node_4    = newNode(t, minimalNodeCfg{
+			id:            "test node 4",
+			pubKey:        pubKey_4,
+			registryChain: registryChain,
+			p2p:           p2p_4,
+			signingAddr:   signing_4,
+			admin:         admin_4,
+		})
+
+		// Additional node (n5) to be added
+		p2p_5     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(500))
+		pubKey_5  = "55554981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e109333"
+		admin_5   = common.HexToAddress("0x5555567890123456789012345678901234567894")
+		signing_5 = "55557293a4cc2621b61193135a959287aaaabbbb"
+		node_5    = newNode(t, minimalNodeCfg{
+			id:            "test node 5",
+			pubKey:        pubKey_5,
+			registryChain: registryChain,
+			p2p:           p2p_5,
+			signingAddr:   signing_5,
+			admin:         admin_5,
+		})
+
+		// Test capability
+		testCap = kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "test",
+			Version:        "1.0.0",
+			CapabilityType: 0,
+		}
+	)
+
+	lggr := logger.Test(t)
+
+	// Setup initial registry with DON containing nodes 1-4
+	cfg := setupUpdateDonTestConfig{
+		dons: []internal.DonInfo{
+			{
+				Name:         "don 1",
+				Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
+				Capabilities: []internal.DONCapabilityWithConfig{{Capability: testCap, Config: kstest.GetDefaultCapConfig(t, testCap)}},
+			},
+		},
+		nops: []internal.NOP{
+			{
+				Name:  "nop 1",
+				Nodes: []string{node_1.NodeID, node_2.NodeID, node_3.NodeID, node_4.NodeID},
+			},
+		},
+	}
+
+	testCfg := registerTestDon(t, lggr, cfg)
+
+	// Verify initial DON setup
+	initialDon, err := testCfg.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, 1)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), initialDon.Id)
+	require.Len(t, initialDon.NodeP2PIds, 4)
+
+	testCapCfg := kstest.GetDefaultCapConfig(t, testCap)
+	testCapCfgB, err := proto.Marshal(testCapCfg)
+	require.NoError(t, err)
+
+	t.Run("add node to DON composition", func(t *testing.T) {
+
+		caps, err := testCfg.CapabilitiesRegistry.GetCapabilities(nil)
+		require.NoError(t, err)
+		capIds := make([][32]byte, 0, len(caps))
+		for _, c := range caps {
+			capIds = append(capIds, c.HashedId)
+		}
+
+		r, err := internal.AddNodes(lggr, &internal.AddNodesRequest{
+			CapabilitiesRegistry: testCfg.CapabilitiesRegistry,
+			RegistryChain:        testCfg.Chain,
+			NodeParams: map[string]capabilities_registry.CapabilitiesRegistryNodeParams{
+				node_5.NodeID: {
+					NodeOperatorId:      1,
+					P2pId:               node_5.PeerID,
+					Signer:              [32]byte{5: 5},
+					EncryptionPublicKey: [32]byte{5: 5},
+					HashedCapabilityIds: capIds,
+				},
+			},
+		})
+
+		require.NoError(t, err)
+		t.Logf("Added nodes: %v", r.AddedNodes)
+		// Update DON to include all 5 nodes
+		req := &internal.UpdateDonRequest{
+			CapabilitiesRegistry: testCfg.CapabilitiesRegistry,
+			Chain:                testCfg.Chain,
+			DonID:                1,
+			P2PIDs:               []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID(), p2p_5.PeerID()},
+			CapabilityConfigs: []internal.CapabilityConfig{
+				{Capability: testCap, Config: testCapCfgB},
+			},
+		}
+
+		resp, err := internal.UpdateDon(lggr, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		// Verify the DON now has 5 nodes
+		updatedDon, err := testCfg.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, 1)
+		require.NoError(t, err)
+		require.Equal(t, uint32(1), updatedDon.Id)
+		require.Len(t, updatedDon.NodeP2PIds, 5, "DON should now have 5 nodes")
+
+		// Verify the correct P2P IDs are present
+		expectedP2PIDs := []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID(), p2p_5.PeerID()}
+		actualP2PIDs := internal.BytesToPeerIDs(updatedDon.NodeP2PIds)
+
+		require.ElementsMatch(t, expectedP2PIDs, actualP2PIDs, "DON should contain all 5 expected P2P IDs")
+
+		// nested because we need to remove the node we added in the previous test
+		t.Run("remove node from DON composition", func(t *testing.T) {
+			// Update DON to only include nodes 1-4 (removing node 5)
+			req := &internal.UpdateDonRequest{
+				CapabilitiesRegistry: testCfg.CapabilitiesRegistry,
+				Chain:                testCfg.Chain,
+				DonID:                1,
+				P2PIDs:               []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
+				CapabilityConfigs: []internal.CapabilityConfig{
+					{Capability: testCap, Config: testCapCfgB},
+				},
+			}
+
+			resp, err := internal.UpdateDon(lggr, req)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+
+			// Verify the DON is back to 4 nodes
+			updatedDon, err := testCfg.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, 1)
+			require.NoError(t, err)
+			require.Equal(t, uint32(1), updatedDon.Id)
+			require.Len(t, updatedDon.NodeP2PIds, 4, "DON should be back to 4 nodes")
+
+			// Verify the correct P2P IDs are present (should match original 4 nodes)
+			expectedP2PIDs := []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}
+			actualP2PIDs := internal.BytesToPeerIDs(updatedDon.NodeP2PIds)
+
+			require.ElementsMatch(t, expectedP2PIDs, actualP2PIDs, "DON should contain original 4 P2P IDs")
+
+			// Verify node 5 is not in the DON
+			for _, actualP2PID := range actualP2PIDs {
+				require.NotEqual(t, p2p_5.PeerID(), actualP2PID, "Node 5 should not be in the DON")
+			}
+		})
+
+		// nested we swap the node we just re-added
+		t.Run("replace nodes in DON composition", func(t *testing.T) {
+			// Register another node (node_6) for replacement test
+			p2p_6 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(600))
+			pubKey_6 := "66664981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e109444"
+			admin_6 := common.HexToAddress("0x6666567890123456789012345678901234567895")
+			signing_6 := "66667293a4cc2621b61193135a959287aaaacccc"
+			node_6 := newNode(t, minimalNodeCfg{
+				id:            "test node 6",
+				pubKey:        pubKey_6,
+				registryChain: registryChain,
+				p2p:           p2p_6,
+				signingAddr:   signing_6,
+				admin:         admin_6,
+			})
+
+			// Register node_6 with capabilities
+			caps, err := testCfg.CapabilitiesRegistry.GetCapabilities(nil)
+			require.NoError(t, err)
+			capIds := make([][32]byte, 0, len(caps))
+			for _, c := range caps {
+				capIds = append(capIds, c.HashedId)
+			}
+
+			r, err := internal.AddNodes(lggr, &internal.AddNodesRequest{
+				CapabilitiesRegistry: testCfg.CapabilitiesRegistry,
+				RegistryChain:        testCfg.Chain,
+				NodeParams: map[string]capabilities_registry.CapabilitiesRegistryNodeParams{
+					node_6.NodeID: {
+						NodeOperatorId:      1,
+						P2pId:               node_6.PeerID,
+						Signer:              [32]byte{6: 6},
+						EncryptionPublicKey: [32]byte{6: 6},
+						HashedCapabilityIds: capIds,
+					},
+				},
+			})
+			require.NoError(t, err)
+			lggr.Debugf("Added node 6: %v", r.AddedNodes)
+
+			// Update DON to replace node_4 with node_6 (keeping nodes 1, 2, 3, and adding 6)
+			req := &internal.UpdateDonRequest{
+				CapabilitiesRegistry: testCfg.CapabilitiesRegistry,
+				Chain:                testCfg.Chain,
+				DonID:                1,
+				P2PIDs:               []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_6.PeerID()},
+				CapabilityConfigs: []internal.CapabilityConfig{
+					{Capability: testCap, Config: testCapCfgB},
+				},
+			}
+
+			resp, err := internal.UpdateDon(lggr, req)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+
+			// Verify the DON still has 4 nodes but with node_6 instead of node_4
+			updatedDon, err := testCfg.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, 1)
+			require.NoError(t, err)
+			require.Equal(t, uint32(1), updatedDon.Id)
+			require.Len(t, updatedDon.NodeP2PIds, 4, "DON should still have 4 nodes")
+
+			// Verify the correct P2P IDs are present (nodes 1, 2, 3, 6)
+			expectedP2PIDs := []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_6.PeerID()}
+			actualP2PIDs := internal.BytesToPeerIDs(updatedDon.NodeP2PIds)
+
+			require.ElementsMatch(t, expectedP2PIDs, actualP2PIDs, "DON should contain nodes 1, 2, 3, and 6")
+
+			// Verify node_4 is not in the DON anymore
+			for _, actualP2PID := range actualP2PIDs {
+				require.NotEqual(t, p2p_4.PeerID(), actualP2PID, "Node 4 should not be in the DON")
+			}
+
+			// Verify node_6 is in the DON
+			foundNode6 := false
+			for _, actualP2PID := range actualP2PIDs {
+				if actualP2PID == p2p_6.PeerID() {
+					foundNode6 = true
+					break
+				}
+			}
+			require.True(t, foundNode6, "Node 6 should be in the DON")
+		})
 	})
 }
 
