@@ -1,23 +1,27 @@
 package testhelpers
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"math/big"
-	"slices"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
+	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/stretchr/testify/require"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
@@ -25,6 +29,7 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -34,17 +39,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	"github.com/stretchr/testify/require"
-
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
-	"github.com/gagliardetto/solana-go"
 )
 
 func TransferOwnershipSolanaV0_1_1(
@@ -398,7 +397,6 @@ func SendRequestSolV0_1_1(
 
 	destinationChainSelector := cfg.DestChain
 	message := cfg.Message.(solRouter.SVM2AnyMessage)
-	feeToken := message.FeeToken
 	client := c.Client
 
 	// TODO: sender from cfg is EVM specific - need to revisit for Solana
@@ -407,197 +405,34 @@ func SendRequestSolV0_1_1(
 	e.Logger.Infof("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, sender.PublicKey().String())
 
-	feeTokenProgramID := solana.TokenProgramID
-	feeTokenUserATA := solana.PublicKey{}
-	if feeToken.IsZero() {
-		// If the fee token is native SOL (i.e. message.FeeToken is the zero address), then we will
-		// leave message.FeeToken as it is, but specify the WSOL mint account in the accounts list
-		feeToken = solana.SolMint
-	} else {
-		feeTokenInfo, err := client.GetAccountInfo(ctx, feeToken)
-		if err != nil {
-			return nil, err
-		}
-		feeTokenProgramID = feeTokenInfo.Value.Owner
-
-		_, err = GetSolanaTokenMintInfo(feeTokenInfo)
-		if err != nil {
-			return nil, fmt.Errorf("the provided fee token is not a valid token: (err = %w)", err)
-		}
-
-		ata, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, sender.PublicKey())
-		if err != nil {
-			return nil, err
-		}
-
-		feeTokenUserATA = ata
-	}
-
-	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
+	accounts, lutAddresses, tokenIndexes, err := deriveCCIPSendAccounts(e, sender.PublicKey(), message, destinationChainSelector, client, s.Router)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to derivate accounts from on-chain: %w", err)
 	}
 
-	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
+	builder := solRouter.NewCcipSendInstructionBuilder()
+	builder.SetAccounts(accounts)
+	builder.SetDestChainSelector(destinationChainSelector)
+	builder.SetMessage(message)
+	builder.SetTokenIndexes(tokenIndexes)
+
+	tempIx, err := builder.ValidateAndBuild()
 	if err != nil {
-		return nil, err
-	}
-
-	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
-	if err != nil {
-		return nil, err
-	}
-
-	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
-	if err != nil {
-		return nil, err
-	}
-
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
-	if err != nil {
-		return nil, err
-	}
-
-	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(feeTokenProgramID, feeToken, billingSignerPDA)
-	if err != nil {
-		return nil, err
-	}
-
-	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
-	if err != nil {
-		return nil, err
-	}
-
-	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
-	if err != nil {
-		return nil, err
-	}
-
-	base := solRouter.NewCcipSendInstruction(
-		destinationChainSelector,
-		message,
-		[]byte{}, // starting indices for accounts, calculated later
-		s.RouterConfigPDA,
-		destinationChainStatePDA,
-		noncePDA,
-		sender.PublicKey(),
-		solana.SystemProgramID,
-		feeTokenProgramID,
-		feeToken,
-		feeTokenUserATA,
-		feeTokenReceiverATA,
-		billingSignerPDA,
-		s.FeeQuoter,
-		s.FeeQuoterConfigPDA,
-		fqDestChainPDA,
-		feeTokenFqBillingConfigPDA,
-		linkFqBillingConfigPDA,
-		s.RMNRemote,
-		rmnRemoteCursesPDA,
-		s.RMNRemoteConfigPDA,
-	)
-
-	// When paying with a non-native token (i.e. any SPL token), the user ATA must be writable so we
-	// can debit the fees. If paying with native SOL, then the ATA passed in is just a zero-address
-	// placeholder, and that can't be marked as writable.
-	if !feeTokenUserATA.IsZero() {
-		base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
-	}
-
-	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
-
-	requiredAccounts := len(base.AccountMetaSlice)
-	tokenIndexes := []byte{}
-
-	// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
-	solconfig.FeeQuoterProgram = s.FeeQuoter
-	solconfig.CcipRouterProgram = s.Router
-
-	// Append token accounts to the account metas
-	for _, tokenAmount := range message.TokenAmounts {
-		tokenPubKey := tokenAmount.Token
-
-		allTokenPools := solana.PublicKeySlice{}
-		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.LockReleaseTokenPools))
-		allTokenPools = slices.AppendSeq(allTokenPools, maps.Values(s.BurnMintTokenPools))
-		allTokenPools = append(allTokenPools, s.CCTPTokenPool)
-
-		e.Logger.Infof("Found %d token pools in state - searching for matching token pool", len(allTokenPools))
-		tokenPoolPubKey, err := MatchTokenToTokenPool(ctx, client, tokenPubKey, allTokenPools)
-		if err != nil {
-			return nil, err
-		}
-
-		e.Logger.Infof("Token '%s' was matched to token pool '%s'",
-			tokenPubKey.String(),
-			tokenPoolPubKey.String(),
-		)
-
-		tokenProgramID, err := InferSolanaTokenProgramID(ctx, client, tokenPubKey)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenPool, err := soltokens.NewTokenPool(tokenProgramID, tokenPoolPubKey, tokenPubKey)
-		if err != nil {
-			return nil, err
-		}
-
-		// Set the token pool's lookup table address
-		var tokenAdminRegistry solCommon.TokenAdminRegistry
-		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
-
-		// invalid config account, maybe this billing stuff isn't right
-
-		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, tokenPubKey, tokenPoolPubKey)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenPool.Chain[cfg.DestChain] = chainPDA
-
-		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, tokenPubKey, s.FeeQuoter)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenPool.Billing[cfg.DestChain] = billingPDA
-
-		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, sender.PublicKey())
-		if err != nil {
-			return nil, err
-		}
-
-		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
-		if err != nil {
-			return nil, err
-		}
-
-		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
-		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
-		maps.Copy(addressTables, tokenAddressTables)
-	}
-
-	base.SetTokenIndexes(tokenIndexes)
-
-	tempIx, err := base.ValidateAndBuild()
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build ccip send message: %w", err)
 	}
 	ixData, err := tempIx.Data()
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract data payload from router ccip send instruction: %w", err)
+		return nil, fmt.Errorf("failed to extract payload data from instruction: %w", err)
 	}
+	
 	ix := solana.NewInstruction(s.Router, tempIx.Accounts(), ixData)
-
-	// for some reason onchain doesn't see extraAccounts
-
 	ixs := []solana.Instruction{ix}
+
+	addressTables, err := fetchLookupTables(e.GetContext(), client, lutAddresses)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch lookup table addresses: %w", err)
+	}
+
 	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(400_000))
 	if err != nil {
 		return nil, err
@@ -666,4 +501,126 @@ func SendRequestSolV0_1_1(
 			Raw: types.Log{},
 		},
 	}, nil
+}
+
+func deriveCCIPSendAccounts(
+	e cldf.Environment,
+	authority solana.PublicKey,
+	message solRouter.SVM2AnyMessage,
+	destChainSelector uint64,
+	client *rpc.Client,
+	router solana.PublicKey,
+) (accounts []*solana.AccountMeta, lookUpTables []solana.PublicKey, tokenIndices []uint8, err error) {
+	blockhash, err := client.GetLatestBlockhash(e.GetContext(), rpc.CommitmentConfirmed)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("error fetching latest blockhash: %w", err)
+	}
+	derivedAccounts := []*solana.AccountMeta{}
+	askWith := []*solana.AccountMeta{}
+	stage := "Start"
+	tokenIndex := byte(0)
+	routerConfigPDA, _, err := solstate.FindConfigPDA(router)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to calculate the router config PDA: %w", err)
+	}
+	var re = regexp.MustCompile(`^TokenTransferStaticAccounts/\d+/0$`)
+	for {
+		params := solRouter.DeriveAccountsCcipSendParams{
+			DestChainSelector: destChainSelector,
+			CcipSendCaller:    authority,
+			Message:           message,
+		}
+
+		deriveRaw := solRouter.NewDeriveAccountsCcipSendInstruction(
+			params,
+			stage,
+			routerConfigPDA,
+		)
+		deriveRaw.AccountMetaSlice = append(deriveRaw.AccountMetaSlice, askWith...)
+		derive, err := deriveRaw.ValidateAndBuild()
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create derive account instruction: %w", err)
+		}
+		tx, err := solana.NewTransaction([]solana.Instruction{derive}, blockhash.Value.Blockhash, solana.TransactionPayer(authority))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to build derive execute accounts transaction: %w", err)
+		}
+		tx.Signatures = append(tx.Signatures, solana.Signature{}) // Append empty signature since tx fails without any sigs even if SigVerify is false
+		res, err := client.SimulateTransactionWithOpts(e.GetContext(), tx, &rpc.SimulateTransactionOpts{SigVerify: false, ReplaceRecentBlockhash: true})
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to simulate derive execute accounts transaction at stage %s: %w", stage, err)
+		}
+		if res.Value.Err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to simulate derive execute accounts transaction at stage %s. Err: %v, Logs: %v", stage, res.Value.Err, res.Value.Logs)
+		}
+		derivation, err := solcommon.ExtractAnchorTypedReturnValue[solRouter.DeriveAccountsResponse](e.GetContext(), res.Value.Logs, router.String())
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
+		}
+		if err != nil {
+			e.Logger.Errorf("Error deriving accounts for stage %s: %v\n", stage, err)
+			for _, line := range res.Value.Logs {
+				e.Logger.Error(line)
+			}
+			return nil, nil, nil, fmt.Errorf("failed to create derive account instruction: %w", err)
+		}
+		fmt.Printf("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
+
+		isStartOfToken := re.MatchString(derivation.CurrentStage)
+		if isStartOfToken {
+			tokenIndices = append(tokenIndices, tokenIndex-byte(cap(solRouter.NewCcipSendInstructionBuilder().AccountMetaSlice)))
+		}
+		tokenIndex += byte(len(derivation.AccountsToSave))
+
+		for _, meta := range derivation.AccountsToSave {
+			derivedAccounts = append(derivedAccounts, &solana.AccountMeta{
+				PublicKey:  meta.Pubkey,
+				IsWritable: meta.IsWritable,
+				IsSigner:   meta.IsSigner,
+			})
+		}
+		askWith = []*solana.AccountMeta{}
+		for _, meta := range derivation.AskAgainWith {
+			askWith = append(askWith, &solana.AccountMeta{
+				PublicKey:  meta.Pubkey,
+				IsWritable: meta.IsWritable,
+				IsSigner:   meta.IsSigner,
+			})
+		}
+		lookUpTables = append(lookUpTables, derivation.LookUpTablesToSave...)
+
+		if len(derivation.NextStage) == 0 {
+			return derivedAccounts, lookUpTables, tokenIndices, nil
+		}
+		stage = derivation.NextStage
+	}
+}
+
+func fetchLookupTables(ctx context.Context, client *rpc.Client, lookupTablesAddrs []solana.PublicKey) (map[solana.PublicKey]solana.PublicKeySlice, error) {
+	lookupTableMap := make(map[solana.PublicKey]solana.PublicKeySlice)
+	for _, addr := range lookupTablesAddrs {
+		lookupTableContents, err := getLookupTableAddresses(ctx, client, addr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch lookup table contents for address %s: %w", addr.String(), err)
+		}
+		lookupTableMap[addr] = lookupTableContents
+	}
+	return lookupTableMap, nil
+}
+
+func getLookupTableAddresses(ctx context.Context, client *rpc.Client, tableAddress solana.PublicKey) (solana.PublicKeySlice, error) {
+	// Fetch the account info for the static table
+	accountInfo, err := client.GetAccountInfoWithOpts(ctx, tableAddress, &rpc.GetAccountInfoOpts{
+		Encoding:   "base64",
+		Commitment: rpc.CommitmentFinalized,
+	})
+
+	if err != nil || accountInfo == nil || accountInfo.Value == nil {
+		return nil, fmt.Errorf("error fetching account info for table: %s, error: %w", tableAddress.String(), err)
+	}
+	alt, err := addresslookuptable.DecodeAddressLookupTableState(accountInfo.GetBinary())
+	if err != nil {
+		return nil, fmt.Errorf("error decoding address lookup table state: %w", err)
+	}
+	return alt.Addresses, nil
 }
