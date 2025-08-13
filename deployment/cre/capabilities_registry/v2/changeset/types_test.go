@@ -55,8 +55,8 @@ func TestHexStringTo32Bytes(t *testing.T) {
 
 	t.Run("error cases", func(t *testing.T) {
 		testCases := []struct {
-			name      string
-			hexStr    string
+			name        string
+			hexStr      string
 			expectedErr string
 		}{
 			{

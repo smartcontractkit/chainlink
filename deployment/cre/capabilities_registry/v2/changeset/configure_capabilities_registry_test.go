@@ -33,7 +33,14 @@ type testFixture struct {
 	configureInput              ConfigureCapabilitiesRegistryInput
 }
 
-const csaKey = "4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258"
+const (
+	csaKey              = "4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258"
+	signer1             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c251"
+	signer2             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c252"
+	p2pID1              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c253"
+	p2pID2              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
+	encryptionPublicKey = "7240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
+)
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
 	fixture := setupCapabilitiesRegistryTest(t)
@@ -98,9 +105,9 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		Nodes: []CapabilitiesRegistryNodeParams{
 			{
 				NodeOperatorID:      1,
-				Signer:              [32]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20},
-				P2pID:               [32]byte{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40},
-				EncryptionPublicKey: [32]byte{0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x60},
+				Signer:              signer1,
+				P2pID:               p2pID1,
+				EncryptionPublicKey: encryptionPublicKey,
 				CsaKey:              csaKey,
 				CapabilityIDs:       []string{"write-chain@1.0.0", "trigger@1.0.0"},
 			},
@@ -227,10 +234,10 @@ capabilities:
       responseType: 1
 nodes:
   - nodeOperatorID: 1
-    signer: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
-    p2pID: [33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64]
-    encryptionPublicKey: [65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96]
-    csaKey: 4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258
+    signer: ` + signer1 + `
+    p2pID: ` + p2pID1 + `
+    encryptionPublicKey: ` + encryptionPublicKey + `
+    csaKey: ` + csaKey + `
     capabilityIDs: ["write-chain@1.0.0", "trigger@1.0.0"]
 dons:
   - name: "workflow-don-production"
@@ -351,17 +358,17 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	nodes := []CapabilitiesRegistryNodeParams{
 		{
 			NodeOperatorID:      uint32(1),
-			Signer:              test32byte(t, "0x01"),
-			EncryptionPublicKey: test32byte(t, "0x01"),
-			P2pID:               test32byte(t, "0x01"),
+			Signer:              signer1,
+			EncryptionPublicKey: encryptionPublicKey,
+			P2pID:               p2pID1,
 			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
 			CsaKey:              csaKey,
 		},
 		{
 			NodeOperatorID:      uint32(2),
-			Signer:              test32byte(t, "0x02"),
-			EncryptionPublicKey: test32byte(t, "0x02"),
-			P2pID:               test32byte(t, "0x02"),
+			Signer:              signer2,
+			EncryptionPublicKey: encryptionPublicKey,
+			P2pID:               p2pID2,
 			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
 			CsaKey:              csaKey,
 		},
@@ -369,7 +376,9 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 
 	nodeSet := [][32]byte{}
 	for _, n := range nodes {
-		nodeSet = append(nodeSet, n.P2pID)
+		p2pID, err := hexStringTo32Bytes(n.P2pID)
+		require.NoError(t, err)
+		nodeSet = append(nodeSet, p2pID)
 	}
 
 	// Create capability configurations
@@ -480,13 +489,26 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.Len(t, registeredNodes, len(fixture.nodes), "should have registered the correct number of nodes")
 
 	for i, node := range fixture.nodes {
-		got, err := capabilitiesRegistry.GetNode(nil, node.P2pID)
+		expectedSigner, err := hexStringTo32Bytes(node.Signer)
+		require.NoError(t, err, "failed to convert signer hex string to bytes")
+
+		expectedCsaKey, err := hexStringTo32Bytes(node.CsaKey)
+		require.NoError(t, err, "failed to convert CSA key hex string to bytes")
+
+		bytes32P2pID, err := hexStringTo32Bytes(node.P2pID)
+		require.NoError(t, err, "failed to convert P2P ID hex string to bytes")
+
+		expectedEncryptionPublicKey, err := hexStringTo32Bytes(node.EncryptionPublicKey)
+		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
+
+		got, err := capabilitiesRegistry.GetNode(nil, bytes32P2pID)
 		require.NoError(t, err) // careful here: the err is rpc, contract return empty info if it doesn't find the p2p as opposed to non-exist err.
-		assert.Equal(t, node.EncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
-		assert.Equal(t, node.Signer, got.Signer, "mismatch node signer node %d", i)
+		assert.Equal(t, expectedEncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
+		assert.Equal(t, expectedSigner, got.Signer, "mismatch node signer node %d", i)
 		assert.Equal(t, node.NodeOperatorID, got.NodeOperatorId, "mismatch node operator id node %d", i)
 		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
-		assert.Equal(t, node.P2pID, got.P2pId, "mismatch node p2p id node %d", i)
+		assert.Equal(t, bytes32P2pID, got.P2pId, "mismatch node p2p id node %d", i)
+		assert.Equal(t, expectedCsaKey, got.CsaKey, "mismatch node CSA key node %d", i)
 	}
 
 	// Verify DONs
