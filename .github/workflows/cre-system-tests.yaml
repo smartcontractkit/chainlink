@@ -150,7 +150,7 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --topology ${TOPOLOGY}
+          go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
 
           echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
