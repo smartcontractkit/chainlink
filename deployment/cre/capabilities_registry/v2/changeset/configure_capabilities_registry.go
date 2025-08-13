@@ -59,7 +59,11 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 
 	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, len(config.Nodes))
 	for i, node := range config.Nodes {
-		nodes[i] = node.ToWrapper()
+		n, err := node.ToWrapper()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert node %d: %w", i, err)
+		}
+		nodes[i] = n
 	}
 
 	dons := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(config.DONs))

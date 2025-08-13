@@ -33,6 +33,8 @@ type testFixture struct {
 	configureInput              ConfigureCapabilitiesRegistryInput
 }
 
+const csaKey = "4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258"
+
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
 	fixture := setupCapabilitiesRegistryTest(t)
 
@@ -99,7 +101,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 				Signer:              [32]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20},
 				P2pID:               [32]byte{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40},
 				EncryptionPublicKey: [32]byte{0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x60},
-				CsaKey:              [32]byte{0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80},
+				CsaKey:              csaKey,
 				CapabilityIDs:       []string{"write-chain@1.0.0", "trigger@1.0.0"},
 			},
 		},
@@ -228,7 +230,7 @@ nodes:
     signer: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
     p2pID: [33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64]
     encryptionPublicKey: [65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96]
-    csaKey: [97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128]
+    csaKey: 4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258
     capabilityIDs: ["write-chain@1.0.0", "trigger@1.0.0"]
 dons:
   - name: "workflow-don-production"
@@ -269,6 +271,7 @@ dons:
 	require.Len(t, input.Nodes, 1)
 	assert.Equal(t, uint32(1), input.Nodes[0].NodeOperatorID)
 	assert.Equal(t, []string{"write-chain@1.0.0", "trigger@1.0.0"}, input.Nodes[0].CapabilityIDs)
+	assert.Equal(t, csaKey, input.Nodes[0].CsaKey)
 
 	require.Len(t, input.DONs, 1)
 	assert.Equal(t, "workflow-don-production", input.DONs[0].Name)
@@ -352,7 +355,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			EncryptionPublicKey: test32byte(t, "0x01"),
 			P2pID:               test32byte(t, "0x01"),
 			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
-			CsaKey:              test32byte(t, "0x01"),
+			CsaKey:              csaKey,
 		},
 		{
 			NodeOperatorID:      uint32(2),
@@ -360,7 +363,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			EncryptionPublicKey: test32byte(t, "0x02"),
 			P2pID:               test32byte(t, "0x02"),
 			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
-			CsaKey:              test32byte(t, "0x02"),
+			CsaKey:              csaKey,
 		},
 	}
 
