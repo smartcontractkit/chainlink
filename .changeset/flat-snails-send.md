@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#change: add workflowKey to StandardCapabilities keystore
+#changed: add workflowKey to StandardCapabilities keystore
