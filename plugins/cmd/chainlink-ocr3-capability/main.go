@@ -20,7 +20,6 @@ const (
 func main() {
 	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
-	s.Logger.Infow("Starting OCR3 capability", "version", "0.1.0")
 
 	c := ocr3.Config{
 		Logger:            s.Logger,

@@ -107,7 +107,6 @@ func makePreCodecModifierCodecs(subabi map[string]string) (map[string]commontype
 }
 
 func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, error) {
-	fmt.Printf("Encode called on input: %+v\n", input)
 	unwrappedInput, err := input.Unwrap()
 	if err != nil {
 		return nil, err
@@ -136,8 +135,5 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	x := append(encodedMeta, userPayload...)
-
-	fmt.Printf("capEncoder.Encode returned: %+v\n", x)
-	return x, nil
+	return append(encodedMeta, userPayload...), nil
 }
