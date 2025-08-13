@@ -55,11 +55,14 @@ flowchart LR
 	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-evm --> chainlink-evm/gethwrappers
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-protos/svr
 	chainlink-evm --> chainlink-tron/relayer
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
+	chainlink-evm/gethwrappers
+	click chainlink-evm/gethwrappers href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/capabilities --> chainlink-common
@@ -135,6 +138,12 @@ flowchart LR
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
+	subgraph chainlink-evm-repo[chainlink-evm]
+		 chainlink-evm
+		 chainlink-evm/gethwrappers
+	end
+	click chainlink-evm-repo href "https://github.com/smartcontractkit/chainlink-evm"
+
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/capabilities
 		 chainlink-framework/chains
@@ -167,7 +176,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-ccip-repo,chainlink-common-repo,chainlink-framework-repo,chainlink-protos-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
@@ -227,16 +236,20 @@ flowchart LR
 	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
-	chainlink-deployments-framework --> chainlink-evm
+	chainlink-deployments-framework --> chainlink-evm/gethwrappers
 	chainlink-deployments-framework --> chainlink-protos/job-distributor
 	chainlink-deployments-framework --> chainlink-testing-framework/seth
+	chainlink-deployments-framework --> chainlink-tron/relayer
 	chainlink-deployments-framework --> mcms
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
+	chainlink-evm --> chainlink-evm/gethwrappers
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-protos/svr
 	chainlink-evm --> chainlink-tron/relayer
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
+	chainlink-evm/gethwrappers
+	click chainlink-evm/gethwrappers href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/capabilities --> chainlink-common
@@ -310,10 +323,10 @@ flowchart LR
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/lib --> chainlink/deployment
 	chainlink/system-tests/lib --> crib-sdk
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
@@ -385,6 +398,12 @@ flowchart LR
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
+	subgraph chainlink-evm-repo[chainlink-evm]
+		 chainlink-evm
+		 chainlink-evm/gethwrappers
+	end
+	click chainlink-evm-repo href "https://github.com/smartcontractkit/chainlink-evm"
+
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/capabilities
 		 chainlink-framework/chains
@@ -432,5 +451,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
 ```

@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -35,13 +38,17 @@ func ValidateCacheForChain(env cldf.Environment, chainSelector uint64, cacheAddr
 	return nil
 }
 
-func ValidateMCMSAddresses(ab cldf.AddressBook, chainSelector uint64) error {
-	if _, err := cldf.SearchAddressBook(ab, chainSelector, commonTypes.RBACTimelock); err != nil {
-		return fmt.Errorf("timelock not present on the chain %w", err)
+func ValidateMCMSAddresses(addressStore datastore.AddressRefStore, chainSelector uint64) error {
+	records := addressStore.Filter(datastore.AddressRefByType(datastore.ContractType(commonTypes.RBACTimelock)))
+	if len(records) == 0 {
+		return fmt.Errorf("timelock not present on the chain %d", chainSelector)
 	}
-	if _, err := cldf.SearchAddressBook(ab, chainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
-		return fmt.Errorf("mcms proposer not present on the chain %w", err)
+
+	records = addressStore.Filter(datastore.AddressRefByType(datastore.ContractType(commonTypes.ProposerManyChainMultisig)))
+	if len(records) == 0 {
+		return fmt.Errorf("mcms proposer not present on the chain %d", chainSelector)
 	}
+
 	return nil
 }
 
@@ -68,6 +75,29 @@ func ValidateCacheForAptosChain(env cldf.Environment, chainSelector uint64, cach
 	}
 	_, ok = chainState.DataFeeds[cacheAccountAddress]
 	if !ok {
+		return errors.New("contract not found in on chain state")
+	}
+	return nil
+}
+
+func ValidateCacheForTronChain(env cldf.Environment, chainSelector uint64, cacheAddress address.Address) error {
+	state, err := LoadTronOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load on chain state %w", err)
+	}
+	_, ok := env.BlockChains.TronChains()[chainSelector]
+	if !ok {
+		return errors.New("chain not found in environment")
+	}
+	chainState, ok := state.TronChains[chainSelector]
+	if !ok {
+		return errors.New("chain not found in on chain state")
+	}
+	if chainState.DataFeeds == nil {
+		return errors.New("DataFeeds not found in on chain state")
+	}
+	exists := chainState.DataFeeds[cacheAddress.String()]
+	if !exists {
 		return errors.New("contract not found in on chain state")
 	}
 	return nil

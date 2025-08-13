@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -45,8 +47,9 @@ func TestAcceptOwnership(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	require.Len(t, records, 1)
+	timeLockAddress := records[0].Address
 
 	cache, _ := DeployCache(chain, []string{})
 	tx, _ := cache.Contract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timeLockAddress))

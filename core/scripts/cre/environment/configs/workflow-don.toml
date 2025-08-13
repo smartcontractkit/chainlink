@@ -4,17 +4,19 @@
   chain_id = "1337"
   docker_cmd_params = ["-b", "5"]
 
-# uncomment to start a second blockchain
-#[[blockchains]]
-#  type = "anvil"
-#  chain_id = "2337"
-#  port = "8546"
-#  docker_cmd_params = ["-b", "5"]
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "5"]
 
 [jd]
   # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   image = "job-distributor:0.12.7"
+
+[fake]
+  port = 8171
 
 #[s3provider]
 #  # use all defaults
@@ -38,6 +40,8 @@
 # log_event_trigger_binary_path = "./logtrigger"
 # read_contract_capability_binary_path = "./readcontract"
 # evm_capability_binary_path = "./evm"
+# http_trigger_capability_binary_path = "./http_trigger"
+# http_action_capability_binary_path = "./http_action"
 
 # capabilities_configs.evm.<chain_id> section is used to configure EVM capability per chain_id only when
 # the evm_capability_binary_path is present in [extra_capabilities] section
@@ -60,10 +64,10 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
-      custom_ports = ["5002:5002"]
+      #image = "chainlink-tmp:latest"
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -88,9 +92,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -115,9 +117,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -142,9 +142,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'
@@ -169,9 +167,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
-      # image = "chainlink-tmp:latest"
-      # omitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
       Level = 'debug'

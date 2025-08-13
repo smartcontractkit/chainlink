@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -39,14 +40,19 @@ func globalBootstraperNodeData(topology *cre.Topology) (string, string, error) {
 	return "", "", errors.New("expected at least one workflow DON")
 }
 
-func FindPeeringData(donTopologies *cre.Topology) (cre.CapabilitiesPeeringData, error) {
+func FindPeeringData(donTopologies *cre.Topology) (cre.CapabilitiesPeeringData, cre.OCRPeeringData, error) {
 	globalBootstraperPeerID, globalBootstraperHost, err := globalBootstraperNodeData(donTopologies)
 	if err != nil {
-		return cre.CapabilitiesPeeringData{}, err
+		return cre.CapabilitiesPeeringData{}, cre.OCRPeeringData{}, err
 	}
 
 	return cre.CapabilitiesPeeringData{
-		GlobalBootstraperPeerID: globalBootstraperPeerID,
-		GlobalBootstraperHost:   globalBootstraperHost,
-	}, nil
+			GlobalBootstraperPeerID: globalBootstraperPeerID,
+			GlobalBootstraperHost:   globalBootstraperHost,
+			Port:                    config.CapabilitiesPeeringPort,
+		}, cre.OCRPeeringData{
+			OCRBootstraperPeerID: globalBootstraperPeerID,
+			OCRBootstraperHost:   globalBootstraperHost,
+			Port:                 config.OCRPeeringPort,
+		}, nil
 }

@@ -72,7 +72,26 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		// look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
-			return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
+			// if there is no bootstrap node in this DON, we need to use the global bootstrap node
+			found := false
+			for _, don := range donTopology.DonsWithMetadata {
+				for _, n := range don.NodesMetadata {
+					p2pValue, p2pErr := node.FindLabelValue(n, node.NodeP2PIDKey)
+					if p2pErr != nil {
+						continue
+					}
+
+					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
+						bootstrapNode = n
+						found = true
+						break
+					}
+				}
+			}
+
+			if !found {
+				return nil, errors.New("failed to find global OCR bootstrap node")
+			}
 		}
 
 		chain, ok := chainsel.ChainByEvmChainID(chainID)

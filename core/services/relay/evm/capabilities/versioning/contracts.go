@@ -12,7 +12,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/type_and_version"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 

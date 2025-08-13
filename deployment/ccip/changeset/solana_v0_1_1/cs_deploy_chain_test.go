@@ -36,7 +36,7 @@ import (
 // For remote fetching, we need to use the short sha
 const (
 	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
-	ShaV0_1_1 = "ee587a6c056204009310019b790ed6d474825316"
+	ShaV0_1_1 = "7f8a0f403c3acbf740fa6d50d71bfb80a8b12ab8"
 )
 
 func verifyProgramSizes(t *testing.T, e cldf.Environment) {
@@ -241,6 +241,9 @@ func TestUpgrade(t *testing.T) {
 				SetAfterInitialDeploy: true,
 				SetOffRamp:            true,
 				SetMCMSPrograms:       true,
+				TransferKeys: []solana.PublicKey{
+					state.SolChains[solChainSelectors[0]].CCTPTokenPool,
+				},
 			},
 		),
 		// build the upgraded contracts and deploy/replace them onchain
@@ -366,26 +369,6 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
-	require.NoError(t, err)
-
-	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
-				ChainSelector: solChainSelectors[0],
-				PoolType:      shared.BurnMintTokenPool,
-				Metadata:      shared.CLLMetadata,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
-				ChainSelector: solChainSelectors[0],
-				PoolType:      shared.LockReleaseTokenPool,
-				Metadata:      shared.CLLMetadata,
-			},
-		),
-	})
 	require.NoError(t, err)
 }
 

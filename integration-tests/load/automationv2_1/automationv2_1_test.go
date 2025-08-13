@@ -40,7 +40,7 @@ import (
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

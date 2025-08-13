@@ -32,6 +32,7 @@ const (
 	defaultMetadataPullIntervalMs        = 1000 * 60 // 1 minute
 	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
+	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
 )
 
 type gatewayHandler struct {
@@ -51,8 +52,8 @@ type gatewayHandler struct {
 }
 
 type ResponseCache interface {
-	Set(req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse, ttl time.Duration)
-	Get(req gateway_common.OutboundHTTPRequest) *gateway_common.OutboundHTTPResponse
+	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
+	CachedFetch(workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse
 	DeleteExpired() int
 }
 
@@ -64,6 +65,7 @@ type ServiceConfig struct {
 	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
 	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
 	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
+	OutboundRequestCacheTTLMs     int                         `json:"outboundRequestCacheTTLMs"`
 }
 
 type RetryConfig struct {
@@ -81,11 +83,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	cfg = WithDefaults(cfg)
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 	userRateLimiter, err := ratelimit.NewRateLimiter(cfg.UserRateLimiter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig)
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter)
@@ -98,7 +100,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		nodeRateLimiter: nodeRateLimiter,
 		userRateLimiter: userRateLimiter,
 		stopCh:          make(services.StopChan),
-		responseCache:   newResponseCache(lggr),
+		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs),
 		triggerHandler:  triggerHandler,
 		metadataHandler: metadataHandler,
 	}, nil
@@ -125,6 +127,9 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.RetryConfig.Multiplier == 0 {
 		cfg.RetryConfig.Multiplier = defaultMultiplier
+	}
+	if cfg.OutboundRequestCacheTTLMs == 0 {
+		cfg.OutboundRequestCacheTTLMs = defaultOutboundRequestCacheTTLMs
 	}
 	return cfg
 }
@@ -167,6 +172,38 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 	return h.triggerHandler.HandleNodeTriggerResponse(ctx, resp, nodeAddr)
 }
 
+// createHTTPRequestCallback creates a callback function that makes the actual HTTP request
+func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
+	return func() gateway_common.OutboundHTTPResponse {
+		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
+		l.Debug("Sending request to client")
+
+		resp, err := h.httpClient.Send(ctx, httpReq)
+		if err != nil {
+			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			return gateway_common.OutboundHTTPResponse{
+				ErrorMessage: err.Error(),
+			}
+		}
+
+		return gateway_common.OutboundHTTPResponse{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.Headers,
+			Body:       resp.Body,
+		}
+	}
+}
+
+// extractWorkflowIDFromRequestPath extracts the workflowID from an outgoing request path string.
+// The workflowID is expected to be the first element after splitting the string by "/".
+func extractWorkflowIDFromRequestPath(path string) string {
+	parts := strings.Split(path, "/")
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return ""
+}
+
 func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error {
 	return errors.New("HTTP capability gateway handler does not support legacy messages")
 }
@@ -193,14 +230,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	if req.CacheSettings.ReadFromCache {
-		cached := h.responseCache.Get(req)
-		if cached != nil {
-			h.lggr.Debugw("Using cached HTTP response", "requestID", requestID, "nodeAddr", nodeAddr)
-			return h.sendResponseToNode(ctx, requestID, *cached, nodeAddr)
-		}
-	}
-
+	workflowID := extractWorkflowIDFromRequestPath(requestID)
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
@@ -220,27 +250,16 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
-		l.Debug("Sending request to client")
 		var outboundResp gateway_common.OutboundHTTPResponse
-		resp, err := h.httpClient.Send(newCtx, httpReq)
-		if err != nil {
-			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			outboundResp = gateway_common.OutboundHTTPResponse{
-				ErrorMessage: err.Error(),
-			}
+		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
+		if req.CacheSettings.ReadFromCache {
+			outboundResp = h.responseCache.CachedFetch(workflowID, req, callback)
 		} else {
-			outboundResp = gateway_common.OutboundHTTPResponse{
-				StatusCode: resp.StatusCode,
-				Headers:    resp.Headers,
-				Body:       resp.Body,
-			}
-			maxAgeMs := req.CacheSettings.MaxAgeMs
-			if maxAgeMs > 0 {
-				h.responseCache.Set(req, outboundResp, time.Duration(maxAgeMs)*time.Millisecond)
-				l.Debugw("Cached HTTP response", "ttlMs", maxAgeMs)
-			}
+			outboundResp = callback()
+			h.responseCache.Set(workflowID, req, outboundResp)
 		}
-		err = h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
+
+		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 		}
@@ -320,10 +339,4 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 
 	h.lggr.Debugw("sent response to node", "to", nodeAddr)
 	return nil
-}
-
-// isCacheableStatusCode returns true if the HTTP status code indicates a cacheable response.
-// This includes successful responses (2xx) and client errors (4xx)
-func isCacheableStatusCode(statusCode int) bool {
-	return (statusCode >= 200 && statusCode < 300) || (statusCode >= 400 && statusCode < 500)
 }
