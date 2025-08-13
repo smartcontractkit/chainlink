@@ -688,7 +688,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		lbs = append(lbs, legacyChain.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
-	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
@@ -701,6 +700,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			srvcs = append(srvcs, legacyChain.LogPoller())
 		}
 	}
+
+	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {
