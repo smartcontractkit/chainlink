@@ -148,8 +148,10 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 			TokenAddress:       tokenAddress,                          // The address of the token deployed on the chain.
 			LocalTokenDecimals: p.TokenDeploymentConfig.TokenDecimals, // The decimals of the token deployed on the chain.
 			Type:               p.TokenDeploymentConfig.PoolType,      // The type of the token pool (e.g. LockRelease, BurnMint).
+			TokenType:          p.TokenDeploymentConfig.Type,
 			AllowList:          p.TokenDeploymentConfig.PoolAllowList,
 			AcceptLiquidity:    p.TokenDeploymentConfig.AcceptLiquidity,
+			CCIPAdmin:          p.TokenDeploymentConfig.CCIPAdmin,
 		}
 		deployTokenCfg[chain] = tp // Add the pool configuration for the chain to the deployment config.
 		p.DeployPoolConfig = &tp
@@ -191,6 +193,9 @@ type DeployTokenConfig struct {
 
 	// PreMint is the amount of tokens to pre-mint for the token.
 	PreMint *big.Int `json:"preMint,omitempty"`
+
+	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role.
+	CCIPAdmin common.Address `json:"ccipAdmin,omitempty"`
 }
 
 func (c *DeployTokenConfig) Validate() error {
@@ -615,19 +620,15 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC20Token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
-			if err := addMinterAndMintBurnMintERC20(e, selector, token.Contract, e.BlockChains.EVMChains()[selector].DeployerKey.From,
-				cfg.PreMint); err != nil {
-				return nil, ab, fmt.Errorf("failed to add minter and mint token "+
-					"%s on chain %d: %w", cfg.TokenName, selector, err)
+
+			if err := setCCIPAdminForBurnMintERC20Token(e, selector, token.Contract, cfg.CCIPAdmin); err != nil {
+				return nil, ab, fmt.Errorf("failed to set CCIP admin for %s on chain %d: %w",
+					cfg.CCIPAdmin, selector, err)
 			}
-			if len(cfg.MintTokenForRecipients) > 0 {
-				for recipient, amount := range cfg.MintTokenForRecipients {
-					if err := addMinterAndMintBurnMintERC20(e, selector, token.Contract, recipient,
-						amount); err != nil {
-						return nil, ab, fmt.Errorf("failed to add minter and mint "+
-							"token %s on chain %d: %w", cfg.TokenName, selector, err)
-					}
-				}
+
+			if err := grantDefaultAdminRoleForBurnMintERC20Token(e, selector, token.Contract, cfg.CCIPAdmin); err != nil {
+				return nil, ab, fmt.Errorf("failed to grant default admin role for BurnMintERC20Token %s on chain %d: %w",
+					cfg.TokenName, selector, err)
 			}
 
 			tokenAddresses[selector] = token.Address
@@ -738,14 +739,19 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 	return nil
 }
 
-// addMinterAndMintBurnMintERC20 adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.
-func addMinterAndMintBurnMintERC20(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
-	return addMinterAndMintBurnMintERC20Helper(env, selector, token, recipient, amount)
+// addMinterAndBurnerForBurnMintERC20 adds the burner and minter role to the specified address.
+func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress common.Address, ccipAdmin common.Address) error {
+	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, ccipAdmin)
 }
 
-func addMinterAndMintBurnMintERC20Helper(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, recipient common.Address, amount *big.Int) error {
+func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress common.Address, ccipAdmin common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
+
+	token, err := burn_mint_erc20.NewBurnMintERC20(tokenAddress, env.BlockChains.EVMChains()[selector].Client)
+	if err != nil {
+		return fmt.Errorf("failed to connect address %s with burn_mint_erc20 bindings: %w", tokenAddress.Hex(), err)
+	}
 
 	mintRole, err := token.MINTERROLE(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -763,7 +769,7 @@ func addMinterAndMintBurnMintERC20Helper(env cldf.Environment, selector uint64, 
 		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
 
 		if err != nil {
-			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", recipient.Hex(), selector, err)
+			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", ccipAdmin.Hex(), selector, err)
 		}
 
 		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
@@ -774,40 +780,80 @@ func addMinterAndMintBurnMintERC20Helper(env cldf.Environment, selector uint64, 
 			"Hash", tx.Hash().Hex(), "Selector", selector)
 	}
 
-	tx, err := token.Mint(deployerKey, recipient, amount)
+	burnerRole, err := token.BURNERROLE(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to mint %s tokens to %s on chain %d: %w",
-			token.Address().Hex(), recipient.Hex(), selector, err)
+		return fmt.Errorf("failed to get burner role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
 	}
 
+	hasRole, err = token.HasRole(&bind.CallOpts{Context: ctx}, burnerRole, deployerKey.From)
+	if err != nil {
+		return fmt.Errorf("failed to check if deployer key has burner role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+
+	if hasRole {
+		env.Logger.Infow("Deployer key already has burner role for token", "Token", token.Address().Hex(), "Selector", selector)
+	} else {
+		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
+
+		if err != nil {
+			return fmt.Errorf("failed to grant burn role to %s on chain %d: %w", ccipAdmin.Hex(), selector, err)
+		}
+
+		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
+			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
+		}
+
+		env.Logger.Infow("Transaction granting burn role mined successfully",
+			"Hash", tx.Hash().Hex(), "Selector", selector)
+	}
+
+	return nil
+}
+
+func setCCIPAdminForBurnMintERC20Token(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, address common.Address) error {
+	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
+
+	tx, err := token.SetCCIPAdmin(deployerKey, address)
+	if err != nil {
+		return fmt.Errorf("failed to set CCIP admin for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
 	if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
-		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w",
-			tx.Hash().Hex(), selector, err)
+		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
 	}
+	env.Logger.Infow("Transaction setting CCIP admin mined successfully",
+		"Hash", tx.Hash().Hex(), "Selector", selector)
 
-	env.Logger.Infow("Transaction minting token mined successfully", "Hash", tx.Hash().Hex())
+	return nil
+}
 
-	balance, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
+func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector uint64, token *burn_mint_erc20.BurnMintERC20, address common.Address) error {
+	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
+	ctx := env.GetContext()
+
+	adminRole, err := token.DEFAULTADMINROLE(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get balance of %s on chain %d: %w",
-			recipient.Hex(), selector, err)
+		return fmt.Errorf("failed to get default admin role on token %s on chain %d: %w", token.Address().Hex(), selector, err)
 	}
 
-	if balance.Cmp(amount) != 0 {
-		return fmt.Errorf("expected balance of %s, got %s",
-			amount.String(), balance.String())
-	}
-
-	symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
+	hasRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, adminRole, deployerKey.From)
 	if err != nil {
-		return fmt.Errorf("failed to get token symbol for %s on chain %d: %w",
-			token.Address().Hex(), selector, err)
+		return fmt.Errorf("failed to check if address %s has default admin role for token %s on chain %d: %w", address, token.Address().Hex(), selector, err)
 	}
 
-	env.Logger.Infow("Recipient added as minter and token minted",
-		"Address", recipient.Hex(),
-		"Balance", balance.String(), "Token Symbol", symbol,
-		"Token address", token.Address().Hex())
+	if hasRole {
+		env.Logger.Infow("Address %s already has default admin role for token", "Token", address, token.Address().Hex(), "Selector", selector)
+	} else {
+		tx, err := token.GrantRole(deployerKey, adminRole, address)
+
+		if err != nil {
+			return fmt.Errorf("failed to grant default admin role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+		}
+		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
+			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
+		}
+		env.Logger.Infow("Transaction granting default admin role mined successfully",
+			"Hash", tx.Hash().Hex(), "Selector", selector)
+	}
 
 	return nil
 }
