@@ -1507,8 +1507,8 @@ github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-2025
 github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250806155403-1d805e639a0f/go.mod h1:yMGYq2fDYWPXZjkVuzgRiZVv/NaifvQUqK7CY6kNgW0=
 github.com/smartcontractkit/chainlink-data-streams v0.1.2 h1:g/UmFJa/E1Zmc7NO20ob5SijxQen51DhnqTLr2f7BEc=
 github.com/smartcontractkit/chainlink-data-streams v0.1.2/go.mod h1:lxY97sDlDorQAmLGFo6x1tl8SQ2E7adsS0/wU8+mmTc=
-github.com/smartcontractkit/chainlink-deployments-framework v0.21.0 h1:6cJiEoYSQgas8GurjWB+5ZRQXCDKYM1sF5f4/n8JHCs=
-github.com/smartcontractkit/chainlink-deployments-framework v0.21.0/go.mod h1:Swdqi5chVer3urFnfQzLHsJjW/ZWkv8+bMJdur5Sjvs=
+github.com/smartcontractkit/chainlink-deployments-framework v0.23.0 h1:ItjBDg4ZmGNsJj4/6a4zPBBXY8iSmL/r2gaZI1Z1Gqc=
+github.com/smartcontractkit/chainlink-deployments-framework v0.23.0/go.mod h1:WrmRmzMaNQbCDQxftr7EgvCGJyYE3p6UcpIrP5oHVhM=
 github.com/smartcontractkit/chainlink-evm v0.3.1 h1:o4DSoeHGxNCW2c9Xd0Qmu7rYQ8+Zf9Stv8Md+dHtqgg=
 github.com/smartcontractkit/chainlink-evm v0.3.1/go.mod h1:6y5OTe7zEVXKyVWzXWR/VlIrO/UDqcCrQJPmb5ms6RM=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3 h1:SRMNzCdQnF2x6+QlL5YSzVeWyJb/BXqMrg+zSGaBPVg=

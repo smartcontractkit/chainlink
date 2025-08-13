@@ -51,9 +51,14 @@ type DataFeedsAptosChainState struct {
 	DataFeeds map[aptos.AccountAddress]*modulefeeds.DataFeeds
 }
 
+type DataFeedsTronChainState struct {
+	DataFeeds map[string]bool
+}
+
 type DataFeedsOnChainState struct {
 	Chains      map[uint64]DataFeedsChainState
 	AptosChains map[uint64]DataFeedsAptosChainState
+	TronChains  map[uint64]DataFeedsTronChainState
 }
 
 func LoadAptosOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
@@ -68,6 +73,22 @@ func LoadAptosOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 			return state, err
 		}
 		state.AptosChains[chainSelector] = *chainState
+	}
+	return state, nil
+}
+
+func LoadTronOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
+	state := DataFeedsOnChainState{
+		TronChains: make(map[uint64]DataFeedsTronChainState),
+	}
+
+	for chainSelector := range e.BlockChains.TronChains() {
+		records := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+		chainState, err := LoadTronChainState(e.Logger, records)
+		if err != nil {
+			return state, err
+		}
+		state.TronChains[chainSelector] = *chainState
 	}
 	return state, nil
 }
@@ -158,6 +179,20 @@ func LoadAptosChainState(logger logger.Logger, chain cldf_aptos.Chain, addresses
 
 			bindContract := modulefeeds.Bind(feedsAddress, chain.Client)
 			state.DataFeeds[feedsAddress] = &bindContract
+		}
+	}
+	return &state, nil
+}
+
+// LoadTronChainState Loads all state for tron chain into state
+func LoadTronChainState(logger logger.Logger, addresses []datastore.AddressRef) (*DataFeedsTronChainState, error) {
+	var state DataFeedsTronChainState
+
+	state.DataFeeds = make(map[string]bool)
+
+	for _, address := range addresses {
+		if address.Type == DataFeedsCache {
+			state.DataFeeds[address.Address] = true
 		}
 	}
 	return &state, nil
