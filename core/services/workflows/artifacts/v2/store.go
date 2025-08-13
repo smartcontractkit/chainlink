@@ -160,7 +160,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 		err       error
 	)
 
-	// NOTE: retrieveFunc may be nil if the fetcherFunc was overriden.
+	// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
 	// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
 	if h.retrieveFunc != nil {
 		// Get the URL to retrieve binary artifact from
@@ -202,7 +202,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 			configErr error
 		)
 
-		// NOTE: retrieveFunc may be nil if the fetcherFunc was overriden.
+		// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
 		// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
 		if h.retrieveFunc != nil {
 			// Get the URL to retrieve config artifact from
