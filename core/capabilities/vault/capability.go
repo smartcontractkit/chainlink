@@ -108,14 +108,14 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
-func (s *Capability) handleRequest(ctx context.Context, id string, request proto.Message) (*vault2.Response, error) {
+func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vault2.Response, error) {
 	respCh := make(chan *vault2.Response, 1)
 	s.handler.SendRequest(ctx, &vault2.Request{
 		Payload:      request,
 		ResponseChan: respCh,
 
 		ExpiryTimeVal: s.clock.Now().Add(s.expiresAfter),
-		IDVal:         id,
+		IDVal:         requestID,
 	})
 	s.lggr.Infof("Sent Request to Vault OCR: %s", request)
 	select {
@@ -123,7 +123,7 @@ func (s *Capability) handleRequest(ctx context.Context, id string, request proto
 		return nil, ctx.Err()
 	case resp := <-respCh:
 		if resp.Error != "" {
-			return nil, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
+			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
 		return resp, nil
@@ -133,6 +133,14 @@ func (s *Capability) handleRequest(ctx context.Context, id string, request proto
 func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
 	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Capability) GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
+	s.lggr.Infof("Received GetSecrets call: %s", request.String())
+	if len(request.Requests) == 0 {
+		return nil, errors.New("no GetSecret request specified in request")
+	}
+	return s.handleRequest(ctx, requestId, request)
 }
 
 func NewCapability(

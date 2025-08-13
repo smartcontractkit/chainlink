@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -88,6 +89,13 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	switch req.Method {
 	case vault_api.MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
+	case vault_api.MethodSecretsGet:
+		if build.IsProd() {
+			response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
+		} else {
+			h.lggr.Infof("Allowing method %s since this is not a prod build.", req.Method)
+			response = h.handleSecretsGet(ctx, gatewayID, req)
+		}
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -111,6 +119,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	}
 	h.lggr.Infof("Debugging: handleSecretsCreate 1 %s: %v", gatewayID, req)
 	vaultCapRequest := vault.CreateSecretsRequest{
+		RequestId: req.ID,
 		EncryptedSecrets: []*vault.EncryptedSecret{
 			{
 				Id: &vault.SecretIdentifier{
@@ -134,6 +143,44 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
 	h.lggr.Infof("Debugging: handleSecretsCreate 3 %s: %v", gatewayID, req)
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
+func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	var requestData vault_api.SecretsGetRequest
+	if err := json.Unmarshal(*req.Params, &requestData); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+	h.lggr.Infof("Debugging: handleSecretsGet 1 %s: %v", gatewayID, req)
+	getSecretsRequest := vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Owner:     requestData.Owner,
+					Namespace: "", // TBD
+					Key:       requestData.ID,
+				},
+			},
+		},
+	}
+	vaultCapResponse, err := h.secretsService.GetSecrets(ctx, req.ID, &getSecretsRequest)
+	if err != nil {
+		h.lggr.Infof("Debugging: h.secretsService.GetSecrets failed, erro: %s", err.Error())
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
+	h.lggr.Infof("Debugging: handleSecretsGet 2 %s: %v", gatewayID, req)
+
+	resultBytes, err := json.Marshal(vaultCapResponse)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+	h.lggr.Infof("Debugging: handleSecretsGet 3 %s: %v", gatewayID, req)
 
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,

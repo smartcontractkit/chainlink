@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/NethermindEth/juno v0.12.5
 	github.com/NethermindEth/starknet.go v0.8.0
+	github.com/Workiva/go-datastructures v1.1.5
 	github.com/andybalholm/brotli v1.1.1
 	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f
 	github.com/avast/retry-go/v4 v4.6.1

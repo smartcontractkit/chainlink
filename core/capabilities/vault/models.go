@@ -9,4 +9,5 @@ import (
 
 type SecretsService interface {
 	CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error)
+	GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*vault2.Response, error)
 }

@@ -37,7 +37,7 @@ const (
 	defaultMaxIdentifierNamespaceLengthBytes = 64
 
 	defaultLimitsMaxQueryLength                          = 1024 // 1KB
-	defaultLimitsMaxObservationLength                    = 1024 // 1KB
+	defaultLimitsMaxObservationLength                    = 2048 // 1KB
 	defaultLimitsMaxReportsPlusPrecursorLength           = 1024 // 1KB
 	defaultLimitsMaxReportLength                         = 1024 // 1KB
 	defaultLimitsMaxReportCount                          = 10
@@ -217,6 +217,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	newSecretsByOwner := map[string]map[string]bool{}
 	for _, req := range batch {
 		r.lggr.Infof("Debugging: VaultOCR Observation. Found id in batch: %s", req.ID())
+		if req.ID() == "" {
+			r.lggr.Errorw("request has o id. Ignoring it...")
+			continue
+		}
 		o := &vault.Observation{
 			Id: req.ID(),
 		}
