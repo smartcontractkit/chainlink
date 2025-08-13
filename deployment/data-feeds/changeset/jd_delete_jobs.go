@@ -5,10 +5,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 )
 
 const (
@@ -23,6 +24,16 @@ func deleteJobsJDLogic(env cldf.Environment, c types.DeleteJobsConfig) (cldf.Cha
 	defer cancel()
 
 	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName, c.Environment)
+
+	ds := datastore.NewMemoryDataStore()
+	// Delete the workflow spec from the datastore if workflow name is provided
+	if c.WorkflowName != "" {
+		err := UpdateWorkflowMetadataDS(env, ds, c.WorkflowName, "")
+		if err == nil {
+			return cldf.ChangesetOutput{DataStore: ds}, nil
+		}
+		env.Logger.Errorf("failed to update workflow spec: %s", err)
+	}
 	return cldf.ChangesetOutput{}, nil
 }
 

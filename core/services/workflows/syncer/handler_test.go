@@ -300,6 +300,7 @@ func Test_Handler(t *testing.T) {
 const (
 	binaryLocation = "test/simple/cmd/testmodule.wasm"
 	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
+	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
@@ -1201,5 +1202,67 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		// old engine is no longer running
 		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
+	})
+}
+
+func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	config := []byte(`{"key": "value"}`)
+
+	workflowName, err := types.NewWorkflowName("test-workflow")
+	require.NoError(t, err)
+
+	workflowStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	require.NoError(t, err)
+
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
+	require.NoError(t, err)
+
+	emitter := custmsg.NewLabeler()
+	decrypter := newMockDecrypter()
+	fetcher := newMockFetcher(map[string]mockFetchResp{})
+	orm := mocks.NewORM(t)
+	artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+	eventHandler, err := NewEventHandler(
+		lggr,
+		workflowStore,
+		registry,
+		dontime.NewStore(dontime.DefaultRequestTimeout),
+		NewEngineRegistry(),
+		emitter,
+		rl,
+		workflowLimits,
+		artifactStore,
+		workflowEncryptionKey,
+	)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, eventHandler.Close()) }()
+	var secretsURL = "http://example.com/secrets"
+	var wfOwner = "1234567890123456789012345678901234567890"
+
+	t.Run("DAG workflow", func(t *testing.T) {
+		binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
+		workflowID, err := pkgworkflows.GenerateWorkflowID([]byte(wfOwner), "workflow-name", binary, config, secretsURL)
+		require.NoError(t, err)
+		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
+		require.NoError(t, err)
+		require.NotNil(t, engine)
+	})
+
+	t.Run("NoDAG workflow", func(t *testing.T) {
+		binary := wasmtest.CreateTestBinary(noDagBinaryCmd, true, t)
+		workflowID, err := pkgworkflows.GenerateWorkflowID([]byte(wfOwner), "workflow-name", binary, config, secretsURL)
+		require.NoError(t, err)
+		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
+		require.NoError(t, err)
+		require.NotNil(t, engine)
 	})
 }
