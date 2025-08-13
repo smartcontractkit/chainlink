@@ -53,6 +53,9 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 	// ExternalMinter only for burn-mint fast transfer pools with external minting.
 	ExternalMinter common.Address
+	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role. This is specifically
+	// for BurnMintERC20 token.
+	CCIPAdmin common.Address
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {

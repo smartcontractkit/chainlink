@@ -151,6 +151,7 @@ func (c *AddTokenE2EConfig) newDeployTokenPoolConfigAfterTokenDeployment(tokenAd
 			TokenType:          p.TokenDeploymentConfig.Type,
 			AllowList:          p.TokenDeploymentConfig.PoolAllowList,
 			AcceptLiquidity:    p.TokenDeploymentConfig.AcceptLiquidity,
+			CCIPAdmin:          p.TokenDeploymentConfig.CCIPAdmin,
 		}
 		deployTokenCfg[chain] = tp // Add the pool configuration for the chain to the deployment config.
 		p.DeployPoolConfig = &tp
@@ -193,7 +194,8 @@ type DeployTokenConfig struct {
 	// PreMint is the amount of tokens to pre-mint for the token.
 	PreMint *big.Int `json:"preMint,omitempty"`
 
-	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role.
+	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role. This is specifically
+	// for BurnMintERC20 token.
 	CCIPAdmin common.Address `json:"ccipAdmin,omitempty"`
 }
 
