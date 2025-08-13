@@ -82,6 +82,8 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			ServiceName = "workflows"
 			[gatewayConfig.Dons.Handlers.Config]
 			maxTriggerRequestDurationMs = 5_000
+			metadataPullIntervalMs = 1_000
+			metadataAggregationIntervalMs = 1_000
 			` + nodeRateLimiterConfig + `
 			[gatewayConfig.Dons.Handlers.Config.UserRateLimiter]
 			globalBurst = 10
