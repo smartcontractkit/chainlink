@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
@@ -242,7 +241,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		if !ok {
 			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 		}
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3common.SeqNum(expectedSeqNumRange[sourceDest].Start()),
+		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
 			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 
 		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
