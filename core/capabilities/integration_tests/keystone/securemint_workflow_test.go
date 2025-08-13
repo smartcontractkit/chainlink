@@ -59,8 +59,8 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the test trigger event in the format expected by the secure mint transmitter
-	mintableAmount := big.NewInt(0)
-	blockNumber := big.NewInt(0)
+	mintableAmount := big.NewInt(99)
+	blockNumber := big.NewInt(10)
 	triggerEvent := createSecureMintTriggerEvent(t, chainID, seqNr, mintableAmount, blockNumber)
 
 	t.Logf("Sending triggerEvent: %+v", triggerEvent)

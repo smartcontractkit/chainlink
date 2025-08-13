@@ -136,5 +136,8 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	return append(encodedMeta, userPayload...), nil
+	x := append(encodedMeta, userPayload...)
+
+	fmt.Printf("capEncoder.Encode returned: %+v\n", x)
+	return x, nil
 }

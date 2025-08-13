@@ -203,5 +203,6 @@ func createSecureMintWorkflowJob(t *testing.T,
 
 	spec := buf.String()
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
+	t.Logf("Generated workflow job spec: %s", spec)
 	return workflowJobSpec.Job()
 }
