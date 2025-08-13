@@ -296,7 +296,12 @@ func addDons(
 		}
 		// add the don
 		isPublic := true
-		f := len(don.P2PIDs)/3 + 1
+		expectedDonID, err := registry.GetNextDONId(nil)
+		require.NoError(t, err)
+		f := (len(don.P2PIDs) - 1) / 3
+		if f < 1 {
+			f = 1
+		}
 		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
 			err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -304,6 +309,13 @@ func addDons(
 		}
 		_, err = chain.Confirm(tx)
 		require.NoError(t, err)
+		info, err := registry.GetDON(nil, expectedDonID)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, expectedDonID, info.Id)
+		require.Equal(t, f, int(info.F))
+		require.Len(t, info.NodeP2PIds, len(don.P2PIDs))
+
 	}
 }
 

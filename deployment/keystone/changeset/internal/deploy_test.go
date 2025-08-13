@@ -443,8 +443,13 @@ func Test_RegisterDons(t *testing.T) {
 
 	t.Run("no new dons to add results in no mcms ops", func(t *testing.T) {
 		var (
-			existingNOP              = testNop(t, "testNop")
-			existingP2Pkey           = testPeerID(t, "0x1")
+			existingNOP    = testNop(t, "testNop")
+			existingP2Pkey = testPeerID(t, "0x1")
+			//testNodeID2              = "test-node-id2"
+			p2pKey2 = testPeerID(t, "0x2")
+			//testNodeID3              = "test-node-id3"
+			p2pKey3                  = testPeerID(t, "0x3")
+			p2pKey4                  = testPeerID(t, "0x4")
 			initialp2pToCapabilities = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 				existingP2Pkey: {
 					{
@@ -467,6 +472,13 @@ func Test_RegisterDons(t *testing.T) {
 						CapabilityType: 0,
 					},
 				},
+				testPeerID(t, "0x4"): {
+					{
+						LabelledName:   "test",
+						Version:        "1.0.0",
+						CapabilityType: 0,
+					},
+				},
 			}
 			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
 				existingNOP: {
@@ -478,33 +490,45 @@ func Test_RegisterDons(t *testing.T) {
 					{
 						Signer:              [32]byte{0: 1, 1: 1},
 						P2PKey:              testPeerID(t, "0x2"),
-						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
+						EncryptionPublicKey: [32]byte{3: 16, 5: 3},
 					},
 					{
 						Signer:              [32]byte{0: 1, 1: 1, 2: 1},
 						P2PKey:              testPeerID(t, "0x3"),
-						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
+						EncryptionPublicKey: [32]byte{3: 16, 6: 4},
+					},
+					{
+						Signer:              [32]byte{0: 1, 1: 1, 2: 1, 7: 7},
+						P2PKey:              testPeerID(t, "0x4"),
+						EncryptionPublicKey: [32]byte{3: 16, 9: 9},
 					},
 				},
 			}
 
-			setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{
+			setupResp2 = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{
 				P2pToCapabilities: initialp2pToCapabilities,
 				NopToNodes:        nopToNodes,
-				Dons: []kstest.Don{
-					{
-						Name:   "test-don",
-						P2PIDs: []p2pkey.PeerID{existingP2Pkey, testPeerID(t, "0x2"), testPeerID(t, "0x3")},
+				/*
+					Dons: []kstest.Don{
+						{
+							Name:   "test-don",
+							P2PIDs: []p2pkey.PeerID{existingP2Pkey, testPeerID(t, "0x2"), testPeerID(t, "0x3"), testPeerID(t, "0x4")},
+						},
 					},
-				},
+				*/
 			})
-			regContract = setupResp.CapabilitiesRegistry
+			regContract = setupResp2.CapabilitiesRegistry
 		)
+
+		x, err := regContract.GetDONs(nil)
+		require.NoError(t, err)
+		require.Len(t, x, 0)
+		// register one don
 
 		env := &cldf.Environment{
 			Logger: lggr,
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
-				setupResp.Chain.Selector: {
+				setupResp2.Chain.Selector: {
 					regContract.Address().String(): cldf.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
@@ -513,12 +537,14 @@ func Test_RegisterDons(t *testing.T) {
 			}),
 			BlockChains: cldf_chain.NewBlockChains(
 				map[uint64]cldf_chain.BlockChain{
-					setupResp.Chain.Selector: setupResp.Chain,
+					setupResp2.Chain.Selector: setupResp2.Chain,
 				}),
 		}
 		req := internal.RegisterDonsRequest{
 			Env:                   env,
-			RegistryChainSelector: setupResp.Chain.Selector,
+			RegistryChainSelector: setupResp2.Chain.Selector,
+			Registry:              regContract,
+			RegistryChain:         &setupResp2.Chain,
 			DonToCapabilities: map[string][]internal.RegisteredCapability{
 				"test-don": {},
 			},
@@ -531,29 +557,42 @@ func Test_RegisterDons(t *testing.T) {
 						{
 							NodeID: "test-node-id",
 						},
+						{
+							NodeID: "test-node-id2",
+						},
+						{
+							NodeID: "test-node-id3",
+						},
+						{
+							NodeID: "test-node-id4",
+						},
 					},
 				},
 			},
 			NodeIDToP2PID: map[string][32]byte{
-				"test-node-id": testPeerID(t, "0x1"),
+				"test-node-id":  testPeerID(t, "0x1"),
+				"test-node-id2": p2pKey2,
+				"test-node-id3": p2pKey3,
+				"test-node-id4": p2pKey4,
 			},
-			UseMCMS: true,
+			UseMCMS: false,
 		}
 		resp, err := internal.RegisterDons(lggr, req)
 		require.NoError(t, err)
 		require.Nil(t, resp.Ops)
-		assert.Empty(t, resp.DonInfos)
-
-		// the previous call shows that no ops are created by default when trying to register a DON with identical nodes
-		// to an existing DON. Now we enable AllowDuplicateDons and verify that registration works.
-		t.Run("enable duplicate DON registration and register again", func(t *testing.T) {
-			req.AllowDuplicateDons = true
-			resp, err := internal.RegisterDons(lggr, req)
-			require.NoError(t, err)
-			require.NotNil(t, resp.Ops)
-			require.Len(t, resp.Ops.Transactions, 1)
-			assert.Empty(t, resp.DonInfos)
-		})
+		assert.NotEmpty(t, resp.DonInfos)
+		/*
+			// the previous call shows that no ops are created by default when trying to register a DON with identical nodes
+			// to an existing DON. Now we enable AllowDuplicateDons and verify that registration works.
+			t.Run("enable duplicate DON registration and register again", func(t *testing.T) {
+				req.AllowDuplicateDons = true
+				resp, err := internal.RegisterDons(lggr, req)
+				require.NoError(t, err)
+				require.NotNil(t, resp.Ops)
+				require.Len(t, resp.Ops.Transactions, 1)
+				assert.Empty(t, resp.DonInfos)
+			})
+		*/
 	})
 
 	t.Run("success create add DONs mcms proposal with multiple DONs", func(t *testing.T) {

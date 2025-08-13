@@ -1005,6 +1005,9 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	for i := 0; i < 10; i++ {
 		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = registry.GetDONs(&bind.CallOpts{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to call GetDONs: %w", err)
+		}
 		if !req.AllowDuplicateDons {
 			if !containsAllDONs(donInfos, p2pIdsToDon) {
 				lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
