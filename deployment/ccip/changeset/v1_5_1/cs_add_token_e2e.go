@@ -754,55 +754,38 @@ func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selecto
 
 	mintRole, err := token.MINTERROLE(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get minter role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
+		return fmt.Errorf("failed to get mint role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
 	}
 
-	hasRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, mintRole, deployerKey.From)
+	hasMintRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, mintRole, poolAddress)
 	if err != nil {
-		return fmt.Errorf("failed to check if deployer key has minter role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+		return fmt.Errorf("failed to check if pool has mint role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
 	}
 
-	if hasRole {
-		env.Logger.Infow("Deployer key already has minter role for token", "Token", token.Address().Hex(), "Selector", selector)
+	burnRole, err := token.BURNERROLE(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get burn role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+
+	hasBurnRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, burnRole, poolAddress)
+	if err != nil {
+		return fmt.Errorf("failed to check if pool has burn role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
+	}
+
+	if hasMintRole && hasBurnRole {
+		env.Logger.Infow("Pool already has mint and burn role for token", "Token", token.Address().Hex(), "Selector", selector)
 	} else {
-		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
+		tx, err := token.GrantMintAndBurnRoles(deployerKey, poolAddress)
 
 		if err != nil {
-			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
+			return fmt.Errorf("failed to grant mint and burn role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
 		}
 
 		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
 			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
 		}
 
-		env.Logger.Infow("Transaction granting mint role mined successfully",
-			"Hash", tx.Hash().Hex(), "Selector", selector)
-	}
-
-	burnerRole, err := token.BURNERROLE(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get burner role of token %s on chain %d: %w", token.Address().Hex(), selector, err)
-	}
-
-	hasRole, err = token.HasRole(&bind.CallOpts{Context: ctx}, burnerRole, deployerKey.From)
-	if err != nil {
-		return fmt.Errorf("failed to check if deployer key has burner role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
-	}
-
-	if hasRole {
-		env.Logger.Infow("Deployer key already has burner role for token", "Token", token.Address().Hex(), "Selector", selector)
-	} else {
-		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
-
-		if err != nil {
-			return fmt.Errorf("failed to grant burn role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
-		}
-
-		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
-			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
-		}
-
-		env.Logger.Infow("Transaction granting burn role mined successfully",
+		env.Logger.Infow("Transaction granting mint and burn role mined successfully",
 			"Hash", tx.Hash().Hex(), "Selector", selector)
 	}
 
@@ -840,7 +823,7 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 	}
 
 	if hasRole {
-		env.Logger.Infow("Address %s already has default admin role for token", "Token", address, token.Address().Hex(), "Selector", selector)
+		env.Logger.Infow("Pool already has default admin role for token", "Token", token.Address().Hex(), "Pool", address, "Selector", selector)
 	} else {
 		tx, err := token.GrantRole(deployerKey, adminRole, address)
 
