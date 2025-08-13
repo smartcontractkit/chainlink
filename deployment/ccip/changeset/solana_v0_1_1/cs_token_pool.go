@@ -2438,6 +2438,18 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 		usdcToken,
 		shared.CLLMetadata,
 	)
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
 
 	statePDA, err := solTokenUtil.TokenPoolConfigAddress(usdcToken, cctpTokenPool)
 	if err != nil {
@@ -2463,7 +2475,7 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 			},
 			statePDA,
 			chainConfigPDA,
-			chain.DeployerKey.PublicKey(),
+			authority,
 		).ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
