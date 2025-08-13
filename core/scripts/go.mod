@@ -46,22 +46,13 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-<<<<<<< HEAD
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250805180409-111ef75e9257
-	github.com/smartcontractkit/chainlink-common v0.8.1-0.20250812214255-67aebf1bbeb5
-	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c
-	github.com/smartcontractkit/chainlink-data-streams v0.1.2
-	github.com/smartcontractkit/chainlink-deployments-framework v0.21.0
-	github.com/smartcontractkit/chainlink-evm v0.1.1-0.20250812214515-73eea80b5f19
-=======
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250811210745-6b815a3f06f7
-	github.com/smartcontractkit/chainlink-common v0.9.1-0.20250812135858-e5076b00976f
+	github.com/smartcontractkit/chainlink-common v0.9.1-0.20250813130821-b873b0f57784
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.23.0
 	github.com/smartcontractkit/chainlink-evm v0.3.1
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
->>>>>>> origin
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250811145846-a48e9e035375
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.11
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
@@ -490,7 +481,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250807150237-50f8f67eb21e // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250805160549-9c2255ee818e // indirect
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250813185240-48ca6db2bc82 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250729190115-fa322d3f3238 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
