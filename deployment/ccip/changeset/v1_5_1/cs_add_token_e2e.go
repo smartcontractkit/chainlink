@@ -218,7 +218,7 @@ func (c *DeployTokenConfig) Validate() error {
 
 	if c.Type == shared.BurnMintERC20Token && c.MaxSupply != nil && c.PreMint != nil {
 		if c.PreMint.Cmp(c.MaxSupply) > 0 {
-			return fmt.Errorf("preMint amount %s cannot be greater than max supply %s for BurnMintERC20Token type",
+			return fmt.Errorf("preMint amount %s cannot be greater than max supply %s for BurnMintERC20 token type",
 				c.PreMint.String(), c.MaxSupply.String())
 		}
 	}
@@ -740,7 +740,7 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 	return nil
 }
 
-// addMinterAndBurnerForBurnMintERC20 adds the burner and minter role to the specified address.
+// addMinterAndBurnerForBurnMintERC20Token adds the burner and minter role to the specified address.
 func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
 	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, poolAddress)
 }
@@ -819,7 +819,7 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 		return fmt.Errorf("failed to get default admin role on token %s on chain %d: %w", token.Address().Hex(), selector, err)
 	}
 
-	hasRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, adminRole, deployerKey.From)
+	hasRole, err := token.HasRole(&bind.CallOpts{Context: ctx}, adminRole, address)
 	if err != nil {
 		return fmt.Errorf("failed to check if address %s has default admin role for token %s on chain %d: %w", address, token.Address().Hex(), selector, err)
 	}

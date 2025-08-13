@@ -197,7 +197,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 			}
 			if poolConfig.TokenType == shared.BurnMintERC20Token {
 				if err := addMinterAndBurnerForBurnMintERC20Token(env, chain.Selector, poolConfig.TokenAddress, contract.Address); err != nil {
-					return fmt.Errorf("failed to add minter and burner for BurnMintERC20Token %s on %s: %w",
+					return fmt.Errorf("failed to add minter and burner for BurnMintERC20 token %s on %s: %w",
 						poolConfig.TokenAddress, chain, err)
 				}
 			}
