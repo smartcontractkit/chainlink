@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -52,7 +50,11 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 
 	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(config.Capabilities))
 	for i, cap := range config.Capabilities {
-		capabilities[i] = cap.ToWrapper()
+		c, err := cap.ToWrapper()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert capability %d: %w", i, err)
+		}
+		capabilities[i] = c
 	}
 
 	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, len(config.Nodes))
@@ -89,86 +91,4 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 	return cldf.ChangesetOutput{
 		Reports: reports,
 	}, nil
-}
-
-type CapabilitiesRegistryNodeOperator struct {
-	Admin common.Address `json:"admin" yaml:"admin"`
-	Name  string         `json:"name" yaml:"name"`
-}
-
-func (nop CapabilitiesRegistryNodeOperator) ToWrapper() capabilities_registry_v2.CapabilitiesRegistryNodeOperator {
-	return capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
-		Admin: nop.Admin,
-		Name:  nop.Name,
-	}
-}
-
-type CapabilitiesRegistryCapability struct {
-	CapabilityID          string         `json:"capabilityID" yaml:"capabilityID"`
-	ConfigurationContract common.Address `json:"configurationContract" yaml:"configurationContract"`
-	Metadata              []byte         `json:"metadata" yaml:"metadata"`
-}
-
-func (cap CapabilitiesRegistryCapability) ToWrapper() capabilities_registry_v2.CapabilitiesRegistryCapability {
-	return capabilities_registry_v2.CapabilitiesRegistryCapability{
-		CapabilityId:          cap.CapabilityID,
-		ConfigurationContract: cap.ConfigurationContract,
-		Metadata:              cap.Metadata,
-	}
-}
-
-type CapabilitiesRegistryNodeParams struct {
-	NodeOperatorID      uint32   `json:"nodeOperatorID" yaml:"nodeOperatorID"`
-	Signer              [32]byte `json:"signer" yaml:"signer"`
-	P2pID               [32]byte `json:"p2pID" yaml:"p2pID"`
-	EncryptionPublicKey [32]byte `json:"encryptionPublicKey" yaml:"encryptionPublicKey"`
-	CsaKey              [32]byte `json:"csaKey" yaml:"csaKey"`
-	CapabilityIDs       []string `json:"capabilityIDs" yaml:"capabilityIDs"`
-}
-
-func (node CapabilitiesRegistryNodeParams) ToWrapper() capabilities_registry_v2.CapabilitiesRegistryNodeParams {
-	return capabilities_registry_v2.CapabilitiesRegistryNodeParams{
-		NodeOperatorId:      node.NodeOperatorID,
-		Signer:              node.Signer,
-		P2pId:               node.P2pID,
-		EncryptionPublicKey: node.EncryptionPublicKey,
-		CsaKey:              node.CsaKey,
-		CapabilityIds:       node.CapabilityIDs,
-	}
-}
-
-type CapabilitiesRegistryCapabilityConfiguration struct {
-	CapabilityID string `json:"capabilityID" yaml:"capabilityID"`
-	Config       []byte `json:"config" yaml:"config"`
-}
-
-type CapabilitiesRegistryNewDONParams struct {
-	Name                     string                                        `json:"name" yaml:"name"`
-	DonFamilies              []string                                      `json:"donFamilies" yaml:"donFamilies"`
-	Config                   []byte                                        `json:"config" yaml:"config"`
-	CapabilityConfigurations []CapabilitiesRegistryCapabilityConfiguration `json:"capabilityConfigurations" yaml:"capabilityConfigurations"`
-	Nodes                    [][32]byte                                    `json:"nodes" yaml:"nodes"`
-	F                        uint8                                         `json:"f" yaml:"f"`
-	IsPublic                 bool                                          `json:"isPublic" yaml:"isPublic"`
-	AcceptsWorkflows         bool                                          `json:"acceptsWorkflows" yaml:"acceptsWorkflows"`
-}
-
-func (don CapabilitiesRegistryNewDONParams) ToWrapper() capabilities_registry_v2.CapabilitiesRegistryNewDONParams {
-	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
-	for j, capConfig := range don.CapabilityConfigurations {
-		capabilityConfigurations[j] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
-			CapabilityId: capConfig.CapabilityID,
-			Config:       capConfig.Config,
-		}
-	}
-	return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
-		Name:                     don.Name,
-		DonFamilies:              don.DonFamilies,
-		Config:                   don.Config,
-		CapabilityConfigurations: capabilityConfigurations,
-		Nodes:                    don.Nodes,
-		F:                        don.F,
-		IsPublic:                 don.IsPublic,
-		AcceptsWorkflows:         don.AcceptsWorkflows,
-	}
 }

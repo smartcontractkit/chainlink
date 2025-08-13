@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -84,12 +85,12 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				CapabilityID:          "write-chain@1.0.0",
 				ConfigurationContract: common.HexToAddress("0x3333333333333333333333333333333333333333"),
-				Metadata:              []byte(`{"type": "write-chain", "version": "1.0.0"}`),
+				Metadata:              CapabilityMetadata{CapabilityType: 3, ResponseType: 0},
 			},
 			{
 				CapabilityID:          "trigger@1.0.0",
 				ConfigurationContract: common.Address{}, // Zero address
-				Metadata:              []byte(`{"type": "trigger", "version": "1.0.0"}`),
+				Metadata:              CapabilityMetadata{CapabilityType: 0, ResponseType: 0},
 			},
 		},
 		Nodes: []CapabilitiesRegistryNodeParams{
@@ -214,10 +215,14 @@ nops:
 capabilities:
   - capabilityID: "write-chain@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: [123,34,99,97,112,97,98,105,108,105,116,121,84,121,112,101,34,58,32,51,44,32,34,114,101,115,112,111,110,115,101,84,121,112,101,34,58,32,49,125]
+    metadata: 
+      capabilityType: 3
+      responseType: 0
   - capabilityID: "trigger@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: [123,34,99,97,112,97,98,105,108,105,116,121,84,121,112,101,34,58,32,49,44,32,34,114,101,115,112,111,110,115,101,84,121,112,101,34,58,32,49,125]
+    metadata: 
+      capabilityType: 0
+      responseType: 1
 nodes:
   - nodeOperatorID: 1
     signer: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
@@ -256,8 +261,8 @@ dons:
 	assert.Equal(t, "trigger@1.0.0", input.Capabilities[1].CapabilityID)
 
 	// Verify metadata is decoded properly
-	expectedMetadata1 := []byte(`{"capabilityType": 3, "responseType": 1}`)
-	expectedMetadata2 := []byte(`{"capabilityType": 1, "responseType": 1}`)
+	expectedMetadata1 := CapabilityMetadata{CapabilityType: 3, ResponseType: 0}
+	expectedMetadata2 := CapabilityMetadata{CapabilityType: 0, ResponseType: 1}
 	assert.Equal(t, expectedMetadata1, input.Capabilities[0].Metadata)
 	assert.Equal(t, expectedMetadata2, input.Capabilities[1].Metadata)
 
@@ -316,21 +321,27 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
+	var writeChainCapabilityMetadata CapabilityMetadata
+	err = json.Unmarshal(writeChainCapability.Metadata, &writeChainCapabilityMetadata)
+	require.NoError(t, err)
 
 	triggerCapability := capabilities_registry_v2.CapabilitiesRegistryCapability{
 		CapabilityId:          "trigger@1.0.0",
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
 	}
+	var triggerCapabilityMetadata CapabilityMetadata
+	err = json.Unmarshal(triggerCapability.Metadata, &triggerCapabilityMetadata)
+	require.NoError(t, err)
 
 	capabilities := []CapabilitiesRegistryCapability{
 		{
 			CapabilityID: writeChainCapability.CapabilityId,
-			Metadata:     writeChainCapability.Metadata,
+			Metadata:     writeChainCapabilityMetadata,
 		},
 		{
 			CapabilityID: triggerCapability.CapabilityId,
-			Metadata:     triggerCapability.Metadata,
+			Metadata:     triggerCapabilityMetadata,
 		},
 	}
 
@@ -453,7 +464,11 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		require.NoError(t, err, "failed to get registered capability")
 		assert.Equal(t, capability.CapabilityID, registeredCapability.CapabilityId, "capability id should match")
 		assert.Equal(t, capability.ConfigurationContract, registeredCapability.ConfigurationContract, "capability configuration contract should match")
-		assert.Equal(t, capability.Metadata, registeredCapability.Metadata, "capability metadata should match")
+
+		// Convert the struct metadata to bytes for comparison with blockchain data
+		expectedMetadataBytes, err := json.Marshal(capability.Metadata)
+		require.NoError(t, err, "failed to marshal expected metadata")
+		assert.Equal(t, expectedMetadataBytes, registeredCapability.Metadata, "capability metadata should match")
 	}
 
 	// Verify nodes
