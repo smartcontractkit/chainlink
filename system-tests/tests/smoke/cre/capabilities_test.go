@@ -50,8 +50,9 @@ import (
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/freeport"
+
+	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -178,7 +179,7 @@ func copyWorkflowFilesToContainers(t *testing.T, wasmPath, configPath, container
 }
 
 // registerWorkflow registers a workflow with the contract
-func registerWorkflow(t *testing.T, ctx context.Context, config *WorkflowRegistrationConfig, sethClient *seth.Client) {
+func registerWorkflow(ctx context.Context, t *testing.T, config *WorkflowRegistrationConfig, sethClient *seth.Client) {
 	registerErr := creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
@@ -238,7 +239,6 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
-	// Wait for workflow to be fully loaded and gateway to respond with 200 OK
 	success := assert.Eventually(t, func() bool {
 		triggerRequest = createHTTPTriggerRequestWithKey(t, httpConfig.WorkflowName, workflowOwnerAddress, httpConfig.SigningKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
@@ -279,14 +279,12 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 			return false
 		}
 
-		// Parse response to ensure it's valid
 		err = json.Unmarshal(body, &finalResponse)
 		if err != nil {
 			testEnv.Logger.Warn().Msgf("Failed to unmarshal response: %v", err)
 			return false
 		}
 
-		// Check for JSON-RPC errors
 		if finalResponse.Error != nil {
 			testEnv.Logger.Warn().Msgf("JSON-RPC error in response: %v", finalResponse.Error)
 			return false
@@ -298,7 +296,6 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 	require.True(t, success, "failed to get successful response from gateway")
 
-	// Validate response structure
 	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
 	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
 	require.Nil(t, finalResponse.Error, "unexpected error in response: %v", finalResponse.Error)
@@ -306,7 +303,6 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
 func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorder *MockServerRecorder) {
-	// Wait for the workflow to make the HTTP request
 	success := assert.Eventually(t, func() bool {
 		return len(recorder.GetRequests()) > 0
 	}, tests.WaitTimeout(t), RetryInterval, "workflow should have made at least one HTTP request to mock server")
@@ -316,7 +312,6 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorde
 	recordedRequest := recorder.GetRequests()[0]
 	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
 
-	// Validate request properties
 	require.Equal(t, "POST", recordedRequest.Method, "expected POST method")
 	require.Equal(t, "/orders", recordedRequest.URL, "expected /orders endpoint")
 	require.Equal(t, "application/json", recordedRequest.Headers["Content-Type"], "expected JSON content type")
@@ -325,7 +320,6 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorde
 	err := json.Unmarshal([]byte(recordedRequest.Body), &workflowRequestBody)
 	require.NoError(t, err, "request body should be valid JSON")
 
-	// Validate expected fields
 	require.Equal(t, "test-customer", workflowRequestBody["customer"], "expected customer field")
 	require.Equal(t, "large", workflowRequestBody["size"], "expected size field")
 	require.Contains(t, workflowRequestBody, "toppings", "expected toppings field")
@@ -417,7 +411,6 @@ func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
 
 // executePoRWorkflowTest handles the main PoR workflow test logic
 func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, priceProvider PriceProvider, config *WorkflowTestConfig) {
-
 	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
 	numberOfWriteableChains := 0
 	for _, bcOutput := range wrappedBlockchainOutputs {
@@ -486,7 +479,6 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 
 		require.NoError(t, compileErr, "failed to compile workflow")
 
-		// Setup cleanup for workflow resources
 		cleanupConfig := &WorkflowCleanupConfig{
 			WasmPath:          compressedWorkflowWasmPath,
 			ConfigPath:        workflowConfigFilePath,
@@ -502,10 +494,8 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 		setupWorkflowCleanup(t, cleanupConfig)
 		debugPoRTest(t, testEnv.Logger, testEnv.Config, fullCldEnvOutput, wrappedBlockchainOutputs, config.FeedIDs)
 
-		// Copy workflow files to containers
 		copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, workflowConfigFilePath, ContainerTargetDir)
 
-		// Register workflow
 		regConfig := &WorkflowRegistrationConfig{
 			WorkflowName:         workflowName,
 			WorkflowLocation:     config.WorkflowLocation,
@@ -515,10 +505,9 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 			DonID:                fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 			ContainerTargetDir:   ContainerTargetDir,
 		}
-		registerWorkflow(t, t.Context(), regConfig, wrappedBlockchainOutputs[0].SethClient)
+		registerWorkflow(t.Context(), t, regConfig, wrappedBlockchainOutputs[0].SethClient)
 	}
 
-	// Validate that all feeds receive the expected prices
 	validatePoRPrices(t, testEnv, fullCldEnvOutput, wrappedBlockchainOutputs, priceProvider, config)
 }
 
@@ -592,15 +581,12 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
 	testEnv.Logger.Info().Msg("Starting HTTP trigger and action test...")
 
-	// Setup HTTP test infrastructure
 	httpConfig := setupHTTPWorkflowTest(t, testEnv)
 	defer httpConfig.MockServer.Close()
 
-	// Compile and prepare workflow
 	compressedWorkflowWasmPath, err := creworkflow.CompileWorkflow(httpConfig.WorkflowLocation, httpConfig.WorkflowName)
 	require.NoError(t, err, "failed to compile workflow")
 
-	// Find workflow registry address
 	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
 		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		homeChainSelector,
@@ -608,7 +594,6 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	)
 	require.NoError(t, err, "failed to find workflow registry address for chain %d", homeChainSelector)
 
-	// Setup cleanup
 	cleanupConfig := &WorkflowCleanupConfig{
 		WasmPath:          compressedWorkflowWasmPath,
 		ConfigPath:        httpConfig.ConfigPath,
@@ -623,7 +608,6 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	}
 	setupWorkflowCleanup(t, cleanupConfig)
 
-	// Copy files and register workflow
 	copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, httpConfig.ConfigPath, ContainerTargetDir)
 
 	regConfig := &WorkflowRegistrationConfig{
@@ -635,15 +619,13 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		DonID:                fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:   ContainerTargetDir,
 	}
-	registerWorkflow(t, t.Context(), regConfig, wrappedBlockchainOutputs[0].SethClient)
+	registerWorkflow(t.Context(), t, regConfig, wrappedBlockchainOutputs[0].SethClient)
 
-	// Get gateway configuration
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
 	gatewayURL, err := url.Parse(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 
-	// Get workflow owner address
 	workflowOwner, err := crypto.HexToECDSA(wrappedBlockchainOutputs[0].DeployerPrivateKey)
 	require.NoError(t, err, "failed to convert private key to ECDSA")
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
@@ -651,16 +633,13 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	testEnv.Logger.Info().Msgf("Workflow owner address: %s", workflowOwnerAddress)
 	testEnv.Logger.Info().Msgf("Workflow name: %s", httpConfig.WorkflowName)
 
-	// Execute HTTP trigger request and validate response
 	executeHTTPTriggerRequest(t, testEnv, gatewayURL, httpConfig, workflowOwnerAddress)
 
-	// Validate that the workflow made the expected HTTP request
 	validateHTTPWorkflowRequest(t, testEnv, httpConfig.Recorder)
 
 	testEnv.Logger.Info().Msg("HTTP trigger and action test completed successfully")
 }
 
-// MockServerRecorder holds the recorded requests from the workflow
 type MockServerRecorder struct {
 	mu       sync.Mutex
 	requests []RecordedRequest
@@ -677,7 +656,6 @@ func (r *MockServerRecorder) RecordRequest(method, url string, headers http.Head
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Convert headers to simple map
 	headerMap := make(map[string]string)
 	for key, values := range headers {
 		if len(values) > 0 {
@@ -697,7 +675,6 @@ func (r *MockServerRecorder) GetRequests() []RecordedRequest {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Return a copy to avoid race conditions
 	requests := make([]RecordedRequest, len(r.requests))
 	copy(requests, r.requests)
 	return requests
@@ -713,26 +690,22 @@ func startMockHTTPServerOnPort(t *testing.T, port int) (*httptest.Server, *MockS
 	recorder := &MockServerRecorder{}
 	mux := http.NewServeMux()
 
-	// Mock orders endpoint that the workflow will call
 	mux.HandleFunc("/orders", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Read the request body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			return
 		}
 
-		// Record the request
 		recorder.RecordRequest(r.Method, r.URL.String(), r.Header, body)
 
 		framework.L.Info().Msgf("Mock server received order request: %s", string(body))
 
-		// Send back a successful response
 		response := map[string]interface{}{
 			"orderId": "test-order-" + uuid.New().String()[0:8],
 			"status":  "success",
@@ -740,19 +713,20 @@ func startMockHTTPServerOnPort(t *testing.T, port int) (*httptest.Server, *MockS
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
 	})
 
-	// Use httptest.NewUnstartedServer to create without starting
 	testServer := httptest.NewUnstartedServer(mux)
-	testServer.Listener.Close() // Close the default listener
+	testServer.Listener.Close()
 
-	// Create new listener on our specific port
 	var err error
 	testServer.Listener, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	require.NoError(t, err, "failed to listen on port %d", port)
 
-	// Start the server
 	testServer.Start()
 
 	framework.L.Info().Msgf("Mock HTTP server started on port %d at: %s", port, testServer.URL)
@@ -765,7 +739,6 @@ func createTestWorkflowConfig(t *testing.T, workflowName, mockServerURL string) 
 
 	publicKeyAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-	// Extract port from mock server URL and construct Docker-accessible URL
 	parsedURL, err := url.Parse(mockServerURL)
 	require.NoError(t, err, "failed to parse mock server URL")
 
@@ -783,14 +756,13 @@ func createTestWorkflowConfig(t *testing.T, workflowName, mockServerURL string) 
 	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
 	configPath := filepath.Join(os.TempDir(), configFileName)
 
-	err = os.WriteFile(configPath, configBytes, 0644)
+	err = os.WriteFile(configPath, configBytes, 0644) //nolint:gosec // this is a test file
 	require.NoError(t, err, "failed to write config file")
 
 	return configPath, privateKey
 }
 
 func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner string, privateKey *ecdsa.PrivateKey) jsonrpc.Request[json.RawMessage] {
-	// Create the HTTP trigger request payload
 	triggerPayload := gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
 			WorkflowOwner: workflowOwner,
@@ -816,7 +788,6 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 		ID:      "http-trigger-test-" + uuid.New().String()[0:8],
 	}
 
-	// Create JWT token for authentication
 	token, err := utils.CreateRequestJWT(req)
 	require.NoError(t, err)
 
