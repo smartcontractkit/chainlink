@@ -53,8 +53,6 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 	// ExternalMinter only for burn-mint fast transfer pools with external minting.
 	ExternalMinter common.Address
-	// CCIPAdmin is the address of the CCIP admin that will be set on the token.
-	CCIPAdmin common.Address
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
@@ -190,12 +188,12 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 		deployGrp.Go(func() error {
 			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
-			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}
 			if poolConfig.TokenType == shared.BurnMintERC20Token {
-				if err := addMinterAndBurnerForBurnMintERC20Token(env, chain.Selector, poolConfig.TokenAddress, poolConfig.CCIPAdmin); err != nil {
+				if err := addMinterAndBurnerForBurnMintERC20Token(env, chain.Selector, poolConfig.TokenAddress, contract.Address); err != nil {
 					return fmt.Errorf("failed to add minter and burner for BurnMintERC20Token %s on %s: %w",
 						poolConfig.TokenAddress, chain, err)
 				}

@@ -740,11 +740,11 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 }
 
 // addMinterAndBurnerForBurnMintERC20 adds the burner and minter role to the specified address.
-func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress common.Address, ccipAdmin common.Address) error {
-	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, ccipAdmin)
+func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
+	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, poolAddress)
 }
 
-func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress common.Address, ccipAdmin common.Address) error {
+func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
 
@@ -769,7 +769,7 @@ func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selecto
 		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
 
 		if err != nil {
-			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", ccipAdmin.Hex(), selector, err)
+			return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
 		}
 
 		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
@@ -796,7 +796,7 @@ func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selecto
 		tx, err := token.GrantRole(deployerKey, mintRole, deployerKey.From)
 
 		if err != nil {
-			return fmt.Errorf("failed to grant burn role to %s on chain %d: %w", ccipAdmin.Hex(), selector, err)
+			return fmt.Errorf("failed to grant burn role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
 		}
 
 		if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
