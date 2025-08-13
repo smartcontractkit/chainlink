@@ -126,16 +126,6 @@ jobs:
           go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
-      # TODO: checkout that repo and build each capability instead
-      - name: Download test dependencies
-        uses: ./.github/actions/setup-cre-e2e-test-dependencies
-        with:
-          capability-version: "v1.0.2-alpha"
-          capability-names: "cron"
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          gati-region: ${{ secrets.AWS_REGION }}
-
       # TODO
       # Add Flakeguard support
 
@@ -144,7 +134,7 @@ jobs:
         working-directory: core/scripts/cre/environment/configs
         run: |
           echo "[extra_capabilities]" >> "ci-config.toml"
-          echo "cron_capability_binary_path = \"${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron\"" >> "ci-config.toml"
+          echo 'cron_capability_binary_path = "/usr/local/bin/cron"' >> "ci-config.toml"
 
           cat "ci-config.toml"
 
