@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -24,10 +25,10 @@ type testFixture struct {
 	env                         cldf.Environment
 	chainSelector               uint64
 	capabilitiesRegistryAddress string
-	nops                        []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
-	capabilities                []capabilities_registry_v2.CapabilitiesRegistryCapability
-	nodes                       []capabilities_registry_v2.CapabilitiesRegistryNodeParams
-	DONs                        []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
+	nops                        []CapabilitiesRegistryNodeOperator
+	capabilities                []CapabilitiesRegistryCapability
+	nodes                       []CapabilitiesRegistryNodeParams
+	DONs                        []CapabilitiesRegistryNewDONParams
 	configureInput              ConfigureCapabilitiesRegistryInput
 }
 
@@ -64,6 +65,224 @@ func TestConfigureCapabilitiesRegistry(t *testing.T) {
 	})
 }
 
+func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
+	originalInput := ConfigureCapabilitiesRegistryInput{
+		ChainSelector:               123456789,
+		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
+		UseMCMS:                     true,
+		Nops: []CapabilitiesRegistryNodeOperator{
+			{
+				Admin: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+				Name:  "Node Operator 1",
+			},
+			{
+				Admin: common.HexToAddress("0x2222222222222222222222222222222222222222"),
+				Name:  "Node Operator 2",
+			},
+		},
+		Capabilities: []CapabilitiesRegistryCapability{
+			{
+				CapabilityID:          "write-chain@1.0.0",
+				ConfigurationContract: common.HexToAddress("0x3333333333333333333333333333333333333333"),
+				Metadata:              []byte(`{"type": "write-chain", "version": "1.0.0"}`),
+			},
+			{
+				CapabilityID:          "trigger@1.0.0",
+				ConfigurationContract: common.Address{}, // Zero address
+				Metadata:              []byte(`{"type": "trigger", "version": "1.0.0"}`),
+			},
+		},
+		Nodes: []CapabilitiesRegistryNodeParams{
+			{
+				NodeOperatorID:      1,
+				Signer:              [32]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20},
+				P2pID:               [32]byte{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40},
+				EncryptionPublicKey: [32]byte{0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x60},
+				CsaKey:              [32]byte{0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80},
+				CapabilityIDs:       []string{"write-chain@1.0.0", "trigger@1.0.0"},
+			},
+		},
+		DONs: []CapabilitiesRegistryNewDONParams{
+			{
+				Name:        "workflow-don-1",
+				DonFamilies: []string{"workflow", "test"},
+				Config:      []byte(`{"consensus": "basic", "timeout": "30s"}`),
+				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
+					{
+						CapabilityID: "write-chain@1.0.0",
+						Config:       []byte(`{"targetChain": "ethereum"}`),
+					},
+					{
+						CapabilityID: "trigger@1.0.0",
+						Config:       []byte(`{"schedule": "0 0 * * *"}`),
+					},
+				},
+				Nodes:            [][32]byte{{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40}},
+				F:                1,
+				IsPublic:         true,
+				AcceptsWorkflows: true,
+			},
+		},
+	}
+
+	t.Run("marshal to YAML", func(t *testing.T) {
+		yamlData, err := yaml.Marshal(originalInput)
+		require.NoError(t, err, "should be able to marshal to YAML")
+		require.NotEmpty(t, yamlData, "YAML data should not be empty")
+
+		// Verify the YAML contains expected fields
+		yamlStr := string(yamlData)
+		assert.Contains(t, yamlStr, "chainSelector:", "should contain chainSelector field")
+		assert.Contains(t, yamlStr, "capabilitiesRegistryAddress:", "should contain capabilitiesRegistryAddress field")
+		assert.Contains(t, yamlStr, "useMCMS:", "should contain useMCMS field")
+		assert.Contains(t, yamlStr, "nops:", "should contain nops field")
+		assert.Contains(t, yamlStr, "capabilities:", "should contain capabilities field")
+		assert.Contains(t, yamlStr, "nodes:", "should contain nodes field")
+		assert.Contains(t, yamlStr, "dons:", "should contain dons field")
+	})
+
+	t.Run("unmarshal from YAML", func(t *testing.T) {
+		// First marshal to YAML
+		yamlData, err := yaml.Marshal(originalInput)
+		require.NoError(t, err)
+
+		// Then unmarshal back
+		var unmarshaledInput ConfigureCapabilitiesRegistryInput
+		err = yaml.Unmarshal(yamlData, &unmarshaledInput)
+		require.NoError(t, err, "should be able to unmarshal from YAML")
+
+		// Verify all fields are correctly deserialized
+		assert.Equal(t, originalInput.ChainSelector, unmarshaledInput.ChainSelector)
+		assert.Equal(t, originalInput.CapabilitiesRegistryAddress, unmarshaledInput.CapabilitiesRegistryAddress)
+		assert.Equal(t, originalInput.UseMCMS, unmarshaledInput.UseMCMS)
+		assert.Equal(t, originalInput.Nops, unmarshaledInput.Nops)
+		assert.Equal(t, originalInput.Capabilities, unmarshaledInput.Capabilities)
+		assert.Equal(t, originalInput.Nodes, unmarshaledInput.Nodes)
+		assert.Equal(t, originalInput.DONs, unmarshaledInput.DONs)
+	})
+
+	t.Run("partial input with omitempty", func(t *testing.T) {
+		// Test with minimal input (only required fields)
+		minimalInput := ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               123456789,
+			CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
+			UseMCMS:                     false,
+			// Omit optional fields (nops, capabilities, nodes, dons)
+		}
+
+		yamlData, err := yaml.Marshal(minimalInput)
+		require.NoError(t, err)
+
+		yamlStr := string(yamlData)
+
+		// Should contain required fields
+		assert.Contains(t, yamlStr, "chainSelector:")
+		assert.Contains(t, yamlStr, "capabilitiesRegistryAddress:")
+		assert.Contains(t, yamlStr, "useMCMS:")
+
+		// Should NOT contain optional fields due to omitempty
+		assert.NotContains(t, yamlStr, "nops:")
+		assert.NotContains(t, yamlStr, "capabilities:")
+		assert.NotContains(t, yamlStr, "nodes:")
+		assert.NotContains(t, yamlStr, "dons:")
+
+		// Should be able to unmarshal back
+		var unmarshaledMinimal ConfigureCapabilitiesRegistryInput
+		err = yaml.Unmarshal(yamlData, &unmarshaledMinimal)
+		require.NoError(t, err)
+
+		assert.Equal(t, minimalInput.ChainSelector, unmarshaledMinimal.ChainSelector)
+		assert.Equal(t, minimalInput.CapabilitiesRegistryAddress, unmarshaledMinimal.CapabilitiesRegistryAddress)
+		assert.Equal(t, minimalInput.UseMCMS, unmarshaledMinimal.UseMCMS)
+		assert.Empty(t, unmarshaledMinimal.Nops)
+		assert.Empty(t, unmarshaledMinimal.Capabilities)
+		assert.Empty(t, unmarshaledMinimal.Nodes)
+		assert.Empty(t, unmarshaledMinimal.DONs)
+	})
+}
+
+func TestConfigureCapabilitiesRegistryInput_YAMLFromFile(t *testing.T) {
+	yamlConfig := `
+chainSelector: 421614
+capabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890"
+useMCMS: true
+nops:
+  - admin: "0x1111111111111111111111111111111111111111"
+    name: "Node Operator Alpha"
+  - admin: "0x2222222222222222222222222222222222222222"
+    name: "Node Operator Beta"
+capabilities:
+  - capabilityID: "write-chain@1.0.0"
+    configurationContract: "0x0000000000000000000000000000000000000000"
+    metadata: [123,34,99,97,112,97,98,105,108,105,116,121,84,121,112,101,34,58,32,51,44,32,34,114,101,115,112,111,110,115,101,84,121,112,101,34,58,32,49,125]
+  - capabilityID: "trigger@1.0.0"
+    configurationContract: "0x0000000000000000000000000000000000000000"
+    metadata: [123,34,99,97,112,97,98,105,108,105,116,121,84,121,112,101,34,58,32,49,44,32,34,114,101,115,112,111,110,115,101,84,121,112,101,34,58,32,49,125]
+nodes:
+  - nodeOperatorID: 1
+    signer: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]
+    p2pID: [33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64]
+    encryptionPublicKey: [65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96]
+    csaKey: [97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128]
+    capabilityIDs: ["write-chain@1.0.0", "trigger@1.0.0"]
+dons:
+  - name: "workflow-don-production"
+    donFamilies: ["workflow", "production"]
+    config: [123,34,99,111,110,115,101,110,115,117,115,34,58,32,34,98,97,115,105,99,34,125]
+    capabilityConfigurations:
+      - capabilityID: "write-chain@1.0.0"
+        config: [123,34,116,97,114,103,101,116,67,104,97,105,110,34,58,32,34,101,116,104,101,114,101,117,109,34,125]
+    nodes: [[33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64]]
+    f: 1
+    isPublic: true
+    acceptsWorkflows: true
+`
+
+	var input ConfigureCapabilitiesRegistryInput
+	err := yaml.Unmarshal([]byte(yamlConfig), &input)
+	require.NoError(t, err, "should be able to parse realistic YAML config")
+
+	// Verify the parsed values
+	assert.Equal(t, uint64(421614), input.ChainSelector)
+	assert.Equal(t, "0x1234567890123456789012345678901234567890", input.CapabilitiesRegistryAddress)
+	assert.True(t, input.UseMCMS)
+
+	require.Len(t, input.Nops, 2)
+	assert.Equal(t, "Node Operator Alpha", input.Nops[0].Name)
+	assert.Equal(t, common.HexToAddress("0x1111111111111111111111111111111111111111"), input.Nops[0].Admin)
+
+	require.Len(t, input.Capabilities, 2)
+	assert.Equal(t, "write-chain@1.0.0", input.Capabilities[0].CapabilityID)
+	assert.Equal(t, "trigger@1.0.0", input.Capabilities[1].CapabilityID)
+
+	// Verify metadata is decoded properly
+	expectedMetadata1 := []byte(`{"capabilityType": 3, "responseType": 1}`)
+	expectedMetadata2 := []byte(`{"capabilityType": 1, "responseType": 1}`)
+	assert.Equal(t, expectedMetadata1, input.Capabilities[0].Metadata)
+	assert.Equal(t, expectedMetadata2, input.Capabilities[1].Metadata)
+
+	require.Len(t, input.Nodes, 1)
+	assert.Equal(t, uint32(1), input.Nodes[0].NodeOperatorID)
+	assert.Equal(t, []string{"write-chain@1.0.0", "trigger@1.0.0"}, input.Nodes[0].CapabilityIDs)
+
+	require.Len(t, input.DONs, 1)
+	assert.Equal(t, "workflow-don-production", input.DONs[0].Name)
+	assert.Equal(t, []string{"workflow", "production"}, input.DONs[0].DonFamilies)
+	assert.True(t, input.DONs[0].IsPublic)
+	assert.True(t, input.DONs[0].AcceptsWorkflows)
+	assert.Equal(t, uint8(1), input.DONs[0].F)
+
+	// Verify config is decoded properly
+	expectedConfig := []byte(`{"consensus": "basic"}`)
+	assert.Equal(t, expectedConfig, input.DONs[0].Config)
+
+	// Verify capability configuration is decoded properly
+	require.Len(t, input.DONs[0].CapabilityConfigurations, 1)
+	assert.Equal(t, "write-chain@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
+	expectedCapConfig := []byte(`{"targetChain": "ethereum"}`)
+	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
+}
+
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	lggr := logger.Test(t)
 	env, chainSelector := BuildMinimalEnvironment(t, lggr)
@@ -81,7 +300,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-capabilities-registry-v2"))[0].Address
 
 	// Setup test data
-	nops := []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	nops := []CapabilitiesRegistryNodeOperator{
 		{
 			Admin: common.HexToAddress("0x01"),
 			Name:  "test nop1",
@@ -104,39 +323,39 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
 	}
 
-	capabilities := []capabilities_registry_v2.CapabilitiesRegistryCapability{
+	capabilities := []CapabilitiesRegistryCapability{
 		{
-			CapabilityId: writeChainCapability.CapabilityId,
+			CapabilityID: writeChainCapability.CapabilityId,
 			Metadata:     writeChainCapability.Metadata,
 		},
 		{
-			CapabilityId: triggerCapability.CapabilityId,
+			CapabilityID: triggerCapability.CapabilityId,
 			Metadata:     triggerCapability.Metadata,
 		},
 	}
 
-	nodes := []capabilities_registry_v2.CapabilitiesRegistryNodeParams{
+	nodes := []CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorId:      uint32(1),
+			NodeOperatorID:      uint32(1),
 			Signer:              test32byte(t, "0x01"),
 			EncryptionPublicKey: test32byte(t, "0x01"),
-			P2pId:               test32byte(t, "0x01"),
-			CapabilityIds:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
+			P2pID:               test32byte(t, "0x01"),
+			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
 			CsaKey:              test32byte(t, "0x01"),
 		},
 		{
-			NodeOperatorId:      uint32(2),
+			NodeOperatorID:      uint32(2),
 			Signer:              test32byte(t, "0x02"),
 			EncryptionPublicKey: test32byte(t, "0x02"),
-			P2pId:               test32byte(t, "0x02"),
-			CapabilityIds:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
+			P2pID:               test32byte(t, "0x02"),
+			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
 			CsaKey:              test32byte(t, "0x02"),
 		},
 	}
 
 	nodeSet := [][32]byte{}
 	for _, n := range nodes {
-		nodeSet = append(nodeSet, n.P2pId)
+		nodeSet = append(nodeSet, n.P2pID)
 	}
 
 	// Create capability configurations
@@ -154,14 +373,14 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
 
-	DONs := []capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+	DONs := []CapabilitiesRegistryNewDONParams{
 		{
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
 			Config:      []byte("test-don-v2-config"),
-			CapabilityConfigurations: []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
-					CapabilityId: writeChainCapability.CapabilityId,
+					CapabilityID: writeChainCapability.CapabilityId,
 					Config:       configb,
 				},
 			},
@@ -174,9 +393,9 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
 			Config:      []byte("test-don-v2-config"),
-			CapabilityConfigurations: []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
-					CapabilityId: triggerCapability.CapabilityId,
+					CapabilityID: triggerCapability.CapabilityId,
 					Config:       configb,
 				},
 			},
@@ -222,7 +441,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.NoError(t, err, "failed to get registered node operators")
 	require.Len(t, registeredNops, len(fixture.nops), "should have registered the correct number of node operators")
 	for _, nop := range fixture.nops {
-		assert.Contains(t, registeredNops, nop, "node operator should be registered")
+		assert.Contains(t, registeredNops, nop.ToWrapper(), "node operator should be registered")
 	}
 
 	// Verify capabilities
@@ -230,9 +449,9 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.NoError(t, err, "failed to get registered capabilities")
 	require.Len(t, registeredCapabilities, len(fixture.capabilities), "should have registered the correct number of capabilities")
 	for _, capability := range fixture.capabilities {
-		registeredCapability, err := capabilitiesRegistry.GetCapability(nil, capability.CapabilityId)
+		registeredCapability, err := capabilitiesRegistry.GetCapability(nil, capability.CapabilityID)
 		require.NoError(t, err, "failed to get registered capability")
-		assert.Equal(t, capability.CapabilityId, registeredCapability.CapabilityId, "capability id should match")
+		assert.Equal(t, capability.CapabilityID, registeredCapability.CapabilityId, "capability id should match")
 		assert.Equal(t, capability.ConfigurationContract, registeredCapability.ConfigurationContract, "capability configuration contract should match")
 		assert.Equal(t, capability.Metadata, registeredCapability.Metadata, "capability metadata should match")
 	}
@@ -243,13 +462,13 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.Len(t, registeredNodes, len(fixture.nodes), "should have registered the correct number of nodes")
 
 	for i, node := range fixture.nodes {
-		got, err := capabilitiesRegistry.GetNode(nil, node.P2pId)
+		got, err := capabilitiesRegistry.GetNode(nil, node.P2pID)
 		require.NoError(t, err) // careful here: the err is rpc, contract return empty info if it doesn't find the p2p as opposed to non-exist err.
 		assert.Equal(t, node.EncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
 		assert.Equal(t, node.Signer, got.Signer, "mismatch node signer node %d", i)
-		assert.Equal(t, node.NodeOperatorId, got.NodeOperatorId, "mismatch node operator id node %d", i)
-		assert.Equal(t, node.CapabilityIds, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
-		assert.Equal(t, node.P2pId, got.P2pId, "mismatch node p2p id node %d", i)
+		assert.Equal(t, node.NodeOperatorID, got.NodeOperatorId, "mismatch node operator id node %d", i)
+		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
+		assert.Equal(t, node.P2pID, got.P2pId, "mismatch node p2p id node %d", i)
 	}
 
 	// Verify DONs
