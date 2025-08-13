@@ -3,8 +3,11 @@ package changeset
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
+	"math/big"
+	"strings"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
@@ -65,6 +68,32 @@ func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	copy(result[:], decodedBytes[:16])
 
 	return result, nil
+}
+
+func ExtractTypeAndVersion(hexStr string) (string, error) {
+	data, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid hex: %w", err)
+	}
+
+	if len(data) < 64 {
+		return "", errors.New("data too short to be ABI-encoded")
+	}
+
+	// Extract the length (32 bytes from offset 32)
+	lengthBytes := data[32:64]
+	strLen := new(big.Int).SetBytes(lengthBytes).Int64()
+
+	if strLen < 0 {
+		return "", errors.New("negative string length")
+	}
+
+	if len(data) < 64+int(strLen) {
+		return "", errors.New("data too short for expected string length")
+	}
+
+	strBytes := data[64 : 64+int(strLen)]
+	return string(strBytes), nil
 }
 
 // HashedWorkflowName returns first 10 bytes of the sha256(workflow_name)
@@ -133,7 +162,7 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRe
 	}
 
 	for addr, tv := range address {
-		if tv.String() == cacheTV.String() {
+		if strings.Contains(tv.String(), cacheTV.String()) {
 			dataFeedsCacheAddress = addr
 		}
 	}
