@@ -89,8 +89,8 @@ func (c TokenChangesetConfig) Validate(env cldf.Environment) error {
 			if err != nil {
 				return fmt.Errorf("failed to check if account %s has role %d for token %s on chain %s: %w", tokenInfo.Account, tokenInfo.Role, symbol, chain, err)
 			}
-			if hasRole {
-				return fmt.Errorf("account %s already has role %d for token %s on chain %s", tokenInfo.Account, tokenInfo.Role, symbol, chain)
+			if !hasRole {
+				return fmt.Errorf("account %s does not have role %d for token %s on chain %s", tokenInfo.Account, tokenInfo.Role, symbol, chain)
 			}
 		}
 	}
