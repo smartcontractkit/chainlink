@@ -13,6 +13,7 @@ import (
 )
 
 func NewEncoder(name string, config *values.Map, lggr logger.Logger) (types.Encoder, error) {
+	lggr.Info("NewEncoder", "name", name, "config", config)
 	switch ocr3cap.Encoder(name) {
 	case ocr3cap.EncoderEVM:
 		return evm.NewEVMEncoder(config)

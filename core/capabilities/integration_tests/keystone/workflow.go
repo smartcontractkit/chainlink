@@ -154,7 +154,7 @@ consensus:
         - "$(trigger.outputs)"
     config:
       report_id: "0003"  
-      key_id: "evm"	
+      key_id: "evm"
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
         targetChainSelector:
