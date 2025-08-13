@@ -36,13 +36,13 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 	func(b operations.Bundle, deps RegisterNodesDeps, input RegisterNodesInput) (RegisterNodesOutput, error) {
 		// Validate input
 		if input.Address == "" {
-			return RegisterNodesOutput{}, errors.New("Address is not set")
+			return RegisterNodesOutput{}, errors.New("address is not set")
 		}
 		if len(input.Nodes) == 0 {
-			return RegisterNodesOutput{}, errors.New("Nodes are not set")
+			return RegisterNodesOutput{}, errors.New("nodes are not set")
 		}
 		if input.ChainSelector == 0 {
-			return RegisterNodesOutput{}, errors.New("ChainSelector is not set")
+			return RegisterNodesOutput{}, errors.New("chainSelector is not set")
 		}
 
 		if err := validateNodes(input.Nodes); err != nil {

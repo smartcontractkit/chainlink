@@ -248,7 +248,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, node.EncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
 		assert.Equal(t, node.Signer, got.Signer, "mismatch node signer node %d", i)
 		assert.Equal(t, node.NodeOperatorId, got.NodeOperatorId, "mismatch node operator id node %d", i)
-		assert.EqualValues(t, node.CapabilityIds, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
+		assert.Equal(t, node.CapabilityIds, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
 		assert.Equal(t, node.P2pId, got.P2pId, "mismatch node p2p id node %d", i)
 	}
 
