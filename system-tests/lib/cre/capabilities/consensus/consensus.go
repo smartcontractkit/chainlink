@@ -35,7 +35,7 @@ var ConsensusCapabilityV2FactoryFn = func(donFlags []string) []keystone_changese
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "consensus",
-				Version:        "1.0.0",
+				Version:        "1.0.0-alpha",
 				CapabilityType: 2, // CONSENSUS
 				ResponseType:   0, // REPORT
 			},

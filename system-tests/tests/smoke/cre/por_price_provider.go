@@ -59,6 +59,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 	}
 
 	err = fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
+		fmt.Println("Received request to fake price provider")
 		authHeader := c.Request.Header.Get("Authorization")
 		if authHeader != authKey {
 			testLogger.Info().Msgf("Unauthorized request, expected auth key: %s actual auth key: %s", authKey, authHeader)
@@ -85,6 +86,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 	if err != nil {
 		return "", errors.Wrap(err, "failed to set up fake data provider")
 	}
+	fmt.Println("fake final url  is ", fakeFinalURL)
 
 	return fakeFinalURL, nil
 }

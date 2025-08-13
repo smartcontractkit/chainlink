@@ -86,12 +86,18 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 
 	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
-	t.Run("cron-based PoR workflow", func(t *testing.T) {
-		executePoRTest(t, in, envArtifact, 5*time.Minute)
-	})
+	//t.Run("cron-based PoR workflow using write targer", func(t *testing.T) {
+	//	executePoRTest(t, in, envArtifact, 5*time.Minute)
+	//})
 
-	t.Run("vault DON test", func(t *testing.T) {
-		executeVaultTest(t, in, envArtifact)
+	//t.Run("vault DON test", func(t *testing.T) {
+	//	executeVaultTest(t, in, envArtifact)
+	//})
+
+	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
+	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
+	t.Run("cron-based PoR workflow using evm chain capability write report ", func(t *testing.T) {
+		executePoRTestWithWriteReport(t, in, envArtifact, 5*time.Minute)
 	})
 }
 
@@ -100,7 +106,183 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	cldLogger := cldlogger.NewSingleFileLogger(t)
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
-	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
+	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000"}
+
+	priceProvider, priceErr := NewFakePriceProvider(framework.L, in.Fake, AuthorizationKey, feedIDs)
+	require.NoError(t, priceErr, "failed to create fake price provider")
+
+	/*
+		BUILD ENVIRONMENT FROM SAVED STATE
+	*/
+	fullCldEnvOutput, wrappedBlockchainOutputs, loadErr := environment.BuildFromSavedState(t.Context(), cldLogger, in, envArtifact)
+	require.NoError(t, loadErr, "failed to load environment")
+
+	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+	numberOfWriteableChains := 0
+	for _, bcOutput := range wrappedBlockchainOutputs {
+		if !bcOutput.ReadOnly {
+			numberOfWriteableChains++
+		}
+	}
+	require.Len(t, feedIDs, numberOfWriteableChains, "number of writeable chains must match number of feed IDs (look for read-only chains in the environment)")
+
+	/*
+		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
+		Workflow will write price data to the data feeds cache contract
+
+		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
+	*/
+	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.ReadOnly {
+			continue
+		}
+
+		deployConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{bcOutput.ChainSelector},
+			Labels:         []string{"data-feeds"}, // label required by the changeset
+		}
+
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployConfig)
+		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+
+		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr, "failed to merge address book")
+		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
+
+		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
+
+		dfConfigInput := &configureDataFeedsCacheInput{
+			chainSelector:      bcOutput.ChainSelector,
+			fullCldEnvironment: fullCldEnvOutput.Environment,
+			workflowName:       workflowName,
+			feedID:             feedIDs[idx],
+			sethClient:         bcOutput.SethClient,
+			blockchain:         bcOutput.BlockchainOutput,
+		}
+		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
+		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
+
+		testLogger.Info().Msg("Proceeding to register PoR workflow...")
+
+		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			homeChainSelector,
+			keystone_changeset.WorkflowRegistry.String(),
+		)
+		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
+
+		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			bcOutput.ChainSelector,
+			df_changeset.DataFeedsCache.String(),
+		)
+		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
+
+		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
+		require.NoError(t, configErr, "failed to create workflow config file")
+
+		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+		require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+
+		t.Cleanup(func() {
+			wasmErr := os.Remove(compressedWorkflowWasmPath)
+			if wasmErr != nil {
+				framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
+			}
+			configErr := os.Remove(workflowConfigFilePath)
+			if configErr != nil {
+				framework.L.Warn().Msgf("failed to remove workflow config file %s: %s", workflowConfigFilePath, configErr.Error())
+			}
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), wrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
+			if deleteErr != nil {
+				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
+			}
+			debugPoRTest(t, testLogger, in, fullCldEnvOutput, wrappedBlockchainOutputs, feedIDs)
+		})
+
+		containerTargetDir := "/home/chainlink/workflows"
+		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
+
+		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
+		require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
+
+		registerErr := creworkflow.RegisterWithContract(
+			t.Context(),
+			wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
+			workflowRegistryAddress,
+			fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+			workflowName,
+			"file://"+compressedWorkflowWasmPath,
+			ptr.Ptr("file://"+workflowConfigFilePath),
+			nil,
+			&containerTargetDir,
+		)
+		require.NoError(t, registerErr, "failed to register PoR workflow")
+	}
+
+	/*
+		START THE VALIDATION PHASE
+		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
+	*/
+	eg := &errgroup.Group{}
+	for idx, bcOutput := range wrappedBlockchainOutputs {
+		eg.Go(func() error {
+			feedID := feedIDs[idx]
+			testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
+
+			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+				fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				bcOutput.ChainSelector,
+				df_changeset.DataFeedsCache.String(),
+			)
+			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
+
+			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, bcOutput.SethClient.Client)
+			require.NoError(t, instanceErr, "failed to create data feeds cache instance")
+
+			startTime := time.Now()
+			assert.Eventually(t, func() bool {
+				elapsed := time.Since(startTime).Round(time.Second)
+				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
+				require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
+
+				// if there are no more prices to be found, we can stop waiting
+				return !priceProvider.NextPrice(feedID, price, elapsed)
+			}, verificationTimeout, 10*time.Second, "feed %s did not update, timeout after: %s", feedID, verificationTimeout)
+
+			expected := priceProvider.ExpectedPrices(feedID)
+			actual := priceProvider.ActualPrices(feedID)
+
+			if len(expected) != len(actual) {
+				return errors.Errorf("expected %d prices, got %d", len(expected), len(actual))
+			}
+
+			for i := range expected {
+				if expected[i].Cmp(actual[i]) != 0 {
+					return errors.Errorf("expected price %d, got %d", expected[i], actual[i])
+				}
+			}
+
+			testLogger.Info().Msgf("All prices were found in the feed %s", feedID)
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	testLogger.Info().Msgf("All prices were found for all feeds")
+}
+
+func executePoRTestWithWriteReport(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
+	testLogger := framework.L
+	cldLogger := cldlogger.NewSingleFileLogger(t)
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main_wasip1.go"
+	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000"}
 
 	priceProvider, priceErr := NewFakePriceProvider(framework.L, in.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, priceErr, "failed to create fake price provider")

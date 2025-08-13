@@ -15,7 +15,7 @@ import (
 	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm"
-	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
 
 func main() {
@@ -77,6 +77,10 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 					"Authorization": string(config.AuthKey),
 				}
 			}
+
+			runtime.Emitter().With(
+				"feedID", config.FeedID,
+			).Emit(fmt.Sprintf("get Price request is %s with headers %v", fetchRequest.URL, fetchRequest.Headers))
 
 			fresp, err := runtime.Fetch(fetchRequest)
 			if err != nil {
