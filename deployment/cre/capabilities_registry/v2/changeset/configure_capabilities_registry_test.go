@@ -40,6 +40,7 @@ const (
 	p2pID1              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c253"
 	p2pID2              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
 	encryptionPublicKey = "7240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
+	nodeID1             = "1"
 )
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
@@ -127,7 +128,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 						Config:       []byte(`{"schedule": "0 0 * * *"}`),
 					},
 				},
-				Nodes:            [][32]byte{{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40}},
+				Nodes:            []string{nodeID1},
 				F:                1,
 				IsPublic:         true,
 				AcceptsWorkflows: true,
@@ -246,7 +247,7 @@ dons:
     capabilityConfigurations:
       - capabilityID: "write-chain@1.0.0"
         config: [123,34,116,97,114,103,101,116,67,104,97,105,110,34,58,32,34,101,116,104,101,114,101,117,109,34,125]
-    nodes: [[33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64]]
+    nodes: [` + nodeID1 + `]
     f: 1
     isPublic: true
     acceptsWorkflows: true
@@ -296,6 +297,7 @@ dons:
 	assert.Equal(t, "write-chain@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
 	expectedCapConfig := []byte(`{"targetChain": "ethereum"}`)
 	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
+	assert.Equal(t, []string{nodeID1}, input.DONs[0].Nodes, "should contain the correct node IDs")
 }
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
@@ -374,11 +376,9 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		},
 	}
 
-	nodeSet := [][32]byte{}
+	nodeSet := []string{}
 	for _, n := range nodes {
-		p2pID, err := hexStringTo32Bytes(n.P2pID)
-		require.NoError(t, err)
-		nodeSet = append(nodeSet, p2pID)
+		nodeSet = append(nodeSet, n.P2pID)
 	}
 
 	// Create capability configurations

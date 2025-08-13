@@ -68,7 +68,11 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 
 	dons := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(config.DONs))
 	for i, don := range config.DONs {
-		dons[i] = don.ToWrapper()
+		d, err := don.ToWrapper()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert DON %d: %w", i, err)
+		}
+		dons[i] = d
 	}
 
 	capabilitiesRegistryConfigurationReport, err := operations.ExecuteSequence(

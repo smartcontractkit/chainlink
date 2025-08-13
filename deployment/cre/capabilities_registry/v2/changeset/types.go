@@ -94,13 +94,13 @@ type CapabilitiesRegistryNewDONParams struct {
 	DonFamilies              []string                                      `json:"donFamilies" yaml:"donFamilies"`
 	Config                   []byte                                        `json:"config" yaml:"config"`
 	CapabilityConfigurations []CapabilitiesRegistryCapabilityConfiguration `json:"capabilityConfigurations" yaml:"capabilityConfigurations"`
-	Nodes                    [][32]byte                                    `json:"nodes" yaml:"nodes"`
+	Nodes                    []string                                      `json:"nodes" yaml:"nodes"`
 	F                        uint8                                         `json:"f" yaml:"f"`
 	IsPublic                 bool                                          `json:"isPublic" yaml:"isPublic"`
 	AcceptsWorkflows         bool                                          `json:"acceptsWorkflows" yaml:"acceptsWorkflows"`
 }
 
-func (don CapabilitiesRegistryNewDONParams) ToWrapper() capabilities_registry_v2.CapabilitiesRegistryNewDONParams {
+func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNewDONParams, error) {
 	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
 	for j, capConfig := range don.CapabilityConfigurations {
 		capabilityConfigurations[j] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
@@ -108,16 +108,26 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() capabilities_registry_v2
 			Config:       capConfig.Config,
 		}
 	}
+
+	nodes := make([][32]byte, len(don.Nodes))
+	for i, node := range don.Nodes {
+		n, err := hexStringTo32Bytes(node)
+		if err != nil {
+			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to convert node ID: %w", err)
+		}
+		nodes[i] = n
+	}
+
 	return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 		Name:                     don.Name,
 		DonFamilies:              don.DonFamilies,
 		Config:                   don.Config,
 		CapabilityConfigurations: capabilityConfigurations,
-		Nodes:                    don.Nodes,
+		Nodes:                    nodes,
 		F:                        don.F,
 		IsPublic:                 don.IsPublic,
 		AcceptsWorkflows:         don.AcceptsWorkflows,
-	}
+	}, nil
 }
 
 // hexStringTo32Bytes converts a hex string (with or without 0x prefix) to [32]byte
