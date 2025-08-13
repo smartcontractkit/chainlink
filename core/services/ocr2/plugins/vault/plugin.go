@@ -28,7 +28,21 @@ import (
 )
 
 const (
-	defaultBatchSize = 20
+	defaultBatchSize                         = 20
+	defaultMaxSecretsPerOwner                = 100
+	defaultMaxCiphertextLengthBytes          = 2 * 1024 // 2KB
+	defaultMaxIdentifierKeyLengthBytes       = 64
+	defaultMaxIdentifierOwnerLengthBytes     = 64
+	defaultMaxIdentifierNamespaceLengthBytes = 64
+
+	defaultLimitsMaxQueryLength                          = 1024 // 1KB
+	defaultLimitsMaxObservationLength                    = 1024 // 1KB
+	defaultLimitsMaxReportsPlusPrecursorLength           = 1024 // 1KB
+	defaultLimitsMaxReportLength                         = 1024 // 1KB
+	defaultLimitsMaxReportCount                          = 10
+	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024        // 1KB
+	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
+
 	defaultNamespace = "main"
 	keySeparator     = ":"
 )
@@ -38,14 +52,17 @@ var (
 )
 
 type ReportingPluginConfig struct {
-	BatchSize                      int
-	PublicKey                      *tdh2easy.PublicKey
-	PrivateKeyShare                *tdh2easy.PrivateShare
-	MaxSecretsPerOwner             int
-	MaxCiphertextLenBytes          int
-	MaxIdentifierKeyLenBytes       int
-	MaxIdentifierOwnerLenBytes     int
-	MaxIdentifierNamespaceLenBytes int
+	// Sourced from the job spec
+	PublicKey       *tdh2easy.PublicKey
+	PrivateKeyShare *tdh2easy.PrivateShare
+
+	// Sourced from the offchain config
+	BatchSize                         int
+	MaxSecretsPerOwner                int
+	MaxCiphertextLengthBytes          int
+	MaxIdentifierKeyLengthBytes       int
+	MaxIdentifierOwnerLengthBytes     int
+	MaxIdentifierNamespaceLengthBytes int
 }
 
 func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) (*ReportingPluginFactory, error) {
@@ -57,14 +74,8 @@ func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Reques
 	}
 
 	cfg := &ReportingPluginConfig{
-		PublicKey:                      publicKey,
-		PrivateKeyShare:                privateKeyShare,
-		BatchSize:                      defaultBatchSize,
-		MaxSecretsPerOwner:             100,
-		MaxCiphertextLenBytes:          2 * 1024,
-		MaxIdentifierKeyLenBytes:       64,
-		MaxIdentifierOwnerLenBytes:     64,
-		MaxIdentifierNamespaceLenBytes: 64,
+		PublicKey:       publicKey,
+		PrivateKeyShare: privateKeyShare,
 	}
 	return &ReportingPluginFactory{
 		lggr:  lggr.Named("VaultReportingPluginFactory"),
@@ -80,11 +91,89 @@ type ReportingPluginFactory struct {
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+	var configProto vault.ReportingPluginConfig
+	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
+	}
+
+	if configProto.BatchSize == 0 {
+		configProto.BatchSize = defaultBatchSize
+	}
+
+	if configProto.MaxSecretsPerOwner == 0 {
+		configProto.MaxSecretsPerOwner = defaultMaxSecretsPerOwner
+	}
+
+	if configProto.MaxCiphertextLengthBytes == 0 {
+		configProto.MaxCiphertextLengthBytes = defaultMaxCiphertextLengthBytes
+	}
+
+	if configProto.MaxIdentifierKeyLengthBytes == 0 {
+		configProto.MaxIdentifierKeyLengthBytes = defaultMaxIdentifierKeyLengthBytes
+	}
+
+	if configProto.MaxIdentifierOwnerLengthBytes == 0 {
+		configProto.MaxIdentifierOwnerLengthBytes = defaultMaxIdentifierOwnerLengthBytes
+	}
+
+	if configProto.MaxIdentifierNamespaceLengthBytes == 0 {
+		configProto.MaxIdentifierNamespaceLengthBytes = defaultMaxIdentifierNamespaceLengthBytes
+	}
+
+	if configProto.LimitsMaxQueryLength == 0 {
+		configProto.LimitsMaxQueryLength = defaultLimitsMaxQueryLength
+	}
+
+	if configProto.LimitsMaxObservationLength == 0 {
+		configProto.LimitsMaxObservationLength = defaultLimitsMaxObservationLength
+	}
+
+	if configProto.LimitsMaxReportsPlusPrecursorLength == 0 {
+		configProto.LimitsMaxReportsPlusPrecursorLength = defaultLimitsMaxReportsPlusPrecursorLength
+	}
+
+	if configProto.LimitsMaxReportLength == 0 {
+		configProto.LimitsMaxReportLength = defaultLimitsMaxReportLength
+	}
+
+	if configProto.LimitsMaxReportCount == 0 {
+		configProto.LimitsMaxReportCount = defaultLimitsMaxReportCount
+	}
+
+	if configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength == 0 {
+		configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength = defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength
+	}
+
+	if configProto.LimitsMaxBlobPayloadLength == 0 {
+		configProto.LimitsMaxBlobPayloadLength = defaultLimitsMaxBlobPayloadLength
+	}
+
+	cfg := &ReportingPluginConfig{
+		PublicKey:                         r.cfg.PublicKey,
+		PrivateKeyShare:                   r.cfg.PrivateKeyShare,
+		BatchSize:                         int(configProto.BatchSize),
+		MaxSecretsPerOwner:                int(configProto.MaxSecretsPerOwner),
+		MaxCiphertextLengthBytes:          int(configProto.MaxCiphertextLengthBytes),
+		MaxIdentifierKeyLengthBytes:       int(configProto.MaxIdentifierKeyLengthBytes),
+		MaxIdentifierOwnerLengthBytes:     int(configProto.MaxIdentifierOwnerLengthBytes),
+		MaxIdentifierNamespaceLengthBytes: int(configProto.MaxIdentifierNamespaceLengthBytes),
+	}
 	return &ReportingPlugin{
-		lggr:  r.lggr.Named("VaultReportingPlugin"),
-		store: r.store,
-		cfg:   r.cfg,
-	}, ocr3_1types.ReportingPluginInfo{}, nil
+			lggr:  r.lggr.Named("VaultReportingPlugin"),
+			store: r.store,
+			cfg:   cfg,
+		}, ocr3_1types.ReportingPluginInfo{
+			Name: "VaultReportingPlugin",
+			Limits: ocr3_1types.ReportingPluginLimits{
+				MaxQueryLength:                          int(configProto.LimitsMaxQueryLength),
+				MaxObservationLength:                    int(configProto.LimitsMaxObservationLength),
+				MaxReportsPlusPrecursorLength:           int(configProto.LimitsMaxReportsPlusPrecursorLength),
+				MaxReportLength:                         int(configProto.LimitsMaxReportLength),
+				MaxReportCount:                          int(configProto.LimitsMaxReportCount),
+				MaxKeyValueModifiedKeysPlusValuesLength: int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
+				MaxBlobPayloadLength:                    int(configProto.LimitsMaxBlobPayloadLength),
+			},
+		}, nil
 }
 
 type ReportingPlugin struct {
@@ -245,16 +334,16 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (
 		Namespace: namespace,
 	}
 
-	if len(id.Owner) > r.cfg.MaxIdentifierOwnerLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.cfg.MaxIdentifierOwnerLenBytes))
+	if len(id.Owner) > r.cfg.MaxIdentifierOwnerLengthBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.cfg.MaxIdentifierOwnerLengthBytes))
 	}
 
-	if len(id.Namespace) > r.cfg.MaxIdentifierNamespaceLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.cfg.MaxIdentifierNamespaceLenBytes))
+	if len(id.Namespace) > r.cfg.MaxIdentifierNamespaceLengthBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.cfg.MaxIdentifierNamespaceLengthBytes))
 	}
 
-	if len(id.Key) > r.cfg.MaxIdentifierKeyLenBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.cfg.MaxIdentifierKeyLenBytes))
+	if len(id.Key) > r.cfg.MaxIdentifierKeyLengthBytes {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.cfg.MaxIdentifierKeyLengthBytes))
 	}
 	return newID, nil
 }
@@ -367,8 +456,8 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("invalid hex encoding for ciphertext: " + err.Error())
 	}
 
-	if len(rawCiphertextB) > r.cfg.MaxCiphertextLenBytes {
-		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.cfg.MaxCiphertextLenBytes))
+	if len(rawCiphertextB) > r.cfg.MaxCiphertextLengthBytes {
+		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.cfg.MaxCiphertextLengthBytes))
 	}
 
 	ct := &tdh2easy.Ciphertext{}
