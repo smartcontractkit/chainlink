@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
+var _ cldf.ChangeSet[TokenChangesetConfig] = RenounceRoleBurnMintERC20
+
 // TokenRole defines the roles that can be assigned to accounts on BurnMintERC20 tokens.
 type TokenRole int8
 
