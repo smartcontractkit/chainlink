@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -60,6 +61,9 @@ func (k *kvstoreMock) Store(ctx context.Context, key string, val []byte) error {
 }
 func (k *kvstoreMock) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, nil
+}
+func (k *kvstoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error) {
+	return 0, nil
 }
 
 type keystoreMock struct{}

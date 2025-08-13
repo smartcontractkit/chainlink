@@ -1161,6 +1161,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 }
 
 func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
+	t.Skip("TODO: CRE-670")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)

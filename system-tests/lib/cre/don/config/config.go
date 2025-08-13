@@ -23,6 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
+const (
+	OCRPeeringPort          = 5001
+	CapabilitiesPeeringPort = 6690
+	GatewayIncomingPort     = 5002
+	GatewayOutgoingPort     = 5003
+)
+
 func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*cre.WrappedNodeOutput, error) {
 	nodeset, err := ns.UpgradeNodeSet(t, nodeInput.Input, bc, 5*time.Second)
 	if err != nil {
@@ -88,8 +95,8 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 	switch len(bootstrapNodes) {
 	case 0:
 		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
-		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
-		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
+		donBootstrapNodeHost = input.OCRPeeringData.OCRBootstraperHost
+		donBootstrapNodePeerID = input.OCRPeeringData.OCRBootstraperPeerID
 	case 1:
 		bootstrapNode := bootstrapNodes[0]
 
@@ -124,7 +131,7 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
 
 		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
-			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.PeeringData)
+			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.CapabilitiesPeeringData)
 		}
 	default:
 		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
@@ -179,7 +186,7 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
 	}
 
 	for _, factoryFn := range factoryFns {

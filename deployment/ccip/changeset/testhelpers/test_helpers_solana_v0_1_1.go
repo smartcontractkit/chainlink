@@ -16,7 +16,7 @@ import (
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -219,9 +219,9 @@ func DeployTransferableTokenSolanaV0_1_1(
 						ChainSelector: solChainSel,
 						SetPoolTokenConfigs: []ccipChangeSetSolanaV0_1_1.SetPoolTokenConfig{
 							{
-								TokenPubKey: solTokenAddress,
-								PoolType:    bnm,
-								Metadata:    shared.CLLMetadata,
+								TokenPubKey:     solTokenAddress,
+								PoolType:        bnm,
+								Metadata:        shared.CLLMetadata,
 								WritableIndexes: []uint8{3, 4, 7},
 							},
 						},

@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 )
 
 type TokenRegistry interface {

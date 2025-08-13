@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -44,8 +44,9 @@ func TestMigrateFeeds(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	require.Len(t, records, 1)
+	cacheAddress := records[0].Address
 
 	resp, err := commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
 		changeset.SetFeedAdminChangeset,
@@ -73,7 +74,7 @@ func TestMigrateFeeds(t *testing.T) {
 	))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	addresses, err := resp.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, err := resp.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addresses, 3) // DataFeedsCache and two migrated proxies
 }

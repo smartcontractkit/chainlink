@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -50,8 +52,9 @@ func TestConfirmAggregator(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	proxyAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("AggregatorProxy"))
+	require.Len(t, records, 1)
+	proxyAddress := records[0].Address
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
 		changeset.ProposeAggregatorChangeset,

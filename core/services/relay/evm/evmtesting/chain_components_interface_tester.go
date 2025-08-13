@@ -20,7 +20,7 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/chain_reader_tester"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"

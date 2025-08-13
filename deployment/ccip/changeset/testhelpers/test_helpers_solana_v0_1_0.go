@@ -43,6 +43,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -98,9 +99,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
@@ -169,7 +170,7 @@ func SleepAndReplay(t *testing.T, env cldf.Environment, duration time.Duration, 
 
 // ReplayLogs replays logs for the given blocks using the provided offchain client.
 // By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
-func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
+func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
 	options := &replayLogsOptions{
 		assertOnError: true,
 	}
@@ -198,7 +199,7 @@ func ReplayLogs(t *testing.T, oc cldf.OffchainClient, replayBlocks map[uint64]ui
 	}
 }
 
-func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, address []byte) error {
+func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) error {
 	family, err := chainsel.GetSelectorFamily(chainSel)
 	if err != nil {
 		return err
@@ -238,7 +239,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf.OffchainClient, chainS
 	return nil
 }
 
-func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64, eventName string, address []byte) (bool, error) {
+func isLogFilterRegistered(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) (bool, error) {
 	var registered bool
 	var err error
 	switch oc := oc.(type) {
@@ -250,7 +251,7 @@ func isLogFilterRegistered(t *testing.T, oc cldf.OffchainClient, chainSel uint64
 	return registered, err
 }
 
-func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf.OffchainClient, sourceChainSel, destChainSel uint64) {
+func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf_offchain.Client, sourceChainSel, destChainSel uint64) {
 	onRampAddr, err := onchainState.GetOnRampAddressBytes(sourceChainSel)
 	require.NoError(t, err)
 	// Ensure CCIPMessageSent event filter is registered

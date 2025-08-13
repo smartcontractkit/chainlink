@@ -29,6 +29,7 @@ on:
         required: false
         default: U01A2B2C3D4
         type: string
+
   workflow_dispatch:
     inputs:
       testToRun:
@@ -154,6 +155,12 @@ jobs:
     needs:
       - setup-test-parameters
     if: needs.setup-test-parameters.result == 'success'
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+      checks: write
+      pull-requests: write
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c82f8c4d2599c4c7d4e5045bcc0a28f0bf34272
     with:
       chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}

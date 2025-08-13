@@ -232,6 +232,11 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			return tokenPool.Address(), true
 		}
 	case shared.HybridLockReleaseUSDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -83,7 +84,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 		ocrPeeringData := cre.OCRPeeringData{
 			OCRBootstraperPeerID: donBootstrapNodePeerID,
 			OCRBootstraperHost:   donBootstrapNodeHost,
-			Port:                 5001,
+			Port:                 config.OCRPeeringPort,
 		}
 
 		for _, workerNode := range workflowNodeSet {

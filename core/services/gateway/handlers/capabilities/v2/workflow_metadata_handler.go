@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const ecdsaPubKeyHexLen = 42 // 2 (0x prefix) + 40 (hex digits)
@@ -57,9 +58,26 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 	}
 }
 
-func (h *WorkflowMetadataHandler) Authorize(workflowID, payload, signature string) bool {
-	// TODO: PRODCRE-305 Implement authorization logic
-	return true
+func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req *jsonrpc.Request[json.RawMessage]) (*gateway.AuthorizedKey, error) {
+	_, signer, err := utils.VerifyRequestJWT[json.RawMessage](token, *req)
+	if err != nil {
+		h.lggr.Errorw("Failed to verify JWT", "error", err)
+		return nil, err
+	}
+	keys, exists := h.authorizedKeys[workflowID]
+	if !exists {
+		h.lggr.Errorw("Workflow ID not found in authorized keys", "workflowID", workflowID)
+		return nil, errors.New("workflow ID not found in authorized keys")
+	}
+	key := gateway.AuthorizedKey{
+		KeyType:   gateway.KeyTypeECDSAEVM,
+		PublicKey: strings.ToLower(signer.Hex()),
+	}
+	if _, exists = keys[key]; !exists {
+		h.lggr.Errorw("Signer not found in authorized keys", "signer", signer.Hex())
+		return nil, errors.New("signer not found in authorized keys")
+	}
+	return &key, nil
 }
 
 // syncMetadata aggregates the authorized keys and workflow selectors from the WorkflowMetadataAggregator and updates the local cache.
@@ -216,6 +234,28 @@ func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.Workflow
 		}
 	}
 	return nil
+}
+
+func (h *WorkflowMetadataHandler) GetWorkflowID(workflowOwner, workflowName, workflowTag string) (string, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	workflowRef := workflowReference{
+		workflowOwner: workflowOwner,
+		workflowName:  workflowName,
+		workflowTag:   workflowTag,
+	}
+	workflowID, exists := h.workflowRefToID[workflowRef]
+	if !exists {
+		return "", false
+	}
+	return workflowID, true
+}
+
+func (h *WorkflowMetadataHandler) GetWorkflowReference(workflowID string) (workflowReference, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	workflowRef, exists := h.workflowIDToRef[workflowID]
+	return workflowRef, exists
 }
 
 func (h *WorkflowMetadataHandler) Close() error {

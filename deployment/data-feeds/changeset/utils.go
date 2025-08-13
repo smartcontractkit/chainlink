@@ -16,6 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
+type WorkflowMetadata struct {
+	Workflows map[string]string
+}
+
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	dataIDs := make([][16]byte, len(feedIDs))
 	for i, feedID := range feedIDs {
@@ -135,4 +139,41 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRe
 	}
 
 	return dataFeedsCacheAddress
+}
+
+func UpdateWorkflowMetadataDS(
+	env cldf.Environment,
+	ds datastore.MutableDataStore,
+	wfName string,
+	wfSpec string,
+) error {
+	// environment metadata is overwritten with every Set(), so we need to read the existing metadata first
+	record, err := env.DataStore.EnvMetadata().Get()
+	if err != nil {
+		// if the datastore is not initialized, we should create a new one
+		env.Logger.Errorf("failed to get env datastore: %v", err)
+	}
+
+	metadata, err := datastore.As[WorkflowMetadata](record.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to cast env metadata: %w", err)
+	}
+
+	if metadata.Workflows == nil {
+		metadata.Workflows = make(map[string]string)
+	}
+
+	// upsert the workflow spec in the metadata
+	metadata.Workflows[wfName] = wfSpec
+
+	err = ds.EnvMetadata().Set(
+		datastore.EnvMetadata{
+			Metadata: metadata,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set workflow spec in datastore: %w", err)
+	}
+
+	return nil
 }

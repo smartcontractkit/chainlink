@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
-	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	le "github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
