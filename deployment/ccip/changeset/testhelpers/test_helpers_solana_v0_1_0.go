@@ -1494,6 +1494,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
 	case chainsel.FamilyTon:
+		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
 		tonState := state.TonChains[from]
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	}
