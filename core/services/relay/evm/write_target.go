@@ -210,6 +210,12 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (receiver string, err e
 		return "", fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", reportMetadata.WorkflowOwner, rawRequest.Metadata.WorkflowOwner)
 	}
 
+	// pad workflow name to match the report which is padded to 20 characters
+	if len(rawRequest.Metadata.WorkflowName) < 20 {
+		suffix := strings.Repeat("0", 20-len(rawRequest.Metadata.WorkflowName))
+		rawRequest.Metadata.WorkflowName += suffix
+	}
+
 	if !strings.EqualFold(reportMetadata.WorkflowName, rawRequest.Metadata.WorkflowName) {
 		return "", fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", reportMetadata.WorkflowName, rawRequest.Metadata.WorkflowName)
 	}
