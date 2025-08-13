@@ -835,7 +835,8 @@ func createEnvironmentIfNotExists(stateFile, environmentDir, topology string, ex
 			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
 		}
 
-		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology, "--extra-allowed-gateway-ports", fmt.Sprintf("%d", extraAllowedPort))
+		extraAllowedPortStr := strconv.Itoa(extraAllowedPort)
+		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology, "--extra-allowed-gateway-ports", extraAllowedPortStr)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
