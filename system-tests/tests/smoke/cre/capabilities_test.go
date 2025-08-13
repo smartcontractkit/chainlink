@@ -289,7 +289,6 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 			ID:    "test-secret",
 			Value: "test-secret-value",
 		},
-		ID: "1",
 	}
 	requestBody, err := json.Marshal(secretsRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
@@ -325,7 +324,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	require.NoError(t, err, "failed to unmarshal response")
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
-	require.Equal(t, "1", response.ID)
+	require.NotEmpty(t, response.ID)
 	require.NoError(t, err, "failed to unmarshal response")
 	require.True(t, response.Result.Success)
 	require.Equal(t, "test-secret", response.Result.SecretID)
