@@ -29,6 +29,10 @@ type FakeConsensusConfig struct {
 	BatchSize               int
 	OutcomePruningThreshold uint64
 	RequestTimeout          time.Duration
+
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxOutcomeLengthBytes     uint32
 }
 
 func DefaultFakeConsensusConfig() FakeConsensusConfig {
@@ -39,6 +43,10 @@ func DefaultFakeConsensusConfig() FakeConsensusConfig {
 		BatchSize:               100,
 		OutcomePruningThreshold: 1000,
 		RequestTimeout:          time.Second * 20,
+
+		MaxQueryLengthBytes:       1000000, // 1 MB
+		MaxObservationLengthBytes: 1000000, // 1 MB
+		MaxOutcomeLengthBytes:     1000000, // 1 MB
 	}
 }
 
@@ -73,7 +81,12 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 	capability := ocr3.NewCapability(store, clockwork.NewRealClock(), config.RequestTimeout, capabilities.NewAggregator, capabilities.NewEncoder, lggr, 100)
 
 	plugin, err := ocr3.NewReportingPlugin(store, capability, config.BatchSize, rpConfig,
-		config.OutcomePruningThreshold, lggr)
+		&pbtypes.ReportingPluginConfig{
+			MaxQueryLengthBytes:       config.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: config.MaxObservationLengthBytes,
+			MaxOutcomeLengthBytes:     config.MaxOutcomeLengthBytes,
+			OutcomePruningThreshold:   config.OutcomePruningThreshold,
+		}, lggr)
 	if err != nil {
 		return nil, err
 	}
