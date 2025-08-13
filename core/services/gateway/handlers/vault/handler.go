@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -82,6 +83,8 @@ type handler struct {
 
 	activeRequests map[string]activeRequest
 	metrics        *metrics
+
+	newID func() string
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -134,6 +137,9 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		mu:              sync.RWMutex{},
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
+		newID: func() string {
+			return uuid.New().String()
+		},
 	}, nil
 }
 
