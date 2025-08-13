@@ -1,7 +1,6 @@
 package v1_6_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -1002,13 +1001,13 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    allChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				PluginTypes: []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPCommit},
+				PluginTypes:        []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPCommit},
 			},
 		),
 	)
 	// it should fail because of duplicate plugin types
 	require.Error(t, err)
-	require.ErrorContains(t, err, fmt.Sprintf("duplicate plugin type found: %s", types.PluginTypeCCIPCommit.String()))
+	require.ErrorContains(t, err, "duplicate plugin type found: "+types.PluginTypeCCIPCommit.String())
 
 	// Build the per chain config.
 	wrongChainConfigs := make(map[uint64]v1_6.ChainConfig)
