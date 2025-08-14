@@ -51,6 +51,12 @@ func TestEngineConfig_Validate(t *testing.T) {
 		require.NotEqual(t, 0, cfg.LocalLimits.TriggerEventQueueSize)
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
+
+	t.Run("empty workflow tag is allowed", func(t *testing.T) {
+		cfg.Module = modulemocks.NewModuleV2(t)
+		cfg.WorkflowTag = "" // V1 workflows don't have tags
+		require.NoError(t, cfg.Validate())
+	})
 }
 
 func defaultTestConfig(t *testing.T) *v2.EngineConfig {

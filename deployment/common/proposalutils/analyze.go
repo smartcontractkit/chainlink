@@ -167,11 +167,11 @@ type AddressArgument struct {
 	Value string
 }
 
-func (a AddressArgument) Describe(ctx *ArgumentContext) string {
-	description := a.Value + " (address of <type unknown> from <chain unknown>)"
+// Annotation returns only the annotation if known, otherwise "".
+func (a AddressArgument) Annotation(ctx *ArgumentContext) string {
 	addresses, err := ContextGet[cldf.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
-		return description
+		return ""
 	}
 	for chainSel, addresses := range addresses {
 		chainName, err := GetChainNameBySelector(chainSel)
@@ -180,10 +180,14 @@ func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 		}
 		typeAndVersion, ok := addresses[a.Value]
 		if ok {
-			return fmt.Sprintf("%s (address of %s from %s)", a.Value, typeAndVersion.String(), chainName)
+			return fmt.Sprintf("address of %s from %s", typeAndVersion.String(), chainName)
 		}
 	}
-	return description
+	return ""
+}
+
+func (a AddressArgument) Describe(_ *ArgumentContext) string {
+	return a.Value
 }
 
 type DecodedCall struct {
@@ -194,29 +198,62 @@ type DecodedCall struct {
 }
 
 func (d *DecodedCall) Describe(context *ArgumentContext) string {
-	description := strings.Builder{}
-	description.WriteString(fmt.Sprintf("Address: %s\n", AddressArgument{Value: d.Address}.Describe(context)))
-	description.WriteString(fmt.Sprintf("Method: %s\n", d.Method))
-	describedInputs := d.describeArguments(d.Inputs, context)
-	if len(describedInputs) > 0 {
-		description.WriteString(fmt.Sprintf("Inputs:\n%s\n", indentString(describedInputs)))
+	var description strings.Builder
+	addrAnn := AddressArgument{Value: d.Address}.Annotation(context)
+	description.WriteString(fmt.Sprintf("**Address:** `%s`", d.Address))
+	if addrAnn != "" {
+		description.WriteString(fmt.Sprintf(" <sub><i>%s</i></sub>", addrAnn))
 	}
-	describedOutputs := d.describeArguments(d.Outputs, context)
+	description.WriteString("\n")
+	description.WriteString(fmt.Sprintf("**Method:** `%s`\n\n", d.Method))
+	describedInputs := d.describeArguments(d.Inputs, context, "Inputs")
+	if len(describedInputs) > 0 {
+		description.WriteString(describedInputs)
+	}
+	describedOutputs := d.describeArguments(d.Outputs, context, "Outputs")
 	if len(describedOutputs) > 0 {
-		description.WriteString(fmt.Sprintf("Outputs:\n%s\n", indentString(describedOutputs)))
+		description.WriteString(describedOutputs)
 	}
 	return description.String()
 }
 
-func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *ArgumentContext) string {
-	description := strings.Builder{}
+func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *ArgumentContext, label string) string {
+	if len(arguments) == 0 {
+		return ""
+	}
+	var description strings.Builder
+	description.WriteString(fmt.Sprintf("**%s:**\n\n", label))
+	// Table header
+	description.WriteString("| Name | Value | Annotation |\n")
+	description.WriteString("|------|-------|------------|\n")
+
+	var multiLineDetails []string
+
 	for _, argument := range arguments {
-		describedContent := argument.Describe(context)
-		description.WriteString(describedContent)
-		if describedContent[len(describedContent)-1] != '\n' {
-			description.WriteRune('\n')
+		val := argument.Value.Describe(context)
+		annot := ""
+		if addr, ok := argument.Value.(AddressArgument); ok {
+			a := addr.Annotation(context)
+			annot = a // may be ""
+		}
+		val = strings.ReplaceAll(val, "|", "\\|")
+		annot = strings.ReplaceAll(annot, "|", "\\|")
+
+		if strings.Contains(val, "\n") {
+			ref := fmt.Sprintf("See below: `%s`", argument.Name)
+			description.WriteString(fmt.Sprintf("| `%s` | %s | %s |\n", argument.Name, ref, annot))
+			multiLineDetails = append(multiLineDetails, fmt.Sprintf("<details><summary>%s</summary>\n\n```\n%s\n```\n</details>\n", argument.Name, val))
+		} else {
+			description.WriteString(fmt.Sprintf("| `%s` | `%s` | %s |\n", argument.Name, val, annot))
 		}
 	}
+	description.WriteString("\n") // Blank line after table for spacing
+
+	for _, detail := range multiLineDetails {
+		description.WriteString(detail)
+		description.WriteString("\n")
+	}
+
 	return description.String()
 }
 
@@ -419,14 +456,14 @@ func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatch
 		if err != nil || chainName == "" {
 			chainName = "<chain unknown>"
 		}
-		describedProposal.WriteString(fmt.Sprintf("Batch #%v\n", batchIdx))
-		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
+		describedProposal.WriteString(fmt.Sprintf("### Batch %d\n", batchIdx))
+		describedProposal.WriteString(fmt.Sprintf("**Chain selector:** `%d` (`%s`)\n\n", chainSelector, chainName))
 		for opIdx, opDesc := range describedOperations {
-			describedProposal.WriteString(indentString("Operation #" + strconv.Itoa(opIdx)))
-			describedProposal.WriteString("\n")
-			describedProposal.WriteString(indentStringWith(opDesc, DoubleIndent))
-			describedProposal.WriteString("\n")
+			describedProposal.WriteString(fmt.Sprintf("#### Operation %d\n", opIdx))
+			describedProposal.WriteString(opDesc)
+			describedProposal.WriteString("\n\n")
 		}
+		describedProposal.WriteString("---\n\n")
 	}
 	return describedProposal.String()
 }

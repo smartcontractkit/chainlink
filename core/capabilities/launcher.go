@@ -178,8 +178,11 @@ func (w *launcher) peers(
 		if !candidatePeerDON.DON.IsPublic {
 			continue
 		}
-		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
-			continue
+		filterOut := !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON)
+		if filterOut {
+			w.lggr.Debugw("candidate DON to filter out from peer list", "donID", candidatePeerDON.ID)
+			// TODO(CRE-670): Not filtering due to extremely noisy RageP2P warn logs. Uncomment when log volume is reduced.
+			// continue
 		}
 		for _, nid := range candidatePeerDON.DON.Members {
 			allPeers[nid] = defaultStreamConfig

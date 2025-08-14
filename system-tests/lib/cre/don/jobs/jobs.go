@@ -10,13 +10,12 @@ import (
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs cre.DonJobs) error {
+func Create(ctx context.Context, offChainClient cldf_offchain.Client, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}

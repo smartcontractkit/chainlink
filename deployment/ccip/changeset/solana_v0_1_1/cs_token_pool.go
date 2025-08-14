@@ -151,6 +151,7 @@ type NewMintTokenPoolConfig struct {
 	Metadata         string
 	MCMS             *proposalutils.TimelockConfig
 	NewMintAuthority solana.PublicKey // new mint authority to set for the token pool
+	OldMintAuthority solana.PublicKey // Only require when the current mint authority is a multisig
 }
 
 func (cfg NewMintTokenPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -495,6 +496,19 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 	}
+	useMcms := cfg.MCMS != nil && cfg.UpgradeConfig.UpgradeAuthority != solana.PublicKey{}
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
 
 	// If configPDA already exists, we assume the global config is already initialized
 	if _, err := chain.Client.GetAccountInfo(context.Background(), configPDA); err == nil {
@@ -511,14 +525,14 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.CCTPTokenPool:
 		// CCTP token pool should not need separate global config initialization in normal use cases. Global config is initialized in the deployment changeset.
 		cctp_token_pool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = cctp_token_pool.NewInitGlobalConfigInstruction(configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = cctp_token_pool.NewInitGlobalConfigInstruction(configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	default:
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
@@ -530,10 +544,6 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 
 	instructions := []solana.Instruction{initGlobalConfigIx}
 
-	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
@@ -602,14 +612,28 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
+	useMcms := cfg.MCMS != nil && cfg.UpgradeConfig.UpgradeAuthority != solana.PublicKey{}
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
+
 	var initGlobalConfigIx solana.Instruction
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, chain.DeployerKey.PublicKey(), tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solBurnMintTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, chain.DeployerKey.PublicKey(), tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 	default:
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
@@ -621,10 +645,6 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 
 	var txns []mcmsTypes.Transaction
 
-	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
@@ -663,6 +683,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
+	tokenProgram, _ := solChainState.TokenToTokenProgram(tokenPubKey)
 	tokenPool := solChainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata)
 
 	switch cfg.PoolType {
@@ -686,22 +707,6 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
-	initGlobalConfigIx, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
-		newMintAuthority,
-		poolConfig,
-		tokenPubKey,
-		solana.Token2022ProgramID,
-		tokenPoolSigner,
-		chain.DeployerKey.PublicKey(),
-		tokenPool,
-		programData.Address).ValidateAndBuild()
-
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
-	}
-
-	var txns []mcmsTypes.Transaction
-
 	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -711,15 +716,54 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		cfg.Metadata,
 	)
 
-	instructions := []solana.Instruction{initGlobalConfigIx}
-
+	var txns []mcmsTypes.Transaction
 	if useMcms {
-		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
+		timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+
+		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			timelockSigner,
+			newMintAuthority,
+			tokenPool,
+			programData.Address).ValidateAndBuild()
+
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
+		}
+
+		err = appendTxs([]solana.Instruction{ix}, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 	} else {
-		if err := chain.Confirm(instructions); err != nil {
+		builder := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+			poolConfig,
+			tokenPubKey,
+			tokenProgram,
+			tokenPoolSigner,
+			chain.DeployerKey.PublicKey(),
+			newMintAuthority,
+			tokenPool,
+			programData.Address)
+
+		// Old mint authority is required only if the current mint authority is a multisig
+		if (cfg.OldMintAuthority != solana.PublicKey{}) {
+			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
+		}
+
+		ix, err := builder.ValidateAndBuild()
+
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
+		}
+
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
@@ -1506,7 +1550,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	tokenPool := chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata)
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-	tokenPoolChainConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+	tokenPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 	tokenProgram, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgram, tokenPubKey, tokenPoolSigner)
@@ -1520,30 +1564,27 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create lookup table for token pool (mint: %s): %w", tokenPubKey.String(), err)
 	}
-	list := solana.PublicKeySlice{
-		table,                   // 0
-		tokenAdminRegistryPDA,   // 1
-		tokenPool,               // 2
-		tokenPoolChainConfigPDA, // 3 - writable
-		poolTokenAccount,        // 4 - writable
-		tokenPoolSigner,         // 5
-		tokenProgram,            // 6
-		tokenPubKey,             // 7 - writable
-		feeTokenConfigPDA,       // 8
-		routerPoolSignerPDA,     // 9
-	}
 	typeVersion := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
 	typeVersion.Labels.Add(tokenPubKey.String())
 	typeVersion.Labels.Add(cfg.Metadata)
 	typeVersion.Labels.Add(cfg.PoolType.String())
+
+	var list solana.PublicKeySlice
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
-		// no-op for BurnMint and LockRelease token pools since their token pools do not need any more accounts
-	case shared.CCTPTokenPool:
-		tokenMessageMinterAuthority, _, err := solana.FindProgramAddress([][]byte{[]byte("sender_authority")}, cfg.CCTPTokenMessengerMinter)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token message minter authority: %w", err)
+		list = solana.PublicKeySlice{
+			table,                 // 0
+			tokenAdminRegistryPDA, // 1
+			tokenPool,             // 2
+			tokenPoolConfigPDA,    // 3 - writable
+			poolTokenAccount,      // 4 - writable
+			tokenPoolSigner,       // 5
+			tokenProgram,          // 6
+			tokenPubKey,           // 7 - writable
+			feeTokenConfigPDA,     // 8
+			routerPoolSignerPDA,   // 9
 		}
+	case shared.CCTPTokenPool:
 		messageTransmitterPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("message_transmitter")}, cfg.CCTPMessageTransmitter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate message transmitter: %w", err)
@@ -1565,16 +1606,25 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token message minter authority: %w", err)
 		}
 		list = append(list,
+			table,                 // 0
+			tokenAdminRegistryPDA, // 1
+			tokenPool,             // 2
+			tokenPoolConfigPDA,    // 3
+			poolTokenAccount,      // 4 - writable
+			tokenPoolSigner,       // 5 - writable
+			tokenProgram,          // 6
+			tokenPubKey,           // 7 - writable
+			feeTokenConfigPDA,     // 8
+			routerPoolSignerPDA,   // 9
 			// -- CCTP custom entries --
-			tokenMessageMinterAuthority,  // 10
-			messageTransmitterPDA,        // 11 - writable
-			tokenMessenger,               // 12
-			tokenMinter,                  // 13
-			minterLocalToken,             // 14 - writable
-			cfg.CCTPMessageTransmitter,   // 15
-			cfg.CCTPTokenMessengerMinter, // 16
-			solana.SystemProgramID,       // 17
-			eventAuthority,               // 18
+			messageTransmitterPDA,        // 10 - writable
+			cfg.CCTPTokenMessengerMinter, // 11
+			solana.SystemProgramID,       // 12
+			cfg.CCTPMessageTransmitter,   // 13
+			tokenMessenger,               // 14
+			tokenMinter,                  // 15
+			minterLocalToken,             // 16 - writable
+			eventAuthority,               // 17
 		)
 	default:
 		return cldf.ChangesetOutput{}, errors.New("unsupported pool type")
@@ -2098,7 +2148,6 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 			return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
 		}
 		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-
 		if err != nil {
 			return fmt.Errorf("remote chain config not found for (remoteSelector: %d, mint: %s, pool: %s, type: %s): %w", cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType, err)
 		}
@@ -2284,16 +2333,17 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool configg: %w", err)
 	}
 
-	var initGlobalConfigIx solana.Instruction
+	// This operation is permisionless, so we don't need to check ownership
+	var initializeStateVersionIx solana.Instruction
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
+		initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
 			tokenPubKey,
 			poolConfig).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
+		initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
 			tokenPubKey,
 			poolConfig).ValidateAndBuild()
 	default:
@@ -2314,7 +2364,7 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 		cfg.Metadata,
 	)
 
-	instructions := []solana.Instruction{initGlobalConfigIx}
+	instructions := []solana.Instruction{initializeStateVersionIx}
 
 	if useMcms {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
@@ -2408,6 +2458,18 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 		usdcToken,
 		shared.CLLMetadata,
 	)
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
 
 	statePDA, err := solTokenUtil.TokenPoolConfigAddress(usdcToken, cctpTokenPool)
 	if err != nil {
@@ -2433,7 +2495,7 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 			},
 			statePDA,
 			chainConfigPDA,
-			chain.DeployerKey.PublicKey(),
+			authority,
 		).ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)

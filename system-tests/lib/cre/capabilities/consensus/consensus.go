@@ -27,3 +27,21 @@ var OCR3CapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCa
 
 	return capabilities
 }
+
+var ConsensusCapabilityV2FactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+	if flags.HasFlag(donFlags, cre.ConsensusCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "consensus",
+				Version:        "1.0.0",
+				CapabilityType: 2, // CONSENSUS
+				ResponseType:   0, // REPORT
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	return capabilities
+}

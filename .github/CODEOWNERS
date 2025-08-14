@@ -92,6 +92,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/vault @smartcontractkit/cld-vault @smartcontractkit/core @smartcontractkit/cld-team
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

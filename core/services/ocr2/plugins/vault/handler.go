@@ -20,8 +20,7 @@ import (
 var (
 	_ connector.GatewayConnectorHandler = (*Handler)(nil)
 
-	ConnectorMethod = "vault"
-	HandlerName     = "VaultHandler"
+	HandlerName = "VaultHandler"
 )
 
 type metrics struct {
@@ -128,6 +127,7 @@ func (h *Handler) handleSecretsCreate(ctx context.Context, gatewayID string, req
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
+		Method:  req.Method,
 		Result:  (*json.RawMessage)(&resultBytes),
 	}
 }

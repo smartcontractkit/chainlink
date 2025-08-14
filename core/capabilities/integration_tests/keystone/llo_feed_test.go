@@ -41,7 +41,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	targetDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Target", NumNodes: 4, F: 1})
 	require.NoError(t, err)
 
-	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
+	workflowDon, consumer, _, _ := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
 
 	// generate a wf job with 10 feeds

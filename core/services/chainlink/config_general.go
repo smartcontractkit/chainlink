@@ -544,9 +544,14 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableChainKeyLister {
 	return &importedEthKeyConfigs{s: g.secrets.EVM}
 }
+
+func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
+	return &importedSolKeyConfigs{s: g.secrets.Solana}
+}
+
 func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }
