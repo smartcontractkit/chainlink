@@ -533,10 +533,10 @@ func StartCLIEnvironment(
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
-		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
-			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
-		}
+		// if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+		// 	workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+		// 	capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		// }
 
 		if in.ExtraCapabilities.ConsensusCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.ConsensusCapability)
@@ -635,10 +635,10 @@ func StartCLIEnvironment(
 			capabilitiesBinaryPaths[cre.CronCapability] = in.ExtraCapabilities.CronCapabilityBinaryPath
 		}
 
-		if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
-			workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
-			capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
-		}
+		// if in.ExtraCapabilities.EVMCapabilityBinaryPath != "" || withPluginsDockerImageFlag != "" {
+		// 	workflowDONCapabilities = append(workflowDONCapabilities, cre.EVMCapability)
+		// 	capabilitiesBinaryPaths[cre.EVMCapability] = in.ExtraCapabilities.EVMCapabilityBinaryPath
+		// }
 
 		if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" || withPluginsDockerImageFlag != "" {
 			workflowDONCapabilities = append(workflowDONCapabilities, cre.LogTriggerCapability)
@@ -784,9 +784,9 @@ func StartCLIEnvironment(
 	}
 
 	evmBinaryName := filepath.Base(in.ExtraCapabilities.EVMCapabilityBinaryPath)
-	if withPluginsDockerImageFlag != "" {
-		evmBinaryName = "evm"
-	}
+	// if withPluginsDockerImageFlag != "" {
+	// 	evmBinaryName = "evm"
+	// }
 
 	consensusBinaryName := filepath.Base(in.ExtraCapabilities.ConsensusCapabilityBinaryPath)
 	if withPluginsDockerImageFlag != "" {
