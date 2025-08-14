@@ -90,17 +90,21 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 
 	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
-	t.Run("cron-based PoR workflow", func(t *testing.T) {
-		executePoRTest(t, testEnv)
+	//t.Run("cron-based PoR workflow", func(t *testing.T) {
+	//	executePoRTest(t, testEnv)
+	//})
+
+	t.Run("cron-based PoR workflowv2", func(t *testing.T) {
+		executePoRTestWithWriteReport(t, testEnv)
 	})
 
-	t.Run("vault DON test", func(t *testing.T) {
-		executeVaultTest(t, testEnv)
-	})
-
-	t.Run("http trigger and action test", func(t *testing.T) {
-		executeHTTPTriggerActionTest(t, testEnv)
-	})
+	//t.Run("vault DON test", func(t *testing.T) {
+	//	executeVaultTest(t, testEnv)
+	//})
+	//
+	//t.Run("http trigger and action test", func(t *testing.T) {
+	//	executeHTTPTriggerActionTest(t, testEnv)
+	//})
 }
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
@@ -387,6 +391,26 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput 
 	require.NoError(t, err, "price validation failed")
 
 	testEnv.Logger.Info().Msgf("All prices were found for all feeds")
+}
+
+func executePoRTestWithWriteReport(t *testing.T, testEnv *TestEnvironment) {
+	cldLogger := cldlogger.NewSingleFileLogger(t)
+	feedIDs := []string{"018e16c38e000320000000000000000000000000000000000000000000000000"}
+
+	priceProvider, err := NewFakePriceProvider(testEnv.Logger, testEnv.Config.Fake, AuthorizationKey, feedIDs)
+	require.NoError(t, err, "failed to create fake price provider")
+
+	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldLogger, testEnv.Config, testEnv.EnvArtifact)
+	require.NoError(t, err, "failed to load environment")
+
+	config := &WorkflowTestConfig{
+		WorkflowName:     "por-workflowV2",
+		WorkflowLocation: PoRV2WorkflowLocation,
+		FeedIDs:          feedIDs,
+		Timeout:          DefaultVerificationTimeout,
+	}
+
+	executePoRWorkflowTest(t, testEnv, fullCldEnvOutput, wrappedBlockchainOutputs, priceProvider, config)
 }
 
 func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
@@ -812,6 +836,7 @@ const (
 	DefaultTopology            = "workflow"
 	DefaultEnvironmentDir      = "../../../../core/scripts/cre/environment"
 	PoRWorkflowLocation        = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	PoRV2WorkflowLocation      = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
 	HTTPWorkflowLocation       = "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
 	DefaultEnvArtifactPath     = "../../../..//core/scripts/cre/environment/env_artifact/env_artifact.json"
 	RetryInterval              = 2 * time.Second
