@@ -4,21 +4,16 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
@@ -123,15 +118,22 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				Name:        "workflow-don-1",
 				DonFamilies: []string{"workflow", "test"},
-				Config:      []byte(`{"consensus": "basic", "timeout": "30s"}`),
+				Config: map[string]interface{}{
+					"consensus": "basic",
+					"timeout":   "30s",
+				},
 				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 					{
 						CapabilityID: "write-chain@1.0.0",
-						Config:       []byte(`{"targetChain": "ethereum"}`),
+						Config: map[string]interface{}{
+							"targetChain": "ethereum",
+						},
 					},
 					{
 						CapabilityID: "trigger@1.0.0",
-						Config:       []byte(`{"schedule": "0 0 * * *"}`),
+						Config: map[string]interface{}{
+							"schedule": "0 0 * * *",
+						},
 					},
 				},
 				Nodes:            []string{nodeID1},
@@ -249,10 +251,12 @@ nodes:
 dons:
   - name: "workflow-don-production"
     donFamilies: ["workflow", "production"]
-    config: [123,34,99,111,110,115,101,110,115,117,115,34,58,32,34,98,97,115,105,99,34,125]
+    config:
+      consensus: "basic"
     capabilityConfigurations:
       - capabilityID: "write-chain@1.0.0"
-        config: [123,34,116,97,114,103,101,116,67,104,97,105,110,34,58,32,34,101,116,104,101,114,101,117,109,34,125]
+        config:
+          targetChain: "ethereum"
     nodes: [` + nodeID1 + `]
     f: 1
     isPublic: true
@@ -301,13 +305,17 @@ dons:
 	assert.Equal(t, uint8(1), input.DONs[0].F)
 
 	// Verify config is decoded properly
-	expectedConfig := []byte(`{"consensus": "basic"}`)
+	expectedConfig := map[string]interface{}{
+		"consensus": "basic",
+	}
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
 
 	// Verify capability configuration is decoded properly
 	require.Len(t, input.DONs[0].CapabilityConfigurations, 1)
 	assert.Equal(t, "write-chain@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
-	expectedCapConfig := []byte(`{"targetChain": "ethereum"}`)
+	expectedCapConfig := map[string]interface{}{
+		"targetChain": "ethereum",
+	}
 	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
 	assert.Equal(t, []string{nodeID1}, input.DONs[0].Nodes, "should contain the correct node IDs")
 }
@@ -393,30 +401,29 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		nodeSet = append(nodeSet, n.P2pID)
 	}
 
-	// Create capability configurations
-	config := &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
+	// Create capability configurations with readable config
+	configMap := map[string]interface{}{
+		"defaultConfig": map[string]interface{}{},
+		"remoteTriggerConfig": map[string]interface{}{
+			"registrationRefresh":     "20s",
+			"registrationExpiry":      "60s",
+			"minResponsesToAggregate": 2,
+			"messageExpiry":           "120s",
 		},
 	}
-	configb, err := proto.Marshal(config)
-	require.NoError(t, err)
 
 	DONs := []CapabilitiesRegistryNewDONParams{
 		{
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
-			Config:      []byte("test-don-v2-config"),
+			Config: map[string]interface{}{
+				"name": "test-don-v2-config",
+				"type": "workflow",
+			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityID: writeChainCapability.CapabilityId,
-					Config:       configb,
+					Config:       configMap,
 				},
 			},
 			Nodes:            nodeSet,
@@ -427,11 +434,14 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		{
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
-			Config:      []byte("test-don-v2-config"),
+			Config: map[string]interface{}{
+				"name": "test-don-v2-config",
+				"type": "trigger",
+			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityID: triggerCapability.CapabilityId,
-					Config:       configb,
+					Config:       configMap,
 				},
 			},
 			Nodes:            nodeSet,
@@ -541,7 +551,12 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		require.NotNil(t, foundDON, "DON %s should be found in registered DONs", don.Name)
 		assert.Equal(t, don.Name, foundDON.Name, "DON name should match")
 		assert.Equal(t, don.DonFamilies, foundDON.DonFamilies, "DON families should match")
-		assert.Equal(t, don.Config, foundDON.Config, "DON config should match")
+
+		// Convert our config map to JSON bytes for comparison
+		expectedConfigBytes, err := json.Marshal(don.Config)
+		require.NoError(t, err, "failed to marshal expected DON config")
+		assert.Equal(t, expectedConfigBytes, foundDON.Config, "DON config should match")
+
 		assert.Equal(t, don.F, foundDON.F, "DON F value should match")
 		assert.Equal(t, don.IsPublic, foundDON.IsPublic, "DON isPublic flag should match")
 		assert.Equal(t, don.AcceptsWorkflows, foundDON.AcceptsWorkflows, "DON accepts workflows flag should match")

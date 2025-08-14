@@ -80,14 +80,14 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2
 }
 
 type CapabilitiesRegistryCapabilityConfiguration struct {
-	CapabilityID string `json:"capabilityID" yaml:"capabilityID"`
-	Config       []byte `json:"config" yaml:"config"`
+	CapabilityID string                 `json:"capabilityID" yaml:"capabilityID"`
+	Config       map[string]interface{} `json:"config" yaml:"config"`
 }
 
 type CapabilitiesRegistryNewDONParams struct {
 	Name                     string                                        `json:"name" yaml:"name"`
 	DonFamilies              []string                                      `json:"donFamilies" yaml:"donFamilies"`
-	Config                   []byte                                        `json:"config" yaml:"config"`
+	Config                   map[string]interface{}                        `json:"config" yaml:"config"`
 	CapabilityConfigurations []CapabilitiesRegistryCapabilityConfiguration `json:"capabilityConfigurations" yaml:"capabilityConfigurations"`
 	Nodes                    []string                                      `json:"nodes" yaml:"nodes"`
 	F                        uint8                                         `json:"f" yaml:"f"`
@@ -98,9 +98,13 @@ type CapabilitiesRegistryNewDONParams struct {
 func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNewDONParams, error) {
 	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
 	for j, capConfig := range don.CapabilityConfigurations {
+		configBytes, err := json.Marshal(capConfig.Config)
+		if err != nil {
+			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+		}
 		capabilityConfigurations[j] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
 			CapabilityId: capConfig.CapabilityID,
-			Config:       capConfig.Config,
+			Config:       configBytes,
 		}
 	}
 
@@ -113,10 +117,15 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v
 		nodes[i] = n
 	}
 
+	configBytes, err := json.Marshal(don.Config)
+	if err != nil {
+		return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal DON config: %w", err)
+	}
+
 	return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 		Name:                     don.Name,
 		DonFamilies:              don.DonFamilies,
-		Config:                   don.Config,
+		Config:                   configBytes,
 		CapabilityConfigurations: capabilityConfigurations,
 		Nodes:                    nodes,
 		F:                        don.F,
