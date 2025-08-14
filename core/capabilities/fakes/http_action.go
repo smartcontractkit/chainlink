@@ -48,7 +48,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 	return fc
 }
 
-func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*customhttp.Response, error) {
+func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*commonCap.ResponseAndMetadata[*customhttp.Response], error) {
 	fh.eng.Infow("HTTP Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
@@ -78,9 +78,14 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	req, err := http.NewRequestWithContext(ctx, method, input.GetUrl(), body)
 	if err != nil {
 		fh.eng.Errorw("Failed to create HTTP request", "error", err)
-		return &customhttp.Response{
+		httpResponse := &customhttp.Response{
 			StatusCode: 0,
-		}, err
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
+			Response:         httpResponse,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, err
 	}
 
 	// Add headers
@@ -92,9 +97,14 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	resp, err := client.Do(req)
 	if err != nil {
 		fh.eng.Errorw("Failed to execute HTTP request", "error", err)
-		return &customhttp.Response{
+		httpResponse := &customhttp.Response{
 			StatusCode: 0,
-		}, err
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
+			Response:         httpResponse,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, err
 	}
 	defer resp.Body.Close()
 
@@ -102,9 +112,14 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fh.eng.Errorw("Failed to read response body", "error", err)
-		return &customhttp.Response{
+		httpResponse := &customhttp.Response{
 			StatusCode: uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
-		}, err
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
+			Response:         httpResponse,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, err
 	}
 
 	// Convert headers
@@ -120,9 +135,12 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		Headers:    headers,
 		Body:       respBody,
 	}
-
+	responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
+		Response:         response,
+		ResponseMetadata: commonCap.ResponseMetadata{},
+	}
 	fh.eng.Infow("HTTP Action Finished", "Status", resp.StatusCode, "URL", input.GetUrl())
-	return response, nil
+	return &responseAndMetadata, nil
 }
 
 func (fh *DirectHTTPAction) Description() string {
