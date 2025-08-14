@@ -555,16 +555,13 @@ func deriveCCIPSendAccounts(
 		}
 		derivation, err := solcommon.ExtractAnchorTypedReturnValue[solRouter.DeriveAccountsResponse](e.GetContext(), res.Value.Logs, router.String())
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
-		}
-		if err != nil {
 			e.Logger.Errorf("Error deriving accounts for stage %s: %v\n", stage, err)
 			for _, line := range res.Value.Logs {
 				e.Logger.Error(line)
 			}
-			return nil, nil, nil, fmt.Errorf("failed to create derive account instruction: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
 		}
-		fmt.Printf("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
+		e.Logger.Infof("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
 
 		isStartOfToken := re.MatchString(derivation.CurrentStage)
 		if isStartOfToken {
