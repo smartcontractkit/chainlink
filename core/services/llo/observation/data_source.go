@@ -40,6 +40,17 @@ var (
 	},
 		[]string{"streamID"},
 	)
+	promObservationLoopDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "observation_loop_duration_ms",
+		Help:      "Duration of the observation loop",
+		Buckets: []float64{
+			10, 25, 50, 100, 250, 500, 750, 1000,
+		},
+	},
+		[]string{"configDigest"},
+	)
 )
 
 type ErrObservationFailed struct {
@@ -151,6 +162,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 //
 // NOTE: This method needs to be run in a goroutine.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
+	var elapsed time.Duration
+
 	for {
 		select {
 		case <-d.observationLoopCloseCh:
@@ -159,9 +172,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		}
 
 		now := time.Now()
-		opts, streamValues, timeout := d.getObservableStreams()
+		opts, streamValues, maxObservationDuration := d.getObservableStreams()
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), maxObservationDuration)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
@@ -225,6 +238,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		}
 
 		wg.Wait()
+		elapsed = time.Since(now)
 
 		// Notify the caller that we've completed our first round of observations.
 		if !d.observationLoopStarted.Load() {
@@ -240,7 +254,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		// Only log on errors or if VerboseLogging is turned on
 		if len(errs) > 0 || opts.VerboseLogging() {
-			elapsed := time.Since(now)
 
 			slices.Sort(successfulStreamIDs)
 			sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
@@ -269,8 +282,14 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		// Cancel the context, so the linter doesn't complain.
 		cancel()
 
-		// If we want to sleep between rounds, here is the place to do it.
-		time.Sleep(timeout / 20) // turn this know if the EAs are under too much pressure
+		promObservationLoopDuration.WithLabelValues(
+			opts.ConfigDigest().String()).Observe(float64(elapsed.Milliseconds()))
+
+		switch {
+		case elapsed < maxObservationDuration:
+			time.Sleep(maxObservationDuration - elapsed)
+		default:
+		}
 	}
 }
 
