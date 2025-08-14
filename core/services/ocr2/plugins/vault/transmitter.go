@@ -2,12 +2,15 @@ package vault
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -28,11 +31,41 @@ func NewTransmitter(lggr logger.Logger, fromAccount types.Account, store *reques
 	}
 }
 
-func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte], sigs []types.AttributedOnchainSignature) error {
-	info := &vault.ReportInfo{}
-	err := proto.Unmarshal(rwi.Info, info)
+func extractReportInfo(rwi ocr3types.ReportWithInfo[[]byte]) (*vault.ReportInfo, error) {
+	infoWrapper := &structpb.Struct{}
+	err := proto.Unmarshal(rwi.Info, infoWrapper)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	infoWrapper.AsMap()
+	reportInfoString, ok := infoWrapper.AsMap()["reportInfo"]
+	if !ok {
+		return nil, errors.New("reportInfo not found in report info struct")
+	}
+
+	ris, ok := reportInfoString.(string)
+	if !ok {
+		return nil, errors.New("reportInfo is not bytes")
+	}
+
+	rib, err := base64.StdEncoding.DecodeString(ris)
+	if err != nil {
+		return nil, err
+	}
+
+	reportInfo := &vault.ReportInfo{}
+	err = proto.Unmarshal(rib, reportInfo)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshal ReportInfo: %w", err)
+	}
+	return reportInfo, nil
+}
+
+func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte], sigs []types.AttributedOnchainSignature) error {
+	info, err := extractReportInfo(rwi)
+	if err != nil {
+		return fmt.Errorf("could not extract report info: %w", err)
 	}
 
 	req := c.store.Get(info.Id)

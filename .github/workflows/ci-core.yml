@@ -314,6 +314,7 @@ jobs:
         uses: trunk-io/analytics-uploader@f2631c653f9675d391e6e68cc877370db927c64c # v2.0.0
         continue-on-error: true # TODO: Remove this once ready
         env:
+          TRUNK_TELEMETRY: "off"
           JOB_URL: ${{ steps.run-url.outputs.run_url }}
         with:
           junit-paths: "./junit.xml,*/junit.xml"
