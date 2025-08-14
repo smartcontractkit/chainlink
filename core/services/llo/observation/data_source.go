@@ -254,7 +254,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		// Only log on errors or if VerboseLogging is turned on
 		if len(errs) > 0 || opts.VerboseLogging() {
-
 			slices.Sort(successfulStreamIDs)
 			sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
 
