@@ -514,7 +514,8 @@ func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Confi
 				BlockchainOutput: wrappedBlockchainOutputs[idx].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			credebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
+			topology := os.Getenv("CRE_TOPOLOGY")
+			credebug.PrintTestDebug(t.Context(), topology, testLogger, debugInput)
 		}
 	}
 }
