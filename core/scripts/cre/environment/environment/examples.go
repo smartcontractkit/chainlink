@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -157,7 +158,13 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, workflowRegistryAddress, DefaultWorkflowNodePattern, DefaultArtifactsDir, configFilePath, rpcURL)
+	parsed, err := strconv.ParseUint(donID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("failed to parse DON ID %s: %w", donID, err)
+	}
+	did := uint32(parsed)
+
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", DefaultWorkflowNodePattern, DefaultArtifactsDir, configFilePath, "", rpcURL, did)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}

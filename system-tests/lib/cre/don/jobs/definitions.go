@@ -48,7 +48,12 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, handlers map[string]string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
+type GatewayHandler struct {
+	Name   string
+	Config string
+}
+
+func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConfiguration.Dons {
@@ -65,7 +70,7 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int,
 		}
 
 		var handlersConfig string
-		for name, config := range handlers {
+		for name, config := range don.Handlers {
 			handlersConfig += fmt.Sprintf(`
 	[[gatewayConfig.Dons.Handlers]]
 	Name = "%s"

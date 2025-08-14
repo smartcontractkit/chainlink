@@ -165,6 +165,7 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 						PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 						TokenMessenger:      tokenMsngr.Address,
 						TokenAddress:        usdcToken.Address,
+						PoolType:            shared.USDCTokenPool,
 					},
 				},
 			},
@@ -271,6 +272,7 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
+			PoolType:            shared.USDCTokenPool,
 		}
 
 		destUpdates := map[uint64]v1_6_2.DomainUpdateInput{}

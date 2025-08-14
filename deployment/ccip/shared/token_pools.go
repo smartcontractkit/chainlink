@@ -23,10 +23,11 @@ var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1
 var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
 var TokenTypes = map[cldf.ContractType]struct{}{
-	BurnMintToken:     {},
-	ERC20Token:        {},
-	ERC677Token:       {},
-	ERC677TokenHelper: {},
+	BurnMintToken:      {},
+	ERC20Token:         {},
+	ERC677Token:        {},
+	ERC677TokenHelper:  {},
+	BurnMintERC20Token: {},
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{
@@ -45,6 +46,7 @@ var TokenPoolVersions = map[semver.Version]struct{}{
 	deployment.Version1_5_1:      {},
 	FastTransferTokenPoolVersion: {},
 	deployment.Version1_6_0:      {},
+	deployment.Version1_6_2:      {},
 }
 
 // tokenPool defines behavior common to all token pools.
