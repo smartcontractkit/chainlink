@@ -2,18 +2,20 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -50,19 +52,21 @@ func newMetrics() (*metrics, error) {
 }
 
 type GatewayHandler struct {
+	capRegistry    core.CapabilitiesRegistry
 	secretsService SecretsService
 	gwConnector    core.GatewayConnector
 	lggr           logger.Logger
 	metrics        *metrics
 }
 
-func NewGatewayHandler(secretsService SecretsService, gwConnector core.GatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService SecretsService, gwConnector core.GatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
 	return &GatewayHandler{
+		capRegistry:    capabilitiesRegistry,
 		secretsService: secretsService,
 		gwConnector:    gwConnector,
 		lggr:           lggr.Named(HandlerName),
@@ -90,12 +94,7 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	case vault_api.MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
 	case vault_api.MethodSecretsGet:
-		if build.IsProd() {
-			response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
-		} else {
-			h.lggr.Infof("Allowing method %s since this is not a prod build.", req.Method)
-			response = h.handleSecretsGet(ctx, gatewayID, req)
-		}
+		response = h.handleSecretsGet(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -136,19 +135,45 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		h.lggr.Infof("Debugging: h.secretsService.CreateSecrets failed, erro: %s", err.Error())
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
-	h.lggr.Infof("Debugging: handleSecretsCreate 2 %s: %v", gatewayID, req)
+	h.lggr.Infof("Debugging: handleSecretsCreate got response. GatewayId: %s, req: %v, Response: %s", gatewayID, req, vaultCapResponse.String())
 
-	resultBytes, err := json.Marshal(vaultCapResponse)
+	vaultResponseProto := &vault.CreateSecretsResponse{}
+	err = protojson.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
+	if err != nil {
+		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+	if len(vaultResponseProto.GetResponses()) != 1 {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+fmt.Sprint(len(vaultResponseProto.GetResponses()))))
+	}
+	secretResponse := vaultResponseProto.GetResponses()[0]
+	vaultApiResponse := vault_api.SecretsCreateResponse{
+		ResponseBase: vault_api.ResponseBase{
+			ID:         vaultCapResponse.ID,
+			Error:      vaultCapResponse.Error,
+			Format:     vaultCapResponse.Format,
+			Context:    vaultCapResponse.Context,
+			Signatures: vaultCapResponse.Signatures,
+		},
+		SecretID: vault_api.SecretIdentifier{
+			Key:       secretResponse.Id.GetKey(),
+			Namespace: secretResponse.Id.GetNamespace(),
+			Owner:     secretResponse.Id.GetOwner(),
+		},
+	}
+
+	h.lggr.Infof("Debugging: handleSecretsCreate 3 %s: %v", gatewayID, req)
+
+	vaultApiResponseBytes, err := json.Marshal(vaultApiResponse)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	h.lggr.Infof("Debugging: handleSecretsCreate 3 %s: %v", gatewayID, req)
-
+	vaultApiResponseJson := json.RawMessage(vaultApiResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
-		ID:      req.ID,
+		ID:      vaultApiResponse.ID,
 		Method:  req.Method,
-		Result:  (*json.RawMessage)(&resultBytes),
+		Result:  &vaultApiResponseJson,
 	}
 }
 
@@ -158,6 +183,10 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	h.lggr.Infof("Debugging: handleSecretsGet 1 %s: %v", gatewayID, req)
+	encryptionKeys, err := h.getEncryptionKeys(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
 	getSecretsRequest := vault.GetSecretsRequest{
 		Requests: []*vault.SecretRequest{
 			{
@@ -166,6 +195,7 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 					Namespace: "", // TBD
 					Key:       requestData.ID,
 				},
+				EncryptionKeys: encryptionKeys,
 			},
 		},
 	}
@@ -211,4 +241,24 @@ func (h *GatewayHandler) errorResponse(
 			Message: err.Error(),
 		},
 	}
+}
+
+// getEncryptionKeys retrieves the encryption keys of all members in the Workflow DON.
+func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error) {
+	myNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return nil, errors.New("failed to get local node from registry" + err.Error())
+	}
+
+	encryptionKeys := make([]string, 0, len(myNode.WorkflowDON.Members))
+	for _, peerID := range myNode.WorkflowDON.Members {
+		peerNode, err := h.capRegistry.NodeByPeerID(ctx, peerID)
+		if err != nil {
+			return nil, errors.New("failed to get node info for peerID: " + peerID.String() + " - " + err.Error())
+		}
+		encryptionKeys = append(encryptionKeys, hex.EncodeToString(peerNode.EncryptionPublicKey[:]))
+	}
+	// Sort the encryption keys to ensure consistent ordering across all nodes.
+	sort.Strings(encryptionKeys)
+	return encryptionKeys, nil
 }

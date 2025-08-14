@@ -188,13 +188,19 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, jwtToken)
+	s.lggr.Info("Debugging HTTPServer: Response: ", string(rawResponse))
+	s.lggr.Info("Debugging HTTPServer: Status code: ", httpStatusCode)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
-	w.WriteHeader(httpStatusCode)
 	_, err = w.Write(rawResponse)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		s.lggr.Error("error when writing response", err)
+		return
 	}
+	s.lggr.Info("Debugging HTTPServer: Successful Status code: ", httpStatusCode)
+	w.WriteHeader(httpStatusCode)
+	return
 }
 
 func (s *httpServer) SetHTTPRequestHandler(handler HTTPRequestHandler) {

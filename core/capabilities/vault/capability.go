@@ -117,7 +117,7 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 		ExpiryTimeVal: s.clock.Now().Add(s.expiresAfter),
 		IDVal:         requestID,
 	})
-	s.lggr.Infof("Sent Request to Vault OCR: %s", request)
+	s.lggr.Infof("Sent Request to Vault OCR: %s. Expiry is %s.", request, s.expiresAfter.String())
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

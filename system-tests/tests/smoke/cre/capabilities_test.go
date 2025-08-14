@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -281,31 +283,111 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	fullCldEnvOutput, _, loadErr := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, loadErr, "failed to load environment")
 
-	/*
-		CREATE NEW VAULT SECRET
-	*/
-	framework.L.Info().Msg("Creating secret...")
-	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		Method:  vault.MethodSecretsCreate,
-		Params: &vault.SecretsCreateRequest{
-			ID:    "testsecret1",
-			Value: encryptSecret(t, "VaultTestCreateSecret value"),
-			Owner: "testowner1",
-		},
-		ID: "1",
-	}
-	requestBody, err := json.Marshal(secretsRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
 	framework.L.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
 	gatewayURL, err := url.Parse(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
-	framework.L.Info().Msg("Executing request...")
-	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL.String(), bytes.NewBuffer(requestBody))
+
+	// Start a test-case for warm-up, don't fail if it fails
+	secretId := fmt.Sprintf("%d", rand.Intn(10000))
+	owner := "Owner1"
+	secretValue := "Secret Value to be stored"
+	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), true)
+
+	// The real SecretsCreate test
+	secretId = fmt.Sprintf("%d", rand.Intn(10000))
+	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), false)
+
+	executeVaultSecretsGetTest(t, secretValue, secretId, owner, gatewayURL.String())
+}
+
+func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, gatewayURL string, warmup bool) {
+	if warmup {
+		framework.L.Info().Msg("Starting warmup...")
+	} else {
+		framework.L.Info().Msg("Creating secret...")
+	}
+	uniqueRequestId := uuid.New().String()
+
+	secretsCreateRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		Method:  vault.MethodSecretsCreate,
+		Params: &vault.SecretsCreateRequest{
+			ID:    secretId,
+			Value: encryptSecret(t, secretValue),
+			Owner: owner,
+		},
+		ID: uniqueRequestId,
+	}
+	requestBody, err := json.Marshal(secretsCreateRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+	require.NoError(t, err, "failed to create request")
+
+	req.Header.Set("Content-Type", "application/jsonrpc")
+	req.Header.Set("Accept", "application/jsonrpc")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if warmup {
+		// Since we are running this as a warm-up test, we don't want to fail the test if it fails
+		errStr := "<nil>"
+		if err != nil {
+			errStr = err.Error()
+		}
+		framework.L.Info().Msg("Warmup done..., returned error was: " + errStr)
+		return
+	}
+	require.NoError(t, err, "failed to execute request")
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "failed to read createResponse body")
+	framework.L.Info().Msgf("Response Body: %s", string(body))
+
+	framework.L.Info().Msg("Checking createResponse status...")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
+
+	framework.L.Info().Msg("Checking createResponse structure...")
+	var createResponse jsonrpc.Response[vault.SecretsCreateResponse]
+	err = json.Unmarshal(body, &createResponse)
+	require.NoError(t, err, "failed to unmarshal createResponse")
+	framework.L.Info().Msgf("createResponse Body: %v", createResponse)
+	if createResponse.Error != nil {
+		require.Empty(t, createResponse.Error.Error())
+	}
+	result := createResponse.Result
+	framework.L.Info().Msgf("SecretsCreateResponse: %s", result)
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, createResponse.Version)
+	require.Equal(t, uniqueRequestId, createResponse.ID)
+
+	require.Empty(t, result.Error)
+	assert.Equal(t, secretId, result.SecretID.Key)
+	assert.Equal(t, owner, result.SecretID.Owner)
+
+	framework.L.Info().Msg("Secret created successfully")
+}
+
+func executeVaultSecretsGetTest(t *testing.T, secretValue, secretId, owner, gatewayURL string) {
+
+	uniqueRequestId := uuid.New().String()
+	framework.L.Info().Msg("Getting secret...")
+	secretsGetRequest := jsonrpc.Request[vault.SecretsGetRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		Method:  vault.MethodSecretsGet,
+		Params: &vault.SecretsGetRequest{
+			ID:    secretId,
+			Owner: owner,
+		},
+		ID: uniqueRequestId,
+	}
+	requestBody, err := json.Marshal(secretsGetRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+	framework.L.Info().Msg("Executing Get request...")
+	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 	require.NoError(t, err, "failed to create request")
 
 	req.Header.Set("Content-Type", "application/jsonrpc")
@@ -317,23 +399,31 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "failed to read response body")
-	framework.L.Debug().Msgf("Response Body: %s", string(body))
+	require.NoError(t, err, "failed to read getResponse body")
+	framework.L.Debug().Msgf("getResponse Body: %s", string(body))
 
-	framework.L.Info().Msg("Checking response status...")
+	framework.L.Info().Msg("Checking getResponse status...")
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
-	framework.L.Info().Msg("Checking response structure...")
-	var response jsonrpc.Response[vault.SecretsCreateResponse]
-	err = json.Unmarshal(body, &response)
-	require.NoError(t, err, "failed to unmarshal response")
+	framework.L.Info().Msg("Checking getResponse structure...")
+	var getResponse jsonrpc.Response[vault.SecretsGetResponse]
+	err = json.Unmarshal(body, &getResponse)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("getResponse Body: %v", getResponse)
+	if getResponse.Error != nil {
+		require.Empty(t, getResponse.Error.Error())
+	}
 
-	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
-	require.Equal(t, "1", response.ID)
-	require.NoError(t, err, "failed to unmarshal response")
-	require.True(t, response.Result.Success)
-	require.Equal(t, "test-secret", response.Result.SecretID)
-	require.Empty(t, response.Result.ErrorMessage)
+	result := getResponse.Result
+	framework.L.Info().Msgf("SecretsGetResponse: %s", result)
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, getResponse.Version)
+	require.Equal(t, uniqueRequestId, getResponse.ID)
+
+	require.Empty(t, result.Error)
+	assert.Equal(t, secretId, result.SecretID.Key)
+	assert.Equal(t, owner, result.SecretID.Owner)
+	assert.Equal(t, secretValue, result.SecretValue)
 
 	framework.L.Info().Msg("Secret created successfully")
 }

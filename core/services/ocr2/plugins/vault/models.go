@@ -63,5 +63,9 @@ type Response struct {
 }
 
 func (r *Response) RequestID() string {
-	return ""
+	return r.ID
+}
+
+func (r *Response) String() string {
+	return fmt.Sprintf("Response { ID: %s, Error: %s, Payload: %s, Format: %s }", r.ID, r.Error, string(r.Payload), r.Format)
 }

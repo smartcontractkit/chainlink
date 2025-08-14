@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -178,7 +177,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError))
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting any response")))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
@@ -188,6 +187,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 func (h *handler) Methods() []string {
 	return []string{
 		MethodSecretsCreate,
+		MethodSecretsGet,
 	}
 }
 
@@ -208,9 +208,11 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	h.mu.Unlock()
 	switch req.Method {
 	case MethodSecretsCreate:
-		return h.handleSecretsCreate(ctx, ar)
+		return h.handleSecretsRequest(ctx, ar)
+	case MethodSecretsGet:
+		return h.handleSecretsRequest(ctx, ar)
 	default:
-		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError))
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
 	}
 }
 
@@ -255,16 +257,27 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	return h.sendResponse(ctx, ur, successResp)
 }
 
-func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
-	var secretsCreateRequest SecretsCreateRequest
-	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
-	}
+func (h *handler) handleSecretsRequest(ctx context.Context, ar activeRequest) error {
+	switch ar.req.Method {
+	case MethodSecretsCreate:
+		var secretsCreateRequest SecretsCreateRequest
+		if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		}
 
-	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
-	}
+		if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+		}
+	case MethodSecretsGet:
+		var secretsGetRequest SecretsGetRequest
+		if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		}
 
+		if secretsGetRequest.ID == "" {
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id cannot be empty")))
+		}
+	}
 	// At this point, we know that the request is valid and we can send it to the nodes
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
@@ -353,7 +366,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest activeRequest, r
 
 	select {
 	case userRequest.callbackCh <- resp:
-		h.lggr.Debugw("sent response", "request_id", userRequest.req.ID)
+		h.lggr.Debugw("sent response", "request_id", userRequest.req.ID, "error_code", resp.ErrorCode, "raw_response", string(resp.RawResponse))
 		h.mu.Lock()
 		delete(h.activeRequests, userRequest.req.ID)
 		h.mu.Unlock()

@@ -104,6 +104,7 @@ func (r *ReportingPluginFactory) Close() error {
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+	r.lggr.Infof("Debugging: VaultOCR NewReportingPlugin called now.")
 	var configProto vault.ReportingPluginConfig
 	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
@@ -218,7 +219,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	for _, req := range batch {
 		r.lggr.Infof("Debugging: VaultOCR Observation. Found id in batch: %s", req.ID())
 		if req.ID() == "" {
-			r.lggr.Errorw("request has o id. Ignoring it...")
+			r.lggr.Errorw("request has no id. Ignoring it...")
 			continue
 		}
 		o := &vault.Observation{
@@ -282,7 +283,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			for _, sr := range tp.EncryptedSecrets {
 				validatedID, ierr := r.observeCreateSecretRequest(ctx, NewReadStore(keyValueReader), sr, requestsCountForID, newSecretsByOwner)
 				if ierr != nil {
-					r.lggr.Errorw("failed to handle create secret request", "id", sr.Id, "error", ierr)
+					r.lggr.Errorw("failed to handle create secret request", "ObservationId", o.Id, "id", sr.Id, "error", ierr)
 					errorMsg := "failed to handle create secret request"
 					if errors.Is(ierr, &userError{}) {
 						errorMsg = ierr.Error()
@@ -324,7 +325,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not marshal observations: %w", err)
 	}
 
-	r.lggr.Debugw("Observation complete", "ids", ids, "batchSize", len(batch))
+	if len(batch) > 0 {
+		r.lggr.Debugw("Observation complete", "ids", ids, "batchSize", len(batch))
+	}
 	return types.Observation(obsb), nil
 }
 
@@ -598,9 +601,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	store := NewWriteStore(keyValueReadWriter)
 
 	obsMap := map[string][]*vault.Observation{}
-	if len(aos) > 0 {
-		r.lggr.Infof("Debugging: VaultOCR StateTransition. aos-size: %d", len(aos))
-	}
 	for _, ao := range aos {
 		obs := &vault.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
@@ -609,7 +609,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 
-		r.lggr.Infof("Debugging: VaultOCR StateTransition. obs.Observations: %d", len(obs.Observations))
 		for _, o := range obs.Observations {
 			if _, ok := obsMap[o.Id]; !ok {
 				obsMap[o.Id] = []*vault.Observation{}
@@ -620,9 +619,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
-	if len(aos) > 0 {
-		r.lggr.Infof("Debugging: VaultOCR StateTransition. obsMap-size: %d", len(obsMap))
-	}
 	os := &vault.Outcomes{
 		Outcomes: []*vault.Outcome{},
 	}
@@ -789,7 +785,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				req := idToReqs[id]
 				resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 				if err != nil {
-					r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "error", err)
+					r.lggr.Errorw("failed to handle create secret request", "ObservationId", o.Id, "id", req.Id, "error", err)
 					errorMsg := "failed to handle create secret request"
 					if errors.Is(err, &userError{}) {
 						errorMsg = err.Error()
@@ -802,7 +798,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 					continue
 				}
 
-				r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id))
+				r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id), "ObservationId", o.Id)
+
 				sortedResps = append(sortedResps, resp)
 			}
 
@@ -819,7 +816,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
-	r.lggr.Debugw("State transition complete", "count", len(os.Outcomes), "err", err)
+	// r.lggr.Debugw("State transition complete", "count", len(os.Outcomes), "err", err)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not marshal outcomes: %w", err)
 	}
@@ -908,7 +905,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 		}
 	}
 
-	r.lggr.Debugw("Reports complete", "count", len(reports))
+	// r.lggr.Debugw("Reports complete", "count", len(reports))
 	return reports, nil
 }
 

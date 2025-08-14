@@ -4,8 +4,22 @@ const (
 	// Note: any addition to this list should be reflected in
 	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsCreate = "vault.secrets.create"
-	MethodSecretsGet = "vault.secrets.get"
+	MethodSecretsGet    = "vault.secrets.get"
 )
+
+type SecretIdentifier struct {
+	Key       string `json:"key,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Owner     string `json:"owner,omitempty"`
+}
+
+func (s *SecretIdentifier) String() string {
+	return "SecretIdentifier{" +
+		"Key: " + s.Key +
+		", Namespace: " + s.Namespace +
+		", Owner: " + s.Owner +
+		"}"
+}
 
 type SecretsCreateRequest struct {
 	ID    string `json:"id"`
@@ -19,17 +33,37 @@ type SecretsGetRequest struct {
 }
 
 type ResponseBase struct {
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"error_message,omitempty"`
+	ID         string   `json:"id,omitempty"`
+	Error      string   `json:"error,omitempty"`
+	Format     string   `json:"format,omitempty"`
+	Context    []byte   `json:"context,omitempty"`
+	Signatures [][]byte `json:"signatures,omitempty"`
+}
+
+func (r *ResponseBase) String() string {
+	return "ResponseBase{" +
+		"ID: " + r.ID +
+		", Error: " + r.Error +
+		", Format: " + r.Format +
+		", Context: []byte blob" +
+		", Signatures: [][]byte blob" +
+		"}"
 }
 
 type SecretsCreateResponse struct {
 	ResponseBase
-	SecretID string `json:"secret_id,omitempty"`
+	SecretID SecretIdentifier `json:"secret_id,omitempty"`
+}
+
+func (r *SecretsCreateResponse) String() string {
+	return "SecretsCreateResponse{" +
+		"ResponseBase: " + r.ResponseBase.String() +
+		", SecretID: " + r.SecretID.String() +
+		"}"
 }
 
 type SecretsGetResponse struct {
 	ResponseBase
-	SecretID string `json:"secret_id,omitempty"`
-	SecretValue string `json:"secret_value,omitempty"`
+	SecretID    SecretIdentifier `json:"secret_id,omitempty"`
+	SecretValue string           `json:"secret_value,omitempty"`
 }
