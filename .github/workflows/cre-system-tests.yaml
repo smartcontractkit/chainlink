@@ -176,4 +176,4 @@ jobs:
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
-            /tmp
+            /tmp/container-logs/
