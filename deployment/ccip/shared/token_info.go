@@ -3,6 +3,7 @@ package shared
 import (
 	"maps"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +53,21 @@ func NewMergedRegistry(tokens map[string][]TokenSymbol) TokenRegistry {
 	maps.Copy(combined, DescriptionToTokenSymbols)
 
 	// Override or extend with CLD-provided tokens
-	maps.Copy(combined, tokens)
+	for desc, newTokens := range tokens {
+		if existingTokens, exists := combined[desc]; exists {
+			// if it already has a feed symbol, de-duplicate & merge the new tokens (example: USDC/USD)
+			merged := slices.Clone(existingTokens)
+			for _, newToken := range newTokens {
+				if !slices.Contains(merged, newToken) {
+					merged = append(merged, newToken)
+				}
+			}
+			combined[desc] = merged
+		} else {
+			// No existing tokens for the feeds, just add the new tokens
+			combined[desc] = slices.Clone(newTokens)
+		}
+	}
 
 	return mergedRegistry{entries: combined}
 }

@@ -42,6 +42,9 @@ type DeployTokenPoolInput struct {
 	Type cldf.ContractType
 	// TokenAddress is the address of the token for which we are deploying a pool.
 	TokenAddress common.Address
+	// TokenType is the type of token that is being deployed. This is used to determine if we should grant burn and mint
+	// permissions to the token pool contract (BurnMintERC20).
+	TokenType cldf.ContractType
 	// AllowList is the optional list of addresses permitted to initiate a token transfer.
 	// If omitted, all addresses will be permitted to transfer the token.
 	AllowList []common.Address
@@ -51,6 +54,9 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 	// ExternalMinter only for burn-mint fast transfer pools with external minting.
 	ExternalMinter common.Address
+	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role. This is specifically
+	// for BurnMintERC20 token.
+	CCIPAdmin common.Address
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
@@ -186,9 +192,15 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 		deployGrp.Go(func() error {
 			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
-			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
+			}
+			if poolConfig.TokenType == shared.BurnMintERC20Token {
+				if err := addMinterAndBurnerForBurnMintERC20Token(env, chain.Selector, poolConfig.TokenAddress, contract.Address); err != nil {
+					return fmt.Errorf("failed to add minter and burner for BurnMintERC20 token %s on %s: %w",
+						poolConfig.TokenAddress, chain, err)
+				}
 			}
 			return nil
 		})

@@ -417,6 +417,7 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2:
     interfaces:
       ORM:
+      WorkflowClient:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:
