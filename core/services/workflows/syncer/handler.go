@@ -122,6 +122,7 @@ type eventHandler struct {
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
+	engineLimiters         *v2.EngineLimiters
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
@@ -197,6 +198,7 @@ func NewEventHandler(
 	dontimeStore *dontime.Store,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
+	engineLimiters *v2.EngineLimiters,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
@@ -220,6 +222,7 @@ func NewEventHandler(
 		dontimeStore:           dontimeStore,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
+		engineLimiters:         engineLimiters,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
@@ -566,9 +569,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowTag:           "", // V1 workflows don't have tags, so set empty string
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:          v2.EngineLimits{}, // all defaults
-		GlobalLimits:         h.workflowLimits,
-		ExecutionRateLimiter: h.ratelimiter,
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

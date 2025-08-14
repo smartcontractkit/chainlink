@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -112,6 +113,8 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
+		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
@@ -130,7 +133,7 @@ func Test_Handler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store, workflowEncryptionKey)
+		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -627,6 +630,8 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
@@ -638,7 +643,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
@@ -724,6 +729,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
@@ -734,7 +741,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -790,6 +797,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
@@ -799,7 +808,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedEvent{
@@ -862,6 +871,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
@@ -874,7 +885,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err =
 			h.workflowRegisteredEvent(ctx, active)
