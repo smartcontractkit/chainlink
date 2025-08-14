@@ -1,5 +1,7 @@
 [[proto_schema_sets]]
 uri = 'https://github.com/smartcontractkit/chainlink-protos'
-ref = '95decc005a91a1fd2621af9d9f00cb36d8061067'
+ref = '6ca363b1e0b1cb43b3e37bc7a37180b8a6240773'
 folders = ['workflows']
 subject_prefix = "cre-"
+exclude_files = [
+]

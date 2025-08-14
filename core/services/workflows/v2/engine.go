@@ -435,7 +435,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			executionStatus = store.StatusTimeout
 		}
 		executionLogger.Errorw("Workflow execution failed", "err", err, "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		return
 	}
@@ -446,7 +446,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
+	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
