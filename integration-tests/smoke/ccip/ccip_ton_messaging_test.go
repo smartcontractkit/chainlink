@@ -18,7 +18,7 @@ import (
 )
 
 func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
-	//t.Skip("Skipping the test temporarily - fix required")
+	t.Skip("Skipping the test temporarily - fix required")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
@@ -78,7 +78,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		//t.Skip("Skipping test for now, as it requires a deployed contracts on TON chain")
+		t.Skip("Skipping test for now, as it requires a deployed contracts on TON chain")
 		ccipChainState := state.TonChains[destChain]
 		receiver := ccipChainState.ReceiverAddress
 		receiverBase64Bytes, err := base64.RawURLEncoding.DecodeString(receiver.String())

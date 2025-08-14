@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
+
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 

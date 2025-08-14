@@ -17,9 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
