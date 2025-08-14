@@ -129,15 +129,6 @@ jobs:
       # TODO
       # Add Flakeguard support
 
-      - name: Enable cron capability
-        shell: bash
-        working-directory: core/scripts/cre/environment/configs
-        run: |
-          echo "[extra_capabilities]" >> "ci-config.toml"
-          echo 'cron_capability_binary_path = "/usr/local/bin/cron"' >> "ci-config.toml"
-
-          cat "ci-config.toml"
-
       - name: Start local CRE
         shell: bash
         id: start-local-cre
