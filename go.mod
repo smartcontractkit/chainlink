@@ -401,6 +401,3 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df
-
-// TODO(gg): temporary
-replace github.com/smartcontractkit/por_mock_ocr3plugin => ./modules/por_mock_ocr3plugin
