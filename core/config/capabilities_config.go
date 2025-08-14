@@ -30,6 +30,12 @@ type CapabilitiesWorkflowRegistry interface {
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
 	SyncStrategy() string
+	WorkflowStorage() WorkflowStorage
+}
+
+type WorkflowStorage interface {
+	URL() string
+	TLSEnabled() bool
 }
 
 type GatewayConnector interface {

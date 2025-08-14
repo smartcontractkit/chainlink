@@ -32,6 +32,7 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -188,6 +189,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = chaintype.Aptos
 		case chainsel.FamilyTon:
 			ocrtype = chaintype.TON
+		case chainsel.FamilyTron:
+			ocrtype = chaintype.Tron
 		default:
 			return nil, fmt.Errorf("Unsupported chain family %v", family)
 		}
@@ -215,6 +218,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
 		case chainsel.FamilyTon:
 			ctype = nodev1.ChainType_CHAIN_TYPE_TON
+		case chainsel.FamilyTron:
+			ctype = nodev1.ChainType_CHAIN_TYPE_TRON
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
@@ -365,6 +370,16 @@ func NewNode(
 		}
 		c.TON = tonConfigs
 
+		var tronConfigs chainlink.RawConfigs
+		for chainID, chain := range nodecfg.BlockChains.TronChains() {
+			tronChainID, err := chainsel.GetChainIDFromSelector(chainID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tronConfigs = append(tronConfigs, createTronChainConfig(tronChainID, chain))
+		}
+		c.Tron = tronConfigs
+
 		for _, opt := range configOpts {
 			opt(c)
 		}
@@ -432,6 +447,7 @@ func NewNode(
 		nodecfg.BlockChains.SolanaChains(),
 		nodecfg.BlockChains.AptosChains(),
 		nodecfg.BlockChains.TonChains(),
+		nodecfg.BlockChains.TronChains(),
 	)
 
 	nodeLabels := make([]*ptypes.Label, 1)
@@ -476,6 +492,7 @@ func CreateKeys(t *testing.T,
 	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
 	tonchains map[uint64]cldf_ton.Chain,
+	tronchains map[uint64]cldf_tron.Chain,
 ) Keys {
 	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
@@ -511,6 +528,8 @@ func CreateKeys(t *testing.T,
 			ctype = chaintype.Aptos
 		case chainsel.FamilyTon:
 			ctype = chaintype.TON
+		case chainsel.FamilyTron:
+			ctype = chaintype.Tron
 
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
@@ -567,6 +586,18 @@ func CreateKeys(t *testing.T,
 			transmitters[chain.Selector] = transmitter.ID()
 			t.Logf("Created Aptos Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
 			// TODO: funding
+		case chainsel.FamilyTron:
+			keystore := app.GetKeyStore().Tron()
+			err = keystore.EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for tron")
+
+			keys, err := keystore.GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
+			t.Logf("Created Tron Key: ID %v, Account %v", transmitter.ID(), transmitter)
 		case chainsel.FamilyStarknet:
 			keystore := app.GetKeyStore().StarkNet()
 			err = keystore.EnsureKey(ctx)
@@ -651,6 +682,28 @@ func CreateKeys(t *testing.T,
 		transmitter := tonkeys[0]
 		for chainSelector := range tonchains {
 			transmitters[chainSelector] = transmitter.AddressBase64()
+		}
+	}
+
+	if len(tronchains) > 0 {
+		ctype := chaintype.Tron
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().Tron().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Tron")
+
+		tronkeys, err := app.GetKeyStore().Tron().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tronkeys, 1)
+		transmitter := tronkeys[0]
+		for chainSelector := range tonchains {
+			transmitters[chainSelector] = transmitter.PublicKeyStr()
 		}
 	}
 

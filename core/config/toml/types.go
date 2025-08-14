@@ -1990,6 +1990,20 @@ func (r *Limits) setFrom(f *Limits) {
 	}
 }
 
+type WorkflowStorage struct {
+	URL        *string
+	TLSEnabled *bool
+}
+
+func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
+	if f.URL != nil {
+		s.URL = f.URL
+	}
+	if f.TLSEnabled != nil {
+		s.TLSEnabled = f.TLSEnabled
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -1999,6 +2013,7 @@ type WorkflowRegistry struct {
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
+	WorkflowStorage         WorkflowStorage
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -2033,6 +2048,8 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	if f.SyncStrategy != nil {
 		r.SyncStrategy = f.SyncStrategy
 	}
+
+	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 }
 
 type Dispatcher struct {

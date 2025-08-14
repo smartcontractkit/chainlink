@@ -117,13 +117,14 @@ func BuildSetOCR3ConfigArgs(
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
 	configType globals.ConfigType,
+	pluginTypes []types.PluginType,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain config for chain selector %d it must be set before OCR3Config set up: %w", destSelector, err)
 	}
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
-	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+	for _, pluginType := range pluginTypes {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
 			Context: context.Background(),
 		}, donID, uint8(pluginType))
@@ -267,13 +268,14 @@ func BuildSetOCR3ConfigArgsSolana(
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
 	configType globals.ConfigType,
+	pluginTypes []types.PluginType,
 ) ([]MultiOCR3BaseOCRConfigArgsSolana, error) {
 	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain config for chain selector %d it must be set before OCR3Config set up: %w", destSelector, err)
 	}
 	ocr3Configs := make([]MultiOCR3BaseOCRConfigArgsSolana, 0)
-	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+	for _, pluginType := range pluginTypes {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
 			Context: context.Background(),
 		}, donID, uint8(pluginType))

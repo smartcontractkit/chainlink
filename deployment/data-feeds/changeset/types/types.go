@@ -7,7 +7,9 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
@@ -44,6 +46,14 @@ type DeployAggregatorProxyConfig struct {
 	Qualifier        string           // Qualifier for the contract, applies to all chains
 }
 
+type DeployAggregatorProxyTronConfig struct {
+	ChainsToDeploy   []uint64          // Chain Selectors
+	AccessController []address.Address // AccessController address per chain
+	Labels           []string          // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier        string            // Data Store qualifier for the deployed contracts, applies to all chains
+	DeployOptions    *cldf_tron.DeployOptions
+}
+
 type DeployBundleAggregatorProxyConfig struct {
 	ChainsToDeploy []uint64 // Chain Selectors
 	Owners         map[uint64]common.Address
@@ -74,6 +84,14 @@ type SetFeedAdminConfig struct {
 	McmsConfig    *MCMSConfig
 }
 
+type SetFeedAdminTronConfig struct {
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	AdminAddress   address.Address
+	IsAdmin        bool
+	TriggerOptions *cldf_tron.TriggerOptions
+}
+
 type ProposeConfirmAggregatorConfig struct {
 	ChainSelector        uint64
 	ProxyAddress         common.Address
@@ -88,6 +106,21 @@ type SetFeedDecimalConfig struct {
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
+}
+
+type DataFeedsCacheTronWorkflowMetadata struct {
+	AllowedSender        address.Address
+	AllowedWorkflowOwner address.Address
+	AllowedWorkflowName  [10]byte
+}
+
+type SetFeedDecimalTronConfig struct {
+	ChainSelector    uint64
+	CacheAddress     address.Address
+	DataIDs          []string
+	Descriptions     []string
+	WorkflowMetadata []DataFeedsCacheTronWorkflowMetadata
+	TriggerOptions   *cldf_tron.TriggerOptions
 }
 
 type SetFeedBundleConfig struct {
@@ -123,11 +156,26 @@ type UpdateDataIDProxyConfig struct {
 	McmsConfig     *MCMSConfig
 }
 
+type UpdateDataIDProxyTronConfig struct {
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	ProxyAddresses []address.Address
+	DataIDs        []string
+	TriggerOptions *cldf_tron.TriggerOptions
+}
+
 type RemoveFeedProxyConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
 	McmsConfig     *MCMSConfig
+}
+
+type RemoveFeedProxyTronConfig struct {
+	ChainSelector  uint64
+	CacheAddress   address.Address
+	ProxyAddresses []address.Address
+	TriggerOptions *cldf_tron.TriggerOptions
 }
 
 type ImportAddressesConfig struct {
@@ -242,4 +290,17 @@ type DeployAptosConfig struct {
 	OwnerAddress             string   // Owner of the deployed contracts
 	PlatformAddress          string   // Address of the ChainLinkPlatform package
 	SecondaryPlatformAddress string   // Secondary address of the ChainLinkPlatform package
+}
+
+type DeployTronResponse struct {
+	Address address.Address
+	Tx      string
+	Tv      cldf.TypeAndVersion
+}
+
+type DeployTronConfig struct {
+	ChainsToDeploy []uint64 // Chain Selectors
+	Labels         []string // Data Store labels for the deployed contracts, applies to all chains
+	Qualifier      string   // Data Store qualifier for the deployed contracts, applies to all chains
+	DeployOptions  *cldf_tron.DeployOptions
 }
