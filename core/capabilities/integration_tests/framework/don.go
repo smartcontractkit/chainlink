@@ -42,8 +42,8 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -52,7 +52,7 @@ type DonContext struct {
 	p2pNetwork            *FakeRageP2PNetwork
 	capabilityRegistry    *CapabilitiesRegistry
 	workflowRegistry      *WorkflowRegistry
-	syncerFetcherFunc     artifacts.FetcherFunc
+	syncerFetcherFunc     wftypes.FetcherFunc
 	computeFetcherFactory compute.FetcherFactory
 }
 
@@ -66,7 +66,7 @@ func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	return DonContext{EthBlockchain: ethBlockchain, p2pNetwork: rageP2PNetwork, capabilityRegistry: capabilitiesRegistry}
 }
 
-func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc artifacts.FetcherFunc,
+func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc wftypes.FetcherFunc,
 	computeFetcherFactory compute.FetcherFactory) DonContext {
 	donContext := CreateDonContext(ctx, t)
 	workflowRegistry := NewWorkflowRegistry(ctx, t, donContext.EthBlockchain)
@@ -445,7 +445,7 @@ func startNewNode(ctx context.Context,
 	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
-	fetcherFunc artifacts.FetcherFunc,
+	fetcherFunc wftypes.FetcherFunc,
 	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

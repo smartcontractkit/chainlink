@@ -56,7 +56,7 @@ func (m *mockFetcher) Calls(url string) int {
 	return m.calledMap[url]
 }
 
-func (m *mockFetcher) FetcherFunc() artifacts.FetcherFunc {
+func (m *mockFetcher) FetcherFunc() types.FetcherFunc {
 	return m.Fetch
 }
 

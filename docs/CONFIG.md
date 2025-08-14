@@ -1437,6 +1437,26 @@ SyncStrategy = 'event' # Default
 SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 
+## Capabilities.WorkflowRegistry.WorkflowStorage
+```toml
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+URL = "localhost:4566" # Default
+TLSEnabled = true # Default
+```
+
+
+### URL
+```toml
+URL = "localhost:4566" # Default
+```
+URL is the location for the workflow storage service to be communicated with.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
+
 ## Workflows
 ```toml
 [Workflows]

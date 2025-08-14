@@ -89,7 +89,7 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 }
 
 type WorkflowArtifactsStore interface {
-	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
+	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
@@ -281,6 +281,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
 
+	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
 		return nil, err
@@ -288,7 +289,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 	status := toSpecStatus(payload.Status)
 
-	// Create a new entry in the workflow_spec table corresponding for the new workflow, with the contents of the binaryURL + configURL in the table
+	// Create a new entry in the workflow_specs_v2 table corresponding for the new workflow, with the contents of the binaryIdentifier + configIdentifier in the table
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),

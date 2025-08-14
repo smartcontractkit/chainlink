@@ -2,16 +2,23 @@ package environment
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
+	secretsUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -67,15 +74,18 @@ func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress str
 
 func deployWorkflowCmd() *cobra.Command {
 	var (
-		workflowFilePathFlag        string
-		configFilePathFlag          string
-		containerTargetDirFlag      string
-		containerNamePatternFlag    string
-		workflowNameFlag            string
-		workflowOwnerAddressFlag    string
-		workflowRegistryAddressFlag string
-		chainIDFlag                 uint64
-		rpcURLFlag                  string
+		workflowFilePathFlag            string
+		configFilePathFlag              string
+		secretsFilePathFlag             string
+		containerTargetDirFlag          string
+		containerNamePatternFlag        string
+		workflowNameFlag                string
+		workflowOwnerAddressFlag        string
+		workflowRegistryAddressFlag     string
+		capabilitiesRegistryAddressFlag string
+		donIDFlag                       uint32
+		chainIDFlag                     uint64
+		rpcURLFlag                      string
 	)
 
 	cmd := &cobra.Command{
@@ -101,7 +111,7 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}()
 
-			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag)
+			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag)
 
 			return regErr
 		},
@@ -109,12 +119,15 @@ func deployWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
+	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
+	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", "Capabilities registry address")
+	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 
 	return cmd
@@ -233,7 +246,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	return cmd
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, rpcURLFlag string) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32) error {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
 	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
@@ -266,7 +279,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	var configPath *string
 	if configFilePathFlag != "" {
-		fmt.Printf("\n⚙️ Copying workflow config file to Docker container\n\n")
+		fmt.Printf("\n⚙️ Copying workflow config file to Docker container\n")
 		configPathAbs, configPathAbsErr := filepath.Abs(configFilePathFlag)
 		if configPathAbsErr != nil {
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
@@ -281,6 +294,67 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 		configPath = &configPathAbs
 
 		fmt.Printf("\n✅ Workflow config file copied to Docker container\n\n")
+	}
+
+	var secretsPath *string
+	if secretsFilePathFlag != "" {
+		fmt.Printf("\n⚙️ Loading workflow secrets\n")
+
+		secretsConfig, err := newSecretsConfig(secretsFilePathFlag)
+		if err != nil {
+			return err
+		}
+
+		envSecrets, err := loadSecretsFromEnvironment(secretsConfig)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\n✅ Loaded workflow secrets\n\n")
+
+		fmt.Printf("\n⚙️ Encrypting workflow secrets\n")
+
+		encryptSecrets, err := encryptSecrets(sethClient, common.HexToAddress(capabilitiesRegistryAddressFlag), donIDFlag, workflowOwnerAddressFlag, envSecrets, secretsConfig)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\n✅ Encrypted workflow secrets\n\n")
+
+		fmt.Printf("\n⚙️ Writing encrypted secrets file to disk\n")
+
+		encryptedSecretsFilePath := "./encrypted.secrets.json"
+		encryptedSecretsFile, err := os.Create(encryptedSecretsFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create secrets file: %w", err)
+		}
+		defer encryptedSecretsFile.Close()
+		defer func() {
+			_ = os.Remove(encryptedSecretsFilePath)
+		}()
+
+		encoder := json.NewEncoder(encryptedSecretsFile)
+		if err := encoder.Encode(encryptSecrets); err != nil {
+			return fmt.Errorf("failed to write to secrets file: %w", err)
+		}
+
+		fmt.Printf("\n✅ Wrote encrypted secrets file to disk\n\n")
+
+		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
+		secretPathAbs, secretPathAbsErr := filepath.Abs(encryptedSecretsFilePath)
+		if secretPathAbsErr != nil {
+			return errors.Wrap(secretPathAbsErr, "failed to get absolute path of the encrypted secrets file")
+		}
+
+		secretsCopyErr := creworkflow.CopyWorkflowToDockerContainers(encryptedSecretsFilePath, containerNamePatternFlag, containerTargetDirFlag)
+		if secretsCopyErr != nil {
+			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
+		}
+
+		secretPathAbs = "file://" + secretPathAbs
+		secretsPath = &secretPathAbs
+
+		fmt.Printf("\n✅ Workflow encrypted secrets file copied to Docker container\n\n")
 	}
 
 	fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry\n\n", workflowNameFlag)
@@ -303,7 +377,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), 1, workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, nil, &containerTargetDirFlag)
+	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
@@ -315,4 +389,96 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	fmt.Printf("\n✅ Workflow registered successfully\n\n")
 
 	return nil
+}
+
+func newSecretsConfig(configPath string) (*secretsUtils.SecretsConfig, error) {
+	secretsConfigFile, err := os.Open(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening secrets config file: %w", err)
+	}
+	defer secretsConfigFile.Close()
+
+	var config secretsUtils.SecretsConfig
+	err = yaml.NewDecoder(secretsConfigFile).Decode(&config)
+	if err != nil && errors.Is(err, io.EOF) {
+		return &secretsUtils.SecretsConfig{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error decoding secrets config file: %w", err)
+	}
+
+	return &config, nil
+}
+
+func loadSecretsFromEnvironment(config *secretsUtils.SecretsConfig) (map[string][]string, error) {
+	secrets := make(map[string][]string)
+	for secretName, envVars := range config.SecretsNames {
+		for _, envVar := range envVars {
+			secretValue := os.Getenv(envVar)
+			if secretValue == "" {
+				return nil, fmt.Errorf("missing environment variable: %s", envVar)
+			}
+			secrets[secretName] = append(secrets[secretName], secretValue)
+		}
+	}
+	return secrets, nil
+}
+
+func encryptSecrets(c *seth.Client, capabilitiesRegistry common.Address, donID uint32, workflowOwner string, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
+	cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
+	if err != nil {
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
+	}
+
+	nodeInfos, err := cr.GetNodes(c.NewCallOpts())
+	if err != nil {
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry contract: %w", err)
+	}
+
+	donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
+	if err != nil {
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry contract: %w", err)
+	}
+
+	encryptionPublicKeys := make(map[string][32]byte)
+	for _, nodeInfo := range nodeInfos {
+		// Filter only the nodes that are part of the DON
+		if secretsUtils.ContainsP2pId(nodeInfo.P2pId, donInfo.NodeP2PIds) {
+			encryptionPublicKeys[hex.EncodeToString(nodeInfo.P2pId[:])] = nodeInfo.EncryptionPublicKey
+		}
+	}
+
+	if len(encryptionPublicKeys) == 0 {
+		return secretsUtils.EncryptedSecretsResult{}, errors.New("no nodes found for the don")
+	}
+
+	// Encrypt secrets for each node
+	encryptedSecrets, secretsEnvVarsByNode, err := secretsUtils.EncryptSecretsForNodes(
+		workflowOwner,
+		secrets,
+		encryptionPublicKeys,
+		secretsUtils.SecretsConfig{SecretsNames: config.SecretsNames},
+	)
+	if err != nil {
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("node public keys not found: %w", err)
+	}
+
+	// Convert encryptionPublicKey to hex strings for including in the metadata
+	nodePublicEncryptionKeys := make(map[string]string)
+	for p2pID, encryptionPublicKey := range encryptionPublicKeys {
+		nodePublicEncryptionKeys[p2pID] = hex.EncodeToString(encryptionPublicKey[:])
+	}
+
+	result := secretsUtils.EncryptedSecretsResult{
+		EncryptedSecrets: encryptedSecrets,
+		Metadata: secretsUtils.Metadata{
+			WorkflowOwner:            workflowOwner,
+			CapabilitiesRegistry:     capabilitiesRegistry.String(),
+			DonId:                    strconv.FormatUint(uint64(donID), 10),
+			DateEncrypted:            time.Now().Format(time.RFC3339),
+			NodePublicEncryptionKeys: nodePublicEncryptionKeys,
+			EnvVarsAssignedToNodes:   secretsEnvVarsByNode,
+		},
+	}
+	return result, nil
 }
