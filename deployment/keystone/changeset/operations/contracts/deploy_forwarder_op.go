@@ -16,6 +16,7 @@ type DeployForwarderOpDeps struct {
 
 type DeployForwarderOpInput struct {
 	ChainSelector uint64
+	Qualifier     string
 }
 
 type DeployForwarderOpOutput struct {
