@@ -113,22 +113,22 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 func validateNodes(nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams) error {
 	for _, node := range nodes {
 		if node.NodeOperatorId == 0 {
-			return errors.New("NodeOperatorId cannot be zero")
+			return errors.New("nodeOperatorId cannot be zero")
 		}
 		if node.Signer == [32]byte{} {
-			return errors.New("Signer cannot be empty")
+			return errors.New("signer cannot be empty")
 		}
 		if node.EncryptionPublicKey == [32]byte{} {
-			return errors.New("EncryptionPublicKey cannot be empty")
+			return errors.New("encryptionPublicKey cannot be empty")
 		}
 		if node.P2pId == [32]byte{} {
-			return errors.New("P2pId cannot be empty")
+			return errors.New("p2pId cannot be empty")
 		}
 		if node.CsaKey == [32]byte{} {
-			return errors.New("CsaKey cannot be empty")
+			return errors.New("csaKey cannot be empty")
 		}
 		if len(node.CapabilityIds) == 0 {
-			return errors.New("CapabilityIds cannot be empty")
+			return errors.New("capabilityIds cannot be empty")
 		}
 	}
 	return nil

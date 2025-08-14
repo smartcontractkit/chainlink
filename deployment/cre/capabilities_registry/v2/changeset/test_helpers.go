@@ -30,10 +30,3 @@ func BuildMinimalEnvironment(t *testing.T, lggr logger.Logger) (cldf.Environment
 
 	return env, chainSelector
 }
-
-func test32byte(t *testing.T, s string) [32]byte {
-	var out [32]byte
-	b := []byte(s)
-	copy(out[:], b)
-	return out
-}
