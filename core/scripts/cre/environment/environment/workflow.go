@@ -293,7 +293,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, uint32(donIDFlag), common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag)
+		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag)
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
