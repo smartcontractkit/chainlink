@@ -95,12 +95,18 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				CapabilityID:          "write-chain@1.0.0",
 				ConfigurationContract: common.HexToAddress("0x3333333333333333333333333333333333333333"),
-				Metadata:              CapabilityMetadata{CapabilityType: 3, ResponseType: 0},
+				Metadata: map[string]interface{}{
+					"capabilityType": 3,
+					"responseType":   0,
+				},
 			},
 			{
 				CapabilityID:          "trigger@1.0.0",
 				ConfigurationContract: common.Address{}, // Zero address
-				Metadata:              CapabilityMetadata{CapabilityType: 0, ResponseType: 0},
+				Metadata: map[string]interface{}{
+					"capabilityType": 0,
+					"responseType":   0,
+				},
 			},
 		},
 		Nodes: []CapabilitiesRegistryNodeParams{
@@ -271,8 +277,14 @@ dons:
 	assert.Equal(t, "trigger@1.0.0", input.Capabilities[1].CapabilityID)
 
 	// Verify metadata is decoded properly
-	expectedMetadata1 := CapabilityMetadata{CapabilityType: 3, ResponseType: 0}
-	expectedMetadata2 := CapabilityMetadata{CapabilityType: 0, ResponseType: 1}
+	expectedMetadata1 := map[string]interface{}{
+		"capabilityType": 3,
+		"responseType":   0,
+	}
+	expectedMetadata2 := map[string]interface{}{
+		"capabilityType": 0,
+		"responseType":   1,
+	}
 	assert.Equal(t, expectedMetadata1, input.Capabilities[0].Metadata)
 	assert.Equal(t, expectedMetadata2, input.Capabilities[1].Metadata)
 
@@ -333,7 +345,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
-	var writeChainCapabilityMetadata CapabilityMetadata
+	var writeChainCapabilityMetadata map[string]interface{}
 	err = json.Unmarshal(writeChainCapability.Metadata, &writeChainCapabilityMetadata)
 	require.NoError(t, err)
 
@@ -342,7 +354,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
 	}
-	var triggerCapabilityMetadata CapabilityMetadata
+	var triggerCapabilityMetadata map[string]interface{}
 	err = json.Unmarshal(triggerCapability.Metadata, &triggerCapabilityMetadata)
 	require.NoError(t, err)
 

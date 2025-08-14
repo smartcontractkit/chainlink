@@ -22,15 +22,10 @@ func (nop CapabilitiesRegistryNodeOperator) ToWrapper() capabilities_registry_v2
 	}
 }
 
-type CapabilityMetadata struct {
-	CapabilityType uint8 `json:"capabilityType" yaml:"capabilityType"`
-	ResponseType   uint8 `json:"responseType" yaml:"responseType"`
-}
-
 type CapabilitiesRegistryCapability struct {
-	CapabilityID          string             `json:"capabilityID" yaml:"capabilityID"`
-	ConfigurationContract common.Address     `json:"configurationContract" yaml:"configurationContract"`
-	Metadata              CapabilityMetadata `json:"metadata" yaml:"metadata"`
+	CapabilityID          string                 `json:"capabilityID" yaml:"capabilityID"`
+	ConfigurationContract common.Address         `json:"configurationContract" yaml:"configurationContract"`
+	Metadata              map[string]interface{} `json:"metadata" yaml:"metadata"`
 }
 
 func (cap CapabilitiesRegistryCapability) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
