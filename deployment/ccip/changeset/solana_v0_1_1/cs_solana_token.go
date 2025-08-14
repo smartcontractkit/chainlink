@@ -356,20 +356,6 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Token metadata uploaded", "tokenPubkey", metadata.TokenPubkey.String())
 		}
 
-		// update authority after initial upload
-		if !metadata.UpdateAuthority.IsZero() {
-			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Debugw("metaboss set error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
-		}
-
 		// update name
 		if metadata.MetadataJSONPath == "" && metadata.UpdateName != "" {
 			e.Logger.Infow("Updating token metadata name", "tokenPubkey", metadata.TokenPubkey.String())
@@ -410,6 +396,20 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
 			}
 			e.Logger.Infow("Token metadata uri set", "tokenPubkey", metadata.TokenPubkey.String(), "uri", metadata.UpdateURI)
+		}
+
+		// update authority after initial upload
+		if !metadata.UpdateAuthority.IsZero() {
+			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Debugw("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Debugw("metaboss set error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
 		}
 	}
 

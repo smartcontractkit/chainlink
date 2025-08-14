@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 // FetcherService is a service that fetches data from the gateway using the OutgoingConnectorHandler.
@@ -137,7 +137,7 @@ func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapa
 
 // NewFetcher creates a new FetcherFunc based on the provided URL configuration
 // The implementation supports both file and HTTP(S) URLs and bypasses the gateway
-func NewFetcherFunc(baseURL string, lggr logger.Logger) (artifacts.FetcherFunc, error) {
+func NewFetcherFunc(baseURL string, lggr logger.Logger) (types.FetcherFunc, error) {
 	if baseURL == "" {
 		return nil, errors.New("baseURL cannot be empty")
 	}
@@ -161,7 +161,7 @@ func NewFetcherFunc(baseURL string, lggr logger.Logger) (artifacts.FetcherFunc, 
 	}
 }
 
-func newFileFetcher(basePath string, lggr logger.Logger) artifacts.FetcherFunc {
+func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 	return func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error) {
 		select {
 		case <-ctx.Done():
@@ -198,7 +198,7 @@ func newFileFetcher(basePath string, lggr logger.Logger) artifacts.FetcherFunc {
 	}
 }
 
-func newHTTPFetcher(baseURL string, lggr logger.Logger) artifacts.FetcherFunc {
+func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}

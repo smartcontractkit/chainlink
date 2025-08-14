@@ -165,6 +165,24 @@ func (c *capabilitiesWorkflowRegistry) SyncStrategy() string {
 	return *c.c.SyncStrategy
 }
 
+func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
+	return &workflowStorage{
+		c: c.c.WorkflowStorage,
+	}
+}
+
+type workflowStorage struct {
+	c toml.WorkflowStorage
+}
+
+func (c *workflowStorage) URL() string {
+	return *c.c.URL
+}
+
+func (c *workflowStorage) TLSEnabled() bool {
+	return *c.c.TLSEnabled
+}
+
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }

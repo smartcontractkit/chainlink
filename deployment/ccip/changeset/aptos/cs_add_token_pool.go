@@ -172,8 +172,10 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 
 	// Connect token pools EVM -> Aptos
 	connInput := seq.ConnectTokenPoolSeqInput{
-		TokenPoolAddress: tokenPoolAddress,
-		RemotePools:      toRemotePools(cfg.EVMRemoteConfigs),
+		TokenPoolAddress:                    tokenPoolAddress,
+		RemotePools:                         toRemotePools(cfg.EVMRemoteConfigs),
+		TokenAddress:                        tokenAddress,
+		TokenTransferFeeByRemoteChainConfig: cfg.TokenTransferFeeByRemoteChainConfig,
 	}
 	connectSeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.ConnectTokenPoolSequence, deps, connInput)
 	if err != nil {
