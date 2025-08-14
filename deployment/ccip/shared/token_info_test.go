@@ -65,8 +65,7 @@ func TestNewMergedRegistry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Get symbols before merge (from default registry)
-			defaultRegistry := defaultRegistry{}
-			symbolsBeforeMerge, _ := defaultRegistry.GetSymbols(tt.testDescription)
+			symbolsBeforeMerge, _ := registry.GetSymbols(tt.testDescription)
 
 			// Create merged registry
 			registry := NewMergedRegistry(tt.newTokens)
@@ -87,7 +86,6 @@ func TestNewMergedRegistry(t *testing.T) {
 						assert.Contains(t, symbolsAfterMerge, newSymbol, "New symbol %s should be present after merge", newSymbol)
 					}
 				}
-
 			} else {
 				assert.Nil(t, symbolsAfterMerge, "Expected symbols to be nil when not found")
 			}
