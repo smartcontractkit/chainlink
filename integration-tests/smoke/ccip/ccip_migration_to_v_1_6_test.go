@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -156,10 +157,10 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -284,10 +285,10 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -421,10 +422,10 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -582,10 +583,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	}()
 	// send a message from the other lane src2 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src2),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src2),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -706,13 +707,13 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	out, err := testhelpers.SendRequest(
 		e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(true),
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(true),
 		// Send traffic across single 1.6 lane with a DIFFERENT ( very important to not mess with real sender nonce) sender
 		// from test router to ensure 1.6 is working.
-		testhelpers.WithSender(e.Users[src1][1]),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSender(e.Users[src1][1]),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -796,10 +797,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src2),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src2),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -896,7 +897,7 @@ func sendMessageInRealRouter(
 	state *stateview.CCIPOnChainState,
 	src, dest uint64,
 ) any {
-	cfg := &testhelpers.CCIPSendReqConfig{
+	cfg := &ccipclient.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    dest,
 		Sender:       e.Env.BlockChains.EVMChains()[src].DeployerKey,

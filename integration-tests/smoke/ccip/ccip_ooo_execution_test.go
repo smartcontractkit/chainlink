@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -203,10 +204,10 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	// Ordered token transfer, but using different sender, should be executed
 	fifthReceiver := utils.RandomAddress()
 	fifthMessage, err := testhelpers.SendRequest(e, state,
-		testhelpers.WithSender(anotherSender),
-		testhelpers.WithSourceChain(sourceChain),
-		testhelpers.WithDestChain(destChain),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSender(anotherSender),
+		ccipclient.WithSourceChain(sourceChain),
+		ccipclient.WithDestChain(destChain),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(fifthReceiver.Bytes(), 32),
 			Data:         nil,
 			TokenAmounts: tokenTransfer,

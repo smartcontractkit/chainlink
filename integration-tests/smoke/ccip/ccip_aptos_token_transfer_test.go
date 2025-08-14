@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -197,11 +198,11 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
@@ -223,11 +224,11 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
@@ -249,11 +250,11 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
@@ -464,11 +465,11 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
@@ -489,11 +490,11 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
@@ -514,11 +515,11 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 				},
 			}}
 
-		baseOpts := []testhelpers.SendReqOpts{
-			testhelpers.WithSourceChain(sourceChain),
-			testhelpers.WithDestChain(destChain),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithMessage(msg),
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
