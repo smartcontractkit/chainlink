@@ -65,7 +65,7 @@ func (fc *fakeConsensusNoDAG) close() error {
 
 // NOTE: This fake capability currently bounces back the request payload, ignoring everything else.
 // When the real NoDAG consensus OCR plugin is ready, it should be used here, similarly to how the V1 fake works.
-func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*valuespb.Value, error) {
+func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*capabilities.ResponseAndMetadata[*valuespb.Value], error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Simple()", "input", input, "metadata", metadata)
 
 	switch obs := input.Observation.(type) {
@@ -73,7 +73,11 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 		if obs.Value == nil {
 			return nil, errors.New("input value cannot be nil")
 		}
-		return obs.Value, nil
+		responseAndMetadata := capabilities.ResponseAndMetadata[*valuespb.Value]{
+			Response:         obs.Value,
+			ResponseMetadata: capabilities.ResponseMetadata{},
+		}
+		return &responseAndMetadata, nil
 	case *sdkpb.SimpleConsensusInputs_Error:
 		return nil, errors.New(obs.Error)
 	case nil:
@@ -83,7 +87,7 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 	}
 }
 
-func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*sdkpb.ReportResponse, error) {
+func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*capabilities.ResponseAndMetadata[*sdkpb.ReportResponse], error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Report()", "input", input, "metadata", metadata)
 	// Prepare EVM metadata that will be prepended to all reports
 	meta := consensustypes.Metadata{
@@ -126,13 +130,18 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 			idx++
 		}
 
-		return &sdkpb.ReportResponse{
+		reportResponse := &sdkpb.ReportResponse{
 			RawReport:     rawOutput,
 			ConfigDigest:  fc.configDigest[:],
 			SeqNr:         fc.seqNr,
 			ReportContext: report.GenerateReportContext(fc.seqNr, fc.configDigest),
 			Sigs:          sigs,
-		}, nil
+		}
+		responseAndMetadata := capabilities.ResponseAndMetadata[*sdkpb.ReportResponse]{
+			Response:         reportResponse,
+			ResponseMetadata: capabilities.ResponseMetadata{},
+		}
+		return &responseAndMetadata, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported encoder name: %s", input.EncoderName)
