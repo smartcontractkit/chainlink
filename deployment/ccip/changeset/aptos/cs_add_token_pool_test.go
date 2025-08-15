@@ -27,6 +27,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
+var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
+	MinFeeUsdCents:    50,
+	MaxFeeUsdCents:    1600,
+	DeciBps:           0,
+	DestGasOverhead:   300_000,
+	DestBytesOverhead: 100,
+	IsEnabled:         true,
+}
+
 func TestAddTokenPool_Apply(t *testing.T) {
 	t.Parallel()
 	// Setup environment and config with 1 Aptos chain
@@ -43,7 +52,8 @@ func TestAddTokenPool_Apply(t *testing.T) {
 
 	mockEVMPool := "0xbd10ffa3815c010d5cf7d38815a0eaabc959eb84"
 	// Get EVM chain selectors
-	emvSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	emvSelector1 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	emvSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
 
 	// Configure token pool settings
 	cfg := config.AddTokenPoolConfig{
@@ -55,11 +65,24 @@ func TestAddTokenPool_Apply(t *testing.T) {
 		ChainSelector: aptosSelector,
 		PoolType:      shared.AptosManagedTokenPoolType,
 		EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
-			emvSelector: {
+			emvSelector1: {
 				TokenAddress:     common.HexToAddress("0xa"),
 				TokenPoolAddress: common.HexToAddress(mockEVMPool),
 				RateLimiterConfig: config.RateLimiterConfig{
-					RemoteChainSelector: emvSelector,
+					RemoteChainSelector: emvSelector1,
+					OutboundIsEnabled:   false,
+					OutboundCapacity:    0,
+					OutboundRate:        0,
+					InboundIsEnabled:    true,
+					InboundCapacity:     110,
+					InboundRate:         20,
+				},
+			},
+			emvSelector2: {
+				TokenAddress:     common.HexToAddress("0xa"),
+				TokenPoolAddress: common.HexToAddress(mockEVMPool),
+				RateLimiterConfig: config.RateLimiterConfig{
+					RemoteChainSelector: emvSelector2,
 					OutboundIsEnabled:   false,
 					OutboundCapacity:    0,
 					OutboundRate:        0,
@@ -70,14 +93,7 @@ func TestAddTokenPool_Apply(t *testing.T) {
 			},
 		},
 		TokenTransferFeeByRemoteChainConfig: map[uint64]fee_quoter.TokenTransferFeeConfig{
-			emvSelector: {
-				MinFeeUsdCents:    800,
-				MaxFeeUsdCents:    1600,
-				DeciBps:           0,
-				DestGasOverhead:   300_000,
-				DestBytesOverhead: 100,
-				IsEnabled:         true,
-			},
+			emvSelector2: testTokenTransferFeeConfig,
 		},
 		TokenParams: config.TokenParams{
 			MaxSupply: big.NewInt(1000000),
@@ -111,10 +127,17 @@ func TestAddTokenPool_Apply(t *testing.T) {
 
 	for tokenAddress, pool := range state.AptosChains[aptosSelector].AptosManagedTokenPools {
 		poolBind := managed_token_pool.Bind(pool, env.BlockChains.AptosChains()[aptosSelector].Client)
-		remotePools, err := poolBind.ManagedTokenPool().GetRemotePools(nil, emvSelector)
+
+		remotePools, err := poolBind.ManagedTokenPool().GetRemotePools(nil, emvSelector1)
 		require.NoError(t, err)
 		require.NotEmpty(t, remotePools)
 		hexString := fmt.Sprintf("0x%x", remotePools[0])
+		assert.Equal(t, hexString, mockEVMPool)
+
+		remotePools2, err := poolBind.ManagedTokenPool().GetRemotePools(nil, emvSelector2)
+		require.NoError(t, err)
+		require.NotEmpty(t, remotePools2)
+		hexString = fmt.Sprintf("0x%x", remotePools2[0])
 		assert.Equal(t, hexString, mockEVMPool)
 
 		poolAdd, admin, pendingAdm, err := ccipContract.TokenAdminRegistry().GetTokenConfig(nil, tokenAddress)
@@ -122,6 +145,14 @@ func TestAddTokenPool_Apply(t *testing.T) {
 		require.Equal(t, pool, poolAdd, "Expected the registered pool to match the deployed pool")
 		require.Equal(t, expectedAdm, admin, "Admin should match ccipOwnerAddress")
 		require.Equal(t, aptos.AccountAddress{}, pendingAdm, "Pending admin should be empty")
+
+		ttfcfgs1, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector1, tokenAddress)
+		require.NoError(t, err)
+		require.Equal(t, fee_quoter.TokenTransferFeeConfig{}, ttfcfgs1)
+		ttfcfgs2, err := ccipContract.FeeQuoter().GetTokenTransferFeeConfig(nil, emvSelector2, tokenAddress)
+		require.NoError(t, err)
+		require.Equal(t, testTokenTransferFeeConfig, ttfcfgs2)
+
 	}
 
 	// The output should include MCMS proposals

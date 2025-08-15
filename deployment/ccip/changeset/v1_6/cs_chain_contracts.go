@@ -1367,6 +1367,7 @@ type SetOCR3OffRampConfig struct {
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
 	MCMS               *proposalutils.TimelockConfig
+	PluginTypes        []cctypes.PluginType // empty plugin type list defaults to both commit and exec
 }
 
 func (c SetOCR3OffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -1381,6 +1382,16 @@ func (c SetOCR3OffRampConfig) Validate(e cldf.Environment, state stateview.CCIPO
 		if err := c.validateRemoteChain(&e, &state, remote); err != nil {
 			return err
 		}
+	}
+	pluginTypeMap := make(map[cctypes.PluginType]bool)
+	for _, pluginType := range c.PluginTypes {
+		if pluginType != cctypes.PluginTypeCCIPCommit && pluginType != cctypes.PluginTypeCCIPExec {
+			return fmt.Errorf("invalid plugin type encountered. plugin type must be either %s or %s", cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec)
+		}
+		if _, ok := pluginTypeMap[pluginType]; ok {
+			return fmt.Errorf("duplicate plugin type found: %s", pluginType.String())
+		}
+		pluginTypeMap[pluginType] = true
 	}
 	return nil
 }
@@ -1441,6 +1452,12 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 
 	xg := new(errgroup.Group)
 
+	pluginTypes := cfg.PluginTypes
+	// Default to both plugins if specific types are not provided
+	if len(pluginTypes) == 0 {
+		pluginTypes = []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec}
+	}
+
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
@@ -1450,7 +1467,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 			return cldf.ChangesetOutput{}, err
 		}
 		args, err := internal.BuildSetOCR3ConfigArgs(
-			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType, pluginTypes)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

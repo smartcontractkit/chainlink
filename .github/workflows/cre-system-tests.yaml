@@ -122,12 +122,8 @@ jobs:
       # gotestloghelper gives us pretty test output
       - name: Set Up gotestloghelper
         shell: bash
-        run:
-          go install
+        run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
-
-      # TODO
-      # Add Flakeguard support
 
       - name: Enable cron capability
         shell: bash
@@ -171,8 +167,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name:
-            test-logs-${{ matrix.tests.test_name }}
+          name: test-logs-${{ matrix.tests.test_name }}
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/

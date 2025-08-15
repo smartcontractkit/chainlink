@@ -992,6 +992,22 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	// it should fail as we need to update the chainconfig on CCIPHome first
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid OCR3 config state, expected active config")
+	// provide the same plugin type twice
+	_, err = commonchangeset.Apply(t, e.Env,
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    allChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				PluginTypes:        []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPCommit},
+			},
+		),
+	)
+	// it should fail because of duplicate plugin types
+	require.Error(t, err)
+	require.ErrorContains(t, err, "duplicate plugin type found: "+types.PluginTypeCCIPCommit.String())
 
 	// Build the per chain config.
 	wrongChainConfigs := make(map[uint64]v1_6.ChainConfig)
