@@ -181,9 +181,19 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 		dbURL.String(),
 		"--schema-only",
 	}
+
+	// Only add restrict-key if it's supported (PostgreSQL v17+).
+	// This is used for deterministic schema dumps which CI runs to compare
+	// previous and new schemas.
 	if restrictKey != "" {
-		args = append(args, "--restrict-key="+restrictKey)
+		// Test if pg_dump supports --restrict-key
+		testCmd := exec.Command("pg_dump", "--help")
+		helpOutput, err := testCmd.Output()
+		if err == nil && strings.Contains(string(helpOutput), "--restrict-key") {
+			args = append(args, "--restrict-key="+restrictKey)
+		}
 	}
+
 	cmd := exec.Command(
 		"pg_dump", args...,
 	)
