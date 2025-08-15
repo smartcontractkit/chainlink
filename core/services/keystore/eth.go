@@ -83,10 +83,6 @@ func (e *EthSigner) Sign(ctx context.Context, account string, data []byte) (sign
 	return k.Sign(data)
 }
 
-func (e *EthSigner) Decrypt(ctx context.Context, account string, encrypted []byte) (decrypted []byte, err error) {
-	return nil, errors.New("EthSigner does not support decryption")
-}
-
 type eth struct {
 	*keyManager
 	keystateORM

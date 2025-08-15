@@ -56,10 +56,6 @@ func (c CSASigner) Sign(ctx context.Context, account string, data []byte) (signe
 	return k.Sign(rand.Reader, data, crypto.Hash(0))
 }
 
-func (c CSASigner) Decrypt(ctx context.Context, account string, encrypted []byte) (decrypted []byte, err error) {
-	return nil, errors.New("CSASigner does not support decryption")
-}
-
 type csa struct {
 	*keyManager
 }
