@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -362,9 +363,9 @@ func AddLaneSolanaChangesetsV0_1_1(e *DeployedEnv, solChainSelector, remoteChain
 func SendRequestV0_1_1(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	opts ...SendReqOpts,
-) (*AnyMsgSentEvent, error) {
-	cfg := &CCIPSendReqConfig{}
+	opts ...ccipclient.SendReqOpts,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	cfg := &ccipclient.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -388,8 +389,8 @@ func SendRequestV0_1_1(
 func SendRequestSolV0_1_1(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) { // TODO: chain independent return value
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) { // TODO: chain independent return value
 	ctx := e.GetContext()
 
 	s := state.SolChains[cfg.SourceChain]
@@ -475,7 +476,7 @@ func SendRequestSolV0_1_1(
 		cfg.IsTestRouter,
 	)
 
-	return &AnyMsgSentEvent{
+	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: ccipMessageSentEvent.SequenceNumber,
 		RawEvent: &onramp.OnRampCCIPMessageSent{
 			DestChainSelector: ccipMessageSentEvent.DestinationChainSelector,
