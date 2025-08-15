@@ -72,11 +72,11 @@ func NewFakeConsensus(lggr logger.Logger, config FakeConsensusConfig) (*fakeCons
 
 	capability := ocr3.NewCapability(store, clockwork.NewRealClock(), config.RequestTimeout, capabilities.NewAggregator, capabilities.NewEncoder, lggr, 100)
 
-	limits := &pbtypes.ReportingPluginConfig{
+	offchainConfig := &pbtypes.ReportingPluginConfig{
 		OutcomePruningThreshold: config.OutcomePruningThreshold,
 	}
-
-	plugin, err := ocr3.NewReportingPlugin(store, capability, config.BatchSize, rpConfig, limits, lggr)
+	plugin, err := ocr3.NewReportingPlugin(store, capability, config.BatchSize, rpConfig,
+		offchainConfig, lggr)
 	if err != nil {
 		return nil, err
 	}

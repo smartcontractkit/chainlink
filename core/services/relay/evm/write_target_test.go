@@ -175,7 +175,7 @@ func TestEvmWrite(t *testing.T) {
 		DONID:            1,
 		DONConfigVersion: 1,
 		WorkflowID:       "1234567890123456789012345678901234567890123456789012345678901234",
-		WorkflowName:     "12345678901234567890",
+		WorkflowName:     "123456789",
 		WorkflowOwner:    "1234567890123456789012345678901234567890",
 		ReportID:         hex.EncodeToString(reportID[:]),
 	}

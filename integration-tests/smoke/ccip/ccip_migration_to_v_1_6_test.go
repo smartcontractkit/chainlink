@@ -7,40 +7,31 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ethereum/go-ethereum/common"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
+	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -156,10 +147,10 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -284,10 +275,10 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -421,10 +412,10 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(oldState.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -582,10 +573,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	}()
 	// send a message from the other lane src2 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src2),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src2),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -706,13 +697,13 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	out, err := testhelpers.SendRequest(
 		e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(true),
+		ccipclient.WithSourceChain(src1),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(true),
 		// Send traffic across single 1.6 lane with a DIFFERENT ( very important to not mess with real sender nonce) sender
 		// from test router to ensure 1.6 is working.
-		testhelpers.WithSender(e.Users[src1][1]),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSender(e.Users[src1][1]),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -796,10 +787,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src2),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src2),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -896,7 +887,7 @@ func sendMessageInRealRouter(
 	state *stateview.CCIPOnChainState,
 	src, dest uint64,
 ) any {
-	cfg := &testhelpers.CCIPSendReqConfig{
+	cfg := &ccipclient.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    dest,
 		Sender:       e.Env.BlockChains.EVMChains()[src].DeployerKey,
