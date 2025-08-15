@@ -98,7 +98,6 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 		peerIDs = append(peerIDs, p2pkey.PeerID())
 		n, innerErr := peerToNode(r.nodeOperatorID, peer)
 		require.NoError(r.t, innerErr)
-		n.EncryptionPublicKey = donInfo.workflowKeys[i].PublicKey()
 
 		n.HashedCapabilityIds = hashedCapabilityIDs
 		nodes = append(nodes, n)
