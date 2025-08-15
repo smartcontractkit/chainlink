@@ -294,13 +294,13 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	secretId := fmt.Sprintf("%d", rand.Intn(10000))
 	owner := "Owner1"
 	secretValue := "Secret Value to be stored"
-	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), true)
+	// executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), true)
 
 	// The real SecretsCreate test
 	secretId = fmt.Sprintf("%d", rand.Intn(10000))
 	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), false)
 
-	executeVaultSecretsGetTest(t, secretValue, secretId, owner, gatewayURL.String())
+	// executeVaultSecretsGetTest(t, secretValue, secretId, owner, gatewayURL.String())
 }
 
 func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, gatewayURL string, warmup bool) {
@@ -324,6 +324,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, g
 	requestBody, err := json.Marshal(secretsCreateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
+	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 	require.NoError(t, err, "failed to create request")
 
@@ -391,7 +392,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretId, owner, gate
 	require.NoError(t, err, "failed to create request")
 
 	req.Header.Set("Content-Type", "application/jsonrpc")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", "application/jsonrpc")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

@@ -192,14 +192,18 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	s.lggr.Info("Debugging HTTPServer: Status code: ", httpStatusCode)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
+	w.WriteHeader(httpStatusCode)
 	_, err = w.Write(rawResponse)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		s.lggr.Error("error when writing response", err)
-		return
+	} else {
+		s.lggr.Info("Debugging HTTPServer: Successful Status code: ", httpStatusCode)
 	}
-	s.lggr.Info("Debugging HTTPServer: Successful Status code: ", httpStatusCode)
-	w.WriteHeader(httpStatusCode)
+	// Add explicit flush, for 2xx-5xx statuses.
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 	return
 }
 

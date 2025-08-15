@@ -188,6 +188,7 @@ func (h *handler) Methods() []string {
 	return []string{
 		MethodSecretsCreate,
 		MethodSecretsGet,
+		"vault.secrets.create2", // Legacy method for backward compatibility
 	}
 }
 

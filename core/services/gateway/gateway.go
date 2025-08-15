@@ -204,7 +204,8 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	select {
 	case <-ctx.Done():
 		g.lggr.Infof("Debugging Gateway timed out without response: %s", ctx.Err())
-		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout")
+		return []byte("internal error" + ctx.Err().Error()), 500
+		// return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+ctx.Err().Error())
 	case response = <-responseCh:
 		break
 	}
