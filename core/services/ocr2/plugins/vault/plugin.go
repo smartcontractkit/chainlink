@@ -191,7 +191,6 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Note: this could mean that we end up processing more than `batchSize` requests
 	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
 	// guaranteed to fetch the same requests.
-	r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", r.cfg.BatchSize)
 	batch, err := r.store.FirstN(r.cfg.BatchSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
@@ -345,10 +344,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_CreateSecretsRequest{
 		CreateSecretsRequest: tp,
 	}
-<<<<<<< HEAD
 	l := r.lggr.With("requestId", tp.RequestId, "requestType", "CreateSecrets")
-=======
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -368,11 +364,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-<<<<<<< HEAD
-			l.Errorw("observed to handle create secret request item", "id", sr.Id, "error", ierr)
-=======
-			r.lggr.Errorw("observed to handle create secret request item", "id", sr.Id, "requestId", tp.RequestId, "error", ierr)
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
+			l.Errorw("failed to handle create secret request item", "id", sr.Id, "error", ierr)
 			errorMsg := "failed to handle create secret request"
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
@@ -383,11 +375,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 				Error:   errorMsg,
 			})
 		} else {
-<<<<<<< HEAD
-			r.lggr.Debugw("observed create secret request item", "id", validatedID)
-=======
-			r.lggr.Debugw("observed create secret request item", "id", validatedID, "requestId", tp.RequestId)
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
+			l.Debugw("observed create secret request item", "id", validatedID)
 			resps = append(resps, &vault.CreateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
@@ -445,10 +433,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_UpdateSecretsRequest{
 		UpdateSecretsRequest: tp,
 	}
-<<<<<<< HEAD
 	l := r.lggr.With("requestId", tp.RequestId, "requestType", "UpdateSecrets")
-=======
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -468,11 +453,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-<<<<<<< HEAD
 			l.Errorw("failed to observe update secret request item", "id", sr.Id, "error", ierr)
-=======
-			r.lggr.Errorw("failed to observe update secret request item", "id", sr.Id, "requestId", tp.RequestId, "error", ierr)
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
 			errorMsg := "failed to handle update secret request"
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
@@ -483,11 +464,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 				Error:   errorMsg,
 			})
 		} else {
-<<<<<<< HEAD
 			l.Debugw("observed update secret request item", "id", validatedID)
-=======
-			r.lggr.Debugw("observed update secret request item", "id", validatedID, "requestId", tp.RequestId)
->>>>>>> 12f114ecba (PRIV-103: Add UpdateSecrets support to the vault plugin)
 			resps = append(resps, &vault.UpdateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
