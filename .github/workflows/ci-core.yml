@@ -270,6 +270,21 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' }}
         run: go mod download
 
+      # This is used so we can run `pg_dump --restrict-key` for deterministic
+      # schema dumps. This step can be removed once GitHub actions runners
+      # support PostgreSQL v17+.
+      # See: https://github.com/actions/runner-images/blob/main/images/ubuntu/toolsets/toolset-2404.json#L319
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          # Add the official PostgreSQL Apt repo (supports Ubuntu 24.04 "noble")
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          # Ensure v17 tools (pg_dump, psql, pg_restore, etc.) are used
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
       - name: Setup DB
         if: ${{ matrix.type.should-run == 'true' }}
         run: go run ./core/store/cmd/preparetest

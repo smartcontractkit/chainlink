@@ -61,7 +61,7 @@ func PrepareTestDB(lggr logger.Logger, dbURL url.URL, userOnly bool) error {
 	return randomizeTestDBSequences(db)
 }
 
-func ResetDatabase(ctx context.Context, lggr logger.Logger, cfg Config, force bool) error {
+func ResetDatabase(ctx context.Context, lggr logger.Logger, cfg Config, force, deterministic bool) error {
 	u := cfg.URL()
 	lggr.Infof("Resetting database: %#v", u.String())
 	lggr.Debugf("Dropping and recreating database: %#v", u.String())
@@ -72,7 +72,11 @@ func ResetDatabase(ctx context.Context, lggr logger.Logger, cfg Config, force bo
 	if err := migrateDB(ctx, cfg); err != nil {
 		return err
 	}
-	schema, err := dumpSchema(u)
+	var restrictKey string
+	if deterministic {
+		restrictKey = "chainlinktestrestrictkey"
+	}
+	schema, err := dumpSchema(u, restrictKey)
 	if err != nil {
 		return err
 	}
@@ -81,7 +85,7 @@ func ResetDatabase(ctx context.Context, lggr logger.Logger, cfg Config, force bo
 	if err := downAndUpDB(ctx, cfg, baseVersionID); err != nil {
 		return err
 	}
-	return checkSchema(u, schema)
+	return checkSchema(u, schema, restrictKey)
 }
 
 type Config interface {
@@ -173,11 +177,24 @@ func downAndUpDB(ctx context.Context, cfg Config, baseVersionID int64) error {
 	return db.Close()
 }
 
-func dumpSchema(dbURL url.URL) (string, error) {
+func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 	args := []string{
 		dbURL.String(),
 		"--schema-only",
 	}
+
+	// Only add restrict-key if it's supported (PostgreSQL v17+).
+	// This is used for deterministic schema dumps which CI runs to compare
+	// previous and new schemas.
+	if restrictKey != "" {
+		// Test if pg_dump supports --restrict-key
+		testCmd := exec.Command("pg_dump", "--help")
+		helpOutput, err := testCmd.Output()
+		if err == nil && strings.Contains(string(helpOutput), "--restrict-key") {
+			args = append(args, "--restrict-key="+restrictKey)
+		}
+	}
+
 	cmd := exec.Command(
 		"pg_dump", args...,
 	)
@@ -193,8 +210,8 @@ func dumpSchema(dbURL url.URL) (string, error) {
 	return string(schema), nil
 }
 
-func checkSchema(dbURL url.URL, prevSchema string) error {
-	newSchema, err := dumpSchema(dbURL)
+func checkSchema(dbURL url.URL, prevSchema string, restrictKey string) error {
+	newSchema, err := dumpSchema(dbURL, restrictKey)
 	if err != nil {
 		return err
 	}

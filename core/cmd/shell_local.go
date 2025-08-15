@@ -819,7 +819,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 
 	force := c.Bool("force")
 
-	if err := store.ResetDatabase(ctx, s.Logger, cfg, force); err != nil {
+	if err := store.ResetDatabase(ctx, s.Logger, cfg, force, false); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
