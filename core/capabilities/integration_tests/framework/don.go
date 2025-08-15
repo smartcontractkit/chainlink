@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -111,11 +112,12 @@ func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName s
 
 type capabilityNode struct {
 	*cltest.TestApplication
-	registry  *capabilities.Registry
-	key       ethkey.KeyV2
-	KeyBundle ocr2key.KeyBundle
-	peer      peerIDAndOCRSigner
-	start     func()
+	registry    *capabilities.Registry
+	key         ethkey.KeyV2
+	workflowKey workflowkey.Key
+	KeyBundle   ocr2key.KeyBundle
+	peer        peerIDAndOCRSigner
+	start       func()
 }
 
 type DON struct {
@@ -167,10 +169,11 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		signer, err := getSignerStringFromOCRKeyBundle(donConfig.KeyBundles[i])
 		require.NoError(t, err)
 		cn := &capabilityNode{
-			registry:  capabilityRegistry,
-			key:       donConfig.keys[i],
-			KeyBundle: donConfig.KeyBundles[i],
-			peer:      peerIDAndOCRSigner{PeerID: member, Signer: signer},
+			registry:    capabilityRegistry,
+			key:         donConfig.keys[i],
+			KeyBundle:   donConfig.KeyBundles[i],
+			peer:        peerIDAndOCRSigner{PeerID: member, Signer: signer},
+			workflowKey: donConfig.workflowKeys[i],
 		}
 		don.nodes = append(don.nodes, cn)
 
@@ -190,6 +193,8 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
+			require.NoError(t, node.KeyStore.Workflow().Add(ctx, donConfig.workflowKeys[i]))
+
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
@@ -258,6 +263,15 @@ func (d *DON) GetPeerIDsAndOCRSigners() []peerIDAndOCRSigner {
 		peers = append(peers, node.peer)
 	}
 	return peers
+}
+
+func (d *DON) GetWorkflowPublicKeys() []*[32]byte {
+	keys := make([]*[32]byte, 0, len(d.nodes))
+	for _, node := range d.nodes {
+		pubKey := node.workflowKey.PublicKey()
+		keys = append(keys, &pubKey)
+	}
+	return keys
 }
 
 func (d *DON) Start(ctx context.Context) error {
