@@ -50,5 +50,4 @@ func TestUpgradeAptosChain_Apply(t *testing.T) {
 	require.Len(t, proposals, 1)
 	require.Len(t, proposals[0].Operations, 7)
 	require.NoError(t, err)
-
 }

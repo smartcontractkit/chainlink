@@ -23,14 +23,14 @@ var _ cldf.ChangeSetV2[config.UpgradeAptosChainConfig] = UpgradeAptosChain{}
 type UpgradeAptosChain struct{}
 
 func (cs UpgradeAptosChain) VerifyPreconditions(env cldf.Environment, cfg config.UpgradeAptosChainConfig) error {
-	if !(cfg.UpgradeCCIP || cfg.UpgradeOffRamp || cfg.UpgradeOnRamp || cfg.UpgradeRouter) {
-		return errors.New("no upgrades selected")
+	var errs []error
+	if !cfg.UpgradeCCIP && !cfg.UpgradeOffRamp && !cfg.UpgradeOnRamp && !cfg.UpgradeRouter {
+		errs = append(errs, errors.New("no upgrades selected"))
 	}
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
-		return fmt.Errorf("failed to load Aptos onchain state: %w", err)
+		errs = append(errs, fmt.Errorf("failed to load Aptos onchain state: %w", err))
 	}
-	var errs []error
 	// Validate supported chain
 	supportedChains := state.SupportedChains()
 	if _, ok := supportedChains[cfg.ChainSelector]; !ok {
@@ -44,25 +44,25 @@ func (cs UpgradeAptosChain) VerifyPreconditions(env cldf.Environment, cfg config
 	ccipAddress := state.AptosChains[cfg.ChainSelector].CCIPAddress
 	client := env.BlockChains.AptosChains()[cfg.ChainSelector].Client
 	if ccipAddress == (aptos.AccountAddress{}) {
-		return fmt.Errorf("package CCIP is not deployed on Aptos chain %d", cfg.ChainSelector)
+		errs = append(errs, fmt.Errorf("package CCIP is not deployed on Aptos chain %d", cfg.ChainSelector))
 	}
 	// Check OnRamp module
 	hasOnramp, err := utils.IsModuleDeployed(client, ccipAddress, "onramp")
 	if err != nil || !hasOnramp {
-		return fmt.Errorf("onRamp module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err)
+		errs = append(errs, fmt.Errorf("onRamp module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err))
 	}
 	// Check OffRamp module
 	hasOfframp, err := utils.IsModuleDeployed(client, ccipAddress, "offramp")
 	if err != nil || !hasOfframp {
-		return fmt.Errorf("offRamp module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err)
+		errs = append(errs, fmt.Errorf("offRamp module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err))
 	}
 	// Check Router module
 	hasRouter, err := utils.IsModuleDeployed(client, ccipAddress, "router")
 	if err != nil || !hasRouter {
-		return fmt.Errorf("router module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err)
+		errs = append(errs, fmt.Errorf("router module is not deployed on Aptos chain %d: %w", cfg.ChainSelector, err))
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 func (cs UpgradeAptosChain) Apply(env cldf.Environment, cfg config.UpgradeAptosChainConfig) (cldf.ChangesetOutput, error) {
