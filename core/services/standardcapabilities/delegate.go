@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -118,26 +119,30 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
 
+	// Enable signing and decryption for the capability, if available.
 	var ks core.Keystore
+	var account = &core.StandardCapabilityAccount
+	var decrypter core.Decrypter = nil
+	var signer crypto.Signer = nil
+	if d.ks.Workflow() != nil {
+		workflowKeys, err := d.ks.Workflow().GetAll()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow keys: %w", err)
+		}
+		if len(workflowKeys) > 0 {
+			decrypter = &workflowKeys[0]
+		}
+	}
 	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
-		signingKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
 			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
 		}
-		workflowKey, err := keystore.GetDefault(ctx, d.ks.Workflow())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get default workflow key: %w", err)
-		}
-		ks, err = core.NewSignerDecrypter(&core.StandardCapabilityAccount, signingKey, workflowKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
-		}
-	} else {
-		var err error
-		ks, err = core.NewSignerDecrypter(nil, nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
-		}
+		signer = p2pKey
+	}
+	ks, err := core.NewSignerDecrypter(account, signer, decrypter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer decrypter: %w", err)
 	}
 
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
