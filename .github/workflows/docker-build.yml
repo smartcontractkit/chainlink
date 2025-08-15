@@ -241,3 +241,8 @@ jobs:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
+
+  capabilities-integration-tests:
+    permissions:
+      contents: read
+    uses: smartcontractkit/capabilities/.github/workflows/integration-tests.yml@be853ac8bf663b3799106a8e7d980034222d5841 # main SHA from 15th August 2025
