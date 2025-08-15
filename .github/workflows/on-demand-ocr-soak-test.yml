@@ -161,7 +161,7 @@ jobs:
       actions: read
       checks: write
       pull-requests: write
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c82f8c4d2599c4c7d4e5045bcc0a28f0bf34272
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@dx-1594/deterministic-schema # TODO - 2025-08-15
     with:
       chainlink_version: ${{ needs.setup-test-parameters.outputs.chainlink_image_version }}
       test_path: .github/e2e-tests.yml
