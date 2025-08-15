@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"time"
 )
 
@@ -11,6 +10,6 @@ func (t *LocalTimeProvider) GetNodeTime() time.Time {
 	return time.Now()
 }
 
-func (t *LocalTimeProvider) GetDONTime(_ context.Context) (time.Time, error) {
+func (t *LocalTimeProvider) GetDONTime() (time.Time, error) {
 	return time.Now(), nil
 }

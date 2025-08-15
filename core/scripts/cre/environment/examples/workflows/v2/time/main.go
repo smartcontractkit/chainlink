@@ -5,8 +5,9 @@ package main
 import (
 	"time"
 
-	sdk "github.com/smartcontractkit/cre-sdk-go/sdk"
-	"github.com/smartcontractkit/cre-sdk-go/sdk/wasm"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
 type None struct{}
@@ -14,12 +15,21 @@ type None struct{}
 func main() {
 	wasm.NewRunner(func(configBytes []byte) (None, error) {
 		return None{}, nil
-	}).Run(RunSimpleTimeWorkflow)
+	}).Run(RunSimpleCronWorkflow)
 }
 
-func RunSimpleTimeWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], error) {
-	donTime := "donTime=" + time.Now().Format("2006-01-02 15:04:05")
-	wcx.Logger.Info(donTime)
-	workflows := sdk.Workflow[None]{}
+func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], error) {
+	workflows := sdk.Workflow[None]{
+		sdk.Handler(
+			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
+			onTrigger,
+		),
+	}
 	return workflows, nil
+}
+
+func onTrigger(wcx *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
+	donTime := time.Now()
+	wcx.Logger.Info("Requested DON Time", "donTime", donTime)
+	return "Requested DON Time", nil
 }

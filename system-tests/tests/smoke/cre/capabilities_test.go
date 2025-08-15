@@ -93,6 +93,10 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	t.Run("vault DON test", func(t *testing.T) {
 		executeVaultTest(t, in, envArtifact)
 	})
+
+	t.Run("DON Time test", func(t *testing.T) {
+		executeDONTimeTest(t, in, envArtifact)
+	})
 }
 
 func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
@@ -269,6 +273,69 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	}
 
 	testLogger.Info().Msgf("All prices were found for all feeds")
+}
+
+func executeDONTimeTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact) {
+	/*
+		BUILD ENVIRONMENT FROM SAVED STATE
+	*/
+	cldLogger := cldlogger.NewSingleFileLogger(t)
+	fullCldEnvOutput, wrappedBlockchainOutputs, loadErr := environment.BuildFromSavedState(t.Context(), cldLogger, in, envArtifact)
+	require.NoError(t, loadErr, "failed to load environment")
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time/main.go"
+	workflowName := "DON Time Workflow"
+
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+
+	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+
+	for _, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.ReadOnly {
+			continue
+		}
+
+		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			homeChainSelector,
+			keystone_changeset.WorkflowRegistry.String(),
+		)
+		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
+
+		t.Cleanup(func() {
+			wasmErr := os.Remove(compressedWorkflowWasmPath)
+			if wasmErr != nil {
+				framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
+			}
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), wrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
+			if deleteErr != nil {
+				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
+			}
+		})
+
+		containerTargetDir := "/home/chainlink/workflows"
+		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
+
+		registerErr := creworkflow.RegisterWithContract(
+			t.Context(),
+			wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
+			workflowRegistryAddress,
+			fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+			workflowName,
+			"file://"+compressedWorkflowWasmPath,
+			nil,
+			nil,
+			&containerTargetDir,
+		)
+		require.NoError(t, registerErr, "failed to register DON Time workflow")
+	}
+
+	/*
+		VALIDATION
+		Check if log occurs??
+	*/
 }
 
 func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact) {
