@@ -194,8 +194,13 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
 			keys, err := node.KeyStore.Workflow().GetAll()
 			require.NoError(t, err)
-			require.Len(t, keys, 1)
-			cn.workflowKey = keys[0]
+			if len(keys) == 0 {
+				key, err := node.KeyStore.Workflow().Create(ctx)
+				require.NoError(t, err)
+				cn.workflowKey = key
+			} else {
+				cn.workflowKey = keys[0]
+			}
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
