@@ -96,7 +96,7 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 	var don kcr.CapabilitiesRegistryDONInfo
 	var err error
 	if req.DonID != 0 {
-		don, err = registry.GetDON(&bind.CallOpts{}, uint32(req.DonID))
+		don, err = registry.GetDON(&bind.CallOpts{}, uint32(req.DonID)) //nolint:gosec // G115
 		if err != nil {
 			return nil, fmt.Errorf("failed to get DON %d: %w", req.DonID, err)
 		}
@@ -231,9 +231,9 @@ func verboseDonNotFound(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pk
 		Want       []p2pkey.PeerID
 		Got        []p2pkey.PeerID
 	}
-	debugIds := make([]debugDonInfo, len(donResp))
+	debugIDs := make([]debugDonInfo, len(donResp))
 	for i, di := range donResp {
-		debugIds[i] = debugDonInfo{
+		debugIDs[i] = debugDonInfo{
 			OnchainID:  di.Id,
 			P2PIDsHash: SortedHash(di.NodeP2PIds),
 			Want:       wanted,
@@ -241,9 +241,9 @@ func verboseDonNotFound(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pk
 		}
 	}
 	wantedID := SortedHash(PeerIDsToBytes(wanted))
-	b, err2 := json.Marshal(debugIds)
+	b, err2 := json.Marshal(debugIDs)
 	if err2 == nil {
 		return fmt.Errorf("don not found by p2pIDs %s in %s", wantedID, b)
 	}
-	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIds)
+	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIDs)
 }

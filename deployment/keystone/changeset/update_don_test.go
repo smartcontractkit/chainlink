@@ -199,7 +199,8 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 			t.Run("add node to DON composition", func(t *testing.T) {
 				// Add one more node from assetDon to writerDon
 				assetP2PIDs := te.GetP2PIDs("assetDon")
-				newP2PIDs := append(writerP2PIDs, assetP2PIDs[0]) // Add first asset node
+				newP2PIDs := writerP2PIDs[:]
+				newP2PIDs = append(newP2PIDs, assetP2PIDs[0]) // Add first asset node
 
 				cfg := changeset.UpdateDonRequest{
 					RegistryChainSel: te.RegistrySelector,
@@ -228,9 +229,9 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 				}
 
 				// Verify DON now has one additional node
-				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID))
+				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID)) //nolint:gosec // G115
 				require.NoError(t, err)
-				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same")
+				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same") //nolint:gosec // G115
 				require.Len(t, updatedDon.NodeP2PIds, originalNodeCount+1, "DON should have one additional node")
 
 				// Verify the new P2P ID is present
@@ -240,7 +241,7 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 
 			t.Run("remove node from DON composition", func(t *testing.T) {
 				// Remove one node from the current composition
-				currentDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID))
+				currentDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID)) //nolint:gosec // G115
 				require.NoError(t, err)
 
 				currentP2PIDs := internal.BytesToPeerIDs(currentDon.NodeP2PIds)
@@ -274,9 +275,9 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 				}
 
 				// Verify DON is back to original node count
-				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID))
+				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID)) //nolint:gosec // G115
 				require.NoError(t, err)
-				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same")
+				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same") //nolint:gosec // G115
 				require.Len(t, updatedDon.NodeP2PIds, originalNodeCount, "DON should be back to original node count")
 
 				// Verify the correct P2P IDs are present
@@ -287,9 +288,9 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 			t.Run("replace nodes in DON composition", func(t *testing.T) {
 				// Replace some nodes from writerDon with nodes from assetDon
 				assetP2PIDs := te.GetP2PIDs("assetDon")
-
+				mixedP2PIDs := writerP2PIDs[:]
 				// Keep first 2 nodes from writer, add 2 nodes from asset
-				mixedP2PIDs := append(writerP2PIDs[:2], assetP2PIDs[:2]...)
+				mixedP2PIDs = append(mixedP2PIDs, assetP2PIDs[:2]...)
 
 				cfg := changeset.UpdateDonRequest{
 					RegistryChainSel: te.RegistrySelector,
@@ -318,9 +319,9 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 				}
 
 				// Verify DON has the mixed composition
-				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID))
+				updatedDon, err := te.CapabilitiesRegistry().GetDON(nil, uint32(donID)) //nolint:gosec // G115
 				require.NoError(t, err)
-				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same")
+				require.Equal(t, uint32(donID), updatedDon.Id, "DON ID should remain the same") //nolint:gosec // G115
 				require.Len(t, updatedDon.NodeP2PIds, len(mixedP2PIDs), "DON should have expected node count")
 
 				// Verify the correct P2P IDs are present
@@ -334,7 +335,8 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 			t.Run("error when DonID not specified and nodes change", func(t *testing.T) {
 				// Try to change composition without specifying DonID
 				assetP2PIDs := te.GetP2PIDs("assetDon")
-				newP2PIDs := append(writerP2PIDs, assetP2PIDs[0])
+				newP2PIDs := writerP2PIDs[:]
+				newP2PIDs = append(newP2PIDs, assetP2PIDs[0])
 
 				cfg := changeset.UpdateDonRequest{
 					RegistryChainSel: te.RegistrySelector,
