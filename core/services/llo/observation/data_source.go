@@ -116,21 +116,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		// Update the list of streams to observe for this config digest and set the timeout
 		d.configDigestToStreamMu.Lock()
 		// StreamValues  needs a copy to avoid concurrent access
-		values := make(llo.StreamValues, len(streamValues))
-		for streamID := range streamValues {
-			values[streamID] = nil
-		}
-
-		deadline, ok := ctx.Deadline()
-		if !ok {
-			deadline = time.Now().Add(100 * time.Millisecond)
-		}
-
-		d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
-			opts:                opts,
-			streamValues:        values,
-			observationInterval: time.Until(deadline),
-		}
+		d.setObservableStreams(ctx, streamValues, opts)
 		d.configDigestToStreamMu.Unlock()
 
 		if !d.observationLoopStarted.Load() {
@@ -151,6 +137,29 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	return nil
 }
 
+func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) {
+	values := make(llo.StreamValues, len(streamValues))
+	for streamID := range streamValues {
+		values[streamID] = nil
+	}
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(100 * time.Millisecond)
+	}
+
+	streams := make(llo.StreamValues)
+	for streamID := range values {
+		streams[streamID] = values[streamID]
+	}
+
+	d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
+		opts:                opts,
+		streamValues:        streams,
+		observationInterval: time.Until(deadline),
+	}
+}
+
 // startObservationLoop continuously makes observations for the streams in d.configDigestToStream and stores those in
 // the cache. It does not check for cached versions, it always calculates fresh values.
 //
@@ -167,15 +176,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		loopStart := time.Now()
 		opts, streamValues, observationInterval := d.getObservableStreams()
-		if opts == nil {
-			d.lggr.Errorw(
-				"startObservationLoop",
-				"error", "started with no options to observe streams, stopping observation loop until next observe call")
-			d.observationLoopStarted.Store(false)
-			closeIfOpen(loopStartedCh)
-
-			return
-		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), observationInterval)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
