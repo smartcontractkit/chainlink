@@ -1,28 +1,36 @@
 package contracts
 
 import (
+	"encoding/json"
 	"fmt"
-	"slices"
 
 	"github.com/Masterminds/semver/v3"
-	"golang.org/x/sync/errgroup"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
+	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
+
+// maybe lets make this a bit simple
+// lets assume we only do this for new chains
+// so if you are deploying a forwarder, you are configuring only that forwarder and then transferring ownership to mcms
 
 type DeployConfigureForwardersSeqDeps struct {
 	Env         *cldf.Environment
@@ -33,13 +41,16 @@ type DeployConfigureForwardersSeqDeps struct {
 	P2pToWriteCapabilities map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability
 }
 
+type ForwarderDeploymentOps struct {
+	Override  bool
+	Qualifier string
+	Dons      []ConfigureKeystoneDON
+}
 type DeployConfigureForwardersSeqInput struct {
 	// chains to deploy forwarders to
-	ForwaderDeploymentChains []uint64
+	ForwaderDeploymentChains map[uint64]ForwarderDeploymentOps
 	// capabilities registry chain selector
 	RegistryChainSel uint64
-	// configure specific chain forwarders to specific workflow dons
-	Chain2WfDonMap map[uint64][]ConfigureKeystoneDON
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *changeset.MCMSConfig
 }
@@ -61,109 +72,157 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 	func(b operations.Bundle, deps DeployConfigureForwardersSeqDeps, input DeployConfigureForwardersSeqInput) (DeployConfigureForwardersSeqOutput, error) {
 		ab := cldf.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
-		var proposals []mcms.TimelockProposal
-
-		// forwarder deployment
-		contractErrGroup := &errgroup.Group{}
-		for _, target := range input.ForwaderDeploymentChains {
-			contractErrGroup.Go(func() error {
-				dep := DeployForwarderOpDeps{
-					Env: deps.Env,
-				}
-				r, err := operations.ExecuteOperation(b, DeployKeystoneForwarderOp, dep, DeployForwarderOpInput{
-					ChainSelector: target,
-				})
-				if err != nil {
-					return err
-				}
-				// merge address book
-				err = ab.Merge(r.Output.AddressBook)
-				if err != nil {
-					return fmt.Errorf("failed to save Keystone Forwarder address on address book for target %d: %w", target, err)
-				}
-				// merge address store
-				addrs, err := r.Output.Addresses.Fetch()
-				if err != nil {
-					return fmt.Errorf("failed to fetch Keystone Forwarder addresses for target %d: %w", target, err)
-				}
-				for _, addr := range addrs {
-					if addrRefErr := as.AddressRefStore.Add(addr); addrRefErr != nil {
-						return fmt.Errorf("failed to save Keystone Forwarder address on datastore for target %d: %w", target, addrRefErr)
-					}
-				}
-
-				return nil
-			})
-		}
-		if err := contractErrGroup.Wait(); err != nil {
-			return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to deploy Keystone contracts: %w", err)
-		}
-
-		// forwarder configuration
+		batches := []mcmstypes.BatchOperation{}
+		timelockAddressByChain := make(map[uint64]string)
+		inspectorPerChain := map[uint64]sdk.Inspector{}
+		proposerAddressByChain := make(map[uint64]string)
 		evmChain := deps.Env.BlockChains.EVMChains()
-		var out DeployConfigureForwardersSeqOutput
-
+		var proposals []mcms.TimelockProposal
 		donMap := make(map[string]internal.RegisteredDon)
-		for chainSel, chainDonsToConfigure := range input.Chain2WfDonMap {
-			chainDons, err := resolveChainDons(*deps.Env, input.RegistryChainSel, deps.Registry, chainDonsToConfigure, donMap)
+		// forwarder deployment
+		for target, ops := range input.ForwaderDeploymentChains {
+			// check if the forwarder is already deployed
+			forwarderTV := cldf.NewTypeAndVersion(internal.KeystoneForwarder, deployment.Version1_1_0)
+			_, err := deps.Env.DataStore.Addresses().Get(datastore.NewAddressRefKey(
+				target,
+				datastore.ContractType(forwarderTV.Type),
+				semver.MustParse(forwarderTV.Version.String()),
+				"",
+			))
+			if err == nil {
+				b.Logger.Infof("Skipping forwarder deployment for chain selector %d as it already exists", target)
+			}
+
+			// deploy forwarder
+			dep := DeployForwarderOpDeps{
+				Env: deps.Env,
+			}
+			r, err := operations.ExecuteOperation(b, DeployKeystoneForwarderOp, dep, DeployForwarderOpInput{
+				ChainSelector: target,
+			})
 			if err != nil {
-				return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to resolve DONs for chain %d: %w", chainSel, err)
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to deploy Keystone Forwarder for target %d: %w", target, err)
 			}
-			chain := evmChain[chainSel]
-			contracts, err := resolveForwarderContracts(*deps.Env, chain, as.Addresses(), input.ForwaderDeploymentChains)
+
+			// merge address book
+			err = ab.Merge(r.Output.AddressBook)
 			if err != nil {
-				return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to resolve forwarder contracts for chain %d: %w", chainSel, err)
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to save Keystone Forwarder address on address book for target %d: %w", target, err)
 			}
-			if len(contracts) == 0 {
-				return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chainSel)
+			// merge address store
+			addrs, err := r.Output.Addresses.Fetch()
+			if err != nil {
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to fetch Keystone Forwarder addresses for target %d: %w", target, err)
 			}
-			// for each forwarder -> execute op -> create proposal if using MCMS
-			for _, contract := range contracts {
-				b.Logger.Info("ENTERING HERE during ExecuteOperation", chainDons)
-				fwrReport, err := operations.ExecuteOperation(b, ConfigureForwarderOp, ConfigureForwarderOpDeps{
+			forwarderAddrRef := addrs[0]
+			if addrRefErr := as.AddressRefStore.Add(forwarderAddrRef); addrRefErr != nil {
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to save Keystone Forwarder address on datastore for target %d: %w", target, addrRefErr)
+			}
+			chain := evmChain[target]
+			if len(ops.Dons) != 0 {
+				chainDons, err := resolveChainDons(*deps.Env, input.RegistryChainSel, deps.Registry, ops.Dons, donMap)
+				if err != nil {
+					return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to resolve DONs for chain %d: %w", target, err)
+				}
+				contract, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddrRef.Address)
+				if err != nil {
+					return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
+				}
+				_, err = operations.ExecuteOperation(b, ConfigureForwarderOp, ConfigureForwarderOpDeps{
 					Env:      deps.Env,
 					Chain:    &chain,
 					Contract: contract.Contract,
 					Dons:     chainDons,
 				}, ConfigureForwarderOpInput{
 					UseMCMS:       input.UseMCMS(),
-					ChainSelector: chainSel, // here to skip the check for the previous report, since unless inputs are different they are treated as the same and skipped
+					ChainSelector: target, // here to skip the check for the previous report, since unless inputs are different they are treated as the same and skipped
 				})
 				if err != nil {
-					return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chainSel, err)
+					return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", target, err)
 				}
-				// no mcms required or newly deployed forwarder -> skip proposal generation
-				if !input.UseMCMS() || slices.Contains(input.ForwaderDeploymentChains, chainSel) {
-					continue
-				}
-				// we are doing this for each forwarder because i dont know if they are all owned by the same MCMS
-				// so we need to build a proposal for each forwarder
-				timelocksPerChain, proposerMCMSes, inspectorPerChain, err := resolveMCMSContracts(*deps.Env, chain, contract)
-				if err != nil {
-					return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to resolve MCMS contracts for chain selector %d: %w", chainSel, err)
-				}
-
-				proposal, err := proposalutils.BuildProposalFromBatchesV2(
-					*deps.Env,
-					timelocksPerChain,
-					proposerMCMSes,
-					inspectorPerChain,
-					[]mcmstypes.BatchOperation{fwrReport.Output.BatchOperation},
-					"proposal to set forwarder config",
-					proposalutils.TimelockConfig{
-						MinDelay: input.MCMSConfig.MinDuration,
-					},
-				)
-				if err != nil {
-					return out, fmt.Errorf("configure-forwarders-seq failed: failed to build proposal: %w", err)
-				}
-				proposals = append(proposals, *proposal)
 			}
+
+			fmt.Println(deps.Env.DataStore.Addresses().Fetch())
+
+			// check for timelock
+			allChainAddresses, err := deps.Env.DataStore.Addresses().Fetch()
+			if err != nil {
+				return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("failed to fetch all chain addresses: %w", err)
+			}
+			var timelockAddr common.Address
+			var proposerAddr common.Address
+			for _, addr := range allChainAddresses {
+				if addr.Type == datastore.ContractType(types.RBACTimelock) {
+					timelockAddr = common.HexToAddress(addr.Address)
+				}
+				if addr.Type == datastore.ContractType(types.ProposerManyChainMultisig) {
+					proposerAddr = common.HexToAddress(addr.Address)
+				}
+			}
+
+			if timelockAddr == (common.Address{}) || proposerAddr == (common.Address{}) {
+				b.Logger.Infof("Skipping ownership transfer of forwarder as no timelock found for chain selector %d", target)
+				continue
+			}
+
+			timelockAddressByChain[target] = timelockAddr.String()
+			proposerAddressByChain[target] = proposerAddr.String()
+			inspectorPerChain[target] = evm.NewInspector(evmChain[target].Client)
+			forwarderAddress := common.HexToAddress(forwarderAddrRef.Address)
+			_, c, err := mcmsSeqs.LoadOwnableContract(forwarderAddress, evmChain[target].Client)
+			if err != nil {
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to load ownable contract for chain selector %d: %w", target, err)
+			}
+			// transfer ownership to timelock
+			_, err = operations.ExecuteOperation(b, mcmsOps.OpEVMTransferOwnership,
+				mcmsOps.OpEVMOwnershipDeps{
+					Chain:    chain,
+					OwnableC: c,
+				},
+				mcmsOps.OpEVMTransferOwnershipInput{
+					ChainSelector:   target,
+					TimelockAddress: timelockAddr,
+					Address:         forwarderAddress,
+				},
+			)
+			// accept ownership as timelock
+			opReport, err := operations.ExecuteOperation(b, mcmsOps.OpEVMAcceptOwnership,
+				mcmsOps.OpEVMOwnershipDeps{
+					Chain:    chain,
+					OwnableC: c,
+				},
+				mcmsOps.OpEVMTransferOwnershipInput{
+					ChainSelector:   target,
+					TimelockAddress: timelockAddr,
+					Address:         forwarderAddress,
+				},
+			)
+			if err != nil {
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to transfer ownership of forwarder to timelock for chain selector %d: %w", target, err)
+			}
+			mcmsTx := mcmstypes.Transaction{
+				To:               forwarderAddress.Hex(),
+				Data:             opReport.Output.Tx.Data(),
+				AdditionalFields: json.RawMessage(`{"value": 0}`), // JSON-encoded `{"value": 0}`
+			}
+			batches = append(batches, mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(target),
+				Transactions:  []mcmstypes.Transaction{mcmsTx},
+			})
 		}
 
-		// check for mcms on chain
-		// if mcms are not found, deploy them
-		// transfer ownership of forwarder to mcms
+		if input.UseMCMS() {
+			proposal, err := proposalutils.BuildProposalFromBatchesV2(
+				*deps.Env,
+				timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
+				batches, "Transfer ownership to timelock", proposalutils.TimelockConfig{
+					MinDelay: input.MCMSConfig.MinDuration,
+				})
+			if err != nil {
+				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to build proposal for transfer ownership to timelock: %w", err)
+			}
+			proposals = append(proposals, *proposal)
+		}
 
 		// append capabilities to the donNames
 		appendCapabilitiesReport, err := operations.ExecuteOperation(b, AppendCapabilitiesOp, AppendCapabilitiesOpDeps{
@@ -246,64 +305,4 @@ func resolveChainDons(
 	}
 
 	return chainDons, nil
-}
-
-func resolveForwarderContracts(
-	env cldf.Environment,
-	chain evm.Chain,
-	newlyDeployedForwarders datastore.AddressRefStore,
-	forwaderDeploymentChains []uint64,
-) ([]*changeset.OwnedContract[*forwarder.KeystoneForwarder], error) {
-	chainSelector := chain.Selector
-	contracts := make([]*changeset.OwnedContract[*forwarder.KeystoneForwarder], 0)
-	if slices.Contains(forwaderDeploymentChains, chainSelector) {
-		addressesRefs := newlyDeployedForwarders.Filter(
-			datastore.AddressRefByChainSelector(chainSelector),
-			datastore.AddressRefByType(datastore.ContractType(changeset.KeystoneForwarder)),
-		)
-		contract, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](newlyDeployedForwarders, chain, addressesRefs[0].Address)
-		if err != nil {
-			return nil, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", chainSelector, err)
-		}
-		contracts = append(contracts, contract)
-		return contracts, nil
-	}
-
-	// existing forwarders
-	addressesRefs := env.DataStore.Addresses().Filter(
-		datastore.AddressRefByChainSelector(chainSelector),
-		datastore.AddressRefByType(datastore.ContractType(changeset.KeystoneForwarder)),
-	)
-	for _, addrRef := range addressesRefs {
-		contract, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), chain, addrRef.Address)
-		if err != nil {
-			return nil, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", chainSelector, err)
-		}
-		contracts = append(contracts, contract)
-	}
-	return contracts, nil
-}
-
-func resolveMCMSContracts(
-	env cldf.Environment,
-	chain evm.Chain,
-	forwarderContract *changeset.OwnedContract[*forwarder.KeystoneForwarder],
-) (map[uint64]string, map[uint64]string, map[uint64]mcmssdk.Inspector, error) {
-	if forwarderContract.McmsContracts == nil {
-		return nil, nil, nil, fmt.Errorf("configure-forwarders-seq failed: expected forwarder contract %s to be owned by MCMS for chain selector %d", forwarderContract.Contract.Address(), chain.Selector)
-	}
-	timelocksPerChain := map[uint64]string{
-		chain.Selector: forwarderContract.McmsContracts.Timelock.Address().Hex(),
-	}
-	proposerMCMSes := map[uint64]string{
-		chain.Selector: forwarderContract.McmsContracts.ProposerMcm.Address().Hex(),
-	}
-	inspector, err := proposalutils.McmsInspectorForChain(env, chain.Selector)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	inspectorPerChain := map[uint64]mcmssdk.Inspector{
-		chain.Selector: inspector,
-	}
-	return timelocksPerChain, proposerMCMSes, inspectorPerChain, nil
 }
