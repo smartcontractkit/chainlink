@@ -2,7 +2,7 @@ golang 1.24.4
 mockery 2.53.0
 nodejs 20.13.1
 pnpm 10.6.5
-postgres 15.1
+postgres 17.6
 helm 3.18.4
 golangci-lint 2.2.1
 protoc 29.3
