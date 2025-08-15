@@ -264,7 +264,7 @@ jobs:
 
       - name: Setup DB
         if: ${{ matrix.type.should-run == 'true' }}
-        run: go run ./core/store/cmd/preparetest
+        run: go run ./core/store/cmd/preparetest --deterministic
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
