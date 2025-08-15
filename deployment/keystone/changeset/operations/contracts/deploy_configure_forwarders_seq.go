@@ -21,11 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type DeployConfigureForwardersSeqDeps struct {
-	Env      *cldf.Environment
-	Registry *capabilities_registry.CapabilitiesRegistry
+	Env         *cldf.Environment
+	Registry    *capabilities_registry.CapabilitiesRegistry
+	RegistryRef datastore.AddressRefKey
+	// this is for writer don
+	WriteCapabilityConfigs []internal.CapabilityConfig
+	P2pToWriteCapabilities map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability
 }
 
 type DeployConfigureForwardersSeqInput struct {
@@ -37,10 +42,6 @@ type DeployConfigureForwardersSeqInput struct {
 	Chain2WfDonMap map[uint64][]ConfigureKeystoneDON
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *changeset.MCMSConfig
-	// // dons.json/nops.json
-	// Inputs EnvSpecificInputs
-	// don names to append capabilities to
-	DONName []string
 }
 
 func (i DeployConfigureForwardersSeqInput) UseMCMS() bool {
@@ -60,6 +61,9 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 	func(b operations.Bundle, deps DeployConfigureForwardersSeqDeps, input DeployConfigureForwardersSeqInput) (DeployConfigureForwardersSeqOutput, error) {
 		ab := cldf.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
+		var proposals []mcms.TimelockProposal
+
+		// forwarder deployment
 		contractErrGroup := &errgroup.Group{}
 		for _, target := range input.ForwaderDeploymentChains {
 			contractErrGroup.Go(func() error {
@@ -95,10 +99,9 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 			return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to deploy Keystone contracts: %w", err)
 		}
 
-		// configure forwarders
+		// forwarder configuration
 		evmChain := deps.Env.BlockChains.EVMChains()
 		var out DeployConfigureForwardersSeqOutput
-		var proposals []mcms.TimelockProposal
 
 		donMap := make(map[string]internal.RegisteredDon)
 		for chainSel, chainDonsToConfigure := range input.Chain2WfDonMap {
@@ -158,11 +161,46 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 			}
 		}
 
-		// deploy forwarder mcms contracts
-		// transfer ownership of forwarder to forwarder mcms
+		// check for mcms on chain
+		// if mcms are not found, deploy them
+		// transfer ownership of forwarder to mcms
 
-		// take in inputs and donNameS for CsAppendDONCapabilitiesToNodes and CsUpdateDon
-		// lets check if the correct write capabilities have been added to the donNames by reading the inputs arg
+		// append capabilities to the donNames
+		appendCapabilitiesReport, err := operations.ExecuteOperation(b, AppendCapabilitiesOp, AppendCapabilitiesOpDeps{
+			Env:               deps.Env,
+			RegistryRef:       deps.RegistryRef,
+			P2pToCapabilities: deps.P2pToWriteCapabilities,
+		}, AppendCapabilitiesOpInput{
+			RegistryChainSel: input.RegistryChainSel,
+			MCMSConfig:       input.MCMSConfig,
+		})
+		if err != nil {
+			return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("append-capabilities-op failed: %w", err)
+		}
+		if input.UseMCMS() {
+			proposals = append(proposals, appendCapabilitiesReport.Output.MCMSTimelockProposals...)
+		}
+
+		// update don
+		p2pIDs := make([]p2pkey.PeerID, 0, len(deps.P2pToWriteCapabilities))
+		for p2pID := range deps.P2pToWriteCapabilities {
+			p2pIDs = append(p2pIDs, p2pID)
+		}
+		updateDonReport, err := operations.ExecuteOperation(b, UpdateDonOp, UpdateDonOpDeps{
+			Env:               deps.Env,
+			RegistryRef:       deps.RegistryRef,
+			P2PIDs:            p2pIDs,
+			CapabilityConfigs: deps.WriteCapabilityConfigs,
+		}, UpdateDonOpInput{
+			RegistryChainSel: input.RegistryChainSel,
+			MCMSConfig:       input.MCMSConfig,
+		})
+		if err != nil {
+			return DeployConfigureForwardersSeqOutput{}, fmt.Errorf("update-don-op failed: %w", err)
+		}
+		if input.UseMCMS() {
+			proposals = append(proposals, updateDonReport.Output.MCMSTimelockProposals...)
+		}
 
 		return DeployConfigureForwardersSeqOutput{
 			MCMSTimelockProposals: proposals,
