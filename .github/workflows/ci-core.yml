@@ -343,7 +343,7 @@ jobs:
 
       - name: Print postgres logs
         if: ${{ always() &&  matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           print-logs: "true"
 
