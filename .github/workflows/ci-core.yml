@@ -276,17 +276,6 @@ jobs:
           sudo apt-get install -y postgresql-client-17
           # Ensure v17 tools (pg_dump, psql, pg_restore, etc.) are used
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
-          # Verify the correct versions are installed and will be used
-          /usr/lib/postgresql/17/bin/pg_dump --version
-          /usr/lib/postgresql/17/bin/psql --version
-
-      - name: Verify PostgreSQL 17 tools are in PATH
-        run: |
-          echo "Current PATH: $PATH"
-          which pg_dump
-          pg_dump --version
-          which psql
-          psql --version
 
       - name: Setup DB
         if: ${{ matrix.type.should-run == 'true' }}
