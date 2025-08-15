@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -491,12 +490,7 @@ func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Confi
 				return
 			}
 
-			containerLogsPath := filepath.Join(os.TempDir(), "container-logs")
-			if err := os.MkdirAll(containerLogsPath, 0o755); err != nil {
-				log.Fatalf("failed to create temp dir: %v", err)
-			}
-
-			_, saveErr := framework.SaveContainerLogs(containerLogsPath)
+			_, saveErr := framework.SaveContainerLogs(os.TempDir())
 			if saveErr != nil {
 				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
 				return
@@ -520,8 +514,7 @@ func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Confi
 				BlockchainOutput: wrappedBlockchainOutputs[idx].BlockchainOutput,
 				InfraInput:       in.Infra,
 			}
-			topology := os.Getenv("CRE_TOPOLOGY")
-			credebug.PrintTestDebug(t.Context(), topology, testLogger, debugInput)
+			credebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
 		}
 	}
 }

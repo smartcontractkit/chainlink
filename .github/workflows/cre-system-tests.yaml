@@ -66,7 +66,7 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -125,14 +125,8 @@ jobs:
         run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
-      - name: Enable cron capability
-        shell: bash
-        working-directory: core/scripts/cre/environment/configs
-        run: |
-          echo "[extra_capabilities]" >> "ci-config.toml"
-          echo 'cron_capability_binary_path = "/usr/local/bin/cron"' >> "ci-config.toml"
-
-          cat "ci-config.toml"
+      # TODO
+      # Add Flakeguard support
 
       - name: Start local CRE
         shell: bash
@@ -171,5 +165,4 @@ jobs:
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
-            /tmp/container-logs/
-            /home/runner/_work/chainlink/chainlink/core/scripts/
+            /tmp/gotest.log
