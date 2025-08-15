@@ -8,17 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type DonConfiguration struct {
 	commoncap.DON
-	name         string
-	keys         []ethkey.KeyV2
-	KeyBundles   []ocr2key.KeyBundle
-	p2pKeys      []p2pkey.KeyV2
-	workflowKeys []workflowkey.Key
+	name       string
+	keys       []ethkey.KeyV2
+	KeyBundles []ocr2key.KeyBundle
+	p2pKeys    []p2pkey.KeyV2
 }
 
 // NewDonConfigurationParams exists purely to make it obvious in the test code what DON configuration is being used
@@ -41,7 +39,6 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 
 	donPeers := make([]p2ptypes.PeerID, len(p2pKeys))
 	var donKeys []ethkey.KeyV2
-	var workflowKeys []workflowkey.Key
 	for i := 0; i < len(p2pKeys); i++ {
 		donPeers[i] = p2ptypes.PeerID(p2pKeys[i].PeerID())
 		newKey, err := ethkey.NewV2()
@@ -49,11 +46,6 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 			return DonConfiguration{}, fmt.Errorf("failed to create key: %w", err)
 		}
 		donKeys = append(donKeys, newKey)
-		newWorkflowKey, err := workflowkey.New()
-		if err != nil {
-			return DonConfiguration{}, fmt.Errorf("failed to create workflow key: %w", err)
-		}
-		workflowKeys = append(workflowKeys, newWorkflowKey)
 	}
 
 	donConfiguration := DonConfiguration{
@@ -63,11 +55,10 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 			ConfigVersion:    1,
 			AcceptsWorkflows: don.AcceptsWorkflows,
 		},
-		name:         don.Name,
-		p2pKeys:      p2pKeys,
-		keys:         donKeys,
-		workflowKeys: workflowKeys,
-		KeyBundles:   keyBundles,
+		name:       don.Name,
+		p2pKeys:    p2pKeys,
+		keys:       donKeys,
+		KeyBundles: keyBundles,
 	}
 	return donConfiguration, nil
 }

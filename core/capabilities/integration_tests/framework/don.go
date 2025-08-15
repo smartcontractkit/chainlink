@@ -169,11 +169,10 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		signer, err := getSignerStringFromOCRKeyBundle(donConfig.KeyBundles[i])
 		require.NoError(t, err)
 		cn := &capabilityNode{
-			registry:    capabilityRegistry,
-			key:         donConfig.keys[i],
-			KeyBundle:   donConfig.KeyBundles[i],
-			peer:        peerIDAndOCRSigner{PeerID: member, Signer: signer},
-			workflowKey: donConfig.workflowKeys[i],
+			registry:  capabilityRegistry,
+			key:       donConfig.keys[i],
+			KeyBundle: donConfig.KeyBundles[i],
+			peer:      peerIDAndOCRSigner{PeerID: member, Signer: signer},
 		}
 		don.nodes = append(don.nodes, cn)
 
@@ -193,8 +192,10 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
-			require.NoError(t, node.KeyStore.Workflow().Add(ctx, donConfig.workflowKeys[i]))
-
+			keys, err := node.KeyStore.Workflow().GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+			cn.workflowKey = keys[0]
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
