@@ -407,14 +407,17 @@ func SendRequestSolV0_1_1(
 
 	accounts, lutAddresses, tokenIndexes, err := deriveCCIPSendAccounts(e, sender.PublicKey(), message, destinationChainSelector, client, s.Router)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derivate accounts from on-chain: %w", err)
+		return nil, fmt.Errorf("failed to derive accounts from on-chain: %w", err)
 	}
 
 	builder := solRouter.NewCcipSendInstructionBuilder()
-	builder.SetAccounts(accounts)
 	builder.SetDestChainSelector(destinationChainSelector)
 	builder.SetMessage(message)
 	builder.SetTokenIndexes(tokenIndexes)
+	err = builder.SetAccounts(accounts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set accounts in instruction builder: %w", err)
+	}
 
 	tempIx, err := builder.ValidateAndBuild()
 	if err != nil {
@@ -424,7 +427,7 @@ func SendRequestSolV0_1_1(
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract payload data from instruction: %w", err)
 	}
-	
+
 	ix := solana.NewInstruction(s.Router, tempIx.Accounts(), ixData)
 	ixs := []solana.Instruction{ix}
 
