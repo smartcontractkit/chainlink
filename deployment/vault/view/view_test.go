@@ -20,11 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestVaultV2_NoChains(t *testing.T) {
+func TestVault_NoChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 0})
 
-	viewMarshaler, err := VaultV2(env, nil)
+	viewMarshaler, err := Vault(env, nil)
 	require.NoError(t, err)
 	require.NotNil(t, viewMarshaler)
 

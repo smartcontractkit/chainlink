@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var _ cldf.ViewStateV2 = VaultV2
+var _ cldf.ViewStateV2 = Vault
 
 type VaultView struct {
 	TimelockBalances     map[uint64]*types.TimelockNativeBalanceInfo `json:"timelock_balances"`
@@ -26,9 +26,9 @@ func (v *VaultView) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent((*Alias)(v), "", "  ")
 }
 
-func VaultV2(e cldf.Environment, previousView json.Marshaler) (json.Marshaler, error) {
+func Vault(e cldf.Environment, _ json.Marshaler) (json.Marshaler, error) {
 	lggr := e.Logger
-	lggr.Info("Generating vault state view (V2)")
+	lggr.Info("Generating vault state view")
 
 	chainSelectors := make([]uint64, 0)
 	for chainSel := range e.BlockChains.EVMChains() {
