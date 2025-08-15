@@ -306,7 +306,7 @@ jobs:
         run: go mod download
 
       - name: Setup DB
-        run: go run ./core/store/cmd/preparetest
+        run: go run ./core/store/cmd/preparetest --deterministic
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
