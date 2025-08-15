@@ -165,9 +165,8 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 	if h.retrieveFunc != nil {
 		// Get the URL to retrieve binary artifact from
 		binaryURL, err = h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
-			Id:          binaryIdentifier,
-			Type:        storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
-			Environment: storage_service.EnvironmentName_ENVIRONMENT_NAME_UNSPECIFIED,
+			Id:   binaryIdentifier,
+			Type: storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get binary artifact URL: %w", err)
@@ -207,9 +206,8 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 		if h.retrieveFunc != nil {
 			// Get the URL to retrieve config artifact from
 			configURL, configErr = h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
-				Id:          configIdentifier,
-				Type:        storage_service.ArtifactType_ARTIFACT_TYPE_CONFIG,
-				Environment: storage_service.EnvironmentName_ENVIRONMENT_NAME_UNSPECIFIED,
+				Id:   configIdentifier,
+				Type: storage_service.ArtifactType_ARTIFACT_TYPE_CONFIG,
 			})
 			if configErr != nil {
 				return nil, nil, fmt.Errorf("failed to get config artifact URL: %w", err)
