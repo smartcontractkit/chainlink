@@ -685,13 +685,11 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	store := requests.NewStore[*vault.Request]()
-	vaultCapability := vault2.NewCapability(
-		lggr,
-		store,
-		clockwork.NewRealClock(),
-		cfg.RequestExpiryDuration.Duration(),
-	)
+	requestStore := requests.NewStore[*vault.Request]()
+	clock := clockwork.NewRealClock()
+	expiryDuration := cfg.RequestExpiryDuration.Duration()
+	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
+	vaultCapability := vault2.NewCapability(lggr, clock, expiryDuration, requestStoreHandler)
 	srvs = append(srvs, vaultCapability)
 
 	err = capabilitiesRegistry.Add(ctx, vaultCapability)
@@ -708,7 +706,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate}, handler); gwerr != nil {
+	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate, vault_api.MethodSecretsGet, vault_api.MethodSecretsUpdate}, handler); gwerr != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
 	}
 
@@ -773,7 +771,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		ContractTransmitter: vault.NewTransmitter(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
-			store,
+			requestStoreHandler,
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
@@ -793,7 +791,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
 	}
-	rpf, err := vault.NewReportingPluginFactory(lggr, store, pk, secKeyShare)
+	rpf, err := vault.NewReportingPluginFactory(lggr, requestStore, pk, secKeyShare)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}

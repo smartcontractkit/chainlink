@@ -18,8 +18,9 @@ import (
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
-
 var _ SecretsService = (*Capability)(nil)
+
+const maxBatchSize = 10
 
 type Capability struct {
 	clock        clockwork.Clock
@@ -120,14 +121,39 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	s.lggr.Infof("Sent Request to Vault OCR: %s. Expiry is %s.", request, s.expiresAfter.String())
 	select {
 	case <-ctx.Done():
+		s.lggr.Debugw("request timed out", "requestId", requestID, "error", ctx.Err())
 		return nil, ctx.Err()
 	case resp := <-respCh:
+		s.lggr.Debugw("received response for request", "requestId", requestID, "error", resp.Error)
 		if resp.Error != "" {
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
 		return resp, nil
 	}
+}
+
+func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if len(request.EncryptedSecrets) >= maxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	}
+
+	for _, req := range request.EncryptedSecrets {
+		if req.Id == nil {
+			return nil, errors.New("secret ID must not be nil")
+		}
+
+		if req.Id.Key == "" || req.Id.Owner == "" {
+			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
+		}
+	}
+
+	// TODO: secrets should be encrypted with the correct key
+	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
@@ -145,14 +171,15 @@ func (s *Capability) GetSecrets(ctx context.Context, requestId string, request *
 
 func NewCapability(
 	lggr logger.Logger,
-	store *requests.Store[*vault2.Request],
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
+	handler *requests.Handler[*vault2.Request, *vault2.Response],
 ) *Capability {
 	return &Capability{
+
+		lggr:         lggr.Named("VaultService"),
 		clock:        clock,
-		lggr:         lggr.Named("VaultCapability"),
 		expiresAfter: expiresAfter,
-		handler:      requests.NewHandler(lggr, store, clock, expiresAfter),
+		handler:      handler,
 	}
 }

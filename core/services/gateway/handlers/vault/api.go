@@ -5,6 +5,7 @@ const (
 	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsCreate = "vault.secrets.create"
 	MethodSecretsGet    = "vault.secrets.get"
+	MethodSecretsUpdate = "vault.secrets.update"
 )
 
 type SecretIdentifier struct {
@@ -53,6 +54,7 @@ func (r *ResponseBase) String() string {
 type SecretsCreateResponse struct {
 	ResponseBase
 	SecretID SecretIdentifier `json:"secret_id,omitempty"`
+	Success  bool             `json:"success,omitempty"`
 }
 
 func (r *SecretsCreateResponse) String() string {
@@ -65,5 +67,16 @@ func (r *SecretsCreateResponse) String() string {
 type SecretsGetResponse struct {
 	ResponseBase
 	SecretID    SecretIdentifier `json:"secret_id,omitempty"`
-	SecretValue string           `json:"secret_value,omitempty"`
+	SecretValue SecretData       `json:"secret_value,omitempty"`
+	Error       string           `json:"error,omitempty"`
+}
+
+type SecretData struct {
+	EncryptedValue               string             `json:"encrypted_value,omitempty"`
+	EncryptedDecryptionKeyShares []*EncryptedShares `json:"encrypted_decryption_key_shares,omitempty"`
+}
+
+type EncryptedShares struct {
+	Shares        []string `json:"shares,omitempty"`
+	EncryptionKey string   `json:"encryption_key,omitempty"`
 }

@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -160,6 +161,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 			Namespace: secretResponse.Id.GetNamespace(),
 			Owner:     secretResponse.Id.GetOwner(),
 		},
+		Success: secretResponse.Success,
 	}
 
 	h.lggr.Infof("Debugging: handleSecretsCreate 3 %s: %v", gatewayID, req)
@@ -206,17 +208,63 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	}
 	h.lggr.Infof("Debugging: handleSecretsGet 2 %s: %v", gatewayID, req)
 
-	resultBytes, err := json.Marshal(vaultCapResponse)
+	vaultResponseProto := &vault.GetSecretsResponse{}
+	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
+	if err != nil {
+		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+	if len(vaultResponseProto.GetResponses()) != 1 {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+fmt.Sprint(len(vaultResponseProto.GetResponses()))))
+	}
+	secretResponse := vaultResponseProto.GetResponses()[0]
+	vaultApiResponse := vault_api.SecretsGetResponse{
+		ResponseBase: vault_api.ResponseBase{
+			ID:         vaultCapResponse.ID,
+			Error:      vaultCapResponse.Error,
+			Format:     vaultCapResponse.Format,
+			Context:    vaultCapResponse.Context,
+			Signatures: vaultCapResponse.Signatures,
+		},
+		SecretID: vault_api.SecretIdentifier{
+			Key:       secretResponse.Id.GetKey(),
+			Namespace: secretResponse.Id.GetNamespace(),
+			Owner:     secretResponse.Id.GetOwner(),
+		},
+	}
+
+	switch method := secretResponse.Result.(type) {
+	case *vault.SecretResponse_Data:
+		vaultApiResponse.SecretValue = vault_api.SecretData{
+			EncryptedValue:               method.Data.GetEncryptedValue(),
+			EncryptedDecryptionKeyShares: make([]*vault_api.EncryptedShares, 0, len(method.Data.GetEncryptedDecryptionKeyShares())),
+		}
+		for _, decryptionShare := range method.Data.GetEncryptedDecryptionKeyShares() {
+			encryptedShare := vault_api.EncryptedShares{
+				EncryptionKey: decryptionShare.GetEncryptionKey(),
+				Shares:        make([]string, 0, len(decryptionShare.Shares)),
+			}
+			for _, share := range decryptionShare.GetShares() {
+				encryptedShare.Shares = append(encryptedShare.Shares, share)
+			}
+			vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares = append(vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares, &encryptedShare)
+		}
+	case *vault.SecretResponse_Error:
+		vaultApiResponse.Error = method.Error
+	}
+
+	h.lggr.Infof("Debugging: handleSecretsCreate 3 %s: %v", gatewayID, req)
+
+	vaultApiResponseBytes, err := json.Marshal(vaultApiResponse)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	h.lggr.Infof("Debugging: handleSecretsGet 3 %s: %v", gatewayID, req)
-
+	vaultApiResponseJson := json.RawMessage(vaultApiResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
-		ID:      req.ID,
+		ID:      vaultApiResponse.ID,
 		Method:  req.Method,
-		Result:  (*json.RawMessage)(&resultBytes),
+		Result:  &vaultApiResponseJson,
 	}
 }
 
