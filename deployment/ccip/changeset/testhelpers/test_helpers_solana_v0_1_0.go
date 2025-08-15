@@ -17,7 +17,16 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	solbinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/token"
+	"github.com/gagliardetto/solana-go/rpc"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -28,57 +37,14 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-
-	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_offramp"
@@ -86,29 +52,46 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/rmn_remote"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_ccip_receiver"
-
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
-
+	"github.com/smartcontractkit/chainlink/deployment"
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-
-	solbinary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/programs/token"
-	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const (
@@ -389,7 +372,7 @@ func mockAttestationResponse(isFaulty bool) *httptest.Server {
 func CCIPSendRequest(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
+	cfg *ccipclient.CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
 	r := state.MustGetEVMChainState(cfg.SourceChain).Router
@@ -416,7 +399,7 @@ func CCIPSendRequest(
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e cldf.Environment,
 	r *router.Router,
-	cfg *CCIPSendReqConfig,
+	cfg *ccipclient.CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
 	const cannotDecodeErrorReason = "could not decode error reason"
@@ -483,14 +466,6 @@ func CCIPSendCalldata(
 	return calldata, nil
 }
 
-type AnyMsgSentEvent struct {
-	SequenceNumber uint64
-	// RawEvent contains the raw event depending on the chain:
-	//  EVM:   *onramp.OnRampCCIPMessageSent
-	//  Aptos: module_onramp.CCIPMessageSent
-	RawEvent any
-}
-
 // testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)
 // opts being testRouter, sender
 // always return error
@@ -503,13 +478,13 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	msg any,
-	opts ...SendReqOpts,
-) (msgSentEvent *AnyMsgSentEvent) {
-	baseOpts := []SendReqOpts{
-		WithSourceChain(src),
-		WithDestChain(dest),
-		WithTestRouter(testRouter),
-		WithMessage(msg),
+	opts ...ccipclient.SendReqOpts,
+) (msgSentEvent *ccipclient.AnyMsgSentEvent) {
+	baseOpts := []ccipclient.SendReqOpts{
+		ccipclient.WithSourceChain(src),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(testRouter),
+		ccipclient.WithMessage(msg),
 	}
 	baseOpts = append(baseOpts, opts...)
 
@@ -518,68 +493,13 @@ func TestSendRequest(
 	return msgSentEvent
 }
 
-type CCIPSendReqConfig struct {
-	SourceChain  uint64
-	DestChain    uint64
-	IsTestRouter bool
-	Sender       *bind.TransactOpts
-	Message      any
-	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
-}
-
-type SendReqOpts func(*CCIPSendReqConfig)
-
-// WithMaxRetries sets the maximum number of retries for the CCIP send request.
-func WithMaxRetries(maxRetries int) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.MaxRetries = maxRetries
-	}
-}
-
-func WithSender(sender *bind.TransactOpts) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Sender = sender
-	}
-}
-
-// TODO: backwards compat, remove
-func WithEvm2AnyMessage(msg router.ClientEVM2AnyMessage) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Message = msg
-	}
-}
-
-func WithMessage(msg any) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.Message = msg
-	}
-}
-
-func WithTestRouter(isTestRouter bool) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.IsTestRouter = isTestRouter
-	}
-}
-
-func WithSourceChain(sourceChain uint64) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.SourceChain = sourceChain
-	}
-}
-
-func WithDestChain(destChain uint64) SendReqOpts {
-	return func(c *CCIPSendReqConfig) {
-		c.DestChain = destChain
-	}
-}
-
 // SendRequest similar to TestSendRequest but returns an error.
 func SendRequest(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	opts ...SendReqOpts,
-) (*AnyMsgSentEvent, error) {
-	cfg := &CCIPSendReqConfig{}
+	opts ...ccipclient.SendReqOpts,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	cfg := &ccipclient.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -603,8 +523,8 @@ func SendRequest(
 func SendRequestEVM(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
 	// Set default sender if not provided
 	if cfg.Sender == nil {
 		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
@@ -641,7 +561,7 @@ func SendRequestEVM(
 		it.Event.Message.Sender.String(),
 		cfg.IsTestRouter,
 	)
-	return &AnyMsgSentEvent{
+	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: it.Event.SequenceNumber,
 		RawEvent:       it.Event,
 	}, nil
@@ -650,8 +570,8 @@ func SendRequestEVM(
 func SendRequestSol(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) { // TODO: chain independent return value
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) { // TODO: chain independent return value
 	ctx := e.GetContext()
 
 	s := state.SolChains[cfg.SourceChain]
@@ -898,7 +818,7 @@ func SendRequestSol(
 		cfg.IsTestRouter,
 	)
 
-	return &AnyMsgSentEvent{
+	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: ccipMessageSentEvent.SequenceNumber,
 		RawEvent: &onramp.OnRampCCIPMessageSent{
 			DestChainSelector: ccipMessageSentEvent.DestinationChainSelector,
@@ -947,8 +867,8 @@ type AptosTokenAmount struct {
 func SendRequestAptos(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	cfg *CCIPSendReqConfig,
-) (*AnyMsgSentEvent, error) {
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
 	sender := e.BlockChains.AptosChains()[cfg.SourceChain].DeployerSigner
 	senderAddress := sender.AccountAddress()
 	client := e.BlockChains.AptosChains()[cfg.SourceChain].Client
@@ -1059,7 +979,7 @@ func SendRequestAptos(
 				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
 			}
 			e.Logger.Debugf("CCIPMessageSentEvent: %v", msgSentEvent)
-			return &AnyMsgSentEvent{
+			return &ccipclient.AnyMsgSentEvent{
 				SequenceNumber: msgSentEvent.SequenceNumber,
 				RawEvent:       msgSentEvent,
 			}, nil
@@ -2178,7 +2098,7 @@ func Transfer(
 	useTestRouter bool,
 	data, extraArgs []byte,
 	feeToken string,
-) (*AnyMsgSentEvent, map[uint64]*uint64) {
+) (*ccipclient.AnyMsgSentEvent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
 	block, err := LatestBlock(ctx, env, destChain)

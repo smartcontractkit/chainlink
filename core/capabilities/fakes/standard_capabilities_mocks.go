@@ -16,7 +16,9 @@ func (t *TelemetryServiceMock) Send(ctx context.Context, network string, chainID
 	return nil
 }
 
-type KVStoreMock struct{}
+type KVStoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KVStoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil

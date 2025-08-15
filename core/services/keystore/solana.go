@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 )
 
@@ -25,9 +25,10 @@ type Solana interface {
 // SolanaLooppSigner adapts Solana to [core.Keystore].
 type SolanaLooppSigner struct {
 	Solana
+	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &SolanaLooppSigner{}
+var _ core.Keystore = &SolanaLooppSigner{}
 
 func (s *SolanaLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
@@ -40,8 +41,8 @@ func (s *SolanaLooppSigner) Accounts(ctx context.Context) (accounts []string, er
 	return
 }
 
-func (s *SolanaLooppSigner) Decrypt(ctx context.Context, id string, encrypted []byte) ([]byte, error) {
-	return nil, errors.New("SolanaLooppSigner does not support decryption")
+func (s *SolanaLooppSigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	return s.Solana.Sign(ctx, account, data)
 }
 
 type solana struct {
