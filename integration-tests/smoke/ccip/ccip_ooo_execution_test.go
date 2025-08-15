@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 

@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"

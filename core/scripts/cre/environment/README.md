@@ -46,7 +46,7 @@ AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
 
 If you are missing requirements, you may need to fix the errors and re-run.
 
-Use `#topic-local-dev-environments` for help.
+Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOijQ-R-5BIZrTdAaumlquQVZ48/edit?tab=t.0#heading=h.wqgcsrk9ncjs) for troubleshooting and FAQ. Use `#topic-local-dev-environments` for help.
 
 ## Start Environment
 ```bash
@@ -94,19 +94,23 @@ Heartbeat messages spam the topic, so it's highly recommended that you add a Jav
 
 If environment is aready running you can start just the Beholder stack (and register protos) with:
 ```bash
-go run . env start-beholder
+go run . env beholder start
 ```
 
 > This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
 
 ### Storage
 
+By default, workflow artifacts are loaded from the container's filesystem. The Chainlink nodes can only load workflow files from the local filesystem if `WorkflowFetcher` uses the `file://` prefix. Right now, it cannot read workflow files from both the local filesystem and external sources (like S3 or web servers) at the same time.
+
 The environment supports two storage backends for workflow uploads:
-- Gist (remote)
+- Gist (requires deprecated CRE CLI, remote)
 - S3 MinIO (built-in, local)
 
-Configuration details are generated automatically into the `cre.yaml` file
+Configuration details for the CRE CLI are generated automatically into the `cre.yaml` file
 (path is printed after starting the environment).
+
+For more details on the URL resolution process and how workflow artifacts are handled, see the [URL Resolution Process](../../../../system-tests/tests/smoke/cre/guidelines.md#url-resolution-process) section in `system-tests/tests/smoke/cre/guidelines.md`.
 
 ## Stop Environment
 ```bash
@@ -126,6 +130,88 @@ ctf bs r
 ```
 ---
 
+## Workflow Commands
+
+The environment provides workflow management commands defined in `core/scripts/cre/environment/environment/workflow.go`:
+
+### `workflow deploy`
+Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry. It checks if a workflow with same name already exists and deletes it, if it does.
+
+**Usage:**
+```bash
+go run . workflow deploy [flags]
+```
+
+**Key flags:**
+- `-w, --workflow-file-path`: Path to the workflow file (default: `./examples/workflows/v2/cron/main.go`)
+- `-c, --config-file-path`: Path to the config file (optional)
+- `-s, --secrets-file-path`: Path to the secrets file (optional)
+- `-t, --container-target-dir`: Path to target directory in Docker container (default: `/home/chainlink/workflows`)
+- `-o, --container-name-pattern`: Pattern to match container name (default: `workflow-node`)
+- `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
+- `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
+- `-i, --chain-id`: Chain ID (default: `1337`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
+- `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
+- `-e, --don-id`: DON ID (default: `1`)
+
+**Example:**
+```bash
+go run . workflow deploy -w ./my-workflow.go -n myworkflow -c ./config.yaml
+```
+
+### `workflow delete`
+Deletes a specific workflow from the workflow registry contract (but doesn't remove it from Docker containers).
+
+**Usage:**
+```bash
+go run . workflow delete [flags]
+```
+
+**Key flags:**
+- `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
+- `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
+- `-i, --chain-id`: Chain ID (default: `1337`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
+
+**Example:**
+```bash
+go run . workflow delete -n myworkflow
+```
+
+### `workflow delete-all`
+Deletes all workflows from the workflow registry contract.
+
+**Usage:**
+```bash
+go run . workflow delete-all [flags]
+```
+
+**Key flags:**
+- `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
+- `-i, --chain-id`: Chain ID (default: `1337`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
+
+**Example:**
+```bash
+go run . workflow delete-all
+```
+
+### `workflow deploy-and-verify-example`
+Deploys and verifies the example workflow.
+
+**Usage:**
+```bash
+go run . workflow deploy-and-verify-example
+```
+
+This command uses default values and is useful for testing the workflow deployment process.
+
+---
+
 ## Further use
 To manage workflows you will need the CRE CLI. You can either:
 - download it from [smartcontract/dev-platform](https://github.com/smartcontractkit/dev-platform/releases/tag/v0.2.0) or
@@ -140,14 +226,14 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
 
 ### Advanced Usage:
 1. **Choose the Right Topology**
-   - For a single DON with all capabilities: `configs/single-don.toml` (default)
-   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-capabilities-don.toml`
+   - For a single DON with all capabilities: `configs/workflow-don.toml` (default)
+   - For a single DON with all capabilities, but with a separate gateway node: `configs/workflow-gateway-don.toml`
+   - For a full topology (workflow DON + capabilities DON + gateway DON): `configs/workflow-gateway-capabilities-don.toml`
 2. **Download or Build Capability Binaries**
    - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If your use case requires them, you can either:
-      - Download binaries from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities/releases/tag/v1.0.2-alpha) release page or
-      - Use GH CLI to download them, e.g. `gh release download v1.0.2-alpha --repo smartcontractkit/capabilities --pattern 'amd64_cron' && mv amd64_cron cron`
-      Make sure they are built for `linux/amd64`!
+   - If your use case requires them, you should build them manually by:
+      - Cloning [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository (Make sure they are built for `linux/amd64`!)
+      - Building each capability manually by running `GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o evm` inside capability's folder or building all of them at once with `./nx run-many -t build` in root of `capabilities` folder
 
      Once that is done reference them in your TOML like:
        ```toml
@@ -181,7 +267,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
     - To download the `ctf` binary follow the steps described [here](https://smartcontractkit.github.io/chainlink-testing-framework/framework/getting_started.html)
 
 Optional environment variables used by the CLI:
-- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/single-don.toml](./configs/single-don.toml)
+- `CTF_CONFIGS`: TOML config paths. Defaults to [./configs/workflow-don.toml](./configs/workflow-don.toml)
 - `PRIVATE_KEY`: Plaintext private key that will be used for all deployments (needs to be funded). Defaults to `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
 - `TESTCONTAINERS_RYUK_DISABLED`: Set to "true" to disable cleanup. Defaults to `false`
 
@@ -192,15 +278,15 @@ Spin up the billing service and necessary migrations in the `billing-platform-se
 The directions there should be sufficient. If they are not, give a shout to @cre-business.
 
 So far, all we have working is the workflow run by:
-```
+```go
 go run . env start --with-example -w 1m
 ```
 
 I recommend increasing your docker resources to near max memory, as this is going to slow your local
 machine down anyways, and it could mean the difference between a 5 minute and 2 minute iteration cycle.
 
-Add the following TOML config to `core/scripts/cre/environment/configs/single-don.toml`:
-```
+Add the following TOML config to `core/scripts/cre/environment/configs/workflow-don.toml`:
+```toml
 [Billing]
 URL = 'host.docker.internal:2223'
 TLSEnabled = false
@@ -210,7 +296,7 @@ Outside of the local-CRE, the workflow registry chain ID and address is pulled f
 [Capabilities.WorkflowRegistry]. We don't yet have that figured out in the local-CRE
 (it will spin up relayers), so instead you want to mimic the following diffs:
 
-```
+```go
 @@ -535,7 +537,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
                 creServices.workflowRateLimiter,
                 creServices.workflowLimits,
@@ -238,7 +324,6 @@ The happy-path:
 * workflow runs successfully
 * no `switch to metering mode` error logs generated by the workflow run
 * SubmitWorkflowReceipt in billing service does not have an err message
-
 
 ---
 
@@ -286,30 +371,84 @@ docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
 
 If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.12.7`.
 
-## Example workflows
+## Example Workflows
 
-Two example workflows are available. Both execute a proof-of-reserve-like scenario with following steps:
-- call external HTTP API and fetch value of test asset
-- reach consensus on that value
-- write that value in the consumer contract on chain
+The environment includes several example workflows located in `core/scripts/cre/environment/examples/workflows/`:
 
-The only difference between is the trigger.
+### Available Workflows
 
-### cron-based workflow
-This workflow is triggered every 30s, on a schedule. It will keep executing until it is paused or deleted. It requires an external `cron` capability binary, which you have to either manually compile or download **and** a manual TOML config change to indicate its location.
+#### V2 Workflows
+- **`v2/cron/`**: Simple cron-based workflow that executes on a schedule
+- **`v2/node-mode/`**: Node mode workflow example
+- **`v2/http/`**: HTTP-based workflow example
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/cron-based/main.go) repository.
+#### V1 Workflows
+- **`v1/proof-of-reserve/cron-based/`**: Cron-based proof-of-reserve workflow
+- **`v1/proof-of-reserve/web-trigger-based/`**: Web API trigger-based proof-of-reserve workflow
 
-### web API trigger-based workflow
-This workflow is triggered only, when a precisely crafed and cryptographically signed request is made to the gateway node. It will only trigger the workflow **once** and only if:
-* sender is whitelisted in the workflow
-* topic is whitelisted in the workflow
+### Deployable Example Workflows
 
-Source code can be found in [proof-of-reserves-workflow-e2e-test](https://github.com/smartcontractkit/proof-of-reserves-workflow-e2e-test/blob/main/web-api-trigger-based/main.go) repository.
+The following workflows can be deployed using the `workflow deploy-and-verify-example` command:
 
-You might see multiple attempts to trigger and verify that workflow, when running the example. This is expected and could be happening, because:
-- topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
-- consensus wasn't reached in time
+#### Proof-of-Reserve Workflows
+Both proof-of-reserve workflows execute a proof-of-reserve-like scenario with the following steps:
+- Call external HTTP API and fetch value of test asset
+- Reach consensus on that value
+- Write that value in the consumer contract on chain
+
+**Usage:**
+```bash
+go run . workflow deploy-and-verify-example [flags]
+```
+
+**Key flags:**
+- `-y, --example-workflow-trigger`: Trigger type (`web-trigger` or `cron`, default: `web-trigger`)
+- `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
+- `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
+- `-d, --don-id`: DON ID for web API trigger (default: `vault`)
+- `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
+
+**Examples:**
+```bash
+# Deploy cron-based proof-of-reserve workflow
+go run . workflow deploy-and-verify-example -y cron
+
+# Deploy web-trigger-based proof-of-reserve workflow with custom timeout
+go run . workflow deploy-and-verify-example -y web-trigger -u 10m
+```
+
+#### Cron-based Workflow
+- **Trigger**: Every 30 seconds on a schedule
+- **Behavior**: Keeps executing until paused or deleted
+- **Requirements**: External `cron` capability binary (must be manually compiled or downloaded and configured in TOML)
+- **Source**: [`examples/workflows/v1/proof-of-reserve/cron-based/main.go`](./examples/workflows/v1/proof-of-reserve/cron-based/main.go)
+
+#### Web API Trigger-based Workflow
+- **Trigger**: Only when a precisely crafted and cryptographically signed request is made to the gateway node
+- **Behavior**: Triggers workflow **once** and only if:
+  - Sender is whitelisted in the workflow
+  - Topic is whitelisted in the workflow
+- **Source**: [`examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go`](./examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go)
+
+**Note**: You might see multiple attempts to trigger and verify the workflow when running the example. This is expected and could happen because:
+- Topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
+- Consensus wasn't reached in time
+
+### Manual Workflow Deployment
+
+For other workflows (v2/cron, v2/node-mode, v2/http), you can deploy them manually using the `workflow deploy` command:
+
+```bash
+# Deploy v2 cron workflow
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron-workflow
+
+# Deploy v2 http workflow
+go run . workflow deploy -w ./examples/workflows/v2/http/main.go -n http-workflow
+
+# Deploy v2 node-mode workflow
+go run . workflow deploy -w ./examples/workflows/v2/node-mode/main.go -n node-mode-workflow
+```
 
 ## Troubleshooting
 

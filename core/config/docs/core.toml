@@ -514,6 +514,12 @@ MaxConfigSize = '50.00kb' # Default
 # Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 SyncStrategy = 'event' # Default
 
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+# URL is the location for the workflow storage service to be communicated with.
+URL = "localhost:4566" # Default
+# TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
+TLSEnabled = true # Default
+
 [Workflows]
 [Workflows.Limits]
 # Global is the maximum number of workflows that can be registered globally.

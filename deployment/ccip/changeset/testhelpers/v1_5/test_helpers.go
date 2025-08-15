@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 

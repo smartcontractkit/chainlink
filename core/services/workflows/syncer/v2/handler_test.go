@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -50,12 +51,21 @@ func (m *mockFetcher) Fetch(_ context.Context, mid string, req ghcapabilities.Re
 	return m.responseMap[req.URL].Body, m.responseMap[req.URL].Err
 }
 
-func (m *mockFetcher) Calls(url string) int {
-	return m.calledMap[url]
+func (m *mockFetcher) RetrieveURL(ctx context.Context, req *storage_service.DownloadArtifactRequest) (string, error) {
+	m.calledMap[req.Id]++
+	return string(m.responseMap[req.Id].Body), m.responseMap[req.Id].Err
 }
 
-func (m *mockFetcher) FetcherFunc() artifacts.FetcherFunc {
+func (m *mockFetcher) Calls(identifier string) int {
+	return m.calledMap[identifier]
+}
+
+func (m *mockFetcher) FetcherFunc() types.FetcherFunc {
 	return m.Fetch
+}
+
+func (m *mockFetcher) RetrieverFunc() types.LocationRetrieverFunc {
+	return m.RetrieveURL
 }
 
 func newMockFetcher(m map[string]mockFetchResp) *mockFetcher {
@@ -108,11 +118,14 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 
 		giveEvent := Event{}
+		retriever := func(_ context.Context, _ *storage_service.DownloadArtifactRequest) (string, error) {
+			return "", nil
+		}
 		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 
-		store := artifacts.NewStore(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
+		store := artifacts.NewStore(lggr, mockORM, fetcher, retriever, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
 		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
@@ -129,6 +142,8 @@ const (
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
+	var configID = "config-id"
+	var binaryID = "binary-id"
 	var binaryURL = "http://example.com/binary"
 	var configURL = "http://example.com/config"
 	var config = []byte("")
@@ -170,6 +185,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "success with active workflow registered",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -189,8 +206,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL,
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
 				}
 			},
 			validationFn: defaultValidationFnWithFetch,
@@ -199,6 +216,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "correctly generates the workflow name",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -225,8 +244,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
+				}
 			},
 			validationFn: defaultValidationFnWithFetch,
 		},
@@ -234,6 +254,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "fails to start engine",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -253,8 +275,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
+				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher) {
@@ -267,6 +290,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "succeeds if correct engine already exists",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -283,8 +308,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
+				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher) {
 				me := &mockEngine{}
@@ -298,6 +324,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "handles incorrect engine already exists",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -314,8 +342,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
+				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher) {
 				me := &mockEngine{}
@@ -333,6 +362,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "success with paused workflow registered",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -349,8 +380,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL,
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
@@ -374,6 +405,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			Name: "same wf ID, different status",
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -390,8 +423,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL,
-					ConfigURL:     configURL}
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
+				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher) {
@@ -435,6 +469,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 				})
 			},
@@ -452,7 +487,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowOwner: wfOwner,
 					WorkflowName:  workflowName,
 					WorkflowTag:   workflowTag,
-					BinaryURL:     binaryURL}
+					BinaryURL:     binaryID,
+				}
 			},
 		},
 		{
@@ -464,6 +500,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			WFOwner:    wfOwner,
 			fetcherFactory: func() *mockFetcher {
 				return newMockFetcher(map[string]mockFetchResp{
+					binaryID:  {Body: []byte(binaryURL), Err: nil},
+					configID:  {Body: []byte(configURL), Err: nil},
 					binaryURL: {Body: encodedBinary, Err: nil},
 					configURL: {Body: config, Err: nil},
 				})
@@ -479,8 +517,8 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					WorkflowName:  event.WorkflowName,
 					WorkflowTag:   workflowTag,
 					SpecType:      job.WASMFile,
-					BinaryURL:     event.BinaryURL,
-					ConfigURL:     event.ConfigURL,
+					BinaryURL:     binaryID,
+					ConfigURL:     configID,
 				}
 				_, err := s.UpsertWorkflowSpec(ctx, entry)
 				require.NoError(t, err)
@@ -562,7 +600,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		require.NoError(t, err)
 
 		fetcher := fetcherFactory()
-		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
+		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
 		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
 		require.NoError(t, err)
@@ -608,6 +646,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
+			configID              = "config-id"
+			binaryID              = "binary-id"
 			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
@@ -617,6 +657,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
+				binaryID:  {Body: []byte(binaryURL), Err: nil},
+				configID:  {Body: []byte(configURL), Err: nil},
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			})
@@ -632,8 +674,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
 			WorkflowTag:   "workflow-tag",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL}
+			BinaryURL:     binaryID,
+			ConfigURL:     configID,
+		}
 
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -644,7 +687,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
-		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
+		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
 		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
@@ -687,6 +730,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
+			configID              = "config-id"
+			binaryID              = "binary-id"
 			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
@@ -696,6 +741,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
+				binaryID:  {Body: []byte(binaryURL), Err: nil},
+				configID:  {Body: []byte(configURL), Err: nil},
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			})
@@ -712,7 +759,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
-		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
+		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
 		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
@@ -736,6 +783,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
+			configID              = "config-id"
+			binaryID              = "binary-id"
 			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
@@ -745,6 +794,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcher = newMockFetcher(map[string]mockFetchResp{
+				binaryID:  {Body: []byte(binaryURL), Err: nil},
+				configID:  {Body: []byte(configURL), Err: nil},
 				binaryURL: {Body: encodedBinary, Err: nil},
 				configURL: {Body: config, Err: nil},
 			})
@@ -762,8 +813,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "workflow-name",
 			WorkflowTag:   "workflow-tag",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL}
+			BinaryURL:     binaryID,
+			ConfigURL:     configID,
+		}
 
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -774,7 +826,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
-		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
+		artifactStore := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler())
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 

@@ -83,17 +83,10 @@ func generateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 				return nil, errors.New("no gateway connector configurations found")
 			}
 
-			var donID string
-			if flags.HasFlag(input.Flags, cre.VaultCapability) {
-				donID = cre.VaultGatewayDonID
-			} else {
-				donID = input.DonMetadata.Name
-			}
-
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				homeChainID,
-				donID,
+				input.DonMetadata.Name,
 				gatewayConfigurations,
 			)
 		}
