@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
@@ -154,9 +154,10 @@ func (ks *starknet) getByID(id string) (starkkey.Key, error) {
 // of signature d/encoding of the [github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/txm.NewKeystoreAdapter]
 type StarknetLooppSigner struct {
 	StarkNet
+	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &StarknetLooppSigner{}
+var _ core.Keystore = &StarknetLooppSigner{}
 
 // Sign implements [loop.Keystore]
 // hash is expected to be the byte representation of big.Int
