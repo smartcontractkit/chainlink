@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -83,8 +82,6 @@ type handler struct {
 
 	activeRequests map[string]activeRequest
 	metrics        *metrics
-
-	newID func() string
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -137,9 +134,6 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		mu:              sync.RWMutex{},
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
-		newID: func() string {
-			return uuid.New().String()
-		},
 	}, nil
 }
 
@@ -206,7 +200,10 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
-	req.ID = h.newID()
+	if req.ID == "" {
+		return errors.New("request ID cannot be empty")
+	}
+
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestId", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
@@ -263,6 +260,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		errorCode = api.NoError
 	}
 
+	l.Debugw("issued user callback", "errorCode", errorCode)
 	successResp := gw_handlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,

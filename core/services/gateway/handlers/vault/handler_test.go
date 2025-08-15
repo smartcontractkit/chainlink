@@ -62,9 +62,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		h, callbackCh, don := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		h.(*handler).newID = func() string {
-			return "1"
-		}
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "1",
 			Method: MethodSecretsCreate,
@@ -109,9 +106,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		// Don't expect SendToNode to be called for unsupported methods
 		don.AssertNotCalled(t, "SendToNode")
 
-		h.(*handler).newID = func() string {
-			return "2"
-		}
 		unsupportedMethodRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "2",
 			Method: "vault.unsupported.method",
@@ -141,9 +135,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		// Don't expect SendToNode to be called for parse errors
 		don.AssertNotCalled(t, "SendToNode")
 
-		h.(*handler).newID = func() string {
-			return "3"
-		}
 		emptyParamsRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "3",
 			Method: MethodSecretsCreate,
@@ -173,9 +164,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
-		h.(*handler).newID = func() string {
-			return "4"
-		}
 		invalidParams := json.RawMessage(`{"id": "empty_value_field"}`)
 		invalidParamsRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "4",
