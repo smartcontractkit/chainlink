@@ -20,7 +20,7 @@ var (
 	urlStr        = os.Getenv("CL_DATABASE_URL")
 	force         = flag.Bool("force", false, "set to true to force the reset by dropping any existing connections to the database")
 	userOnly      = flag.Bool("user-only", false, "only include test user fixture")
-	deterministic = flag.Bool("deterministic", false, "use deterministic output for schema dumps (UNSAFE, only for testing/CI)")
+	deterministic = flag.Bool("deterministic", true, "use deterministic output for schema dumps (disable with --deterministic=false for production-like behavior)")
 )
 
 func main() {
