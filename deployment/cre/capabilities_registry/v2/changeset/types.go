@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type CapabilitiesRegistryNodeOperator struct {
@@ -60,10 +62,12 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
 	}
 
-	p2pIDBytes, err := hexStringTo32Bytes(node.P2pID)
+	// P2PID is not a hex value
+	p2pIDBytes, err := p2pkey.MakePeerID(node.P2pID)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert P2P ID: %w", err)
 	}
+
 	encryptionPublicKeyBytes, err := hexStringTo32Bytes(node.EncryptionPublicKey)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryption public key: %w", err)
@@ -109,8 +113,9 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v
 	}
 
 	nodes := make([][32]byte, len(don.Nodes))
+	// These are P2P IDs, they are not hex values
 	for i, node := range don.Nodes {
-		n, err := hexStringTo32Bytes(node)
+		n, err := p2pkey.MakePeerID(node)
 		if err != nil {
 			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to convert node ID: %w", err)
 		}
