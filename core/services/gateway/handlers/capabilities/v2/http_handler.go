@@ -136,6 +136,7 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 
 func (h *gatewayHandler) Methods() []string {
 	return []string{
+		gateway_common.MethodWorkflowExecute,
 		gateway_common.MethodHTTPAction,
 		gateway_common.MethodPushWorkflowMetadata,
 		gateway_common.MethodPullWorkflowMetadata,
