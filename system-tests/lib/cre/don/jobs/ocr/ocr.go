@@ -106,7 +106,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		// create job specs for the bootstrap node
 		donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainID))
-		logger.Debug().Msgf("Deployed EVM OCR3 contract on chain %d at %s", chainID, ocr3ConfigContractAddress.Address)
+		logger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", chainID, ocr3ConfigContractAddress.Address)
 
 		for _, workerNode := range workflowNodeSet {
 			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)

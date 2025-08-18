@@ -1,6 +1,8 @@
 package contracts
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -19,6 +21,7 @@ type DeployKeystoneContractsSequenceInput struct {
 	ForwardersSelectors   []uint64
 	DeployVaultOCR3       bool
 	DeployEVMOCR3         bool
+	EVMChainIds           []uint64
 	DeployConsensusOCR3   bool
 }
 
@@ -104,14 +107,18 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			}
 		}
 		if input.DeployEVMOCR3 {
-			// EVM cap OCR3 Contract
-			evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_evm"})
-			if err != nil {
-				return DeployKeystoneContractsSequenceOutput{}, err
-			}
-			err = updateAddresses(as.Addresses(), evmOCR3DeployReport.Output.Addresses, ab, evmOCR3DeployReport.Output.AddressBook)
-			if err != nil {
-				return DeployKeystoneContractsSequenceOutput{}, err
+			for _, chainID := range input.EVMChainIds {
+				// EVM cap OCR3 Contract
+				fmt.Printf("Processing EVM Block Chain ID: %d\n", chainID)
+				qualifier := fmt.Sprintf("capability_evm_%d", chainID)
+				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: qualifier})
+				if err != nil {
+					return DeployKeystoneContractsSequenceOutput{}, err
+				}
+				err = updateAddresses(as.Addresses(), evmOCR3DeployReport.Output.Addresses, ab, evmOCR3DeployReport.Output.AddressBook)
+				if err != nil {
+					return DeployKeystoneContractsSequenceOutput{}, err
+				}
 			}
 		}
 		if input.DeployConsensusOCR3 {

@@ -80,7 +80,7 @@ var EVMJobSpecFactoryFn = func(logger zerolog.Logger, chainID uint64, config map
 			capabilitiesAwareNodeSets,
 			infraInput,
 			evmBinaryPath,
-			"capability_evm",
+			fmt.Sprintf("capability_evm_%d", chainID),
 			cre.EVMCapability,
 			fmt.Sprintf("evm-capability-%d", chainID),
 			configGen,
