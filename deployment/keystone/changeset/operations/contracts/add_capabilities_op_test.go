@@ -25,7 +25,7 @@ func doAppendCapabilitiesOp(t *testing.T, useMcms bool) {
 	})
 	b := optest.NewBundle(t)
 
-	// write capabilites
+	// write capabilities
 	capA := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_test_chain1",
 		Version:        "0.4.2",
@@ -79,7 +79,7 @@ func doUpdateDonOp(t *testing.T, useMcms bool) {
 	})
 	b := optest.NewBundle(t)
 
-	// write capabilites
+	// write capabilities
 	capA := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_test_chain1",
 		Version:        "0.4.2",
