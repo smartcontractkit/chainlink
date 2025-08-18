@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/shopspring/decimal"
@@ -27,7 +28,9 @@ import (
 )
 
 const (
-	RatiosKey               = "spendRatios"
+	RatiosKey = "spendRatios"
+	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
+	// in the billing service project, the value here needs to change.
 	defaultDecimalPrecision = 3 // one thousandth of a dollar
 )
 
@@ -532,7 +535,12 @@ func (r *Report) creditToSpendingLimits(
 			return []capabilities.SpendLimit{}
 		}
 
-		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
+		formattedLimit := spendLimit.StringFixed(defaultDecimalPrecision)
+		if strings.HasPrefix(string(spendType), "GAS.") {
+			formattedLimit = spendLimit.StringFixed(0)
+		}
+
+		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: formattedLimit})
 	}
 
 	return limits
