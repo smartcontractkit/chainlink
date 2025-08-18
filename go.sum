@@ -1130,8 +1130,12 @@ github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-7549
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335/go.mod h1:ccjEgNeqOO+bjPddnL4lUrNLzyCvGCxgBjJdhFX3wa8=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df h1:36e3ROIZyV/qE8SvFOACXtXfMOMd9vG4+zY2v2ScXkI=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
-github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250729190115-fa322d3f3238 h1:ly+QfDAAkfCfGHXro2ggCDflCuGtNgmhwJKK77nD+PE=
-github.com/smartcontractkit/cre-sdk-go v0.2.1-0.20250729190115-fa322d3f3238/go.mod h1:HqCmnnjRZ0B3uAMify4/Wahaz6kvwoZ6SvD1989M9QQ=
+github.com/smartcontractkit/cre-sdk-go v0.4.1-0.20250807065631-d6b50ae199ab h1:9jMCSiRJDBxruDtXuGVuOv/p/hOVACMY5vmBWIxPfZs=
+github.com/smartcontractkit/cre-sdk-go v0.4.1-0.20250807065631-d6b50ae199ab/go.mod h1:H5D63wpgaQH57Zuv76azi8ZvSgS2N7xfvPzCxuPT8uU=
+github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.5.0 h1:jQjT6INWaHjjsSsZ4Ejmlqv7SmhEYEOOilVdP+4Iquk=
+github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.5.0/go.mod h1:ECX74dHiiP7Am1oGpH7uR31eN70LQmljkaXEID7/Ppk=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.0 h1:28gvcfqOu36q8tml2nkesVTg42ZCs18iJ4E1LeLeSMA=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.0/go.mod h1:yHFA/9EJUJ8ZpJPogwjYdT2BER9mQ/mPcz/0SIwTpR8=
 github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e h1:Hv9Mww35LrufCdM9wtS9yVi/rEWGI1UnjHbcKKU0nVY=
 github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e/go.mod h1:T4zH9R8R8lVWKfU7tUvYz2o2jMv1OpGCdpY2j2QZXzU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
