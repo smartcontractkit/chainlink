@@ -10,6 +10,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"sort"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -215,6 +216,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			r.observeCreateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		case *vault.UpdateSecretsRequest:
 			r.observeUpdateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
+		case *vault.ListSecretIdentifiersRequest:
+			r.observeListSecretIdentifiers(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
 			continue
@@ -489,6 +492,73 @@ func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
+func (r *ReportingPlugin) observeListSecretIdentifiersRequest(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
+	tp := req.(*vault.ListSecretIdentifiersRequest)
+	o.RequestType = vault.RequestType_LIST_SECRET_IDENTIFIERS
+	o.Request = &vault.Observation_ListSecretIdentifiersRequest{
+		ListSecretIdentifiersRequest: tp,
+	}
+	l := r.lggr.With("requestId", tp.RequestId, "requestType", "ListSecretIdentifiers", "owner", tp.Owner)
+
+	resp, err := r.processListSecretIdentifiersRequest(ctx, l, reader, tp)
+	if err != nil {
+		l.Debugw("failed to process list secret identifiers request", "error", err)
+		o.Response = &vault.Observation_ListSecretIdentifiersResponse{
+			ListSecretIdentifiersResponse: &vault.ListSecretIdentifiersResponse{
+				Error:   err.Error(),
+				Success: false,
+			},
+		}
+		return
+	}
+
+	l.Debugw("observed list secret identifiers request")
+	o.Response = &vault.Observation_ListSecretIdentifiersResponse{
+		ListSecretIdentifiersResponse: resp,
+	}
+}
+
+func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Context, l logger.Logger, reader ReadKVStore, req *vault.ListSecretIdentifiersRequest) (*vault.ListSecretIdentifiersResponse, error) {
+	if req.Owner == "" {
+		return nil, errors.New("invalid request: owner cannot be empty")
+	}
+
+	md, err := reader.GetMetadata(req.Owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metadata for owner: %w", err)
+	}
+
+	if md == nil {
+		// No metadata, so the list is empty.
+		// The user hasn't added any items to the vault DON yet.
+		l.Debugw("successfully read metadata for owner: no metadata found, returning empty list")
+		return &vault.ListSecretIdentifiersResponse{Identifiers: []*vault.SecretIdentifier{}, Success: true}, nil
+	}
+
+	sort.Slice(md.SecretIdentifiers, func(i, j int) bool {
+		if md.SecretIdentifiers[i].Namespace == md.SecretIdentifiers[j].Namespace {
+			return md.SecretIdentifiers[i].Key < md.SecretIdentifiers[j].Key
+		}
+		return md.SecretIdentifiers[i].Namespace < md.SecretIdentifiers[j].Namespace
+	})
+
+	if req.Namespace == "" {
+		return &vault.ListSecretIdentifiersResponse{Identifiers: md.SecretIdentifiers, Success: true}, nil
+	}
+
+	si := []*vault.SecretIdentifier{}
+	for _, id := range md.SecretIdentifiers {
+		if id.Namespace == req.Namespace {
+			si = append(si, id)
+		}
+	}
+
+	return &vault.ListSecretIdentifiersResponse{
+		Identifiers: si,
+		Success:     true,
+	}, nil
+}
+
 func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (*vault.SecretIdentifier, error) {
 	if id == nil {
 		return nil, newUserError("invalid secret identifier: cannot be nil")
@@ -664,7 +734,10 @@ func validateObservation(o *vault.Observation) error {
 
 			idSet[keyFor(r.Id)] = true
 		}
-
+	case vault.RequestType_LIST_SECRET_IDENTIFIERS:
+		if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
+			return errors.New("ListSecretIdentifiers observation must have both request and response")
+		}
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -747,6 +820,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			os.Outcomes = append(os.Outcomes, o)
 		case vault.RequestType_UPDATE_SECRETS:
 			r.stateTransitionUpdateSecrets(ctx, store, chosen, o)
+			os.Outcomes = append(os.Outcomes, o)
+		case vault.RequestType_LIST_SECRET_IDENTIFIERS:
+			r.stateTransitionListSecretIdentifiers(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
 			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
