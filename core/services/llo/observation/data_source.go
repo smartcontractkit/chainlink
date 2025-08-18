@@ -281,20 +281,19 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 		}
 
-		// Cancel the context, so the linter doesn't complain.
-		cancel()
-
 		promObservationLoopDuration.WithLabelValues(
 			opts.ConfigDigest().String()).Observe(float64(elapsed.Milliseconds()))
 
-		switch {
-		case elapsed < observationInterval:
+		if elapsed < observationInterval {
 			lggr.Debugw("Observation loop sleep", "elapsed_ms", elapsed.Milliseconds(),
 				"interval_ms", observationInterval.Milliseconds(), "sleep_ms", observationInterval-elapsed)
 			time.Sleep(observationInterval - elapsed)
-		default:
+		} else {
 			lggr.Debugw("Observation loop", "elapsed_ms", elapsed.Milliseconds(), "interval_ms", observationInterval.Milliseconds())
 		}
+
+		// Cancel the context, so the linter doesn't complain.
+		cancel()
 	}
 }
 
