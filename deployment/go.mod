@@ -66,6 +66,7 @@ require (
 	google.golang.org/protobuf v1.36.7
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/yaml.v3 v3.0.1
+	gotest.tools/v3 v3.5.2
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 )
 
@@ -475,11 +476,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-<<<<<<< HEAD
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-=======
-	gotest.tools/v3 v3.5.2 // indirect
->>>>>>> e9f31a6f97dabf3a6b5b725cd12901ce18c8d6fe
 	k8s.io/api v0.31.3 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
 	k8s.io/apimachinery v0.31.3 // indirect
