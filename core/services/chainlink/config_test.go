@@ -591,6 +591,7 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 		HeartbeatInterval:     commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:   ptr(false),
 	}
 	full.CRE = toml.CreConfig{
 		Streams: &toml.StreamsConfig{
