@@ -178,13 +178,25 @@ func (h *httpTriggerHandler) validateTriggerParams(triggerReq *gateway_common.HT
 }
 
 func (h *httpTriggerHandler) validateWorkflowFields(workflow gateway_common.WorkflowSelector, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
-	if workflow.WorkflowID != "" && !strings.HasPrefix(workflow.WorkflowID, "0x") {
-		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callbackCh)
-		return errors.New("workflowID must be prefixed with '0x'")
+	if workflow.WorkflowID != "" {
+		if !strings.HasPrefix(workflow.WorkflowID, "0x") {
+			h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callbackCh)
+			return errors.New("workflowID must be prefixed with '0x'")
+		}
+		if workflow.WorkflowID != strings.ToLower(workflow.WorkflowID) {
+			h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowID must be lowercase", callbackCh)
+			return errors.New("workflowID must be lowercase")
+		}
 	}
-	if workflow.WorkflowOwner != "" && !strings.HasPrefix(workflow.WorkflowOwner, "0x") {
-		h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callbackCh)
-		return errors.New("workflowOwner must be prefixed with '0x'")
+	if workflow.WorkflowOwner != "" {
+		if !strings.HasPrefix(workflow.WorkflowOwner, "0x") {
+			h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callbackCh)
+			return errors.New("workflowOwner must be prefixed with '0x'")
+		}
+		if workflow.WorkflowOwner != strings.ToLower(workflow.WorkflowOwner) {
+			h.handleUserError(requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be lowercase", callbackCh)
+			return errors.New("workflowOwner must be lowercase")
+		}
 	}
 	return nil
 }

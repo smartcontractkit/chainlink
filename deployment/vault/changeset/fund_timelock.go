@@ -95,7 +95,8 @@ func GetTimelockBalances(e cldf.Environment, chainSelectors []uint64) (map[uint6
 
 		timelockAddr, err := GetContractAddress(e.DataStore, chainSelector, commontypes.RBACTimelock)
 		if err != nil {
-			return nil, fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+			e.Logger.Debugf("Timelock not found for chain %d, skipping balance check: %v", chainSelector, err)
+			continue
 		}
 
 		timelockAddress := common.HexToAddress(timelockAddr)

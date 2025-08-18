@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -188,6 +189,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 func (h *handler) Methods() []string {
 	return []string{
 		MethodSecretsCreate,
+		MethodSecretsUpdate,
 	}
 }
 
@@ -196,7 +198,13 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("handling vault request", "method", req.Method, "id", req.ID)
+	// Generate a unique ID for the request.
+	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
+	if req.ID == "" {
+		return errors.New("request ID cannot be empty")
+	}
+
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestId", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
@@ -209,16 +217,19 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	switch req.Method {
 	case MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
+	case MethodSecretsUpdate:
+		return h.handleSecretsUpdate(ctx, ar)
 	default:
 		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError))
 	}
 }
 
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	h.lggr.Debugw(fmt.Sprintf("Received response: %v", resp), "nodeAddr", nodeAddr)
+	l := logger.With(h.lggr, "method", resp.Method, "requestId", resp.ID, "nodeAddr", nodeAddr)
+	l.Debugw("handling node response")
 
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
-		h.lggr.Debugw("node is rate limited", "nodeAddr", nodeAddr)
+		l.Debugw("node is rate limited", "nodeAddr", nodeAddr)
 		return nil
 	}
 
@@ -228,7 +239,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	if !ok {
 		// Request is not found, so we don't need to send a response to the user
 		// This might happen if the response is stale
-		h.lggr.Errorw("no pending request found for ID", "request_id", resp.ID)
+		l.Errorw("no pending request found for ID")
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 			attribute.String("error", api.StaleNodeResponseError.String()),
@@ -238,6 +249,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
+		l.Errorw("failed to encode response", "error", err)
 		return h.sendResponse(ctx, ur, h.errorResponse(ur.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err)))
 	}
 
@@ -248,6 +260,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		errorCode = api.NoError
 	}
 
+	l.Debugw("issued user callback", "errorCode", errorCode)
 	successResp := gw_handlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
@@ -256,12 +269,14 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 }
 
 func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
 	var secretsCreateRequest SecretsCreateRequest
 	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
 	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
+		l.Debugw("invalid request parameters: secret id and value cannot be empty")
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
 	}
 
@@ -271,7 +286,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
 		if err != nil {
 			nodeErrors = append(nodeErrors, err)
-			h.lggr.Errorw("error sending request to node", "node", node.Address, "error", err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
 		}
 	}
 
@@ -279,7 +294,42 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
-	h.lggr.Debugf("Forwarded request to Vault nodes: %v", ar.req)
+	l.Debugw("successfully forwarded request to Vault nodes")
+	return nil
+}
+
+func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+
+	req := &vault.UpdateSecretsRequest{}
+	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	req.RequestId = ar.req.ID
+
+	reqb, err := json.Marshal(req)
+	if err != nil {
+		l.Errorw("failed to marshal request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+	}
+
+	ar.req.Params = (*json.RawMessage)(&reqb)
+
+	var nodeErrors []error
+	for _, node := range h.donConfig.Members {
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		if err != nil {
+			nodeErrors = append(nodeErrors, err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
+	}
+
+	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+	}
+
+	l.Debugw("successfully forwarded request to Vault nodes")
 	return nil
 }
 
