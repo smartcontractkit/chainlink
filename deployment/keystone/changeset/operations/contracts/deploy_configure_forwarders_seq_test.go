@@ -113,6 +113,8 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 		NumChains:       2,
 		UseMCMS:         useMcms,
 	})
+	testChain := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
+	require.NotEqual(t, testChain, te.RegistrySelector)
 	capA := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_test_chain1",
 		Version:        "0.4.2",
@@ -155,7 +157,15 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 	input := contracts.DeployConfigureForwardersSeqInput{
 		ForwaderDeploymentChains: map[uint64]contracts.ForwarderDeploymentOps{
 			registrySel: {
-				Dons: []contracts.ConfigureKeystoneDON{
+				WfDons: []contracts.ConfigureKeystoneDON{
+					{
+						Name:    "wfDon",
+						NodeIDs: wfNodes,
+					},
+				},
+			},
+			testChain: {
+				WfDons: []contracts.ConfigureKeystoneDON{
 					{
 						Name:    "wfDon",
 						NodeIDs: wfNodes,
