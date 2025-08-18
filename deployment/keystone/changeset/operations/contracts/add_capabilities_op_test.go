@@ -60,7 +60,6 @@ func doAppendCapabilitiesOp(t *testing.T, useMcms bool) {
 		require.Len(t, opOutput.Output.MCMSTimelockProposals[0].Operations[0].Transactions, 2) // add capabilities, update nodes
 	}
 }
-
 func TestAppendCapabilitiesWithMCMS(t *testing.T) {
 	t.Parallel()
 	doAppendCapabilitiesOp(t, true)
@@ -68,16 +67,6 @@ func TestAppendCapabilitiesWithMCMS(t *testing.T) {
 func TestAppendCapabilitiesWithoutMCMS(t *testing.T) {
 	t.Parallel()
 	doAppendCapabilitiesOp(t, false)
-}
-
-func TestUpdateDonOpWithMCMS(t *testing.T) {
-	t.Parallel()
-	doUpdateDonOp(t, true)
-}
-
-func TestUpdateDonOpWithoutMCMS(t *testing.T) {
-	t.Parallel()
-	doUpdateDonOp(t, false)
 }
 
 func doUpdateDonOp(t *testing.T, useMcms bool) {
@@ -133,4 +122,12 @@ func doUpdateDonOp(t *testing.T, useMcms bool) {
 		require.Len(t, opOutput.Output.MCMSTimelockProposals[0].Operations, 1)
 		require.Len(t, opOutput.Output.MCMSTimelockProposals[0].Operations[0].Transactions, 3)
 	}
+}
+func TestUpdateDonOpWithMCMS(t *testing.T) {
+	t.Parallel()
+	doUpdateDonOp(t, true)
+}
+func TestUpdateDonOpWithoutMCMS(t *testing.T) {
+	t.Parallel()
+	doUpdateDonOp(t, false)
 }
