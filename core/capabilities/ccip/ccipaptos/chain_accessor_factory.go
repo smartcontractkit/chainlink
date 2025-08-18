@@ -13,18 +13,10 @@ type AptosChainAccessorFactory struct{}
 func (f AptosChainAccessorFactory) NewChainAccessor(
 	params common.ChainAccessorFactoryParams,
 ) (ccipocr3.ChainAccessor, error) {
-	reader, err := common.WrapContractReaderForDefaultAccessor(
-		params.ContractReader,
-		params.ChainSelector,
-		params.Lggr,
-	)
-	if err != nil {
-		return nil, err
-	}
 	return chainaccessor.NewDefaultAccessor(
 		params.Lggr,
 		params.ChainSelector,
-		reader,
+		params.ExtendedContractReader,
 		params.ContractWriter,
 		params.AddrCodec,
 	)

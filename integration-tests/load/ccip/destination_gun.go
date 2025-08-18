@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"go.uber.org/atomic"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
@@ -397,7 +398,7 @@ func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
 		return fmt.Errorf("failed to get Solana message: %w", err)
 	}
 
-	sendRequestCfg := testhelpers.CCIPSendReqConfig{
+	sendRequestCfg := ccipclient.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    m.chainSelector,
 		IsTestRouter: false,

@@ -328,5 +328,6 @@ func getTypeToProgramDeployName() map[cldf.ContractType]string {
 		types.RBACTimelockProgram:      deployment.TimelockProgramName,
 		shared.Receiver:                deployment.ReceiverProgramName,
 		ks_shared.Forwarder:            deployment.KeystoneForwarderProgramName,
+		ks_shared.DataFeedsCache:       deployment.DataFeedsCacheProgramName,
 	}
 }

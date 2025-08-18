@@ -829,6 +829,58 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
 	})
+
+	t.Run("workflowID uppercase", func(t *testing.T) {
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: "0x1234567890ABCDEF1234567890abcdef12345678901234567890abcdef123456", // Contains uppercase
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-uppercase-wf",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
+
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "workflowID must be lowercase")
+
+		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+	})
+
+	t.Run("workflowOwner uppercase", func(t *testing.T) {
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowOwner: "0x1234567890ABCDEF1234567890abcdef12345678", // Contains uppercase
+				WorkflowName:  "test-workflow",
+				WorkflowTag:   "v1.0",
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-uppercase-owner",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
+
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "workflowOwner must be lowercase")
+
+		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+	})
 }
 
 func createTestTriggerRequest() gateway_common.HTTPTriggerRequest {
