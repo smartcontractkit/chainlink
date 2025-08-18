@@ -122,8 +122,7 @@ jobs:
       # gotestloghelper gives us pretty test output
       - name: Set Up gotestloghelper
         shell: bash
-        run:
-          go install
+        run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
       # TODO: checkout that repo and build each capability instead
@@ -135,9 +134,6 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           gati-region: ${{ secrets.AWS_REGION }}
-
-      # TODO
-      # Add Flakeguard support
 
       - name: Enable cron capability
         shell: bash
@@ -182,8 +178,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name:
-            test-logs-${{ matrix.tests.test_name }}
+          name: test-logs-${{ matrix.tests.test_name }}
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/

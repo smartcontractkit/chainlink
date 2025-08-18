@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/type_and_version"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
 )
 
 type ContractType string

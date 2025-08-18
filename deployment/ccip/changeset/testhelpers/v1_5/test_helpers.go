@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
@@ -274,9 +276,9 @@ func SendRequest(
 	t *testing.T,
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	opts ...testhelpers.SendReqOpts,
+	opts ...ccipclient.SendReqOpts,
 ) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
-	cfg := &testhelpers.CCIPSendReqConfig{}
+	cfg := &ccipclient.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}

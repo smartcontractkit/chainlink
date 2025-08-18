@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 )
 
@@ -163,6 +164,7 @@ func (ks *aptos) getByID(id string) (aptoskey.Key, error) {
 // Handles signing for Apots Messages
 type AptosLooppSigner struct {
 	Aptos
+	core.UnimplementedKeystore
 }
 
 var _ loop.Keystore = &AptosLooppSigner{}
@@ -177,4 +179,8 @@ func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err
 		accounts = append(accounts, k.ID())
 	}
 	return
+}
+
+func (s *AptosLooppSigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	return s.Aptos.Sign(ctx, account, data)
 }
