@@ -206,7 +206,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
 	})
 
-	timeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	}
 
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
@@ -391,7 +394,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
-	timeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr)
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	}
 
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
