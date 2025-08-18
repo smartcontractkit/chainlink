@@ -52,8 +52,6 @@ flowchart LR
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/values
 	click chainlink-common/pkg/values href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-common/pkg/workflows/sdk/v2/pb --> chainlink-common/pkg/values
-	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-evm/gethwrappers
@@ -67,7 +65,6 @@ flowchart LR
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/capabilities --> chainlink-common
-	chainlink-framework/capabilities --> chainlink-common/pkg/values
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
@@ -107,7 +104,7 @@ flowchart LR
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
-	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
+	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/networking/http --> cre-sdk-go
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
@@ -139,7 +136,6 @@ flowchart LR
 		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
-		 chainlink-common/pkg/workflows/sdk/v2/pb
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
@@ -356,6 +352,7 @@ flowchart LR
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
+	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/networking/http --> cre-sdk-go
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
