@@ -8,8 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-// TransferOwnershipForwarderRequest wraps the generic request for forwarder contracts
-type TransferOwnershipForwarderRequest struct {
+// TransferOwnershipCacheRequest wraps the generic request for cache contracts
+type TransferOwnershipCacheRequest struct {
 	ChainSel                    uint64
 	CurrentOwner, ProposedOwner solana.PublicKey
 	Version                     string
@@ -17,16 +17,16 @@ type TransferOwnershipForwarderRequest struct {
 	MCMSCfg                     proposalutils.TimelockConfig
 }
 
-// TransferOwnershipForwarder implementation
-var _ cldf.ChangeSetV2[*TransferOwnershipForwarderRequest] = TransferOwnershipForwarder{}
+// TransferOwnershipCache implementation
+var _ cldf.ChangeSetV2[*TransferOwnershipCacheRequest] = TransferOwnershipCache{}
 
-type TransferOwnershipForwarder struct{}
+type TransferOwnershipCache struct{}
 
-func (cs TransferOwnershipForwarder) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipForwarderRequest) error {
-	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, "ForwarderContract")
+func (cs TransferOwnershipCache) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipCacheRequest) error {
+	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, "CacheContract")
 }
 
-func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOwnershipForwarderRequest) (cldf.ChangesetOutput, error) {
+func (cs TransferOwnershipCache) Apply(env cldf.Environment, req *TransferOwnershipCacheRequest) (cldf.ChangesetOutput, error) {
 	genericReq := &commonchangeset.TransferOwnershipRequest{
 		ChainSel:      req.ChainSel,
 		CurrentOwner:  req.CurrentOwner,
@@ -35,10 +35,10 @@ func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOw
 		Qualifier:     req.Qualifier,
 		MCMSCfg:       req.MCMSCfg,
 		ContractConfig: commonchangeset.ContractConfig{
-			ContractType: "ForwarderContract",
-			StateType:    "ForwarderState",
-			OperationID:  "transfer-ownership-forwarder",
-			Description:  "transfers ownership of forwarder to mcms",
+			ContractType: CacheContract,
+			StateType:    CacheState,
+			OperationID:  "transfer-ownership-cache",
+			Description:  "transfers ownership of cache to mcms",
 		},
 	}
 	return commonchangeset.GenericTransferOwnership(env, genericReq)
