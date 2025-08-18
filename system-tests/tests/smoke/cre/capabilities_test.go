@@ -283,6 +283,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	*/
 	framework.L.Info().Msg("Creating secret...")
 	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
+		ID:      "request-id",
 		Version: jsonrpc.JsonRpcVersion,
 		Method:  vault.MethodSecretsCreate,
 		Params: &vault.SecretsCreateRequest{
