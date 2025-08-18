@@ -64,7 +64,9 @@ import (
 /*
 To execute on local start the local CRE first with following command:
 # inside core/scripts/cre/environment directory
-go run . env start
+1. ensure necessary capabilities (cron, readcontract) are added (see README in core/scripts/cre/environment for [extra_capabilities])
+2. `go run . env start --extra-allowed-gateway-ports=16000 && ctf obs up && ctf bs up`.
+It will start env + observability + blockscout.
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
 	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
@@ -185,7 +187,8 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
-		testLogger.Info().Msg("Proceeding to register PoR workflow...")
+		testLogger.Info().Msg("Registering PoR workflow...")
+		testLogger.Info().Msg("Creating workflow config file.")
 
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
@@ -194,6 +197,13 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		)
 		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
 
+		readContractAddress, readContractErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			homeChainSelector,
+			keystone_changeset.BalanceReader.String(),
+		)
+		require.NoError(t, readContractErr, "failed to find read contract address for chain %d", bcOutput.ChainID)
+
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			bcOutput.ChainSelector,
@@ -201,8 +211,9 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		)
 		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
 
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
+		workflowConfigFilePath, configErr := createConfigFile(readContractAddress, dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
+		testLogger.Info().Msgf("Workflow config file created.")
 
 		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
 		require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
@@ -538,7 +549,9 @@ func logTestInfo(l zerolog.Logger, feedID, dataFeedsCacheAddr, forwarderAddr str
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
-func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
+// Creates workflow configuration file storing the necessary values used by a workflow (i.e. feedID, read/write contract addresses)
+// The values are written to types.WorkflowConfig
+func createConfigFile(readContractAddress, feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 	feedLength := len(cleanFeedID)
 
@@ -553,6 +566,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	feedIDToUse := "0x" + cleanFeedID
 
 	workflowConfig := portypes.WorkflowConfig{
+		BalanceReaderAddress: readContractAddress.Hex(),
 		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedIDToUse,
 			URL:                   dataURL,
@@ -561,6 +575,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 		},
 	}
 
+	// Write workflow config to a file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")

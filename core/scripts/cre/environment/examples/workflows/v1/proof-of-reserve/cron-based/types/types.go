@@ -4,7 +4,8 @@ import "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 type WorkflowConfig struct {
 	// name of the secret that stores authentication key
-	AuthKeySecretName string `yaml:"auth_key_secret_name"`
+	AuthKeySecretName    string `yaml:"auth_key_secret_name"`
+	BalanceReaderAddress string `yaml:"balance_reader_address"`
 	ComputeConfig
 }
 

@@ -206,6 +206,8 @@ func SetupTestEnvironment(
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	// DEPLOY CONTRACTS
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	evmForwardersSelectors := make([]uint64, 0)
@@ -250,6 +252,7 @@ func SetupTestEnvironment(
 		}
 	}
 
+	// use CLD to deploy the necessary contracts
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
 		ks_contracts_op.DeployKeystoneContractsSequence,
@@ -499,6 +502,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
 	}()
 
+	// JOB DISTRIBUTOR + JOBS (creation and distribution to nodes)
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor, DONs and creating Jobs with Job Distributor")))
 
 	jdOutput, nodeSetOutput, jobsSeqErr := SetupJobs(
