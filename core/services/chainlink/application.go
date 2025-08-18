@@ -1569,5 +1569,7 @@ func getTronChainIDs() map[string]bool {
 		"2494104990": true,
 		// Tron Nile Testnet
 		"3448148188": true,
+		// Tron localnet
+		"3360022319": true,
 	}
 }

@@ -96,7 +96,9 @@ func ValidateCacheForTronChain(env cldf.Environment, chainSelector uint64, cache
 	if chainState.DataFeeds == nil {
 		return errors.New("DataFeeds not found in on chain state")
 	}
-	exists := chainState.DataFeeds[cacheAddress.String()]
+	// Convert Tron address to Ethereum hex format for lookup, matching our storage format
+	ethHexAddr := cacheAddress.EthAddress().Hex()
+	exists := chainState.DataFeeds[ethHexAddr]
 	if !exists {
 		return errors.New("contract not found in on chain state")
 	}

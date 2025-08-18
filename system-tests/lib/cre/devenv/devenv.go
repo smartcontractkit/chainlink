@@ -81,6 +81,10 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 			if len(input.Topology.DonsMetadata[idx].SupportedChains) > 0 && !slices.Contains(input.Topology.DonsMetadata[idx].SupportedChains, bcOut.ChainID) {
 				continue
 			}
+			if bcOut.TronChain != nil {
+				// skip tron chain for now, it will be manually deployed
+				continue
+			}
 
 			chainConfig, err := buildChain(chainSelector, bcOut.BlockchainOutput)
 			if err != nil {
@@ -168,6 +172,9 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	// create chains for all chains that are supported by any of the DONs, so that changeset can be applied to all chains
 	allChainsConfigs := make([]devenv.ChainConfig, 0)
 	for chainSelector, bcOut := range input.BlockchainOutputs {
+		if bcOut.TronChain != nil {
+			continue
+		}
 		sethClient, ok := input.SethClients[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)

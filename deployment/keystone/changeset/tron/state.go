@@ -1,6 +1,7 @@
 package tron
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -39,10 +40,11 @@ func LoadTronContractsState(logger logger.Logger, addresses []datastore.AddressR
 
 	for _, addr := range addresses {
 		if addr.Type == ForwarderContract {
-			forwarderAddress, err := address.Base58ToAddress(addr.Address)
+			// Convert from Ethereum format back to Tron address
+			forwarderAddress := address.EVMAddressToAddress(common.HexToAddress(addr.Address))
 			state.Forwarder = forwarderAddress
 
-			return &state, err
+			return &state, nil
 		}
 	}
 	return &state, nil

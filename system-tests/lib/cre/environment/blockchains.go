@@ -1,11 +1,13 @@
 package environment
 
 import (
+	"context"
 	"maps"
 	"math/big"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -44,6 +48,7 @@ type BlockchainOutput struct {
 }
 
 func CreateBlockchains(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	input BlockchainsInput,
 ) ([]*cre.WrappedBlockchainOutput, error) {
@@ -74,6 +79,68 @@ func CreateBlockchains(
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
+		} else if bi.Type == "tron" {
+			chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
+			if err != nil {
+				return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bi.ChainID)
+			}
+			selector, err := chainselectors.SelectorFromChainId(chainID)
+			if err != nil {
+				return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", bi.ChainID)
+			}
+			signerGen, err := tronprovider.SignerGenCTFDefault()
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "failed to create signer generator")
+			}
+			config := tronprovider.CTFChainProviderConfig{
+				DeployerSignerGen: signerGen,
+				Once:              &sync.Once{},
+			}
+			ctfProvider := tronprovider.NewCTFChainProvider(selector, config)
+			_, err = ctfProvider.Initialize(ctx)
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "failed to initialize blockchain")
+			}
+			chain := ctfProvider.BlockChain()
+			tronChain, ok := chain.(tron.Chain)
+			if !ok {
+				return nil, pkgerrors.New("failed to cast chain to tron.Chain")
+			}
+			// For Tron chains, we need to use host.docker.internal to access the host's localhost
+			// The external URL is typically like "http://localhost:50555/wallet"
+			// We need to convert it to use host.docker.internal for internal connections
+			externalHTTPURL := strings.Replace(tronChain.URL, "wallet", "jsonrpc", 1)
+			internalHTTPURL := ""
+
+			// Extract the port from the external URL dynamically
+			if strings.Contains(externalHTTPURL, "localhost:") {
+				// Use host.docker.internal to access the host's localhost from within the container
+				// This works regardless of the port number
+				internalHTTPURL = strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
+			} else {
+				// Fallback to external URL if we can't determine the internal URL
+				internalHTTPURL = externalHTTPURL
+			}
+
+			bcOut = &blockchain.Output{
+				ChainID: bi.ChainID,
+				Family:  "tron",
+				Nodes: []*blockchain.Node{
+					{
+						InternalHTTPUrl: internalHTTPURL,
+						ExternalHTTPUrl: externalHTTPURL,
+					},
+				},
+			}
+			blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
+				ChainSelector:      selector,
+				ChainID:            chainID,
+				BlockchainOutput:   bcOut,
+				SethClient:         nil,
+				DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
+				TronChain:          &tronChain,
+			})
+			continue
 		} else {
 			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
 			if bcErr != nil {
@@ -102,24 +169,19 @@ func CreateBlockchains(
 			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
 		}
 
-		chainSelector, err = chainselectors.SelectorFromChainId(chainID)
+		chainSelector, err := chainselectors.SelectorFromChainId(chainID)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", chainID)
 		}
 
-		if bi.Type == "tron" {
-			// skip seth client
-			sethClient = nil
-		} else {
-			sethClient, err = seth.NewClientBuilder().
-				WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
-				WithPrivateKeys([]string{pkey}).
-				// do not check if there's a pending nonce nor check node's health
-				WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-				Build()
-			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to create seth client")
-			}
+		sethClient, err = seth.NewClientBuilder().
+			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+			WithPrivateKeys([]string{privateKey}).
+			// do not check if there's a pending nonce nor check node's health
+			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+			Build()
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to create seth client")
 		}
 
 		blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
@@ -144,8 +206,8 @@ type StartBlockchainsOutput struct {
 	BlockChains       map[uint64]chain.BlockChain
 }
 
-func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartBlockchainsOutput, error) {
-	blockchainsOutput, err := CreateBlockchains(loggers.lggr, input)
+func StartBlockchains(ctx context.Context, loggers BlockchainLoggers, input BlockchainsInput) (StartBlockchainsOutput, error) {
+	blockchainsOutput, err := CreateBlockchains(ctx, loggers.lggr, input)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create blockchains")
 	}
@@ -153,14 +215,8 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 	chainsConfigs := make([]devenv.ChainConfig, 0)
 
 	for _, bcOut := range blockchainsOutput {
-		if bcOut.BlockchainOutput.Type == "tron" {
-			// Create a deployer key for Tron contract deployment
-			pkey := os.Getenv("PRIVATE_KEY")
-			if pkey == "" {
-				return StartBlockchainsOutput{}, pkgerrors.New("PRIVATE_KEY env var must be set for Tron deployment")
-			}
-
-			privateKey, err := crypto.HexToECDSA(pkey)
+		if bcOut.TronChain != nil {
+			privateKey, err := crypto.HexToECDSA(bcOut.DeployerPrivateKey)
 			if err != nil {
 				return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to parse private key for Tron")
 			}
@@ -181,8 +237,8 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 				ChainType: "EVM",
 				WSRPCs:    []devenv.CribRPCs{{}},
 				HTTPRPCs: []devenv.CribRPCs{{
-					External: "http://127.0.0.1:16671/jsonrpc",
-					Internal: "http://127.0.0.1:16671/jsonrpc",
+					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 				}},
 				DeployerKey:        deployerKey,
 				PreferredURLScheme: deployment.URLSchemePreferenceHTTP,

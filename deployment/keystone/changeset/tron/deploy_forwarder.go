@@ -46,7 +46,10 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResponse.Tv.String(), chain.Selector, forwarderResponse.Address.String())
 
-		err = ab.Save(chain.Selector, forwarderResponse.Address.String(), forwarderResponse.Tv)
+		// Convert Tron address to Ethereum hex format for address book compatibility
+		ethAddr := forwarderResponse.Address.EthAddress().Hex()
+
+		err = ab.Save(chain.Selector, ethAddr, forwarderResponse.Tv)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
 		}
@@ -54,7 +57,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		if err = dataStore.Addresses().Add(
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
-				Address:       forwarderResponse.Address.String(),
+				Address:       ethAddr,
 				Type:          ForwarderContract,
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     req.Qualifier,

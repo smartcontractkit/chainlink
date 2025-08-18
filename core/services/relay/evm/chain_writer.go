@@ -169,8 +169,8 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 	}
 
 	err = w.tronTxm.Enqueue(trontxm.TronTxmRequest{
-		FromAddress:     address.Address(methodConfig.FromAddress.String()),
-		ContractAddress: address.Address(toAddress),
+		FromAddress:     address.EVMAddressToAddress(methodConfig.FromAddress),
+		ContractAddress: address.EVMAddressToAddress(common.HexToAddress(toAddress)),
 		Method:          methodSignature,
 		Params:          tronParams,
 	})

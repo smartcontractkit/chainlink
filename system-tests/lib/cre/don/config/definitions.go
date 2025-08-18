@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,21 +30,58 @@ ForwardersEnabled = true
 func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
-		evmChainsConfig += fmt.Sprintf(`
-	[[EVM]]
-	ChainID = '%d'
-	AutoCreateKey = false
+		// TODO: fix temp hard-code hack here
+		if chain.ChainID == 3360022319 {
+			extraWriteURL := strings.Replace(chain.HTTPRPC, "jsonrpc", "wallet", 1)
+			evmChainsConfig += fmt.Sprintf(`
+			[[EVM]]
+			Enabled = true
+			ChainID = '3360022319'
+			AutoCreateKey = false
+			ChainType = 'tron'
+			FinalityTagEnabled = false
+			LogBroadcasterEnabled = false
+			FinalityDepth = 1
+			LogPollInterval = '10s'
+			NoNewHeadsThreshold = '3m0s'
+			FinalizedBlockOffset = 0
 
-	[[EVM.Nodes]]
-	Name = '%s'
-	WSURL = '%s'
-	HTTPURL = '%s'
-`,
-			chain.ChainID,
-			chain.Name,
-			chain.WSRPC,
-			chain.HTTPRPC,
-		)
+			[[EVM.Nodes]]
+			Name = 'primary'
+			HTTPURL = '%s'
+			HTTPURLExtraWrite = '%s'
+
+			[EVM.BalanceMonitor]
+			Enabled = true
+
+			[EVM.GasEstimator]
+			PriceMin = '210 wei'
+			LimitDefault = 6000000
+			LimitMax = 6000000
+
+			[EVM.NodePool]
+			NewHeadsPollInterval = '10s'
+
+			[EVM.HeadTracker]
+			FinalityTagBypass = false
+			`, chain.HTTPRPC, extraWriteURL)
+		} else {
+			evmChainsConfig += fmt.Sprintf(`
+			[[EVM]]
+			ChainID = '%d'
+			AutoCreateKey = false
+
+			[[EVM.Nodes]]
+			Name = '%s'
+			WSURL = '%s'
+			HTTPURL = '%s'
+		`,
+				chain.ChainID,
+				chain.Name,
+				chain.WSRPC,
+				chain.HTTPRPC,
+			)
+		}
 	}
 	return fmt.Sprintf(`
 	[Feature]
@@ -104,24 +142,61 @@ type WorkerEVMInput struct {
 func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) (string, error) {
 	evmChainsConfig := ""
 	for _, chain := range chains {
-		evmChainsConfig += fmt.Sprintf(`
-	[[EVM]]
-	ChainID = '%d'
-	AutoCreateKey = false
-	# reduce workflow registry sync time to minimum to speed up tests & local environment
-	FinalityDepth = 1
-	LogPollInterval = '5s'
+		// TODO: fix temp hard-code hack here
+		if chain.ChainID == 3360022319 {
+			extraWriteURL := strings.Replace(chain.HTTPRPC, "jsonrpc", "wallet", 1)
+			evmChainsConfig += fmt.Sprintf(`
+			[[EVM]]
+			Enabled = true
+			ChainID = '3360022319'
+			AutoCreateKey = false
+			ChainType = 'tron'
+			FinalityTagEnabled = false
+			LogBroadcasterEnabled = false
+			FinalityDepth = 1
+			LogPollInterval = '10s'
+			NoNewHeadsThreshold = '3m0s'
+			FinalizedBlockOffset = 0
 
-	[[EVM.Nodes]]
-	Name = '%s'
-	WSURL = '%s'
-	HTTPURL = '%s'
-`,
-			chain.ChainID,
-			chain.Name,
-			chain.WSRPC,
-			chain.HTTPRPC,
-		)
+			[[EVM.Nodes]]
+			Name = 'primary'
+			HTTPURL = '%s'
+			HTTPURLExtraWrite = '%s'
+
+			[EVM.BalanceMonitor]
+			Enabled = true
+
+			[EVM.GasEstimator]
+			PriceMin = '210 wei'
+			LimitDefault = 6000000
+			LimitMax = 6000000
+
+			[EVM.NodePool]
+			NewHeadsPollInterval = '10s'
+
+			[EVM.HeadTracker]
+			FinalityTagBypass = false
+			`, chain.HTTPRPC, extraWriteURL)
+		} else {
+			evmChainsConfig += fmt.Sprintf(`
+				[[EVM]]
+				ChainID = '%d'
+				AutoCreateKey = false
+				# reduce workflow registry sync time to minimum to speed up tests & local environment
+				FinalityDepth = 1
+				LogPollInterval = '5s'
+
+				[[EVM.Nodes]]
+				Name = '%s'
+				WSURL = '%s'
+				HTTPURL = '%s'
+			`,
+				chain.ChainID,
+				chain.Name,
+				chain.WSRPC,
+				chain.HTTPRPC,
+			)
+		}
 
 		// won't move this to a separate factory function, because this bit needs to be added in the very specific part of the node config
 		// it can't be just concatenated to the config in any random place
