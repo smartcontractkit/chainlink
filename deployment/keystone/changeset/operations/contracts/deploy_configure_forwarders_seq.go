@@ -29,10 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-// maybe lets make this a bit simple
-// lets assume we only do this for new chains
-// so if you are deploying a forwarder, you are configuring only that forwarder and then transferring ownership to mcms
-
+// Use this to deploy keystone forwarders and configure them with the given DONs on NEW CHAINS
 type DeployConfigureForwardersSeqDeps struct {
 	Env         *cldf.Environment
 	Registry    *capabilities_registry.CapabilitiesRegistry
