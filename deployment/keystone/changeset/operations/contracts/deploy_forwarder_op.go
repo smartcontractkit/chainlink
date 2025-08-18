@@ -30,7 +30,7 @@ var DeployKeystoneForwarderOp = operations.NewOperation[DeployForwarderOpInput, 
 	semver.MustParse("1.0.0"),
 	"Deploy KeystoneForwarder Contract",
 	func(b operations.Bundle, deps DeployForwarderOpDeps, input DeployForwarderOpInput) (DeployForwarderOpOutput, error) {
-		forwarderOutput, err := changeset.DeployForwarder(*deps.Env, changeset.DeployForwarderRequest{ChainSelectors: []uint64{input.ChainSelector}})
+		forwarderOutput, err := changeset.DeployForwarder(*deps.Env, changeset.DeployForwarderRequest{ChainSelectors: []uint64{input.ChainSelector}, Qualifier: input.Qualifier})
 		if err != nil {
 			return DeployForwarderOpOutput{}, err
 		}
