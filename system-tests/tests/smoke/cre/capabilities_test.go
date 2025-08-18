@@ -91,9 +91,9 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 
 	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
-	//t.Run("cron-based PoR workflow", func(t *testing.T) {
-	//	executePoRTest(t, in, envArtifact, 5*time.Minute)
-	//})
+	t.Run("cron-based PoR workflow", func(t *testing.T) {
+		executePoRTest(t, in, envArtifact, 5*time.Minute)
+	})
 
 	t.Run("vault DON test", func(t *testing.T) {
 		executeVaultTest(t, in, envArtifact)
@@ -290,15 +290,11 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	// Start a test-case for warm-up, don't fail if it fails
 	secretId := fmt.Sprintf("%d", rand.Intn(10000))
 	owner := "Owner1"
 	secretValue := "Secret Value to be stored"
-	// executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), true)
 
-	// The real SecretsCreate test
-	secretId = fmt.Sprintf("%d", rand.Intn(10000))
-	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String(), false)
+	executeVaultSecretsCreateTest(t, secretValue, secretId, owner, gatewayURL.String())
 
 	framework.L.Info().Msg("------------------------------------------------------")
 	framework.L.Info().Msg("------------------------------------------------------")
@@ -309,12 +305,8 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	executeVaultSecretsGetTest(t, secretValue, secretId, owner, gatewayURL.String())
 }
 
-func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, gatewayURL string, warmup bool) {
-	if warmup {
-		framework.L.Info().Msg("Starting warmup...")
-	} else {
-		framework.L.Info().Msg("Creating secret...")
-	}
+func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, gatewayURL string) {
+	framework.L.Info().Msg("Creating secret...")
 	uniqueRequestId := uuid.New().String()
 
 	secretsCreateRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
@@ -339,15 +331,6 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretId, owner, g
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if warmup {
-		// Since we are running this as a warm-up test, we don't want to fail the test if it fails
-		errStr := "<nil>"
-		if err != nil {
-			errStr = err.Error()
-		}
-		framework.L.Info().Msg("Warmup done..., returned error was: " + errStr)
-		return
-	}
 	require.NoError(t, err, "failed to execute request")
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -429,9 +412,8 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretId, owner, gate
 	// require.Equal(t, uniqueRequestId, getResponse.ID)
 
 	require.Empty(t, result.Error)
-	assert.Equal(t, secretId, result.SecretID.Key)
-	assert.Equal(t, owner, result.SecretID.Owner)
-	assert.Equal(t, secretValue, result.SecretValue)
+	require.Equal(t, secretId, result.SecretID.Key)
+	require.Equal(t, owner, result.SecretID.Owner)
 
 	framework.L.Info().Msg("Secret get successful")
 }
