@@ -1,12 +1,14 @@
 package v2
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
 )
 
 // responseCache is a thread-safe cache for storing HTTP responses.
@@ -57,7 +59,7 @@ func cacheKey(workflowID string, req gateway.OutboundHTTPRequest) string {
 // the age of cached response is less than the max age of the request.
 // If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 // and caches the response if it is cacheable.
-func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
+func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	key := cacheKey(workflowID, req)
@@ -68,6 +70,7 @@ func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTP
 	}
 	response := fetchFn()
 	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
+		metrics.IncrementHTTPActionCacheHitCount(ctx, rc.lggr)
 		rc.cache[key] = &cachedResponse{
 			response: response,
 			storedAt: time.Now(),
@@ -89,7 +92,7 @@ func (rc *responseCache) Set(workflowID string, req gateway.OutboundHTTPRequest,
 	}
 }
 
-func (rc *responseCache) DeleteExpired() int {
+func (rc *responseCache) DeleteExpired(ctx context.Context) int {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	now := time.Now()
@@ -101,5 +104,7 @@ func (rc *responseCache) DeleteExpired() int {
 		}
 	}
 	rc.lggr.Debugw("Removed expired cached HTTP responses", "count", expiredCount, "remaining", len(rc.cache))
+	metrics.IncrementHTTPActionCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
+	metrics.RecordHTTPActionCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
 	return expiredCount
 }

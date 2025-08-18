@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -59,7 +60,7 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 }
 
 func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req *jsonrpc.Request[json.RawMessage]) (*gateway.AuthorizedKey, error) {
-	_, signer, err := utils.VerifyRequestJWT[json.RawMessage](token, *req)
+	_, signer, err := utils.VerifyRequestJWT(token, *req)
 	if err != nil {
 		h.lggr.Errorw("Failed to verify JWT", "error", err)
 		return nil, err
@@ -133,8 +134,10 @@ func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) e
 	}
 	var combinedErr error
 	for _, member := range h.donConfig.Members {
+		metrics.IncrementHTTPTriggerGatewayCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
+			metrics.IncrementHTTPTriggerGatewayCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
 )
 
 type WorkflowMetadataAggregator struct {
@@ -41,7 +42,7 @@ func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInt
 	}
 }
 
-func (agg *WorkflowMetadataAggregator) reapObservations() {
+func (agg *WorkflowMetadataAggregator) reapObservations(ctx context.Context) {
 	agg.mu.Lock()
 	defer agg.mu.Unlock()
 	now := time.Now()
@@ -67,11 +68,13 @@ func (agg *WorkflowMetadataAggregator) reapObservations() {
 		}
 	}
 	if expiredCount > 0 {
+		metrics.IncrementHTTPTriggerMetadataObservationsCleanUpCount(ctx, int64(expiredCount), agg.lggr)
 		agg.lggr.Debugw("Removed expired callbacks", "count", expiredCount)
 	}
+	metrics.RecordHTTPTriggerMetadataObservationsCount(ctx, int64(len(agg.observations)), agg.lggr)
 }
 
-func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
+func (agg *WorkflowMetadataAggregator) Start(ctx context.Context) error {
 	return agg.StartOnce("WorkflowMetadataAggregator", func() error {
 		agg.lggr.Info("Starting WorkflowMetadataAggregator")
 		go func() {
@@ -80,7 +83,7 @@ func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					agg.reapObservations()
+					agg.reapObservations(ctx)
 				case <-agg.stopCh:
 					return
 				}
