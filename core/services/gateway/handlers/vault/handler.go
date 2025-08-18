@@ -190,6 +190,7 @@ func (h *handler) Methods() []string {
 	return []string{
 		MethodSecretsCreate,
 		MethodSecretsUpdate,
+		MethodSecretsList,
 	}
 }
 
@@ -219,6 +220,8 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handleSecretsCreate(ctx, ar)
 	case MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
+	case MethodSecretsList:
+		return h.handleSecretsList(ctx, ar)
 	default:
 		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError))
 	}
@@ -268,19 +271,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	return h.sendResponse(ctx, ur, successResp)
 }
 
-func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
-	var secretsCreateRequest SecretsCreateRequest
-	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
-	}
-
-	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
-		l.Debugw("invalid request parameters: secret id and value cannot be empty")
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
-	}
-
-	// At this point, we know that the request is valid and we can send it to the nodes
+func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar activeRequest) error {
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
@@ -296,6 +287,22 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 
 	l.Debugw("successfully forwarded request to Vault nodes")
 	return nil
+}
+
+func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	var secretsCreateRequest SecretsCreateRequest
+	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
+		l.Debugw("invalid request parameters: secret id and value cannot be empty")
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	}
+
+	// At this point, we know that the request is valid and we can send it to the nodes
+	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
 func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
@@ -315,22 +322,27 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqb)
+	return h.fanOutToVaultNodes(ctx, l, ar)
+}
 
-	var nodeErrors []error
-	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
-		}
+func (h *handler) handleSecretsList(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+
+	req := &vault.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+	req.RequestId = ar.req.ID
+
+	reqb, err := json.Marshal(req)
+	if err != nil {
+		l.Errorw("failed to marshal request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
 	}
 
-	l.Debugw("successfully forwarded request to Vault nodes")
-	return nil
+	ar.req.Params = (*json.RawMessage)(&reqb)
+	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
 func (h *handler) errorResponse(

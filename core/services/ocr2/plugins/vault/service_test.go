@@ -507,6 +507,45 @@ func TestService_CRUD(t *testing.T) {
 				return service.UpdateSecrets(t.Context(), req)
 			},
 		},
+		{
+			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
+			response: nil,
+			error:    "owner must not be empty",
+			call: func(t *testing.T, service *Service) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: requestID,
+					Owner:     "",
+				}
+				return service.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
+		{
+			name:     "ListSecretIdentifiers_Invalid_RequestIDMissing",
+			response: nil,
+			error:    "request ID must not be empty",
+			call: func(t *testing.T, service *Service) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: "",
+					Owner:     "owner",
+				}
+				return service.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
+		{
+			name: "ListSecretIdentifiers",
+			response: &Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			call: func(t *testing.T, service *Service) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: requestID,
+					Owner:     owner,
+				}
+				return service.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
 	}
 
 	for _, tc := range testCases {

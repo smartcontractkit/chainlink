@@ -159,6 +159,18 @@ func (s *Service) UpdateSecrets(ctx context.Context, request *vault.UpdateSecret
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
+func (s *Service) ListSecretIdentifiers(ctx context.Context, request *vault.ListSecretIdentifiersRequest) (*Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if request.Owner == "" {
+		return nil, errors.New("owner must not be empty")
+	}
+
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
 func NewService(
 	lggr logger.Logger,
 	clock clockwork.Clock,

@@ -1350,6 +1350,11 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 			o.Request = &vault.Observation_UpdateSecretsRequest{
 				UpdateSecretsRequest: tr,
 			}
+		case *vault.ListSecretIdentifiersRequest:
+			o.RequestType = vault.RequestType_LIST_SECRET_IDENTIFIERS
+			o.Request = &vault.Observation_ListSecretIdentifiersRequest{
+				ListSecretIdentifiersRequest: tr,
+			}
 		}
 
 		switch tr := ob.resp.(type) {
@@ -1364,6 +1369,10 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 		case *vault.UpdateSecretsResponse:
 			o.Response = &vault.Observation_UpdateSecretsResponse{
 				UpdateSecretsResponse: tr,
+			}
+		case *vault.ListSecretIdentifiersResponse:
+			o.Response = &vault.Observation_ListSecretIdentifiersResponse{
+				ListSecretIdentifiersResponse: tr,
 			}
 		}
 
@@ -2699,4 +2708,386 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	expectedBytes, err := ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+	p := &vault.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "",
+	}
+	err := store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	assert.Len(t, resp.Identifiers, 0)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.GetError(), "owner cannot be empty")
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item4",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "secondary",
+				Key:       "item2",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item3",
+			},
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	p := &vault.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "foo",
+	}
+	err = store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	expectedIdentifiers := []*vault.SecretIdentifier{
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item3",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item4",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "secondary",
+			Key:       "item2",
+		},
+	}
+	for i, id := range resp.Identifiers {
+		assert.True(t, proto.Equal(expectedIdentifiers[i], id))
+	}
+	assert.Len(t, resp.Identifiers, 3)
+	assert.True(t, resp.Success)
+	assert.Empty(t, resp.GetError())
+
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item4",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "secondary",
+				Key:       "item2",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item3",
+			},
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	p := &vault.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "foo",
+		Namespace: "main",
+	}
+	err = store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	expectedIdentifiers := []*vault.SecretIdentifier{
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item3",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item4",
+		},
+	}
+	for i, id := range resp.Identifiers {
+		assert.True(t, proto.Equal(expectedIdentifiers[i], id))
+	}
+	assert.Len(t, resp.Identifiers, 2)
+	assert.True(t, resp.Success)
+	assert.Empty(t, resp.GetError())
+}
+
+func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vault.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "owner",
+	}
+	resp := &vault.ListSecretIdentifiersResponse{
+		Identifiers: []*vault.SecretIdentifier{
+			id,
+		},
+	}
+	expectedOutcome := &vault.Outcome{
+		Id:          keyFor(id),
+		RequestType: vault.RequestType_LIST_SECRET_IDENTIFIERS,
+		Request: &vault.Outcome_ListSecretIdentifiersRequest{
+			ListSecretIdentifiersRequest: req,
+		},
+		Response: &vault.Outcome_ListSecretIdentifiersResponse{
+			ListSecretIdentifiersResponse: resp,
+		},
+	}
+
+	os := &vault.Outcomes{
+		Outcomes: []*vault.Outcome{
+			expectedOutcome,
+		},
+	}
+
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
+		},
+	}
+
+	rs, err := r.Reports(t.Context(), uint64(1), osb)
+	require.NoError(t, err)
+
+	assert.Len(t, rs, 1)
+
+	o := rs[0]
+	info1, err := extractReportInfo(o.ReportWithInfo)
+	require.NoError(t, err)
+
+	assert.True(t, proto.Equal(&vault.ReportInfo{
+		Id:          keyFor(id),
+		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vault.RequestType_LIST_SECRET_IDENTIFIERS,
+	}, info1))
+
+	expectedBytes, err := ToCanonicalJSON(resp)
+	require.NoError(t, err)
+	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
+		},
+	}
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+	rs := NewReadStore(kv)
+
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vault.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-id",
+	}
+	resp := &vault.ListSecretIdentifiersResponse{
+		Identifiers: []*vault.SecretIdentifier{id},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetListSecretIdentifiersRequest()))
+
+	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }

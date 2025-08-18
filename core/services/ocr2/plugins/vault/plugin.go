@@ -492,7 +492,7 @@ func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
-func (r *ReportingPlugin) observeListSecretIdentifiersRequest(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
+func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
 	tp := req.(*vault.ListSecretIdentifiersRequest)
 	o.RequestType = vault.RequestType_LIST_SECRET_IDENTIFIERS
 	o.Request = &vault.Observation_ListSecretIdentifiersRequest{
@@ -1122,6 +1122,20 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}, nil
 }
 
+func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Context, store WriteKVStore, chosen []*vault.Observation, o *vault.Outcome) {
+	// All of the logic for the ListSecretIdentifiers request is in the
+	// observation phase. This returns the observations in sorted order,
+	// so we can just take the first aggregated request and response and
+	// use it as the outcome.
+	first := chosen[0]
+	o.Request = &vault.Outcome_ListSecretIdentifiersRequest{
+		ListSecretIdentifiersRequest: first.GetListSecretIdentifiersRequest(),
+	}
+	o.Response = &vault.Outcome_ListSecretIdentifiersResponse{
+		ListSecretIdentifiersResponse: first.GetListSecretIdentifiersResponse(),
+	}
+}
+
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {
 	// Not currently used by the protocol, so we noop here.
 	return nil
@@ -1159,6 +1173,16 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vault.RequestType_UPDATE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetUpdateSecretsResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				continue
+			}
+
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
+		case vault.RequestType_LIST_SECRET_IDENTIFIERS:
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetListSecretIdentifiersResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue

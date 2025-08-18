@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -51,13 +52,23 @@ type gatewaySender interface {
 }
 
 type Handler struct {
-	vault         *Service
+	vault         service
 	gatewaySender gatewaySender
 	lggr          logger.Logger
 	metrics       *metrics
 }
 
-func NewHandler(vault *Service, gwsender gatewaySender, lggr logger.Logger) (*Handler, error) {
+type service interface {
+	Info(ctx context.Context) (capabilities.CapabilityInfo, error)
+	RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error
+	UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error
+	Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
+	CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*Response, error)
+	UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*Response, error)
+	ListSecretIdentifiers(ctx context.Context, request *vault.ListSecretIdentifiersRequest) (*Response, error)
+}
+
+func NewHandler(vault service, gwsender gatewaySender, lggr logger.Logger) (*Handler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -92,6 +103,8 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
 	case vault_api.MethodSecretsUpdate:
 		response = h.handleSecretsUpdate(ctx, gatewayID, req)
+	case vault_api.MethodSecretsList:
+		response = h.handleSecretsList(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -144,6 +157,30 @@ func (h *Handler) handleSecretsUpdate(ctx context.Context, gatewayID string, req
 	resp, err := h.vault.UpdateSecrets(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to update secrets: %w", err))
+	}
+
+	resultBytes, err := resp.ToJSONRPCResult()
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
+func (h *Handler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vault.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.vault.ListSecretIdentifiers(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
 	}
 
 	resultBytes, err := resp.ToJSONRPCResult()
