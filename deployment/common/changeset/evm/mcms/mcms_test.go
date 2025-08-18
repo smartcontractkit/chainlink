@@ -11,7 +11,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
+	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
