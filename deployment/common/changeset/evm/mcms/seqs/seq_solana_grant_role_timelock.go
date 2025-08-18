@@ -9,7 +9,7 @@ import (
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	ops "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 

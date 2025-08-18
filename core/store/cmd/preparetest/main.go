@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	urlStr   = os.Getenv("CL_DATABASE_URL")
-	force    = flag.Bool("force", false, "set to true to force the reset by dropping any existing connections to the database")
-	userOnly = flag.Bool("user-only", false, "only include test user fixture")
+	urlStr        = os.Getenv("CL_DATABASE_URL")
+	force         = flag.Bool("force", false, "set to true to force the reset by dropping any existing connections to the database")
+	userOnly      = flag.Bool("user-only", false, "only include test user fixture")
+	deterministic = flag.Bool("deterministic", true, "use deterministic output for schema dumps (disable with --deterministic=false for production-like behavior)")
 )
 
 func main() {
@@ -51,7 +52,7 @@ func main() {
 
 	cfg := config{u: *dbURL}
 
-	if err = store.ResetDatabase(ctx, lggr, cfg, *force); err != nil {
+	if err = store.ResetDatabase(ctx, lggr, cfg, *force, *deterministic); err != nil {
 		lggr.Fatal("Failed to reset database:", err)
 	}
 

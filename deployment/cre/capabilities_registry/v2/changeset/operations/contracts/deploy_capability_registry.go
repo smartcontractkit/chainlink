@@ -12,16 +12,16 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
-type DeployCapabilitiesRegistryOpDeps struct {
+type DeployCapabilitiesRegistryDeps struct {
 	Env *cldf.Environment
 }
 
-type DeployCapabilitiesRegistryOpInput struct {
+type DeployCapabilitiesRegistryInput struct {
 	ChainSelector uint64
 	Qualifier     string
 }
 
-type DeployCapabilitiesRegistryOpOutput struct {
+type DeployCapabilitiesRegistryOutput struct {
 	Address       string
 	ChainSelector uint64
 	Qualifier     string
@@ -30,19 +30,19 @@ type DeployCapabilitiesRegistryOpOutput struct {
 	Labels        []string
 }
 
-// DeployCapabilitiesRegistryOp is an operation that deploys the V2 Capabilities Registry contract.
+// DeployCapabilitiesRegistry is an operation that deploys the V2 Capabilities Registry contract.
 // This atomic operation performs the single side effect of deploying and registering the contract.
-var DeployCapabilitiesRegistryOp = operations.NewOperation[DeployCapabilitiesRegistryOpInput, DeployCapabilitiesRegistryOpOutput, DeployCapabilitiesRegistryOpDeps](
+var DeployCapabilitiesRegistry = operations.NewOperation[DeployCapabilitiesRegistryInput, DeployCapabilitiesRegistryOutput, DeployCapabilitiesRegistryDeps](
 	"deploy-capabilities-registry-v2-op",
 	semver.MustParse("1.0.0"),
 	"Deploy CapabilitiesRegistry V2 Contract",
-	func(b operations.Bundle, deps DeployCapabilitiesRegistryOpDeps, input DeployCapabilitiesRegistryOpInput) (DeployCapabilitiesRegistryOpOutput, error) {
+	func(b operations.Bundle, deps DeployCapabilitiesRegistryDeps, input DeployCapabilitiesRegistryInput) (DeployCapabilitiesRegistryOutput, error) {
 		lggr := deps.Env.Logger
 
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
+			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
 		// Deploy the V2 CapabilitiesRegistry contract
@@ -52,29 +52,29 @@ var DeployCapabilitiesRegistryOp = operations.NewOperation[DeployCapabilitiesReg
 			capabilities_registry_v2.CapabilitiesRegistryConstructorParams{},
 		)
 		if err != nil {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry V2: %w", err)
+			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry V2: %w", err)
 		}
 
 		// Wait for deployment confirmation
 		_, err = chain.Confirm(tx)
 		if err != nil {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to confirm CapabilitiesRegistry V2 deployment: %w", err)
+			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("failed to confirm CapabilitiesRegistry V2 deployment: %w", err)
 		}
 
 		// Get type and version from the deployed contract
 		tvStr, err := capabilitiesRegistry.TypeAndVersion(&bind.CallOpts{})
 		if err != nil {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to get type and version: %w", err)
+			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("failed to get type and version: %w", err)
 		}
 
 		tv, err := cldf.TypeAndVersionFromString(tvStr)
 		if err != nil {
-			return DeployCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+			return DeployCapabilitiesRegistryOutput{}, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 		}
 
 		lggr.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, capabilitiesRegistryAddr.String())
 
-		return DeployCapabilitiesRegistryOpOutput{
+		return DeployCapabilitiesRegistryOutput{
 			Address:       capabilitiesRegistryAddr.String(),
 			ChainSelector: input.ChainSelector,
 			Qualifier:     input.Qualifier,

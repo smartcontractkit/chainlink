@@ -107,9 +107,8 @@ func TestNewFetcherService(t *testing.T) {
 		storageService.EXPECT().DownloadArtifact(mock.Anything, mock.Anything).Return(&response, nil).Once()
 
 		req := storage_service.DownloadArtifactRequest{
-			Id:          "artifact-id",
-			Type:        storage_service.ArtifactType_ARTIFACT_TYPE_UNSPECIFIED,
-			Environment: storage_service.EnvironmentName_ENVIRONMENT_NAME_UNSPECIFIED,
+			Id:   "artifact-id",
+			Type: storage_service.ArtifactType_ARTIFACT_TYPE_UNSPECIFIED,
 		}
 		payload, err := fetcher.RetrieveURL(ctx, &req)
 		require.NoError(t, err)

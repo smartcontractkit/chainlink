@@ -25,7 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	ops "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"

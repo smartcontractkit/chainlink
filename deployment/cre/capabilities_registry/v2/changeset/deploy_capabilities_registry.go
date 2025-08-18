@@ -29,18 +29,18 @@ func (l DeployCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, conf
 
 func (l DeployCapabilitiesRegistry) Apply(e cldf.Environment, config DeployCapabilitiesRegistryInput) (cldf.ChangesetOutput, error) {
 	// build your custom dependencies needed in the operation
-	deps := contracts.DeployCapabilitiesRegistryOpDeps{
+	deps := contracts.DeployCapabilitiesRegistryDeps{
 		Env: &e,
 	}
 
 	reports := make([]operations.Report[any, any], 0)
 	capabilitiesRegistryDeploymentReport, err := operations.ExecuteOperation(
 		e.OperationsBundle,
-		contracts.DeployCapabilitiesRegistryOp, deps, contracts.DeployCapabilitiesRegistryOpInput{
+		contracts.DeployCapabilitiesRegistry, deps, contracts.DeployCapabilitiesRegistryInput{
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.Qualifier,
 		},
-		operations.WithRetry[contracts.DeployCapabilitiesRegistryOpInput, contracts.DeployCapabilitiesRegistryOpDeps](),
+		operations.WithRetry[contracts.DeployCapabilitiesRegistryInput, contracts.DeployCapabilitiesRegistryDeps](),
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

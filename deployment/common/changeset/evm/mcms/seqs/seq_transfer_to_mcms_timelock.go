@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
-	ops "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	mcms_shared "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/shared"
 )
 

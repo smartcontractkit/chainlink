@@ -3,7 +3,7 @@ name: Run Nightly In-Memory Integration Tests
 on:
   schedule:
     # Run every night at midnight UTC (0:00 AM)
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch:
     # Useful when running the workflow manually
     inputs:
@@ -13,7 +13,7 @@ on:
         type: string
         default: develop
       slack_notification_after_tests:
-        description: 'Notify on Slack after tests'
+        description: "Notify on Slack after tests"
         required: false
         type: string
       require_chainlink_image_versions_in_qa_ecr:
@@ -23,7 +23,7 @@ on:
           image versions. Example:
           "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
-        type: string        
+        type: string
       require_chainlink_plugin_versions_in_qa_ecr:
         description:
           'Check Chainlink plugins versions to be present in QA ECR. If not,
@@ -31,12 +31,12 @@ on:
           Chainlink image versions. Example:
           "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
-        type: string        
+        type: string
       extraArgs:
         required: false
         type: string
         default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }'
-        description: 'JSON of extra arguments for the workflow.'     
+        description: "JSON of extra arguments for the workflow."
 
 jobs:
   call-nightly-run-e2e-tests-workflow:
@@ -51,7 +51,7 @@ jobs:
       slack_notification_after_tests_name: Nightly Integration CCIP Tests
       require_chainlink_image_versions_in_qa_ecr: ${{ inputs.require_chainlink_image_versions_in_qa_ecr || '' }}
       require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
-      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
+      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"false","flakeguard_run_count":"5"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
