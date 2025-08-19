@@ -214,6 +214,11 @@ func SetupTestEnvironment(
 	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
 	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
 
+	chainIDSelector := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
+	for _, chain := range blockchainOutputs {
+		chainIDSelector[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
+	}
+
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
 		ks_contracts_op.DeployKeystoneContractsSequence,
@@ -225,6 +230,7 @@ func SetupTestEnvironment(
 			ForwardersSelectors:   forwardersSelectors,
 			DeployVaultOCR3:       vaultOCR3AddrFlag,
 			DeployEVMOCR3:         evmOCR3AddrFlag,
+			EVMChainIDs:           chainIDSelector,
 			DeployConsensusOCR3:   consensusAddrFlag,
 		},
 	)
@@ -525,11 +531,16 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
 		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
 	}
-	var evmOCR3CommonAddr common.Address
+
+	evmOCR3CommonAddresses := make(map[uint64]common.Address)
 	if evmOCR3AddrFlag {
-		evmOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_evm")
-		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
-		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
+		for _, chain := range blockchainOutputs {
+			selector := chain.ChainSelector
+			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(chain.ChainID)
+			evmOCR3Addr := mustGetAddress(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chain.ChainID, selector, evmOCR3Addr)
+			evmOCR3CommonAddresses[selector] = common.HexToAddress(evmOCR3Addr)
+		}
 	}
 	var consensusV2OCR3CommonAddr common.Address
 	if consensusAddrFlag {
@@ -547,7 +558,7 @@ func SetupTestEnvironment(
 		OCR3Address:                 &ocr3CommonAddr,
 		DONTimeAddress:              &donTimeCommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
-		EVMOCR3Address:              &evmOCR3CommonAddr,
+		EVMOCR3Addresses:            &evmOCR3CommonAddresses,
 		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 	}
 

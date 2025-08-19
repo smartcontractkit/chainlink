@@ -1,6 +1,8 @@
 package contracts
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -12,6 +14,9 @@ type DeployKeystoneContractsSequenceDeps struct {
 	Env *deployment.Environment
 }
 
+type EVMChainID uint64
+type Selector uint64
+
 // inputs and outputs have to be serializable, and must not contain sensitive data
 
 type DeployKeystoneContractsSequenceInput struct {
@@ -19,6 +24,7 @@ type DeployKeystoneContractsSequenceInput struct {
 	ForwardersSelectors   []uint64
 	DeployVaultOCR3       bool
 	DeployEVMOCR3         bool
+	EVMChainIDs           map[EVMChainID]Selector
 	DeployConsensusOCR3   bool
 }
 
@@ -124,14 +130,18 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			}
 		}
 		if input.DeployEVMOCR3 {
-			// EVM cap OCR3 Contract
-			evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_evm"})
-			if err != nil {
-				return DeployKeystoneContractsSequenceOutput{}, err
-			}
-			err = updateAddresses(as.Addresses(), evmOCR3DeployReport.Output.Addresses, ab, evmOCR3DeployReport.Output.AddressBook)
-			if err != nil {
-				return DeployKeystoneContractsSequenceOutput{}, err
+			for chainID, selector := range input.EVMChainIDs {
+				// EVM cap OCR3 Contract
+				fmt.Printf("Processing EVM Block Chain ID: %d, selector: %d\n", chainID, selector)
+				qualifier := GetCapabilityContractIdentifier(uint64(chainID))
+				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: uint64(selector), Qualifier: qualifier})
+				if err != nil {
+					return DeployKeystoneContractsSequenceOutput{}, err
+				}
+				err = updateAddresses(as.Addresses(), evmOCR3DeployReport.Output.Addresses, ab, evmOCR3DeployReport.Output.AddressBook)
+				if err != nil {
+					return DeployKeystoneContractsSequenceOutput{}, err
+				}
 			}
 		}
 		if input.DeployConsensusOCR3 {
@@ -151,3 +161,7 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 		}, nil
 	},
 )
+
+func GetCapabilityContractIdentifier(chainID uint64) string {
+	return fmt.Sprintf("capability_evm_%d", chainID)
+}
