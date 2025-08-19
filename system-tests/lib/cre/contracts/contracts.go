@@ -374,24 +374,26 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		}
 	}
 
-	if input.EVMOCR3Address.Cmp(common.Address{}) != 0 {
-		_, err = operations.ExecuteOperation(
-			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureOCR3Op,
-			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
-			},
-			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.EVMOCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DONs:             configDONs,
-				Config:           &input.EVMOCR3Config,
-				DryRun:           false,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure EVM OCR3 contract")
+	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+		if evmOCR3Address.Cmp(common.Address{}) != 0 {
+			_, err = operations.ExecuteOperation(
+				input.CldEnv.OperationsBundle,
+				ks_contracts_op.ConfigureOCR3Op,
+				ks_contracts_op.ConfigureOCR3OpDeps{
+					Env:      input.CldEnv,
+					Registry: capReg.Contract,
+				},
+				ks_contracts_op.ConfigureOCR3OpInput{
+					ContractAddress:  &evmOCR3Address,
+					RegistryChainSel: chainSelector,
+					DONs:             configDONs,
+					Config:           &input.EVMOCR3Config,
+					DryRun:           false,
+				},
+			)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chain selector: %d, address:%s", chainSelector, evmOCR3Address.Hex()))
+			}
 		}
 	}
 
