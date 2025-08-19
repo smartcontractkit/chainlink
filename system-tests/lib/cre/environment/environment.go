@@ -213,9 +213,9 @@ func SetupTestEnvironment(
 	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
 	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
 
-	chainIDSelector := make(map[uint64]uint64)
+	chainIDSelector := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range blockchainOutputs {
-		chainIDSelector[chain.ChainID] = chain.ChainSelector
+		chainIDSelector[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
 	}
 
 	deployKeystoneReport, err := operations.ExecuteSequence(
