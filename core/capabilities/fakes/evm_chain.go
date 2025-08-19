@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -35,6 +34,9 @@ type FakeEVMChain struct {
 	mockKeystoneForwarderAddress common.Address
 	chainSelector                uint64
 
+	// if true, WriteReport will simulate the call and not broadcast
+	dryRunWrites bool
+
 	lggr logger.Logger
 
 	// log trigger callback channel
@@ -57,6 +59,7 @@ func NewFakeEvmChain(
 	privateKey *ecdsa.PrivateKey,
 	mockKeystoneForwarderAddress common.Address,
 	chainSelector uint64,
+	dryRunWrites bool,
 ) *FakeEVMChain {
 	mockKeystoneForwarder, err := NewMockKeystoneForwarder(mockKeystoneForwarderAddress, gethClient)
 	if err != nil {
@@ -73,6 +76,7 @@ func NewFakeEvmChain(
 		mockKeystoneForwarderAddress: mockKeystoneForwarderAddress,
 		chainSelector:                chainSelector,
 		callbackCh:                   make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		dryRunWrites:                 dryRunWrites,
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -154,8 +158,8 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 		signatures[i] = sig.Signature
 	}
 
-	// If dryRunWrite is enabled, simulate the transaction without broadcasting it
-	if fc.isDryRunWrite(input) {
+	// If dryRunWrites is enabled, simulate the transaction without broadcasting it
+	if fc.dryRunWrites {
 		fc.eng.Infow("EVM Chain WriteReport Dry-Run Enabled")
 		contractABI, err := abi.JSON(strings.NewReader(MockKeystoneForwarderABI))
 		if err != nil {
@@ -548,20 +552,4 @@ func (fc *FakeEVMChain) ChainSelector() uint64 {
 	return fc.chainSelector
 }
 
-// isDryRunWrite safely checks for an optional DryRunWrite boolean on the request without
-// a hard dependency on a newer proto. Returns false when the method is absent.
-func (fc *FakeEVMChain) isDryRunWrite(input *evmcappb.WriteReportRequest) bool {
-	if input == nil {
-		return false
-	}
-	method := reflect.ValueOf(input).MethodByName("GetDryRunWrite")
-	if method.IsValid() {
-		results := method.Call(nil)
-		if len(results) == 1 {
-			if val, ok := results[0].Interface().(bool); ok {
-				return val
-			}
-		}
-	}
-	return false
-}
+// No public setter needed for dryRunWrites; it is configured via the constructor.
