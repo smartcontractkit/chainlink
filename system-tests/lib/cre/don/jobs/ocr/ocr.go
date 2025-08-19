@@ -41,6 +41,10 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
+	cs, ok := chainsel.EvmChainIdToChainSelector()[chainID]
+	if !ok {
+		return nil, fmt.Errorf("chain selector not found for chainID: %d", chainID)
+	}
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	for donIdx, donWithMetadata := range donTopology.DonsWithMetadata {
@@ -49,7 +53,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		}
 
 		ocr3Key := datastore.NewAddressRefKey(
-			donTopology.HomeChainSelector,
+			cs,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			contractName,
@@ -177,6 +181,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
 			}
+			logger.Debug().Msgf("Job spec %s, node %s\n", jobSpec.Spec, nodeID)
 
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 		}
