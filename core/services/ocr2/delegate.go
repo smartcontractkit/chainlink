@@ -804,6 +804,7 @@ func (d *Delegate) newServicesVaultPlugin(
 
 	return srvs, nil
 }
+
 func (d *Delegate) newDonTimePlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,

@@ -93,6 +93,11 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	t.Run("vault DON test", func(t *testing.T) {
 		executeVaultTest(t, in, envArtifact)
 	})
+
+	t.Run("DON Time test", func(t *testing.T) {
+		// TODO: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028
+		t.Skip()
+	})
 }
 
 func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {

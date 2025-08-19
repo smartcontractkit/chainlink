@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -129,6 +130,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
 	case types.VaultPlugin:
 		return validateVaultPluginSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.DonTimePlugin:
+		return validateDonTimePluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -343,6 +346,18 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	}
 	if cfg.USDCConfig != (config.USDCConfig{}) {
 		return cfg.USDCConfig.ValidateUSDCConfig()
+	}
+	return nil
+}
+
+func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg dontimeCfg.Config
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	return nil
 }
