@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,10 +29,11 @@ type FakeEVMChain struct {
 	services.Service
 	eng *services.Engine
 
-	gethClient            *ethclient.Client
-	privateKey            *ecdsa.PrivateKey
-	mockKeystoneForwarder *MockKeystoneForwarder
-	chainSelector         uint64
+	gethClient                   *ethclient.Client
+	privateKey                   *ecdsa.PrivateKey
+	mockKeystoneForwarder        *MockKeystoneForwarder
+	mockKeystoneForwarderAddress common.Address
+	chainSelector                uint64
 
 	lggr logger.Logger
 
@@ -61,13 +65,14 @@ func NewFakeEvmChain(
 	}
 
 	fc := &FakeEVMChain{
-		CapabilityInfo:        evmExecInfo,
-		lggr:                  lggr,
-		gethClient:            gethClient,
-		privateKey:            privateKey,
-		mockKeystoneForwarder: mockKeystoneForwarder,
-		chainSelector:         chainSelector,
-		callbackCh:            make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		CapabilityInfo:               evmExecInfo,
+		lggr:                         lggr,
+		gethClient:                   gethClient,
+		privateKey:                   privateKey,
+		mockKeystoneForwarder:        mockKeystoneForwarder,
+		mockKeystoneForwarderAddress: mockKeystoneForwarderAddress,
+		chainSelector:                chainSelector,
+		callbackCh:                   make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -147,6 +152,61 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	signatures := make([][]byte, len(input.Report.Sigs))
 	for i, sig := range input.Report.Sigs {
 		signatures[i] = sig.Signature
+	}
+
+	// If dryRunWrite is enabled, simulate the transaction without broadcasting it
+	if fc.isDryRunWrite(input) {
+		fc.eng.Infow("EVM Chain WriteReport Dry-Run Enabled")
+		contractABI, err := abi.JSON(strings.NewReader(MockKeystoneForwarderABI))
+		if err != nil {
+			return nil, err
+		}
+		calldata, err := contractABI.Pack(
+			"report",
+			common.Address(input.Receiver),
+			input.Report.RawReport,
+			input.Report.ReportContext,
+			signatures,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		msg := ethereum.CallMsg{
+			From: auth.From,
+			To:   &fc.mockKeystoneForwarderAddress,
+			Data: calldata,
+		}
+		_, err = fc.gethClient.CallContract(ctx, msg, nil)
+		if err != nil {
+			fc.eng.Infow("EVM Chain WriteReport Dry-Run Reverted", "error", err)
+			receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
+			errMsg := err.Error()
+			response := &evmcappb.WriteReportReply{
+				TxStatus:                        evmcappb.TxStatus_TX_STATUS_REVERTED,
+				ReceiverContractExecutionStatus: &receiverStatus,
+				TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+				ErrorMessage:                    &errMsg,
+			}
+			responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+				Response:         response,
+				ResponseMetadata: commonCap.ResponseMetadata{},
+			}
+			return &responseAndMetadata, nil
+		}
+
+		fc.eng.Infow("EVM Chain WriteReport Dry-Run Successful")
+		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
+		response := &evmcappb.WriteReportReply{
+			TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
+			ReceiverContractExecutionStatus: &receiverStatus,
+			TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+			Response:         response,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, nil
 	}
 
 	reportTx, err := fc.mockKeystoneForwarder.Report(
@@ -486,4 +546,22 @@ func (fc *FakeEVMChain) Description() string {
 
 func (fc *FakeEVMChain) ChainSelector() uint64 {
 	return fc.chainSelector
+}
+
+// isDryRunWrite safely checks for an optional DryRunWrite boolean on the request without
+// a hard dependency on a newer proto. Returns false when the method is absent.
+func (fc *FakeEVMChain) isDryRunWrite(input *evmcappb.WriteReportRequest) bool {
+	if input == nil {
+		return false
+	}
+	method := reflect.ValueOf(input).MethodByName("GetDryRunWrite")
+	if method.IsValid() {
+		results := method.Call(nil)
+		if len(results) == 1 {
+			if val, ok := results[0].Interface().(bool); ok {
+				return val
+			}
+		}
+	}
+	return false
 }
