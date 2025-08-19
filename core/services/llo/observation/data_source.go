@@ -298,11 +298,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 }
 
 func (d *dataSource) Close() error {
-	if !d.observationLoopStarted.Load() {
-		return nil
-	}
-
-	closeIfOpen(d.observationLoopCloseCh)
+	close(d.observationLoopCloseCh)
 	d.observationLoopStarted.Store(false)
 
 	return nil
@@ -369,16 +365,4 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.
 
 	d.lggr.Errorw("getObservableStreams: no active OCR instance found")
 	return nil, nil, 0
-}
-
-func closeIfOpen(ch chan struct{}) {
-	if ch == nil {
-		return
-	}
-	select {
-	case <-ch:
-		return
-	default:
-		close(ch)
-	}
 }
