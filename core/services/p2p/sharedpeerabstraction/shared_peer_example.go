@@ -2,6 +2,7 @@ package sharedpeerabstraction
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -105,7 +106,7 @@ func ExampleOCROnlyUsage(
 
 	if !sharedPeer.HasOCRCapability() {
 		sharedPeer.Close()
-		return nil, fmt.Errorf("OCR capability not available")
+		return nil, errors.New("OCR capability not available")
 	}
 
 	return sharedPeer, nil
@@ -138,7 +139,7 @@ func ExampleExternalPeerOnlyUsage(
 	peer := sharedPeer.GetPeer()
 	if peer == nil {
 		sharedPeer.Close()
-		return nil, fmt.Errorf("external peer not available")
+		return nil, errors.New("external peer not available")
 	}
 
 	return sharedPeer, nil

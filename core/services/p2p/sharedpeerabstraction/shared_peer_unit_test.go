@@ -42,13 +42,13 @@ func TestSharedPeerAbstraction_Creation(t *testing.T) {
 	// Test signing without key (should fail)
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "private key not available")
 	assert.Empty(t, signature)
 
 	// Test health check without starting
 	err = sharedPeer.Ready()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no peer implementation available")
 
 	healthReport := sharedPeer.HealthReport()
@@ -115,6 +115,6 @@ func TestSharedPeerAbstraction_ServiceLifecycle(t *testing.T) {
 	// Test that closing without starting is handled gracefully
 	err := sharedPeer.Close()
 	// The StateMachine implementation requires the service to be started before it can be closed
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot stop unstarted service")
 }

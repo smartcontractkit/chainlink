@@ -248,7 +248,7 @@ func TestSharedPeerAbstraction_InvalidConfiguration(t *testing.T) {
 	// Start should fail due to invalid configuration
 	ctx := testutils.Context(t)
 	err := sharedPeer.Start(ctx)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid P2P configuration")
 }
 
@@ -274,7 +274,7 @@ func TestSharedPeerAbstraction_SigningWithoutKey(t *testing.T) {
 	// Try to sign without starting (no private key available)
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "private key not available")
 	assert.Empty(t, signature)
 }
@@ -320,12 +320,12 @@ func TestSharedPeerAbstraction_DoubleStartStop(t *testing.T) {
 	// Start twice - second start should return error
 	require.NoError(t, sharedPeer.Start(ctx))
 	err = sharedPeer.Start(ctx)
-	assert.Error(t, err) // StateMachine prevents double start
+	require.Error(t, err) // StateMachine prevents double start
 
 	// Stop twice - second stop should return error
 	require.NoError(t, sharedPeer.Close())
 	err = sharedPeer.Close()
-	assert.Error(t, err) // StateMachine prevents double close
+	require.Error(t, err) // StateMachine prevents double close
 }
 
 // Tests using the example functions to prove they work correctly
@@ -562,7 +562,7 @@ func TestSharedPeerAbstraction_ExampleFunctions_ErrorHandling(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error with nil configuration, but got none")
 		}
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, sharedPeer)
 	})
 
@@ -586,7 +586,7 @@ func TestSharedPeerAbstraction_ExampleFunctions_ErrorHandling(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error with nil configuration, but got none")
 		}
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, sharedPeer)
 	})
 }
