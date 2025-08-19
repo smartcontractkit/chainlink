@@ -76,7 +76,7 @@ var (
 	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
 	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_NETWORK)]
-	testUnitGas    = "GAS.5009297550715157269" // ETH sepolia
+	testUnitGas    = "GAS.5009297550715157269" // ETH mainnet
 	validConfig, _ = values.NewMap(map[string]any{
 		RatiosKey: map[string]string{
 			testUnitA: "0.4",
@@ -521,7 +521,7 @@ func Test_Report_Deduct(t *testing.T) {
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				RateCards: successRatesMulti,
 				GasTokensPerCredit: map[uint64]string{
-					5009297550715157269: "230140614074074", // ETH sepolia
+					5009297550715157269: "230140614074074", // ETH mainnet
 				},
 			}, nil)
 
@@ -858,7 +858,7 @@ func Test_Report_Settle(t *testing.T) {
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				RateCards: successRates,
 				GasTokensPerCredit: map[uint64]string{
-					5009297550715157269: "200000000000000", // ETH sepolia
+					5009297550715157269: "200000000000000", // ETH mainnet
 				},
 			}, nil)
 		report := newTestReport(t, lggr, billingClient)
