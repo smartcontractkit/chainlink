@@ -42,8 +42,6 @@
 # evm_capability_binary_path = "./evm"
 # http_trigger_capability_binary_path = "./http_trigger"
 # http_action_capability_binary_path = "./http_action"
-cron_capability_binary_path = "/Users/lautarofernandez/Desktop/cre_binaries/cronNuevo"
-evm_capability_binary_path = "/Users/lautarofernandez/Desktop/cre_binaries/evmOracle30"
 
 # capabilities_configs.evm.<chain_id> section is used to configure EVM capability per chain_id only when
 # the evm_capability_binary_path is present in [extra_capabilities] section

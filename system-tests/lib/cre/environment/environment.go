@@ -213,13 +213,6 @@ func SetupTestEnvironment(
 	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
 	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
 
-	//var evmSelectors []uint64
-	//for _, chain := range blockChains {
-	//	if chain.Family() == "evm" {
-	//		evmSelectors = append(evmSelectors, chain.ChainSelector())
-	//	}
-	//}
-
 	chainIds := make(map[uint64]uint64)
 	for _, chain := range blockchainOutputs {
 		chainIds[chain.ChainID] = chain.ChainSelector
@@ -528,16 +521,11 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
 		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
 	}
-	//var evmOCR3CommonAddr common.Address
-	//var evmOCR3CommonAddresses []common.Address
-	evmOCR3CommonAddresses := make(map[uint64]common.Address)
 
+	evmOCR3CommonAddresses := make(map[uint64]common.Address)
 	if evmOCR3AddrFlag {
 		for _, chain := range blockchainOutputs {
 			selector := chain.ChainSelector
-			//selector := homeChainOutput.ChainSelector
-			//selector := chain.ChainSelector
-			fmt.Printf("LAUTARO Chain ID: %d, Selector: %d\n", chain.ChainID, selector)
 			qualifier := fmt.Sprintf("capability_evm_%d", chain.ChainID)
 			evmOCR3Addr := mustGetAddress(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
 			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", selector, evmOCR3Addr)
@@ -557,12 +545,10 @@ func SetupTestEnvironment(
 		CldEnv:                      fullCldOutput.Environment,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: &capRegCommonAddr,
-		//OCR3Address:                 &ocr3CommonAddr,
-		OCR3Address: &ocr3CommonAddr,
-		//OCR3Address:            &ocr3AddrList,
-		VaultOCR3Address:       &vaultOCR3CommonAddr,
-		EVMOCR3Addresses:       &evmOCR3CommonAddresses,
-		ConsensusV2OCR3Address: &consensusV2OCR3CommonAddr,
+		OCR3Address:                 &ocr3CommonAddr,
+		VaultOCR3Address:            &vaultOCR3CommonAddr,
+		EVMOCR3Addresses:            &evmOCR3CommonAddresses,
+		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 	}
 
 	if input.OCR3Config != nil {

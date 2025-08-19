@@ -111,12 +111,6 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 				// EVM cap OCR3 Contract
 				fmt.Printf("Processing EVM Block Chain ID: %d, selector: %d\n", chainID, selector)
 				qualifier := fmt.Sprintf("capability_evm_%d", chainID)
-				//var selector uint64
-				//if chainID == 1337 {
-				//	selector = value
-				//} else {
-				//	selector = 12922642891491394802
-				//}
 				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: selector, Qualifier: qualifier})
 				if err != nil {
 					return DeployKeystoneContractsSequenceOutput{}, err
