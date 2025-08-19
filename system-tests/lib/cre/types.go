@@ -499,7 +499,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 		case string:
 			trimmed := strings.TrimSpace(t)
 			if trimmed == "" {
-				return 0, fmt.Errorf("chain id cannot be empty")
+				return 0, errors.New("chain id cannot be empty")
 			}
 			chainID, err = strconv.ParseUint(trimmed, 10, 64)
 			if err != nil {
@@ -522,7 +522,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 		}
 
 		if chainID == 0 {
-			return 0, fmt.Errorf("chain id cannot be zero")
+			return 0, errors.New("chain id cannot be zero")
 		}
 
 		return chainID, nil
