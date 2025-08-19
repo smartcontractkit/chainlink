@@ -235,12 +235,12 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	vaultApiResponseJSON := json.RawMessage(vaultAPIResponseBytes)
+	vaultAPIResponseJSON := json.RawMessage(vaultAPIResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
 		Method:  req.Method,
-		Result:  &vaultApiResponseJSON,
+		Result:  &vaultAPIResponseJSON,
 	}
 }
 
@@ -288,7 +288,6 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 }
 
 func toJSONResponse(vaultCapResponse *vault2.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
-
 	vaultResponse := &vault_api.ResponseBase{
 		ID:    vaultCapResponse.ID,
 		Error: vaultCapResponse.Error,
