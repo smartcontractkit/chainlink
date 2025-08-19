@@ -102,7 +102,7 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int,
 	HeartbeatIntervalSec = 20
 	%s
 	[gatewayConfig.NodeServerConfig]
-	HandshakeTimeoutMillis = 10_000
+	HandshakeTimeoutMillis = 1_000
 	MaxRequestBytes = 100_000
 	# this is the path other nodes will use to connect to the gateway
 	Path = "%s"

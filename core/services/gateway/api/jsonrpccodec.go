@@ -80,7 +80,7 @@ func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int64, message strin
 		Error: &jsonrpc2.WireError{
 			Code:    code,
 			Message: message,
-			// Data:    (*json.RawMessage)(&data),
+			Data:    (*json.RawMessage)(&data),
 		},
 	}
 	rawErrMsg, err := json.Marshal(response)

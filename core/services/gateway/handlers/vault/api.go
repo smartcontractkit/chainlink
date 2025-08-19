@@ -83,6 +83,14 @@ type SecretsGetResponse struct {
 	Error       string           `json:"error,omitempty"`
 }
 
+func (r *SecretsGetResponse) String() string {
+	return "SecretsGetResponse{" +
+		", SecretID: " + r.SecretID.String() +
+		", SecretValue: <val>" +
+		", Error: " + r.Error +
+		"}"
+}
+
 type SecretData struct {
 	EncryptedValue               string             `json:"encrypted_value,omitempty"`
 	EncryptedDecryptionKeyShares []*EncryptedShares `json:"encrypted_decryption_key_shares,omitempty"`

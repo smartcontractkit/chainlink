@@ -95,7 +95,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, extraAllowedPorts []int, ext
 			handlerConfig := `
 			ServiceName = "vault"
 			[gatewayConfig.Dons.Handlers.Config]
-			requestTimeoutSec = 20
+			requestTimeoutSec = 30
 			` + nodeRateLimiterConfig
 			handlers[coregateway.VaultHandlerType] = handlerConfig
 		}

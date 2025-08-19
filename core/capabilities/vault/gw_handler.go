@@ -10,6 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -192,12 +193,55 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
+	vaultResponseProto := &vault.GetSecretsResponse{}
+	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
+	if err != nil {
+		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+	if len(vaultResponseProto.GetResponses()) != 1 {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+fmt.Sprint(len(vaultResponseProto.GetResponses()))))
+	}
+	secretResponse := vaultResponseProto.GetResponses()[0]
+	vaultApiResponse := vault_api.SecretsGetResponse{
+		SecretID: vault_api.SecretIdentifier{
+			Key:       secretResponse.Id.GetKey(),
+			Namespace: secretResponse.Id.GetNamespace(),
+			Owner:     secretResponse.Id.GetOwner(),
+		},
+	}
 
-	jsonResponse, err := toJsonResponse(vaultCapResponse, req.Method)
+	switch method := secretResponse.Result.(type) {
+	case *vault.SecretResponse_Data:
+		vaultApiResponse.SecretValue = vault_api.SecretData{
+			EncryptedValue:               method.Data.GetEncryptedValue(),
+			EncryptedDecryptionKeyShares: make([]*vault_api.EncryptedShares, 0, len(method.Data.GetEncryptedDecryptionKeyShares())),
+		}
+		for _, decryptionShare := range method.Data.GetEncryptedDecryptionKeyShares() {
+			encryptedShare := vault_api.EncryptedShares{
+				EncryptionKey: decryptionShare.GetEncryptionKey(),
+				Shares:        make([]string, 0, len(decryptionShare.Shares)),
+			}
+			for _, share := range decryptionShare.GetShares() {
+				encryptedShare.Shares = append(encryptedShare.Shares, share)
+			}
+			vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares = append(vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares, &encryptedShare)
+		}
+	case *vault.SecretResponse_Error:
+		vaultApiResponse.Error = method.Error
+	}
+
+	vaultApiResponseBytes, err := json.Marshal(vaultApiResponse)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	return jsonResponse
+	vaultApiResponseJson := json.RawMessage(vaultApiResponseBytes)
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  &vaultApiResponseJson,
+	}
 }
 
 func (h *GatewayHandler) errorResponse(
