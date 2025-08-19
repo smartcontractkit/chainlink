@@ -526,7 +526,8 @@ func SetupTestEnvironment(
 	if evmOCR3AddrFlag {
 		for _, chain := range blockchainOutputs {
 			selector := chain.ChainSelector
-			qualifier := fmt.Sprintf("capability_evm_%d", chain.ChainID)
+			//qualifier := fmt.Sprintf("capability_evm_%d", chain.ChainID)
+			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(chain.ChainID)
 			evmOCR3Addr := mustGetAddress(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
 			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", selector, evmOCR3Addr)
 			evmOCR3CommonAddresses[selector] = common.HexToAddress(evmOCR3Addr)
