@@ -3,7 +3,6 @@ package metering
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/shopspring/decimal"
@@ -55,7 +54,7 @@ func (bs *balanceStore) convertToBalance(fromResourceType string, amount decimal
 
 	// Special case for gas as gas token conversions are provided in amount per credit.
 	// Other rates are provided as the inverse.
-	if strings.HasPrefix(fromResourceType, "GAS.") {
+	if isGasSpendType(fromResourceType) {
 		return amount.Div(rate).Round(defaultDecimalPrecision), nil
 	}
 
@@ -80,7 +79,7 @@ func (bs *balanceStore) convertFromBalance(toResourceType string, amount decimal
 
 	// Special case for gas as gas token conversions are provided in amount per credit.
 	// Other rates are provided as the inverse.
-	if strings.HasPrefix(toResourceType, "GAS.") {
+	if isGasSpendType(toResourceType) {
 		return amount.Mul(rate).Round(0), nil
 	}
 

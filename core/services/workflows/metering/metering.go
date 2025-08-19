@@ -536,7 +536,7 @@ func (r *Report) creditToSpendingLimits(
 		}
 
 		formattedLimit := spendLimit.StringFixed(defaultDecimalPrecision)
-		if strings.HasPrefix(string(spendType), "GAS.") {
+		if isGasSpendType(string(spendType)) {
 			formattedLimit = spendLimit.StringFixed(0)
 		}
 
@@ -544,6 +544,10 @@ func (r *Report) creditToSpendingLimits(
 	}
 
 	return limits
+}
+
+func isGasSpendType(spendType string) bool {
+	return strings.HasPrefix(spendType, "GAS.")
 }
 
 // getMaxSpendForInvocation returns the amount of credits that can be used based on the minimum between an optionally
