@@ -46,31 +46,35 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 		runner.ExitWithError(errors.New("cannot unmarshal config : %w"))
 	}
 
+	// Configure Read Contract capability
 	balanceReaderAddr := workflowConfig.BalanceReaderAddress
-
 	// You may put/read from any addresses with real values
 	// In this example, we are using the one with 0 balances
 	addresses := []common.Address{
 		common.HexToAddress(balanceReaderAddr),
 	}
 
-	chainRead := readcontractcap.Config{
-		ContractReaderConfig: `{"contracts":{"BalanceReader":{"contractABI":"[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"addresses\",\"type\":\"address[]\"}],\"name\":\"getNativeBalances\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]","contractPollingFilter":{"genericEventNames":null,"pollingFilter":{"topic2":null,"topic3":null,"topic4":null,"retention":"0s","maxLogsKept":0,"logsPerBlock":0}},"configs":{"getNativeBalances":"{  \"chainSpecificName\": \"getNativeBalances\"}"}}}}`,
+	chainFamily := workflowConfig.ChainFamily
+	chainID := workflowConfig.ChainID
+	readcontractCapID := fmt.Sprintf("read-contract-%s-%s@1.0.0", chainFamily, chainID)
+	readcontractCapReaderConfig := `{"contracts":{"BalanceReader":{"contractABI":"[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"addresses\",\"type\":\"address[]\"}],\"name\":\"getNativeBalances\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]","contractPollingFilter":{"genericEventNames":null,"pollingFilter":{"topic2":null,"topic3":null,"topic4":null,"retention":"0s","maxLogsKept":0,"logsPerBlock":0}},"configs":{"getNativeBalances":"{  \"chainSpecificName\": \"getNativeBalances\"}"}}}}`
+	readcontractCapReadIdentifier := fmt.Sprintf("%s-%s-%s", balanceReaderAddr, "BalanceReader", "getNativeBalances")
+	readcontractCapConfig := readcontractcap.Config{
+		ContractReaderConfig: readcontractCapReaderConfig,
 		ContractAddress:      balanceReaderAddr,
 		ContractName:         "BalanceReader",
-		ReadIdentifier:       fmt.Sprintf("%s-%s-%s", balanceReaderAddr, "BalanceReader", "getNativeBalances"),
-	}.New(
-		workflow,
-		"read-contract-evm-1337@1.0.0", // TODO: make the value dynamic, atm only Anvil
-		"readSmokeTest",
-		readcontractcap.ActionInput{
-			ConfidenceLevel: sdk.ConstantDefinition("unconfirmed"),
-			Params: sdk.ConstantDefinition(readcontractcap.InputParams{
-				"addresses": addresses,
-			}),
-			StepDependency: sdk.ConstantDefinition(cron.Ref()),
-		},
-	)
+		ReadIdentifier:       readcontractCapReadIdentifier,
+	}
+	readcontractCapRef := "readSmokeTest"
+	readcontractCapActionInput := readcontractcap.ActionInput{
+		ConfidenceLevel: sdk.ConstantDefinition("unconfirmed"),
+		Params: sdk.ConstantDefinition(readcontractcap.InputParams{
+			"addresses": addresses,
+		}),
+		StepDependency: sdk.ConstantDefinition(cron.Ref()),
+	}
+
+	chainRead := readcontractCapConfig.New(workflow, readcontractCapID, readcontractCapRef, readcontractCapActionInput)
 
 	if workflowConfig.FeedID == "" {
 		runner.ExitWithError(fmt.Errorf("feedID is empty in the config: %+v", workflowConfig))

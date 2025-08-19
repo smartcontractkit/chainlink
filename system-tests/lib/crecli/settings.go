@@ -63,7 +63,6 @@ type McmsConfig struct {
 type Contracts struct {
 	ContractRegistry []ContractRegistry `yaml:"registries,omitempty"`
 	DataFeeds        []ContractRegistry `yaml:"data-feeds,omitempty"`
-	BalanceReader    []ContractRegistry `yaml:"balance-reader,omitempty"`
 	Keystone         []ContractRegistry `yaml:"keystone"`
 }
 
@@ -214,16 +213,6 @@ func PrepareCRECLISettingsFile(
 			})
 		}
 		// it is okay if there's no keystone forwarder address for a chain
-
-		balanceReaderAddr, balanceReaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.BalanceReader))
-		if balanceReaderErr == nil {
-			profileSettings.Contracts.BalanceReader = append(profileSettings.Contracts.BalanceReader, ContractRegistry{
-				Name:          keystone_changeset.BalanceReader.String(),
-				Address:       balanceReaderAddr.Hex(),
-				ChainSelector: chainSelector,
-			})
-		}
-		// it is okay if there's no BalanceReader address for a chain
 	}
 
 	settings, settingsErr := setProfile(profile, profileSettings)
