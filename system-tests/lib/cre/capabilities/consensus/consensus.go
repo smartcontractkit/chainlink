@@ -4,80 +4,29 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	consensusregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/consensus"
 	consensusjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 )
 
-type CapabilityV1 struct {
-	chainID uint64
+func NewV1(chainID uint64) (*capabilities.Capability, error) {
+	return capabilities.New(
+		cre.ConsensusCapability,
+		capabilities.WithJobSpecFn(consensusjobs.V1JobSpecFn(chainID)),
+		capabilities.WithCapabilityRegistryV1ConfigFn(consensusregistry.CapabilityV1RegistryConfigFn),
+		capabilities.WithValidateFn(func(c *capabilities.Capability) error {
+			if chainID == 0 {
+				return fmt.Errorf("chainID is required, got %d", chainID)
+			}
+			return nil
+		}),
+	)
 }
 
-func NewV1(chainID uint64) *CapabilityV1 {
-	return &CapabilityV1{
-		chainID: chainID,
-	}
-}
-
-func (c *CapabilityV1) Validate() error {
-	if c.chainID == 0 {
-		return fmt.Errorf("chainID is required, got %d", c.chainID)
-	}
-	return nil
-}
-
-func (c *CapabilityV1) Flag() cre.CapabilityFlag {
-	return cre.ConsensusCapability
-}
-
-func (c *CapabilityV1) JobSpecFn() cre.JobSpecFn {
-	return consensusjobs.V1JobSpecFn(c.chainID)
-}
-
-func (c *CapabilityV1) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *CapabilityV1) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return nil
-}
-
-func (c *CapabilityV1) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return consensusregistry.CapabilityV1RegistryConfigFn
-}
-
-type CapabilityV2 struct {
-	chainID uint64
-}
-
-func NewV2(chainID uint64) *CapabilityV2 {
-	return &CapabilityV2{
-		chainID: chainID,
-	}
-}
-
-func (c *CapabilityV2) Validate() error {
-	if c.chainID == 0 {
-		return fmt.Errorf("chainID is required, got %d", c.chainID)
-	}
-	return nil
-}
-
-func (c *CapabilityV2) Flag() cre.CapabilityFlag {
-	return cre.ConsensusCapabilityV2
-}
-
-func (c *CapabilityV2) JobSpecFn() cre.JobSpecFn {
-	return consensusjobs.V2JobSpecFn
-}
-
-func (c *CapabilityV2) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *CapabilityV2) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return nil
-}
-
-func (c *CapabilityV2) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return consensusregistry.ConsensusV2CapabilityFn
+func NewV2() (*capabilities.Capability, error) {
+	return capabilities.New(
+		cre.ConsensusCapabilityV2,
+		capabilities.WithJobSpecFn(consensusjobs.V2JobSpecFn),
+		capabilities.WithCapabilityRegistryV1ConfigFn(consensusregistry.ConsensusV2CapabilityFn),
+	)
 }

@@ -895,9 +895,6 @@ type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references
 	Flag() CapabilityFlag
 
-	// Validate performs any precondition checks required before the capability can be installed
-	Validate() error
-
 	// JobSpecFn returns a function that generates job specifications for this capability
 	// based on the provided input configuration and topology
 	JobSpecFn() JobSpecFn

@@ -2,47 +2,35 @@ package readcontract
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	readcontractregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/readcontract"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	chainlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
 )
 
-type Capability struct {
-}
+const readContractConfigTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}"}'`
 
-func New() *Capability {
-	return &Capability{}
-}
+func New() (*capabilities.Capability, error) {
+	perChainJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+		chainlevel.IsEnabled,
+		chainlevel.EnabledChains,
+		chainlevel.ConfigResolver,
+		chainlevel.JobName,
+	)
 
-func (c *Capability) Flag() cre.CapabilityFlag {
-	return cre.ReadContractCapability
-}
-
-func (c *Capability) Validate() error {
-	return nil
-}
-
-func (c *Capability) JobSpecFn() cre.JobSpecFn {
-	return factory.NewChainSpecificCapabilityJobSpecFactory(
-		c.Flag(),
-		`'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}"}'`,
-		func(chainID uint64, _ *cre.NodeMetadata) map[string]any {
-			return map[string]any{
-				"ChainID":       chainID,
-				"NetworkFamily": "evm",
-			}
-		},
-		factory.BinaryPathBuilder,
-	).GenerateJobSpecs
-}
-
-func (c *Capability) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *Capability) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return nil
-}
-
-func (c *Capability) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return readcontractregistry.CapabilityRegistryConfigFn
+	return capabilities.New(
+		cre.ReadContractCapability,
+		capabilities.WithJobSpecFn(perChainJobSpecFactory.BuildJobSpecFn(
+			cre.ReadContractCapability,
+			readContractConfigTemplate,
+			func(chainID uint64, _ *cre.NodeMetadata) map[string]any {
+				return map[string]any{
+					"ChainID":       chainID,
+					"NetworkFamily": "evm",
+				}
+			},
+			factory.BinaryPathBuilder,
+		)),
+		capabilities.WithCapabilityRegistryV1ConfigFn(readcontractregistry.CapabilityRegistryConfigFn),
+	)
 }

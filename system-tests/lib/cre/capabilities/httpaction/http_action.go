@@ -2,9 +2,11 @@ package httpaction
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	httpactionregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/httpaction"
 	httpactionhandler "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway/handlers/httpaction"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
 )
 
 const httpActionConfigTemplate = `"""
@@ -25,37 +27,23 @@ const httpActionConfigTemplate = `"""
 }
 """`
 
-type Capability struct{}
+func New() (*capabilities.Capability, error) {
+	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+		donlevel.IsEnabled,
+		donlevel.EnabledChains,
+		donlevel.ConfigResolver,
+		donlevel.JobName,
+	)
 
-func New() *Capability {
-	return &Capability{}
-}
-
-func (c *Capability) Flag() cre.CapabilityFlag {
-	return cre.HTTPActionCapability
-}
-
-func (c *Capability) Validate() error {
-	return nil
-}
-
-func (c *Capability) JobSpecFn() cre.JobSpecFn {
-	return factory.NewDonLevelCapabilityJobSpecFactory(
-		c.Flag(),
-		httpActionConfigTemplate,
-		factory.NoOpExtractor, // No runtime values extraction needed
-		factory.BinaryPathBuilder,
-	).GenerateJobSpecs
-}
-
-func (c *Capability) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *Capability) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return httpactionhandler.HandlerConfigFn
-}
-
-func (c *Capability) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return httpactionregistry.CapabilityRegistryConfigFn
+	return capabilities.New(
+		cre.HTTPActionCapability,
+		capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpecFn(
+			cre.HTTPActionCapability,
+			httpActionConfigTemplate,
+			factory.NoOpExtractor, // No runtime values extraction needed
+			factory.BinaryPathBuilder,
+		)),
+		capabilities.WithGatewayJobHandlerConfigFn(httpactionhandler.HandlerConfigFn),
+		capabilities.WithCapabilityRegistryV1ConfigFn(httpactionregistry.CapabilityRegistryConfigFn),
+	)
 }

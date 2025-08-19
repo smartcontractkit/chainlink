@@ -123,12 +123,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
 
-	for _, capability := range input.Capabilities {
-		if err := capability.Validate(); err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to validate capability")
-		}
-	}
-
 	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
 	// We need to have this reference in the outer scope, because subsequent functions will need it
 	var nixShell *libnix.Shell

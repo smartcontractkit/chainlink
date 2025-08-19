@@ -2,46 +2,32 @@ package webapitrigger
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	webapiregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/webapi"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
 )
 
 const webAPITriggerConfigTemplate = `""`
 
-type Capability struct {
-}
+func New() (*capabilities.Capability, error) {
+	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+		donlevel.IsEnabled,
+		donlevel.EnabledChains,
+		donlevel.ConfigResolver,
+		donlevel.JobName,
+	)
 
-func New() *Capability {
-	return &Capability{}
-}
-
-func (c *Capability) Flag() cre.CapabilityFlag {
-	return cre.WebAPITriggerCapability
-}
-
-func (c *Capability) Validate() error {
-	return nil
-}
-
-func (c *Capability) JobSpecFn() cre.JobSpecFn {
-	return factory.NewDonLevelCapabilityJobSpecFactory(
-		c.Flag(),
-		webAPITriggerConfigTemplate,
-		factory.NoOpExtractor, // No runtime values extraction needed
-		func(_ *cre.JobSpecInput, _ cre.CapabilityConfig) (string, error) {
-			return "__builtin_web-api-trigger", nil
-		},
-	).GenerateJobSpecs
-}
-
-func (c *Capability) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *Capability) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return nil
-}
-
-func (c *Capability) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return webapiregistry.TriggerCapabilityRegistryConfigFn
+	return capabilities.New(
+		cre.WebAPITriggerCapability,
+		capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpecFn(
+			cre.WebAPITriggerCapability,
+			webAPITriggerConfigTemplate,
+			factory.NoOpExtractor, // No runtime values extraction needed
+			func(_ *cre.JobSpecInput, _ cre.CapabilityConfig) (string, error) {
+				return "__builtin_web-api-trigger", nil
+			},
+		)),
+		capabilities.WithCapabilityRegistryV1ConfigFn(webapiregistry.TriggerCapabilityRegistryConfigFn),
+	)
 }

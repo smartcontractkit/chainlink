@@ -2,8 +2,11 @@ package httptrigger
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	httpregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/httptrigger"
+	httpactionhandler "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway/handlers/httpaction"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
 )
 
 const httpTriggerConfigTemplate = `"""
@@ -23,38 +26,23 @@ const httpTriggerConfigTemplate = `"""
 }
 """`
 
-type Capability struct {
-}
+func New() (*capabilities.Capability, error) {
+	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+		donlevel.IsEnabled,
+		donlevel.EnabledChains,
+		donlevel.ConfigResolver,
+		donlevel.JobName,
+	)
 
-func New() *Capability {
-	return &Capability{}
-}
-
-func (c *Capability) Flag() cre.CapabilityFlag {
-	return cre.HTTPTriggerCapability
-}
-
-func (c *Capability) Validate() error {
-	return nil
-}
-
-func (c *Capability) JobSpecFn() cre.JobSpecFn {
-	return factory.NewDonLevelCapabilityJobSpecFactory(
-		c.Flag(),
-		httpTriggerConfigTemplate,
-		factory.NoOpExtractor, // No runtime values extraction needed
-		factory.BinaryPathBuilder,
-	).GenerateJobSpecs
-}
-
-func (c *Capability) OptionalNodeConfigFn() cre.NodeConfigFn {
-	return nil
-}
-
-func (c *Capability) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
-	return nil
-}
-
-func (c *Capability) CapabilityRegistryV1ConfigFn() cre.CapabilityRegistryConfigFn {
-	return httpregistry.CapabilityRegistryConfigFn
+	return capabilities.New(
+		cre.HTTPTriggerCapability,
+		capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpecFn(
+			cre.HTTPTriggerCapability,
+			httpTriggerConfigTemplate,
+			factory.NoOpExtractor, // No runtime values extraction needed
+			factory.BinaryPathBuilder,
+		)),
+		capabilities.WithGatewayJobHandlerConfigFn(httpactionhandler.HandlerConfigFn),
+		capabilities.WithCapabilityRegistryV1ConfigFn(httpregistry.CapabilityRegistryConfigFn),
+	)
 }
