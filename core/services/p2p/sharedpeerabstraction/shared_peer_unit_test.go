@@ -3,7 +3,6 @@ package sharedpeerabstraction_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,26 +33,26 @@ func TestSharedPeerAbstraction_Creation(t *testing.T) {
 	require.NotNil(t, sharedPeer)
 
 	// Test initial state
-	assert.False(t, sharedPeer.HasOCRCapability())
-	assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-	assert.Nil(t, sharedPeer.GetSingletonWrapper())
-	assert.Nil(t, sharedPeer.GetPeer())
+	require.False(t, sharedPeer.HasOCRCapability())
+	require.Nil(t, sharedPeer.GetPeerGroupFactory())
+	require.Nil(t, sharedPeer.GetSingletonWrapper())
+	require.Nil(t, sharedPeer.GetPeer())
 
 	// Test signing without key (should fail)
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "private key not available")
-	assert.Empty(t, signature)
+	require.Contains(t, err.Error(), "private key not available")
+	require.Empty(t, signature)
 
 	// Test health check without starting
 	err = sharedPeer.Ready()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no peer implementation available")
+	require.Contains(t, err.Error(), "no peer implementation available")
 
 	healthReport := sharedPeer.HealthReport()
-	assert.NotEmpty(t, healthReport)
-	assert.Contains(t, healthReport, sharedPeer.Name())
+	require.NotEmpty(t, healthReport)
+	require.Contains(t, healthReport, sharedPeer.Name())
 }
 
 func TestSharedPeerAbstraction_Configuration(t *testing.T) {
@@ -88,8 +87,8 @@ func TestSharedPeerAbstraction_Configuration(t *testing.T) {
 	require.NotNil(t, sharedPeerExternal)
 
 	// Both should start in same state without being started
-	assert.False(t, sharedPeerOCR.HasOCRCapability())
-	assert.False(t, sharedPeerExternal.HasOCRCapability())
+	require.False(t, sharedPeerOCR.HasOCRCapability())
+	require.False(t, sharedPeerExternal.HasOCRCapability())
 }
 
 func TestSharedPeerAbstraction_ServiceLifecycle(t *testing.T) {
@@ -109,12 +108,12 @@ func TestSharedPeerAbstraction_ServiceLifecycle(t *testing.T) {
 	require.NotNil(t, sharedPeer)
 
 	// Test name
-	assert.NotEmpty(t, sharedPeer.Name())
-	assert.Contains(t, sharedPeer.Name(), "SharedPeerAbstraction")
+	require.NotEmpty(t, sharedPeer.Name())
+	require.Contains(t, sharedPeer.Name(), "SharedPeerAbstraction")
 
 	// Test that closing without starting is handled gracefully
 	err := sharedPeer.Close()
 	// The StateMachine implementation requires the service to be started before it can be closed
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot stop unstarted service")
+	require.Contains(t, err.Error(), "cannot stop unstarted service")
 }

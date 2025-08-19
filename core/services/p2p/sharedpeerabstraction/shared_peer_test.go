@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -63,9 +62,9 @@ func TestSharedPeerAbstraction_ExternalPeerMode(t *testing.T) {
 	require.NotNil(t, sharedPeer)
 
 	// Test initial state
-	assert.False(t, sharedPeer.HasOCRCapability())
-	assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-	assert.Nil(t, sharedPeer.GetSingletonWrapper())
+	require.False(t, sharedPeer.HasOCRCapability())
+	require.Nil(t, sharedPeer.GetPeerGroupFactory())
+	require.Nil(t, sharedPeer.GetSingletonWrapper())
 
 	// Start the shared peer
 	ctx := testutils.Context(t)
@@ -79,7 +78,7 @@ func TestSharedPeerAbstraction_ExternalPeerMode(t *testing.T) {
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
 	require.NoError(t, err)
-	assert.NotEmpty(t, signature)
+	require.NotEmpty(t, signature)
 
 	// Test health and readiness
 	require.NoError(t, sharedPeer.Ready())
@@ -130,28 +129,28 @@ func TestSharedPeerAbstraction_OCRMode(t *testing.T) {
 	require.NotNil(t, sharedPeer)
 
 	// Test initial state
-	assert.False(t, sharedPeer.HasOCRCapability()) // Not started yet
-	assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-	assert.Nil(t, sharedPeer.GetSingletonWrapper())
+	require.False(t, sharedPeer.HasOCRCapability()) // Not started yet
+	require.Nil(t, sharedPeer.GetPeerGroupFactory())
+	require.Nil(t, sharedPeer.GetSingletonWrapper())
 
 	// Start the shared peer
 	ctx := testutils.Context(t)
 	require.NoError(t, sharedPeer.Start(ctx))
 
 	// Test that OCR capabilities are available
-	assert.True(t, sharedPeer.HasOCRCapability())
-	assert.NotNil(t, sharedPeer.GetPeerGroupFactory())
-	assert.NotNil(t, sharedPeer.GetSingletonWrapper())
+	require.True(t, sharedPeer.HasOCRCapability())
+	require.NotNil(t, sharedPeer.GetPeerGroupFactory())
+	require.NotNil(t, sharedPeer.GetSingletonWrapper())
 
 	// Test that external peer is not available in OCR mode
 	peer := sharedPeer.GetPeer()
-	assert.Nil(t, peer) // OCR mode doesn't provide direct peer access
+	require.Nil(t, peer) // OCR mode doesn't provide direct peer access
 
 	// Test signing capability
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
 	require.NoError(t, err)
-	assert.NotEmpty(t, signature)
+	require.NotEmpty(t, signature)
 
 	// Test health and readiness
 	require.NoError(t, sharedPeer.Ready())
@@ -204,12 +203,12 @@ func TestSharedPeerAbstraction_ForceExternalMode(t *testing.T) {
 	require.NoError(t, sharedPeer.Start(ctx))
 
 	// Test that external peer is used despite OCR being enabled
-	assert.False(t, sharedPeer.HasOCRCapability())
-	assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-	assert.Nil(t, sharedPeer.GetSingletonWrapper())
+	require.False(t, sharedPeer.HasOCRCapability())
+	require.Nil(t, sharedPeer.GetPeerGroupFactory())
+	require.Nil(t, sharedPeer.GetSingletonWrapper())
 
 	peer := sharedPeer.GetPeer()
-	assert.NotNil(t, peer) // External peer should be available
+	require.NotNil(t, peer) // External peer should be available
 
 	// Clean up
 	require.NoError(t, sharedPeer.Close())
@@ -249,7 +248,7 @@ func TestSharedPeerAbstraction_InvalidConfiguration(t *testing.T) {
 	ctx := testutils.Context(t)
 	err := sharedPeer.Start(ctx)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid P2P configuration")
+	require.Contains(t, err.Error(), "invalid P2P configuration")
 }
 
 func TestSharedPeerAbstraction_SigningWithoutKey(t *testing.T) {
@@ -275,8 +274,8 @@ func TestSharedPeerAbstraction_SigningWithoutKey(t *testing.T) {
 	testData := []byte("test message")
 	signature, err := sharedPeer.Sign(testData)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "private key not available")
-	assert.Empty(t, signature)
+	require.Contains(t, err.Error(), "private key not available")
+	require.Empty(t, signature)
 }
 
 func TestSharedPeerAbstraction_DoubleStartStop(t *testing.T) {
@@ -369,7 +368,7 @@ func TestSharedPeerAbstraction_ExampleUsage_ExternalMode(t *testing.T) {
 	if err != nil {
 		// This is expected in test environment due to incomplete OCR setup
 		t.Logf("ExampleUsage returned error as expected in test environment: %v", err)
-		assert.Contains(t, err.Error(), "failed to start shared peer")
+		require.Contains(t, err.Error(), "failed to start shared peer")
 	}
 }
 
@@ -409,15 +408,15 @@ func TestSharedPeerAbstraction_ExampleOCROnlyUsage(t *testing.T) {
 	if err != nil {
 		// This is expected in test environment due to OCR setup requirements
 		t.Logf("ExampleOCROnlyUsage returned error as expected in test environment: %v", err)
-		assert.Contains(t, err.Error(), "failed to start OCR peer")
+		require.Contains(t, err.Error(), "failed to start OCR peer")
 		return
 	}
 
 	// If it succeeds, verify the peer has OCR capabilities
 	require.NotNil(t, sharedPeer)
-	assert.True(t, sharedPeer.HasOCRCapability())
-	assert.NotNil(t, sharedPeer.GetPeerGroupFactory())
-	assert.NotNil(t, sharedPeer.GetSingletonWrapper())
+	require.True(t, sharedPeer.HasOCRCapability())
+	require.NotNil(t, sharedPeer.GetPeerGroupFactory())
+	require.NotNil(t, sharedPeer.GetSingletonWrapper())
 
 	// Clean up
 	require.NoError(t, sharedPeer.Close())
@@ -456,16 +455,16 @@ func TestSharedPeerAbstraction_ExampleExternalPeerOnlyUsage(t *testing.T) {
 	require.NotNil(t, sharedPeer)
 
 	// Verify it's in external peer mode
-	assert.False(t, sharedPeer.HasOCRCapability())
-	assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-	assert.Nil(t, sharedPeer.GetSingletonWrapper())
-	assert.NotNil(t, sharedPeer.GetPeer())
+	require.False(t, sharedPeer.HasOCRCapability())
+	require.Nil(t, sharedPeer.GetPeerGroupFactory())
+	require.Nil(t, sharedPeer.GetSingletonWrapper())
+	require.NotNil(t, sharedPeer.GetPeer())
 
 	// Test signing capability
 	testMessage := []byte("test message")
 	signature, err := sharedPeer.Sign(testMessage)
 	require.NoError(t, err)
-	assert.NotEmpty(t, signature)
+	require.NotEmpty(t, signature)
 
 	// Clean up
 	require.NoError(t, sharedPeer.Close())
@@ -532,7 +531,7 @@ func TestSharedPeerAbstraction_ExampleUsage_ModifiedForExternalMode(t *testing.T
 	testMessage := []byte("Hello, P2P world!")
 	signature, err := sharedPeer.Sign(testMessage)
 	require.NoError(t, err)
-	assert.NotEmpty(t, signature)
+	require.NotEmpty(t, signature)
 
 	lggr.Infow("Message signed successfully", "signatureLength", len(signature))
 }
@@ -563,7 +562,7 @@ func TestSharedPeerAbstraction_ExampleFunctions_ErrorHandling(t *testing.T) {
 			t.Fatal("Expected error with nil configuration, but got none")
 		}
 		require.Error(t, err)
-		assert.Nil(t, sharedPeer)
+		require.Nil(t, sharedPeer)
 	})
 
 	t.Run("ExampleExternalPeerOnlyUsage_InvalidConfig", func(t *testing.T) {
@@ -587,7 +586,7 @@ func TestSharedPeerAbstraction_ExampleFunctions_ErrorHandling(t *testing.T) {
 			t.Fatal("Expected error with nil configuration, but got none")
 		}
 		require.Error(t, err)
-		assert.Nil(t, sharedPeer)
+		require.Nil(t, sharedPeer)
 	})
 }
 
@@ -622,25 +621,25 @@ func TestSharedPeerAbstraction_ExampleFunctions_IntegrationBehavior(t *testing.T
 	// Verify all the behaviors described in the example
 	t.Run("VerifyExternalPeerBehavior", func(t *testing.T) {
 		// Should not have OCR capability
-		assert.False(t, sharedPeer.HasOCRCapability())
+		require.False(t, sharedPeer.HasOCRCapability())
 
 		// Should not have OCR-specific components
-		assert.Nil(t, sharedPeer.GetPeerGroupFactory())
-		assert.Nil(t, sharedPeer.GetSingletonWrapper())
+		require.Nil(t, sharedPeer.GetPeerGroupFactory())
+		require.Nil(t, sharedPeer.GetSingletonWrapper())
 
 		// Should have external peer
 		peer := sharedPeer.GetPeer()
-		assert.NotNil(t, peer)
+		require.NotNil(t, peer)
 
 		// Should be able to get peer ID
 		peerID := peer.ID()
-		assert.NotEmpty(t, peerID)
+		require.NotEmpty(t, peerID)
 
 		// Should be able to sign messages
 		message := []byte("test message")
 		signature, err := sharedPeer.Sign(message)
 		require.NoError(t, err)
-		assert.NotEmpty(t, signature)
+		require.NotEmpty(t, signature)
 
 		// Should have proper service lifecycle
 		require.NoError(t, sharedPeer.Ready())
