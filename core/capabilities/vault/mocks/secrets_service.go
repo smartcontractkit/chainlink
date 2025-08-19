@@ -82,6 +82,125 @@ func (_c *SecretsService_CreateSecrets_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// GetSecrets provides a mock function with given fields: ctx, requestId, request
+func (_m *SecretsService) GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*pluginsvault.Response, error) {
+	ret := _m.Called(ctx, requestId, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSecrets")
+	}
+
+	var r0 *pluginsvault.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *vault.GetSecretsRequest) (*pluginsvault.Response, error)); ok {
+		return rf(ctx, requestId, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *vault.GetSecretsRequest) *pluginsvault.Response); ok {
+		r0 = rf(ctx, requestId, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pluginsvault.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *vault.GetSecretsRequest) error); ok {
+		r1 = rf(ctx, requestId, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SecretsService_GetSecrets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSecrets'
+type SecretsService_GetSecrets_Call struct {
+	*mock.Call
+}
+
+// GetSecrets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - requestId string
+//   - request *vault.GetSecretsRequest
+func (_e *SecretsService_Expecter) GetSecrets(ctx interface{}, requestId interface{}, request interface{}) *SecretsService_GetSecrets_Call {
+	return &SecretsService_GetSecrets_Call{Call: _e.mock.On("GetSecrets", ctx, requestId, request)}
+}
+
+func (_c *SecretsService_GetSecrets_Call) Run(run func(ctx context.Context, requestId string, request *vault.GetSecretsRequest)) *SecretsService_GetSecrets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*vault.GetSecretsRequest))
+	})
+	return _c
+}
+
+func (_c *SecretsService_GetSecrets_Call) Return(_a0 *pluginsvault.Response, _a1 error) *SecretsService_GetSecrets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *SecretsService_GetSecrets_Call) RunAndReturn(run func(context.Context, string, *vault.GetSecretsRequest) (*pluginsvault.Response, error)) *SecretsService_GetSecrets_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateSecrets provides a mock function with given fields: ctx, request
+func (_m *SecretsService) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*pluginsvault.Response, error) {
+	ret := _m.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateSecrets")
+	}
+
+	var r0 *pluginsvault.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.UpdateSecretsRequest) (*pluginsvault.Response, error)); ok {
+		return rf(ctx, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.UpdateSecretsRequest) *pluginsvault.Response); ok {
+		r0 = rf(ctx, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pluginsvault.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *vault.UpdateSecretsRequest) error); ok {
+		r1 = rf(ctx, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SecretsService_UpdateSecrets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSecrets'
+type SecretsService_UpdateSecrets_Call struct {
+	*mock.Call
+}
+
+// UpdateSecrets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *vault.UpdateSecretsRequest
+func (_e *SecretsService_Expecter) UpdateSecrets(ctx interface{}, request interface{}) *SecretsService_UpdateSecrets_Call {
+	return &SecretsService_UpdateSecrets_Call{Call: _e.mock.On("UpdateSecrets", ctx, request)}
+}
+
+func (_c *SecretsService_UpdateSecrets_Call) Run(run func(ctx context.Context, request *vault.UpdateSecretsRequest)) *SecretsService_UpdateSecrets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*vault.UpdateSecretsRequest))
+	})
+	return _c
+}
+
+func (_c *SecretsService_UpdateSecrets_Call) Return(_a0 *pluginsvault.Response, _a1 error) *SecretsService_UpdateSecrets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *SecretsService_UpdateSecrets_Call) RunAndReturn(run func(context.Context, *vault.UpdateSecretsRequest) (*pluginsvault.Response, error)) *SecretsService_UpdateSecrets_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewSecretsService creates a new instance of SecretsService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewSecretsService(t interface {

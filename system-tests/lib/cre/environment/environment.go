@@ -227,6 +227,7 @@ func SetupTestEnvironment(
 			DeployConsensusOCR3:   consensusAddrFlag,
 		},
 	)
+
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
@@ -234,10 +235,14 @@ func SetupTestEnvironment(
 	if err = allChainsCLDEnvironment.ExistingAddresses.Merge(deployKeystoneReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
 		return nil, pkgerrors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}
+
 	if err = memoryDatastore.Merge(deployKeystoneReport.Output.Datastore); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
+
+	balanceReaderAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.BalanceReader.String(), "1.0.0", "")
+	testLogger.Info().Msgf("Deployed BalanceReader contract on chain %d at %s", homeChainOutput.ChainSelector, balanceReaderAddr)
 
 	ocr3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
 	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)

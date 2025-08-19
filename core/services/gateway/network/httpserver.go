@@ -70,7 +70,12 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
-	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
+	var handler http.Handler
+	handler = http.HandlerFunc(server.handleRequest)
+	if config.RequestTimeoutMillis > 0 {
+		handler = http.TimeoutHandler(handler, time.Duration(config.RequestTimeoutMillis)*time.Millisecond, "Request timed out")
+	}
+	mux.Handle(config.Path, handler)
 	mux.Handle(HealthCheckPath, http.HandlerFunc(server.handleHealthCheck))
 	server.server = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", config.Host, config.Port),
@@ -173,13 +178,6 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestCtx := r.Context()
-	if s.config.RequestTimeoutMillis > 0 {
-		var cancel context.CancelFunc
-		requestCtx, cancel = context.WithTimeout(requestCtx, time.Duration(s.config.RequestTimeoutMillis)*time.Millisecond)
-		defer cancel()
-	}
-
 	// Optionally extract jwt token from authorization header
 	authHeader := r.Header.Get("Authorization")
 	jwtToken := ""
@@ -187,24 +185,14 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
 	}
 
-	rawResponse, httpStatusCode := s.handler.ProcessRequest(requestCtx, rawMessage, jwtToken)
-	s.lggr.Info("Debugging HTTPServer: Response: ", string(rawResponse))
-	s.lggr.Info("Debugging HTTPServer: Status code: ", httpStatusCode)
+	rawResponse, httpStatusCode := s.handler.ProcessRequest(r.Context(), rawMessage, jwtToken)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)
 	_, err = w.Write(rawResponse)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		s.lggr.Error("error when writing response", err)
-	} else {
-		s.lggr.Info("Debugging HTTPServer: Successful Status code: ", httpStatusCode)
 	}
-	// Add explicit flush, for 2xx-5xx statuses.
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
-	}
-	return
 }
 
 func (s *httpServer) SetHTTPRequestHandler(handler HTTPRequestHandler) {

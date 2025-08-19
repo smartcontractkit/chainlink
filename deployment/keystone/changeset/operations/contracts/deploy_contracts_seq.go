@@ -47,10 +47,20 @@ func updateAddresses(addr datastore.MutableAddressRefStore, as datastore.Address
 var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContractsSequenceInput, DeployKeystoneContractsSequenceOutput, DeployKeystoneContractsSequenceDeps](
 	"deploy-keystone-contracts-seq",
 	semver.MustParse("1.0.0"),
-	"Deploy Keystone Contracts (OCR3, Vault-OCR3, EVM-OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder)",
+	"Deploy Keystone Contracts (BalanceReader, OCR3, Vault-OCR3, EVM-OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder)",
 	func(b operations.Bundle, deps DeployKeystoneContractsSequenceDeps, input DeployKeystoneContractsSequenceInput) (output DeployKeystoneContractsSequenceOutput, err error) {
 		ab := deployment.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
+
+		// BalanceReader Contract
+		balanceReaderDeployReport, err := operations.ExecuteOperation(b, DeployBalanceReaderOp, DeployBalanceReaderOpDeps(deps), DeployBalanceReaderOpInput{ChainSelector: input.RegistryChainSelector})
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
+		err = updateAddresses(as.Addresses(), balanceReaderDeployReport.Output.Addresses, ab, balanceReaderDeployReport.Output.AddressBook)
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
 
 		// OCR3 Contract
 		ocr3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_ocr3"})

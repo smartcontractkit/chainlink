@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	core_mocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	vaultCap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -119,10 +120,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			secretsService := mocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
+			capRegistry := core_mocks.NewCapabilitiesRegistry(t)
 
 			tt.setupMocks(secretsService, gwConnector)
 
-			handler, err := vaultCap.NewGatewayHandler(secretsService, gwConnector, lggr)
+			handler, err := vaultCap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
 			require.NoError(t, err)
 
 			err = handler.HandleGatewayMessage(ctx, "gateway-1", tt.request)
@@ -142,8 +144,9 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 
 	secretsService := mocks.NewSecretsService(t)
 	gwConnector := connector_mocks.NewGatewayConnector(t)
+	capRegistry := core_mocks.NewCapabilitiesRegistry(t)
 
-	handler, err := vaultCap.NewGatewayHandler(secretsService, gwConnector, lggr)
+	handler, err := vaultCap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {

@@ -1,5 +1,10 @@
 package vault
 
+import (
+	"encoding/json"
+	"strconv"
+)
+
 const (
 	// Note: any addition to this list should be reflected in
 	// HandlerTypeForMethod in handler_factory.go
@@ -33,39 +38,46 @@ type SecretsGetRequest struct {
 	Owner string `json:"owner"`
 }
 
+// SignedResponse is a structure that represents a signed response from the Vault DON.
+// It should be validated by the client before use.
+// The Payload field contains the actual response data, while Context and Signatures
+// are used for signature verification and context information.
+type SignedResponse struct {
+	Payload    json.RawMessage `json:"payload"`
+	Context    []byte          `json:"__context"`
+	Signatures [][]byte        `json:"__signatures"`
+}
+
 type ResponseBase struct {
-	ID         string   `json:"id,omitempty"`
-	Error      string   `json:"error,omitempty"`
-	Format     string   `json:"format,omitempty"`
-	Context    []byte   `json:"context,omitempty"`
-	Signatures [][]byte `json:"signatures,omitempty"`
+	ID       string         `json:"id,omitempty"`
+	Error    string         `json:"error,omitempty"`
+	Response SignedResponse `json:"response,omitempty"`
 }
 
 func (r *ResponseBase) String() string {
 	return "ResponseBase{" +
 		"ID: " + r.ID +
 		", Error: " + r.Error +
-		", Format: " + r.Format +
+		", Response: SignedResponse{" +
+		", Payload: " + string(r.Response.Payload) +
 		", Context: []byte blob" +
-		", Signatures: [][]byte blob" +
+		", Signatures: [][]byte blob}" +
 		"}"
 }
 
 type SecretsCreateResponse struct {
-	ResponseBase
 	SecretID SecretIdentifier `json:"secret_id,omitempty"`
 	Success  bool             `json:"success,omitempty"`
 }
 
 func (r *SecretsCreateResponse) String() string {
 	return "SecretsCreateResponse{" +
-		"ResponseBase: " + r.ResponseBase.String() +
 		", SecretID: " + r.SecretID.String() +
+		", Success: " + strconv.FormatBool(r.Success) +
 		"}"
 }
 
 type SecretsGetResponse struct {
-	ResponseBase
 	SecretID    SecretIdentifier `json:"secret_id,omitempty"`
 	SecretValue SecretData       `json:"secret_value,omitempty"`
 	Error       string           `json:"error,omitempty"`

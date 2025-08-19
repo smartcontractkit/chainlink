@@ -191,10 +191,13 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Note: this could mean that we end up processing more than `batchSize` requests
 	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
 	// guaranteed to fetch the same requests.
-	r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", r.cfg.BatchSize)
 	batch, err := r.store.FirstN(r.cfg.BatchSize)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
+	}
+	// Avoid log spam by only logging if we have any requests to process.
+	if len(batch) > 0 {
+		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", r.cfg.BatchSize)
 	}
 
 	ids := []string{}
@@ -227,7 +230,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not marshal observations: %w", err)
 	}
 
-	r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
+	// Avoid log spam by only logging if we have any requests to process.
+	if len(batch) > 0 {
+		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
+	}
 	return types.Observation(obsb), nil
 }
 
@@ -237,7 +243,6 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	o.Request = &vault.Observation_GetSecretsRequest{
 		GetSecretsRequest: tp,
 	}
-
 	resps := []*vault.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
@@ -339,6 +344,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_CreateSecretsRequest{
 		CreateSecretsRequest: tp,
 	}
+	l := r.lggr.With("requestId", tp.RequestId, "requestType", "CreateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -358,7 +364,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-			r.lggr.Errorw("observed to handle create secret request item", "id", sr.Id, "requestId", tp.RequestId, "error", ierr)
+			l.Errorw("observed to handle create secret request item", "id", sr.Id, "error", ierr)
 			errorMsg := "failed to handle create secret request"
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
@@ -369,7 +375,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("observed create secret request item", "id", validatedID, "requestId", tp.RequestId)
+			r.lggr.Debugw("observed create secret request item", "id", validatedID)
 			resps = append(resps, &vault.CreateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
@@ -427,6 +433,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_UpdateSecretsRequest{
 		UpdateSecretsRequest: tp,
 	}
+	l := r.lggr.With("requestId", tp.RequestId, "requestType", "UpdateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -446,7 +453,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-			r.lggr.Errorw("failed to observe update secret request item", "id", sr.Id, "requestId", tp.RequestId, "error", ierr)
+			l.Errorw("failed to observe update secret request item", "id", sr.Id, "error", ierr)
 			errorMsg := "failed to handle update secret request"
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
@@ -457,7 +464,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("observed update secret request item", "id", validatedID, "requestId", tp.RequestId)
+			l.Debugw("observed update secret request item", "id", validatedID)
 			resps = append(resps, &vault.UpdateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
@@ -748,11 +755,13 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
-	r.lggr.Debugw("State transition complete", "count", len(os.Outcomes), "err", err)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not marshal outcomes: %w", err)
 	}
 
+	if len(os.Outcomes) > 0 {
+		r.lggr.Debugw("State transition complete", "count", len(os.Outcomes), "err", err)
+	}
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
@@ -1086,7 +1095,9 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 		}
 	}
 
-	r.lggr.Debugw("Reports complete", "count", len(reports))
+	if len(reports) > 0 {
+		r.lggr.Debugw("Reports complete", "count", len(reports))
+	}
 	return reports, nil
 }
 

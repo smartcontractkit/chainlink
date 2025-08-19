@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -82,8 +82,6 @@ type handler struct {
 
 	activeRequests map[string]activeRequest
 	metrics        *metrics
-
-	newID func() string
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -136,9 +134,6 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		mu:              sync.RWMutex{},
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
-		newID: func() string {
-			return uuid.New().String()
-		},
 	}, nil
 }
 
@@ -204,10 +199,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("Debugging: handling vault request", "method", req.Method, "id", req.ID)
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
-	req.ID = h.newID()
+	if req.ID == "" {
+		return errors.New("request ID cannot be empty")
+	}
+
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestId", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
@@ -266,6 +263,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		errorCode = api.NoError
 	}
 
+	l.Debugw("issued user callback", "errorCode", errorCode)
 	successResp := gw_handlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
@@ -282,36 +280,6 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 
 	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" || secretsCreateRequest.Owner == "" {
 		l.Debugw("invalid request parameters: secret id, owner and value cannot be empty")
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
-	}
-
-	// At this point, we know that the request is valid and we can send it to the nodes
-	var nodeErrors []error
-	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
-		}
-	}
-
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
-	}
-
-	l.Debugw("successfully forwarded request to Vault nodes")
-	return nil
-}
-
-func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
-	var secretsGetRequest SecretsGetRequest
-	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
-	}
-
-	if secretsGetRequest.ID == "" || secretsGetRequest.Owner == "" {
-		l.Debugw("invalid request parameters: secret id and owner cannot be empty")
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
 	}
 
@@ -351,6 +319,36 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 
 	ar.req.Params = (*json.RawMessage)(&reqb)
 
+	var nodeErrors []error
+	for _, node := range h.donConfig.Members {
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		if err != nil {
+			nodeErrors = append(nodeErrors, err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
+	}
+
+	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+	}
+
+	l.Debugw("successfully forwarded request to Vault nodes")
+	return nil
+}
+
+func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	var secretsGetRequest SecretsGetRequest
+	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	if secretsGetRequest.ID == "" || secretsGetRequest.Owner == "" {
+		l.Debugw("invalid request parameters: secret id and owner cannot be empty")
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	}
+
+	// At this point, we know that the request is valid and we can send it to the nodes
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)

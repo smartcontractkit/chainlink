@@ -207,6 +207,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		return []byte("internal error" + ctx.Err().Error()), 500
 		// return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+ctx.Err().Error())
 	case response = <-responseCh:
+		g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestId", jsonRequest.ID)
 		break
 	}
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()

@@ -18,7 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/seqs"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )

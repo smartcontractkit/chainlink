@@ -118,7 +118,7 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 		ExpiryTimeVal: s.clock.Now().Add(s.expiresAfter),
 		IDVal:         requestID,
 	})
-	s.lggr.Infof("Sent Request to Vault OCR: %s. Expiry is %s.", request, s.expiresAfter.String())
+	s.lggr.Debugw("sent request to OCR handler", "requestId", requestID)
 	select {
 	case <-ctx.Done():
 		s.lggr.Debugw("request timed out", "requestId", requestID, "error", ctx.Err())
@@ -131,6 +131,11 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 
 		return resp, nil
 	}
+}
+
+func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
+	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
+	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error) {
@@ -156,11 +161,6 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSec
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
-	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
-	return s.handleRequest(ctx, request.RequestId, request)
-}
-
 func (s *Capability) GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
 	s.lggr.Infof("Received GetSecrets call: %s", request.String())
 	if len(request.Requests) == 0 {
@@ -177,7 +177,7 @@ func NewCapability(
 ) *Capability {
 	return &Capability{
 
-		lggr:         lggr.Named("VaultService"),
+		lggr:         lggr.Named("VaultCapability"),
 		clock:        clock,
 		expiresAfter: expiresAfter,
 		handler:      handler,
