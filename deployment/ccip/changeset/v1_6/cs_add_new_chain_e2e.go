@@ -182,12 +182,12 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 	if err := c.prerequisiteConfigForNewChain().Validate(); err != nil {
 		return fmt.Errorf("failed to validate prerequisite config for new chain: %w", err)
 	}
-	
+
 	if !c.SkipDeployments {
-	if err := c.deploymentConfigForNewChain().Validate(); err != nil {
-		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
+		if err := c.deploymentConfigForNewChain().Validate(); err != nil {
+			return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
+		}
 	}
-}
 	if c.NewChain.RMNRemoteConfig != nil {
 		if err := c.rmnRemoteConfigForNewChain().Validate(e, state); err != nil {
 			return fmt.Errorf("failed to validate RMN remote config for new chain: %w", err)
