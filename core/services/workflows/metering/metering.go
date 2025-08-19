@@ -102,6 +102,7 @@ type Report struct {
 	meteringMode    bool
 	meteringModeErr error
 	steps           map[string]ReportStep
+	rateCard        map[string]decimal.Decimal
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -155,7 +156,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		lggr.Errorf("switching to metering mode: failed to get selector for chain id: %s", err)
 	}
 
-	rateCard := make(map[string]decimal.Decimal)
+	report.rateCard = make(map[string]decimal.Decimal)
 
 	if client != nil {
 		report.client = client
@@ -171,7 +172,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 			lggr.Error(err)
 		}
 
-		rateCard, err = toRateCard(resp)
+		report.rateCard, err = toRateCard(resp)
 		if err != nil {
 			lggr.Errorf("switching to metering mode: %s", err)
 
@@ -179,23 +180,10 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		}
 	}
 
-	if len(rateCard) == 0 && !report.meteringMode {
+	if len(report.rateCard) == 0 && !report.meteringMode {
 		lggr.Error("switching to metering mode: empty rate card")
 
 		report.meteringMode = true
-	}
-
-	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
-	if err != nil {
-		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
-		report.meteringMode = true
-
-		// we can recover with an empty rate card and in metering mode
-		report.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-		if err != nil {
-			// this should never happen, but if it does, we cannot proceed
-			return nil, err
-		}
 	}
 
 	return &report, nil
@@ -206,6 +194,9 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 func (r *Report) Reserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// to avoid nil pointers, the balance store should be initialized with a zero value
+	r.balance, _ = NewBalanceStore(decimal.Zero, r.rateCard)
 
 	if r.client == nil {
 		r.switchToMeteringMode(ErrNoBillingClient)
@@ -249,7 +240,21 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	r.ready = true
 
-	return r.balance.Add(credits)
+	// once credits are available, the balance store can be initialized again with the actual initial balance
+	r.balance, err = NewBalanceStore(credits, r.rateCard)
+	if err != nil {
+		r.lggr.Error("switching to metering mode: failed to create balance store: %s", err)
+		r.meteringMode = true
+
+		// we can recover with an empty rate card and in metering mode
+		r.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+		if err != nil {
+			// this should never happen, but if it does, we cannot proceed
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction

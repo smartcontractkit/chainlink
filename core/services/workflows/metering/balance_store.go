@@ -163,13 +163,7 @@ func (bs *balanceStore) Add(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Add(amount)
-
-	// the reserve call adds a balance. the deduct call subtracts an excessive amount.
-	// the settle call adds back any unspent credits. if the spent value is zero, the deduct
-	// call has not happened yet so no adjustment is needed.
-	if !bs.spent.IsZero() {
-		bs.spent = bs.spent.Sub(amount)
-	}
+	bs.spent = bs.spent.Sub(amount)
 
 	return nil
 }
@@ -189,6 +183,7 @@ func (bs *balanceStore) AddAs(resourceType string, amount decimal.Decimal) error
 	}
 
 	bs.balance = bs.balance.Add(bal)
+	bs.spent = bs.spent.Sub(bal)
 
 	return nil
 }
