@@ -898,7 +898,7 @@ func Test_Report_Settle(t *testing.T) {
 
 		require.NoError(t, report.SendReceipt(t.Context()))
 
-		assert.Len(t, logs.All(), 0)
+		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
 }
