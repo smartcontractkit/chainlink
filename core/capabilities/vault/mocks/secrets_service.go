@@ -82,7 +82,7 @@ func (_c *SecretsService_CreateSecrets_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// GetSecrets provides a mock function with given fields: ctx, requestId, request
+// GetSecrets provides a mock function with given fields: ctx, requestID, request
 func (_m *SecretsService) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*pluginsvault.Response, error) {
 	ret := _m.Called(ctx, requestID, request)
 
@@ -119,13 +119,13 @@ type SecretsService_GetSecrets_Call struct {
 
 // GetSecrets is a helper method to define mock.On call
 //   - ctx context.Context
-//   - requestId string
+//   - requestID string
 //   - request *vault.GetSecretsRequest
-func (_e *SecretsService_Expecter) GetSecrets(ctx interface{}, requestId interface{}, request interface{}) *SecretsService_GetSecrets_Call {
-	return &SecretsService_GetSecrets_Call{Call: _e.mock.On("GetSecrets", ctx, requestId, request)}
+func (_e *SecretsService_Expecter) GetSecrets(ctx interface{}, requestID interface{}, request interface{}) *SecretsService_GetSecrets_Call {
+	return &SecretsService_GetSecrets_Call{Call: _e.mock.On("GetSecrets", ctx, requestID, request)}
 }
 
-func (_c *SecretsService_GetSecrets_Call) Run(run func(ctx context.Context, requestId string, request *vault.GetSecretsRequest)) *SecretsService_GetSecrets_Call {
+func (_c *SecretsService_GetSecrets_Call) Run(run func(ctx context.Context, requestID string, request *vault.GetSecretsRequest)) *SecretsService_GetSecrets_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(*vault.GetSecretsRequest))
 	})
