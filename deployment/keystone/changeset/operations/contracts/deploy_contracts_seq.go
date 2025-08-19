@@ -21,7 +21,7 @@ type DeployKeystoneContractsSequenceInput struct {
 	ForwardersSelectors   []uint64
 	DeployVaultOCR3       bool
 	DeployEVMOCR3         bool
-	EVMChainIds           []uint64
+	EVMChainIds           map[uint64]uint64
 	DeployConsensusOCR3   bool
 }
 
@@ -107,16 +107,16 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			}
 		}
 		if input.DeployEVMOCR3 {
-			for _, chainID := range input.EVMChainIds {
+			for chainID, selector := range input.EVMChainIds {
 				// EVM cap OCR3 Contract
-				fmt.Printf("Processing EVM Block Chain ID: %d\n", chainID)
+				fmt.Printf("Processing EVM Block Chain ID: %d, selector: %d\n", chainID, selector)
 				qualifier := fmt.Sprintf("capability_evm_%d", chainID)
-				var selector uint64
-				if chainID == 1337 {
-					selector = 3379446385462418246
-				} else {
-					selector = 12922642891491394802
-				}
+				//var selector uint64
+				//if chainID == 1337 {
+				//	selector = value
+				//} else {
+				//	selector = 12922642891491394802
+				//}
 				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: selector, Qualifier: qualifier})
 				if err != nil {
 					return DeployKeystoneContractsSequenceOutput{}, err

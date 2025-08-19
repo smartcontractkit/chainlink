@@ -387,11 +387,10 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 				},
 				ks_contracts_op.ConfigureOCR3OpInput{
 					ContractAddress:  &evmOCR3Address,
-					RegistryChainSel: chainSelector, //input.ChainSelector,
-					//RegistryChainSel: input.ChainSelector,
-					DONs:   configDONs,
-					Config: &input.EVMOCR3Config,
-					DryRun: false,
+					RegistryChainSel: chainSelector,
+					DONs:             configDONs,
+					Config:           &input.EVMOCR3Config,
+					DryRun:           false,
 				},
 			)
 			if err != nil {

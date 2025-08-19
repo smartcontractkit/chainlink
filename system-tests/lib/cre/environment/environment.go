@@ -220,9 +220,9 @@ func SetupTestEnvironment(
 	//	}
 	//}
 
-	var chainIds []uint64
+	chainIds := make(map[uint64]uint64)
 	for _, chain := range blockchainOutputs {
-		chainIds = append(chainIds, chain.ChainID)
+		chainIds[chain.ChainID] = chain.ChainSelector
 	}
 
 	deployKeystoneReport, err := operations.ExecuteSequence(
