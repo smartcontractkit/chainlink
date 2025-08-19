@@ -21,7 +21,7 @@ type DeployKeystoneContractsSequenceInput struct {
 	ForwardersSelectors   []uint64
 	DeployVaultOCR3       bool
 	DeployEVMOCR3         bool
-	EVMChainIds           map[uint64]uint64
+	EVMChainIDs           map[uint64]uint64
 	DeployConsensusOCR3   bool
 }
 
@@ -107,7 +107,7 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			}
 		}
 		if input.DeployEVMOCR3 {
-			for chainID, selector := range input.EVMChainIds {
+			for chainID, selector := range input.EVMChainIDs {
 				// EVM cap OCR3 Contract
 				fmt.Printf("Processing EVM Block Chain ID: %d, selector: %d\n", chainID, selector)
 				qualifier := fmt.Sprintf("capability_evm_%d", chainID)
