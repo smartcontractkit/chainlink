@@ -298,6 +298,10 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
 
+		defer func() {
+			_ = os.Remove(secretPathAbs)
+		}()
+
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
