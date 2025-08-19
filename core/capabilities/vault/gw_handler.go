@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -92,7 +93,7 @@ func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
 }
 
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
-	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestId", req.ID)
+	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
@@ -111,7 +112,7 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		return err
 	}
 
-	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestId", req.ID)
+	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestID", req.ID)
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
@@ -142,7 +143,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	jsonResponse, err := toJsonResponse(vaultCapResponse, req.Method)
+	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
@@ -160,7 +161,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	jsonResponse, err := toJsonResponse(vaultCapResponse, req.Method)
+	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
@@ -200,10 +201,10 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
 	if len(vaultResponseProto.GetResponses()) != 1 {
-		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+fmt.Sprint(len(vaultResponseProto.GetResponses()))))
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+strconv.Itoa(len(vaultResponseProto.GetResponses()))))
 	}
 	secretResponse := vaultResponseProto.GetResponses()[0]
-	vaultApiResponse := vault_api.SecretsGetResponse{
+	vaultAPIResponse := vault_api.SecretsGetResponse{
 		SecretID: vault_api.SecretIdentifier{
 			Key:       secretResponse.Id.GetKey(),
 			Namespace: secretResponse.Id.GetNamespace(),
@@ -213,7 +214,7 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 
 	switch method := secretResponse.Result.(type) {
 	case *vault.SecretResponse_Data:
-		vaultApiResponse.SecretValue = vault_api.SecretData{
+		vaultAPIResponse.SecretValue = vault_api.SecretData{
 			EncryptedValue:               method.Data.GetEncryptedValue(),
 			EncryptedDecryptionKeyShares: make([]*vault_api.EncryptedShares, 0, len(method.Data.GetEncryptedDecryptionKeyShares())),
 		}
@@ -222,25 +223,24 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 				EncryptionKey: decryptionShare.GetEncryptionKey(),
 				Shares:        make([]string, 0, len(decryptionShare.Shares)),
 			}
-			for _, share := range decryptionShare.GetShares() {
-				encryptedShare.Shares = append(encryptedShare.Shares, share)
-			}
-			vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares = append(vaultApiResponse.SecretValue.EncryptedDecryptionKeyShares, &encryptedShare)
+			encryptedShare.Shares = append(encryptedShare.Shares, decryptionShare.GetShares()...)
+
+			vaultAPIResponse.SecretValue.EncryptedDecryptionKeyShares = append(vaultAPIResponse.SecretValue.EncryptedDecryptionKeyShares, &encryptedShare)
 		}
 	case *vault.SecretResponse_Error:
-		vaultApiResponse.Error = method.Error
+		vaultAPIResponse.Error = method.Error
 	}
 
-	vaultApiResponseBytes, err := json.Marshal(vaultApiResponse)
+	vaultAPIResponseBytes, err := json.Marshal(vaultAPIResponse)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	vaultApiResponseJson := json.RawMessage(vaultApiResponseBytes)
+	vaultApiResponseJSON := json.RawMessage(vaultAPIResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
 		Method:  req.Method,
-		Result:  &vaultApiResponseJson,
+		Result:  &vaultApiResponseJSON,
 	}
 }
 
@@ -287,7 +287,7 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 	return encryptionKeys, nil
 }
 
-func toJsonResponse(vaultCapResponse *vault2.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
+func toJSONResponse(vaultCapResponse *vault2.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
 
 	vaultResponse := &vault_api.ResponseBase{
 		ID:    vaultCapResponse.ID,
@@ -303,11 +303,11 @@ func toJsonResponse(vaultCapResponse *vault2.Response, method string) (*jsonrpc.
 	if err != nil {
 		return nil, errors.New("failed to marshal vault response: " + err.Error())
 	}
-	vaultResponseJson := json.RawMessage(vaultResponseBytes)
+	vaultResponseJSON := json.RawMessage(vaultResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      vaultResponse.ID,
 		Method:  method,
-		Result:  &vaultResponseJson,
+		Result:  &vaultResponseJSON,
 	}, nil
 }

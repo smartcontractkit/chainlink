@@ -83,8 +83,8 @@ func (_c *SecretsService_CreateSecrets_Call) RunAndReturn(run func(context.Conte
 }
 
 // GetSecrets provides a mock function with given fields: ctx, requestId, request
-func (_m *SecretsService) GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*pluginsvault.Response, error) {
-	ret := _m.Called(ctx, requestId, request)
+func (_m *SecretsService) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*pluginsvault.Response, error) {
+	ret := _m.Called(ctx, requestID, request)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSecrets")
@@ -93,10 +93,10 @@ func (_m *SecretsService) GetSecrets(ctx context.Context, requestId string, requ
 	var r0 *pluginsvault.Response
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, *vault.GetSecretsRequest) (*pluginsvault.Response, error)); ok {
-		return rf(ctx, requestId, request)
+		return rf(ctx, requestID, request)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, *vault.GetSecretsRequest) *pluginsvault.Response); ok {
-		r0 = rf(ctx, requestId, request)
+		r0 = rf(ctx, requestID, request)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*pluginsvault.Response)
@@ -104,7 +104,7 @@ func (_m *SecretsService) GetSecrets(ctx context.Context, requestId string, requ
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, *vault.GetSecretsRequest) error); ok {
-		r1 = rf(ctx, requestId, request)
+		r1 = rf(ctx, requestID, request)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -118,13 +118,13 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 		ExpiryTimeVal: s.clock.Now().Add(s.expiresAfter),
 		IDVal:         requestID,
 	})
-	s.lggr.Debugw("sent request to OCR handler", "requestId", requestID)
+	s.lggr.Debugw("sent request to OCR handler", "requestID", requestID)
 	select {
 	case <-ctx.Done():
-		s.lggr.Debugw("request timed out", "requestId", requestID, "error", ctx.Err())
+		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
 		return nil, ctx.Err()
 	case resp := <-respCh:
-		s.lggr.Debugw("received response for request", "requestId", requestID, "error", resp.Error)
+		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
 		if resp.Error != "" {
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
@@ -161,12 +161,12 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSec
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) GetSecrets(ctx context.Context, requestId string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
 	s.lggr.Infof("Received GetSecrets call: %s", request.String())
 	if len(request.Requests) == 0 {
 		return nil, errors.New("no GetSecret request specified in request")
 	}
-	return s.handleRequest(ctx, requestId, request)
+	return s.handleRequest(ctx, requestID, request)
 }
 
 func NewCapability(

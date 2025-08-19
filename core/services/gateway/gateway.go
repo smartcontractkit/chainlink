@@ -204,7 +204,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	case <-ctx.Done():
 		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+ctx.Err().Error())
 	case response = <-responseCh:
-		g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestId", jsonRequest.ID)
+		g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 		break
 	}
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()

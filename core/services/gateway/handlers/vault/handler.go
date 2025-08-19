@@ -205,7 +205,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
-	h.lggr.Debugw("handling vault request", "method", req.Method, "requestId", req.ID)
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
@@ -228,7 +228,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 }
 
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	l := logger.With(h.lggr, "method", resp.Method, "requestId", resp.ID, "nodeAddr", nodeAddr)
+	l := logger.With(h.lggr, "method", resp.Method, "requestID", resp.ID, "nodeAddr", nodeAddr)
 	l.Debugw("handling node response")
 
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
@@ -272,7 +272,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 }
 
 func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 	var secretsCreateRequest SecretsCreateRequest
 	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
@@ -302,7 +302,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 }
 
 func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
 	req := &vault.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
@@ -337,7 +337,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 }
 
 func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 	var secretsGetRequest SecretsGetRequest
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
