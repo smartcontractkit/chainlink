@@ -551,5 +551,3 @@ func (fc *FakeEVMChain) Description() string {
 func (fc *FakeEVMChain) ChainSelector() uint64 {
 	return fc.chainSelector
 }
-
-// No public setter needed for dryRunWrites; it is configured via the constructor.
