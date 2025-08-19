@@ -160,57 +160,7 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 
 	// If dryRunWrites is enabled, simulate the transaction without broadcasting it
 	if fc.dryRunWrites {
-		fc.eng.Infow("EVM Chain WriteReport Dry-Run Enabled")
-		contractABI, err := abi.JSON(strings.NewReader(MockKeystoneForwarderABI))
-		if err != nil {
-			return nil, err
-		}
-		calldata, err := contractABI.Pack(
-			"report",
-			common.Address(input.Receiver),
-			input.Report.RawReport,
-			input.Report.ReportContext,
-			signatures,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		msg := ethereum.CallMsg{
-			From: auth.From,
-			To:   &fc.mockKeystoneForwarderAddress,
-			Data: calldata,
-		}
-		_, err = fc.gethClient.CallContract(ctx, msg, nil)
-		if err != nil {
-			fc.eng.Infow("EVM Chain WriteReport Dry-Run Reverted", "error", err)
-			receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
-			errMsg := err.Error()
-			response := &evmcappb.WriteReportReply{
-				TxStatus:                        evmcappb.TxStatus_TX_STATUS_REVERTED,
-				ReceiverContractExecutionStatus: &receiverStatus,
-				TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
-				ErrorMessage:                    &errMsg,
-			}
-			responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
-				Response:         response,
-				ResponseMetadata: commonCap.ResponseMetadata{},
-			}
-			return &responseAndMetadata, nil
-		}
-
-		fc.eng.Infow("EVM Chain WriteReport Dry-Run Successful")
-		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
-		response := &evmcappb.WriteReportReply{
-			TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
-			ReceiverContractExecutionStatus: &receiverStatus,
-			TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
-		}
-		responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
-			Response:         response,
-			ResponseMetadata: commonCap.ResponseMetadata{},
-		}
-		return &responseAndMetadata, nil
+		return fc.dryRunWriteReport(ctx, auth.From, input, signatures)
 	}
 
 	reportTx, err := fc.mockKeystoneForwarder.Report(
@@ -550,4 +500,64 @@ func (fc *FakeEVMChain) Description() string {
 
 func (fc *FakeEVMChain) ChainSelector() uint64 {
 	return fc.chainSelector
+}
+
+// dryRunWriteReport simulates the report transaction using eth_call without broadcasting.
+func (fc *FakeEVMChain) dryRunWriteReport(
+	ctx context.Context,
+	from common.Address,
+	input *evmcappb.WriteReportRequest,
+	signatures [][]byte,
+) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
+	fc.eng.Infow("EVM Chain WriteReport Dry-Run Enabled")
+	contractABI, err := abi.JSON(strings.NewReader(MockKeystoneForwarderABI))
+	if err != nil {
+		return nil, err
+	}
+	calldata, err := contractABI.Pack(
+		"report",
+		common.Address(input.Receiver),
+		input.Report.RawReport,
+		input.Report.ReportContext,
+		signatures,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := ethereum.CallMsg{
+		From: from,
+		To:   &fc.mockKeystoneForwarderAddress,
+		Data: calldata,
+	}
+	_, err = fc.gethClient.CallContract(ctx, msg, nil)
+	if err != nil {
+		fc.eng.Infow("EVM Chain WriteReport Dry-Run Reverted", "error", err)
+		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
+		errMsg := err.Error()
+		response := &evmcappb.WriteReportReply{
+			TxStatus:                        evmcappb.TxStatus_TX_STATUS_REVERTED,
+			ReceiverContractExecutionStatus: &receiverStatus,
+			TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+			ErrorMessage:                    &errMsg,
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+			Response:         response,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, nil
+	}
+
+	fc.eng.Infow("EVM Chain WriteReport Dry-Run Successful")
+	receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
+	response := &evmcappb.WriteReportReply{
+		TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
+		ReceiverContractExecutionStatus: &receiverStatus,
+		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+	}
+	responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+		Response:         response,
+		ResponseMetadata: commonCap.ResponseMetadata{},
+	}
+	return &responseAndMetadata, nil
 }
