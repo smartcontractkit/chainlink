@@ -639,11 +639,11 @@ func TestSharedPeerAbstraction_ExampleFunctions_IntegrationBehavior(t *testing.T
 		// Should be able to sign messages
 		message := []byte("test message")
 		signature, err := sharedPeer.Sign(message)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, signature)
 
 		// Should have proper service lifecycle
-		assert.NoError(t, sharedPeer.Ready())
+		require.NoError(t, sharedPeer.Ready())
 
 		healthReport := sharedPeer.HealthReport()
 		// The external peer implementation returns nil for HealthReport, which is valid
