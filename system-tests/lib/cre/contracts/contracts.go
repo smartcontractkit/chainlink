@@ -334,6 +334,25 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		return errors.Wrap(err, "failed to configure OCR3 contract")
 	}
 
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env:      input.CldEnv,
+			Registry: capReg.Contract,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress:  input.DONTimeAddress,
+			RegistryChainSel: input.ChainSelector,
+			DONs:             configDONs,
+			Config:           &input.DONTimeConfig,
+			DryRun:           false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure DON Time contract")
+	}
+
 	if input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
 		_, err = operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,

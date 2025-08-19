@@ -22,15 +22,15 @@ import (
 )
 
 type EngineConfig struct {
-	Lggr            logger.Logger
-	Module          host.ModuleV2
-	WorkflowConfig  []byte // workflow author provided config
-	CapRegistry     core.CapabilitiesRegistry
-	ExecutionsStore store.Store
-	Clock           clockwork.Clock
-	SecretsFetcher  SecretsFetcher
-
-	DonTimeStore *dontime.Store
+	Lggr                 logger.Logger
+	Module               host.ModuleV2
+	WorkflowConfig       []byte // workflow author provided config
+	CapRegistry          core.CapabilitiesRegistry
+	DonTimeStore         *dontime.Store
+	UseLocalTimeProvider bool // Set true when DON Time Plugin is not running
+	ExecutionsStore      store.Store
+	Clock                clockwork.Clock
+	SecretsFetcher       SecretsFetcher
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix

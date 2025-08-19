@@ -45,6 +45,17 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 		return nil, errors.Wrap(err, "failed to get Vault capability address")
 	}
 
+	donTimeKey := datastore.NewAddressRefKey(
+		donTopology.HomeChainSelector,
+		datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+		semver.MustParse("1.0.0"),
+		"DONTime",
+	)
+	donTimeAddress, err := ds.Addresses().Get(donTimeKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get DON Time address")
+	}
+
 	for _, donWithMetadata := range donTopology.DonsWithMetadata {
 		if !flags.HasFlag(donWithMetadata.Flags, cre.OCR3Capability) {
 			continue
@@ -103,6 +114,7 @@ func GenerateJobSpecs(donTopology *cre.DonTopology, ds datastore.DataStore, chai
 				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 			}
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
 		}
 	}
 
