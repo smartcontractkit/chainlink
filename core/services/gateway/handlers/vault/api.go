@@ -5,6 +5,7 @@ const (
 	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsCreate = "vault.secrets.create"
 	MethodSecretsUpdate = "vault.secrets.update"
+	MethodSecretsDelete = "vault.secrets.delete"
 )
 
 type SecretsCreateRequest struct {

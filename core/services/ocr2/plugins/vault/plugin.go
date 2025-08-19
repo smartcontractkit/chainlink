@@ -215,6 +215,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			r.observeCreateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		case *vault.UpdateSecretsRequest:
 			r.observeUpdateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
+		case *vault.DeleteSecretsRequest:
+			r.observeDeleteSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
 			continue
@@ -489,6 +491,83 @@ func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
+func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
+	tp := req.(*vault.DeleteSecretsRequest)
+	o.RequestType = vault.RequestType_DELETE_SECRETS
+	o.Request = &vault.Observation_DeleteSecretsRequest{
+		DeleteSecretsRequest: tp,
+	}
+	l := r.lggr.With("requestId", tp.RequestId, "requestType", "DeleteSecrets")
+
+	requestsCountForID := map[string]int{}
+	for _, sr := range tp.Ids {
+		var key string
+		// This can happen if a user provides a malformed request.
+		// We validate this case away in `handleCreateSecretRequest`,
+		// but need to still handle it here to avoid panics.
+		if sr == nil {
+			key = "<nil>"
+		} else {
+			key = keyFor(sr)
+		}
+		requestsCountForID[key]++
+	}
+
+	resps := []*vault.DeleteSecretResponse{}
+	for _, id := range tp.Ids {
+		validatedID, ierr := r.observeDeleteSecretRequest(ctx, reader, id, requestsCountForID)
+		if ierr != nil {
+			l.Errorw("failed to handle delete secret request item", "id", id, "error", ierr)
+			errorMsg := "failed to handle delete secret request"
+			if errors.Is(ierr, &userError{}) {
+				errorMsg = ierr.Error()
+			}
+			resps = append(resps, &vault.DeleteSecretResponse{
+				Id:      id,
+				Success: false,
+				Error:   errorMsg,
+			})
+		} else {
+			l.Debugw("observed delete secret request item", "id", validatedID)
+			resps = append(resps, &vault.DeleteSecretResponse{
+				Id: validatedID,
+				// false because it hasn't been processed yet.
+				// When the write is handled successfully in StateTransition
+				// we'll update this to true.
+				Success: false,
+			})
+		}
+	}
+
+	o.Response = &vault.Observation_DeleteSecretsResponse{
+		DeleteSecretsResponse: &vault.DeleteSecretsResponse{
+			Responses: resps,
+		},
+	}
+}
+
+func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader ReadKVStore, identifier *vault.SecretIdentifier, requestsCountForID map[string]int) (*vault.SecretIdentifier, error) {
+	id, err := r.validateSecretIdentifier(identifier)
+	if err != nil {
+		return id, err
+	}
+
+	if requestsCountForID[keyFor(identifier)] > 1 {
+		return id, newUserError("duplicate request for secret identifier " + keyFor(id))
+	}
+
+	ss, err := reader.GetSecret(id)
+	if err != nil {
+		return id, fmt.Errorf("failed to read secret from key-value store: %w", err)
+	}
+
+	if ss == nil {
+		return id, newUserError("key does not exist")
+	}
+
+	return id, nil
+}
+
 func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (*vault.SecretIdentifier, error) {
 	if id == nil {
 		return nil, newUserError("invalid secret identifier: cannot be nil")
@@ -664,7 +743,26 @@ func validateObservation(o *vault.Observation) error {
 
 			idSet[keyFor(r.Id)] = true
 		}
+	case vault.RequestType_DELETE_SECRETS:
+		if o.GetDeleteSecretsRequest() == nil || o.GetDeleteSecretsResponse() == nil {
+			return errors.New("DeleteSecrets observation must have both request and response")
+		}
 
+		if len(o.GetDeleteSecretsRequest().Ids) != len(o.GetDeleteSecretsResponse().Responses) {
+			return errors.New("DeleteSecrets request and response must have the same number of items")
+		}
+
+		// We disallow duplicate create requests within a single batch request.
+		// This prevents users from clobbering their own writes.
+		idSet := map[string]bool{}
+		for _, r := range o.GetDeleteSecretsRequest().Ids {
+			_, ok := idSet[keyFor(r)]
+			if ok {
+				return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", r)
+			}
+
+			idSet[keyFor(r)] = true
+		}
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -747,6 +845,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			os.Outcomes = append(os.Outcomes, o)
 		case vault.RequestType_UPDATE_SECRETS:
 			r.stateTransitionUpdateSecrets(ctx, store, chosen, o)
+			os.Outcomes = append(os.Outcomes, o)
+		case vault.RequestType_DELETE_SECRETS:
+			r.stateTransitionDeleteSecrets(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
 			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
@@ -865,6 +966,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 
 	o.Request = &vault.Outcome_CreateSecretsRequest{
 		CreateSecretsRequest: &vault.CreateSecretsRequest{
+			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
 		},
 	}
@@ -970,6 +1072,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 
 	o.Request = &vault.Outcome_UpdateSecretsRequest{
 		UpdateSecretsRequest: &vault.UpdateSecretsRequest{
+			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
 		},
 	}
@@ -1046,6 +1149,86 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}, nil
 }
 
+func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, store WriteKVStore, chosen []*vault.Observation, o *vault.Outcome) {
+	first := chosen[0]
+	reqID := first.GetDeleteSecretsRequest().RequestId
+	// First we'll aggregate the requests.
+	// Since the shas for all requests match, we can just take the first entry
+	// and sort the requests contained within it.
+	req := first.GetDeleteSecretsRequest().Ids
+	idToReqs := map[string]*vault.SecretIdentifier{}
+	for _, r := range req {
+		idToReqs[keyFor(r)] = r
+	}
+
+	newReqs := []*vault.SecretIdentifier{}
+	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
+		newReqs = append(newReqs, idToReqs[sreq])
+	}
+
+	o.Request = &vault.Outcome_DeleteSecretsRequest{
+		DeleteSecretsRequest: &vault.DeleteSecretsRequest{
+			RequestId: reqID,
+			Ids:       newReqs,
+		},
+	}
+
+	// Next let's aggregate the responses.
+	// We do this by taking the first response, and determine if
+	// there was a validation error. If not, we write it to the key value store.
+	// The responses are sorted by Id.
+	resp := first.GetDeleteSecretsResponse()
+	idToResps := map[string]*vault.DeleteSecretResponse{}
+	for _, r := range resp.Responses {
+		idToResps[keyFor(r.Id)] = r
+	}
+
+	sortedResps := []*vault.DeleteSecretResponse{}
+	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
+		resp := idToResps[id]
+		req := idToReqs[id]
+		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
+		if err != nil {
+			r.lggr.Errorw("failed to handle delete secret request", "id", id, "requestId", reqID, "error", err)
+			errorMsg := "failed to handle delete secret request"
+			if errors.Is(err, &userError{}) {
+				errorMsg = err.Error()
+			}
+			sortedResps = append(sortedResps, &vault.DeleteSecretResponse{
+				Id:      req,
+				Success: false,
+				Error:   errorMsg,
+			})
+		} else {
+			r.lggr.Debugw("successfully deleted secret in key value store", "method", "DeleteSecrets", "key", keyFor(req), "requestId", reqID)
+			sortedResps = append(sortedResps, resp)
+		}
+	}
+
+	o.Response = &vault.Outcome_DeleteSecretsResponse{
+		DeleteSecretsResponse: &vault.DeleteSecretsResponse{
+			Responses: sortedResps,
+		},
+	}
+}
+
+func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vault.SecretIdentifier, resp *vault.DeleteSecretResponse) (*vault.DeleteSecretResponse, error) {
+	if resp.GetError() != "" {
+		return resp, newUserError(resp.GetError())
+	}
+
+	err := store.DeleteSecret(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete secret from key value store: %w", err)
+	}
+
+	return &vault.DeleteSecretResponse{
+		Id:      id,
+		Success: true,
+		Error:   "",
+	}, nil
+}
+
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {
 	// Not currently used by the protocol, so we noop here.
 	return nil
@@ -1083,6 +1266,16 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vault.RequestType_UPDATE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetUpdateSecretsResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				continue
+			}
+
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
+		case vault.RequestType_DELETE_SECRETS:
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetDeleteSecretsResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue

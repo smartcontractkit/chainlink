@@ -1350,6 +1350,11 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 			o.Request = &vault.Observation_UpdateSecretsRequest{
 				UpdateSecretsRequest: tr,
 			}
+		case *vault.DeleteSecretsRequest:
+			o.RequestType = vault.RequestType_DELETE_SECRETS
+			o.Request = &vault.Observation_DeleteSecretsRequest{
+				DeleteSecretsRequest: tr,
+			}
 		}
 
 		switch tr := ob.resp.(type) {
@@ -1364,6 +1369,10 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 		case *vault.UpdateSecretsResponse:
 			o.Response = &vault.Observation_UpdateSecretsResponse{
 				UpdateSecretsResponse: tr,
+			}
+		case *vault.DeleteSecretsResponse:
+			o.Response = &vault.Observation_DeleteSecretsResponse{
+				DeleteSecretsResponse: tr,
 			}
 		}
 
@@ -2694,6 +2703,484 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		Id:          keyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vault.RequestType_UPDATE_SECRETS,
+	}, info1))
+
+	expectedBytes, err := ToCanonicalJSON(resp)
+	require.NoError(t, err)
+	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	id := &vault.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			id,
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	ss := &vault.StoredSecret{
+		EncryptedSecret: []byte("encrypted-value"),
+	}
+	ssb, err := proto.Marshal(ss)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+			keyPrefix + keyFor(id): response{
+				data: ssb,
+			},
+		},
+	}
+	p := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vault.SecretIdentifier{
+			id,
+		},
+	}
+	err = store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 1)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError()) // false because it hasn't actually been deleted yet.
+	assert.Empty(t, resp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{},
+	}
+	id := &vault.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	p := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vault.SecretIdentifier{
+			id,
+		},
+	}
+	err := store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 1)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError())
+	assert.Contains(t, resp.Responses[0].GetError(), "key does not exist")
+}
+
+func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         nil,
+			PrivateKeyShare:                   nil,
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     30,
+			MaxIdentifierNamespaceLengthBytes: 30,
+			MaxIdentifierKeyLengthBytes:       30,
+		},
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{},
+	}
+	id := &vault.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	p := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vault.SecretIdentifier{
+			id,
+			id,
+		},
+	}
+	err := store.Add(&Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vault.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vault.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 2)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError())
+	assert.Contains(t, resp.Responses[0].GetError(), "duplicate request for secret identifier")
+
+	assert.True(t, proto.Equal(id, resp.Responses[1].Id))
+	assert.False(t, resp.Responses[1].Success, resp.Responses[1].GetError())
+	assert.Contains(t, resp.Responses[1].GetError(), "duplicate request for secret identifier")
+}
+
+func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
+		},
+	}
+
+	id := &vault.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			id,
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	ss := &vault.StoredSecret{
+		EncryptedSecret: []byte("encrypted-value"),
+	}
+	ssb, err := proto.Marshal(ss)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+			keyPrefix + keyFor(id): response{
+				data: ssb,
+			},
+		},
+	}
+	rs := NewReadStore(rdr)
+
+	req := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vault.SecretIdentifier{id},
+	}
+	resp := &vault.DeleteSecretsResponse{
+		Responses: []*vault.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, rdr, nil)
+	require.NoError(t, err)
+
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
+	expectedResp := &vault.DeleteSecretsResponse{
+		Responses: []*vault.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()))
+
+	ss, err = rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
+		},
+	}
+
+	id := &vault.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	rs := NewReadStore(rdr)
+
+	req := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vault.SecretIdentifier{id},
+	}
+	resp := &vault.DeleteSecretsResponse{
+		Responses: []*vault.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, rdr, nil)
+	require.NoError(t, err)
+
+	os := &vault.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
+	expectedResp := &vault.DeleteSecretsResponse{
+		Responses: []*vault.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "failed to handle delete secret request",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()), o.GetDeleteSecretsResponse())
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vault.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vault.SecretIdentifier{id},
+	}
+	resp := &vault.DeleteSecretsResponse{
+		Responses: []*vault.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	expectedOutcome := &vault.Outcome{
+		Id:          keyFor(id),
+		RequestType: vault.RequestType_DELETE_SECRETS,
+		Request: &vault.Outcome_DeleteSecretsRequest{
+			DeleteSecretsRequest: req,
+		},
+		Response: &vault.Outcome_DeleteSecretsResponse{
+			DeleteSecretsResponse: resp,
+		},
+	}
+
+	os := &vault.Outcomes{
+		Outcomes: []*vault.Outcome{
+			expectedOutcome,
+		},
+	}
+
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: &ReportingPluginConfig{
+			BatchSize:                         10,
+			PublicKey:                         pk,
+			PrivateKeyShare:                   shares[0],
+			MaxSecretsPerOwner:                1,
+			MaxCiphertextLengthBytes:          1024,
+			MaxIdentifierOwnerLengthBytes:     100,
+			MaxIdentifierNamespaceLengthBytes: 100,
+			MaxIdentifierKeyLengthBytes:       100,
+		},
+	}
+
+	rs, err := r.Reports(t.Context(), uint64(1), osb)
+	require.NoError(t, err)
+
+	assert.Len(t, rs, 1)
+
+	o := rs[0]
+	info1, err := extractReportInfo(o.ReportWithInfo)
+	require.NoError(t, err)
+
+	assert.True(t, proto.Equal(&vault.ReportInfo{
+		Id:          keyFor(id),
+		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vault.RequestType_DELETE_SECRETS,
 	}, info1))
 
 	expectedBytes, err := ToCanonicalJSON(resp)
