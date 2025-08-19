@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -295,7 +294,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	secretID := fmt.Sprintf("%d", rand.Intn(10000))
+	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	owner := "Owner1"
 	secretValue := "Secret Value to be stored"
 
@@ -367,7 +366,6 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 }
 
 func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
-
 	uniqueRequestID := uuid.New().String()
 	framework.L.Info().Msg("Getting secret...")
 	secretsGetRequest := jsonrpc.Request[vault.SecretsGetRequest]{
