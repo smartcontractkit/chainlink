@@ -39,4 +39,7 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
       gitRef: "179faf0180b398049317ca0c9bb0cc8e61cafae2"
       installPath: "github.com/smartcontractkit/capabilities/http_trigger"
-
+  evm:
+    - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
+      gitRef: "577b9f91a6a0af2165d306d5bc75f9967974e771"
+      installPath: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
