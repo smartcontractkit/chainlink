@@ -56,7 +56,7 @@ func (bs *balanceStore) convertToBalance(fromResourceType string, amount decimal
 	// Special case for gas as gas token conversions are provided in amount per credit.
 	// Other rates are provided as the inverse.
 	if strings.HasPrefix(fromResourceType, "GAS.") {
-		return amount.Div(rate).Round(0), nil
+		return amount.Div(rate).Round(defaultDecimalPrecision), nil
 	}
 
 	return amount.Mul(rate), nil
@@ -164,6 +164,13 @@ func (bs *balanceStore) Add(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Add(amount)
+
+	// the reserve call adds a balance. the deduct call subtracts an excessive amount.
+	// the settle call adds back any unspent credits. if the spent value is zero, the deduct
+	// call has not happened yet so no adjustment is needed.
+	if !bs.spent.IsZero() {
+		bs.spent = bs.spent.Sub(amount)
+	}
 
 	return nil
 }
