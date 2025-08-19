@@ -636,7 +636,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
 
-		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
+		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
@@ -660,6 +660,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
+		delegates[job.OffchainReporting2] = ocr2Delegate
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,
