@@ -48,8 +48,15 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			continue
 		}
 
+		var selector uint64
+		if chainID == 1337 {
+			selector = 3379446385462418246
+
+		} else {
+			selector = 12922642891491394802
+		}
 		ocr3Key := datastore.NewAddressRefKey(
-			donTopology.HomeChainSelector,
+			selector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			contractName,
@@ -177,6 +184,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
 			}
+			fmt.Printf("Job spec %s, node %s\n", jobSpec.Spec, nodeID)
 
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 		}

@@ -534,7 +534,8 @@ func SetupTestEnvironment(
 
 	if evmOCR3AddrFlag {
 		for _, chain := range blockchainOutputs {
-			selector := homeChainOutput.ChainSelector
+			selector := chain.ChainSelector
+			//selector := homeChainOutput.ChainSelector
 			//selector := chain.ChainSelector
 			fmt.Printf("LAUTARO Chain ID: %d, Selector: %d\n", chain.ChainID, selector)
 			qualifier := fmt.Sprintf("capability_evm_%d", chain.ChainID)
