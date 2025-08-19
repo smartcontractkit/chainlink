@@ -317,7 +317,7 @@ var ExecuteTokenOwnershipTransferOp = operations.NewOperation(
 func executeTokenOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenOwnershipTransferInput) (types.Transaction, error) {
 	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
 
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().AcceptOwnership()
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ExecuteOwnershipTransfer(in.To)
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
 	}
