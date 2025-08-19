@@ -547,15 +547,15 @@ func deriveCCIPSendAccounts(
 		}
 		tx, err := solana.NewTransaction([]solana.Instruction{derive}, blockhash.Value.Blockhash, solana.TransactionPayer(authority))
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to build derive execute accounts transaction: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to build derive ccip_send accounts transaction: %w", err)
 		}
 		tx.Signatures = append(tx.Signatures, solana.Signature{}) // Append empty signature since tx fails without any sigs even if SigVerify is false
 		res, err := client.SimulateTransactionWithOpts(e.GetContext(), tx, &rpc.SimulateTransactionOpts{SigVerify: false, ReplaceRecentBlockhash: true})
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to simulate derive execute accounts transaction at stage %s: %w", stage, err)
+			return nil, nil, nil, fmt.Errorf("failed to simulate derive ccip_send accounts transaction at stage %s: %w", stage, err)
 		}
 		if res.Value.Err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to simulate derive execute accounts transaction at stage %s. Err: %v, Logs: %v", stage, res.Value.Err, res.Value.Logs)
+			return nil, nil, nil, fmt.Errorf("failed to simulate derive ccip_send accounts transaction at stage %s. Err: %v, Logs: %v", stage, res.Value.Err, res.Value.Logs)
 		}
 		derivation, err := solcommon.ExtractAnchorTypedReturnValue[solRouter.DeriveAccountsResponse](e.GetContext(), res.Value.Logs, router.String())
 		if err != nil {
