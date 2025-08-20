@@ -66,11 +66,8 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-<<<<<<< HEAD
-=======
           # This only needs to be updated if we want to run all tests on a new DON topology.
           # Otherwise tests are auto-discovered and run on all topologies.
->>>>>>> origin/develop
           tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
@@ -141,10 +138,9 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-
           go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
-
           exit_code=$?
+          
           if [ $exit_code -ne 0 ]; then
             echo "Error: failed to start local CRE, exit code $exit_code"
             exit $exit_code

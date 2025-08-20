@@ -528,6 +528,7 @@ func StartCLIEnvironment(
 	capabilityFlagsProvider cre.CapabilityFlagsProvider,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
+
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
 	if withPluginsDockerImageFlag != "" {
 		for setIdx := range in.NodeSets {
@@ -561,6 +562,7 @@ func StartCLIEnvironment(
 		fmt.Print(libformat.PurpleText("\tChain capabilities: %s\n", chainCapabilitiesDesc))
 		fmt.Print(libformat.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
 	}
+
 	if in.JD.CSAEncryptionKey == "" {
 		// generate a new key
 		key, keyErr := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
