@@ -45,6 +45,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithChainIDs([]uint64{4, 5}),
 		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions(4)),
+		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions(5)),
 		testhelpers.WithAptosChains(1),
 	)
 
@@ -380,6 +381,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithChainIDs([]uint64{4, 5}),
 		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions(4)),
+		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions(5)),
 		testhelpers.WithAptosChains(1),
 	)
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
