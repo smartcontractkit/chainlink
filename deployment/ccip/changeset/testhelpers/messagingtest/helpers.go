@@ -199,10 +199,13 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			require.NoError(tc.T, err)
 		}
 
+		c, err := cell.FromBOC(tc.ExtraArgs)
+		require.NoError(tc.T, err)
+
 		msg = ops.TonSendRequest{
 			Data:      tc.MsgData,
 			Receiver:  tc.Receiver,
-			ExtraArgs: cell.BeginCell().EndCell(), // TODO handle ExtraArgs properly
+			ExtraArgs: c, // TODO handle ExtraArgs properly
 			FeeToken:  feeToken,
 		}
 

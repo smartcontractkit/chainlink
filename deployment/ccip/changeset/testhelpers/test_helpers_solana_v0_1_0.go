@@ -1473,6 +1473,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
+
 	err = AddLane(
 		t,
 		e,

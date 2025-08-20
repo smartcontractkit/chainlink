@@ -12,9 +12,9 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250815005857-7e8d0fe020a8
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250815210725-a8797a246179
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250718211650-37ca415e72a0
-	github.com/smartcontractkit/chainlink/v2 v2.23.2-por-beta.1.0.20250815005857-7e8d0fe020a8
+	github.com/smartcontractkit/chainlink/v2 v2.23.2-por-beta.1.0.20250815210725-a8797a246179
 )
 
 require (
@@ -479,8 +479,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250815210156-5f161c0b7380 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250815210156-5f161c0b7380 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250820170740-d4c33ce1f639 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250820170740-d4c33ce1f639 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250805160549-9c2255ee818e // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
