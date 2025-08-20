@@ -30,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -695,7 +697,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
 
-	healthChecker := promhealth.NewChecker(static.Version, static.Sha)
+	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
+	healthCfg = promhealth.ConfigureHooks(healthCfg)
+	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, beholder.GetMeter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
+	}
+	healthChecker := healthCfg.New()
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
