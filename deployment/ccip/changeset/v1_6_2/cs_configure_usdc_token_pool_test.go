@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -301,17 +302,20 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 	env, selectors := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 	require.GreaterOrEqual(t, len(selectors), 1)
 
-	solChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	require.GreaterOrEqual(t, len(solChainSelectors), 1)
+	allSolChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	require.GreaterOrEqual(t, len(allSolChainSelectors), 1)
+	solChainSelectors := allSolChainSelectors[:1]
 
-	evmChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	require.GreaterOrEqual(t, len(evmChainSelectors), 2)
+	allEVMChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	require.GreaterOrEqual(t, len(allEVMChainSelectors), 2)
+	evmChainSelectors := allEVMChainSelectors[:2]
 
 	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
 	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
 	newUSDCConfigs := make(map[uint64]v1_6_2.ConfigUSDCTokenPoolInput, len(selectors))
 	addrBook := cldf.NewMemoryAddressBook()
-	dummyDomainID := uint32(0)
+	dummySolDomainID := uint32(0)
+	dummyEVMDomainID := uint32(1)
 	for _, evmSelector := range evmChainSelectors {
 		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForConfigure(t,
 			env.Logger,
@@ -341,7 +345,7 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			destUpdates[solSelector] = v1_6_2.DomainUpdateInput{
 				MintRecipient:    minterPrivKey.PublicKey().String(),
 				AllowedCaller:    callerPrivKey.PublicKey().String(),
-				DomainIdentifier: dummyDomainID,
+				DomainIdentifier: dummySolDomainID,
 				Enabled:          true,
 			}
 		}
@@ -354,7 +358,7 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			// Add config for EVM to EVM domain update
 			destUpdates[remoteEVMSelector] = v1_6_2.DomainUpdateInput{
 				AllowedCaller:    utils.RandomAddress().String(),
-				DomainIdentifier: dummyDomainID,
+				DomainIdentifier: dummyEVMDomainID,
 				Enabled:          true,
 			}
 		}
@@ -417,17 +421,16 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 		}
 
 		for _, remoteEVMSelector := range evmChainSelectors {
+			if remoteEVMSelector == evmSelector {
+				continue
+			}
 			actualDomain, err := pools[deployment.Version1_6_2].GetDomain(nil, remoteEVMSelector)
 			require.NoError(t, err)
 
 			expectedDomain := newUSDCConfigs[evmSelector].DestinationUpdates[remoteEVMSelector]
 
-			allowedCallerAddr, err := solana.PublicKeyFromBase58(expectedDomain.AllowedCaller)
-			require.NoError(t, err)
-			mintRecipientAddr, err := solana.PublicKeyFromBase58(expectedDomain.MintRecipient)
-			require.NoError(t, err)
-			require.Equal(t, allowedCallerAddr.Bytes(), actualDomain.AllowedCaller[:])
-			require.Equal(t, mintRecipientAddr.Bytes(), actualDomain.MintRecipient[:])
+			allowedCallerAddr := common.LeftPadBytes(common.HexToAddress(expectedDomain.AllowedCaller).Bytes(), 32)
+			require.Equal(t, allowedCallerAddr, actualDomain.AllowedCaller[:])
 			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
 			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
 		}
