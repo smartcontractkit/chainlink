@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"encoding/hex"
@@ -43,6 +44,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithChainIDs([]uint64{4, 5}),
+		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions([]uint64{4})),
 		testhelpers.WithAptosChains(1),
 	)
 
@@ -377,6 +379,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithChainIDs([]uint64{4, 5}),
+		testhelpers.WithCLNodeConfigOpts(memory.WithLegacyTransactions([]uint64{4})),
 		testhelpers.WithAptosChains(1),
 	)
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))

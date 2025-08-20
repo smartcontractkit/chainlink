@@ -268,6 +268,14 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 	}
 }
 
+func WithLegacyTransactions(chainIds []uint64) ConfigOpt {
+	return func(c *chainlink.Config) {
+		for _, chainID := range chainIds {
+			c.EVM[chainID].Chain.GasEstimator.EIP1559DynamicFees = ptr(false)
+		}
+	}
+}
+
 type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
