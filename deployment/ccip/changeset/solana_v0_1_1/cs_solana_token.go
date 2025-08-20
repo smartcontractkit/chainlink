@@ -434,7 +434,6 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 	}
 	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set keypair output", "output", out2)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	if err2 != nil {
 		e.Logger.Errorw("solana config set keypair error", "error", err2)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana keypair: %w", err2)
