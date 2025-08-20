@@ -19,15 +19,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-)
-
-const (
-	OCRPeeringPort          = 5001
-	CapabilitiesPeeringPort = 6690
-	GatewayIncomingPort     = 5002
-	GatewayOutgoingPort     = 5003
 )
 
 func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*cre.WrappedNodeOutput, error) {
@@ -36,10 +31,10 @@ func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.O
 		return nil, errors.Wrap(err, "failed to upgrade node set")
 	}
 
-	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
+	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.ComputedCapabilities}, nil
 }
 
-func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) (cre.NodeIndexToConfigOverride, error) {
+func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) (cre.NodeIndexToConfigOverride, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -67,13 +62,22 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 		if !exists {
 			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", bcOut.ChainID)
 		}
+		// Determine write-evm enablement per chain via node-set ChainCapabilities
+		hasWriteEVM := false
+		if input.NodeSet != nil && input.NodeSet.ChainCapabilities != nil {
+			if cc, ok := input.NodeSet.ChainCapabilities[cre.WriteEVMCapability]; ok && cc != nil {
+				if slices.Contains(cc.EnabledChains, bcOut.ChainID) {
+					hasWriteEVM = true
+				}
+			}
+		}
 		workerEVMInputs = append(workerEVMInputs, &WorkerEVMInput{
-			Name:                 fmt.Sprintf("node-%d", chainSelector),
-			ChainID:              bcOut.ChainID,
-			ChainSelector:        c.Selector,
-			HTTPRPC:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:                bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			HasForwarderContract: !bcOut.ReadOnly,
+			Name:          fmt.Sprintf("node-%d", chainSelector),
+			ChainID:       bcOut.ChainID,
+			ChainSelector: c.Selector,
+			HTTPRPC:       bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			WSRPC:         bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			WritesToEVM:   hasWriteEVM,
 		})
 	}
 
@@ -154,9 +158,9 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 			}
 		}
 
-		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
+		// get all the forwarders and add workflow config (FromAddress + Forwarder) for chains that have write-evm enabled
 		for _, wi := range workerEVMInputs {
-			if !wi.HasForwarderContract {
+			if !wi.WritesToEVM {
 				continue
 			}
 
@@ -182,15 +186,54 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 					}
 				}
 			}
+
+			if input.CapabilityConfigs == nil {
+				return nil, errors.New("additional capabilities configs are nil, but are required to configure the write-evm capability")
+			}
+
+			if writeEvmConfig, ok := input.CapabilityConfigs[cre.WriteEVMCapability]; ok {
+				enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
+					cre.WriteEVMCapability,
+					input.NodeSet.ChainCapabilities,
+					writeEvmConfig.Config,
+					wi.ChainID,
+				)
+				if rErr != nil {
+					return nil, errors.Wrapf(rErr, "failed to resolve write-evm config for chain %d", wi.ChainID)
+				}
+
+				if !enabled {
+					// This should never happen, but guard anyway. We have already checked that the capability is enabled in the chain capabilities, when we generated the workerEVMInputs.
+					continue
+				}
+
+				runtimeValues := map[string]any{
+					"FromAddress":      wi.FromAddress.Hex(),
+					"ForwarderAddress": wi.ForwarderAddress,
+				}
+
+				var mErr error
+				wi.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+				if mErr != nil {
+					return nil, errors.Wrap(mErr, "failed to apply runtime values")
+				}
+			}
 		}
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		var workerErr error
+		configOverrides[nodeIndex], workerErr = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		if workerErr != nil {
+			return nil, errors.Wrap(workerErr, "failed to generate worker [EVM.Workflow] config")
+		}
 	}
 
-	for _, factoryFn := range factoryFns {
-		newOverrides, err := factoryFn(input)
+	for _, configFn := range nodeConfigFns {
+		if configFn == nil {
+			continue
+		}
+		newOverrides, err := configFn(input)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate nodeset configs")
 		}

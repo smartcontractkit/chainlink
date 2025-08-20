@@ -68,22 +68,22 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
 
-		// OCR3 Contract
-		ocr3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_ocr3"})
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-		err = updateAddresses(as.Addresses(), ocr3DeployReport.Output.Addresses, ab, ocr3DeployReport.Output.AddressBook)
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-
 		// Capabilities Registry contract
 		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, DeployCapabilityRegistryOp, DeployCapabilityRegistryOpDeps(deps), DeployCapabilityRegistryInput{ChainSelector: input.RegistryChainSelector})
 		if err != nil {
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
 		err = updateAddresses(as.Addresses(), capabilitiesRegistryDeployReport.Output.Addresses, ab, capabilitiesRegistryDeployReport.Output.AddressBook)
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
+
+		// OCR3 Contract
+		ocr3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_ocr3"})
+		if err != nil {
+			return DeployKeystoneContractsSequenceOutput{}, err
+		}
+		err = updateAddresses(as.Addresses(), ocr3DeployReport.Output.Addresses, ab, ocr3DeployReport.Output.AddressBook)
 		if err != nil {
 			return DeployKeystoneContractsSequenceOutput{}, err
 		}
@@ -129,10 +129,10 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 				return DeployKeystoneContractsSequenceOutput{}, err
 			}
 		}
+
 		if input.DeployEVMOCR3 {
 			for chainID, selector := range input.EVMChainIDs {
 				// EVM cap OCR3 Contract
-				fmt.Printf("Processing EVM Block Chain ID: %d, selector: %d\n", chainID, selector)
 				qualifier := GetCapabilityContractIdentifier(uint64(chainID))
 				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: uint64(selector), Qualifier: qualifier})
 				if err != nil {
@@ -144,6 +144,7 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 				}
 			}
 		}
+
 		if input.DeployConsensusOCR3 {
 			evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: "capability_consensus"})
 			if err != nil {

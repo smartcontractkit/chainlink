@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -48,6 +49,8 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
@@ -75,7 +78,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	/*
 		LOAD ENVIRONMENT STATE
 	*/
-	in, err := framework.Load[environment.Config](nil)
+	in, err := framework.Load[envconfig.Config](nil)
 	require.NoError(t, err, "couldn't load environment state")
 
 	var envArtifact environment.EnvArtifact
@@ -100,7 +103,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	})
 }
 
-func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
+func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
 	testLogger := framework.L
 	cldLogger := cldlogger.NewSingleFileLogger(t)
 
@@ -117,13 +120,17 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	require.NoError(t, loadErr, "failed to load environment")
 
 	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
-	numberOfWriteableChains := 0
+	writeableChains := []uint64{}
 	for _, bcOutput := range wrappedBlockchainOutputs {
-		if !bcOutput.ReadOnly {
-			numberOfWriteableChains++
+		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
+				if !slices.Contains(writeableChains, bcOutput.ChainID) {
+					writeableChains = append(writeableChains, bcOutput.ChainID)
+				}
+			}
 		}
 	}
-	require.Len(t, feedIDs, numberOfWriteableChains, "number of writeable chains must match number of feed IDs (look for read-only chains in the environment)")
+	require.Len(t, feedIDs, len(writeableChains), "number of writeable chains must match number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
 		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
@@ -132,7 +139,17 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
 	for idx, bcOutput := range wrappedBlockchainOutputs {
-		if bcOutput.ReadOnly {
+		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
+		// for deciding whether need to deploy the data feeds cache contract.
+		hasForwarderContract := false
+		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
+				hasForwarderContract = true
+				break
+			}
+		}
+
+		if !hasForwarderContract {
 			continue
 		}
 
@@ -276,7 +293,7 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	testLogger.Info().Msgf("All prices were found for all feeds")
 }
 
-func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact) {
+func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
@@ -469,7 +486,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	return outputFileAbsPath, nil
 }
 
-func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
+func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *envconfig.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
 	if t.Failed() {
 		counter := 0
 		for idx, feedID := range feedIDs {
