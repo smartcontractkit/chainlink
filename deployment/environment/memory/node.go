@@ -268,10 +268,13 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 	}
 }
 
-func WithLegacyTransactions(chainIds []uint64) ConfigOpt {
+func WithLegacyTransactions(chainId uint64) ConfigOpt {
 	return func(c *chainlink.Config) {
-		for _, chainID := range chainIds {
-			c.EVM[chainID].Chain.GasEstimator.EIP1559DynamicFees = ptr(false)
+		for _, evmChainConfig := range c.EVM {
+			chainIdBig := evmutils.New(new(big.Int).SetUint64(chainId))
+			if evmChainConfig.ChainID.Equal(chainIdBig) {
+				evmChainConfig.Chain.GasEstimator.EIP1559DynamicFees = ptr(false)
+			}
 		}
 	}
 }
