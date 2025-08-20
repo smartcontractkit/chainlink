@@ -29,7 +29,7 @@ var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSetInput *cre
 
 	chain, ok := chainsel.ChainBySelector(donTopology.HomeChainSelector)
 	if !ok {
-		return nil, fmt.Errorf("chain for selector '%s' not found", donTopology.HomeChainSelector)
+		return nil, fmt.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
 	}
 
 	return []uint64{chain.EvmChainID}, nil
