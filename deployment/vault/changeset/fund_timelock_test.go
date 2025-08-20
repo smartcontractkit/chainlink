@@ -146,9 +146,9 @@ func TestGetTimelockBalances(t *testing.T) {
 			testChainSels = append(testChainSels, chainSel)
 		}
 
-		_, err := GetTimelockBalances(envNoTimelock, testChainSels)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "timelock not found")
+		balances, err := GetTimelockBalances(envNoTimelock, testChainSels)
+		require.NoError(t, err)
+		require.Empty(t, balances)
 	})
 }
 

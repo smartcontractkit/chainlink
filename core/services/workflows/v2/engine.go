@@ -207,8 +207,9 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
-	// TODO: Enable DON Time Provider - https://smartcontract-it.atlassian.net/browse/CAPPL-1035
-	// timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	}
 
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
@@ -394,8 +395,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	var executionStatus string // store.StatusStarted
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
-	// TODO: Enable DON Time Provider - https://smartcontract-it.atlassian.net/browse/CAPPL-1035
-	// timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.lggr)
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+	}
 
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
