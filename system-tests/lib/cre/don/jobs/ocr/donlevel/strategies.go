@@ -1,12 +1,13 @@
 package donlevel
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
 var ConfigMerger = func(flag cre.CapabilityFlag, nodeSetInput *cre.CapabilitiesAwareNodeSet, _ uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error) {
@@ -29,7 +30,7 @@ var EnabledChainsProvider = func(donTopology *cre.DonTopology, _ *cre.Capabiliti
 
 	chain, ok := chainselectors.ChainBySelector(donTopology.HomeChainSelector)
 	if !ok {
-		return nil, errors.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
+		return nil, fmt.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
 	}
 
 	return []uint64{chain.EvmChainID}, nil
