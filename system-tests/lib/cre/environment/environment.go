@@ -223,7 +223,19 @@ func SetupTestEnvironment(
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
-	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
+	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
+
+	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
+	for _, chain := range blockchainOutputs {
+		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
+			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID) {
+				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
+					continue
+				}
+				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
+			}
+		}
+	}
 
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
@@ -236,7 +248,8 @@ func SetupTestEnvironment(
 			ForwardersSelectors:   forwardersSelectors,
 			DeployVaultOCR3:       vaultOCR3AddrFlag,
 			DeployEVMOCR3:         evmOCR3AddrFlag,
-			DeployConsensusOCR3:   consensusAddrFlag,
+			EVMChainIDs:           chainsWithEVMCapability,
+			DeployConsensusOCR3:   consensusV2AddrFlag,
 		},
 	)
 
@@ -267,6 +280,29 @@ func SetupTestEnvironment(
 
 	capRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+
+	var vaultOCR3CommonAddr common.Address
+	if vaultOCR3AddrFlag {
+		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
+		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
+		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
+	}
+
+	evmOCR3CommonAddresses := make(map[uint64]common.Address)
+	if evmOCR3AddrFlag {
+		for chainID, selector := range chainsWithEVMCapability {
+			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(uint64(chainID))
+			evmOCR3Addr := mustGetAddress(memoryDatastore, uint64(selector), keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chainID, selector, evmOCR3Addr)
+			evmOCR3CommonAddresses[uint64(selector)] = common.HexToAddress(evmOCR3Addr)
+		}
+	}
+	var consensusV2OCR3CommonAddr common.Address
+	if consensusV2AddrFlag {
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
+	}
 
 	for _, forwarderSelector := range forwardersSelectors {
 		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), "1.0.0", "")
@@ -547,27 +583,8 @@ func SetupTestEnvironment(
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	ocr3CommonAddr := common.HexToAddress(ocr3Addr)
 	donTimeCommonAddr := common.HexToAddress(donTimeAddr)
-
-	var vaultOCR3CommonAddr common.Address
-	if vaultOCR3AddrFlag {
-		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
-		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
-		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
-	}
-	var evmOCR3CommonAddr common.Address
-	if evmOCR3AddrFlag {
-		evmOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_evm")
-		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
-		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
-	}
-	var consensusV2OCR3CommonAddr common.Address
-	if consensusAddrFlag {
-		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
-		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
-		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
-	}
-
 	capRegCommonAddr := common.HexToAddress(capRegAddr)
+
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
 		ChainSelector:               homeChainOutput.ChainSelector,
 		CldEnv:                      fullCldOutput.Environment,
@@ -576,7 +593,7 @@ func SetupTestEnvironment(
 		OCR3Address:                 &ocr3CommonAddr,
 		DONTimeAddress:              &donTimeCommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
-		EVMOCR3Address:              &evmOCR3CommonAddr,
+		EVMOCR3Addresses:            &evmOCR3CommonAddresses,
 		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 	}

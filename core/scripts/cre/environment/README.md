@@ -151,7 +151,7 @@ go run . workflow deploy [flags]
 - `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 - `-e, --don-id`: DON ID (default: `1`)
@@ -173,7 +173,7 @@ go run . workflow delete [flags]
 - `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -192,7 +192,7 @@ go run . workflow delete-all [flags]
 **Key flags:**
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -406,7 +406,7 @@ go run . workflow deploy-and-verify-example [flags]
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
 - `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
 - `-d, --don-id`: DON ID for web API trigger (default: `vault`)
-- `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-w, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**

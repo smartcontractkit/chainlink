@@ -15,6 +15,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -133,8 +134,8 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		input.CldEnvironment.DataStore,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		"capability_evm",
 		flag,
+		contracts.GetCapabilityContractIdentifier,
 		chainlevel.CapabilityEnabler,
 		chainlevel.EnabledChainsProvider,
 		generateJobSpec,

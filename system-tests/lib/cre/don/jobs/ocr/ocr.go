@@ -33,8 +33,8 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
 	infraInput *infra.Input,
-	contractName string,
 	flag cre.CapabilityFlag,
+	contractNamer ContractNamer,
 	capabilityEnabler CapabilityEnabler,
 	enabledChainsProvider EnabledChainsProvider,
 	jobConfigGenerator JobConfigGenerator,
@@ -44,15 +44,12 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
 	}
-
 	if infraInput == nil {
 		return nil, errors.New("infra input is nil")
 	}
-
 	if configMerger == nil {
 		return nil, errors.New("config merger is nil")
 	}
-
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	logger := framework.L
@@ -73,17 +70,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		}
 
 		binaryPath := filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath))
-
-		ocr3Key := datastore.NewAddressRefKey(
-			donTopology.HomeChainSelector,
-			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-			semver.MustParse("1.0.0"),
-			contractName,
-		)
-		ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get EVM capability address")
-		}
 
 		internalHostsBS := getBoostrapWorkflowNames(donWithMetadata, nodeSetInput, donIdx, *infraInput)
 		if len(internalHostsBS) == 0 {
@@ -134,10 +120,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				return nil, fmt.Errorf("failed to get chain selector for chain ID %d", chainIDUint64)
 			}
 
-			// create job specs for the bootstrap node
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainIDUint64))
-			logger.Debug().Msgf("Found deployed '%s' OCR3 contract on chain %d at %s", contractName, chainIDUint64, ocr3ConfigContractAddress.Address)
-
 			mergedConfig, enabled, rErr := configMerger(flag, nodeSetInput[donIdx], chainIDUint64, capabilityConfig)
 			if rErr != nil {
 				return nil, errors.Wrap(rErr, "failed to merge capability config")
@@ -147,6 +129,33 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			if !enabled {
 				continue
 			}
+
+			cs, ok := chainsel.EvmChainIdToChainSelector()[chainIDUint64]
+			if !ok {
+				return nil, fmt.Errorf("chain selector not found for chainID: %d", chainIDUint64)
+			}
+
+			contractName := contractNamer(chainIDUint64)
+
+			ocr3Key := datastore.NewAddressRefKey(
+				cs,
+				datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+				semver.MustParse("1.0.0"),
+				contractName,
+			)
+
+			ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get EVM capability address")
+			}
+
+			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
+				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
+			}
+
+			// create job specs for the bootstrap node
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainIDUint64))
+			logger.Debug().Msgf("Found deployed '%s' OCR3 contract on chain %d at %s", contractName, chainIDUint64, ocr3ConfigContractAddress.Address)
 
 			for _, workerNode := range workflowNodeSet {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
@@ -255,3 +264,6 @@ type CapabilityEnabler func(nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability
 type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
+
+// ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
+type ContractNamer func(chainID uint64) string

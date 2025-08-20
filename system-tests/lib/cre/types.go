@@ -270,8 +270,8 @@ type ConfigureKeystoneInput struct {
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
 
-	EVMOCR3Config  keystone_changeset.OracleConfig
-	EVMOCR3Address *common.Address
+	EVMOCR3Config    keystone_changeset.OracleConfig
+	EVMOCR3Addresses *map[uint64]common.Address
 
 	ConsensusV2OCR3Config  keystone_changeset.OracleConfig
 	ConsensusV2OCR3Address *common.Address
@@ -435,7 +435,7 @@ type DonTopology struct {
 
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
-	Capabilities         []string          `toml:"capabilities"`
+	Capabilities         []string          `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
 	DONTypes             []string          `toml:"don_types"`
 	SupportedChains      []uint64          `toml:"supported_chains"`     // chain IDs that the DON supports, empty means all chains
 	BootstrapNodeIndex   int               `toml:"bootstrap_node_index"` // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
@@ -452,6 +452,7 @@ type CapabilitiesAwareNodeSet struct {
 	// Example: [nodesets.capability_overrides.web-api-target] GlobalRPS = 2000.0
 	CapabilityOverrides map[string]map[string]any `toml:"capability_overrides"`
 
+	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
 	ComputedCapabilities []string `toml:"-"`
 }
 

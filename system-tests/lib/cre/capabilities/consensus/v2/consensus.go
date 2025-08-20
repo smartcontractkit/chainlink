@@ -84,8 +84,10 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		input.CldEnvironment.DataStore,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		"capability_consensus",
 		flag,
+		func(_ uint64) string {
+			return "capability_consensus"
+		},
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		generateJobSpec,
