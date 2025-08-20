@@ -1,14 +1,21 @@
 package httptrigger
 
 import (
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	httpregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/httptrigger"
-	httpactionhandler "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway/handlers/httpaction"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
+const flag = cre.HTTPTriggerCapability
 const httpTriggerConfigTemplate = `"""
 {
 	"incomingRateLimiter": {
@@ -28,21 +35,60 @@ const httpTriggerConfigTemplate = `"""
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
-		donlevel.IsEnabled,
-		donlevel.EnabledChains,
+		donlevel.CapabilityEnabler,
+		donlevel.EnabledChainsProvider,
 		donlevel.ConfigResolver,
-		donlevel.JobName,
+		donlevel.JobNamer,
 	)
 
 	return capabilities.New(
-		cre.HTTPTriggerCapability,
-		capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpecFn(
-			cre.HTTPTriggerCapability,
+		flag,
+		capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+			flag,
 			httpTriggerConfigTemplate,
-			factory.NoOpExtractor, // No runtime values extraction needed
+			factory.NoOpExtractor,
 			factory.BinaryPathBuilder,
 		)),
-		capabilities.WithGatewayJobHandlerConfigFn(httpactionhandler.HandlerConfigFn),
-		capabilities.WithCapabilityRegistryV1ConfigFn(httpregistry.CapabilityRegistryConfigFn),
+		capabilities.WithGatewayJobHandlerConfigFn(handlerConfig),
+		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
 	)
+}
+
+func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error) {
+	// if any of the DONs have http action or http trigger capability, we need to add a http handler to the jobspec for the gateway node
+	if !flags.HasFlag(donMetadata.Flags, flag) {
+		return nil, nil
+	}
+
+	return map[string]string{coregateway.HTTPCapabilityType: `
+ServiceName = "workflows"
+[gatewayConfig.Dons.Handlers.Config]
+maxTriggerRequestDurationMs = 5_000
+[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10
+[gatewayConfig.Dons.Handlers.Config.UserRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10`}, nil
+}
+
+func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+	if flags.HasFlag(donFlags, flag) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "http-trigger",
+				Version:        "1.0.0-alpha",
+				CapabilityType: 0, // TRIGGER
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	return capabilities, nil
 }

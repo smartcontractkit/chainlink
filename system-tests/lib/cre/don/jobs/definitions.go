@@ -205,8 +205,6 @@ func WorkerStandardCapability(nodeID, name, command, config, oracleFactoryConfig
 func DonTimeJob(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
-	fmt.Println("TransmitterID: ", nodeEthAddress)
-
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
 		Spec: fmt.Sprintf(`

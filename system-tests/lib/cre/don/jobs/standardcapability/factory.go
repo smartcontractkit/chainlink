@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	creregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -16,28 +16,35 @@ import (
 
 // Type aliases for cleaner function signatures
 
-// RuntimeValuesExtractorFn extracts runtime values from node metadata for template substitution.
+// RuntimeValuesExtractor extracts runtime values from node metadata for template substitution.
 // chainID is 0 for DON-level capabilities that don't operate on specific chains.
-type RuntimeValuesExtractorFn func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any
+type RuntimeValuesExtractor func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any
 
-// CommandBuilderFn constructs the command string for executing a capability binary or built-in capability.
-type CommandBuilderFn func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error)
+// CommandBuilder constructs the command string for executing a capability binary or built-in capability.
+type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error)
 
-type JobNameFn func(chainID uint64, flag cre.CapabilityFlag) string
-type IsEnabledFn func(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
-type EnabledChainsFn func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
-type ConfigResolverFn func(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
+// JobNamer constructs the job name for a capability.
+type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
+
+// CapabilityEnabler determines if a capability is enabled for a given DON.
+type CapabilityEnabler func(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
+
+// EnabledChainsProvider provides the list of enabled chains for a given capability.
+type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
+
+// ConfigResolver resolves the capability config for a given chain.
+type ConfigResolver func(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
 
 // NoOpExtractor is a no-operation runtime values extractor for DON-level capabilities
 // that don't need runtime values extraction from node metadata
-var NoOpExtractor RuntimeValuesExtractorFn = func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any {
+var NoOpExtractor RuntimeValuesExtractor = func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any {
 	return map[string]any{} // Return empty map - DON-level capabilities typically don't need runtime values
 }
 
 // BinaryPathBuilder constructs the container path for capability binaries by combining
 // the default container directory with the base name of the capability's binary path
-var BinaryPathBuilder CommandBuilderFn = func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error) {
-	containerPath, pathErr := creregistry.DefaultContainerDirectory(input.InfraInput.Type)
+var BinaryPathBuilder CommandBuilder = func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error) {
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(input.InfraInput.Type)
 	if pathErr != nil {
 		return "", errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", input.InfraInput.Type)
 	}
@@ -45,28 +52,38 @@ var BinaryPathBuilder CommandBuilderFn = func(input *cre.JobSpecInput, capabilit
 	return filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath)), nil
 }
 
+// CapabilityJobSpecFactory is a unified factory that uses strategy functions to handle
+// both DON-level and chain-specific capabilities through composition.
+type CapabilityJobSpecFactory struct {
+	// Strategy functions that differ between DON-level and chain-specific capabilities
+	jobNamer              JobNamer
+	capabilityEnabler     CapabilityEnabler
+	enabledChainsProvider EnabledChainsProvider
+	configResolver        ConfigResolver
+}
+
 // NewCapabilityJobSpecFactory creates a job spec factory for capabilities that operate
 // at the DON level without chain-specific configuration (e.g., cron, mock, custom-compute, web-api-*).
 // These capabilities use the home chain selector and can have per-DON configuration overrides.
 func NewCapabilityJobSpecFactory(
-	isEnabledFn IsEnabledFn,
-	enabledChainsFn EnabledChainsFn,
-	configResolverFn ConfigResolverFn,
-	jobNameFn JobNameFn,
+	capabilityEnabler CapabilityEnabler,
+	enabledChainsProvider EnabledChainsProvider,
+	configResolver ConfigResolver,
+	jobNamer JobNamer,
 ) *CapabilityJobSpecFactory {
 	return &CapabilityJobSpecFactory{
-		isEnabledFn:      isEnabledFn,
-		enabledChainsFn:  enabledChainsFn,
-		configResolverFn: configResolverFn,
-		jobNameFn:        jobNameFn,
+		capabilityEnabler:     capabilityEnabler,
+		enabledChainsProvider: enabledChainsProvider,
+		configResolver:        configResolver,
+		jobNamer:              jobNamer,
 	}
 }
 
-func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
+func (f *CapabilityJobSpecFactory) BuildJobSpec(
 	capabilityFlag cre.CapabilityFlag,
 	configTemplate string,
-	runtimeValuesExtractorFn RuntimeValuesExtractorFn,
-	commandBuilderFn CommandBuilderFn,
+	runtimeValuesExtractor RuntimeValuesExtractor,
+	commandBuilder CommandBuilder,
 ) func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		if input.DonTopology == nil {
@@ -80,7 +97,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 				continue
 			}
 
-			if f.isEnabledFn != nil && !f.isEnabledFn(donWithMetadata, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+			if f.capabilityEnabler != nil && !f.capabilityEnabler(donWithMetadata, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
 				continue
 			}
 
@@ -89,7 +106,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 				return nil, errors.Errorf("%s config not found in capabilities config", capabilityFlag)
 			}
 
-			command, cmdErr := commandBuilderFn(input, capabilityConfig)
+			command, cmdErr := commandBuilder(input, capabilityConfig)
 			if cmdErr != nil {
 				return nil, errors.Wrap(cmdErr, "failed to get capability command")
 			}
@@ -105,8 +122,8 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 			}
 
 			// Generate job specs for each enabled chain
-			for _, chainIDUint64 := range f.enabledChainsFn(input.DonTopology, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
-				enabled, mergedConfig, rErr := f.configResolverFn(input.CapabilitiesAwareNodeSets[donIdx], capabilityConfig, chainIDUint64, capabilityFlag)
+			for _, chainIDUint64 := range f.enabledChainsProvider(input.DonTopology, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+				enabled, mergedConfig, rErr := f.configResolver(input.CapabilitiesAwareNodeSets[donIdx], capabilityConfig, chainIDUint64, capabilityFlag)
 				if rErr != nil {
 					return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
 				}
@@ -122,7 +139,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 					}
 
 					// Apply runtime values to merged config using the runtime value builder
-					templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractorFn(chainIDUint64, workerNode))
+					templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractor(chainIDUint64, workerNode))
 					if aErr != nil {
 						return nil, errors.Wrap(aErr, "failed to apply runtime values")
 					}
@@ -143,7 +160,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 						return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
 					}
 
-					jobSpec := jobs.WorkerStandardCapability(nodeID, f.jobNameFn(chainIDUint64, capabilityFlag), command, configStr, "")
+					jobSpec := jobs.WorkerStandardCapability(nodeID, f.jobNamer(chainIDUint64, capabilityFlag), command, configStr, "")
 					donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 				}
 			}
@@ -151,19 +168,4 @@ func (f *CapabilityJobSpecFactory) BuildJobSpecFn(
 
 		return donToJobSpecs, nil
 	}
-}
-
-// CapabilityJobSpecFactory is a unified factory that uses strategy functions to handle
-// both DON-level and chain-specific capabilities through composition.
-type CapabilityJobSpecFactory struct {
-	// capabilityFlag           cre.CapabilityFlag
-	// configTemplate           string
-	// runtimeValuesExtractorFn RuntimeValuesExtractorFn
-	// commandBuilderFn         CommandBuilderFn
-
-	// Strategy functions that differ between DON-level and chain-specific capabilities
-	jobNameFn        JobNameFn
-	isEnabledFn      IsEnabledFn
-	enabledChainsFn  EnabledChainsFn
-	configResolverFn ConfigResolverFn
 }

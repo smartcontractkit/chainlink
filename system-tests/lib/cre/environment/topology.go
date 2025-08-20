@@ -11,7 +11,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
@@ -105,7 +105,7 @@ func BuildTopology(
 
 		configFactoryFunctions := make([]cre.NodeConfigFn, 0)
 		for _, capability := range capabilities {
-			configFactoryFunctions = append(configFactoryFunctions, capability.OptionalNodeConfigFn())
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigFn())
 		}
 
 		// generate configs only if they are not provided
@@ -172,13 +172,13 @@ func BuildTopology(
 			}
 		}
 
-		executableErr := libcaps.MakeBinariesExecutable(customBinariesPaths)
+		executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
 		if executableErr != nil {
 			return nil, nil, errors.Wrap(executableErr, "failed to make binaries executable")
 		}
 
 		var appendErr error
-		localNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
+		localNodeSets[i], appendErr = crecapabilities.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
 		if appendErr != nil {
 			return nil, nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}

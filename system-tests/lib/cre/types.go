@@ -896,16 +896,18 @@ type InstallableCapability interface {
 	Flag() CapabilityFlag
 
 	// JobSpecFn returns a function that generates job specifications for this capability
-	// based on the provided input configuration and topology
+	// based on the provided input configuration and topology. Most capabilities need this.
+	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
 	JobSpecFn() JobSpecFn
 
-	// OptionalNodeConfigFn returns a function to generate node-level configuration,
-	// or nil if no node-specific config is needed
-	OptionalNodeConfigFn() NodeConfigFn
+	// NodeConfigFn returns a function to generate node-level configuration,
+	// or nil if no node-specific config is needed. Most capabilities don't need this.
+	NodeConfigFn() NodeConfigFn
 
-	// OptionalGatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
-	// or nil if no gateway handler configuration is required for this capability
-	OptionalGatewayJobHandlerConfigFn() GatewayHandlerConfigFn
+	// GatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
+	// or nil if no gateway handler configuration is required for this capability. Only capabilities
+	// that need to connect to external resources might need this.
+	GatewayJobHandlerConfigFn() GatewayHandlerConfigFn
 
 	// CapabilityRegistryV1ConfigFn returns a function to generate capability registry
 	// configuration for the v1 registry format

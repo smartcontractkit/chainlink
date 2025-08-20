@@ -1,9 +1,8 @@
-//nolint
 //nolint:nolintlint
 package tdh2shim
 
 import (
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault/sanmarinodkg/dkg"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/dkg"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 )
 

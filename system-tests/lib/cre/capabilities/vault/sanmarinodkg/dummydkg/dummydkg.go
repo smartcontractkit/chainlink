@@ -1,4 +1,3 @@
-//nolint
 //nolint:nolintlint
 package dummydkg
 
@@ -13,7 +12,7 @@ import (
 
 	unsafeRand "math/rand"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/vault/sanmarinodkg/dkg"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/dkg"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/lib/group"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2"

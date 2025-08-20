@@ -9,12 +9,12 @@ import (
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-func JobName(chainID uint64, flag cre.CapabilityFlag) string {
+func JobNamer(chainID uint64, flag cre.CapabilityFlag) string {
 	return fmt.Sprintf("%s-%d", flag, chainID)
 }
 
-func IsEnabled(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
-	// Check if this capability is enabled for any chains on this DON
+func CapabilityEnabler(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
+	// for chain-level capabilities, we need to check which chains the capability is enabled for
 	if donWithMetadata == nil || nodeSet == nil || nodeSet.ChainCapabilities == nil {
 		return false
 	}
@@ -27,7 +27,8 @@ func IsEnabled(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAw
 	return true
 }
 
-func EnabledChains(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+	// for chain-level capabilities, we need to return the list of chains the capability is enabled for
 	chainCapConfig, ok := nodeSetInput.ChainCapabilities[flag]
 	if !ok || chainCapConfig == nil {
 		return []uint64{}
@@ -37,6 +38,7 @@ func EnabledChains(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesA
 }
 
 func ConfigResolver(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
+	// chain-level capabilities can have per-chain configuration overrides, we need to resolve the config for the given chain
 	enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
 		flag,
 		nodeSetInput.ChainCapabilities,

@@ -16,6 +16,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -35,18 +36,20 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp/benchspy"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	writeevmregistry "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry/v1/writeevm"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -335,8 +338,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		[]cretypes.CapabilityRegistryConfigFn{WorkflowDONLoadTestCapabilitiesFactoryFn, writeevmregistry.CapabilityRegistryConfigFn},
-		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensus.V1JobSpecFn(homeChainIDUint64)},
+		[]cretypes.CapabilityRegistryConfigFn{WorkflowDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
+		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
 		loadTestJobSpecsFactoryFn,
 	)
 
@@ -1139,5 +1142,136 @@ func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchs
 		}
 	} else {
 		framework.L.Info().Msgf("No significant performance regressions detected compared to baseline %s", baselineReport.CommitOrTag)
+	}
+}
+
+// Deprecated: remove this once load tests have been migrated
+func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
+
+	if nodeSetInput == nil {
+		return nil, errors.New("node set input is nil")
+	}
+
+	// it's fine if there are no chain capabilities
+	if nodeSetInput.ChainCapabilities == nil {
+		return nil, nil
+	}
+
+	if _, ok := nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
+		return nil, nil
+	}
+
+	for _, chainID := range nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
+		fullName := corevm.GenerateWriteTargetName(chainID)
+		splitName := strings.Split(fullName, "@")
+
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   splitName[0],
+				Version:        splitName[1],
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	return capabilities, nil
+}
+
+// Deprecated: remove this once load tests have been migrated
+func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
+	return func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
+		if input.DonTopology == nil {
+			return nil, errors.New("topology is nil")
+		}
+		donToJobSpecs := make(cretypes.DonsToJobSpecs)
+
+		ocr3Key := datastore.NewAddressRefKey(
+			input.DonTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			"capability_ocr3",
+		)
+		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get Vault capability address")
+		}
+
+		donTimeKey := datastore.NewAddressRefKey(
+			input.DonTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			"DONTime",
+		)
+		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get DON Time address")
+		}
+
+		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+			if !flags.HasFlag(donWithMetadata.Flags, cretypes.ConsensusCapability) {
+				continue
+			}
+
+			// create job specs for the worker nodes
+			workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
+			if err != nil {
+				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+				return nil, errors.Wrap(err, "failed to find worker nodes")
+			}
+
+			// look for boostrap node and then for required values in its labels
+			bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.BootstrapNode}, node.EqualLabels)
+			if bootErr != nil {
+				return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
+			}
+
+			donBootstrapNodePeerID, pIDErr := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
+			if pIDErr != nil {
+				return nil, errors.Wrap(pIDErr, "failed to get bootstrap node peer ID")
+			}
+
+			donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
+			if hostErr != nil {
+				return nil, errors.Wrap(hostErr, "failed to get bootstrap node host from labels")
+			}
+
+			bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
+			if nodeIDErr != nil {
+				return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
+			}
+
+			// create job specs for the bootstrap node
+			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+
+			ocrPeeringData := cretypes.OCRPeeringData{
+				OCRBootstraperPeerID: donBootstrapNodePeerID,
+				OCRBootstraperHost:   donBootstrapNodeHost,
+				Port:                 don.OCRPeeringPort,
+			}
+
+			for _, workerNode := range workflowNodeSet {
+				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+				if nodeIDErr != nil {
+					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+				}
+
+				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(input.DonTopology.HomeChainSelector))
+				if ethErr != nil {
+					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
+				}
+
+				ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
+				if ocr2Err != nil {
+					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
+				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+			}
+		}
+
+		return donToJobSpecs, nil
 	}
 }

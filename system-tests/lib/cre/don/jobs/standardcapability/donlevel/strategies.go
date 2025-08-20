@@ -8,16 +8,17 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-func JobName(chainID uint64, flag cre.CapabilityFlag) string {
+func JobNamer(chainID uint64, flag cre.CapabilityFlag) string {
 	return flag
 }
 
-func IsEnabled(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
-	// Check if this DON has the capability enabled
+func CapabilityEnabler(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
+	// for DON-level capabilities, we only need to check if the DON has the capability enabled
 	return flags.HasFlag(donWithMetadata.Flags, flag)
 }
 
-func EnabledChains(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+	// Most DON-level capabilities do not operate on specific chains, so we return the home chain selector to satisfy the interface
 	return []uint64{donTopology.HomeChainSelector}
 }
 

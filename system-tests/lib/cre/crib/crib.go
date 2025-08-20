@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilityregistry"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
@@ -320,7 +320,7 @@ func setCapabilities(input *cre.DeployCribDonsInput, donIndex int, workerNodes [
 		}
 	}
 
-	destinationDir, err := crecaps.DefaultContainerDirectory(infra.CRIB)
+	destinationDir, err := crecapabilities.DefaultContainerDirectory(infra.CRIB)
 	if err != nil {
 		return errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
 	}

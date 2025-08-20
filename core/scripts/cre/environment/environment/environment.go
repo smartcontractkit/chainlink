@@ -550,7 +550,18 @@ func StartCLIEnvironment(
 		if len(nodeSet.Capabilities) > 0 {
 			capabilitiesDesc = strings.Join(nodeSet.Capabilities, ", ")
 		}
-		fmt.Print(libformat.PurpleText("\tCapabilities: %s\n", capabilitiesDesc))
+		fmt.Print(libformat.PurpleText("\tGlobal capabilities: %s\n", capabilitiesDesc))
+		chainCapabilitiesDesc := "none"
+		if len(nodeSet.ChainCapabilities) > 0 {
+			chainCapList := []string{}
+			for capabilityName, chainCapability := range nodeSet.ChainCapabilities {
+				for _, chainID := range chainCapability.EnabledChains {
+					chainCapList = append(chainCapList, fmt.Sprintf("%s-%d", capabilityName, chainID))
+				}
+			}
+			chainCapabilitiesDesc = strings.Join(chainCapList, ", ")
+		}
+		fmt.Print(libformat.PurpleText("\tChain capabilities: %s\n", chainCapabilitiesDesc))
 		fmt.Print(libformat.PurpleText("\tDON Types: %s\n\n", strings.Join(nodeSet.DONTypes, ", ")))
 	}
 
@@ -634,7 +645,7 @@ func defaultCtfConfigs(topologyFlag string) error {
 		case TopologyMock:
 			setErr = os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-mock-don.toml")
 		default:
-			return fmt.Errorf("unknown topology: %s", topologyFlag)
+			return fmt.Errorf("unknown topology: %s. Please use a known one or indicate which TOML config to use via CTF_CONFIGS environment variable", topologyFlag)
 		}
 
 		if setErr != nil {

@@ -23,11 +23,11 @@ func (c *Capability) JobSpecFn() cre.JobSpecFn {
 	return c.jobSpecFn
 }
 
-func (c *Capability) OptionalNodeConfigFn() cre.NodeConfigFn {
+func (c *Capability) NodeConfigFn() cre.NodeConfigFn {
 	return c.nodeConfigFn
 }
 
-func (c *Capability) OptionalGatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
+func (c *Capability) GatewayJobHandlerConfigFn() cre.GatewayHandlerConfigFn {
 	return c.gatewayJobHandlerConfigFn
 }
 
