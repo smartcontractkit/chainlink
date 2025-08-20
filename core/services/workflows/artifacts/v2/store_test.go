@@ -38,7 +38,7 @@ func (m *mockFetcher) Fetch(_ context.Context, mid string, req ghcapabilities.Re
 }
 
 func (m *mockFetcher) RetrieveURL(ctx context.Context, req *storage_service.DownloadArtifactRequest) (string, error) {
-	return string(m.responseMap[req.Id].Body), m.responseMap[req.Id].Err
+	return string(m.responseMap[req.Id+"-"+req.Type.String()].Body), m.responseMap[req.Id+"-"+req.Type.String()].Err
 }
 
 func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
@@ -77,7 +77,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 		encryptionKey,
 		custmsg.NewLabeler(),
 		WithConfig(StoreConfig{
-			ArtifactStorageURLPrefix: "http://example.com",
+			ArtifactStorageHost: "example.com",
 		}),
 	)
 	require.NoError(t, err)
@@ -100,21 +100,19 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	binaryID := "binary-1"
-	binaryURL := "http://storage.chain.link/" + binaryID + "/binary.wasm"
-	binaryTempURL := "http://storage.chain.link/temp-1"
+	binaryURL := "http://storage.chain.link/" + workflowID + "/binary.wasm"
+	binarySignedURL := binaryURL + "?auth=XXX"
 	binaryData := "binary-data"
 	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
-	configID := "config-1"
-	configURL := "http://storage.chain.link/" + configID + "/config.yaml"
-	configTempURL := "http://storage.chain.link/temp-2"
+	configURL := "http://storage.chain.link/" + workflowID + "/config.yaml"
+	configSignedURL := configURL + "?auth=XXX"
 	configData := "config-data"
 	fetcher := &mockFetcher{
 		responseMap: map[string]mockFetchResp{
-			binaryID:      {Body: []byte(binaryTempURL)},
-			binaryTempURL: {Body: []byte(binaryEncoded)},
-			configID:      {Body: []byte(configTempURL)},
-			configTempURL: {Body: []byte(configData)},
+			workflowID + "-ARTIFACT_TYPE_BINARY": {Body: []byte(binarySignedURL)},
+			binarySignedURL:                      {Body: []byte(binaryEncoded)},
+			workflowID + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(configSignedURL)},
+			configSignedURL:                      {Body: []byte(configData)},
 		},
 	}
 
@@ -127,7 +125,7 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 		encryptionKey,
 		custmsg.NewLabeler(),
 		WithConfig(StoreConfig{
-			ArtifactStorageURLPrefix: "http://storage.chain.link",
+			ArtifactStorageHost: "storage.chain.link",
 		}),
 	)
 	require.NoError(t, err)
@@ -168,7 +166,7 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 		encryptionKey,
 		custmsg.NewLabeler(),
 		WithConfig(StoreConfig{
-			ArtifactStorageURLPrefix: "http://storage.chain.link",
+			ArtifactStorageHost: "storage.chain.link",
 		}),
 	)
 	require.NoError(t, err)
@@ -209,7 +207,7 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 		encryptionKey,
 		custmsg.NewLabeler(),
 		WithConfig(StoreConfig{
-			ArtifactStorageURLPrefix: "http://example.com",
+			ArtifactStorageHost: "example.com",
 		}),
 	)
 	require.NoError(t, err)

@@ -1991,14 +1991,14 @@ func (r *Limits) setFrom(f *Limits) {
 }
 
 type WorkflowStorage struct {
-	ArtifactURLPrefix *string
-	URL               *string
-	TLSEnabled        *bool
+	ArtifactStorageHost *string
+	URL                 *string
+	TLSEnabled          *bool
 }
 
 func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
-	if f.ArtifactURLPrefix != nil {
-		s.ArtifactURLPrefix = f.ArtifactURLPrefix
+	if f.ArtifactStorageHost != nil {
+		s.ArtifactStorageHost = f.ArtifactStorageHost
 	}
 	if f.URL != nil {
 		s.URL = f.URL

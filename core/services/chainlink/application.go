@@ -1100,7 +1100,7 @@ func newCREServices(
 							},
 						),
 						artifactsV2.WithConfig(artifactsV2.StoreConfig{
-							ArtifactStorageURLPrefix: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactURLPrefix(),
+							ArtifactStorageHost: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactStorageHost(),
 						}))
 					if err != nil {
 						return nil, fmt.Errorf("unable to create artifact store: %w", err)

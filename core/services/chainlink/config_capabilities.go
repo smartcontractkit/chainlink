@@ -183,8 +183,8 @@ func (c *workflowStorage) TLSEnabled() bool {
 	return *c.c.TLSEnabled
 }
 
-func (c *workflowStorage) ArtifactURLPrefix() string {
-	return *c.c.ArtifactURLPrefix
+func (c *workflowStorage) ArtifactStorageHost() string {
+	return *c.c.ArtifactStorageHost
 }
 
 type gatewayConnector struct {

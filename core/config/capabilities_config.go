@@ -34,7 +34,7 @@ type CapabilitiesWorkflowRegistry interface {
 }
 
 type WorkflowStorage interface {
-	ArtifactURLPrefix() string
+	ArtifactStorageHost() string
 	URL() string
 	TLSEnabled() bool
 }

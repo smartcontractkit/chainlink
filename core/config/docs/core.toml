@@ -519,8 +519,8 @@ SyncStrategy = 'event' # Default
 URL = "localhost:4566" # Default
 # TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
 TLSEnabled = true # Default
-# ArtifactURLPrefix is the prefix that when present within the binary or config URL from the workflow registry should be retrieved from the workflow storage service.
-ArtifactURLPrefix = 'https://storage.cre.chain.link' # Example
+# ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 [Workflows]
 [Workflows.Limits]
