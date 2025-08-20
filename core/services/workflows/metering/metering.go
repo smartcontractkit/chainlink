@@ -250,6 +250,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 		r.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
 		if err != nil {
 			// this should never happen, but if it does, we cannot proceed
+			r.lggr.Error("failed to create empty balance store with no rates: %s", err)
+
 			return err
 		}
 	}
@@ -384,6 +386,13 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
+			}
+
+			if isGasSpendType(unit) {
+				// TODO: this decimal shift should be temporary and converted when write capabilities
+				// are converted to provide spend as big.Int fixed point values
+				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
+				value = value.Shift(18) // shift to fixed point value
 			}
 
 			deciVals = append(deciVals, value)

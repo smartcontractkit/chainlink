@@ -886,7 +886,7 @@ func Test_Report_Settle(t *testing.T) {
 		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
-			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "700000000000000"}, // should convert to 3.5 credits
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"}, // should convert to 3.5 credits
 		}
 
 		require.NoError(t, report.Settle("ref1", steps))
