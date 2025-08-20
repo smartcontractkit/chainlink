@@ -222,7 +222,9 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defer StartCmdRecoverHandlerFunc(recover(), cleanupWait)
+			defer func() {
+				StartCmdRecoverHandlerFunc(recover(), cleanupWait)
+			}()
 
 			if doSetup {
 				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)

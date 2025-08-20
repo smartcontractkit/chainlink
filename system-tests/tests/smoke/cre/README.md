@@ -113,9 +113,14 @@ This guide explains how to set up and run system tests for Chainlink workflows u
 
 ---
 
+---
+
 ## 1. Running the Test
 
-Before starting, you’ll need to configure your environment correctly.
+Before starting, you’ll need to configure your environment correctly. To do so execute the automated setup function:
+```bash
+cd core/scripts/cre/environment && go run . env setup
+```
 
 ### Chainlink Node Image
 
@@ -142,31 +147,9 @@ The TOML config defines how Chainlink node images are used:
 
 ### Environment Variables
 
-Set these before running your test:
-
-- `CTF_CONFIGS`: Required. Comma-separated list of TOML config files.
-- `PRIVATE_KEY`: Optional. Plaintext private key for contract deployment and node funding. If no key is provided Anvil's developer private key will be used.
-
----
-
-### Job Distributor Image
-
-Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.12.7`.
-
-To build locally:
-
-```bash
-git clone https://github.com/smartcontractkit/job-distributor
-cd job-distributor
-git checkout v0.12.7
-docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
-```
-
-Alternatively run the following command to pull or build all dependencies:
-```bash
-# in core/scripts/cre/environment
-go run . env setup
-```
+Only if you want to run the tests on non-default topology you need to set following variables before running the test:
+- `CTF_CONFIGS` -- either `configs/workflow-gateway-don.toml` or `configs/workflow-gateway-capabilities-don.toml`
+- `CRE_TOPOLOGY` -- either `workflow-gateway` or `workflow-gateway-capabilities`
 
 ---
 
@@ -174,19 +157,9 @@ go run . env setup
 
 This binary is needed for tests using the cron capability.
 
-**Option 1**: Use a CL node image that already includes the binary. If so, comment out this in TOML:
+**Option 1**: Use a CL node image that already includes the binary. Make sure it's available under `/usr/local/bin/cron` inside the image.
 
-```toml
-[extra_capabilities]
-  # cron_capability_binary_path = "./cron"
-```
-
-**Option 2**: Provide a path to a locally built binary:
-
-```toml
-[extra_capabilities]
-  cron_capability_binary_path = "./some-folder/cron"
-```
+**Option 2**: Build the capability locally and copy it to: `core/scripts/cre/environment/binaries/cron`.
 
 You can build it from [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository.
 
@@ -528,177 +501,348 @@ kubectl logs <POD_NAME>
 
 ---
 
-## 10. Adding a New Capability
+## 10. Adding a New Standard Capability
 
-# Caution: this section will be outdated very shortly. It's best if you wait with adding any new capabilities until (this PR)[https://github.com/smartcontractkit/chainlink/pull/18845] is merged.
+This section explains how to add new standard capabilities to the CRE test framework. There are two types of capabilities:
 
-To add a new capability (e.g., writing to the Aptos chain), follow these detailed steps:
+- **DON-level capabilities**: Run once per DON (e.g., cron triggers, HTTP actions)
+- **Chain-level capabilities**: Run per chain (e.g., read contract, write EVM)
 
-### 1. Define the Capability Flag
+### Capability Types
 
-Create a unique flag in `flags.go` that represents your capability. This is used throughout the test framework:
+**DON-level capabilities** are used when:
+- The capability operates at the DON level (not chain-specific)
+- Examples: cron triggers, HTTP actions, random number generators
+- Configuration is shared across all nodes in the DON
+
+**Chain-level capabilities** are used when:
+- The capability needs to interact with specific blockchain networks
+- Examples: read contract, write EVM
+- Configuration varies per chain (different RPC URLs, chain IDs, etc.)
+
+### Step 1: Define the Capability Flag
+
+Add a unique flag in `system-tests/lib/cre/types.go`:
 
 ```go
 const (
-  WriteAptosCapability CapabilityFlag = "write-aptos" // <--- NEW ENTRY
+    // ... existing capabilities ...
+    RandomNumberGeneratorCapability CapabilityFlag = "random-number-generator" // DON-level example
+    GasEstimatorCapability          CapabilityFlag = "gas-estimator"          // Chain-level example
 )
 ```
 
-### 2. Copy the Binary to the Container/Pod
+### Step 2: Create the Capability Implementation
 
-Use the TOML config or inject the binary programmatically. The latter is recommended so you can reuse the binary path later in your job spec factory function:
+Create a new directory in `system-tests/lib/cre/capabilities/` with your capability name.
+
+#### DON-level Capability Example (Random Number Generator)
 
 ```go
-customBinariesPaths := map[string]string{}
-containerPath, pathErr := capabilities.DefaultContainerDirectory(in.Infra.InfraType)
-require.NoError(t, pathErr, "failed to get container directory")
+// system-tests/lib/cre/capabilities/randomnumbergenerator/random_number_generator.go
+package randomnumbergenerator
 
-var aptosBinaryPathInTheContainer string
-if in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath != "" {
-  aptosBinaryPathInTheContainer = filepath.Join(containerPath, filepath.Base(in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath))
-  customBinariesPaths[keystonetypes.AptosWriteCapability] = in.WorkflowConfig.DependenciesConfig.AptosCapabilityBinaryPath
-} else {
-  aptosBinaryPathInTheContainer = filepath.Join(containerPath, "aptos")
+import (
+    capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+    kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+    keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+    factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+    donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+)
+
+const flag = cre.RandomNumberGeneratorCapability
+const configTemplate = `"{"seedValue": {{.SeedValue}}, "maxRange": {{.MaxRange}}}"`
+
+func New() (*capabilities.Capability, error) {
+    perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+        donlevel.CapabilityEnabler,
+        donlevel.EnabledChainsProvider,
+        donlevel.ConfigResolver,
+        donlevel.JobNamer,
+    )
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor, // all values are defined in TOML, no need to set any runtime ones
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
 }
-```
 
-You can now pass `customBinariesPaths` and the constructed path to the `SetupInput`.
+func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+    var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-> Note: Bootstrap nodes do not run capabilities, so binaries are only copied to worker nodes.
-
-### 3. Define Additional Node Configuration (Optional)
-
-Some capabilities require node-specific TOML config. Here’s a sample:
-
-```go
-if hasFlag(flags, WriteAptosCapability) {
-  workerNodeConfig += fmt.Sprintf(`
-    [[Aptos]]
-    ChainID = '%s'
-    Enabled = true
-
-    [[Aptos.Nodes]]
-    Name = 'aptos'
-    URL = '%s'
-
-    [Aptos.TransactionManager]
-    BroadcastChanSize = 100
-    ConfirmPollSecs = 2
-    DefaultMaxGasAmount = 200000
-    MaxSimulateAttempts = 5
-    MaxSubmitRetryAttempts = 5
-    MaxTxRetryAttempts = 3
-    PruneIntervalSecs = 14400
-    PruneTxExpirationSecs = 7200
-    SubmitDelayDuration = 3
-    TxExpirationSecs = 30
-
-    [Aptos.Workflow]
-    ForwarderAddress = '%s'
-
-    [Aptos.WriteTargetCap]
-    ConfirmerPollPeriod = '300ms'
-    ConfirmerTimeout = '30s'
-  `, chainID, rpcURL, forwarderAddress)
-}
-```
-
-### 4. Define the Job Spec
-
-Use a factory function to generate the job spec dynamically:
-
-```go
-func AptosJobSpecFactoryFn(binaryPath string) keystonetypes.JobSpecFactoryFn {
-  return func(ctx context.Context, node *types.Node, env *devenv.Environment) (*jobv1.ProposeJobRequest, error) {
-    jobSpec := fmt.Sprintf(`
-      type = "standardcapabilities"
-      schemaVersion = 1
-      externalJobID = "%s"
-      name = "aptos-write-capability"
-      command = "%s"
-      config = ""
-    `, uuid.NewString(), binaryPath)
-
-    nodeID, _ := node.FindLabelValue(node, libnode.NodeIDKey)
-    return &jobv1.ProposeJobRequest{NodeId: nodeID, Spec: jobSpec}, nil
-  }
-}
-```
-
-### 5. Register Capability in Capabilities Registry
-
-Use a factory to register capabilities dynamically:
-
-```go
-func AptosCapabilityFactoryFn() keystonetypes.DONCapabilityWithConfigFactoryFn {
-  return func(flags []string) []keystone_changeset.DONCapabilityWithConfig {
-    if hasFlag(flags, WriteAptosCapability) {
-      return []keystone_changeset.DONCapabilityWithConfig{
-        {
-          Capability: kcr.CapabilitiesRegistryCapability{
-            LabelledName:   "write_aptos-testnet",
-            Version:        "1.0.0",
-            CapabilityType: 3,
-            ResponseType:   1,
-          },
-          Config: &capabilitiespb.CapabilityConfig{},
-        },
-      }
+    if flags.HasFlag(donFlags, flag) {
+        capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+            Capability: kcr.CapabilitiesRegistryCapability{
+                LabelledName:   "random-number-generator",
+                Version:        "1.0.0",
+                CapabilityType: 2, // ACTION
+            },
+            Config: &capabilitiespb.CapabilityConfig{},
+        })
     }
-    return nil
-  }
+
+    return capabilities, nil
 }
 ```
 
-### 6. Update DON Topology
-
-Update DON assignment with the new capability:
+#### Chain-level Capability Example (Gas Estimator)
 
 ```go
-dons := []*cre.CapabilitiesAwareNodeSet{
-  {
-    Input:              in.NodeSets[0],
-    Capabilities:       []string{cre.OCR3Capability, cre.WriteAptosCapability},
-    DONTypes:           []string{cre.WorkflowDON},
-    BootstrapNodeIndex: 0,
-  },
+// system-tests/lib/cre/capabilities/gasestimator/gas_estimator.go
+package gasestimator
+
+import (
+    "errors"
+    "fmt"
+
+    capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+    kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+    keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+    factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+    chainlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
+)
+
+const flag = cre.GasEstimatorCapability
+const configTemplate = `'{"chainId":{{.ChainID}},"defaultGasLimit: {{.DefaultGasLimit}},"maxGasPrice": {{.MaxGasPrice}}, "rpcUrl":"{{.RPCURL}}"}'`
+
+func New() (*capabilities.Capability, error) {
+    perChainJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+        chainlevel.CapabilityEnabler,
+        chainlevel.EnabledChainsProvider,
+        chainlevel.ConfigResolver,
+        chainlevel.JobNamer,
+    )
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perChainJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any {
+                // assuming that RPC URL was somehow added to the metadata
+                // and that it is known only at runtime (otherwise it could have been defined in the TOML config, like DefaultGasLimit and MaxGasPrice)
+                rpcUrl, rpcUrlErr := node.FindLabelValue(nodeMetadata, node.RPCURL)
+				        if rpcUrl != nil {
+					        return nil, errors.Wrap(rpcUrl, "failed to find RPC URL in node labels")
+				        }
+
+                return map[string]any{
+                    "ChainID":       chainID,
+                    "RPCURL":        rpcUrl,
+                }
+            },
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+    capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
+
+    if nodeSetInput == nil {
+        return nil, errors.New("node set input is nil")
+    }
+
+    if nodeSetInput.ChainCapabilities == nil {
+        return nil, nil
+    }
+
+    if _, ok := nodeSetInput.ChainCapabilities[flag]; !ok {
+        return nil, nil
+    }
+
+    for _, chainID := range nodeSetInput.ChainCapabilities[cre.GasEstimatorCapability].EnabledChains {
+        capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+            Capability: kcr.CapabilitiesRegistryCapability{
+                LabelledName:   fmt.Sprintf("gas-estimator-evm-%d", chainID),
+                Version:        "1.0.0",
+                CapabilityType: 1, // ACTION
+            },
+            Config: &capabilitiespb.CapabilityConfig{},
+        })
+    }
+
+    return capabilities, nil
 }
 ```
 
-Ensure that the corresponding TOML defines the nodeset correctly, including node count and mode.
+### Step 3: Optional Gateway Handler Configuration
 
-### 7. Pass all inputs to `setupInput`
-
-Now, pass your custom factories to the `setupInput` and the universal setup function:
+If your capability needs to handle HTTP requests through the gateway, add a gateway handler configuration:
 
 ```go
-universalSetupInput := creenv.SetupInput{
-  CapabilitiesAwareNodeSets:            dons,
-  CapabilitiesContractFactoryFunctions: []keystonetypes.DONCapabilityWithConfigFactoryFn{
-    creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
-    AptosCapabilityFactoryFn,
-  },
-  BlockchainsInput:                     *in.BlockchainA,
-  JdInput:                              *in.JD,
-  InfraInput:                           *in.Infra,
-  CustomBinariesPaths:                  customBinariesPaths,
-  JobSpecFactoryFunctions: []keystonetypes.JobSpecFactoryFn{
-    creconsensus.ConsensusJobSpecFactoryFn(chainIDUint64),
-    AptosJobSpecFactoryFn(aptosBinaryPathInTheContainer),
-  },
+func New() (*capabilities.Capability, error) {
+    // ... existing code ...
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor,
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithGatewayJobHandlerConfigFn(handlerConfig), // Add this
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
 }
 
-universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
-if setupErr != nil {
-  panic(setupErr)
+func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error) {
+    if !flags.HasFlag(donMetadata.Flags, flag) {
+        return nil, nil
+    }
+
+    return map[string]string{"your-handler-type": `
+ServiceName = "your-service-na,e"
+[gatewayConfig.Dons.Handlers.Config]
+maxRequestDurationMs = 5000
+[gatewayConfig.Dons.Handlers.Config.RateLimiter]
+globalBurst = 10
+globalRPS = 50`}, nil
 }
 ```
 
-### 8. Run the Test
+### Step 4: Optional Node Configuration Modifications
 
-Once all pieces are configured, run the test as normal. Ensure that the logs show the capability was registered and the job executed successfully.
+If your capability requires node configuration changes (like write-evm), add a node config function:
 
-> Reminder: Capabilities and DON types are defined in Go. Infrastructure (images, ports) lives in TOML.
+```go
+func New() (*capabilities.Capability, error) {
+    // ... existing code ...
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor,
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithNodeConfigFn(nodeConfigFn), // Add this
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func nodeConfigFn(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
+    configOverrides := make(cre.NodeIndexToConfigOverride)
+
+    // Add your custom node configuration here
+    // Example: Add custom TOML section
+
+    return configOverrides, nil
+}
+```
+
+**Note**: Some capabilities like `write-evm` need to modify node configuration outside of this encapsulated implementation. They add TOML strings to various sections of the config (like EVM chains, workflow settings, etc.). This is done in `system-tests/lib/cre/don/config/config.go` where the capability checks for its presence and modifies the configuration accordingly.
+
+### Step 5: Add Default Configuration
+
+Add default configuration and binary path to `core/scripts/cre/environment/configs/capability_defaults.toml`:
+
+```toml
+[capability_configs.random-number-generator]
+  binary_path = "./binaries/random-number-generator"
+
+[capability_configs.random-number-generator.config]
+  # Add default configuration values here
+  SeedValue = 42
+  MaxRange = 1000
+
+[capability_configs.gas-estimator]
+  binary_path = "./binaries/gas-estimator"
+
+[capability_configs.gas-estimator.config]
+  # Add default configuration values here
+  DefaultGasLimit = 21000
+  MaxGasPrice = 100000000000  # 100 gwei
+```
+
+### Step 6: Register the Capability
+
+Add your capability to the default set in `system-tests/lib/cre/capabilities/sets/sets.go`:
+
+```go
+func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
+    capabilities := []cre.InstallableCapability{}
+
+    // ... existing capabilities ...
+
+    randomNumberGenerator, rngErr := randomnumbergeneratorcapability.New()
+    if rngErr != nil {
+        return nil, errors.Wrap(rngErr, "failed to create random number generator capability")
+    }
+    capabilities = append(capabilities, randomNumberGenerator)
+
+    gasEstimator, geErr := gasestimatorcapability.New()
+    if geErr != nil {
+        return nil, errors.Wrap(geErr, "failed to create gas estimator capability")
+    }
+    capabilities = append(capabilities, gasEstimator)
+
+    return capabilities, nil
+}
+```
+
+Don't forget to add the import at the top of the file:
+
+```go
+import (
+    // ... existing imports ...
+    randomnumbergeneratorcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/randomnumbergenerator"
+    gasestimatorcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/gasestimator"
+)
+```
+
+### Step 7: Add to Environment Configurations
+
+To actually use your capability in tests, you need to add it to the relevant environment configurations in `core/scripts/cre/environment/configs/`. Choose the appropriate configuration file based on your testing needs:
+
+**For DON-level capabilities** (like random number generator):
+```toml
+# In workflow-don.toml, workflow-gateway-don.toml, etc.
+capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "random-number-generator"]
+```
+
+**For chain-level capabilities** (like gas estimator):
+```toml
+# In workflow-don.toml, workflow-gateway-don.toml, etc.
+capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+
+# Enable capabilities per chain
+[nodesets.chain_capabilities]
+  write-evm = ["1337", "2337"]
+  gas-estimator = ["1337", "2337"]  # Add your chain-level capability here
+```
+
+Common configuration files:
+- `workflow-don.toml` - Basic workflow DON setup
+- `workflow-gateway-don.toml` - Workflow DON with gateway
+- `workflow-gateway-capabilities-don.toml` - Multiple DONs with different capabilities
+
+### Configuration Templates
+
+- **DON-level**: Use simple templates or empty strings for shared configuration
+- **Chain-level**: Use templates with chain-specific variables like `{{.ChainID}}`, `{{.NetworkFamily}}`
+
+### Important Notes
+
+- **Fake capabilities**: The examples above (random number generator, gas estimator) are fictional and don't exist in the actual codebase
+- **Binary paths**: Capabilities require binaries to be available in the container. Use `factory.BinaryPathBuilder` for standard paths
+- **Bootstrap nodes**: Don't run capabilities on bootstrap nodes - they only run on worker nodes
 
 ---
 
@@ -1592,7 +1736,7 @@ Apply this to every node in your config.
 
 ---
 
-## 17. Using Existing EVM & P2P Keys
+## 17. Using Existing EVM \& P2P Keys
 
 When using public chains with limited funding, use pre-funded, encrypted keys:
 
