@@ -144,20 +144,18 @@ func CCIPCapabilityJobspecChangeset(env cldf.Environment, args any) (cldf.Change
 // filterNodeIDsFromArgs enables phased rollout extending the old function interface
 // if struct{} or nil is provided all nodeIDs available in env will be considered
 func filterNodeIDsFromArgs(allNodeIDs []string, args any) ([]string, error) {
-	argsNodeIDs := []string{}
 	switch v := args.(type) {
 	case struct{}:
 		return allNodeIDs, nil
 	case nil:
 		return allNodeIDs, nil
 	case []string:
-		argsNodeIDs = v
-		for _, nodeID := range argsNodeIDs {
+		for _, nodeID := range v {
 			if !slices.Contains(allNodeIDs, nodeID) {
 				return nil, fmt.Errorf("node ID %s not found in all node IDs", nodeID)
 			}
 		}
-		return argsNodeIDs, nil
+		return v, nil
 	default:
 		return nil, fmt.Errorf("unsupported argument type: %T", args)
 	}
