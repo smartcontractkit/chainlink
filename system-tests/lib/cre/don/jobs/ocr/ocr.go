@@ -50,6 +50,19 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	if configMerger == nil {
 		return nil, errors.New("config merger is nil")
 	}
+	if jobConfigGenerator == nil {
+		return nil, errors.New("job config generator is nil")
+	}
+	if contractNamer == nil {
+		return nil, errors.New("contract namer is nil")
+	}
+	if capabilityEnabler == nil {
+		return nil, errors.New("capability enabler is nil")
+	}
+	if enabledChainsProvider == nil {
+		return nil, errors.New("enabled chains provider is nil")
+	}
+
 	donToJobSpecs := make(cre.DonsToJobSpecs)
 
 	logger := framework.L

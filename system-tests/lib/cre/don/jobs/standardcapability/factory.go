@@ -70,13 +70,26 @@ func NewCapabilityJobSpecFactory(
 	enabledChainsProvider EnabledChainsProvider,
 	configResolver ConfigResolver,
 	jobNamer JobNamer,
-) *CapabilityJobSpecFactory {
+) (*CapabilityJobSpecFactory, error) {
+	if capabilityEnabler == nil {
+		return nil, errors.New("capability enabler is nil")
+	}
+	if enabledChainsProvider == nil {
+		return nil, errors.New("enabled chains provider is nil")
+	}
+	if configResolver == nil {
+		return nil, errors.New("config resolver is nil")
+	}
+	if jobNamer == nil {
+		return nil, errors.New("job namer is nil")
+	}
+
 	return &CapabilityJobSpecFactory{
 		capabilityEnabler:     capabilityEnabler,
 		enabledChainsProvider: enabledChainsProvider,
 		configResolver:        configResolver,
 		jobNamer:              jobNamer,
-	}
+	}, nil
 }
 
 func (f *CapabilityJobSpecFactory) BuildJobSpec(
@@ -88,6 +101,12 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		if input.DonTopology == nil {
 			return nil, errors.New("topology is nil")
+		}
+		if runtimeValuesExtractor == nil {
+			return nil, errors.New("runtime values extractor is nil")
+		}
+		if commandBuilder == nil {
+			return nil, errors.New("command builder is nil")
 		}
 
 		donToJobSpecs := make(cre.DonsToJobSpecs)
@@ -103,7 +122,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 			capabilityConfig, ok := input.CapabilityConfigs[capabilityFlag]
 			if !ok {
-				return nil, errors.Errorf("%s config not found in capabilities config", capabilityFlag)
+				return nil, errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", capabilityFlag)
 			}
 
 			command, cmdErr := commandBuilder(input, capabilityConfig)

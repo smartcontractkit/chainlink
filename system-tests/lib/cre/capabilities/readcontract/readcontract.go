@@ -1,8 +1,9 @@
 package readcontract
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -18,12 +19,16 @@ const flag = cre.ReadContractCapability
 const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}"}'`
 
 func New() (*capabilities.Capability, error) {
-	perChainJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+	perChainJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
 		chainlevel.CapabilityEnabler,
 		chainlevel.EnabledChainsProvider,
 		chainlevel.ConfigResolver,
 		chainlevel.JobNamer,
 	)
+
+	if fErr != nil {
+		return nil, errors.Wrap(fErr, "failed to create capability job spec factory")
+	}
 
 	return capabilities.New(
 		flag,

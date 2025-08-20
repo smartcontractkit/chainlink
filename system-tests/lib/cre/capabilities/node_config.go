@@ -49,7 +49,7 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, don
 	if !hasCapabilitiesBinaries {
 		for capabilityFlag, binaryPath := range customBinariesPaths {
 			if binaryPath == "" {
-				return nil, fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
+				return nil, fmt.Errorf("binary path for capability %s is empty. Make sure you have set the binary path in the TOML config", capabilityFlag)
 			}
 
 			workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{

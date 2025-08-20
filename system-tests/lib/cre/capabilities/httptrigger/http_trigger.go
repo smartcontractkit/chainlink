@@ -1,6 +1,8 @@
 package httptrigger
 
 import (
+	"github.com/pkg/errors"
+
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -34,12 +36,16 @@ const httpTriggerConfigTemplate = `"""
 """`
 
 func New() (*capabilities.Capability, error) {
-	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		donlevel.ConfigResolver,
 		donlevel.JobNamer,
 	)
+
+	if fErr != nil {
+		return nil, errors.Wrap(fErr, "failed to create capability job spec factory")
+	}
 
 	return capabilities.New(
 		flag,

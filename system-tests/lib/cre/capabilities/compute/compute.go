@@ -1,6 +1,8 @@
 package compute
 
 import (
+	"github.com/pkg/errors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -25,12 +27,16 @@ perSenderBurst = {{.PerSenderBurst}}
 """`
 
 func New() (*capabilities.Capability, error) {
-	perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		donlevel.ConfigResolver,
 		donlevel.JobNamer,
 	)
+
+	if fErr != nil {
+		return nil, errors.Wrap(fErr, "failed to create capability job spec factory")
+	}
 
 	return capabilities.New(
 		flag,
