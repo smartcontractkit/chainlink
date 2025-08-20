@@ -68,11 +68,11 @@ func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 	cachedResp, exists := rc.cache[key]
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
+		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
 	response := fetchFn()
 	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
-		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
 		rc.cache[key] = &cachedResponse{
 			response: response,
 			storedAt: time.Now(),
