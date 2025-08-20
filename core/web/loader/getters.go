@@ -19,25 +19,6 @@ import (
 // ErrInvalidType indicates that results loaded is not the type expected
 var ErrInvalidType = errors.New("invalid type")
 
-// GetChainByID fetches the chain by it's id.
-// Deprecated: use GetChainByRelayID.
-func GetChainByID(ctx context.Context, id string) (*chainlink.NetworkChainStatus, error) {
-	ldr := For(ctx)
-
-	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
-	result, err := thunk()
-	if err != nil {
-		return nil, err
-	}
-
-	chain, ok := result.(chainlink.NetworkChainStatus)
-	if !ok {
-		return nil, ErrInvalidType
-	}
-
-	return &chain, nil
-}
-
 // GetChainByRelayID fetches the chain by it's relayId.
 func GetChainByRelayID(ctx context.Context, id string) (*chainlink.NetworkChainStatus, error) {
 	ldr := For(ctx)

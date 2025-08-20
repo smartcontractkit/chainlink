@@ -18,7 +18,10 @@ import (
 
 var _ capabilities.ExecutableCapability = (*Service)(nil)
 
+const maxBatchSize = 10
+
 type Service struct {
+	lggr         logger.Logger
 	clock        clockwork.Clock
 	expiresAfter time.Duration
 	handler      *requests.Handler[*Request, *Response]
@@ -81,7 +84,7 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}
 	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
 
-	resp, err := handleRequest(ctx, s, id, r)
+	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
@@ -104,7 +107,7 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}, nil
 }
 
-func handleRequest(ctx context.Context, s *Service, id string, request proto.Message) (*Response, error) {
+func (s *Service) handleRequest(ctx context.Context, id string, request proto.Message) (*Response, error) {
 	respCh := make(chan *Response, 1)
 	s.handler.SendRequest(ctx, &Request{
 		Payload:      request,
@@ -113,11 +116,14 @@ func handleRequest(ctx context.Context, s *Service, id string, request proto.Mes
 		expiryTime: s.clock.Now().Add(s.expiresAfter),
 		id:         id,
 	})
+	s.lggr.Debugw("sent request to handler", "requestId", id)
 
 	select {
 	case <-ctx.Done():
+		s.lggr.Debugw("request timed out", "requestId", id, "error", ctx.Err())
 		return nil, ctx.Err()
 	case resp := <-respCh:
+		s.lggr.Debugw("received response for request", "requestId", id, "error", resp.Error)
 		if resp.Error != "" {
 			return nil, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
 		}
@@ -127,18 +133,42 @@ func handleRequest(ctx context.Context, s *Service, id string, request proto.Mes
 }
 
 func (s *Service) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*Response, error) {
-	return handleRequest(ctx, s, request.RequestId, request)
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Service) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if len(request.EncryptedSecrets) >= maxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	}
+
+	for _, req := range request.EncryptedSecrets {
+		if req.Id == nil {
+			return nil, errors.New("secret ID must not be nil")
+		}
+
+		if req.Id.Key == "" || req.Id.Owner == "" {
+			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
+		}
+	}
+
+	// TODO: secrets should be encrypted with the correct key
+	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func NewService(
 	lggr logger.Logger,
-	store *requests.Store[*Request],
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
+	handler *requests.Handler[*Request, *Response],
 ) *Service {
 	return &Service{
+		lggr:         lggr.Named("VaultService"),
 		clock:        clock,
 		expiresAfter: expiresAfter,
-		handler:      requests.NewHandler(lggr, store, clock, expiresAfter),
+		handler:      handler,
 	}
 }

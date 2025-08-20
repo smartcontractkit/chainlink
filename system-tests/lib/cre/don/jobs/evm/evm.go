@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 )
 
@@ -80,7 +82,7 @@ var EVMJobSpecFactoryFn = func(logger zerolog.Logger, chainID uint64, config map
 			capabilitiesAwareNodeSets,
 			infraInput,
 			evmBinaryPath,
-			"capability_evm",
+			contracts.GetCapabilityContractIdentifier(chainID),
 			cre.EVMCapability,
 			fmt.Sprintf("evm-capability-%d", chainID),
 			configGen,

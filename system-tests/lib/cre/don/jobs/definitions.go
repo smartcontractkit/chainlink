@@ -116,9 +116,9 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int,
 	MaxRequestBytes = 100_000
 	Path = "%s"
 	Port = %d
-	ReadTimeoutMillis = 1_000
+	ReadTimeoutMillis = 2_000
 	RequestTimeoutMillis = 10_000
-	WriteTimeoutMillis = 1_000
+	WriteTimeoutMillis = 2_000
 	CORSEnabled = false
 	CORSAllowedOrigins = []
 	[gatewayConfig.HTTPClientConfig]
@@ -199,6 +199,55 @@ func WorkerStandardCapability(nodeID, name, command, config, oracleFactoryConfig
 			command,
 			config,
 			oracleFactoryConfig),
+	}
+}
+
+func DonTimeJob(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	fmt.Println("TransmitterID: ", nodeEthAddress)
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "dontime"
+	forwardingAllowed = false
+	maxTaskDuration = "0s"
+	contractID = "%s"
+	relay = "evm"
+	pluginType = "dontime"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	transmitterID = "%s"
+
+	[relayConfig]
+	chainID = "%d"
+	providerType = "dontime"
+
+	[pluginConfig]
+	pluginName = "dontime"
+	ocrVersion = 3
+	telemetryType = "plugin"
+
+	[onchainSigningStrategy]
+	strategyName = 'multi-chain'
+	[onchainSigningStrategy.config]
+	evm = "%s"
+`,
+			uuid,
+			ocr3CapabilityAddress, // re-use OCR3Capability contract
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			nodeEthAddress, // transmitterID (although this shouldn't be used for this plugin?)
+			chainID,
+			ocr2KeyBundleID,
+		),
 	}
 }
 

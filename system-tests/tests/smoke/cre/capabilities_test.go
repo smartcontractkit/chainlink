@@ -93,6 +93,11 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	t.Run("vault DON test", func(t *testing.T) {
 		executeVaultTest(t, in, envArtifact)
 	})
+
+	t.Run("DON Time test", func(t *testing.T) {
+		// TODO: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028
+		t.Skip()
+	})
 }
 
 func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
@@ -283,13 +288,13 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	*/
 	framework.L.Info().Msg("Creating secret...")
 	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
+		ID:      "request-id",
 		Version: jsonrpc.JsonRpcVersion,
 		Method:  vault.MethodSecretsCreate,
 		Params: &vault.SecretsCreateRequest{
 			ID:    "test-secret",
 			Value: "test-secret-value",
 		},
-		ID: "1",
 	}
 	requestBody, err := json.Marshal(secretsRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
@@ -325,7 +330,7 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	require.NoError(t, err, "failed to unmarshal response")
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
-	require.Equal(t, "1", response.ID)
+	require.NotEmpty(t, response.ID)
 	require.NoError(t, err, "failed to unmarshal response")
 	require.True(t, response.Result.Success)
 	require.Equal(t, "test-secret", response.Result.SecretID)

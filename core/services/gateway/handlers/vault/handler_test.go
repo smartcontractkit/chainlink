@@ -59,7 +59,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		var wg sync.WaitGroup
-		handler, callbackCh, don := setupHandler(t)
+		h, callbackCh, don := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
@@ -92,17 +92,17 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.True(t, secretsResponse.Result.Success, "Success should be true")
 		}()
 
-		err = handler.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
 		require.NoError(t, err)
 
-		err = handler.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
 		wg.Wait()
 	})
 
 	t.Run("unsupported method", func(t *testing.T) {
 		var wg sync.WaitGroup
-		handler, callbackCh, don := setupHandler(t)
+		h, callbackCh, don := setupHandler(t)
 		// Don't expect SendToNode to be called for unsupported methods
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -124,14 +124,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
-		err := handler.HandleJSONRPCUserMessage(t.Context(), unsupportedMethodRequest, callbackCh)
+		err := h.HandleJSONRPCUserMessage(t.Context(), unsupportedMethodRequest, callbackCh)
 		require.NoError(t, err)
 		wg.Wait()
 	})
 
 	t.Run("empty params error", func(t *testing.T) {
 		var wg sync.WaitGroup
-		handler, callbackCh, don := setupHandler(t)
+		h, callbackCh, don := setupHandler(t)
 		// Don't expect SendToNode to be called for parse errors
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -153,14 +153,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UserMessageParseError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
-		err := handler.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callbackCh)
+		err := h.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callbackCh)
 		require.NoError(t, err)
 		wg.Wait()
 	})
 
 	t.Run("invalid params error", func(t *testing.T) {
 		var wg sync.WaitGroup
-		handler, callbackCh, don := setupHandler(t)
+		h, callbackCh, don := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -183,7 +183,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
-		err := handler.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callbackCh)
+		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callbackCh)
 		require.NoError(t, err)
 		wg.Wait()
 	})
