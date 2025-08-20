@@ -12,14 +12,15 @@ import (
 
 // ChainReaderProviderOpts is a struct that contains the parameters for GetChainReader.
 type ChainReaderProviderOpts struct {
-	Lggr          logger.Logger
-	Relayer       loop.Relayer
-	ChainID       string
-	DestChainID   string
-	HomeChainID   string
-	Ofc           OffChainConfig
-	ChainSelector cciptypes.ChainSelector
-	ChainFamily   string
+	Lggr            logger.Logger
+	Relayer         loop.Relayer
+	ChainID         string
+	DestChainID     string
+	HomeChainID     string
+	Ofc             OffChainConfig
+	ChainSelector   cciptypes.ChainSelector
+	ChainFamily     string
+	DestChainFamily string
 }
 
 // ChainWriterProviderOpts is a struct that contains the parameters for GetChainWriter.
