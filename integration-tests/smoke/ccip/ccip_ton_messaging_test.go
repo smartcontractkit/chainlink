@@ -3,9 +3,9 @@ package ccip
 import (
 	"encoding/base64"
 	"math/big"
-	"slices"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"
 	"github.com/xssnick/tonutils-go/tlb"
@@ -70,6 +70,13 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
 		require.NoError(t, err)
+
+		ea := onramp.GenericExtraArgsV2{
+			GasLimit:                 big.NewInt(100000),
+			AllowOutOfOrderExecution: true,
+		}
+		c, err := tlb.ToCell(ea)
+		require.NoError(t, err)
 		out = mt.Run(
 			t,
 			mt.TestCase{
@@ -79,7 +86,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 				Nonce:                  &nonce,
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
+				ExtraArgs:              c.ToBOC(),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
 			},
 		)
