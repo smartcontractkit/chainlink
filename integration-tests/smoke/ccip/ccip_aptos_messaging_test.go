@@ -41,7 +41,8 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithNumOfChains(2),
+		testhelpers.WithNumOfChains(1),
+		testhelpers.WithChainIDs([]uint64{4}),
 		testhelpers.WithAptosChains(1),
 	)
 
