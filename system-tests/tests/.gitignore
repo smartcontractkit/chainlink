@@ -23,11 +23,5 @@ compose/
 
 logs/
 
-<<<<<<< HEAD
-cre.yaml
-*.state.yaml
-env_artifact/
-=======
 *.yaml
 env_artifact/
->>>>>>> develop

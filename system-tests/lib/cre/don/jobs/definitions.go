@@ -193,11 +193,6 @@ func WorkerStandardCapability(nodeID, name, command, config, oracleFactoryConfig
 	command = "%s"
 	config = %s
 	%s
-	[[DefaultMocks]]
-		id="mock@1.0.0"
-		description="mock"
-		type="mock"
-
 `,
 			uuid.NewString(),
 			name,

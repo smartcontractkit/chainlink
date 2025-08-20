@@ -404,7 +404,7 @@ type DonWithMetadata struct {
 }
 
 type DonMetadata struct {
-	SupportedSolChains []string
+	SupportedSolChains []string        `toml:"supported_sol_chains" json:"supported_sol_chains"`
 	NodesMetadata      []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
 	Flags              []string        `toml:"flags" json:"flags"`
 	ID                 uint64          `toml:"id" json:"id"`

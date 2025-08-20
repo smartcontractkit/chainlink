@@ -297,6 +297,7 @@ func SetupTestEnvironment(
 			Address:       out.Output.ProgramID.String(),
 			ChainSelector: sel,
 			Version:       semver.MustParse("1.0.0"),
+			Qualifier:     "test-forwarder",
 			Type:          ks_sol.ForwarderContract,
 		})
 		if err != nil {
@@ -307,6 +308,7 @@ func SetupTestEnvironment(
 			Address:       out.Output.State.String(),
 			ChainSelector: sel,
 			Version:       semver.MustParse("1.0.0"),
+			Qualifier:     "test-forwarder",
 			Type:          ks_sol.ForwarderState,
 		})
 
@@ -363,8 +365,8 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, forwarderAddr)
 	}
 	for _, forwarderSelector := range solForwardersSelectors {
-		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", "")
-		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", "")
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", "test-forwarder")
+		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", "test-forwarder")
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
 	}
 
