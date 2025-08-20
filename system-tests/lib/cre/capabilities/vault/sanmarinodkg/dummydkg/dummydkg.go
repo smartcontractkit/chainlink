@@ -1,3 +1,5 @@
+// nolint
+//
 //nolint:nolintlint
 package dummydkg
 
@@ -7,6 +9,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -136,7 +139,7 @@ func (r *tdh2DKGResult) MasterPublicKey() (dkg.MasterPublicKey, error) {
 // tdh2.PublicKey struct (hArray field). We could unmarshal here and return the shares, but leave this unimplemented for
 // now, as the MasterPublicKey() method is sufficient for the purpose of this demo code.
 func (r *tdh2DKGResult) MasterPublicKeyShares() ([]dkg.MasterPublicKeyShare, error) {
-	return nil, fmt.Errorf("not implemented, master public keys shares are returned via MasterPublicKey()")
+	return nil, errors.New("not implemented, master public keys shares are returned via MasterPublicKey()")
 }
 
 func (r *tdh2DKGResult) MasterSecretKeyShare(sk dkg.ParticipantSecretKey) (dkg.MasterSecretKeyShare, error) {
@@ -155,7 +158,7 @@ func (r *tdh2DKGResult) MasterSecretKeyShare(sk dkg.ParticipantSecretKey) (dkg.M
 			return dkg.MasterSecretKeyShare(mskShareBytes), nil
 		}
 	}
-	return nil, fmt.Errorf("failed to decrypt master secret key share (invalid decryption key?)")
+	return nil, errors.New("failed to decrypt master secret key share (invalid decryption key?)")
 }
 
 // Based on tdh2/tdh2_test.go.
