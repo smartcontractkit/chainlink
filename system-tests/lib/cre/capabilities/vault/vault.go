@@ -122,8 +122,16 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			// create job specs for the bootstrap node
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-			// Create Vault keys in  deterministic manner
-			pk, sks, err := dkgKeys(32, 1)
+			// Create Vault keys in a deterministic manner by setting n = 8
+			// and t = 1, so that we can use the same keys across all tests,
+			// irrespective of the number of nodes in the workflow DON.
+			// We just need to ensure that the number of workflow nodes is at most 8, because dkgKeys()
+			// will generate only 8 shares. If workflow nodes are increased more than 8,
+			// we need to update the n value in dkgKeys() and the value of MasterPublicKeyStr accordingly.
+			if len(workflowNodeSet) > 8 {
+				return nil, errors.New("workflow node set must not exceed 8 nodes for vault capability, please update dkgKeys() and MasterPublicKeyStr accordingly if you want to increase the number of workflow nodes")
+			}
+			pk, sks, err := dkgKeys(8, 1)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate DKG keys")
 			}
