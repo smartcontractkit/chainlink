@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#fixed chainid collisions across families
+#bugfix chainid collisions across families
