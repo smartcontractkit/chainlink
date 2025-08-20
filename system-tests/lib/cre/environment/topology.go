@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
@@ -24,12 +25,15 @@ func BuildTopology(
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
 	chainIDs []int,
+	solChainIDs []string,
 	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
+	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
+
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
 		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
@@ -53,6 +57,7 @@ func BuildTopology(
 
 	generateKeysInput := &cre.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: chainIDs,
+		GenerateSolKeysForChainIDs: solChainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
@@ -112,12 +117,13 @@ func BuildTopology(
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
 				cre.GenerateConfigsInput{
+					AddressBook:             addressBook,
+					Datastore:               datastore,
 					DonMetadata:             donMetadata,
 					BlockchainOutput:        blockchainOutput,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
-					AddressBook:             addressBook,
 					HomeChainSelector:       topology.HomeChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
 					NodeSet:                 localNodeSets[i],
@@ -144,11 +150,15 @@ func BuildTopology(
 				secretsInput.EVMKeys = evmKeys
 			}
 
+			if solKeys, ok := keys.SolKeys[donMetadata.ID]; ok {
+				secretsInput.SolKeys = solKeys
+			}
+
 			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
 				secretsInput.P2PKeys = p2pKeys
 			}
 
-			// EVM and P2P keys will be provided to nodes as secrets
+			// EVM, Solana and P2P keys will be provided to nodes as secrets
 			secrets, secretsErr := cresecrets.GenerateSecrets(
 				secretsInput,
 			)

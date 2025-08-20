@@ -3,6 +3,8 @@ package environment
 import (
 	"maps"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
+
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
+	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
 type BlockchainsInput struct {
@@ -48,6 +54,10 @@ func CreateBlockchains(
 	}
 
 	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
+	privKey, err := solana.NewRandomPrivateKey()
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to generate private key for solana")
+	}
 	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
 		var bcErr error
@@ -71,10 +81,37 @@ func CreateBlockchains(
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
 		} else {
+			bi.PublicKey = privKey.PublicKey().String()
+			bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
 			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
+		}
+		// handle solana here
+		if bcOut.Family == chainselectors.FamilySolana {
+			solClient := solrpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
+
+			// we pass selector from input, because local solana chainID is unpredictable
+			selector, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
+			if !ok {
+				return nil, pkgerrors.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
+			}
+
+			cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), privKey)
+
+			blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
+				BlockchainOutput: bcOut,
+				SolClient:        solClient,
+				SolChain: &cre.SolChain{
+					ChainSelector: selector,
+					ChainID:       bi.ChainID,
+					PrivateKey:    privKey,
+					ArtifactsDir:  bi.ContractsDir,
+				},
+			})
+
+			continue
 		}
 
 		if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
@@ -82,7 +119,6 @@ func CreateBlockchains(
 		}
 
 		privateKey := os.Getenv("PRIVATE_KEY")
-
 		sethClient, err := seth.NewClientBuilder().
 			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
 			WithPrivateKeys([]string{privateKey}).
@@ -110,7 +146,6 @@ func CreateBlockchains(
 			DeployerPrivateKey: privateKey,
 		})
 	}
-
 	return blockchainOutput, nil
 }
 
@@ -131,24 +166,42 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 	}
 
 	chainsConfigs := make([]devenv.ChainConfig, 0)
-
 	for _, bcOut := range blockchainsOutput {
-		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
-			ChainName: bcOut.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-		})
-	}
+		switch bcOut.BlockchainOutput.Family {
+		case chainselectors.FamilyEVM:
+			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
+				ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
+				ChainName: bcOut.SethClient.Cfg.Network.Name,
+				ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
+				WSRPCs: []devenv.CribRPCs{{
+					External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
+					Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+				}},
+				HTTPRPCs: []devenv.CribRPCs{{
+					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				}},
+				DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+			})
+		case chainselectors.FamilySolana:
+			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
+				ChainID:   bcOut.SolChain.ChainID,
+				ChainName: bcOut.SolChain.ChainName,
+				ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
+				WSRPCs: []devenv.CribRPCs{{
+					External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
+					Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+				}},
+				HTTPRPCs: []devenv.CribRPCs{{
+					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				}},
+				SolDeployerKey: bcOut.SolChain.PrivateKey,
+				SolArtifactDir: bcOut.SolChain.ArtifactsDir,
+			})
 
+		}
+	}
 	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create chains")
@@ -158,4 +211,13 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		BlockChainOutputs: blockchainsOutput,
 		BlockChains:       maps.Collect(blockChains.All()),
 	}, nil
+}
+
+func getSolProgramsPath(path string) string {
+	// Get the directory of the current file (environment.go)
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Go up to the root of the deployment package
+	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+	// Construct the absolute path
+	return filepath.Join(rootDir, path)
 }

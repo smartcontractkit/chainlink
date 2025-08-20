@@ -6,6 +6,7 @@ import (
 	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -186,6 +187,45 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringDa
 		capabilitiesRegistryAddress,
 		homeChainID,
 	), nil
+}
+
+type WorkerSolanaInput struct {
+	Name                 string
+	ChainID              string
+	ChainSelector        uint64
+	NodeURL              string
+	FromAddress          solana.PublicKey
+	ForwarderAddress     string
+	ForwarderState       string
+	HasForwarderContract bool
+}
+
+func WorkerSolana(chains []*WorkerSolanaInput) string {
+	var ret string
+	for _, chain := range chains {
+		ret += fmt.Sprintf(`
+		[[Solana]]
+		ChainID = '%s'
+		Enabled = true
+		TxRetentionTimeout = '5s'
+
+		[Solana.Workflow]
+		Enabled = true
+		ForwarderAddress = '%s'
+		FromAddress      = '%s'
+		ForwarderState   = '%s'
+		LookupTable      = '5oNDL3swdJJF1g9DzJiZ4ynHXgszjAEpUkxVYejchzrY'
+		PollPeriod = '1s'
+		AcceptanceTimeout = '25s'
+		TxAcceptanceState = 3
+		Local = true
+		[[Solana.Nodes]]
+		Name = '%s'
+		URL = '%s'
+		`, chain.ChainID, chain.ForwarderAddress, chain.FromAddress, chain.ForwarderState, chain.Name, chain.NodeURL)
+	}
+
+	return ret
 }
 
 func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uint64) string {

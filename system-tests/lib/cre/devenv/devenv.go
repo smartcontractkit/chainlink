@@ -35,7 +35,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
-	var buildChain = func(chainSelector uint64, bcOut *blockchain.Output) (*devenv.ChainConfig, error) {
+	var buildEVMChain = func(chainSelector uint64, bcOut *blockchain.Output) (*devenv.ChainConfig, error) {
 		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
@@ -62,6 +62,23 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		}, nil
 	}
 
+	var buildSolChain = func(chain *cre.SolChain, bcOut *blockchain.Output) (*devenv.ChainConfig, error) {
+		return &devenv.ChainConfig{
+			ChainID:   chain.ChainID,
+			ChainType: strings.ToUpper(bcOut.Family),
+			WSRPCs: []devenv.CribRPCs{{
+				External: bcOut.Nodes[0].ExternalWSUrl,
+				Internal: bcOut.Nodes[0].InternalWSUrl,
+			}},
+			HTTPRPCs: []devenv.CribRPCs{{
+				External: bcOut.Nodes[0].ExternalHTTPUrl,
+				Internal: bcOut.Nodes[0].InternalHTTPUrl,
+			}},
+			SolDeployerKey: chain.PrivateKey,
+			SolArtifactDir: chain.ArtifactsDir,
+		}, nil
+	}
+
 	for idx, nodeOutput := range input.NodeSetOutput {
 		// check how many bootstrap nodes we have in each DON
 		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.BootstrapNode}, libnode.EqualLabels)
@@ -82,11 +99,20 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 				continue
 			}
 
-			chainConfig, err := buildChain(chainSelector, bcOut.BlockchainOutput)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to build chain config")
+			var cfg *devenv.ChainConfig
+			if bcOut.SolChain != nil {
+				cfg, err = buildSolChain(bcOut.SolChain, bcOut.BlockchainOutput)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to build solana chain config")
+				}
+			} else {
+				cfg, err = buildEVMChain(chainSelector, bcOut.BlockchainOutput)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to build EVM chain config")
+				}
 			}
-			chains = append(chains, *chainConfig)
+
+			chains = append(chains, *cfg)
 		}
 
 		// if DON has no capabilities we don't need to create chain configs (e.g. for gateway nodes)
@@ -168,14 +194,8 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	// create chains for all chains that are supported by any of the DONs, so that changeset can be applied to all chains
 	allChainsConfigs := make([]devenv.ChainConfig, 0)
 	for chainSelector, bcOut := range input.BlockchainOutputs {
-		sethClient, ok := input.SethClients[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
-		}
-
-		allChainsConfigs = append(allChainsConfigs, devenv.ChainConfig{
+		cfg := devenv.ChainConfig{
 			ChainID:   strconv.FormatUint(bcOut.ChainID, 10),
-			ChainName: sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
 				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
@@ -185,8 +205,23 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
 				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
-			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		})
+		}
+
+		if bcOut.SolChain != nil {
+			cfg.SolDeployerKey = bcOut.SolChain.PrivateKey
+			cfg.SolArtifactDir = bcOut.SolChain.ArtifactsDir
+			cfg.ChainName = bcOut.SolChain.ChainName
+			cfg.ChainID = bcOut.SolChain.ChainID
+		} else {
+			sethClient, ok := input.SethClients[chainSelector]
+			if !ok {
+				return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
+			}
+			cfg.ChainName = sethClient.Cfg.Network.Name
+			cfg.DeployerKey = sethClient.NewTXOpts(seth.WithNonce(nil))
+		}
+
+		allChainsConfigs = append(allChainsConfigs, cfg)
 	}
 
 	blockChains, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)

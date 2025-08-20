@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -8,11 +9,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -52,7 +56,23 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*WorkerEVMInput, 0)
+	workerSolInputs := make([]*WorkerSolanaInput, 0)
 	for chainSelector, bcOut := range input.BlockchainOutput {
+		if bcOut.SolChain != nil {
+			chainID, err := bcOut.SolClient.GetGenesisHash(context.Background())
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get chainID from solana")
+			}
+
+			workerSolInputs = append(workerSolInputs, &WorkerSolanaInput{
+				ChainSelector:        bcOut.SolChain.ChainSelector,
+				Name:                 fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
+				HasForwarderContract: !bcOut.ReadOnly,
+				ChainID:              chainID.String(),
+				NodeURL:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			})
+			continue
+		}
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
 			continue
@@ -219,6 +239,34 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 				}
 			}
 		}
+		// get all sol forwarders
+		for _, wi := range workerSolInputs {
+			if !wi.HasForwarderContract {
+				continue
+			}
+
+			forwarders := input.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(wi.ChainSelector))
+			for _, addr := range forwarders {
+				if addr.Type == ks_sol.ForwarderState {
+					wi.ForwarderState = addr.Address
+					continue
+				}
+				expectedAddressKey := node.AddressKeyFromSelector(wi.ChainSelector)
+				wi.ForwarderAddress = addr.Address
+				for _, label := range workflowNodeSet[i].Labels {
+					if label.Key == expectedAddressKey {
+						if label.Value == "" {
+							return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+						}
+						wi.FromAddress = solana.MustPublicKeyFromBase58(label.Value)
+						break
+					}
+				}
+				if wi.FromAddress.IsZero() {
+					return nil, errors.Errorf("failed to get from address for solchain %d", wi.ChainSelector)
+				}
+			}
+		}
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
@@ -227,6 +275,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 		if workerErr != nil {
 			return nil, errors.Wrap(workerErr, "failed to generate worker [EVM.Workflow] config")
 		}
+		configOverrides[nodeIndex] += WorkerSolana(workerSolInputs)
 	}
 
 	for _, configFn := range nodeConfigFns {
