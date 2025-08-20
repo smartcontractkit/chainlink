@@ -23,7 +23,7 @@ import (
 )
 
 func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint64, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
-	workFlowData, workFlowErr := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
+	workFlowData, workFlowErr := libnet.FetchWorkflow(ctx, binaryURL)
 	if workFlowErr != nil {
 		return errors.Wrap(workFlowErr, "failed to download and decode workflow binary")
 	}
