@@ -66,7 +66,7 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	var heartbeatCounter, heartbeatCountCounter int32
 	mockMeter := newCountingMeter(t, &heartbeatCounter, &heartbeatCountCounter)
 	c := chainlink.HeartbeatConfig{
-		Beat:  1 * time.Millisecond,
+		Beat:  50 * time.Millisecond,
 		Lggr:  lggr,
 		P2P:   "peer-id",
 		AppID: "app-id",
