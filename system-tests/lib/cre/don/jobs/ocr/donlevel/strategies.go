@@ -1,7 +1,7 @@
 package donlevel
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-var ConfigMerger = func(flag cre.CapabilityFlag, nodeSetInput *cre.CapabilitiesAwareNodeSet, chainIDUint64 uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error) {
+var ConfigMerger = func(flag cre.CapabilityFlag, nodeSetInput *cre.CapabilitiesAwareNodeSet, _ uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error) {
 	// Merge global defaults with DON-specific overrides
 	if nodeSetInput == nil {
 		return nil, false, nil
@@ -25,11 +25,11 @@ var CapabilityEnabler = func(nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cr
 	return flags.HasFlag(nodeSetInput.ComputedCapabilities, flag)
 }
 
-var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) ([]uint64, error) {
+var EnabledChainsProvider = func(donTopology *cre.DonTopology, _ *cre.CapabilitiesAwareNodeSet, _ cre.CapabilityFlag) ([]uint64, error) {
 
 	chain, ok := chainsel.ChainBySelector(donTopology.HomeChainSelector)
 	if !ok {
-		return nil, fmt.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
+		return nil, errors.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
 	}
 
 	return []uint64{chain.EvmChainID}, nil
