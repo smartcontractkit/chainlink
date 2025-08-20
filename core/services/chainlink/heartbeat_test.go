@@ -1,8 +1,9 @@
 package chainlink_test
 
 import (
-	"bytes"
 	"context"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,9 +54,11 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 func TestHeartbeat_MeterEvents(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	// beholder client to capture output
-	outputBuffer := &bytes.Buffer{}
-	client, err := beholder.NewWriterClient(outputBuffer)
+	// Use a thread-safe collector
+	collector := &outputCollector{
+		messages: make([]string, 0),
+	}
+	client, err := beholder.NewWriterClient(collector)
 	require.NoError(t, err)
 
 	// Set the global beholder client
@@ -86,7 +89,7 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	assert.InDelta(t, expectedCalls, hbCount, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
 
 	// Check the output buffer for heartbeat messages
-	outputStr := outputBuffer.String()
+	outputStr := strings.Join(collector.GetMessages(), "")
 	assert.Contains(t, outputStr, "heartbeat", "Output should contain heartbeat messages")
 }
 
@@ -128,4 +131,22 @@ func (g *countingGauge) Record(ctx context.Context, value int64, options ...metr
 	if g.counter != nil {
 		atomic.AddInt32(g.counter, 1)
 	}
+}
+
+type outputCollector struct {
+	mu       sync.Mutex
+	messages []string
+}
+
+func (oc *outputCollector) Write(p []byte) (n int, err error) {
+	oc.mu.Lock()
+	defer oc.mu.Unlock()
+	oc.messages = append(oc.messages, string(p))
+	return len(p), nil
+}
+
+func (oc *outputCollector) GetMessages() []string {
+	oc.mu.Lock()
+	defer oc.mu.Unlock()
+	return append([]string{}, oc.messages...)
 }
