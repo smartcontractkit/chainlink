@@ -3,6 +3,7 @@ package v1_6
 import (
 	"bytes"
 	"fmt"
+	"slices"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -24,8 +25,10 @@ var _ cldf.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
-func CCIPCapabilityJobspecChangeset(env cldf.Environment, _ any) (cldf.ChangesetOutput, error) {
-	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
+func CCIPCapabilityJobspecChangeset(env cldf.Environment, args any) (cldf.ChangesetOutput, error) {
+	nodeIDs, err := filterNodeIDsFromArgs(env.NodeIDs, args)
+
+	nodes, err := deployment.NodeInfo(nodeIDs, env.Offchain)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -134,6 +137,26 @@ func CCIPCapabilityJobspecChangeset(env cldf.Environment, _ any) (cldf.Changeset
 	return cldf.ChangesetOutput{
 		Jobs: Jobs,
 	}, nil
+}
+
+func filterNodeIDsFromArgs(allNodeIDs []string, args any) ([]string, error) {
+	argsNodeIDs := []string{}
+	switch v := args.(type) {
+	case struct{}:
+		return allNodeIDs, nil
+	case nil:
+		return allNodeIDs, nil
+	case []string:
+		argsNodeIDs = v
+		for _, nodeID := range argsNodeIDs {
+			if !slices.Contains(allNodeIDs, nodeID) {
+				return nil, fmt.Errorf("node ID %s not found in all node IDs", nodeID)
+			}
+		}
+		return argsNodeIDs, nil
+	default:
+		return nil, fmt.Errorf("unsupported argument type: %T", args)
+	}
 }
 
 func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
