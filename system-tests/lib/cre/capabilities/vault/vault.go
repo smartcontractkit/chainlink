@@ -122,7 +122,8 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			// create job specs for the bootstrap node
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-			pk, sks, err := dkgKeys(len(workflowNodeSet), 1)
+			// Create Vault keys in  deterministic manner
+			pk, sks, err := dkgKeys(32, 1)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate DKG keys")
 			}
