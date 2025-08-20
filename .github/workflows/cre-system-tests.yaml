@@ -149,6 +149,12 @@ jobs:
         run: |
           cd core/scripts/cre/environment
           go run . env start --topology ${TOPOLOGY}
+          exit_code=$?
+
+          if [ $exit_code -ne 0 ]; then
+            echo "Error: failed to start local CRE, exit code $exit_code"
+            exit $exit_code
+          fi
 
           echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"

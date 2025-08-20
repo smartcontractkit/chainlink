@@ -124,7 +124,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	}()
 }
 
-var StartCmdRecoverHandlerFunc = func(p interface{}, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -222,10 +222,7 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defer func() {
-				p := recover()
-				StartCmdRecoverHandlerFunc(p, cleanupWait)
-			}()
+			defer StartCmdRecoverHandlerFunc(recover(), cleanupWait)
 
 			if doSetup {
 				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
@@ -315,7 +312,6 @@ func startCmd() *cobra.Command {
 			homeChainOut := output.BlockchainOutput[0]
 
 			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
-
 			if sErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
