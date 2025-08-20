@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
 // responseCache is a thread-safe cache for storing HTTP responses.
@@ -19,6 +19,7 @@ type responseCache struct {
 	cache   map[string]*cachedResponse
 	lggr    logger.Logger
 	ttl     time.Duration
+	metrics *metrics.Metrics
 }
 
 type cachedResponse struct {
@@ -26,11 +27,12 @@ type cachedResponse struct {
 	storedAt time.Time
 }
 
-func newResponseCache(lggr logger.Logger, ttlMs int) *responseCache {
+func newResponseCache(lggr logger.Logger, ttlMs int, metrics *metrics.Metrics) *responseCache {
 	return &responseCache{
-		cache: make(map[string]*cachedResponse),
-		lggr:  logger.Named(lggr, "ResponseCache"),
-		ttl:   time.Duration(ttlMs) * time.Millisecond,
+		cache:   make(map[string]*cachedResponse),
+		lggr:    logger.Named(lggr, "ResponseCache"),
+		ttl:     time.Duration(ttlMs) * time.Millisecond,
+		metrics: metrics,
 	}
 }
 
@@ -70,7 +72,7 @@ func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req
 	}
 	response := fetchFn()
 	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
-		metrics.IncrementHTTPActionCacheHitCount(ctx, rc.lggr)
+		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
 		rc.cache[key] = &cachedResponse{
 			response: response,
 			storedAt: time.Now(),
@@ -104,7 +106,7 @@ func (rc *responseCache) DeleteExpired(ctx context.Context) int {
 		}
 	}
 	rc.lggr.Debugw("Removed expired cached HTTP responses", "count", expiredCount, "remaining", len(rc.cache))
-	metrics.IncrementHTTPActionCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
-	metrics.RecordHTTPActionCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
+	rc.metrics.Action.IncrementCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
+	rc.metrics.Action.RecordCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
 	return expiredCount
 }

@@ -15,6 +15,7 @@ import (
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -33,7 +34,9 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	}
 
 	cfg := WithDefaults(ServiceConfig{})
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig)
+	testMetrics, err := metrics.NewMetrics()
+	require.NoError(t, err)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 	return handler, mockDon, donConfig
 }
 

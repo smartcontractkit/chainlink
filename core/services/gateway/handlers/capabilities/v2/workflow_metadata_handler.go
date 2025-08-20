@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -40,10 +40,11 @@ type WorkflowMetadataHandler struct {
 	don             handlers.DON
 	donConfig       *config.DONConfig
 	stopCh          services.StopChan
+	metrics         *metrics.Metrics
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
-func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig) *WorkflowMetadataHandler {
+func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig, metrics *metrics.Metrics) *WorkflowMetadataHandler {
 	// f+1 identical responses from workflow are needed for workflow metadata to be registered
 	threshold := donConfig.F + 1
 	return &WorkflowMetadataHandler{
@@ -51,11 +52,12 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 		authorizedKeys:  make(map[string]map[gateway.AuthorizedKey]struct{}),
 		workflowRefToID: make(map[workflowReference]string),
 		workflowIDToRef: make(map[string]workflowReference),
-		agg:             aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond),
+		agg:             aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, metrics),
 		don:             don,
 		donConfig:       donConfig,
 		config:          cfg,
 		stopCh:          make(services.StopChan),
+		metrics:         metrics,
 	}
 }
 
@@ -134,10 +136,10 @@ func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) e
 	}
 	var combinedErr error
 	for _, member := range h.donConfig.Members {
-		metrics.IncrementHTTPTriggerGatewayCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+		h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
-			metrics.IncrementHTTPTriggerGatewayCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+			h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
 		}
 	}

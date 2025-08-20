@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -48,6 +48,7 @@ type httpTriggerHandler struct {
 	stopCh                  services.StopChan
 	workflowMetadataHandler *WorkflowMetadataHandler
 	userRateLimiter         *ratelimit.RateLimiter
+	metrics                 *metrics.Metrics
 }
 
 type HTTPTriggerHandler interface {
@@ -56,7 +57,7 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter *ratelimit.RateLimiter) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter *ratelimit.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
@@ -66,6 +67,7 @@ func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *con
 		stopCh:                  make(services.StopChan),
 		workflowMetadataHandler: workflowMetadataHandler,
 		userRateLimiter:         userRateLimiter,
+		metrics:                 metrics,
 	}
 }
 
@@ -241,12 +243,12 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	}
 	workflowOwnerAllow, globalAllow := h.userRateLimiter.AllowVerbose(workflowRef.workflowOwner)
 	if !workflowOwnerAllow {
-		metrics.IncrementHTTPTriggerGatewayWorkflowOwnerThrottled(ctx, h.lggr)
+		h.metrics.Trigger.IncrementWorkflowOwnerThrottled(ctx, h.lggr)
 		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callbackCh)
 		return errors.New("workflow owner rate limit exceeded")
 	}
 	if !globalAllow {
-		metrics.IncrementHTTPTriggerGatewayGlobalThrottled(ctx, h.lggr)
+		h.metrics.Trigger.IncrementGlobalThrottled(ctx, h.lggr)
 		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callbackCh)
 		return errors.New("global rate limit exceeded")
 	}
@@ -306,7 +308,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	}:
 		delete(h.callbacks, resp.ID)
 		latencyMs := time.Since(saved.requestStartTime).Milliseconds()
-		metrics.RecordHTTPTriggerGatewayRequestHandlerLatency(ctx, latencyMs, h.lggr)
+		h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
 	}
 	return nil
 }
@@ -351,10 +353,10 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 		}
 	}
 	if expiredCount > 0 {
-		metrics.IncrementHTTPTriggerGatewayPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
+		h.metrics.Trigger.IncrementPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
 		h.lggr.Infow("Removed expired callbacks", "count", expiredCount, "remaining", len(h.callbacks))
 	}
-	metrics.RecordHTTPTriggerGatewayPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
+	h.metrics.Trigger.RecordPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
 }
 
 func isValidJSON(data []byte) bool {
@@ -386,7 +388,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		return
 	}
 	errorCode := api.ErrorCode(code)
-	metrics.IncrementHTTPTriggerGatewayRequestErrors(ctx, errorCode.String(), h.lggr)
+	h.metrics.Trigger.IncrementRequestErrors(ctx, errorCode.String(), h.lggr)
 	callbackCh <- handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
@@ -418,11 +420,11 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 			if successfulNodes[member.Address] {
 				continue
 			}
-			metrics.IncrementHTTPTriggerGatewayCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+			h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
 			if err != nil {
 				allNodesSucceeded = false
-				metrics.IncrementHTTPTriggerGatewayCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+				h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 				err = errors.Join(combinedErr, err)
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", member.Address,
