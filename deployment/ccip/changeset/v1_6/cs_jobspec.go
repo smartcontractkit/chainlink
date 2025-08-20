@@ -27,7 +27,9 @@ var _ cldf.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 // The caller needs to propose these job specs to the offchain system.
 func CCIPCapabilityJobspecChangeset(env cldf.Environment, args any) (cldf.ChangesetOutput, error) {
 	nodeIDs, err := filterNodeIDsFromArgs(env.NodeIDs, args)
-
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 	nodes, err := deployment.NodeInfo(nodeIDs, env.Offchain)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
