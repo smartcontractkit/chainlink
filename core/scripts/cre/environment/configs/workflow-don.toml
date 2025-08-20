@@ -18,9 +18,6 @@
 [fake]
   port = 8171
 
-[capability_configs.cron]
-  binary_path = "../../../../system-tests/tests/smoke/cre/amd64_cron"
-
 #[s3provider]
 #  # use all defaults
 #  port = 9000
