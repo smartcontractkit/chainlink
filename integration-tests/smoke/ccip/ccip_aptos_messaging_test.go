@@ -42,7 +42,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(1),
-		testhelpers.WithChainIDs([]uint64{4}),
+		testhelpers.WithChainIDs([]uint64{4, 5}),
 		testhelpers.WithAptosChains(1),
 	)
 
@@ -375,8 +375,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithNumOfChains(1),
-		testhelpers.WithChainIDs([]uint64{4}),
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithChainIDs([]uint64{4, 5}),
 		testhelpers.WithAptosChains(1),
 	)
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
