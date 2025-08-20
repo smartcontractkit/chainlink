@@ -139,6 +139,8 @@ func CCIPCapabilityJobspecChangeset(env cldf.Environment, args any) (cldf.Change
 	}, nil
 }
 
+// filterNodeIDsFromArgs enables phased rollout extending the old function interface
+// if struct{} or nil is provided all nodeIDs available in env will be considered
 func filterNodeIDsFromArgs(allNodeIDs []string, args any) ([]string, error) {
 	argsNodeIDs := []string{}
 	switch v := args.(type) {
