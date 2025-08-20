@@ -27,15 +27,76 @@ func (s *SecretIdentifier) String() string {
 		"}"
 }
 
-type SecretsCreateRequest struct {
-	ID    string `json:"id"`
-	Value string `json:"value"`
-	Owner string `json:"owner"`
+// EncryptedSecret represents a single encrypted secret in a batch request
+type EncryptedSecret struct {
+	ID             SecretIdentifier `json:"id"`
+	EncryptedValue string           `json:"encrypted_value"`
 }
 
-type SecretsGetRequest struct {
-	ID    string `json:"id"`
-	Owner string `json:"owner"`
+func (e *EncryptedSecret) String() string {
+	return "EncryptedSecret{" +
+		"ID: " + e.ID.String() +
+		", EncryptedValue: " + e.EncryptedValue +
+		"}"
+}
+
+type CreateSecretsRequest struct {
+	RequestID        string            `json:"request_id"`
+	EncryptedSecrets []EncryptedSecret `json:"encrypted_secrets"`
+}
+
+func (c *CreateSecretsRequest) String() string {
+	if len(c.EncryptedSecrets) == 0 {
+		return "CreateSecretsRequest{" +
+			"RequestID: " + c.RequestID +
+			", EncryptedSecrets: []}"
+	}
+
+	result := "CreateSecretsRequest{" +
+		"RequestID: " + c.RequestID +
+		", EncryptedSecrets: ["
+	for i, secret := range c.EncryptedSecrets {
+		if i > 0 {
+			result += ", "
+		}
+		result += secret.String()
+	}
+	result += "]}"
+	return result
+}
+
+type SecretRequest struct {
+	ID             SecretIdentifier `json:"id"`
+	EncryptionKeys []string         `json:"encryption_keys,omitempty"`
+}
+
+type GetSecretsRequest struct {
+	Requests []SecretRequest `json:"requests"`
+}
+
+func (g *GetSecretsRequest) String() string {
+	if len(g.Requests) == 0 {
+		return "GetSecretsRequest{Requests: []}"
+	}
+
+	result := "GetSecretsRequest{Requests: ["
+	for i, request := range g.Requests {
+		if i > 0 {
+			result += ", "
+		}
+		result += "SecretRequest{" +
+			"ID: " + request.ID.String() +
+			", EncryptionKeys: ["
+		for j, key := range request.EncryptionKeys {
+			if j > 0 {
+				result += ", "
+			}
+			result += key
+		}
+		result += "]}"
+	}
+	result += "]}"
+	return result
 }
 
 // SignedResponse is a structure that represents a signed response from the Vault DON.
@@ -65,16 +126,34 @@ func (r *ResponseBase) String() string {
 		"}"
 }
 
-type SecretsCreateResponse struct {
-	SecretID SecretIdentifier `json:"secret_id,omitempty"`
-	Success  bool             `json:"success,omitempty"`
+type CreateSecretsResponse struct {
+	Responses []CreateSecretResponse `json:"responses,omitempty"`
 }
 
-func (r *SecretsCreateResponse) String() string {
-	return "SecretsCreateResponse{" +
-		", SecretID: " + r.SecretID.String() +
-		", Success: " + strconv.FormatBool(r.Success) +
-		"}"
+type CreateSecretResponse struct {
+	ID      SecretIdentifier `json:"id,omitempty"`
+	Success bool             `json:"success,omitempty"`
+	Error   string           `json:"error,omitempty"`
+}
+
+func (r *CreateSecretsResponse) String() string {
+	if len(r.Responses) == 0 {
+		return "CreateSecretsResponse{Responses: []}"
+	}
+
+	result := "CreateSecretsResponse{Responses: ["
+	for i, response := range r.Responses {
+		if i > 0 {
+			result += ", "
+		}
+		result += "CreateSecretResponse{" +
+			"ID: " + response.ID.String() +
+			", Success: " + strconv.FormatBool(response.Success) +
+			", Error: " + response.Error +
+			"}"
+	}
+	result += "]}"
+	return result
 }
 
 type SecretsGetResponse struct {

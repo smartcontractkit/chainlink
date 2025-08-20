@@ -18,8 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	vault_api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
-	pluginsvault "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
@@ -38,19 +37,26 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vault.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret"
-				})).Return(&pluginsvault.Response{ID: "test-secret"}, nil)
+				})).Return(&vaultCap.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vault_api.SecretsCreateRequest{
-						ID:    "test-secret",
-						Value: "encrypted-value",
+					params, _ := json.Marshal(vaultapi.CreateSecretsRequest{
+						RequestID: "test-request-id",
+						EncryptedSecrets: []vaultapi.EncryptedSecret{
+							{
+								ID: vaultapi.SecretIdentifier{
+									Key: "test-secret",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
 					})
 					raw := json.RawMessage(params)
 					return &raw
@@ -69,12 +75,19 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vault_api.SecretsCreateRequest{
-						ID:    "test-secret",
-						Value: "encrypted-value",
+					params, _ := json.Marshal(vaultapi.CreateSecretsRequest{
+						RequestID: "test-request-id",
+						EncryptedSecrets: []vaultapi.EncryptedSecret{
+							{
+								ID: vaultapi.SecretIdentifier{
+									Key: "test-secret",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
 					})
 					raw := json.RawMessage(params)
 					return &raw
@@ -105,7 +118,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					raw := json.RawMessage([]byte(`{invalid json`))
