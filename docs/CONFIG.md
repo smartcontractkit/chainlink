@@ -1442,6 +1442,7 @@ Options are: event which watches for contract events or reconciliation which dif
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 URL = "localhost:4566" # Default
 TLSEnabled = true # Default
+ArtifactURLPrefix = 'https://storage.cre.chain.link' # Example
 ```
 
 
@@ -1456,6 +1457,12 @@ URL is the location for the workflow storage service to be communicated with.
 TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
+
+### ArtifactURLPrefix
+```toml
+ArtifactURLPrefix = 'https://storage.cre.chain.link' # Example
+```
+ArtifactURLPrefix is the prefix that when present within the binary or config URL from the workflow registry should be retrieved from the workflow storage service.
 
 ## Workflows
 ```toml

@@ -68,7 +68,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 
 	fetcher := &mockFetcher{}
 
-	h := NewStore(
+	h, err := NewStore(
 		lggr,
 		orm,
 		fetcher.Fetch,
@@ -76,7 +76,11 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		WithConfig(StoreConfig{
+			ArtifactStorageURLPrefix: "http://example.com",
+		}),
 	)
+	require.NoError(t, err)
 
 	// Delete the workflow artifacts by ID
 	err = h.DeleteWorkflowArtifacts(testutils.Context(t), workflowID)
@@ -87,7 +91,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func Test_Store_FetchWorkflowArtifacts(t *testing.T) {
+func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -97,22 +101,24 @@ func Test_Store_FetchWorkflowArtifacts(t *testing.T) {
 	require.NoError(t, err)
 
 	binaryID := "binary-1"
-	binaryURL := "http://example.com/binary"
+	binaryURL := "http://storage.chain.link/" + binaryID + "/binary.wasm"
+	binaryTempURL := "http://storage.chain.link/temp-1"
 	binaryData := "binary-data"
 	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
 	configID := "config-1"
-	configURL := "http://example.com/config"
+	configURL := "http://storage.chain.link/" + configID + "/config.yaml"
+	configTempURL := "http://storage.chain.link/temp-2"
 	configData := "config-data"
 	fetcher := &mockFetcher{
 		responseMap: map[string]mockFetchResp{
-			binaryID:  {Body: []byte(binaryURL)},
-			binaryURL: {Body: []byte(binaryEncoded)},
-			configID:  {Body: []byte(configURL)},
-			configURL: {Body: []byte(configData)},
+			binaryID:      {Body: []byte(binaryTempURL)},
+			binaryTempURL: {Body: []byte(binaryEncoded)},
+			configID:      {Body: []byte(configTempURL)},
+			configTempURL: {Body: []byte(configData)},
 		},
 	}
 
-	h := NewStore(
+	h, err := NewStore(
 		lggr,
 		orm,
 		fetcher.Fetch,
@@ -120,9 +126,54 @@ func Test_Store_FetchWorkflowArtifacts(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		WithConfig(StoreConfig{
+			ArtifactStorageURLPrefix: "http://storage.chain.link",
+		}),
 	)
+	require.NoError(t, err)
 
-	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryID, configID)
+	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
+	require.NoError(t, err)
+	require.Equal(t, []byte(binaryData), binary)
+	require.Equal(t, []byte(configData), config)
+}
+
+func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	workflowID := "anID"
+	encryptionKey, err := workflowkey.New()
+	require.NoError(t, err)
+
+	binaryURL := "http://some-url.com/binary.wasm"
+	binaryData := "binary-data"
+	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
+	configURL := "http://some-url.com/config.yaml"
+	configData := "config-data"
+	fetcher := &mockFetcher{
+		responseMap: map[string]mockFetchResp{
+			binaryURL: {Body: []byte(binaryEncoded)},
+			configURL: {Body: []byte(configData)},
+		},
+	}
+
+	h, err := NewStore(
+		lggr,
+		orm,
+		fetcher.Fetch,
+		fetcher.RetrieveURL,
+		clockwork.NewFakeClock(),
+		encryptionKey,
+		custmsg.NewLabeler(),
+		WithConfig(StoreConfig{
+			ArtifactStorageURLPrefix: "http://storage.chain.link",
+		}),
+	)
+	require.NoError(t, err)
+
+	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -137,10 +188,10 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	binaryURL := "http://example.com/binary"
+	binaryURL := "http://example.com/id1/binary.wasm"
 	binaryData := "binary-data"
 	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
-	configURL := "http://example.com/config"
+	configURL := "http://example.com/id1/config.yaml"
 	configData := "config-data"
 	fetcher := &mockFetcher{
 		responseMap: map[string]mockFetchResp{
@@ -149,7 +200,7 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 		},
 	}
 
-	h := NewStore(
+	h, err := NewStore(
 		lggr,
 		orm,
 		fetcher.Fetch,
@@ -157,7 +208,11 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		WithConfig(StoreConfig{
+			ArtifactStorageURLPrefix: "http://example.com",
+		}),
 	)
+	require.NoError(t, err)
 
 	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
 	require.NoError(t, err)

@@ -87,6 +87,16 @@ func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
 	}
 }
 
+type StoreConfig struct {
+	ArtifactStorageURLPrefix string
+}
+
+func WithConfig(cfg StoreConfig) func(*Store) {
+	return func(a *Store) {
+		a.config = &cfg
+	}
+}
+
 type SerialisedModuleStore interface {
 	StoreModule(workflowID string, binaryID string, module []byte) error
 	GetModulePath(workflowID string) (string, bool, error)
@@ -99,6 +109,7 @@ type Store struct {
 
 	// limits sets max artifact sizes to fetch when handling events
 	limits *ArtifactConfig
+	config *StoreConfig
 
 	orm WorkflowRegistryDS
 
@@ -117,7 +128,7 @@ type Store struct {
 }
 
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
-	emitter custmsg.MessageEmitter, opts ...func(*Store)) *Store {
+	emitter custmsg.MessageEmitter, opts ...func(*Store)) (*Store, error) {
 	limits := &ArtifactConfig{}
 	limits.ApplyDefaults()
 
@@ -129,6 +140,7 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,
 		limits:                   limits,
+		config:                   &StoreConfig{},
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		emitter:                  emitter,
@@ -138,7 +150,11 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 		o(artifactsStore)
 	}
 
-	return artifactsStore
+	if retrieveFunc != nil && artifactsStore.config.ArtifactStorageURLPrefix == "" {
+		return nil, errors.New("storage service URL prefix must be set in the store config")
+	}
+
+	return artifactsStore, nil
 }
 
 // FetchWorkflowArtifacts fetches the workflow spec and config from a cache or the specified URLs if the artifacts have not
@@ -160,12 +176,13 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 		err       error
 	)
 
+	// Determine which URL to retrieve artifacts from
 	// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
 	// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
-	if h.retrieveFunc != nil {
+	if h.retrieveFunc != nil && strings.HasPrefix(binaryIdentifier, h.config.ArtifactStorageURLPrefix) {
 		// Get the URL to retrieve binary artifact from
 		binaryURL, err = h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
-			Id:   binaryIdentifier,
+			Id:   extractIDFromURL(binaryIdentifier, h.config.ArtifactStorageURLPrefix),
 			Type: storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
 		})
 		if err != nil {
@@ -203,10 +220,10 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryId
 
 		// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
 		// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
-		if h.retrieveFunc != nil {
+		if h.retrieveFunc != nil && strings.HasPrefix(configIdentifier, h.config.ArtifactStorageURLPrefix) {
 			// Get the URL to retrieve config artifact from
 			configURL, configErr = h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
-				Id:   configIdentifier,
+				Id:   extractIDFromURL(configIdentifier, h.config.ArtifactStorageURLPrefix),
 				Type: storage_service.ArtifactType_ARTIFACT_TYPE_CONFIG,
 			})
 			if configErr != nil {
@@ -279,4 +296,11 @@ func messageID(url string, parts ...string) string {
 	hash := hex.EncodeToString(h.Sum(nil))
 	p := []string{ghcapabilities.MethodWorkflowSyncer, hash}
 	return strings.Join(p, "/")
+}
+
+func extractIDFromURL(url string, prefix string) string {
+	// The format is <prefix>/<id>/<filename>
+	prefixSplit := strings.Split(url, prefix)
+	backslashSplit := strings.Split(prefixSplit[1], "/")
+	return backslashSplit[1]
 }

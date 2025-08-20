@@ -1089,7 +1089,7 @@ func newCREServices(
 						retrieverFunc = nil
 					}
 
-					artifactsStore := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
+					artifactsStore, err := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						retrieverFunc,
 						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
@@ -1098,7 +1098,13 @@ func newCREServices(
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 							},
-						))
+						),
+						artifactsV2.WithConfig(artifactsV2.StoreConfig{
+							ArtifactStorageURLPrefix: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactURLPrefix(),
+						}))
+					if err != nil {
+						return nil, fmt.Errorf("unable to create artifact store: %w", err)
+					}
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
