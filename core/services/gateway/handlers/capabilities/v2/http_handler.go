@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -212,7 +213,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ErrorMessage: err.Error(),
 			}
 		}
-		h.metrics.Action.IncrementCustomerEndpointResponseCount(ctx, fmt.Sprintf("%d", resp.StatusCode), h.lggr)
+		h.metrics.Action.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		h.metrics.Action.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode: resp.StatusCode,

@@ -28,8 +28,6 @@ import (
 
 var _ HTTPTriggerHandler = (*httpTriggerHandler)(nil)
 
-const httpRequestStartTimeKey = "request_start_time"
-
 type savedCallback struct {
 	callbackCh         chan<- handlers.UserCallbackPayload
 	requestStartTime   time.Time
