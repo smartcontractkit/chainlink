@@ -1,10 +1,13 @@
 package sequence
 
 import (
+	"fmt"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
@@ -160,4 +163,116 @@ func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDep
 	})
 
 	return mcmsOperations, nil
+}
+
+type TransferInput struct {
+	TokenCodeObjAddress aptos.AccountAddress
+	To                  aptos.AccountAddress
+}
+
+type TransferTokenOwnershipsSeqInput struct {
+	Transfers []TransferInput
+}
+
+var TransferTokenOwnershipsSequence = operations.NewSequence(
+	"transfer-token-ownerships",
+	operation.Version1_0_0,
+	"Transfers the ownership of one or multiple managed token instances",
+	transferTokenOwnershipsSequence,
+)
+
+func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, transfer := range in.Transfers {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.TransferTokenOwnershipOp,
+			deps,
+			operation.TransferTokenOwnershipInput{
+				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
+				To:                     transfer.To,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d TransferTokenOwnershipOp of token %s: %w", i, transfer.TokenCodeObjAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type AcceptTokenOwnershipsSeqInput struct {
+	TokenCodeObjAddresses []aptos.AccountAddress
+}
+
+var AcceptTokenOwnershipsSequence = operations.NewSequence(
+	"accept-token-ownerships",
+	operation.Version1_0_0,
+	"Accepts the ownership of one or multiple manages token instances",
+	acceptTokenOwnershipsSequence,
+)
+
+func acceptTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, address := range in.TokenCodeObjAddresses {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.AcceptTokenOwnershipOp,
+			deps,
+			operation.AcceptTokenOwnershipInput{
+				TokenCodeObjectAddress: address,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d AcceptTokenOwnershipOp of token %s: %w", i, address.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type ExecuteTokenOwnershipTransfersSeqInput struct {
+	Transfers []TransferInput
+}
+
+var ExecuteTokenOwnershipTransfersSequence = operations.NewSequence(
+	"execute-token-ownership-transfers",
+	operation.Version1_0_0,
+	"Executes the pending ownership transfer(s) of one or multiple managed token instances",
+	executeTokenOwnershipTransfersSequence,
+)
+
+func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps operation.AptosDeps, in ExecuteTokenOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, transfer := range in.Transfers {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.ExecuteTokenOwnershipTransferOp,
+			deps,
+			operation.ExecuteTokenOwnershipTransferInput{
+				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
+				To:                     transfer.To,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d ExecuteTokenOwnershipTransferOp of token %s: %w", i, transfer.TokenCodeObjAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
 }

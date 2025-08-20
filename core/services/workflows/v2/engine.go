@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
