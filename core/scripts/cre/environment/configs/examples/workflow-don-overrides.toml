@@ -1,0 +1,104 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "5"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "5"]
+
+[jd]
+  # change to your version
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  image = "job-distributor:0.12.7"
+
+[fake]
+  port = 8171
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  bootstrap_node_index = 0
+  gateway_node_index = 0
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
+
+  # Enable capabilities per chain with optional per-chain overrides
+  [nodesets.chain_capabilities]
+    # Simple: enable write-evm on listed chains
+    # write-evm = ["1337", "2337"]
+
+    # write-evm with per-chain configuration overrides
+    write-evm = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { GasLimitDefault = 500_000, PollPeriod = "1s", AcceptanceTimeout = "45s", FromAddress = "0x0000000000000000000000000000000000000001" }, "2337" = { GasLimitDefault = 300_000, AcceptanceTimeout = "60s" } } }
+
+    # evm capability with a chain-specific override example
+    # evm = { enabled_chains = ["1337"], chain_overrides = { "1337" = { ReceiverGasMinimum = 1000 } } }
+
+    # Simple: enable read-contract capability for one chain
+    # read-contract = ["1337"]
+
+    # log-event-trigger capability per chain configuration overrides
+    # log-event-trigger = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { PollPeriod = 1000 } } }
+
+  # Override global capability configuration per DON
+  [nodesets.capability_overrides]
+  # Override web-api-target rate limiter settings for this specific DON
+    [nodesets.capability_overrides.web-api-target]
+       GlobalRPS = 2000.0      # Override default 1000.0
+       PerSenderBurst = 1500   # Override default 1000
+
+  #  # Override web-api-trigger settings (empty by default)
+  #  [nodesets.capability_overrides.web-api-trigger]
+  #    Before using this filed needs to be added to the template
+  #    CustomTriggerField = "don-specific-value"
+  #
+  #  # Override mock capability settings
+  #  [nodesets.capability_overrides.mock]
+  #    Port = 8081  # Override default port for this DON
+
+# [nodesets.capability_overrides.http-action]
+#    IncomingGlobalBurst = 20
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      #docker_ctx = "../../../.."
+      #docker_file = "core/chainlink.Dockerfile"
+      image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      # assumes that CTF's observability stack is running on the local host
+      # 4317 is OTEL ingress port of the stack (LGTM)
+      # command: ctf obs up
+      Endpoint = 'host.docker.internal:4317'
+      # default service-name and port used by locally running Chip Ingress
+      # command: go run . env beholder start
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """

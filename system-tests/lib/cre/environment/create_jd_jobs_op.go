@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 type CreateJobsWithJdOpDeps struct {
@@ -21,8 +22,12 @@ type CreateJobsWithJdOpDeps struct {
 	SingleFileLogger          common.Logger
 	HomeChainBlockchainOutput *blockchain.Output
 	AddressBook               deployment.AddressBook
-	JobSpecFactoryFunctions   []cre.JobSpecFactoryFn
+	JobSpecFactoryFunctions   []cre.JobSpecFn
 	FullCLDEnvOutput          *cre.FullCLDEnvironmentOutput
+	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
+	CapabilitiesConfigs       cre.CapabilityConfigs
+	Capabilities              []cre.InstallableCapability
+	InfraInput                *infra.Input
 }
 
 type CreateJobsWithJdOpInput struct {
@@ -42,10 +47,17 @@ var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, Create
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
-			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecFactoryInput{
-				CldEnvironment:   deps.FullCLDEnvOutput.Environment,
-				BlockchainOutput: deps.HomeChainBlockchainOutput,
-				DonTopology:      deps.FullCLDEnvOutput.DonTopology,
+			if jobSpecGeneratingFn == nil {
+				continue
+			}
+			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
+				CldEnvironment:            deps.FullCLDEnvOutput.Environment,
+				BlockchainOutput:          deps.HomeChainBlockchainOutput,
+				DonTopology:               deps.FullCLDEnvOutput.DonTopology,
+				InfraInput:                deps.InfraInput,
+				CapabilityConfigs:         deps.CapabilitiesConfigs,
+				CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
+				Capabilities:              deps.Capabilities,
 			})
 			if jobSpecsErr != nil {
 				return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
@@ -83,10 +95,13 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 			donToJobSpecs := make(cre.DonsToJobSpecs)
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
-				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecFactoryInput{
-					CldEnvironment:   deps.FullCLDEnvOutput.Environment,
-					BlockchainOutput: deps.HomeChainBlockchainOutput,
-					DonTopology:      deps.FullCLDEnvOutput.DonTopology,
+				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
+					CldEnvironment:            deps.FullCLDEnvOutput.Environment,
+					BlockchainOutput:          deps.HomeChainBlockchainOutput,
+					DonTopology:               deps.FullCLDEnvOutput.DonTopology,
+					CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
+					CapabilityConfigs:         deps.CapabilitiesConfigs,
+					InfraInput:                deps.InfraInput,
 				})
 				if jobSpecsErr != nil {
 					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")

@@ -26,7 +26,7 @@ import (
 )
 
 type BlockchainsInput struct {
-	blockchainsInput []*cre.WrappedBlockchainInput
+	blockchainsInput []blockchain.Input
 	infra            *infra.Input
 	nixShell         *libnix.Shell
 }
@@ -57,7 +57,7 @@ func CreateBlockchains(
 			}
 
 			deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
-				BlockchainInput: &bi.Input,
+				BlockchainInput: &bi,
 				NixShell:        input.nixShell,
 				CribConfigsDir:  cribConfigsDir,
 				Namespace:       input.infra.CRIB.Namespace,
@@ -71,7 +71,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
 		} else {
-			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi.Input)
+			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
@@ -108,7 +108,6 @@ func CreateBlockchains(
 			BlockchainOutput:   bcOut,
 			SethClient:         sethClient,
 			DeployerPrivateKey: privateKey,
-			ReadOnly:           bi.ReadOnly,
 		})
 	}
 

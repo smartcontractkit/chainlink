@@ -10,9 +10,9 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func Test_ReportCodec(t *testing.T) {
 		assert.Equal(t, "streams_1_34", pbuf.EventID)
 		assert.Equal(t, uint64(34), pbuf.Timestamp)
 		require.Len(t, pbuf.Outputs.Fields, 2)
-		assert.Equal(t, &pb.Value_Int64Value{Int64Value: 34}, pbuf.Outputs.Fields["ObservationTimestampNanoseconds"].Value)
+		assert.Equal(t, &pb.Value_Uint64Value{Uint64Value: 34}, pbuf.Outputs.Fields["ObservationTimestampNanoseconds"].Value)
 		require.Len(t, pbuf.Outputs.Fields["Payload"].Value.(*pb.Value_ListValue).ListValue.Fields, 2)
 
 		require.Len(t, pbuf.Outputs.Fields["Payload"].Value.(*pb.Value_ListValue).ListValue.Fields[0].Value.(*pb.Value_MapValue).MapValue.Fields, 2)
@@ -110,7 +110,7 @@ func Test_ReportCodec(t *testing.T) {
 		assert.Equal(t, "streams_1_34", pbuf.EventID)
 		assert.Equal(t, uint64(34), pbuf.Timestamp)
 		require.Len(t, pbuf.Outputs.Fields, 2)
-		assert.Equal(t, &pb.Value_Int64Value{Int64Value: 34}, pbuf.Outputs.Fields["ObservationTimestampNanoseconds"].Value)
+		assert.Equal(t, &pb.Value_Uint64Value{Uint64Value: 34}, pbuf.Outputs.Fields["ObservationTimestampNanoseconds"].Value)
 		require.Len(t, pbuf.Outputs.Fields["Payload"].Value.(*pb.Value_ListValue).ListValue.Fields, 3)
 
 		require.Len(t, pbuf.Outputs.Fields["Payload"].Value.(*pb.Value_ListValue).ListValue.Fields[0].Value.(*pb.Value_MapValue).MapValue.Fields, 2)
