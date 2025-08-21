@@ -311,6 +311,10 @@ func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environmen
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
+	framework.L.Info().Msgf("Sleeping 2 minutes to allow the Vault DON to start...")
+	time.Sleep(2 * time.Minute)
+	framework.L.Info().Msgf("Sleep over. Executing test now...")
+
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	owner := "Owner1"
 	secretValue := "Secret Value to be stored"
