@@ -35,10 +35,10 @@ const (
 	defaultMaxIdentifierOwnerLengthBytes     = 64
 	defaultMaxIdentifierNamespaceLengthBytes = 64
 
-	defaultLimitsMaxQueryLength                          = 1024 // 1KB
-	defaultLimitsMaxObservationLength                    = 1024 // 1KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 1024 // 1KB
-	defaultLimitsMaxReportLength                         = 1024 // 1KB
+	defaultLimitsMaxQueryLength                          = 1024   // 1KB
+	defaultLimitsMaxObservationLength                    = 102400 // 100KB
+	defaultLimitsMaxReportsPlusPrecursorLength           = 1024   // 1KB
+	defaultLimitsMaxReportLength                         = 409600 // 400KB
 	defaultLimitsMaxReportCount                          = 10
 	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024        // 1KB
 	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
@@ -344,7 +344,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_CreateSecretsRequest{
 		CreateSecretsRequest: tp,
 	}
-	l := r.lggr.With("requestId", tp.RequestId, "requestType", "CreateSecrets")
+	l := r.lggr.With("requestID", tp.RequestId, "requestType", "CreateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -433,7 +433,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	o.Request = &vault.Observation_UpdateSecretsRequest{
 		UpdateSecretsRequest: tp,
 	}
-	l := r.lggr.With("requestId", tp.RequestId, "requestType", "UpdateSecrets")
+	l := r.lggr.With("requestID", tp.RequestId, "requestType", "UpdateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -885,7 +885,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 		req := idToReqs[id]
 		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
-			r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "requestId", reqID, "error", err)
+			r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "requestID", reqID, "error", err)
 			errorMsg := "failed to handle create secret request"
 			if errors.Is(err, &userError{}) {
 				errorMsg = err.Error()
@@ -896,7 +896,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id), "requestId", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", keyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 
@@ -990,7 +990,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 		req := idToReqs[id]
 		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
-			r.lggr.Errorw("failed to handle update secret request", "id", req.Id, "requestId", reqID, "error", err)
+			r.lggr.Errorw("failed to handle update secret request", "id", req.Id, "requestID", reqID, "error", err)
 			errorMsg := "failed to handle update secret request"
 			if errors.Is(err, &userError{}) {
 				errorMsg = err.Error()
@@ -1001,7 +1001,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", keyFor(req.Id), "requestId", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", keyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}

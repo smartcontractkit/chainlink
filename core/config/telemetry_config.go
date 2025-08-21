@@ -14,4 +14,5 @@ type Telemetry interface {
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
 	HeartbeatInterval() time.Duration
+	LogStreamingEnabled() bool
 }

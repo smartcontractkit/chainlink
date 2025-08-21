@@ -1442,6 +1442,7 @@ Options are: event which watches for contract events or reconciliation which dif
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 URL = "localhost:4566" # Default
 TLSEnabled = true # Default
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 ```
 
 
@@ -1456,6 +1457,12 @@ URL is the location for the workflow storage service to be communicated with.
 TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
+
+### ArtifactStorageHost
+```toml
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
+```
+ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
 
 ## Workflows
 ```toml
@@ -2223,6 +2230,7 @@ EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
+LogStreamingEnabled = false # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2289,6 +2297,12 @@ ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 HeartbeatInterval = '1s' # Default
 ```
 HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
+
+### LogStreamingEnabled
+```toml
+LogStreamingEnabled = false # Default
+```
+LogStreamingEnabled enables log streaming to the OTel log exporter
 
 ## Telemetry.ResourceAttributes
 ```toml

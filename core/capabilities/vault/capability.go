@@ -14,44 +14,46 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	vault2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 )
 
-var _ capabilities.ExecutableCapability = (*Service)(nil)
+var _ capabilities.ExecutableCapability = (*Capability)(nil)
+var _ SecretsService = (*Capability)(nil)
 
 const maxBatchSize = 10
 
-type Service struct {
-	lggr         logger.Logger
+type Capability struct {
 	clock        clockwork.Clock
+	lggr         logger.Logger
 	expiresAfter time.Duration
-	handler      *requests.Handler[*Request, *Response]
+	handler      *requests.Handler[*vault2.Request, *vault2.Response]
 }
 
-func (s *Service) Start(ctx context.Context) error {
+func (s *Capability) Start(ctx context.Context) error {
 	return s.handler.Start(ctx)
 }
 
-func (s *Service) Close() error {
+func (s *Capability) Close() error {
 	return s.handler.Close()
 }
 
-func (s *Service) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
-	return capabilities.NewCapabilityInfo(vault.CapabilityID, capabilities.CapabilityTypeAction, "Vault Service")
+func (s *Capability) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return capabilities.NewCapabilityInfo(vault.CapabilityID, capabilities.CapabilityTypeAction, "Vault Capability")
 }
 
-func (s *Service) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+func (s *Capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	// Left unimplemented as this method will never be called
 	// for this capability
 	return nil
 }
 
-func (s *Service) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (s *Capability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	// Left unimplemented as this method will never be called
 	// for this capability
 	return nil
 }
 
-func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (s *Capability) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	if request.Payload == nil {
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
@@ -67,7 +69,7 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}
 
 	// Validate the request: we only check that the request contains at least one secret request.
-	// All other validation is done in the plugin and subject to consensus.
+	// All other validations are done in the plugin and subject to consensus.
 	if len(r.Requests) == 0 {
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
@@ -107,36 +109,36 @@ func (s *Service) Execute(ctx context.Context, request capabilities.CapabilityRe
 	}, nil
 }
 
-func (s *Service) handleRequest(ctx context.Context, id string, request proto.Message) (*Response, error) {
-	respCh := make(chan *Response, 1)
-	s.handler.SendRequest(ctx, &Request{
+func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vault2.Response, error) {
+	respCh := make(chan *vault2.Response, 1)
+	s.handler.SendRequest(ctx, &vault2.Request{
 		Payload:      request,
 		ResponseChan: respCh,
 
-		expiryTime: s.clock.Now().Add(s.expiresAfter),
-		id:         id,
+		ExpiryTimeVal: s.clock.Now().Add(s.expiresAfter),
+		IDVal:         requestID,
 	})
-	s.lggr.Debugw("sent request to handler", "requestId", id)
-
+	s.lggr.Debugw("sent request to OCR handler", "requestID", requestID)
 	select {
 	case <-ctx.Done():
-		s.lggr.Debugw("request timed out", "requestId", id, "error", ctx.Err())
+		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
 		return nil, ctx.Err()
 	case resp := <-respCh:
-		s.lggr.Debugw("received response for request", "requestId", id, "error", resp.Error)
+		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
 		if resp.Error != "" {
-			return nil, fmt.Errorf("error processing request %s: %w", id, errors.New(resp.Error))
+			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
 		return resp, nil
 	}
 }
 
-func (s *Service) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*Response, error) {
+func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
+	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Service) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*Response, error) {
+func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error) {
 	if request.RequestId == "" {
 		return nil, errors.New("request ID must not be empty")
 	}
@@ -159,14 +161,23 @@ func (s *Service) UpdateSecrets(ctx context.Context, request *vault.UpdateSecret
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func NewService(
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
+	s.lggr.Infof("Received GetSecrets call: %s", request.String())
+	if len(request.Requests) == 0 {
+		return nil, errors.New("no GetSecret request specified in request")
+	}
+	return s.handleRequest(ctx, requestID, request)
+}
+
+func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
-	handler *requests.Handler[*Request, *Response],
-) *Service {
-	return &Service{
-		lggr:         lggr.Named("VaultService"),
+	handler *requests.Handler[*vault2.Request, *vault2.Response],
+) *Capability {
+	return &Capability{
+
+		lggr:         lggr.Named("VaultCapability"),
 		clock:        clock,
 		expiresAfter: expiresAfter,
 		handler:      handler,
