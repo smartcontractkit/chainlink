@@ -209,8 +209,13 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 	return multiErr
 }
 
-func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
+func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport, lggr logger.Logger) error {
 	rpt.Metadata = buildWorkflowMetadata(labels, rpt.Metadata.WorkflowExecutionID)
+
+	// TODO: remove
+	if lggr != nil {
+		lggr.Infow("PATRICK METERING REPORT", "rpt", rpt)
+	}
 
 	return emitProtoMessage(ctx, rpt)
 }

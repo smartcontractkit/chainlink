@@ -479,7 +479,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 		return ErrNoReserve
 	}
 
-	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
+	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport(), r.lggr)
 }
 
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
