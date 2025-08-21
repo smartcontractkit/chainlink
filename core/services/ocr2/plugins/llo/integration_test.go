@@ -1492,7 +1492,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			}
 			if finished >= nNodes {
 				for _, node := range nodes {
-					require.NoError(t, node.App.Stop())
+					//nolint:testifylint // need assert to ensure we don't leak nodes
+					assert.NoError(t, node.App.Stop())
 				}
 				defer close(packets)
 				break
