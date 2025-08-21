@@ -737,6 +737,11 @@ func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFla
 }
 
 func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
+	// skip this check in CI, as we inject images at runtime and this check would fail
+	if os.Getenv("CI") == "true" {
+		return nil
+	}
+
 	if withPluginsDockerImageFlag != "" {
 		if err := ensureDockerImageExists(ctx, logger, withPluginsDockerImageFlag); err != nil {
 			return errors.Wrapf(err, "Plugins image '%s' not found. Make sure it exists locally", withPluginsDockerImageFlag)
