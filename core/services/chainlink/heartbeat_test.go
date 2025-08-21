@@ -1,8 +1,8 @@
 package chainlink_test
 
 import (
+	"bytes"
 	"context"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -54,10 +54,8 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 func TestHeartbeat_MeterEvents(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	// Use a thread-safe collector
-	collector := &outputCollector{
-		messages: make([]string, 0),
-	}
+	// Use a thread-safe byte collector
+	collector := &byteCollector{}
 	client, err := beholder.NewWriterClient(collector)
 	require.NoError(t, err)
 
@@ -89,7 +87,7 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	assert.InDelta(t, expectedCalls, hbCount, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
 
 	// Check the output buffer for heartbeat messages
-	outputStr := strings.Join(collector.GetMessages(), "")
+	outputStr := collector.String()
 	assert.Contains(t, outputStr, "heartbeat", "Output should contain heartbeat messages")
 }
 
@@ -133,20 +131,20 @@ func (g *countingGauge) Record(ctx context.Context, value int64, options ...metr
 	}
 }
 
-type outputCollector struct {
-	mu       sync.Mutex
-	messages []string
+// byteCollector collects all bytes written to it in a thread-safe manner
+type byteCollector struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
 }
 
-func (oc *outputCollector) Write(p []byte) (n int, err error) {
-	oc.mu.Lock()
-	defer oc.mu.Unlock()
-	oc.messages = append(oc.messages, string(p))
-	return len(p), nil
+func (bc *byteCollector) Write(p []byte) (n int, err error) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.buffer.Write(p)
 }
 
-func (oc *outputCollector) GetMessages() []string {
-	oc.mu.Lock()
-	defer oc.mu.Unlock()
-	return append([]string{}, oc.messages...)
+func (bc *byteCollector) String() string {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.buffer.String()
 }
