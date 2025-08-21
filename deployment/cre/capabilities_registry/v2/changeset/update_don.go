@@ -21,7 +21,7 @@ type UpdateDONInput struct {
 	RegistryQualifier string `json:"registry_qualifier" yaml:"registry_qualifier"`
 	UseMCMS           bool   `json:"use_mcms" yaml:"use_mcms"` // not implemented yet
 
-	DonID             int                          `json:"don_id" yaml:"don_id"`
+	DonName           string                       `json:"don_name" yaml:"don_name"`
 	F                 uint8                        `json:"f" yaml:"f"`
 	P2PIDs            []p2pkey.PeerID              `json:"p2p_ids" yaml:"p2p_ids"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capability_configs" yaml:"capability_configs"`
@@ -55,7 +55,7 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		sequences.UpdateDONInput{
 			RegistryChainSel:  config.RegistryChainSel,
 			RegistryRef:       registryRef,
-			DonID:             config.DonID,
+			DonName:           config.DonName,
 			F:                 config.F,
 			P2PIDs:            config.P2PIDs,
 			CapabilityConfigs: config.CapabilityConfigs,

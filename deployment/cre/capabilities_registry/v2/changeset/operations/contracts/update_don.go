@@ -29,10 +29,10 @@ type UpdateDONInput struct {
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []CapabilityConfig
 
-	// DonID to update
+	// DonName to update
 	// If omitted, the don will be inferred from the P2P keys
-	// If the update request intended to change the nodes in the don, the DonID must be specified
-	DonID int
+	// If the update request intended to change the nodes in the don, the DonName must be specified
+	DonName string
 
 	// F is the fault tolerance level
 	// if omitted, the existing value fetched from the registry is used
@@ -77,8 +77,8 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		}
 
 		var don capabilities_registry_v2.CapabilitiesRegistryDONInfo
-		if input.DonID > 0 {
-			don, err = registry.GetDON(&bind.CallOpts{}, uint32(input.DonID)) //nolint:gosec // G115
+		if input.DonName != "" {
+			don, err = registry.GetDONByName(&bind.CallOpts{}, input.DonName)
 		} else {
 			getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
 			if err != nil {

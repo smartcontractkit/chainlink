@@ -26,10 +26,10 @@ type UpdateDONInput struct {
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []contracts.CapabilityConfig // if Config subfield is nil, a default config is used
 
-	// DonID to update
+	// DonName to update
 	// If omitted, the don will be inferred from the P2P keys
-	// If the update request intended to change the nodes in the don, the DonID must be specified
-	DonID int
+	// If the update request intended to change the nodes in the don, the DonName must be specified
+	DonName string
 
 	// F is the fault tolerance level
 	// if omitted, the existing value fetched from the registry is used
@@ -138,7 +138,7 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 				ChainSelector:     input.RegistryChainSel,
 				P2PIDs:            input.P2PIDs,
 				CapabilityConfigs: input.CapabilityConfigs,
-				DonID:             input.DonID,
+				DonName:           input.DonName,
 				F:                 input.F,
 				IsPrivate:         input.IsPrivate,
 			},
