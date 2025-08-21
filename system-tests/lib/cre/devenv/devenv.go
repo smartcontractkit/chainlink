@@ -103,12 +103,12 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 			if bcOut.SolChain != nil {
 				cfg, err = buildSolChain(bcOut.SolChain, bcOut.BlockchainOutput)
 				if err != nil {
-					return nil, errors.Wrap(err, "failed to build solana chain config")
+					return nil, errors.Wrap(err, fmt.Sprintf("failed to build Solana chain config for chainID %s", bcOut.SolChain.ChainID))
 				}
 			} else {
 				cfg, err = buildEVMChain(chainSelector, bcOut.BlockchainOutput)
 				if err != nil {
-					return nil, errors.Wrap(err, "failed to build EVM chain config")
+					return nil, errors.Wrap(err, fmt.Sprintf("failed to build EVM chain config for chainID %d", bcOut.ChainID))
 				}
 			}
 
@@ -194,34 +194,21 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	// create chains for all chains that are supported by any of the DONs, so that changeset can be applied to all chains
 	allChainsConfigs := make([]devenv.ChainConfig, 0)
 	for chainSelector, bcOut := range input.BlockchainOutputs {
-		cfg := devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(bcOut.ChainID, 10),
-			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			}},
-		}
-
+		var cfg *devenv.ChainConfig
+		var buildErr error
 		if bcOut.SolChain != nil {
-			cfg.SolDeployerKey = bcOut.SolChain.PrivateKey
-			cfg.SolArtifactDir = bcOut.SolChain.ArtifactsDir
-			cfg.ChainName = bcOut.SolChain.ChainName
-			cfg.ChainID = bcOut.SolChain.ChainID
-		} else {
-			sethClient, ok := input.SethClients[chainSelector]
-			if !ok {
-				return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
+			cfg, buildErr = buildSolChain(bcOut.SolChain, bcOut.BlockchainOutput)
+			if buildErr != nil {
+				return nil, errors.Wrap(buildErr, fmt.Sprintf("failed to build Solana chain config for chainID %s", bcOut.SolChain.ChainID))
 			}
-			cfg.ChainName = sethClient.Cfg.Network.Name
-			cfg.DeployerKey = sethClient.NewTXOpts(seth.WithNonce(nil))
+		} else {
+			cfg, buildErr = buildEVMChain(chainSelector, bcOut.BlockchainOutput)
+			if buildErr != nil {
+				return nil, errors.Wrap(buildErr, fmt.Sprintf("failed to build EVM chain config for chainID %d", bcOut.ChainID))
+			}
 		}
 
-		allChainsConfigs = append(allChainsConfigs, cfg)
+		allChainsConfigs = append(allChainsConfigs, *cfg)
 	}
 
 	blockChains, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)

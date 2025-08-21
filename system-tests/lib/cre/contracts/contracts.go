@@ -180,36 +180,34 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	solForwarders := input.CldEnv.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-forwarder"))
 	solChainsWithForwarder := make(map[uint64]struct{})
-	if len(solForwarders) > 0 {
-		for _, forwarder := range solForwarders {
-			solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
-		}
+	solForwarders := input.CldEnv.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_solana.DefaultForwarderQualifier))
+	for _, forwarder := range solForwarders {
+		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
+	}
+
+	// configure Solana forwarder only if we have some
+	if len(solChainsWithForwarder) > 0 {
 		for _, don := range configDONs {
-			forwarderKey := datastore.NewAddressRefKey(solForwarders[0].ChainSelector, ks_solana.ForwarderContract, solForwarders[0].Version, "test-forwarder")
-			_, err = input.CldEnv.DataStore.Addresses().Get(forwarderKey)
-			if err != nil {
-				return errors.Wrap(err, "forwarder not found")
-			}
 			cs := commonchangeset.Configure(ks_solana.ConfigureForwarders{},
 				&ks_solana.ConfigureForwarderRequest{
 					WFDonName:        don.Name,
 					WFNodeIDs:        don.NodeIDs,
 					RegistryChainSel: input.ChainSelector,
 					Chains:           solChainsWithForwarder,
-					Qualifier:        "test-forwarder",
+					Qualifier:        ks_solana.DefaultForwarderQualifier,
 					Version:          "1.0.0",
 				},
 			)
 
 			_, err = cs.Apply(*input.CldEnv)
 			if err != nil {
-				return errors.Wrap(err, "failed to configure sol forwarders")
+				return errors.Wrap(err, "failed to configure Solana forwarders")
 			}
 		}
 	}
 
+	// configure EVM forwarders only if we have some
 	if len(evmChainsWithForwarders) > 0 {
 		_, err = operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
