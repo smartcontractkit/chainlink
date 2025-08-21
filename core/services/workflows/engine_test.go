@@ -175,7 +175,7 @@ type testHooks struct {
 
 type testConfigProvider struct {
 	localNode           func(ctx context.Context) (capabilities.Node, error)
-	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
 func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -204,12 +204,12 @@ func (t testConfigProvider) NodeByPeerID(ctx context.Context, peerID p2ptypes.Pe
 	}, nil
 }
 
-func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 	if t.configForCapability != nil {
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return registrysyncer.CapabilityConfiguration{}, nil
+	return capabilities.CapabilityConfiguration{}, nil
 }
 
 func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
@@ -398,15 +398,11 @@ targets:
 
 		require.NoError(t, err)
 		registry.SetLocalRegistry(&testConfigProvider{
-			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
-				cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
-					RestrictedConfig: values.ProtoMap(conf),
-					RestrictedKeys:   []string{metering.RatiosKey},
-				})
-
-				return registrysyncer.CapabilityConfiguration{
-					Config: cb,
-				}, err
+			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+				return capabilities.CapabilityConfiguration{
+					RestrictedKeys: []string{metering.RatiosKey},
+					RestrictedConfig: conf,
+				}, nil
 			},
 		})
 	}
@@ -1856,18 +1852,13 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		simpleWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
-
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				DefaultConfig: values.ProtoMap(giveRegistryConfig),
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			return capabilities.CapabilityConfiguration{
+				DefaultConfig: giveRegistryConfig,
+			}, nil
 		},
 	})
 
@@ -1996,19 +1987,15 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 		customComputeWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != actionID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
 
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				RestrictedConfig: values.ProtoMap(giveRegistryConfig),
-				RestrictedKeys:   []string{"maxMemoryMBs", "tickInterval", "timeout"},
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			return capabilities.CapabilityConfiguration{
+				RestrictedConfig: giveRegistryConfig,
+				RestrictedKeys: []string{"maxMemoryMBs", "tickInterval", "timeout"},
+			}, nil
 		},
 	})
 
