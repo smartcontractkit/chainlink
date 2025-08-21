@@ -24,7 +24,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
@@ -175,7 +175,7 @@ func TestEvmWrite(t *testing.T) {
 		DONID:            1,
 		DONConfigVersion: 1,
 		WorkflowID:       "1234567890123456789012345678901234567890123456789012345678901234",
-		WorkflowName:     "12345678901234567890",
+		WorkflowName:     "123456789",
 		WorkflowOwner:    "1234567890123456789012345678901234567890",
 		ReportID:         hex.EncodeToString(reportID[:]),
 	}

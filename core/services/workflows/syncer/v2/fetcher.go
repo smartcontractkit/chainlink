@@ -15,41 +15,57 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/storage"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+)
+
+var (
+	ErrNoGatewayConnector  = errors.New("failed to start fetcher service: gateway connector is not configured")
+	ErrNoStorageClient     = errors.New("failed to start fetcher service: storage client is not configured")
+	ErrEmptyStorageRequest = errors.New("storage service request must not be empty")
 )
 
 // FetcherService is a service that fetches data from the gateway using the OutgoingConnectorHandler.
-
-// TODO: CAPPL-1031 refactor to use Storage service instead of Gateway
 type FetcherService struct {
 	services.StateMachine
-	lggr         logger.Logger
-	och          *webapi.OutgoingConnectorHandler
-	wrapper      gatewayConnector
-	selectorOpts []func(*gateway.RoundRobinSelector)
+	lggr          logger.Logger
+	och           *webapi.OutgoingConnectorHandler
+	wrapper       gatewayConnector
+	selectorOpts  []func(*gateway.RoundRobinSelector)
+	storageClient storage.WorkflowClient
+}
+
+type WorkflowClient interface {
+	DownloadArtifact(ctx context.Context, req *storage_service.DownloadArtifactRequest) (*storage_service.DownloadArtifactResponse, error)
+	Close() error
 }
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, storageClient storage.WorkflowClient, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
-		lggr:         lggr.Named("FetcherService"),
-		wrapper:      wrapper,
-		selectorOpts: selectorOpts,
+		lggr:          lggr.Named("FetcherService"),
+		wrapper:       wrapper,
+		storageClient: storageClient,
+		selectorOpts:  selectorOpts,
 	}
 }
 
 func (s *FetcherService) Start(ctx context.Context) error {
 	return s.StartOnce("FetcherService", func() error {
 		if s.wrapper == nil {
-			return errors.New("failed to start fetcher service: gateway connector is not configured")
+			return ErrNoGatewayConnector
+		}
+		if s.storageClient == nil {
+			return ErrNoStorageClient
 		}
 
 		connector := s.wrapper.GetGatewayConnector()
@@ -97,6 +113,22 @@ func (s *FetcherService) Name() string {
 	return s.lggr.Name()
 }
 
+// RetrieveURL gets an ephemeral endpoint to download the given artifact from the storage service.
+func (s *FetcherService) RetrieveURL(ctx context.Context, req *storage_service.DownloadArtifactRequest) (string, error) {
+	if req == nil {
+		return "", ErrEmptyStorageRequest
+	}
+
+	storageResp, err := s.storageClient.DownloadArtifact(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	s.lggr.Debugw("received response from storage service", "ID", req.Id, "Type", req.Type, "Expiry", storageResp.Expiry)
+
+	return storageResp.GetUrl(), nil
+}
+
 // Fetch fetches the given URL and returns the response body.  n is the maximum number of bytes to
 // read from the response body.  Set n to zero to use the default size limit specified by the
 // configured gateway's http client, if any.
@@ -139,7 +171,7 @@ func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapa
 
 // NewFetcher creates a new FetcherFunc based on the provided URL configuration
 // The implementation supports both file and HTTP(S) URLs and bypasses the gateway
-func NewFetcherFunc(baseURL string, lggr logger.Logger) (artifacts.FetcherFunc, error) {
+func NewFetcherFunc(baseURL string, lggr logger.Logger) (types.FetcherFunc, error) {
 	if baseURL == "" {
 		return nil, errors.New("baseURL cannot be empty")
 	}
@@ -163,7 +195,7 @@ func NewFetcherFunc(baseURL string, lggr logger.Logger) (artifacts.FetcherFunc, 
 	}
 }
 
-func newFileFetcher(basePath string, lggr logger.Logger) artifacts.FetcherFunc {
+func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 	return func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error) {
 		select {
 		case <-ctx.Done():
@@ -200,7 +232,7 @@ func newFileFetcher(basePath string, lggr logger.Logger) artifacts.FetcherFunc {
 	}
 }
 
-func newHTTPFetcher(baseURL string, lggr logger.Logger) artifacts.FetcherFunc {
+func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}

@@ -39,7 +39,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -92,6 +91,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -342,9 +342,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var syncerFetcherFunc artifacts.FetcherFunc
+	var syncerFetcherFunc wftypes.FetcherFunc
 	for _, dep := range flagsAndDeps {
-		syncerFetcherFunc, _ = dep.(artifacts.FetcherFunc)
+		syncerFetcherFunc, _ = dep.(wftypes.FetcherFunc)
 		if syncerFetcherFunc != nil {
 			break
 		}

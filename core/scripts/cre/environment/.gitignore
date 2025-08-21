@@ -1,6 +1,7 @@
 # ctf binary artifacts
 compose/
 blockscout/
+binaries/
 
 # contract artifacts
 examples/contracts/abi
@@ -21,6 +22,9 @@ logs/
 cre.yaml
 *.state.yaml
 examples/**/*.yaml
+
+# CRE CLI secrets
+encrypted.secrets.json
 
 # dumped data
 env_artifact/

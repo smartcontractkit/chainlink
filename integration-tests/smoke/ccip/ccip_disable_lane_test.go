@@ -6,20 +6,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
@@ -53,11 +50,11 @@ func TestDisableLane(t *testing.T) {
 			out, err := testhelpers.SendRequest(
 				e,
 				state,
-				testhelpers.WithSender(deployer),
-				testhelpers.WithSourceChain(src),
-				testhelpers.WithDestChain(dest),
-				testhelpers.WithTestRouter(false),
-				testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+				ccipclient.WithSender(deployer),
+				ccipclient.WithSourceChain(src),
+				ccipclient.WithDestChain(dest),
+				ccipclient.WithTestRouter(false),
+				ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 					Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello"),
 					TokenAmounts: nil,

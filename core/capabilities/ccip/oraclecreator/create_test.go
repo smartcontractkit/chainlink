@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -102,7 +103,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		cfg,
 		types.NewRelayID(chainsel.FamilyEVM, "1"),
 		map[cciptypes.ChainSelector]cciptypes.ChainAccessor{},
-		map[cciptypes.ChainSelector]types.ContractReader{},
+		map[cciptypes.ChainSelector]contractreader.Extended{},
 		map[cciptypes.ChainSelector]types.ContractWriter{},
 		/* destChainWriter */ nil,
 		/* destFromAccounts */ nil,
@@ -136,7 +137,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	donID := uint32(1)
 	relayID := types.NewRelayID(chainsel.FamilyEVM, "1")
 	chainAccessors := map[cciptypes.ChainSelector]cciptypes.ChainAccessor{}
-	contractReaders := map[cciptypes.ChainSelector]types.ContractReader{}
+	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{}
 	chainWriters := map[cciptypes.ChainSelector]types.ContractWriter{}
 	fakeTransmitAccount := ocrtypes.Account("blahblah")
 	publicCfg := ocr3confighelper.PublicConfig{

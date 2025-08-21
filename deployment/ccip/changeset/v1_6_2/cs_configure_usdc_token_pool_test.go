@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -19,6 +20,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -193,8 +195,8 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					0: {
-						MintRecipient:    solana.PublicKey{},
-						AllowedCaller:    solana.PublicKey{},
+						MintRecipient:    "",
+						AllowedCaller:    "",
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -203,12 +205,26 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			ErrStr: "invalid destination chain selector",
 		},
 		{
+			Msg: "Solana mint recipient cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					solChain.Selector: {
+						MintRecipient:    "",
+						AllowedCaller:    callerPrivKey.PublicKey().String(),
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "invalid mint recipient format",
+		},
+		{
 			Msg: "Solana mint recipient cannot be zero address",
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
-						MintRecipient:    solana.PublicKey{},
-						AllowedCaller:    callerPrivKey.PublicKey(),
+						MintRecipient:    solana.PublicKey{}.String(),
+						AllowedCaller:    callerPrivKey.PublicKey().String(),
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -217,12 +233,26 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			ErrStr: "mint recipient must be defined for Solana destination chain selector",
 		},
 		{
+			Msg: "Solana allowed caller cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					solChain.Selector: {
+						MintRecipient:    minterPrivKey.PublicKey().String(),
+						AllowedCaller:    "",
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "invalid allowed caller format",
+		},
+		{
 			Msg: "Solana allowed caller cannot be zero address",
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
-						MintRecipient:    minterPrivKey.PublicKey(),
-						AllowedCaller:    solana.PublicKey{},
+						MintRecipient:    minterPrivKey.PublicKey().String(),
+						AllowedCaller:    solana.PublicKey{}.String(),
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -230,12 +260,38 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			},
 			ErrStr: "allowed caller must be defined for Solana destination chain selector",
 		},
+		{
+			Msg: "EVM allowed caller cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					evmChain.Selector: {
+						AllowedCaller:    "",
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "allowed caller must be defined for EVM destination chain selector",
+		},
+		{
+			Msg: "EVM allowed caller cannot be zero address",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					evmChain.Selector: {
+						AllowedCaller:    utils.ZeroAddress.String(),
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "allowed caller must be defined for EVM destination chain selector",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
 			err := test.Input.Validate(env.GetContext(), evmChain, state.Chains[evmChain.Selector])
-			require.Contains(t, err.Error(), test.ErrStr)
+			require.ErrorContains(t, err, test.ErrStr)
 		})
 	}
 }
@@ -246,17 +302,20 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 	env, selectors := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 	require.GreaterOrEqual(t, len(selectors), 1)
 
-	solChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	require.GreaterOrEqual(t, len(solChainSelectors), 1)
+	allSolChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	require.GreaterOrEqual(t, len(allSolChainSelectors), 1)
+	solChainSelectors := allSolChainSelectors[:1]
 
-	evmChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	require.GreaterOrEqual(t, len(evmChainSelectors), 1)
+	allEVMChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	require.GreaterOrEqual(t, len(allEVMChainSelectors), 2)
+	evmChainSelectors := allEVMChainSelectors[:2]
 
 	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
 	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
 	newUSDCConfigs := make(map[uint64]v1_6_2.ConfigUSDCTokenPoolInput, len(selectors))
 	addrBook := cldf.NewMemoryAddressBook()
-	dummyDomainID := uint32(0)
+	dummySolDomainID := uint32(0)
+	dummyEVMDomainID := uint32(1)
 	for _, evmSelector := range evmChainSelectors {
 		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForConfigure(t,
 			env.Logger,
@@ -284,9 +343,22 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			require.NoError(t, err)
 
 			destUpdates[solSelector] = v1_6_2.DomainUpdateInput{
-				MintRecipient:    minterPrivKey.PublicKey(),
-				AllowedCaller:    callerPrivKey.PublicKey(),
-				DomainIdentifier: dummyDomainID,
+				MintRecipient:    minterPrivKey.PublicKey().String(),
+				AllowedCaller:    callerPrivKey.PublicKey().String(),
+				DomainIdentifier: dummySolDomainID,
+				Enabled:          true,
+			}
+		}
+
+		for _, remoteEVMSelector := range evmChainSelectors {
+			if remoteEVMSelector == evmSelector {
+				continue
+			}
+
+			// Add config for EVM to EVM domain update
+			destUpdates[remoteEVMSelector] = v1_6_2.DomainUpdateInput{
+				AllowedCaller:    utils.RandomAddress().String(),
+				DomainIdentifier: dummyEVMDomainID,
 				Enabled:          true,
 			}
 		}
@@ -337,8 +409,28 @@ func TestConfigureUSDCTokenPools(t *testing.T) {
 			require.NoError(t, err)
 
 			expectedDomain := newUSDCConfigs[evmSelector].DestinationUpdates[solSelector]
-			require.Equal(t, expectedDomain.AllowedCaller.Bytes(), actualDomain.AllowedCaller[:])
-			require.Equal(t, expectedDomain.MintRecipient.Bytes(), actualDomain.MintRecipient[:])
+
+			allowedCallerAddr, err := solana.PublicKeyFromBase58(expectedDomain.AllowedCaller)
+			require.NoError(t, err)
+			mintRecipientAddr, err := solana.PublicKeyFromBase58(expectedDomain.MintRecipient)
+			require.NoError(t, err)
+			require.Equal(t, allowedCallerAddr.Bytes(), actualDomain.AllowedCaller[:])
+			require.Equal(t, mintRecipientAddr.Bytes(), actualDomain.MintRecipient[:])
+			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
+			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
+		}
+
+		for _, remoteEVMSelector := range evmChainSelectors {
+			if remoteEVMSelector == evmSelector {
+				continue
+			}
+			actualDomain, err := pools[deployment.Version1_6_2].GetDomain(nil, remoteEVMSelector)
+			require.NoError(t, err)
+
+			expectedDomain := newUSDCConfigs[evmSelector].DestinationUpdates[remoteEVMSelector]
+
+			allowedCallerAddr := common.LeftPadBytes(common.HexToAddress(expectedDomain.AllowedCaller).Bytes(), 32)
+			require.Equal(t, allowedCallerAddr, actualDomain.AllowedCaller[:])
 			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
 			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
 		}

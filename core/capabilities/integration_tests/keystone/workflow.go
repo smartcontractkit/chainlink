@@ -154,7 +154,7 @@ consensus:
         - "$(trigger.outputs)"
     config:
       report_id: "0003"  
-      key_id: "evm"	
+      key_id: "evm"
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
         targetChainSelector:
@@ -203,5 +203,6 @@ func createSecureMintWorkflowJob(t *testing.T,
 
 	spec := buf.String()
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, spec)
+	t.Logf("Generated workflow job spec: %s", spec)
 	return workflowJobSpec.Job()
 }

@@ -10,6 +10,8 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -76,9 +78,10 @@ func (r *Resolver) Chain(ctx context.Context,
 		return nil, err
 	}
 
-	// fall back to original behaviour if network is not provided
+	// fall back to EVM if network is not provided
 	if args.Network == nil {
-		id, err := loader.GetChainByID(ctx, string(args.ID))
+		relayID := types.NewRelayID(chainsel.FamilyEVM, string(args.ID))
+		id, err := loader.GetChainByRelayID(ctx, relayID.Name())
 		if err != nil {
 			if errors.Is(err, chains.ErrNotFound) {
 				return NewChainPayload(chainlink.NetworkChainStatus{}, chains.ErrNotFound), nil

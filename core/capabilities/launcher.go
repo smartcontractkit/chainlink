@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -178,11 +178,8 @@ func (w *launcher) peers(
 		if !candidatePeerDON.DON.IsPublic {
 			continue
 		}
-		filterOut := !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON)
-		if filterOut {
-			w.lggr.Debugw("candidate DON to filter out from peer list", "donID", candidatePeerDON.ID)
-			// TODO(CRE-670): Not filtering due to extremely noisy RageP2P warn logs. Uncomment when log volume is reduced.
-			// continue
+		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
+			continue
 		}
 		for _, nid := range candidatePeerDON.DON.Members {
 			allPeers[nid] = defaultStreamConfig

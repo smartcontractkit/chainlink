@@ -114,12 +114,13 @@ type AddTokenPoolAndLookupTableConfig struct {
 }
 
 type TokenPoolConfigWithMCM struct {
-	ChainSelector uint64
-	PoolType      cldf.ContractType
-	TokenPubKey   solana.PublicKey
-	Metadata      string
-	MCMS          *proposalutils.TimelockConfig
-	UpgradeConfig UpgradeConfig
+	ChainSelector   uint64
+	PoolType        cldf.ContractType
+	TokenPubKey     solana.PublicKey
+	Metadata        string
+	MCMS            *proposalutils.TimelockConfig
+	UpgradeConfig   UpgradeConfig
+	SkipValidations bool
 }
 
 func (cfg TokenPoolConfigWithMCM) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -496,6 +497,19 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 	}
+	useMcms := cfg.MCMS != nil && cfg.UpgradeConfig.UpgradeAuthority != solana.PublicKey{}
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
 
 	// If configPDA already exists, we assume the global config is already initialized
 	if _, err := chain.Client.GetAccountInfo(context.Background(), configPDA); err == nil {
@@ -512,14 +526,14 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.CCTPTokenPool:
 		// CCTP token pool should not need separate global config initialization in normal use cases. Global config is initialized in the deployment changeset.
 		cctp_token_pool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = cctp_token_pool.NewInitGlobalConfigInstruction(configPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = cctp_token_pool.NewInitGlobalConfigInstruction(configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 	default:
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
@@ -531,10 +545,6 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 
 	instructions := []solana.Instruction{initGlobalConfigIx}
 
-	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
@@ -592,10 +602,12 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 	}
 
 	// Checking that configPDA exists, so the update method will not fail
-	_, err = chain.Client.GetAccountInfo(context.Background(), configPDA)
-	if err != nil {
-		e.Logger.Infow("Global config not initialized", "configPDA", configPDA.String())
-		return cldf.ChangesetOutput{}, nil
+	if !cfg.SkipValidations {
+		_, err = chain.Client.GetAccountInfo(context.Background(), configPDA)
+		if err != nil {
+			e.Logger.Infow("Global config not initialized", "configPDA", configPDA.String())
+			return cldf.ChangesetOutput{}, nil
+		}
 	}
 
 	programData, err := getSolProgramData(e, chain, tokenPool)
@@ -603,14 +615,28 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
+	useMcms := cfg.MCMS != nil && cfg.UpgradeConfig.UpgradeAuthority != solana.PublicKey{}
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
+
 	var initGlobalConfigIx solana.Instruction
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, chain.DeployerKey.PublicKey(), tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solBurnMintTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, chain.DeployerKey.PublicKey(), tokenPool, programData.Address).ValidateAndBuild()
+		initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 	default:
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 	}
@@ -622,10 +648,6 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 
 	var txns []mcmsTypes.Transaction
 
-	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 	if cfg.UpgradeConfig.UpgradeAuthority == timelockSignerPDA {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
@@ -2314,16 +2336,17 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool configg: %w", err)
 	}
 
-	var initGlobalConfigIx solana.Instruction
+	// This operation is permisionless, so we don't need to check ownership
+	var initializeStateVersionIx solana.Instruction
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
+		initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
 			tokenPubKey,
 			poolConfig).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
 		solLockReleaseTokenPool.SetProgramID(tokenPool)
-		initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
+		initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
 			tokenPubKey,
 			poolConfig).ValidateAndBuild()
 	default:
@@ -2344,7 +2367,7 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 		cfg.Metadata,
 	)
 
-	instructions := []solana.Instruction{initGlobalConfigIx}
+	instructions := []solana.Instruction{initializeStateVersionIx}
 
 	if useMcms {
 		err := appendTxs(instructions, tokenPool, cfg.PoolType, &txns)
@@ -2438,6 +2461,18 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 		usdcToken,
 		shared.CLLMetadata,
 	)
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if useMcms {
+		// If MCMS is used, the authority is the timelock signer PDA
+		authority = timelockSignerPDA
+	} else {
+		// If MCMS is not used, the authority is the deployer key
+		authority = chain.DeployerKey.PublicKey()
+	}
 
 	statePDA, err := solTokenUtil.TokenPoolConfigAddress(usdcToken, cctpTokenPool)
 	if err != nil {
@@ -2463,7 +2498,7 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 			},
 			statePDA,
 			chainConfigPDA,
-			chain.DeployerKey.PublicKey(),
+			authority,
 		).ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
