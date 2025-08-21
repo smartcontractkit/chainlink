@@ -26,7 +26,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
@@ -247,7 +246,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
-	success := assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		triggerRequest = createHTTPTriggerRequestWithKey(t, httpConfig.WorkflowName, workflowOwnerAddress, httpConfig.SigningKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
 		if err != nil {
@@ -302,8 +301,6 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 		return true
 	}, tests.WaitTimeout(t), RetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded")
 
-	require.True(t, success, "failed to get successful response from gateway")
-
 	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
 	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
 	require.Nil(t, finalResponse.Error, "unexpected error in response: %v", finalResponse.Error)
@@ -311,11 +308,9 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
 func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorder *MockServerRecorder) {
-	success := assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		return len(recorder.GetRequests()) > 0
 	}, tests.WaitTimeout(t), RetryInterval, "workflow should have made at least one HTTP request to mock server")
-
-	require.True(t, success, "workflow did not make any HTTP requests to mock server")
 
 	recordedRequest := recorder.GetRequests()[0]
 	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
@@ -357,7 +352,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput 
 			}
 
 			startTime := time.Now()
-			success := assert.Eventually(t, func() bool {
+			require.Eventually(t, func() bool {
 				elapsed := time.Since(startTime).Round(time.Second)
 				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
 				if err != nil {
@@ -368,10 +363,6 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput 
 				// if there are no more prices to be found, we can stop waiting
 				return !priceProvider.NextPrice(feedID, price, elapsed)
 			}, config.Timeout, ValidationInterval, "feed %s did not update, timeout after: %s", feedID, config.Timeout)
-
-			if !success {
-				return fmt.Errorf("feed %s did not update within timeout %s", feedID, config.Timeout)
-			}
 
 			expected := priceProvider.ExpectedPrices(feedID)
 			actual := priceProvider.ActualPrices(feedID)
