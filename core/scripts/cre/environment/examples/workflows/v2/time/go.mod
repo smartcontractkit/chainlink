@@ -5,8 +5,8 @@ go 1.24.5
 toolchain go1.24.6
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250820140734-e7984a8ab46d
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.1-0.20250820140734-e7984a8ab46d
+	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250821154918-5c93d76162c5
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.1-0.20250821154918-5c93d76162c5
 )
 
 require (

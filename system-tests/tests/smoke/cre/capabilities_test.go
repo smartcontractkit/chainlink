@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -87,19 +88,20 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	err = json.Unmarshal(artFile, &envArtifact)
 	require.NoError(t, err, "failed to unmarshal artifact file")
 
+	t.Run("DON Time test", func(t *testing.T) {
+		executeDonTimeTest(t, in, envArtifact)
+	})
+
 	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("cron-based PoR workflow", func(t *testing.T) {
+		t.Skip("TODO: REMOVE THIS")
 		executePoRTest(t, in, envArtifact, 5*time.Minute)
 	})
 
 	t.Run("vault DON test", func(t *testing.T) {
+		t.Skip("TODO: REMOVE THIS")
 		executeVaultTest(t, in, envArtifact)
-	})
-
-	t.Run("DON Time test", func(t *testing.T) {
-		// TODO: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028
-		t.Skip()
 	})
 }
 
@@ -291,6 +293,56 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 	}
 
 	testLogger.Info().Msgf("All prices were found for all feeds")
+}
+
+func executeDonTimeTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
+	/*
+		BUILD ENVIRONMENT FROM SAVED STATE
+	*/
+	//testLogger := framework.L
+	cldLogger := cldlogger.NewSingleFileLogger(t)
+
+	fullCldEnvOutput, wrappedBlockchainOutputs, loadErr := environment.BuildFromSavedState(t.Context(), cldLogger, in, envArtifact)
+	require.NoError(t, loadErr, "failed to load environment")
+
+	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+	// TODO: We need to ensure DON Time Plugin is included...
+	// TODO: Let's assume it's running and the env includes it already
+
+	workflowName := "don-time-workflow"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time/main.go"
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+	t.Cleanup(func() {
+		wasmErr := os.Remove(compressedWorkflowWasmPath)
+		if wasmErr != nil {
+			framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
+		}
+	})
+
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		homeChainSelector,
+		keystone_changeset.WorkflowRegistry.String(),
+	)
+	require.NoError(t, workflowRegistryErr)
+
+	registerErr := creworkflow.RegisterWithContract(
+		t.Context(),
+		wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
+		workflowRegistryAddress,
+		fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		workflowName,
+		"file://"+compressedWorkflowWasmPath,
+		nil,
+		nil,
+		nil,
+	)
+	require.NoError(t, registerErr, "failed to register don-time-workflow")
+	fmt.Println("REGISTERED DON TIME WORKFLOW")
+
+	// TODO: Let's see if this is registered now ;P
+
 }
 
 func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {

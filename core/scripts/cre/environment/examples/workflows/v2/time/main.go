@@ -18,7 +18,7 @@ func main() {
 	}).Run(RunSimpleCronWorkflow)
 }
 
-func RunSimpleCronWorkflow(config None, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[None], error) {
+func RunSimpleCronWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
 	workflows := cre.Workflow[None]{
 		cre.Handler(
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
@@ -28,7 +28,7 @@ func RunSimpleCronWorkflow(config None, logger *slog.Logger, secretsProvider cre
 	return workflows, nil
 }
 
-func onTrigger(config None, runtime cre.Runtime, trigger *cron.Payload) (string, error) {
+func onTrigger(_ None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	donTime := runtime.Now()
 	runtime.Logger().Info("Requested DON Time", "donTime", donTime)
 	return "Requested DON Time", nil
