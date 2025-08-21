@@ -119,6 +119,7 @@ type eventHandler struct {
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
 	dontimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
@@ -195,6 +196,7 @@ func NewEventHandler(
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
 	dontimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	ratelimiter limits.RateLimiter,
@@ -218,6 +220,7 @@ func NewEventHandler(
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
 		dontimeStore:           dontimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		ratelimiter:            ratelimiter,
@@ -553,12 +556,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		DonTimeStore:    h.dontimeStore,
-		ExecutionsStore: h.workflowStore,
+		Lggr:                 h.lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          h.capRegistry,
+		DonTimeStore:         h.dontimeStore,
+		UseLocalTimeProvider: h.useLocalTimeProvider,
+		ExecutionsStore:      h.workflowStore,
 
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,

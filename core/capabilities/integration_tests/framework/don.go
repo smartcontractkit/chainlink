@@ -455,6 +455,7 @@ func startNewNode(ctx context.Context,
 		c.Capabilities.WorkflowRegistry.SyncStrategy = ptr(syncer.SyncStrategyReconciliation)
 		c.Feature.FeedsManager = ptr(false)
 		c.Feature.LogPoller = ptr(true)
+		c.CRE.UseLocalTimeProvider = ptr(true)
 
 		if setupCfg != nil {
 			setupCfg(c)
