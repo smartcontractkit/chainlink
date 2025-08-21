@@ -18,7 +18,6 @@ import (
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -189,7 +188,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 		for _, don := range configDONs {
 			forwarderKey := datastore.NewAddressRefKey(solForwarders[0].ChainSelector, ks_solana.ForwarderContract, solForwarders[0].Version, "test-forwarder")
-			_, err := input.CldEnv.DataStore.Addresses().Get(forwarderKey)
+			_, err = input.CldEnv.DataStore.Addresses().Get(forwarderKey)
 			if err != nil {
 				return errors.Wrap(err, "forwarder not found")
 			}
@@ -208,7 +207,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			if err != nil {
 				return errors.Wrap(err, "failed to configure sol forwarders")
 			}
-
 		}
 	}
 
@@ -474,7 +472,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := commonchangeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -494,7 +492,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := commonchangeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,

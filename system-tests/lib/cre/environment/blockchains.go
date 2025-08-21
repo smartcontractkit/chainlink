@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -26,8 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
@@ -90,7 +91,7 @@ func CreateBlockchains(
 		}
 		// handle solana here
 		if bcOut.Family == chainselectors.FamilySolana {
-			solClient := solrpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
+			solClient := rpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
 
 			// we pass selector from input, because local solana chainID is unpredictable
 			selector, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
@@ -98,7 +99,10 @@ func CreateBlockchains(
 				return nil, pkgerrors.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
 			}
 
-			cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), privKey)
+			err = cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), privKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to save private key for solana: %w", err)
+			}
 
 			blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
 				BlockchainOutput: bcOut,
@@ -199,7 +203,6 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 				SolDeployerKey: bcOut.SolChain.PrivateKey,
 				SolArtifactDir: bcOut.SolChain.ArtifactsDir,
 			})
-
 		}
 	}
 	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)

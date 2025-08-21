@@ -207,7 +207,6 @@ func BootstrapSolana(chains []*WorkerSolanaInput) string {
 		[[Solana]]
 		ChainID = '%s'
 		Enabled = true
-		TxRetentionTimeout = '5s'
 
 		[[Solana.Nodes]]
 		Name = '%s'
@@ -232,7 +231,6 @@ func WorkerSolana(chains []*WorkerSolanaInput) string {
 		ForwarderAddress = '%s'
 		FromAddress      = '%s'
 		ForwarderState   = '%s'
-		LookupTable      = '5oNDL3swdJJF1g9DzJiZ4ynHXgszjAEpUkxVYejchzrY'
 		PollPeriod = '1s'
 		AcceptanceTimeout = '25s'
 		TxAcceptanceState = 3

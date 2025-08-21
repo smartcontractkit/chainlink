@@ -815,8 +815,7 @@ type ConcurrentNonceMap struct {
 func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cre.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
-		switch bcOut.BlockchainOutput.Family {
-		case chainselectors.FamilyEVM:
+		if bcOut.BlockchainOutput.Family == chainselectors.FamilyEVM {
 			var err error
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
 			nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())

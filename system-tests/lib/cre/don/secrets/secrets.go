@@ -177,7 +177,7 @@ func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*c
 			for idx, nodeMetadata := range donMetadata.NodesMetadata {
 				nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
 					Key:   node.AddressKeyFromSelector(selector),
-					Value: string(solKeys.PublicAddresses[idx].String()),
+					Value: solKeys.PublicAddresses[idx].String(),
 				})
 			}
 		}
@@ -210,7 +210,7 @@ type ethKey struct {
 }
 
 type solKeys struct {
-	Keys []*ethKey
+	Keys []*solKey
 }
 
 type solKey struct {

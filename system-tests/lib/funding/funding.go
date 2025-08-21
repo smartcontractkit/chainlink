@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
@@ -48,7 +47,7 @@ func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
 
-func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *solrpc.Client, payload FundsToSendSol) error {
+func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client, payload FundsToSendSol) error {
 	funder := payload.PrivateKey
 	recipient := payload.Recipent
 	if recipient.IsZero() {
