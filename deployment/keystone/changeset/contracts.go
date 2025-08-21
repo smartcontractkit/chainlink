@@ -314,22 +314,10 @@ func GetOwnedContract[T Ownable](addressBook cldf.AddressBook, chain cldf_evm.Ch
 }
 
 func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
-
-	adds, err := addrs.Fetch()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch addresses: %w", err)
-	}
-	fmt.Println("⏳Total adddresses:", len(adds))
-	for _, a := range adds {
-		fmt.Println("⏳ Address before filtering:", a.Address)
-	}
-
 	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector))
 
-	fmt.Println("⏳ Searching for address:", addr)
 	var foundAddr bool
 	for _, a := range addresses {
-		fmt.Println("⏳ Comparing to address:", a.Address)
 		if addr == a.Address {
 			foundAddr = true
 			break
