@@ -61,16 +61,27 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 		if bcOut.SolChain != nil {
 			chainID, err := bcOut.SolClient.GetGenesisHash(context.Background())
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get chainID from solana")
+				return nil, errors.Wrap(err, "failed to get chainID for Solana")
+			}
+
+			// Determine write-solana enablement per chain via node-set ChainCapabilities
+			hasWrite := false
+			if input.NodeSet != nil && input.NodeSet.ChainCapabilities != nil {
+				if cc, ok := input.NodeSet.ChainCapabilities[cre.WriteSolanaCapability]; ok && cc != nil {
+					if slices.Contains(cc.EnabledSolChains, bcOut.SolChain.ChainID) {
+						hasWrite = true
+					}
+				}
 			}
 
 			workerSolInputs = append(workerSolInputs, &WorkerSolanaInput{
-				ChainSelector:        bcOut.SolChain.ChainSelector,
-				Name:                 fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
-				HasForwarderContract: !bcOut.ReadOnly,
-				ChainID:              chainID.String(),
-				NodeURL:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				ChainSelector: bcOut.SolChain.ChainSelector,
+				Name:          fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
+				ChainID:       chainID.String(),
+				NodeURL:       bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				HasWrite:      hasWrite,
 			})
+
 			continue
 		}
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
@@ -243,10 +254,9 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 		}
 		// get all sol forwarders
 		for _, wi := range workerSolInputs {
-			if !wi.HasForwarderContract {
+			if !wi.HasWrite {
 				continue
 			}
-
 			forwarders := input.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(wi.ChainSelector))
 			for _, addr := range forwarders {
 				if addr.Type == ks_sol.ForwarderState {
@@ -265,7 +275,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 					}
 				}
 				if wi.FromAddress.IsZero() {
-					return nil, errors.Errorf("failed to get from address for solchain %d", wi.ChainSelector)
+					return nil, errors.Errorf("failed to get from address for Solana chain %d", wi.ChainSelector)
 				}
 			}
 		}

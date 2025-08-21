@@ -55,13 +55,18 @@ func CreateBlockchains(
 	}
 
 	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
-	privKey, err := solana.NewRandomPrivateKey()
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to generate private key for solana")
-	}
 	for _, bi := range input.blockchainsInput {
 		var bcOut *blockchain.Output
 		var bcErr error
+		var solPrivateKey solana.PrivateKey // lazy private key, will be initialized only if Solana is present
+		isSolana := bi.Type == blockchain.FamilySolana
+
+		if isSolana {
+			solPrivateKey, _ = solana.NewRandomPrivateKey()
+			bi.PublicKey = solPrivateKey.PublicKey().String()
+			bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
+		}
+
 		if input.infra.Type == infra.CRIB {
 			if input.nixShell == nil {
 				return nil, pkgerrors.New("nix shell is nil")
@@ -82,15 +87,13 @@ func CreateBlockchains(
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
 		} else {
-			bi.PublicKey = privKey.PublicKey().String()
-			bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
 			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
 			if bcErr != nil {
 				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
 			}
 		}
 		// handle solana here
-		if bcOut.Family == chainselectors.FamilySolana {
+		if isSolana {
 			solClient := rpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
 
 			// we pass selector from input, because local solana chainID is unpredictable
@@ -99,7 +102,7 @@ func CreateBlockchains(
 				return nil, pkgerrors.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
 			}
 
-			err = cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), privKey)
+			err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), solPrivateKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to save private key for solana: %w", err)
 			}
@@ -110,7 +113,7 @@ func CreateBlockchains(
 				SolChain: &cre.SolChain{
 					ChainSelector: selector,
 					ChainID:       bi.ChainID,
-					PrivateKey:    privKey,
+					PrivateKey:    solPrivateKey,
 					ArtifactsDir:  bi.ContractsDir,
 				},
 			})

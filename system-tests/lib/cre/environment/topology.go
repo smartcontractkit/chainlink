@@ -24,7 +24,7 @@ func BuildTopology(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
-	chainIDs []int,
+	evmChainIDs []int,
 	solChainIDs []string,
 	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
@@ -56,7 +56,7 @@ func BuildTopology(
 	}
 
 	generateKeysInput := &cre.GenerateKeysInput{
-		GenerateEVMKeysForChainIDs: chainIDs,
+		GenerateEVMKeysForChainIDs: evmChainIDs,
 		GenerateSolKeysForChainIDs: solChainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,

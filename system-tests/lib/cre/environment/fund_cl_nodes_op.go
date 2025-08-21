@@ -62,7 +62,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 						if bcOut.SolChain != nil {
 							funder := bcOut.SolChain.PrivateKey
 							recipient := solana.MustPublicKeyFromBase58(node.AccountAddr[bcOut.SolChain.ChainID])
-
+							deps.Env.Logger.Debugf("attempt to fund solana account %s", recipient.String())
 							err := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
 								Recipent:   recipient,
 								PrivateKey: funder,
@@ -71,6 +71,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 							if err != nil {
 								return fmt.Errorf("failed to fund sol node: %w", err)
 							}
+							deps.Env.Logger.Debug("succesfully funded solana account %s", recipient.String())
 							return nil
 						}
 
@@ -79,6 +80,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 							return nil
 						}
 
+						deps.Env.Logger.Debugf("attempt to fund evm account %s", nodeAddress)
 						nonce := concurrentNonceMap.Increment(bcOut.ChainID)
 
 						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
@@ -90,6 +92,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 						if fundingErr != nil {
 							return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
 						}
+						deps.Env.Logger.Debugf("succesfully funded evm account %s", nodeAddress)
 						return nil
 					})
 				}

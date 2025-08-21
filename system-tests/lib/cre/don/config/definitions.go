@@ -190,14 +190,14 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringDa
 }
 
 type WorkerSolanaInput struct {
-	Name                 string
-	ChainID              string
-	ChainSelector        uint64
-	NodeURL              string
-	FromAddress          solana.PublicKey
-	ForwarderAddress     string
-	ForwarderState       string
-	HasForwarderContract bool
+	Name             string
+	ChainID          string
+	ChainSelector    uint64
+	NodeURL          string
+	FromAddress      solana.PublicKey
+	ForwarderAddress string
+	ForwarderState   string
+	HasWrite         bool
 }
 
 func BootstrapSolana(chains []*WorkerSolanaInput) string {

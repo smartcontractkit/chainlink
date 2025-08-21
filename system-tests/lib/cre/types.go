@@ -194,7 +194,6 @@ type WrappedBlockchainOutput struct {
 	SethClient         *seth.Client
 	SolClient          *solrpc.Client
 	DeployerPrivateKey string
-	ReadOnly           bool
 	SolChain           *SolChain
 }
 
@@ -490,8 +489,9 @@ type OCRPeeringData struct {
 // - capability = ["1337", "2337"]
 // - capability = { enabled_chains=["1337","2337"], chain_overrides={"1337"={ ... }} }
 type ChainCapabilityConfig struct {
-	EnabledChains  []uint64                  `toml:"-"`
-	ChainOverrides map[uint64]map[string]any `toml:"-"`
+	EnabledChains    []uint64                  `toml:"-"`
+	EnabledSolChains []string                  `toml:"-"`
+	ChainOverrides   map[uint64]map[string]any `toml:"-"`
 }
 
 // ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the CapabilitiesAwareNodeSet.

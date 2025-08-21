@@ -41,6 +41,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
@@ -287,7 +288,7 @@ func SetupTestEnvironment(
 			},
 			ks_sol_seq.DeployForwarderSeqInput{
 				ChainSel:    sel,
-				ProgramName: "keystone_forwarder",
+				ProgramName: deployment.KeystoneForwarderProgramName,
 			},
 		)
 		if err != nil {
@@ -297,7 +298,7 @@ func SetupTestEnvironment(
 			Address:       out.Output.ProgramID.String(),
 			ChainSelector: sel,
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     "test-forwarder",
+			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderContract,
 		})
 		if err != nil {
@@ -308,7 +309,7 @@ func SetupTestEnvironment(
 			Address:       out.Output.State.String(),
 			ChainSelector: sel,
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     "test-forwarder",
+			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderState,
 		})
 
@@ -316,7 +317,7 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore")
 		}
 
-		testLogger.Info().Msgf("Deployed Forwarder contract on sol chain chain %d programID: %s state: %s", sel, out.Output.ProgramID.String(), out.Output.State.String())
+		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain chain %d programID: %s state: %s", sel, out.Output.ProgramID.String(), out.Output.State.String())
 	}
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
@@ -331,9 +332,7 @@ func SetupTestEnvironment(
 
 	wfRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
 	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
-	for _, forwarderSelector := range evmForwardersSelectors {
-		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, libcontracts.MustFindAddressesForChain(allChainsCLDEnvironment.ExistingAddresses, forwarderSelector, keystone_changeset.KeystoneForwarder.String())) //nolint:staticcheck // won't migrate now
-	}
+
 	capRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
 
@@ -365,9 +364,9 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, forwarderAddr)
 	}
 	for _, forwarderSelector := range solForwardersSelectors {
-		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", "test-forwarder")
-		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", "test-forwarder")
-		testLogger.Info().Msgf("Deployed Forwarder contract on solana chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
+		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
+		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
 	}
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
