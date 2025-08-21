@@ -13,7 +13,6 @@ type TONChainAccessorFactory struct{}
 
 // NewChainAccessor creates a new chain accessor to be used for TON chains.
 func (f TONChainAccessorFactory) NewChainAccessor(params common.ChainAccessorFactoryParams) (ccipocr3.ChainAccessor, error) {
-	// TODO(NONEVM-1460): Return TONAccessor from the chainlink-ton repo. This should not be called yet since TON is
 	p, e := params.Relayer.NewCCIPProvider(context.Background(), types.RelayArgs{})
 	if e != nil {
 		return nil, e

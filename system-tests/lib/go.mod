@@ -4,7 +4,7 @@ go 1.24.4
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.23.2-por-beta.1.0.20250815005857-7e8d0fe020a8
+require github.com/smartcontractkit/chainlink/v2 v2.23.2-por-beta.1.0.20250815210725-a8797a246179
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
