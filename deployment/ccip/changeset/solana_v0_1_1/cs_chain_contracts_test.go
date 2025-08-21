@@ -319,6 +319,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 
 	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	evmChain2 := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
@@ -365,16 +366,25 @@ func doTestBilling(t *testing.T, mcms bool) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
 			ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
-				ChainSelector:       solChain,
-				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress,
-				Config: solFeeQuoter.TokenTransferFeeConfig{
-					MinFeeUsdcents:    800,
-					MaxFeeUsdcents:    1600,
-					DeciBps:           0,
-					DestGasOverhead:   100,
-					DestBytesOverhead: 100,
-					IsEnabled:         true,
+				ChainSelector: solChain,
+				TokenPubKey:   tokenAddress,
+				RemoteChainConfigs: map[uint64]solFeeQuoter.TokenTransferFeeConfig{
+					evmChain: {
+						MinFeeUsdcents:    800,
+						MaxFeeUsdcents:    1600,
+						DeciBps:           0,
+						DestGasOverhead:   100,
+						DestBytesOverhead: 100,
+						IsEnabled:         true,
+					},
+					evmChain2: {
+						MinFeeUsdcents:    300,
+						MaxFeeUsdcents:    400,
+						DeciBps:           0,
+						DestGasOverhead:   200,
+						DestBytesOverhead: 200,
+						IsEnabled:         true,
+					},
 				},
 				MCMS: mcmsConfig,
 			},

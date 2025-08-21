@@ -22,7 +22,7 @@ tools/clroot/*.log
 tools/clroot/tempkeys
 
 core/sgx/target/
-core/scripts/cre/*
+core/scripts/cre/
 
 core/*.Dockerfile
 chainlink

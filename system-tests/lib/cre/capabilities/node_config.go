@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
 func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) error {
@@ -50,31 +49,29 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, don
 	if !hasCapabilitiesBinaries {
 		for capabilityFlag, binaryPath := range customBinariesPaths {
 			if binaryPath == "" {
-				return nil, fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
+				return nil, fmt.Errorf("binary path for capability %s is empty. Make sure you have set the binary path in the TOML config", capabilityFlag)
 			}
 
-			if flags.HasFlag(donMetadata.Flags, capabilityFlag) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
-					Key:   libnode.NodeTypeKey,
-					Value: cre.WorkerNode,
-				}, libnode.EqualLabels)
-				if wErr != nil {
-					return nil, errors.Wrap(wErr, "failed to find worker nodes")
+			workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
+				Key:   libnode.NodeTypeKey,
+				Value: cre.WorkerNode,
+			}, libnode.EqualLabels)
+			if wErr != nil {
+				return nil, errors.Wrap(wErr, "failed to find worker nodes")
+			}
+
+			for _, node := range workerNodes {
+				nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
+				if nErr != nil {
+					return nil, errors.Wrap(nErr, "failed to find index label")
 				}
 
-				for _, node := range workerNodes {
-					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-					if nErr != nil {
-						return nil, errors.Wrap(nErr, "failed to find index label")
-					}
-
-					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-					if nIErr != nil {
-						return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
-					}
-
-					nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, binaryPath)
+				nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
+				if nIErr != nil {
+					return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 				}
+
+				nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, binaryPath)
 			}
 		}
 	}
