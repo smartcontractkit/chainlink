@@ -111,6 +111,7 @@ func deployWorkflowCmd() *cobra.Command {
 		workflowFilePathFlag            string
 		configFilePathFlag              string
 		secretsFilePathFlag             string
+		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
 		workflowNameFlag                string
@@ -146,8 +147,19 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}()
 
-			if err := isBase64File(workflowFilePathFlag); err != nil {
-				return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, use the 'compile-deploy' command instead")
+			if !compileWorkflowFlag {
+				if err := isBase64File(workflowFilePathFlag); err != nil {
+					return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, add '--compile' flag to the command instead")
+				}
+			}
+
+			if compileWorkflowFlag {
+				compiledWorkflowPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+				if compileErr != nil {
+					return errors.Wrap(compileErr, "❌ failed to compile workflow")
+				}
+
+				workflowFilePathFlag = compiledWorkflowPath
 			}
 
 			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, deleteWorkflowFileFlag)
@@ -169,6 +181,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Delete the workflow file after deployment")
+	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compile the workflow before deploying it")
 
 	if err := cmd.MarkFlagRequired("wasm-file-path"); err != nil {
 		panic(err)
@@ -194,10 +207,15 @@ func compileDeployWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "compile-deploy",
-		Short: "Compiles and uploads a workflow to the environment",
-		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		Use:    "compile-deploy",
+		Short:  "DEPRECATED: Use 'cre local workflow deploy --compile' instead",
+		Long:   `DEPRECATED: Use 'cre local workflow deploy --compile' instead`,
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'cre local workflow deploy --compile' instead\033[0m\n")
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+
 			initDxTracker()
 			var regErr error
 
