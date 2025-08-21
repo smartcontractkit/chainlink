@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -274,18 +274,18 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-	var createSecretsRequests CreateSecretsRequest
+	var createSecretsRequests vaultcommon.CreateSecretsRequest
 	if err := json.Unmarshal(*ar.req.Params, &createSecretsRequests); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
-	if createSecretsRequests.RequestID == "" {
+	if createSecretsRequests.RequestId == "" {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request_id cannot be empty")))
 	}
 	if len(createSecretsRequests.EncryptedSecrets) == 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have atleast 1 request")))
 	}
 	for index, secret := range createSecretsRequests.EncryptedSecrets {
-		if secret.ID.Key == "" || secret.EncryptedValue == "" || secret.ID.Owner == "" {
+		if secret.Id.Key == "" || secret.EncryptedValue == "" || secret.Id.Owner == "" {
 			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key, owner and EncryptedValue cannot be empty on index "+strconv.Itoa(index))))
 		}
 	}
@@ -310,7 +310,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	req := &vault.UpdateSecretsRequest{}
+	req := &vaultcommon.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
@@ -344,14 +344,16 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 
 func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-	var secretsGetRequest GetSecretsRequest
+	var secretsGetRequest vaultcommon.GetSecretsRequest
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if secretsGetRequest.ID == "" || secretsGetRequest.Owner == "" {
-		l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	for index, request := range secretsGetRequest.Requests {
+		if request.Id.Key == "" || request.Id.Owner == "" {
+			l.Debugw("invalid request parameters: secret id and owner cannot be empty")
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index " + strconv.Itoa(index))))
+		}
 	}
 
 	// At this point, we know that the request is valid and we can send it to the nodes

@@ -27,6 +27,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -313,15 +314,15 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	framework.L.Info().Msg("Creating secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsCreateRequest := jsonrpc.Request[vaultapi.CreateSecretsRequest]{
+	secretsCreateRequest := jsonrpc.Request[vaultcommon.CreateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaultapi.MethodSecretsCreate,
-		Params: &vaultapi.CreateSecretsRequest{
-			RequestID: uniqueRequestID,
-			EncryptedSecrets: []vaultapi.EncryptedSecret{
+		Params: &vaultcommon.CreateSecretsRequest{
+			RequestId: uniqueRequestID,
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
-					ID: vaultapi.SecretIdentifier{
+					Id: &vaultcommon.SecretIdentifier{
 						Key:   secretID,
 						Owner: owner,
 						// Namespace: "main", // Uncomment if you want to use namespaces
@@ -376,12 +377,18 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
 	uniqueRequestID := uuid.New().String()
 	framework.L.Info().Msg("Getting secret...")
-	secretsGetRequest := jsonrpc.Request[vaultapi.GetSecretsRequest]{
+	secretsGetRequest := jsonrpc.Request[vaultcommon.GetSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		Method:  vaultapi.MethodSecretsGet,
-		Params: &vaultapi.GetSecretsRequest{
-			ID:    secretID,
-			Owner: owner,
+		Params: &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   secretID,
+						Owner: owner,
+					},
+				},
+			},
 		},
 		ID: uniqueRequestID,
 	}
@@ -408,7 +415,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking getResponse structure...")
-	var getResponse jsonrpc.Response[vaultapi.SecretsGetResponse]
+	var getResponse jsonrpc.Response[vaultcommon.GetSecretsResponse]
 	err = json.Unmarshal(body, &getResponse)
 	require.NoError(t, err, "failed to unmarshal getResponse")
 	framework.L.Info().Msgf("getResponse Body: %v", getResponse)
@@ -422,9 +429,11 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	require.Equal(t, jsonrpc.JsonRpcVersion, getResponse.Version)
 	// require.Equal(t, uniqueRequestID, getResponse.ID)
 
-	require.Empty(t, result.Error)
-	require.Equal(t, secretID, result.SecretID.Key)
-	require.Equal(t, owner, result.SecretID.Owner)
+	require.Len(t, result.Responses, 1, "Expected one secret in the response")
+	result0 := result.GetResponses()[0]
+	require.Empty(t, result0.GetError())
+	require.Equal(t, secretID, result0.GetId().Key)
+	require.Equal(t, owner, result0.GetId().Owner)
 
 	framework.L.Info().Msg("Secret get successful")
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -119,24 +118,11 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 }
 
 func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
-	var request vaultapi.CreateSecretsRequest
-	if err := json.Unmarshal(*req.Params, &request); err != nil {
+	vaultCapRequest := vaultcommon.CreateSecretsRequest{}
+	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
-	h.lggr.Infof("Debugging: handleSecretsCreate 1 %s: %v", gatewayID, req)
-	vaultCapRequest := vaultcommon.CreateSecretsRequest{
-		RequestId: request.RequestID,
-	}
-	for _, encryptedSecret := range request.EncryptedSecrets {
-		vaultCapRequest.EncryptedSecrets = append(vaultCapRequest.EncryptedSecrets, &vaultcommon.EncryptedSecret{
-			Id: &vaultcommon.SecretIdentifier{
-				Owner:     encryptedSecret.ID.Owner,
-				Namespace: encryptedSecret.ID.Namespace,
-				Key:       encryptedSecret.ID.Key,
-			},
-			EncryptedValue: encryptedSecret.EncryptedValue,
-		})
-	}
+
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
@@ -150,12 +136,12 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 }
 
 func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
-	r := &vaultcommon.UpdateSecretsRequest{}
-	if err := json.Unmarshal(*req.Params, r); err != nil {
+	vaultCapRequest := vaultcommon.UpdateSecretsRequest{}
+	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
-	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, r)
+	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
@@ -168,7 +154,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 }
 
 func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
-	var request vaultapi.GetSecretsRequest
+	var request vaultcommon.GetSecretsRequest
 	if err := json.Unmarshal(*req.Params, &request); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
@@ -181,9 +167,9 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	for _, reqItem := range request.Requests {
 		getSecretsRequest.Requests = append(getSecretsRequest.Requests, &vaultcommon.SecretRequest{
 			Id: &vaultcommon.SecretIdentifier{
-				Owner:     reqItem.ID.Owner,
-				Namespace: reqItem.ID.Namespace,
-				Key:       reqItem.ID.Key,
+				Owner:     reqItem.Id.Owner,
+				Namespace: reqItem.Id.Namespace,
+				Key:       reqItem.Id.Key,
 			},
 			EncryptionKeys: encryptionKeys,
 		})
@@ -198,38 +184,8 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
-	if len(vaultResponseProto.GetResponses()) != 1 {
-		return h.errorResponse(ctx, gatewayID, req, api.FatalError, errors.New("unexpected number of responses in CreateSecretsResponse: expected 1, got "+strconv.Itoa(len(vaultResponseProto.GetResponses()))))
-	}
-	secretResponse := vaultResponseProto.GetResponses()[0]
-	vaultAPIResponse := vaultapi.SecretsGetResponse{
-		SecretID: vaultapi.SecretIdentifier{
-			Key:       secretResponse.Id.GetKey(),
-			Namespace: secretResponse.Id.GetNamespace(),
-			Owner:     secretResponse.Id.GetOwner(),
-		},
-	}
 
-	switch method := secretResponse.Result.(type) {
-	case *vaultcommon.SecretResponse_Data:
-		vaultAPIResponse.SecretValue = vaultapi.SecretData{
-			EncryptedValue:               method.Data.GetEncryptedValue(),
-			EncryptedDecryptionKeyShares: make([]*vaultapi.EncryptedShares, 0, len(method.Data.GetEncryptedDecryptionKeyShares())),
-		}
-		for _, decryptionShare := range method.Data.GetEncryptedDecryptionKeyShares() {
-			encryptedShare := vaultapi.EncryptedShares{
-				EncryptionKey: decryptionShare.GetEncryptionKey(),
-				Shares:        make([]string, 0, len(decryptionShare.Shares)),
-			}
-			encryptedShare.Shares = append(encryptedShare.Shares, decryptionShare.GetShares()...)
-
-			vaultAPIResponse.SecretValue.EncryptedDecryptionKeyShares = append(vaultAPIResponse.SecretValue.EncryptedDecryptionKeyShares, &encryptedShare)
-		}
-	case *vaultcommon.SecretResponse_Error:
-		vaultAPIResponse.Error = method.Error
-	}
-
-	vaultAPIResponseBytes, err := json.Marshal(vaultAPIResponse)
+	vaultAPIResponseBytes, err := json.Marshal(vaultResponseProto)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
@@ -286,24 +242,14 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 }
 
 func toJSONResponse(vaultCapResponse *Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
-	vaultResponse := &vaultapi.ResponseBase{
-		ID:    vaultCapResponse.ID,
-		Error: vaultCapResponse.Error,
-		Response: vaultapi.SignedResponse{
-			Payload:    vaultCapResponse.Payload,
-			Context:    vaultCapResponse.Context,
-			Signatures: vaultCapResponse.Signatures,
-		},
-	}
-
-	vaultResponseBytes, err := json.Marshal(vaultResponse)
+	vaultResponseBytes, err := json.Marshal(vaultCapResponse)
 	if err != nil {
 		return nil, errors.New("failed to marshal vault capability response: " + err.Error())
 	}
 	vaultResponseJSON := json.RawMessage(vaultResponseBytes)
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
-		ID:      vaultResponse.ID,
+		ID:      vaultCapResponse.ID,
 		Method:  method,
 		Result:  &vaultResponseJSON,
 	}, nil

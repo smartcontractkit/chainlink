@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	core_mocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	vaultCap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -34,7 +34,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		{
 			name: "success - create secrets",
 			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
-				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vault.CreateSecretsRequest) bool {
+				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret"
 				})).Return(&vaultCap.Response{ID: "test-secret"}, nil)
@@ -47,11 +47,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vaultapi.CreateSecretsRequest{
-						RequestID: "test-request-id",
-						EncryptedSecrets: []vaultapi.EncryptedSecret{
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						RequestId: "test-request-id",
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 							{
-								ID: vaultapi.SecretIdentifier{
+								Id: &vaultcommon.SecretIdentifier{
 									Key: "test-secret",
 								},
 								EncryptedValue: "encrypted-value",
@@ -78,11 +78,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vaultapi.CreateSecretsRequest{
-						RequestID: "test-request-id",
-						EncryptedSecrets: []vaultapi.EncryptedSecret{
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						RequestId: "test-request-id",
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 							{
-								ID: vaultapi.SecretIdentifier{
+								Id: &vaultcommon.SecretIdentifier{
 									Key: "test-secret",
 								},
 								EncryptedValue: "encrypted-value",
