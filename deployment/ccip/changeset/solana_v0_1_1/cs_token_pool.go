@@ -114,12 +114,13 @@ type AddTokenPoolAndLookupTableConfig struct {
 }
 
 type TokenPoolConfigWithMCM struct {
-	ChainSelector uint64
-	PoolType      cldf.ContractType
-	TokenPubKey   solana.PublicKey
-	Metadata      string
-	MCMS          *proposalutils.TimelockConfig
-	UpgradeConfig UpgradeConfig
+	ChainSelector   uint64
+	PoolType        cldf.ContractType
+	TokenPubKey     solana.PublicKey
+	Metadata        string
+	MCMS            *proposalutils.TimelockConfig
+	UpgradeConfig   UpgradeConfig
+	SkipValidations bool
 }
 
 func (cfg TokenPoolConfigWithMCM) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -601,10 +602,12 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 	}
 
 	// Checking that configPDA exists, so the update method will not fail
-	_, err = chain.Client.GetAccountInfo(context.Background(), configPDA)
-	if err != nil {
-		e.Logger.Infow("Global config not initialized", "configPDA", configPDA.String())
-		return cldf.ChangesetOutput{}, nil
+	if !cfg.SkipValidations {
+		_, err = chain.Client.GetAccountInfo(context.Background(), configPDA)
+		if err != nil {
+			e.Logger.Infow("Global config not initialized", "configPDA", configPDA.String())
+			return cldf.ChangesetOutput{}, nil
+		}
 	}
 
 	programData, err := getSolProgramData(e, chain, tokenPool)

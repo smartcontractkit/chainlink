@@ -10,7 +10,6 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -117,13 +116,13 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 						Outgoing: cre.Outgoing{
 							Path: "/node",
-							Port: config.GatewayOutgoingPort,
+							Port: GatewayOutgoingPort,
 							Host: gatewayInternalHost,
 						},
 						Incoming: cre.Incoming{
 							Protocol:     "http",
 							Path:         "/",
-							InternalPort: config.GatewayIncomingPort,
+							InternalPort: GatewayIncomingPort,
 							ExternalPort: ExternalGatewayPort(infraInput),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
@@ -161,7 +160,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 
 func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.CapabilityFlag) bool {
 	for _, don := range donMetadata {
-		if slices.Contains(don.Flags, capability) {
+		if flags.HasFlagForAnyChain(don.Flags, capability) {
 			return true
 		}
 	}
@@ -169,11 +168,17 @@ func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.Capabili
 	return false
 }
 
-func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
+func NodeNeedsAnyGateway(nodeFlags []cre.CapabilityFlag) bool {
 	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability) ||
 		flags.HasFlag(nodeFlags, cre.VaultCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPActionCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPTriggerCapability)
+}
+
+func NodeNeedsWebAPIGateway(nodeFlags []cre.CapabilityFlag) bool {
+	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
 }
