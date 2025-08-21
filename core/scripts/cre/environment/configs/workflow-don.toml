@@ -32,29 +32,27 @@
 #  folder_location = "/absolute/path/to/crib/deployments/cre"
 #  provider = "kind"  # or "aws"
 
-[extra_capabilities]
-# uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
-# these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
-# cron_capability_binary_path = "./cron"
-# consensus_capability_binary_path = "./consensus"
-# log_event_trigger_binary_path = "./logtrigger"
-# read_contract_capability_binary_path = "./readcontract"
-# evm_capability_binary_path = "./evm"
-# http_trigger_capability_binary_path = "./http_trigger"
-# http_action_capability_binary_path = "./http_action"
-
-# capabilities_configs.evm.<chain_id> section is used to configure EVM capability per chain_id only when
-# the evm_capability_binary_path is present in [extra_capabilities] section
-# if not present, the job for the EVM capability will pick the default values
-#[capabilities_configs.evm."1337"]
-#  logTriggerPollInterval = "1s"   # default "1s"
-#  receiverGasMinimum = "1"        # default "1"
-
 [[nodesets]]
   nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
   override_mode = "each"
   http_port_range_start = 10100
-  name = "workflow"
+
+  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
+  bootstrap_node_index = 0
+  # added for visiblity, required always, when don_types include "gateway"
+  gateway_node_index = 0
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+
+  # Enable capabilities per chain with optional per-chain overrides
+  [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -86,8 +84,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -112,8 +108,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -138,8 +132,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -164,8 +156,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
@@ -190,5 +180,3 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""

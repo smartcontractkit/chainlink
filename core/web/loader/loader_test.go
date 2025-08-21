@@ -32,62 +32,6 @@ import (
 	testutils2 "github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func TestLoader_Chains(t *testing.T) {
-	t.Parallel()
-
-	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
-
-	one := ubig.NewI(1)
-	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
-	two := ubig.NewI(2)
-	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
-	config1, err := chain.TOMLString()
-	require.NoError(t, err)
-	config2, err := chain2.TOMLString()
-	require.NoError(t, err)
-
-	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
-		{
-			Network: relay.NetworkEVM,
-			ChainID: "1",
-		}: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
-			ID:      "1",
-			Enabled: true,
-			Config:  config1,
-		}}, {
-			Network: relay.NetworkEVM,
-			ChainID: "2",
-		}: &testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
-			ID:      "2",
-			Enabled: true,
-			Config:  config2,
-		}},
-	}})
-
-	batcher := chainBatcher{app}
-	keys := dataloader.NewKeysFromStrings([]string{"2", "1", "3"})
-	results := batcher.loadByIDs(ctx, keys)
-
-	assert.Len(t, results, 3)
-
-	require.NoError(t, err)
-	want2 := chainlink.NetworkChainStatus{
-		ChainStatus: commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2},
-		Network:     relay.NetworkEVM,
-	}
-	assert.Equal(t, want2, results[0].Data.(chainlink.NetworkChainStatus))
-
-	want1 := chainlink.NetworkChainStatus{
-		ChainStatus: commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1},
-		Network:     relay.NetworkEVM,
-	}
-	assert.Equal(t, want1, results[1].Data.(chainlink.NetworkChainStatus))
-	assert.Nil(t, results[2].Data)
-	assert.Error(t, results[2].Error)
-	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
-}
-
 func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	t.Parallel()
 

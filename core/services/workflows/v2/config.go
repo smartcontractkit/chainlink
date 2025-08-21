@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
