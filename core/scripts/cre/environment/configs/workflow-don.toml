@@ -9,6 +9,12 @@
   chain_id = "2337"
   port = "8546"
   docker_cmd_params = ["-b", "5"]
+[[blockchains]]
+  chain_id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+  port = "8550"
+  type = "solana"
+  contracts_dir = "../tests/smoke/cre/solana_contracts"
+
 
 [jd]
   # change to your version
@@ -46,8 +52,8 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
-
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "write-solana"]
+  supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
   # Enable capabilities per chain with optional per-chain overrides
   [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]
@@ -129,7 +135,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
@@ -152,7 +157,6 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-
   [[nodesets.node_specs]]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."

@@ -282,6 +282,11 @@ func copyCapabilityAwareNodeSets(
 			maps.Copy(newNs.ChainCapabilities, originalNs.ChainCapabilities)
 		}
 
+		if originalNs.SupportedSolChains != nil {
+			newNs.SupportedSolChains = make([]string, len(originalNs.SupportedSolChains))
+			copy(newNs.SupportedSolChains, originalNs.SupportedSolChains)
+		}
+
 		copiedNodeSets[i] = newNs
 	}
 
