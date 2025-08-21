@@ -468,7 +468,7 @@ type CapabilitiesAwareNodeSet struct {
 	// Example: [nodesets.capability_overrides.web-api-target] GlobalRPS = 2000.0
 	CapabilityOverrides map[string]map[string]any `toml:"capability_overrides"`
 
-	SupportedSolChains []string // sol chain IDs that the DON supports
+	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
 	ComputedCapabilities []string `toml:"-"`
 }
@@ -610,6 +610,9 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
+		if bc.Type == blockchain.FamilySolana {
+			continue
+		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
 		if convErr != nil {
 			return errors.Wrapf(convErr, "failed to convert chain ID %s to uint64", bc.ChainID)

@@ -97,7 +97,6 @@ func GenerateSecrets(input *cre.GenerateSecretsInput) (cre.NodeIndexToSecretsOve
 		}
 
 		overrides[i] = string(nodeSecretString)
-		fmt.Println("secret override:", overrides[i])
 	}
 
 	return overrides, nil

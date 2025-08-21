@@ -200,6 +200,24 @@ type WorkerSolanaInput struct {
 	HasForwarderContract bool
 }
 
+func BootstrapSolana(chains []*WorkerSolanaInput) string {
+	var ret string
+	for _, chain := range chains {
+		ret += fmt.Sprintf(`
+		[[Solana]]
+		ChainID = '%s'
+		Enabled = true
+		TxRetentionTimeout = '5s'
+
+		[[Solana.Nodes]]
+		Name = '%s'
+		URL = '%s'
+		`, chain.ChainID, chain.Name, chain.NodeURL)
+	}
+
+	return ret
+}
+
 func WorkerSolana(chains []*WorkerSolanaInput) string {
 	var ret string
 	for _, chain := range chains {

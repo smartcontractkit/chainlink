@@ -367,7 +367,7 @@ func SetupTestEnvironment(
 	for _, forwarderSelector := range solForwardersSelectors {
 		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", "test-forwarder")
 		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", "test-forwarder")
-		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
+		testLogger.Info().Msgf("Deployed Forwarder contract on solana chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
 	}
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
