@@ -201,7 +201,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 				continue
 			}
 			commitmentABI := abi.Arguments{
-				{Type: bytes32Type}, // RequestID
+				{Type: bytes32Type}, // RequestId
 				{Type: addressType}, // Coordinator
 				{Type: uint96Type},  // EstimatedTotalCostJuels
 				{Type: addressType}, // Client

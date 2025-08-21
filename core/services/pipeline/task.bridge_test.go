@@ -865,7 +865,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
-	require.Contains(t, result.Error.Error(), "RequestID")
+	require.Contains(t, result.Error.Error(), "RequestId: 1f0c3b2e-4d8f-4a5b-9c6d-7e8f9a0b1c2d")
 	require.Nil(t, result.Value)
 }
 

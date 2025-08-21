@@ -129,6 +129,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	}
 
 	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
+	vaultCapResponse.ToJSONRPCResult()
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}

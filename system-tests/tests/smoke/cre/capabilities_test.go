@@ -31,6 +31,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
@@ -300,7 +301,7 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 
 func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
 	// Skip till we figure out and fix the issues with environment startup on this test
-	t.Skip()
+	// t.Skip()
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
@@ -377,7 +378,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking createResponse structure...")
-	var createResponse jsonrpc.Response[json.RawMessage]
+	var createResponse jsonrpc.Response[vaultcap.Response]
 	err = json.Unmarshal(body, &createResponse)
 	require.NoError(t, err, "failed to unmarshal createResponse")
 	framework.L.Info().Msgf("createResponse Body: %v", createResponse)
