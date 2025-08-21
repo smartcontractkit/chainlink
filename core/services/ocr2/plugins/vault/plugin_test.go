@@ -45,9 +45,9 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
 	assert.Equal(t, 1024, info.Limits.MaxQueryLength)
-	assert.Equal(t, 1024, info.Limits.MaxObservationLength)
+	assert.Equal(t, 102400, info.Limits.MaxObservationLength)
 	assert.Equal(t, 1024, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 1024, info.Limits.MaxReportLength)
+	assert.Equal(t, 409600, info.Limits.MaxReportLength)
 	assert.Equal(t, 10, info.Limits.MaxReportCount)
 	assert.Equal(t, 1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
 	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)

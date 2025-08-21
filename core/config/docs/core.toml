@@ -815,6 +815,8 @@ EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
+# LogStreamingEnabled enables log streaming to the OTel log exporter
+LogStreamingEnabled = false # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]
