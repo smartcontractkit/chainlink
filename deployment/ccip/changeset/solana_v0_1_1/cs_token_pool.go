@@ -2563,9 +2563,8 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 		key := acct.String()
 		if _, exists := acctSet[key]; exists {
 			return fmt.Errorf("field 'Accounts' has 1 or more duplicate public keys: %s", key)
-		} else {
-			acctSet[key] = true
 		}
+		acctSet[key] = true
 	}
 
 	solChain, exist := e.BlockChains.SolanaChains()[cfg.ChainSelector]
@@ -2668,7 +2667,7 @@ func ExtendTokenPoolLookupTable(e cldf.Environment, cfg ExtendTokenPoolLookupTab
 
 	// Displays the new LUT or fallbacks to displaying the newly added accounts if an error occurs
 	if lutEntries, err := solCommonUtil.GetAddressLookupTable(ctx, solChain.Client, lutPublKey); err != nil {
-		e.Logger.Warnf("could not display full LUT due to error - showing only newly added entries instead: %w", err)
+		e.Logger.Warnf("could not display full LUT due to error - showing only newly added entries instead: %v", err)
 		e.Logger.Infof(
 			"Lookup table at address '%s' was successfully extended with %d accounts: [ %s ]",
 			lutPublKey.String(),
