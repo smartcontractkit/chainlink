@@ -3,12 +3,14 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-func RunSimpleCronWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}], error) {
+func RunSimpleCronWorkflow(_ struct{}, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[struct{}], error) {
 	cfg := &cron.Config{
 		Schedule: "*/3 * * * * *", // every 3 seconds
 	}
@@ -21,8 +23,8 @@ func RunSimpleCronWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}]
 	}, nil
 }
 
-func onTrigger(env *cre.Environment[struct{}], runtime cre.Runtime, outputs *cron.Payload) (string, error) {
-	env.Logger.Info("inside onTrigger handler")
+func onTrigger(config struct{}, runtime cre.Runtime, outputs *cron.Payload) (string, error) {
+	runtime.Logger().Info("inside onTrigger handler")
 	return "success!", nil
 }
 

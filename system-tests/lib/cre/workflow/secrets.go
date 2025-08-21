@@ -42,9 +42,6 @@ func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryA
 	}
 
 	defer encryptedSecretsFile.Close()
-	defer func() {
-		_ = os.Remove(encryptedSecretsFilePath)
-	}()
 
 	encoder := json.NewEncoder(encryptedSecretsFile)
 	if encoderErr := encoder.Encode(encryptSecrets); encoderErr != nil {

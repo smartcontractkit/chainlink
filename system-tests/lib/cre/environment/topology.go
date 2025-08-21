@@ -2,6 +2,7 @@ package environment
 
 import (
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/pkg/errors"
@@ -10,10 +11,11 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -24,8 +26,9 @@ func BuildTopology(
 	chainIDs []int,
 	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
-	configFactoryFunctions []cre.ConfigFactoryFn,
-	customBinariesPaths map[cre.CapabilityFlag]string,
+	capabilities []cre.InstallableCapability,
+	capabilityConfigs cre.CapabilityConfigs,
+	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
@@ -100,6 +103,11 @@ func BuildTopology(
 			return nil, nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
+		configFactoryFunctions := make([]cre.NodeConfigFn, 0)
+		for _, capability := range capabilities {
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigFn())
+		}
+
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
@@ -112,6 +120,8 @@ func BuildTopology(
 					AddressBook:             addressBook,
 					HomeChainSelector:       topology.HomeChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
+					NodeSet:                 localNodeSets[i],
+					CapabilityConfigs:       capabilityConfigs,
 				},
 				configFactoryFunctions,
 			)
@@ -151,13 +161,24 @@ func BuildTopology(
 			}
 		}
 
-		executableErr := libcaps.MakeBinariesExecutable(customBinariesPaths)
+		if !copyCapabilityBinaries {
+			continue
+		}
+
+		customBinariesPaths := make(map[cre.CapabilityFlag]string)
+		for flag, config := range capabilityConfigs {
+			if creflags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
+				customBinariesPaths[flag] = config.BinaryPath
+			}
+		}
+
+		executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
 		if executableErr != nil {
 			return nil, nil, errors.Wrap(executableErr, "failed to make binaries executable")
 		}
 
 		var appendErr error
-		localNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
+		localNodeSets[i], appendErr = crecapabilities.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
 		if appendErr != nil {
 			return nil, nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}
@@ -226,6 +247,11 @@ func copyCapabilityAwareNodeSets(
 			copy(newNs.Capabilities, originalNs.Capabilities)
 		}
 
+		if originalNs.ComputedCapabilities != nil {
+			newNs.ComputedCapabilities = make([]string, len(originalNs.ComputedCapabilities))
+			copy(newNs.ComputedCapabilities, originalNs.ComputedCapabilities)
+		}
+
 		if originalNs.DONTypes != nil {
 			newNs.DONTypes = make([]string, len(originalNs.DONTypes))
 			copy(newNs.DONTypes, originalNs.DONTypes)
@@ -238,9 +264,12 @@ func copyCapabilityAwareNodeSets(
 
 		if originalNs.EnvVars != nil {
 			newNs.EnvVars = make(map[string]string, len(originalNs.EnvVars))
-			for k, v := range originalNs.EnvVars {
-				newNs.EnvVars[k] = v
-			}
+			maps.Copy(newNs.EnvVars, originalNs.EnvVars)
+		}
+
+		if originalNs.ChainCapabilities != nil {
+			newNs.ChainCapabilities = make(map[string]*cre.ChainCapabilityConfig, len(originalNs.ChainCapabilities))
+			maps.Copy(newNs.ChainCapabilities, originalNs.ChainCapabilities)
 		}
 
 		copiedNodeSets[i] = newNs

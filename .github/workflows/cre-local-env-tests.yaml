@@ -146,6 +146,9 @@ jobs:
           DISABLE_DX_TRACKING: "true"
           CI: "false" # TODO: remove this after checking execution time
         run: |
+          # hack to make sure we can start the env, we won't use that file anyway
+          mkdir ./binaries
+          touch ./binaries/cron
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds

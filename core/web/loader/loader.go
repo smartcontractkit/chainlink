@@ -14,7 +14,6 @@ type loadersKey struct{}
 type Dataloader struct {
 	app chainlink.Application
 
-	ChainsByIDLoader                          *dataloader.Loader
 	ChainsByRelayIDLoader                     *dataloader.Loader
 	EthTxAttemptsByEthTxIDLoader              *dataloader.Loader
 	FeedsManagersByIDLoader                   *dataloader.Loader
@@ -45,7 +44,6 @@ func New(app chainlink.Application) *Dataloader {
 	return &Dataloader{
 		app: app,
 
-		ChainsByIDLoader:                          dataloader.NewBatchedLoader(chains.loadByIDs),
 		ChainsByRelayIDLoader:                     dataloader.NewBatchedLoader(chains.loadByRelayIDs),
 		EthTxAttemptsByEthTxIDLoader:              dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
 		FeedsManagersByIDLoader:                   dataloader.NewBatchedLoader(mgrs.loadByIDs),

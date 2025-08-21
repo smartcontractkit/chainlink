@@ -19,14 +19,14 @@ import (
 
 type Transmitter struct {
 	lggr        logger.Logger
-	store       *requests.Store[*Request]
+	handler     *requests.Handler[*Request, *Response]
 	fromAccount types.Account
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount types.Account, store *requests.Store[*Request]) *Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*Request, *Response]) *Transmitter {
 	return &Transmitter{
 		lggr:        lggr.Named("VaultTransmitter"),
-		store:       store,
+		handler:     handler,
 		fromAccount: fromAccount,
 	}
 }
@@ -68,11 +68,6 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		return fmt.Errorf("could not extract report info: %w", err)
 	}
 
-	req := c.store.Get(info.Id)
-	if req == nil {
-		return fmt.Errorf("request with ID %s not found", info.Id)
-	}
-
 	// Convert the sequence number to the epoch + round number.
 	// We convert as follows:
 	// - epoch = seqNr
@@ -88,7 +83,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
-	req.SendResponse(ctx, &Response{
+	c.handler.SendResponse(ctx, &Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,
 		Format:     info.Format.String(),

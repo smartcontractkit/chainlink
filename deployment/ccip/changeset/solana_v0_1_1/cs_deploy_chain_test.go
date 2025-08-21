@@ -35,7 +35,7 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
+	ShaV0_1_0 = "d1f5f0be212a94abe514fd3bb1baf13af25c3b61"
 	ShaV0_1_1 = "7f8a0f403c3acbf740fa6d50d71bfb80a8b12ab8"
 )
 
@@ -266,7 +266,6 @@ func TestUpgrade(t *testing.T) {
 					NewAccessControllerVersion:     &deployment.Version1_1_0,
 					NewTimelockVersion:             &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -323,7 +322,6 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
-					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -369,6 +367,23 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
+	// test closing the old buffers
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
+			ccipChangesetSolana.CloseBuffersConfig{
+				ChainSelector: solChainSelectors[0],
+				Buffers: []string{
+					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata].String(),
+					state.SolChains[solChainSelectors[0]].Router.String(),
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
 	require.NoError(t, err)
 }
 
