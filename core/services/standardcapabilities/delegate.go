@@ -121,7 +121,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	// Enable signing and decryption for the capability, if available.
 	var ks core.Keystore
-	var account = &core.StandardCapabilityAccount
 	var decrypter core.Decrypter = nil
 	var signer crypto.Signer = nil
 	if d.ks.Workflow() != nil {
@@ -140,7 +139,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 		signer = p2pKey
 	}
-	ks, err := core.NewSignerDecrypter(account, signer, decrypter)
+	ks, err := core.NewSignerDecrypter(core.StandardCapabilityAccount, signer, decrypter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create signer decrypter: %w", err)
 	}

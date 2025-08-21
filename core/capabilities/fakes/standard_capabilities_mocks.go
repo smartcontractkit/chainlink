@@ -38,6 +38,9 @@ func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err err
 func (k *KeystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
+func (k *KeystoreMock) Decrypt(ctx context.Context, account string, ctxt []byte) (decrypted []byte, err error) {
+	return nil, nil
+}
 
 type ErrorLogMock struct{}
 
