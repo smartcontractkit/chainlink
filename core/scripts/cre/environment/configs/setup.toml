@@ -1,0 +1,36 @@
+[general]
+aws_profile = "sdlc"
+min_gh_cli_version = "v2.50.0"
+ctf_version = "0.10.3"
+
+[job_distributor.build_config]
+repository = "https://github.com/smartcontractkit/job-distributor"
+branch = "v0.12.7"
+dockerfile = "e2e/Dockerfile.e2e"
+docker_ctx = "."
+local_image = "job-distributor:0.12.7"
+
+[job_distributor.pull_config]
+local_image = "job-distributor:0.12.7"
+ecr_image = "{{.ECR}}/job-distributor:0.12.7"
+
+[chip_ingress.build_config]
+repository = "https://github.com/smartcontractkit/atlas"
+branch = "cre-workshop"
+dockerfile = "chip-ingress/Dockerfile"
+docker_ctx = "chip-ingress"
+local_image = "chip-ingress:local-cre"
+pre_run = "pushd chip-ingress && go mod vendor && popd"
+
+[chip_ingress.pull_config]
+local_image = "chip-ingress:local-cre"
+ecr_image = "{{.ECR}}/atlas-chip-ingress:qa-latest"
+
+[capabilities]
+target_path = "./binaries"
+
+[[capabilities.repositories]]
+repository = "https://github.com/smartcontractkit/capabilities"
+branch = "main"
+build_command = "pnpm install && ./nx run-many -t build"
+artifacts_dir = "./bin/amd64"

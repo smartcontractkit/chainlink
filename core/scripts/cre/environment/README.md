@@ -7,6 +7,7 @@ Slack: #topic-local-dev-environments
 
 1. [Using the CLI](#using-the-cli)
    - [Prerequisites](#prerequisites-for-docker)
+   - [Setup](#setup)
    - [Start Environment](#start-environment)
     - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
     - [Beholder](#beholder)
@@ -81,6 +82,14 @@ AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
 If you are missing requirements, you may need to fix the errors and re-run.
 
 Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOijQ-R-5BIZrTdAaumlquQVZ48/edit?tab=t.0#heading=h.wqgcsrk9ncjs) for troubleshooting and FAQ. Use `#topic-local-dev-environments` for help.
+
+## Setup
+
+Environment can be setup by running `go run . env setup` inside `fdf` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+- you have AWS CLI installed and configured
+- you have GH CLI installed and authenticated
+- you have required Job Distributor and Chip Ingress (Beholder) images
+- build and copy all capability binaries to expected location
 
 ## Start Environment
 ```bash
