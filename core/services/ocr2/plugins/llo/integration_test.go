@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -1466,7 +1465,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		cnts := map[string]int{}
 		// transmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
-		stopOnce := sync.Once{}
 
 		for pckt := range packets {
 			pr, ok := peer.FromContext(pckt.ctx)
@@ -1493,17 +1491,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 			}
 			if finished >= nNodes {
-				stopOnce.Do(func() {
-					// Stop all nodes, close the channel
-					// This helps transmissions have a chance to complete (but
-					// doesn't ensure it; libocr cancels the transmit context
-					// immediately on stop signal)
-					// Loop will exit once all packets are consumed
-					for _, node := range nodes {
-						require.NoError(t, node.App.Stop())
-					}
-					close(packets)
-				})
+				for _, node := range nodes {
+					//nolint:testifylint // need assert to ensure we don't leak nodes
+					assert.NoError(t, node.App.Stop())
+				}
+				defer close(packets)
+				break
 			}
 		}
 

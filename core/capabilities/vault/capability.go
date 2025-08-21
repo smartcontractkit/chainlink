@@ -17,13 +17,12 @@ import (
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
-var _ SecretsService = (*Capability)(nil)
 
 const maxBatchSize = 10
 
 type Capability struct {
-	clock        clockwork.Clock
 	lggr         logger.Logger
+	clock        clockwork.Clock
 	expiresAfter time.Duration
 	handler      *requests.Handler[*Request, *Response]
 }

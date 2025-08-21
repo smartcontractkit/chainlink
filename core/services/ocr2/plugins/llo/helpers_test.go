@@ -98,9 +98,13 @@ func NewMercuryServer(t *testing.T, csaSigner crypto.Signer, packetsCh chan *pac
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
-	s.packetsCh <- &packet{
+	select {
+	case s.packetsCh <- &packet{
 		req: req,
 		ctx: ctx,
+	}:
+
+	default:
 	}
 
 	return &rpc.TransmitResponse{
