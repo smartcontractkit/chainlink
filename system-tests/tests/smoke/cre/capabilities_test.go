@@ -379,11 +379,6 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	framework.L.Info().Msgf("SecretsCreateResponse: %s", string(result))
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, createResponse.Version)
-	// require.Equal(t, uniqueRequestID, createResponse.ID)
-
-	// require.Empty(t, result.Error)
-	// assert.Equal(t, secretID, result.SecretID.Key)
-	// assert.Equal(t, owner, result.SecretID.Owner)
 
 	framework.L.Info().Msg("Secret created successfully")
 }
@@ -435,7 +430,6 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	framework.L.Info().Msgf("SecretsGetResponse: %s", result)
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, getResponse.Version)
-	// require.Equal(t, uniqueRequestID, getResponse.ID)
 
 	require.Empty(t, result.Error)
 	require.Equal(t, secretID, result.SecretID.Key)
