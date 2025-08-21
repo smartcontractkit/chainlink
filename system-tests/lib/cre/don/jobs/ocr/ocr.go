@@ -124,7 +124,10 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
 		}
 
-		chainIDs := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
+		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get enabled chains %w", err)
+		}
 
 		for _, chainIDUint64 := range chainIDs {
 			chainIDStr := strconv.FormatUint(chainIDUint64, 10)
@@ -276,7 +279,7 @@ type JobConfigGenerator = func(logger zerolog.Logger, chainID uint64, nodeAddres
 type CapabilityEnabler func(nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
+type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) ([]uint64, error)
 
 // ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
 type ContractNamer func(chainID uint64) string
