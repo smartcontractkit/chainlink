@@ -49,16 +49,15 @@ func Download(ctx context.Context, url string) ([]byte, error) {
 	}
 }
 
-func FetchWorkflow(ctx context.Context, url string) ([]byte, error) {
+func DownloadAndDecodeBase64(ctx context.Context, url string) ([]byte, error) {
 	data, err := Download(ctx, url)
 	if err != nil {
 		return nil, err
 	}
-	// try base64 for backward compatibility
+
 	decoded, err := base64.StdEncoding.DecodeString(string(data))
-	if err != nil && strings.Contains(err.Error(), "illegal base64 data") {
-		// If the input is not valid base64, return the original data
-		return data, nil
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64 content: %w", err)
 	}
 
 	return decoded, nil
