@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
@@ -321,6 +322,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var billingClient metering.BillingClient
 
+	signer, CSAPubKey, err := keystore.BuildNodeAuth(ctx, csaKeystore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build node auth: %w", err)
+	}
+	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(signer, CSAPubKey)
+
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
@@ -329,6 +336,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if opts.Config.Billing().TLSEnabled() {
 			workflowOpts = append(workflowOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
+
+		workflowOpts = append(workflowOpts, billing.WithJWTGenerator(jwtGenerator))
 
 		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL(), workflowOpts...)
 		if err != nil {
@@ -345,6 +354,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
+
+		workflowOpts = append(workflowOpts, storage.WithJWTGenerator(jwtGenerator))
 
 		storageClient, err = storage.NewWorkflowClient(globalLogger, opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
 		if err != nil {
