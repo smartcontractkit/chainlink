@@ -4,7 +4,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -49,10 +48,10 @@ func FindPeeringData(donTopologies *cre.Topology) (cre.CapabilitiesPeeringData, 
 	return cre.CapabilitiesPeeringData{
 			GlobalBootstraperPeerID: globalBootstraperPeerID,
 			GlobalBootstraperHost:   globalBootstraperHost,
-			Port:                    config.CapabilitiesPeeringPort,
+			Port:                    CapabilitiesPeeringPort,
 		}, cre.OCRPeeringData{
 			OCRBootstraperPeerID: globalBootstraperPeerID,
 			OCRBootstraperHost:   globalBootstraperHost,
-			Port:                 config.OCRPeeringPort,
+			Port:                 OCRPeeringPort,
 		}, nil
 }

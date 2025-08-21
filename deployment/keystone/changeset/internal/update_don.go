@@ -34,8 +34,22 @@ type UpdateDonRequest struct {
 	Chain                cldf_evm.Chain
 	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
-	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
-	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
+	// P2PIDs are the peer ids that compose the don
+	P2PIDs            []p2pkey.PeerID
+	CapabilityConfigs []CapabilityConfig
+
+	// DonID to update
+	// If omitted, the don will be inferred from the P2P keys
+	// If the update request intended to change the nodes in the don, the DonID must be specified
+	DonID int
+
+	// F is the fault tolerance level
+	// if omitted, the existing value fetched from the registry is used
+	F uint8
+
+	// IsPrivate indicates whether the DON is public or private
+	// If omitted, the existing value fetched from the registry is used
+	IsPrivate bool
 
 	UseMCMS bool
 }
@@ -79,16 +93,24 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 	}
 
 	registry := req.CapabilitiesRegistry
-	getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Dons: %w", err)
-	}
+	var don kcr.CapabilitiesRegistryDONInfo
+	var err error
+	if req.DonID != 0 {
+		don, err = registry.GetDON(&bind.CallOpts{}, uint32(req.DonID)) //nolint:gosec // G115
+		if err != nil {
+			return nil, fmt.Errorf("failed to get DON %d: %w", req.DonID, err)
+		}
+	} else {
+		getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Dons: %w", err)
+		}
 
-	don, err := lookupDonByPeerIDs(getDonsResp, req.P2PIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
+		don, err = lookupDonByPeerIDs(getDonsResp, req.P2PIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
+		}
 	}
-
 	if don.AcceptsWorkflows {
 		// TODO: CRE-277 ensure forwarders are support the next DON version
 		// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
@@ -105,7 +127,19 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 	if req.UseMCMS {
 		txOpts = cldf.SimTransactOpts()
 	}
-	tx, err := registry.UpdateDON(txOpts, don.Id, don.NodeP2PIds, cfgs, don.IsPublic, don.F)
+	f := req.F
+	if f == 0 {
+		f = don.F
+	}
+	// this is implement as such to maintain backwards compatibility; the default (omitted) value of a bool is false
+	var isPublic bool
+	if req.IsPrivate {
+		isPublic = false
+	} else {
+		isPublic = don.IsPublic
+	}
+
+	tx, err := registry.UpdateDON(txOpts, don.Id, PeerIDsToBytes(req.P2PIDs), cfgs, isPublic, f)
 	if err != nil {
 		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
@@ -197,9 +231,9 @@ func verboseDonNotFound(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pk
 		Want       []p2pkey.PeerID
 		Got        []p2pkey.PeerID
 	}
-	debugIds := make([]debugDonInfo, len(donResp))
+	debugIDs := make([]debugDonInfo, len(donResp))
 	for i, di := range donResp {
-		debugIds[i] = debugDonInfo{
+		debugIDs[i] = debugDonInfo{
 			OnchainID:  di.Id,
 			P2PIDsHash: SortedHash(di.NodeP2PIds),
 			Want:       wanted,
@@ -207,9 +241,9 @@ func verboseDonNotFound(donResp []kcr.CapabilitiesRegistryDONInfo, wanted []p2pk
 		}
 	}
 	wantedID := SortedHash(PeerIDsToBytes(wanted))
-	b, err2 := json.Marshal(debugIds)
+	b, err2 := json.Marshal(debugIDs)
 	if err2 == nil {
 		return fmt.Errorf("don not found by p2pIDs %s in %s", wantedID, b)
 	}
-	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIds)
+	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIDs)
 }

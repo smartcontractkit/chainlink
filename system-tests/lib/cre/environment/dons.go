@@ -48,7 +48,7 @@ func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cre.Topology,
 		nodeSetOutput = append(nodeSetOutput, &cre.WrappedNodeOutput{
 			Output:       nodeset,
 			NodeSetName:  nodeSetInput.Name,
-			Capabilities: nodeSetInput.Capabilities,
+			Capabilities: nodeSetInput.ComputedCapabilities,
 		})
 	}
 

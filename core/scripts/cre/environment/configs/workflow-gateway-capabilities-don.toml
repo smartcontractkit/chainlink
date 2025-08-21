@@ -32,21 +32,27 @@
 #  folder_location = "/absolute/path/to/crib/deployments/cre"
 #  provider = "kind"  # or "aws"
 
-[extra_capabilities]
-# these default paths assume that binaries are placed in core/scripts/cre/environment/ folder
-# cron_capability_binary_path = "./cron"
-# consensus_capability_binary_path = "./consensus"
-# log_event_trigger_binary_path = "./logtrigger"
-# read_contract_capability_binary_path = "./readcontract"
-# evm_capability_binary_path = "./evm"
-# http_trigger_capability_binary_path = "./http_trigger"
-# http_action_capability_binary_path = "./http_action"
-
 [[nodesets]]
   nodes = 5
+  name = "workflow"
+  don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
-  name = "workflow"
+
+  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
+  bootstrap_node_index = 0
+  # added for visiblity, required always, when don_types include "gateway"
+  gateway_node_index = -1
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron"]
+
+  [nodesets.chain_capabilities]
+    # we want to write only to the home chain, so that we can test whether remote write-evm-2337 capability of the 'capabilities DON' is used
+    write-evm = ["1337"]
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -74,14 +80,24 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 2
+  name = "capabilities"
+  don_types = ["capabilities"]
   override_mode = "all"
   http_port_range_start = 10200
-  name = "capabilities"
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  # there's no bootstrap node in this nodeset
+  bootstrap_node_index = -1
+  gateway_node_index = -1
+
+  capabilities = ["web-api-target", "vault"]
+
+  [nodesets.chain_capabilities]
+  write-evm = ["1337", "2337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -109,14 +125,19 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""
 
 [[nodesets]]
   nodes = 1
+  name = "gateway"
+  don_types = ["gateway"]
   override_mode = "each"
   http_port_range_start = 10300
-  name = "gateway"
+
+  # there's no bootstrap node in this nodeset
+  bootstrap_node_index = -1
+  gateway_node_index = 0
+
+  env_vars = { CL_EVM_CMD = "" }
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -147,5 +168,3 @@
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
-      [nodesets.node_specs.node.env_vars]
-      CL_EVM_CMD=""

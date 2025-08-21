@@ -3,6 +3,9 @@ package cre
 import (
 	"fmt"
 	"os"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -37,15 +40,15 @@ const (
 
 // Capabilities
 const (
-	OCR3Capability          CapabilityFlag = "ocr3"
-	ConsensusCapability     CapabilityFlag = "consensus" // v2
+	ConsensusCapability     CapabilityFlag = "ocr3"
+	ConsensusCapabilityV2   CapabilityFlag = "consensus" // v2
 	CronCapability          CapabilityFlag = "cron"
 	EVMCapability           CapabilityFlag = "evm"
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
 	ReadContractCapability  CapabilityFlag = "read-contract"
-	LogTriggerCapability    CapabilityFlag = "log-trigger"
+	LogTriggerCapability    CapabilityFlag = "log-event-trigger"
 	WebAPITargetCapability  CapabilityFlag = "web-api-target"
 	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
 	MockCapability          CapabilityFlag = "mock"
@@ -54,6 +57,10 @@ const (
 	HTTPActionCapability    CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
+
+type CapabilityFlagsProvider interface {
+	SupportedCapabilityFlags() []CapabilityFlag
+}
 
 type NodeType = string
 
@@ -71,6 +78,15 @@ type DonsToJobSpecs = map[uint64]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
+
+type CapabilityConfigs = map[string]CapabilityConfig
+
+type CapabilityConfig struct {
+	BinaryPath   string         `toml:"binary_path"`
+	Config       map[string]any `toml:"config"`
+	Chains       []string       `toml:"chains"`
+	ChainConfigs map[string]any `toml:"chain_configs"`
+}
 
 type WorkflowRegistryInput struct {
 	ContractAddress common.Address          `toml:"_"`
@@ -168,18 +184,12 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-type WrappedBlockchainInput struct {
-	blockchain.Input
-	ReadOnly bool `toml:"read_only"`
-}
-
 type WrappedBlockchainOutput struct {
 	ChainSelector      uint64
 	ChainID            uint64
 	BlockchainOutput   *blockchain.Output
 	SethClient         *seth.Client
 	DeployerPrivateKey string
-	ReadOnly           bool
 }
 
 type CreateJobsInput struct {
@@ -249,15 +259,19 @@ type ConfigureKeystoneInput struct {
 	ChainSelector uint64
 	Topology      *Topology
 	CldEnv        *cldf.Environment
+	NodeSets      []*CapabilitiesAwareNodeSet
 
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address
 
+	DONTimeConfig  keystone_changeset.OracleConfig
+	DONTimeAddress *common.Address
+
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
 
-	EVMOCR3Config  keystone_changeset.OracleConfig
-	EVMOCR3Address *common.Address
+	EVMOCR3Config    keystone_changeset.OracleConfig
+	EVMOCR3Addresses *map[uint64]common.Address
 
 	ConsensusV2OCR3Config  keystone_changeset.OracleConfig
 	ConsensusV2OCR3Address *common.Address
@@ -274,6 +288,9 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	}
 	if len(c.Topology.DonsMetadata) == 0 {
 		return errors.New("meta dons not set")
+	}
+	if len(c.NodeSets) != len(c.Topology.DonsMetadata) {
+		return errors.New("node sets and don metadata must have the same length")
 	}
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
@@ -317,7 +334,10 @@ type Incoming struct {
 	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
 
-type ConfigFactoryFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
+type NodeConfigFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
+
+type HandlerTypeToConfig = map[string]string
+type GatewayHandlerConfigFn = func(donMetadata *DonMetadata) (HandlerTypeToConfig, error)
 
 type GenerateConfigsInput struct {
 	DonMetadata             *DonMetadata
@@ -327,6 +347,8 @@ type GenerateConfigsInput struct {
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
 	AddressBook             cldf.AddressBook
+	NodeSet                 *CapabilitiesAwareNodeSet
+	CapabilityConfigs       CapabilityConfigs
 	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
@@ -413,12 +435,25 @@ type DonTopology struct {
 
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
-	Capabilities       []string
-	DONTypes           []string
-	SupportedChains    []uint64          // chain IDs that the DON supports, empty means all chains
-	BootstrapNodeIndex int               // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
-	GatewayNodeIndex   int               // -1 -> no gateway, only used if the DON has the GatewayDON flag
-	EnvVars            map[string]string // additional environment variables to be set on each node
+	Capabilities         []string          `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
+	DONTypes             []string          `toml:"don_types"`
+	SupportedChains      []uint64          `toml:"supported_chains"`     // chain IDs that the DON supports, empty means all chains
+	BootstrapNodeIndex   int               `toml:"bootstrap_node_index"` // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
+	GatewayNodeIndex     int               `toml:"gateway_node_index"`   // -1 -> no gateway, only used if the DON has the GatewayDON flag
+	EnvVars              map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
+	RawChainCapabilities any               `toml:"chain_capabilities"`
+	// ChainCapabilities allows enabling capabilities per chain with optional per-chain overrides.
+	// Example syntaxes accepted per capability key:
+	//   evm = ["1337", "2337"]
+	//   evm = { enabled_chains = ["1337", "2337"], chain_overrides = { "1337" = { ReceiverGasMinimum = 1000 } } }
+	ChainCapabilities map[string]*ChainCapabilityConfig `toml:"-"`
+
+	// CapabilityOverrides allows overriding global capability configuration per DON.
+	// Example: [nodesets.capability_overrides.web-api-target] GlobalRPS = 2000.0
+	CapabilityOverrides map[string]map[string]any `toml:"capability_overrides"`
+
+	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
+	ComputedCapabilities []string `toml:"-"`
 }
 
 type CapabilitiesPeeringData struct {
@@ -431,6 +466,149 @@ type OCRPeeringData struct {
 	OCRBootstraperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"`
 	OCRBootstraperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`
 	Port                 int    `toml:"port" json:"port"`
+}
+
+// ChainCapabilityConfig is a universal, static envelope for per-capability configuration.
+// It supports both simple and complex TOML syntaxes via UnmarshalTOML:
+// - capability = ["1337", "2337"]
+// - capability = { enabled_chains=["1337","2337"], chain_overrides={"1337"={ ... }} }
+type ChainCapabilityConfig struct {
+	EnabledChains  []uint64                  `toml:"-"`
+	ChainOverrides map[uint64]map[string]any `toml:"-"`
+}
+
+// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the CapabilitiesAwareNodeSet.
+// This allows us to handle the flexible chain_capabilities syntax without a complex custom unmarshaler.
+func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
+	c.ChainCapabilities = make(map[string]*ChainCapabilityConfig)
+	c.ComputedCapabilities = append(c.ComputedCapabilities, c.Capabilities...)
+
+	if c.RawChainCapabilities == nil {
+		return nil
+	}
+
+	capMap, ok := c.RawChainCapabilities.(map[string]any)
+	if !ok {
+		return fmt.Errorf("chain_capabilities must be a map, but got %T", c.RawChainCapabilities)
+	}
+
+	var parseChainID = func(v any) (uint64, error) {
+		var chainID uint64
+		var err error
+
+		switch t := v.(type) {
+		case string:
+			trimmed := strings.TrimSpace(t)
+			if trimmed == "" {
+				return 0, errors.New("chain id cannot be empty")
+			}
+			chainID, err = strconv.ParseUint(trimmed, 10, 64)
+			if err != nil {
+				return 0, fmt.Errorf("invalid chain id string '%s': %w", trimmed, err)
+			}
+		case int64:
+			if t < 0 {
+				return 0, fmt.Errorf("chain id cannot be negative: %d", t)
+			}
+			chainID = uint64(t)
+		case int:
+			if t < 0 {
+				return 0, fmt.Errorf("chain id cannot be negative: %d", t)
+			}
+			chainID = uint64(t)
+		case uint64:
+			chainID = t
+		default:
+			return 0, fmt.Errorf("invalid chain id type: %T. Supported types are string, int64, int, uint64", v)
+		}
+
+		if chainID == 0 {
+			return 0, errors.New("chain id cannot be zero")
+		}
+
+		return chainID, nil
+	}
+
+	for capName, capValue := range capMap {
+		config := &ChainCapabilityConfig{}
+		computedCapabilities := []string{}
+
+		switch v := capValue.(type) {
+		case []any:
+			// Handle array syntax: capability = ["1337", "2337"]
+			for _, chainIDVal := range v {
+				chainID, err := parseChainID(chainIDVal)
+				if err != nil {
+					return errors.Wrapf(err, "invalid chain ID in %s", capName)
+				}
+				config.EnabledChains = append(config.EnabledChains, chainID)
+				computedCapabilities = append(computedCapabilities, capName+"-"+strconv.FormatUint(chainID, 10))
+			}
+		case map[string]any:
+			// Handle map syntax: capability = { enabled_chains = [...], chain_overrides = {...} }
+			if enabledChainsVal, ok := v["enabled_chains"]; ok {
+				enabledChains, ok := enabledChainsVal.([]any)
+				if !ok {
+					return fmt.Errorf("enabled_chains must be an array in %s", capName)
+				}
+				for _, chainIDVal := range enabledChains {
+					chainID, err := parseChainID(chainIDVal)
+					if err != nil {
+						return errors.Wrapf(err, "invalid chain ID in %s.enabled_chains", capName)
+					}
+					config.EnabledChains = append(config.EnabledChains, chainID)
+					computedCapabilities = append(computedCapabilities, capName+"-"+strconv.FormatUint(chainID, 10))
+				}
+			}
+
+			if chainOverridesVal, ok := v["chain_overrides"]; ok {
+				chainOverrides, ok := chainOverridesVal.(map[string]any)
+				if !ok {
+					return errors.Errorf("chain_overrides must be a map in %s", capName)
+				}
+				config.ChainOverrides = make(map[uint64]map[string]any)
+				for chainIDStr, overrides := range chainOverrides {
+					chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
+					if err != nil {
+						return errors.Wrapf(err, "invalid chain ID key %s in %s.chain_overrides", chainIDStr, capName)
+					}
+
+					if _, ok := overrides.(map[string]any); !ok {
+						return errors.Errorf("chain override for %d in %s must be a map", chainID, capName)
+					}
+					config.ChainOverrides[chainID] = overrides.(map[string]any)
+				}
+			}
+		default:
+			return fmt.Errorf("unsupported chain capability format for %s: %T", capName, capValue)
+		}
+
+		c.ChainCapabilities[capName] = config
+		c.ComputedCapabilities = append(c.ComputedCapabilities, computedCapabilities...)
+	}
+
+	return nil
+}
+
+func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
+	knownChains := []uint64{}
+	for _, bc := range bcInput {
+		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
+		if convErr != nil {
+			return errors.Wrapf(convErr, "failed to convert chain ID %s to uint64", bc.ChainID)
+		}
+		knownChains = append(knownChains, chainIDUint64)
+	}
+
+	for capName, chain := range c.ChainCapabilities {
+		for _, chainID := range chain.EnabledChains {
+			if !slices.Contains(knownChains, chainID) {
+				return fmt.Errorf("capability %s is enabled for chain %d, but chain %d is not present in the environment. Make sure you have added it to '[[blockchains]] table'", capName, chainID, chainID)
+			}
+		}
+	}
+
+	return nil
 }
 
 type GenerateKeysInput struct {
@@ -646,14 +824,17 @@ func (s *StartNixShellInput) Validate() error {
 	return nil
 }
 
-type DONCapabilityWithConfigFactoryFn = func(donFlags []CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
-type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string, error)
-type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
+type CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
+type JobSpecFn = func(input *JobSpecInput) (DonsToJobSpecs, error)
 
-type JobSpecFactoryInput struct {
-	CldEnvironment   *cldf.Environment
-	BlockchainOutput *blockchain.Output
-	DonTopology      *DonTopology
+type JobSpecInput struct {
+	CldEnvironment            *cldf.Environment
+	BlockchainOutput          *blockchain.Output
+	DonTopology               *DonTopology
+	InfraInput                *infra.Input
+	CapabilityConfigs         map[string]CapabilityConfig
+	Capabilities              []InstallableCapability
+	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
 }
 
 type ManageWorkflowWithCRECLIInput struct {
@@ -706,4 +887,30 @@ func (w *ManageWorkflowWithCRECLIInput) Validate() error {
 	}
 
 	return nil
+}
+
+// InstallableCapability defines the interface for capabilities that can be dynamically
+// registered and deployed across DONs. This interface enables plug-and-play capability
+// extension without modifying core infrastructure code.
+type InstallableCapability interface {
+	// Flag returns the unique identifier used in TOML configurations and internal references
+	Flag() CapabilityFlag
+
+	// JobSpecFn returns a function that generates job specifications for this capability
+	// based on the provided input configuration and topology. Most capabilities need this.
+	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
+	JobSpecFn() JobSpecFn
+
+	// NodeConfigFn returns a function to generate node-level configuration,
+	// or nil if no node-specific config is needed. Most capabilities don't need this.
+	NodeConfigFn() NodeConfigFn
+
+	// GatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
+	// or nil if no gateway handler configuration is required for this capability. Only capabilities
+	// that need to connect to external resources might need this.
+	GatewayJobHandlerConfigFn() GatewayHandlerConfigFn
+
+	// CapabilityRegistryV1ConfigFn returns a function to generate capability registry
+	// configuration for the v1 registry format
+	CapabilityRegistryV1ConfigFn() CapabilityRegistryConfigFn
 }

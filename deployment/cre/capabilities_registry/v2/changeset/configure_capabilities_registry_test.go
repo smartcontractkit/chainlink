@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
@@ -32,8 +33,8 @@ const (
 	csaKey              = "4240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c258"
 	signer1             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c251"
 	signer2             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c252"
-	p2pID1              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c253"
-	p2pID2              = "6240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
+	p2pID1              = "p2p_12D3KooWM1111111111111111111111111111111111111111111"
+	p2pID2              = "p2p_12D3KooWM1111111111111111111111111111111111111111112"
 	encryptionPublicKey = "7240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
 	nodeID1             = "1"
 )
@@ -517,8 +518,8 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		expectedCsaKey, err := hexStringTo32Bytes(node.CsaKey)
 		require.NoError(t, err, "failed to convert CSA key hex string to bytes")
 
-		bytes32P2pID, err := hexStringTo32Bytes(node.P2pID)
-		require.NoError(t, err, "failed to convert P2P ID hex string to bytes")
+		bytes32P2pID, err := p2pkey.MakePeerID(node.P2pID)
+		require.NoError(t, err, "failed to convert P2P ID string to bytes")
 
 		expectedEncryptionPublicKey, err := hexStringTo32Bytes(node.EncryptionPublicKey)
 		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
@@ -529,7 +530,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, expectedSigner, got.Signer, "mismatch node signer node %d", i)
 		assert.Equal(t, node.NodeOperatorID, got.NodeOperatorId, "mismatch node operator id node %d", i)
 		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
-		assert.Equal(t, bytes32P2pID, got.P2pId, "mismatch node p2p id node %d", i)
+		assert.Equal(t, [32]byte(bytes32P2pID), got.P2pId, "mismatch node p2p id node %d", i)
 		assert.Equal(t, expectedCsaKey, got.CsaKey, "mismatch node CSA key node %d", i)
 	}
 
