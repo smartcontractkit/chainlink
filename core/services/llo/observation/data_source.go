@@ -13,6 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -88,7 +89,7 @@ type dataSource struct {
 	t                      Telemeter
 	cache                  *Cache
 	observationLoopStarted atomic.Bool
-	observationLoopCloseCh chan struct{}
+	observationLoopCloseCh services.StopChan
 
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
@@ -167,17 +168,17 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	var elapsed time.Duration
 
+	stopChanCtx, stopChanCancel := d.observationLoopCloseCh.NewCtx()
+	defer stopChanCancel()
 	for {
-		select {
-		case <-d.observationLoopCloseCh:
+		if stopChanCtx.Err() != nil {
 			return
-		default:
 		}
 
 		loopStart := time.Now()
 		opts, streamValues, observationInterval := d.getObservableStreams()
 
-		ctx, cancel := context.WithTimeout(context.Background(), observationInterval)
+		ctx, cancel := context.WithTimeout(stopChanCtx, observationInterval)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
