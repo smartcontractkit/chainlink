@@ -14,6 +14,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/grpc/status"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
@@ -26,7 +30,29 @@ type Client interface {
 	ServerURL() string
 }
 
-var _ Client = (*client)(nil)
+var (
+	_ Client = (*client)(nil)
+
+	promTransmitCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "transmitter",
+		Name:      "grpc_transmit_count",
+		Help:      "Number of transmits sent to the server",
+	},
+		[]string{"server_url", "status"},
+	)
+	promTransmitDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "llo",
+		Subsystem: "transmitter",
+		Name:      "grpc_transmit_duration_ms",
+		Help:      "Duration of successful transmit requests in milliseconds",
+		Buckets: []float64{
+			25, 50, 100, 250, 500, 750, 1000,
+		},
+	},
+		[]string{"server_url"},
+	)
+)
 
 type client struct {
 	services.Service
@@ -108,6 +134,7 @@ func (c *client) close() error {
 }
 
 func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *rpc.TransmitResponse, err error) {
+	startTime := time.Now()
 	err = c.eng.IfStarted(func() error {
 		// This is a self-identified client ID
 		// It is not cryptographically verified
@@ -115,6 +142,12 @@ func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *
 		resp, err = c.client.Transmit(transmitCtx, req)
 		return err
 	})
+
+	if err != nil {
+		promTransmitDuration.WithLabelValues(c.serverURL).Observe(float64(time.Since(startTime).Milliseconds()))
+	}
+
+	promTransmitCount.WithLabelValues(c.serverURL, status.Code(err).String()).Inc()
 	return
 }
 

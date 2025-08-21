@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -22,8 +21,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -31,141 +28,14 @@ import (
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
-// deprecated, use ComputeCapabilityFactoryFn, OCR3CapabilityFactoryFn, CronCapabilityFactoryFn instead
-var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, cre.CronCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "cron-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, cre.CustomComputeCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "custom-compute",
-				Version:        "1.0.0",
-				CapabilityType: 1, // ACTION
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, cre.OCR3Capability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "offchain_reporting",
-				Version:        "1.0.0",
-				CapabilityType: 2, // CONSENSUS
-				ResponseType:   0, // REPORT
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	return capabilities
-}
-
-// deprecated, use capabilities.webapi.WebAPICapabilityFactoryFn instead
-var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, cre.WebAPITriggerCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, cre.WebAPITargetCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-target",
-				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	return capabilities
-}
-
-// deprecated, use capabilities.chainwriter.ChainWriterCapabilityFactory instead
-var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-		var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-		fullName := corevm.GenerateWriteTargetName(chainID)
-		splitName := strings.Split(fullName, "@")
-
-		if flags.HasFlag(donFlags, cre.WriteEVMCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   splitName[0],
-					Version:        splitName[1],
-					CapabilityType: 3, // TARGET
-					ResponseType:   1, // OBSERVATION_IDENTICAL
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		return capabilities
-	}
-}
-
-// deprecated, use capabilities.chainreader.ChainReaderCapabilityFactory instead
-var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-		var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-		if flags.HasFlag(donFlags, cre.LogTriggerCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   fmt.Sprintf("log-event-trigger-%s-%d", chainFamily, chainID),
-					Version:        "1.0.0",
-					CapabilityType: 0, // TRIGGER
-					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		if flags.HasFlag(donFlags, cre.ReadContractCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
-					Version:        "1.0.0",
-					CapabilityType: 1, // ACTION
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		return capabilities
-	}
-}
-
-func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn) error {
+func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
 
 	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(input.Topology.DonsMetadata))
 
-	for _, donMetadata := range input.Topology.DonsMetadata {
+	for donIdx, donMetadata := range input.Topology.DonsMetadata {
 		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
 		// since it doesn't have any capabilities
 		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
@@ -175,8 +45,17 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
-		for _, factoryFn := range capabilityFactoryFns {
-			capabilities = append(capabilities, factoryFn(donMetadata.Flags)...)
+		for _, configFn := range capabilityRegistryConfigFns {
+			if configFn == nil {
+				continue
+			}
+
+			capabilitiesFn, configFnErr := configFn(donMetadata.Flags, input.NodeSets[donIdx])
+			if configFnErr != nil {
+				return errors.Wrap(configFnErr, "failed to get capabilities from config function")
+			}
+
+			capabilities = append(capabilities, capabilitiesFn...)
 		}
 
 		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
@@ -208,8 +87,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		forwarderF := (len(workerNodes) - 1) / 3
 
 		if forwarderF == 0 {
-			if flags.HasFlag(donMetadata.Flags, cre.OCR3Capability) {
-				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) = 0", len(workerNodes))
+			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) || flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
+				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
 			}
 			// for other capabilities, we can use 1 as F
 			forwarderF = 1
@@ -227,7 +106,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 	var transmissionSchedule []int
 
 	for _, metaDon := range input.Topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, cre.OCR3Capability) {
+		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
 			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
 				Key:   crenode.NodeTypeKey,
 				Value: cre.WorkerNode,
@@ -374,24 +253,26 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityFactoryFns []
 		}
 	}
 
-	if input.EVMOCR3Address.Cmp(common.Address{}) != 0 {
-		_, err = operations.ExecuteOperation(
-			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureOCR3Op,
-			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
-			},
-			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.EVMOCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DONs:             configDONs,
-				Config:           &input.EVMOCR3Config,
-				DryRun:           false,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure EVM OCR3 contract")
+	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+		if evmOCR3Address.Cmp(common.Address{}) != 0 {
+			_, err = operations.ExecuteOperation(
+				input.CldEnv.OperationsBundle,
+				ks_contracts_op.ConfigureOCR3Op,
+				ks_contracts_op.ConfigureOCR3OpDeps{
+					Env:      input.CldEnv,
+					Registry: capReg.Contract,
+				},
+				ks_contracts_op.ConfigureOCR3OpInput{
+					ContractAddress:  &evmOCR3Address,
+					RegistryChainSel: chainSelector,
+					DONs:             configDONs,
+					Config:           &input.EVMOCR3Config,
+					DryRun:           false,
+				},
+			)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chain selector: %d, address:%s", chainSelector, evmOCR3Address.Hex()))
+			}
 		}
 	}
 
@@ -423,7 +304,7 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	var transmissionSchedule []int
 
 	for _, metaDon := range topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, cre.OCR3Capability) {
+		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
 			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
 				Key:   crenode.NodeTypeKey,
 				Value: cre.WorkerNode,

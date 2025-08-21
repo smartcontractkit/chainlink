@@ -92,9 +92,10 @@ func DumpArtifact(
 	jdOutput jd.Output,
 	donTopology cre.DonTopology,
 	offchainClient cldf_offchain.Client,
-	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
+	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
+	nodeSets []*cre.CapabilitiesAwareNodeSet,
 ) (string, error) {
-	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityFactoryFns)
+	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityRegistryFns, nodeSets)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to generate environment artifact")
 	}
@@ -113,7 +114,8 @@ func GenerateArtifact(
 	jdOutput jd.Output,
 	donTopology cre.DonTopology,
 	offchainClient cldf_offchain.Client,
-	capabilityFactoryFns []cre.DONCapabilityWithConfigFactoryFn,
+	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
+	nodeSets []*cre.CapabilitiesAwareNodeSet,
 ) (*EnvArtifact, error) {
 	var err error
 
@@ -158,9 +160,17 @@ func GenerateArtifact(
 
 		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
-		for _, factoryFn := range capabilityFactoryFns {
-			capabilities := factoryFn(don.Flags)
-			for _, capability := range capabilities {
+		for _, capabilityFn := range capabilityRegistryFns {
+			if capabilityFn == nil {
+				continue
+			}
+
+			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[i])
+			if capabilitiesFnErr != nil {
+				return nil, pkgerrors.Wrap(capabilitiesFnErr, "failed to get capabilities from capability registry function")
+			}
+
+			for _, capability := range capabilitiesFn {
 				donArtifact.Capabilities = append(donArtifact.Capabilities, DONCapabilityArtifact{
 					Capability: capabilities_registry.CapabilitiesRegistryCapability{
 						Version:        capability.Capability.Version,

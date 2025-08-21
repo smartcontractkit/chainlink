@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
@@ -15,9 +16,9 @@ type runtimeConfig struct {
 	Schedule string `yaml:"schedule"`
 }
 
-func RunSimpleCronWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtimeConfig], error) {
+func RunSimpleCronWorkflow(config *runtimeConfig, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[*runtimeConfig], error) {
 	cfg := &cron.Config{
-		Schedule: env.Config.Schedule,
+		Schedule: config.Schedule,
 	}
 
 	return cre.Workflow[*runtimeConfig]{
@@ -28,9 +29,9 @@ func RunSimpleCronWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*
 	}, nil
 }
 
-func onTrigger(env *cre.Environment[*runtimeConfig], runtime cre.Runtime, outputs *cron.Payload) (string, error) {
-	env.Logger.Info("inside onTrigger handler")
-	return fmt.Sprintf("success (Schedule: %s)", env.Config.Schedule), nil
+func onTrigger(config *runtimeConfig, runtime cre.Runtime, outputs *cron.Payload) (string, error) {
+	runtime.Logger().Info("inside onTrigger handler")
+	return fmt.Sprintf("success (Schedule: %s)", config.Schedule), nil
 }
 
 func main() {
