@@ -1857,8 +1857,7 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.UseLocalTimeProvider != nil {
 		if c.UseLocalTimeProvider == nil {
-			t := true
-			c.UseLocalTimeProvider = &t
+			c.UseLocalTimeProvider = f.UseLocalTimeProvider
 		}
 	}
 }
