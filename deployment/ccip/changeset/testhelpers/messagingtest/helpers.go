@@ -195,7 +195,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			TokenAmounts: nil,
 		}
 	case chain_selectors.FamilyTon:
-		feeToken := address.NewAddressNone()
+		feeToken := ops.TonTokenAddr
 		if len(tc.FeeToken) > 0 {
 			feeToken, err = address.ParseAddr(tc.FeeToken)
 			require.NoError(tc.T, err)
