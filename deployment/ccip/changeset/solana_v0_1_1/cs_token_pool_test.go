@@ -533,10 +533,11 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ExtendTokenPoolLookupTable),
 				ccipChangesetSolana.ExtendTokenPoolLookupTableConfig{
-					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress,
-					PoolType:      testCase.poolType,
-					Metadata:      tokenMetadata,
+					SkipValidationsForDuplicates: false,
+					ChainSelector:                solChain,
+					TokenPubKey:                  tokenAddress,
+					PoolType:                     testCase.poolType,
+					Metadata:                     tokenMetadata,
 					Accounts: []solana.PublicKey{
 						multisig1.PublicKey(),
 						multisig2.PublicKey(),

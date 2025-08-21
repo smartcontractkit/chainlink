@@ -2534,11 +2534,13 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 }
 
 type ExtendTokenPoolLookupTableConfig struct {
-	ChainSelector uint64
-	TokenPubKey   solana.PublicKey
-	PoolType      cldf.ContractType
-	Metadata      string
-	Accounts      solana.PublicKeySlice
+	// NOTE: the default behavior would be to block duplicates, but if you need to run the changeset without this restriction, then you can set this to true
+	SkipValidationsForDuplicates bool
+	ChainSelector                uint64
+	TokenPubKey                  solana.PublicKey
+	PoolType                     cldf.ContractType
+	Metadata                     string
+	Accounts                     solana.PublicKeySlice
 }
 
 func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -2558,13 +2560,15 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 		return errors.New("required field 'Metadata' is empty or not provided")
 	}
 
-	acctSet := map[string]bool{}
-	for _, acct := range cfg.Accounts {
-		key := acct.String()
-		if _, exists := acctSet[key]; exists {
-			return fmt.Errorf("field 'Accounts' has 1 or more duplicate public keys: %s", key)
+	if !cfg.SkipValidationsForDuplicates {
+		acctSet := map[string]bool{}
+		for _, acct := range cfg.Accounts {
+			key := acct.String()
+			if _, exists := acctSet[key]; exists {
+				return fmt.Errorf("field 'Accounts' has 1 or more duplicate public keys: %s", key)
+			}
+			acctSet[key] = true
 		}
-		acctSet[key] = true
 	}
 
 	solChain, exist := e.BlockChains.SolanaChains()[cfg.ChainSelector]
@@ -2582,32 +2586,36 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 		return fmt.Errorf("failed to get entries of address lookup table at address '%s': %w", lutPublKey.String(), err)
 	}
 
-	alutSet := map[string]bool{}
-	for _, entry := range lutEntries {
-		alutSet[entry.String()] = true
-	}
+	if !cfg.SkipValidationsForDuplicates {
+		alutSet := map[string]bool{}
+		for _, entry := range lutEntries {
+			alutSet[entry.String()] = true
+		}
 
-	duplSet := map[string]bool{}
-	for _, acct := range cfg.Accounts {
-		key := acct.String()
-		if _, exists := alutSet[key]; exists {
-			duplSet[key] = true
+		duplSet := map[string]bool{}
+		for _, acct := range cfg.Accounts {
+			key := acct.String()
+			if _, exists := alutSet[key]; exists {
+				duplSet[key] = true
+			}
+		}
+
+		if len(duplSet) > 0 {
+			return fmt.Errorf(
+				"refusing to extend lookup table at address '%s' - one or more input accounts overlap with existing LUT entries: [ %s ]",
+				lutPublKey.String(),
+				strings.Join(slices.AppendSeq([]string{}, maps.Keys(duplSet)), ", "),
+			)
 		}
 	}
 
-	if len(duplSet) > 0 {
-		return fmt.Errorf(
-			"refusing to extend lookup table at address '%s' - one or more input accounts overlap with existing LUT entries: [ %s ]",
-			lutPublKey.String(),
-			strings.Join(slices.AppendSeq([]string{}, maps.Keys(duplSet)), ", "),
-		)
-	}
-
+	entries := solana.PublicKeySlice{}
+	entries.Append(lutEntries...)
 	e.Logger.Infof(
 		"Validations complete - lookup table at address '%s' has %d accounts and currently looks like this: [ %s ]",
 		lutPublKey.String(),
-		len(lutEntries),
-		strings.Join(slices.AppendSeq([]string{}, maps.Keys(alutSet)), ", "),
+		len(entries),
+		strings.Join(entries.ToBase58(), ", "),
 	)
 
 	return nil
