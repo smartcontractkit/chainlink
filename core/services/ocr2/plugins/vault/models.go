@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -62,6 +63,29 @@ type Response struct {
 	Signatures [][]byte
 }
 
+type errResp struct {
+	Error   string `json:"error"`
+	Success bool   `json:"success"`
+}
+
+type payloadResp struct {
+	Payload    json.RawMessage `json:"payload"`
+	Context    []byte          `json:"__context"`
+	Signatures [][]byte        `json:"__signatures"`
+}
+
+func (r *Response) ToJSONRPCResult() ([]byte, error) {
+	if r.Error != "" {
+		return json.Marshal(errResp{Error: r.Error, Success: false})
+	}
+
+	return json.Marshal(payloadResp{
+		Payload:    r.Payload,
+		Context:    r.Context,
+		Signatures: r.Signatures,
+	})
+}
+
 func (r *Response) RequestID() string {
-	return ""
+	return r.ID
 }

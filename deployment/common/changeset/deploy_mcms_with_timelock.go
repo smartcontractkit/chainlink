@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
+	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"

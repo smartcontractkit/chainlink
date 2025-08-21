@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/storage"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
@@ -97,6 +98,7 @@ import (
 	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -333,7 +335,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient, opts.DonTimeStore, opts.LimitsFactory)
+	var storageClient storage.WorkflowClient
+	if opts.StorageClient != nil {
+		storageClient = opts.StorageClient
+	} else if cfg.Capabilities().WorkflowRegistry().WorkflowStorage().URL() != "" {
+		workflowOpts := []storage.WorkflowClientOpt{}
+
+		if opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().TLSEnabled() {
+			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
+		}
+
+		storageClient, err = storage.NewWorkflowClient(globalLogger, opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
+		if err != nil {
+			globalLogger.Infof("NewApplication: failed to create storage client; %s", err)
+		}
+	}
+
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient, storageClient, opts.DonTimeStore, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -618,7 +636,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig)
 
-		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
+		ocr2Delegate := ocr2.NewDelegate(
 			ocr2.DelegateOpts{
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
@@ -642,6 +660,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
+		delegates[job.OffchainReporting2] = ocr2Delegate
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,
@@ -781,10 +800,12 @@ type CREOpts struct {
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
-	FetcherFunc      artifactsV1.FetcherFunc
+	FetcherFunc      wftypes.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
 
 	BillingClient metering.BillingClient
+
+	StorageClient storage.WorkflowClient
 }
 
 // creServiceConfig contains the configuration required to create the CRE services
@@ -830,6 +851,7 @@ func newCREServices(
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
 	billingClient metering.BillingClient,
+	storageClient storage.WorkflowClient,
 	dontimeStore *dontime.Store,
 	lf limits.Factory,
 ) (*CREServices, error) {
@@ -987,7 +1009,7 @@ func newCREServices(
 
 				switch wrVersion.Major() {
 				case 1:
-					var fetcherFunc artifactsV1.FetcherFunc
+					var fetcherFunc wftypes.FetcherFunc
 					if opts.FetcherFunc == nil {
 						if gatewayConnectorWrapper == nil {
 							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
@@ -1049,16 +1071,27 @@ func newCREServices(
 					globalLogger.Debugw("Created WorkflowRegistrySyncer V1")
 
 				case 2:
-					// TODO: CAPPL-1031 refactor fetcher to use Storage service instead of Gateway
-					if gatewayConnectorWrapper == nil {
-						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+					var fetcherFunc wftypes.FetcherFunc
+					var retrieverFunc wftypes.LocationRetrieverFunc
+					if opts.FetcherFunc == nil {
+						if gatewayConnectorWrapper == nil {
+							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+						}
+						if storageClient == nil {
+							return nil, errors.New("unable to create workflow registry syncer without storage client")
+						}
+						fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)
+						fetcherFunc = fetcher.Fetch
+						retrieverFunc = fetcher.RetrieveURL
+						srvcs = append(srvcs, fetcher)
+					} else {
+						fetcherFunc = opts.FetcherFunc
+						retrieverFunc = nil
 					}
-					fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper)
-					fetcherFunc := fetcher.Fetch
-					srvcs = append(srvcs, fetcher)
 
 					artifactsStore := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
+						retrieverFunc,
 						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
 							artifactsV2.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),

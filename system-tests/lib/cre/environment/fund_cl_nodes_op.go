@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
@@ -51,7 +52,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 		errGroup := &errgroup.Group{}
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
 			for _, bcOut := range deps.BlockchainOutputs {
-				if bcOut.ReadOnly {
+				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
 					continue
 				}
 				for _, node := range metaDon.DON.Nodes {

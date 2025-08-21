@@ -6,6 +6,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -145,9 +146,11 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 
 // Connect Token Pool sequence input
 type ConnectTokenPoolSeqInput struct {
-	TokenPoolAddress    aptos.AccountAddress
-	RemotePools         map[uint64]RemotePool
-	RemotePoolsToRemove []uint64 // To re-set a pool also add its address on the removing list
+	TokenPoolAddress                    aptos.AccountAddress
+	RemotePools                         map[uint64]RemotePool
+	RemotePoolsToRemove                 []uint64 // To re-set a pool also add its address on the removing list
+	TokenAddress                        aptos.AccountAddress
+	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
 }
 
 type RemotePool struct {
@@ -220,6 +223,19 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			return mcmstypes.BatchOperation{}, err
 		}
 		txs = append(txs, setChainRateLimiterReport.Output)
+	}
+
+	// Apply token transfer fee configuration updates
+	for destSelector, feeConfig := range in.TokenTransferFeeByRemoteChainConfig {
+		applyTokenTransferFeeCfgInput := operation.ApplyTokenTransferFeeCfgInput{
+			DestChainSelector: destSelector,
+			ConfigsByToken:    map[string]fee_quoter.TokenTransferFeeConfig{in.TokenAddress.StringLong(): feeConfig},
+		}
+		applyTokenTransferFeeCfgReport, err := operations.ExecuteOperation(b, operation.ApplyTokenTransferFeeCfgOp, deps, applyTokenTransferFeeCfgInput)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, err
+		}
+		txs = append(txs, applyTokenTransferFeeCfgReport.Output...)
 	}
 
 	return mcmstypes.BatchOperation{

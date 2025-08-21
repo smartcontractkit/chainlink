@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -63,8 +64,8 @@ var (
 )
 
 type DomainUpdateInput struct {
-	AllowedCaller    solana.PublicKey
-	MintRecipient    solana.PublicKey
+	AllowedCaller    string
+	MintRecipient    string
 	DomainIdentifier uint32
 	Enabled          bool
 }
@@ -86,13 +87,29 @@ func (i ConfigUSDCTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.C
 		if err != nil {
 			return fmt.Errorf("failed to get selector family for destination chain selector %d: %w", destSelector, err)
 		}
-		if fam == chain_selectors.FamilySolana {
-			if update.MintRecipient.IsZero() {
+		switch fam {
+		case chain_selectors.FamilyEVM:
+			allowedCallerAddr := common.HexToAddress(update.AllowedCaller)
+			if allowedCallerAddr == utils.ZeroAddress {
+				return fmt.Errorf("allowed caller must be defined for EVM destination chain selector %d", destSelector)
+			}
+		case chain_selectors.FamilySolana:
+			allowedCallerAddr, err := solana.PublicKeyFromBase58(update.AllowedCaller)
+			if err != nil {
+				return fmt.Errorf("invalid allowed caller format %s for chain family %s", update.AllowedCaller, fam)
+			}
+			mintRecipientAddr, err := solana.PublicKeyFromBase58(update.MintRecipient)
+			if err != nil {
+				return fmt.Errorf("invalid mint recipient format %s for chain family %s", update.AllowedCaller, fam)
+			}
+			if mintRecipientAddr.IsZero() {
 				return fmt.Errorf("mint recipient must be defined for Solana destination chain selector %d", destSelector)
 			}
-			if update.AllowedCaller.IsZero() {
+			if allowedCallerAddr.IsZero() {
 				return fmt.Errorf("allowed caller must be defined for Solana destination chain selector %d", destSelector)
 			}
+		default:
+			return fmt.Errorf("unsupported chain family: %s", fam)
 		}
 
 		// TODO: Other validations? Domain's are defined in chainlink-deployments so they can't be verified here...
@@ -147,9 +164,33 @@ func configUSDCTokenPoolLogic(env cldf.Environment, c ConfigUSDCTokenPoolConfig)
 
 		var domainUpdates []utp.USDCTokenPoolDomainUpdate
 		for destSelector, update := range poolConfig.DestinationUpdates {
+			fam, err := chain_selectors.GetSelectorFamily(destSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get selector family for destination chain selector %d: %w", destSelector, err)
+			}
+			var allowedCaller [32]byte
+			var mintRecipient [32]byte
+			switch fam {
+			case chain_selectors.FamilyEVM:
+				allowedCallerAddr := common.HexToAddress(update.AllowedCaller)
+				allowedCaller = [32]byte(common.LeftPadBytes(allowedCallerAddr.Bytes(), 32))
+			case chain_selectors.FamilySolana:
+				allowedCallerAddr, err := solana.PublicKeyFromBase58(update.AllowedCaller)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("invalid allowed caller format %s for chain family %s", update.AllowedCaller, fam)
+				}
+				allowedCaller = [32]byte(common.LeftPadBytes(allowedCallerAddr.Bytes(), 32))
+				mintRecipientAddr, err := solana.PublicKeyFromBase58(update.MintRecipient)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("invalid mint recipient format %s for chain family %s", update.AllowedCaller, fam)
+				}
+				mintRecipient = [32]byte(common.LeftPadBytes(mintRecipientAddr.Bytes(), 32))
+			default:
+				return cldf.ChangesetOutput{}, fmt.Errorf("unsupported chain family: %s", fam)
+			}
 			domainUpdates = append(domainUpdates, utp.USDCTokenPoolDomainUpdate{
-				AllowedCaller:     [32]byte(common.LeftPadBytes(update.AllowedCaller.Bytes(), 32)),
-				MintRecipient:     [32]byte(common.LeftPadBytes(update.MintRecipient.Bytes(), 32)),
+				AllowedCaller:     allowedCaller,
+				MintRecipient:     mintRecipient,
 				DomainIdentifier:  update.DomainIdentifier,
 				DestChainSelector: destSelector,
 				Enabled:           update.Enabled,

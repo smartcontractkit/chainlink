@@ -348,26 +348,12 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
 			e.Logger.Info(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
+			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
-				e.Logger.Debugw("metaboss create error", "error", err)
+				e.Logger.Errorw("metaboss create error", "error", err)
 				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
 			}
 			e.Logger.Infow("Token metadata uploaded", "tokenPubkey", metadata.TokenPubkey.String())
-		}
-
-		// update authority after initial upload
-		if !metadata.UpdateAuthority.IsZero() {
-			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Debugw("metaboss set error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
 		}
 
 		// update name
@@ -376,9 +362,9 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			args := []string{"update", "name", "--account", metadata.TokenPubkey.String(), "--new-name", metadata.UpdateName}
 			e.Logger.Info(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
+			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
-				e.Logger.Debugw("metaboss update name error", "error", err)
+				e.Logger.Errorw("metaboss update name error", "error", err)
 				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
 			}
 			e.Logger.Infow("Token metadata name set", "tokenPubkey", metadata.TokenPubkey.String(), "name", metadata.UpdateName)
@@ -390,9 +376,9 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			args := []string{"update", "symbol", "--account", metadata.TokenPubkey.String(), "--new-symbol", metadata.UpdateSymbol}
 			e.Logger.Info(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
+			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
-				e.Logger.Debugw("metaboss update symbol error", "error", err)
+				e.Logger.Errorw("metaboss update symbol error", "error", err)
 				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
 			}
 			e.Logger.Infow("Token metadata symbol set", "tokenPubkey", metadata.TokenPubkey.String(), "symbol", metadata.UpdateSymbol)
@@ -404,12 +390,26 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateURI}
 			e.Logger.Info(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Debugw("metaboss output", "output", output)
+			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
-				e.Logger.Debugw("metaboss update uri error", "error", err)
+				e.Logger.Errorw("metaboss update uri error", "error", err)
 				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
 			}
 			e.Logger.Infow("Token metadata uri set", "tokenPubkey", metadata.TokenPubkey.String(), "uri", metadata.UpdateURI)
+		}
+
+		// update authority after initial upload
+		if !metadata.UpdateAuthority.IsZero() {
+			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
+			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
+			e.Logger.Info(args)
+			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			e.Logger.Infow("metaboss output", "output", output)
+			if err != nil {
+				e.Logger.Errorw("metaboss set error", "error", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
+			}
+			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
 		}
 	}
 

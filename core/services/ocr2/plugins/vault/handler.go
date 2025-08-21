@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -83,12 +84,14 @@ func (h *Handler) ID(ctx context.Context) (string, error) {
 }
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
-	h.lggr.Debugf("Received message from gateway %s: %v", gatewayID, req)
+	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestId", req.ID)
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
 	case vault_api.MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
+	case vault_api.MethodSecretsUpdate:
+		response = h.handleSecretsUpdate(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -98,7 +101,7 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 		return err
 	}
 
-	h.lggr.Infof("Sent message to gateway %s: %v", gatewayID, response)
+	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestId", req.ID)
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
@@ -132,6 +135,30 @@ func (h *Handler) handleSecretsCreate(ctx context.Context, gatewayID string, req
 	}
 }
 
+func (h *Handler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vault.UpdateSecretsRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.vault.UpdateSecrets(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to update secrets: %w", err))
+	}
+
+	resultBytes, err := resp.ToJSONRPCResult()
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
 func (h *Handler) errorResponse(
 	ctx context.Context,
 	gatewayID string,
@@ -149,6 +176,7 @@ func (h *Handler) errorResponse(
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
+		Method:  req.Method,
 		Error: &jsonrpc.WireError{
 			Code:    api.ToJSONRPCErrorCode(errorCode),
 			Message: err.Error(),
