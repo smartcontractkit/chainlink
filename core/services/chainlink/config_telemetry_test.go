@@ -225,3 +225,21 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 		})
 	}
 }
+
+func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"LogStreamingEnabledTrue", toml.Telemetry{LogStreamingEnabled: ptr(true)}, true},
+		{"LogStreamingEnabledFalse", toml.Telemetry{LogStreamingEnabled: ptr(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogStreamingEnabled())
+		})
+	}
+}

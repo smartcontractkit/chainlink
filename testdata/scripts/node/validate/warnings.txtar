@@ -370,6 +370,7 @@ EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
 HeartbeatInterval = '1s'
+LogStreamingEnabled = false
 
 [Workflows]
 [Workflows.Limits]

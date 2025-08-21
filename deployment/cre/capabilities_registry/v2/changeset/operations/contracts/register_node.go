@@ -39,7 +39,10 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			return RegisterNodesOutput{}, errors.New("address is not set")
 		}
 		if len(input.Nodes) == 0 {
-			return RegisterNodesOutput{}, errors.New("nodes are not set")
+			// The contract allows to pass an empty array of nodes.
+			return RegisterNodesOutput{
+				Nodes: []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded{},
+			}, nil
 		}
 		if input.ChainSelector == 0 {
 			return RegisterNodesOutput{}, errors.New("chainSelector is not set")
