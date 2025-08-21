@@ -2222,6 +2222,7 @@ EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
 HeartbeatInterval = '1s' # Default
+LogStreamingEnabled = false # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2282,6 +2283,12 @@ ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 HeartbeatInterval = '1s' # Default
 ```
 HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
+
+### LogStreamingEnabled
+```toml
+LogStreamingEnabled = false # Default
+```
+LogStreamingEnabled enables log streaming to the OTel log exporter
 
 ## Telemetry.ResourceAttributes
 ```toml

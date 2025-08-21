@@ -345,6 +345,7 @@ EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 HeartbeatInterval = '1s'
+LogStreamingEnabled = false
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
