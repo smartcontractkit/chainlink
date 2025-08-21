@@ -2,10 +2,13 @@ package environment
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -143,13 +146,17 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}()
 
+			if err := isBase64File(workflowFilePathFlag); err != nil {
+				return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, use the 'compile-deploy' command instead")
+			}
+
 			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to the workflow WASM file")
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to a base64-encoded workflow WASM file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
@@ -468,4 +475,46 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	}
 
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, true)
+}
+
+func isBase64File(filename string) error {
+	fileInfo, fErr := os.Stat(filename)
+	if fErr != nil {
+		return errors.Wrap(fErr, "failed to get file info")
+	}
+
+	readSize := min(fileInfo.Size(), 4*1024*1024) // 4MB
+
+	file, oErr := os.Open(filename)
+	if oErr != nil {
+		return errors.Wrap(oErr, "failed to open file")
+	}
+	defer file.Close()
+
+	buffer := make([]byte, readSize)
+	n, rErr := file.Read(buffer)
+	if rErr != nil && rErr != io.EOF {
+		return errors.Wrap(rErr, "failed to read file")
+	}
+
+	if !isBase64Content(string(buffer[:n])) {
+		return fmt.Errorf("❌ file %s is not a base64-encoded file", filename)
+	}
+
+	return nil
+}
+
+func isBase64Content(content string) bool {
+	// Remove whitespace and newlines, just to be safe
+	content = strings.ReplaceAll(content, "\n", "")
+	content = strings.ReplaceAll(content, "\r", "")
+	content = strings.ReplaceAll(content, " ", "")
+	content = strings.ReplaceAll(content, "\t", "")
+
+	if len(content) == 0 {
+		return false
+	}
+
+	_, err := base64.StdEncoding.DecodeString(content)
+	return err == nil
 }
