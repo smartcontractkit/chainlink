@@ -299,7 +299,7 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 
 func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
 	// Skip till we figure out and fix the issues with environment startup on this test
-	// t.Skip()
+	t.Skip()
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
