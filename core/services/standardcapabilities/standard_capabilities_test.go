@@ -66,7 +66,9 @@ func (k *kvstoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Durat
 	return 0, nil
 }
 
-type keystoreMock struct{}
+type keystoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
