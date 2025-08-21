@@ -53,6 +53,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	createSecretsRequest := SecretsCreateRequest{
 		ID:    "test_id",
 		Value: "test_value",
+		Owner: "test_owner",
 	}
 	params, err2 := json.Marshal(createSecretsRequest)
 	require.NoError(t, err2)
@@ -69,10 +70,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 
 		responseData := SecretsCreateResponse{
-			ResponseBase: ResponseBase{
-				Success: true,
-			},
-			SecretID: createSecretsRequest.ID,
+			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
+			Success:  true,
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
@@ -88,7 +87,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, createSecretsRequest.ID, secretsResponse.Result.SecretID, "Secret ID should match")
+			assert.Equal(t, createSecretsRequest.ID, secretsResponse.Result.SecretID.Key, "Secret ID should match")
 			assert.True(t, secretsResponse.Result.Success, "Success should be true")
 		}()
 
@@ -193,10 +192,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		// Create a response for a request that was never sent or has already been processed
 		responseData := SecretsCreateResponse{
-			ResponseBase: ResponseBase{
-				Success: true,
-			},
-			SecretID: "stale_secret_id",
+			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
+			Success:  true,
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)

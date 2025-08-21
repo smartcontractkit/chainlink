@@ -13,12 +13,12 @@ type Request struct {
 	Payload      proto.Message
 	ResponseChan chan *Response
 
-	id         string
-	expiryTime time.Time
+	IDVal         string
+	ExpiryTimeVal time.Time
 }
 
 func (r *Request) ID() string {
-	return r.id
+	return r.IDVal
 }
 
 func (r *Request) Copy() *Request {
@@ -29,14 +29,14 @@ func (r *Request) Copy() *Request {
 		ResponseChan: r.ResponseChan,
 
 		// copied by value
-		id:         r.id,
-		expiryTime: r.expiryTime,
+		IDVal:         r.IDVal,
+		ExpiryTimeVal: r.ExpiryTimeVal,
 	}
 	return newRequest
 }
 
 func (r *Request) ExpiryTime() time.Time {
-	return r.expiryTime
+	return r.ExpiryTimeVal
 }
 
 func (r *Request) SendResponse(ctx context.Context, response *Response) {
@@ -49,8 +49,8 @@ func (r *Request) SendResponse(ctx context.Context, response *Response) {
 
 func (r *Request) SendTimeout(ctx context.Context) {
 	r.SendResponse(ctx, &Response{
-		ID:    r.id,
-		Error: fmt.Sprintf("timeout exceeded: could not process request %s before expiry", r.id),
+		ID:    r.IDVal,
+		Error: fmt.Sprintf("timeout exceeded: could not process request %s before expiry", r.IDVal),
 	})
 }
 
@@ -88,4 +88,8 @@ func (r *Response) ToJSONRPCResult() ([]byte, error) {
 
 func (r *Response) RequestID() string {
 	return r.ID
+}
+
+func (r *Response) String() string {
+	return fmt.Sprintf("Response { ID: %s, Error: %s, Payload: %s, Format: %s }", r.ID, r.Error, string(r.Payload), r.Format)
 }
