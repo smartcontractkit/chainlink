@@ -121,8 +121,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	// Enable signing and decryption for the capability, if available.
 	var ks core.Keystore
-	var decrypter core.Decrypter = nil
-	var signer crypto.Signer = nil
+	var decrypter core.Decrypter
+	var signer crypto.Signer
 	if d.ks.Workflow() != nil {
 		workflowKeys, err := d.ks.Workflow().GetAll()
 		if err != nil {
