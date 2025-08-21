@@ -46,7 +46,7 @@ func init() {
 		},
 	}
 
-	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "configs/setup.toml", "Path to the TOML configuration file")
+	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
 
@@ -61,7 +61,7 @@ func init() {
 		},
 	}
 
-	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "configs/setup.toml", "Path to the TOML configuration file")
+	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	BuildCapabilitiesCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	EnvironmentCmd.AddCommand(BuildCapabilitiesCmd)
 }
@@ -104,6 +104,8 @@ type capabilityRepository struct {
 var (
 	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
 )
+
+const DefaultSetupConfigPath = "configs/setup.toml"
 
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
