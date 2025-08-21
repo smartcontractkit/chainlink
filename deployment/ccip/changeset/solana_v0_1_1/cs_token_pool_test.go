@@ -573,7 +573,6 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			)})
 			require.NoError(t, err)
 		}
-
 	}
 }
 
