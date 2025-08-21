@@ -264,16 +264,16 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	// V2 event types
 	case *eventsv2.WorkflowExecutionStarted:
 		schema = SchemaWorkflowStartedV2
-		entity = fmt.Sprintf("workflows.v2.%s", WorkflowExecutionStartedV2)
+		entity = fmt.Sprintf("workflows.v2.%s", WorkflowExecutionStarted)
 	case *eventsv2.WorkflowExecutionFinished:
 		schema = SchemaWorkflowFinishedV2
-		entity = fmt.Sprintf("workflows.v2.%s", WorkflowExecutionFinishedV2)
+		entity = fmt.Sprintf("workflows.v2.%s", WorkflowExecutionFinished)
 	case *eventsv2.CapabilityExecutionStarted:
 		schema = SchemaCapabilityStartedV2
-		entity = fmt.Sprintf("workflows.v2.%s", CapabilityExecutionStartedV2)
+		entity = fmt.Sprintf("workflows.v2.%s", CapabilityExecutionStarted)
 	case *eventsv2.CapabilityExecutionFinished:
 		schema = SchemaCapabilityFinishedV2
-		entity = fmt.Sprintf("workflows.v2.%s", CapabilityExecutionFinishedV2)
+		entity = fmt.Sprintf("workflows.v2.%s", CapabilityExecutionFinished)
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}

@@ -28,12 +28,6 @@ const (
 	// SchemaUserLogs represents the schema for user log events
 	SchemaUserLogs string = "/cre-events-user-logs/v1"
 
-	// V2 event constants
-	WorkflowExecutionStartedV2    string = "WorkflowExecutionStartedV2"
-	WorkflowExecutionFinishedV2   string = "WorkflowExecutionFinishedV2"
-	CapabilityExecutionStartedV2  string = "CapabilityExecutionStartedV2"
-	CapabilityExecutionFinishedV2 string = "CapabilityExecutionFinishedV2"
-
 	// V2 schema constants
 	SchemaWorkflowStartedV2    string = "/cre-events-workflow-started/v2"
 	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
