@@ -387,10 +387,6 @@ func GenerateKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error)
 		}
 
 		for _, chainID := range input.GenerateSolKeysForChainIDs {
-			if !slices.Contains(donMetadata.SupportedSolChains, chainID) {
-				continue
-			}
-
 			solKeys, err := crypto.GenerateSolKeys(input.Password, len(donMetadata.NodesMetadata))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate Sol keys")

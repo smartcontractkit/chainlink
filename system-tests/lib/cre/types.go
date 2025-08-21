@@ -403,12 +403,11 @@ type DonWithMetadata struct {
 }
 
 type DonMetadata struct {
-	SupportedSolChains []string        `toml:"supported_sol_chains" json:"supported_sol_chains"`
-	NodesMetadata      []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags              []string        `toml:"flags" json:"flags"`
-	ID                 uint64          `toml:"id" json:"id"`
-	Name               string          `toml:"name" json:"name"`
-	SupportedChains    []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
+	NodesMetadata   []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags           []string        `toml:"flags" json:"flags"`
+	ID              uint64          `toml:"id" json:"id"`
+	Name            string          `toml:"name" json:"name"`
+	SupportedChains []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
 }
 
 type Label struct {
@@ -489,9 +488,8 @@ type OCRPeeringData struct {
 // - capability = ["1337", "2337"]
 // - capability = { enabled_chains=["1337","2337"], chain_overrides={"1337"={ ... }} }
 type ChainCapabilityConfig struct {
-	EnabledChains    []uint64                  `toml:"-"`
-	EnabledSolChains []string                  `toml:"-"`
-	ChainOverrides   map[uint64]map[string]any `toml:"-"`
+	EnabledChains  []uint64                  `toml:"-"`
+	ChainOverrides map[uint64]map[string]any `toml:"-"`
 }
 
 // ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the CapabilitiesAwareNodeSet.

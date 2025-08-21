@@ -67,10 +67,8 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 			// Determine write-solana enablement per chain via node-set ChainCapabilities
 			hasWrite := false
 			if input.NodeSet != nil && input.NodeSet.ChainCapabilities != nil {
-				if cc, ok := input.NodeSet.ChainCapabilities[cre.WriteSolanaCapability]; ok && cc != nil {
-					if slices.Contains(cc.EnabledSolChains, bcOut.SolChain.ChainID) {
-						hasWrite = true
-					}
+				if slices.Contains(input.NodeSet.Capabilities, cre.WriteSolanaCapability) {
+					hasWrite = true
 				}
 			}
 
