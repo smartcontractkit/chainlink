@@ -49,6 +49,7 @@ type LocalRegistry struct {
 	IDsToDONs         map[DonID]DON
 	IDsToNodes        map[types.PeerID]NodeInfo
 	IDsToCapabilities map[string]Capability
+	TypeAndVersion    string
 }
 
 func NewLocalRegistry(
@@ -57,6 +58,7 @@ func NewLocalRegistry(
 	idsToDONs map[DonID]DON,
 	idsToNodes map[types.PeerID]NodeInfo,
 	idsToCapabilities map[string]Capability,
+	typeAndVersion string,
 ) LocalRegistry {
 	return LocalRegistry{
 		Logger:            logger.Named(lggr, "LocalRegistry"),
@@ -64,6 +66,7 @@ func NewLocalRegistry(
 		IDsToDONs:         idsToDONs,
 		IDsToNodes:        idsToNodes,
 		IDsToCapabilities: idsToCapabilities,
+		TypeAndVersion:    typeAndVersion,
 	}
 }
 
@@ -155,6 +158,7 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 	var lrCopy LocalRegistry
 	lrCopy.Logger = lr.Logger
 	lrCopy.GetPeerID = lr.GetPeerID
+	lrCopy.TypeAndVersion = lr.TypeAndVersion
 	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
 	for id, don := range lr.IDsToDONs {
 		d := capabilities.DON{

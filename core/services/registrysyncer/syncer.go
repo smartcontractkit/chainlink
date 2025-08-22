@@ -115,6 +115,9 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 					"getNodes": {
 						ChainSpecificName: "getNodes",
 					},
+					"typeAndVersion": {
+						ChainSpecificName: "typeAndVersion",
+					},
 				},
 			},
 		},
@@ -204,9 +207,16 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
+	// Read typeAndVersion from the contract
+	var typeAndVersion string
+	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("typeAndVersion"), primitives.Unconfirmed, nil, &typeAndVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
+	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +301,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
+		TypeAndVersion:    typeAndVersion,
 	}, nil
 }
 

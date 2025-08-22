@@ -636,6 +636,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 				ID:             "trigger@1.0.0",
 			},
 		},
+		"CapabilitiesRegistry 2.0.0",
 	)
 
 	node, err := localRegistry.LocalNode(ctx)
