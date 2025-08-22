@@ -371,6 +371,9 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
+
 	createSecretsResponse := vaultcommon.CreateSecretsResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &createSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into CreateSecretsResponse proto")
@@ -403,6 +406,13 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 					},
 					EncryptedValue: encryptSecret(t, secretValue),
 				},
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "invalid",
+						Owner: "invalid",
+					},
+					EncryptedValue: encryptSecret(t, secretValue),
+				},
 			},
 		},
 	}
@@ -424,16 +434,22 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
+
 	updateSecretsResponse := vaultcommon.UpdateSecretsResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &updateSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
 	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
 
-	require.Len(t, updateSecretsResponse.Responses, 1, "Expected one item in the response")
+	require.Len(t, updateSecretsResponse.Responses, 2, "Expected one item in the response")
 	result0 := updateSecretsResponse.GetResponses()[0]
 	require.Empty(t, result0.GetError())
 	require.Equal(t, secretID, result0.GetId().Key)
 	require.Equal(t, owner, result0.GetId().Owner)
+
+	result1 := updateSecretsResponse.GetResponses()[1]
+	require.Contains(t, result1.Error, "key does not exist")
 
 	framework.L.Info().Msg("Secret updated successfully")
 }
@@ -486,9 +502,10 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 		EncryptedDecryptionKeyShares []*EncryptedShares `protobuf:"bytes,3,rep,name=encrypted_decryption_key_shares,json=encryptedDecryptionKeyShares,proto3" json:"encrypted_decryption_key_shares,omitempty"`
 	}
 	type SecretResponse struct {
+		//nolint:var-naming
 		Id    *vaultcommon.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-		Data  *SecretData                   `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
-		Error string                        `protobuf:"bytes,3,opt,name=error,proto3,oneof"`
+		Data  *SecretData                   `protobuf:"bytes,2,opt,name=data,proto3"`
+		Error string                        `protobuf:"bytes,3,opt,name=error,proto3"`
 	}
 	type GetSecretsResponse struct {
 		Responses []*SecretResponse `protobuf:"bytes,1,rep,name=responses,proto3" json:"responses,omitempty"`
