@@ -406,7 +406,7 @@ func Test_SecretsWorker(t *testing.T) {
 			donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, engineRegistry,
+			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
 				emitter, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
@@ -591,7 +591,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er, emitter, rl, wl, store, workflowEncryptionKey)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -698,7 +698,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er,
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
 		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
