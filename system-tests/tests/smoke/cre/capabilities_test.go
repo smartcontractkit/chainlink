@@ -309,6 +309,9 @@ func executeDonTimeTest(t *testing.T, in *envconfig.Config, envArtifact environm
 	// TODO: We need to ensure DON Time Plugin is included...
 	// TODO: Let's assume it's running and the env includes it already
 
+	// TODO: GET WORKFLOW RUNNING
+	// TODO: Workflow can just get identical consensus on timestamps from DON Time
+
 	workflowName := "don-time-workflow"
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time/main.go"
 	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
@@ -340,9 +343,6 @@ func executeDonTimeTest(t *testing.T, in *envconfig.Config, envArtifact environm
 	)
 	require.NoError(t, registerErr, "failed to register don-time-workflow")
 	fmt.Println("REGISTERED DON TIME WORKFLOW")
-
-	// TODO: Let's see if this is registered now ;P
-
 }
 
 func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
