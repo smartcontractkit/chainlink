@@ -502,8 +502,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 		EncryptedDecryptionKeyShares []*EncryptedShares `protobuf:"bytes,3,rep,name=encrypted_decryption_key_shares,json=encryptedDecryptionKeyShares,proto3" json:"encrypted_decryption_key_shares,omitempty"`
 	}
 	type SecretResponse struct {
-		//nolint:var-naming // This is the name used in the proto definition, so we keep it for compatibility
-		Id    *vaultcommon.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+		ID    *vaultcommon.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 		Data  *SecretData                   `protobuf:"bytes,2,opt,name=data,proto3"`
 		Error string                        `protobuf:"bytes,3,opt,name=error,proto3"`
 	}
@@ -524,8 +523,8 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	require.Len(t, getSecretsResponse.Responses, 1, "Expected one secret in the response")
 	result0 := getSecretsResponse.Responses[0]
 	require.Empty(t, result0.Error)
-	require.Equal(t, secretID, result0.Id.Key)
-	require.Equal(t, owner, result0.Id.Owner)
+	require.Equal(t, secretID, result0.ID.Key)
+	require.Equal(t, owner, result0.ID.Owner)
 
 	framework.L.Info().Msg("Secret get successful")
 }
