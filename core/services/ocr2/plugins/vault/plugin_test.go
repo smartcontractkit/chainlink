@@ -45,9 +45,9 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
 	assert.Equal(t, 1024, info.Limits.MaxQueryLength)
-	assert.Equal(t, 1024, info.Limits.MaxObservationLength)
+	assert.Equal(t, 102400, info.Limits.MaxObservationLength)
 	assert.Equal(t, 1024, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 1024, info.Limits.MaxReportLength)
+	assert.Equal(t, 409600, info.Limits.MaxReportLength)
 	assert.Equal(t, 10, info.Limits.MaxReportCount)
 	assert.Equal(t, 1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
 	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)
@@ -1332,7 +1332,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 	}
 	for _, ob := range observations {
 		o := &vault.Observation{
-			Id: keyFor(ob.id),
+			Id: KeyFor(ob.id),
 		}
 		switch tr := ob.req.(type) {
 		case *vault.GetSecretsRequest:
@@ -1963,7 +1963,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vault.Outcome{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		RequestType: vault.RequestType_CREATE_SECRETS,
 		Request: &vault.Outcome_CreateSecretsRequest{
 			CreateSecretsRequest: req,
@@ -1994,7 +1994,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome2 := &vault.Outcome{
-		Id:          keyFor(id2),
+		Id:          KeyFor(id2),
 		RequestType: vault.RequestType_GET_SECRETS,
 		Request: &vault.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req2,
@@ -2046,7 +2046,7 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vault.RequestType_CREATE_SECRETS,
 	}, info1))
@@ -2059,7 +2059,7 @@ func TestPlugin_Reports(t *testing.T) {
 	info2, err := extractReportInfo(o2.ReportWithInfo)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id2),
+		Id:          KeyFor(id2),
 		Format:      vault.ReportFormat_REPORT_FORMAT_PROTOBUF,
 		RequestType: vault.RequestType_GET_SECRETS,
 	}, info2))
@@ -2555,7 +2555,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
-			keyPrefix + keyFor(id): {
+			keyPrefix + KeyFor(id): {
 				data: d,
 			},
 		},
@@ -2648,7 +2648,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vault.Outcome{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		RequestType: vault.RequestType_UPDATE_SECRETS,
 		Request: &vault.Outcome_UpdateSecretsRequest{
 			UpdateSecretsRequest: req,
@@ -2700,7 +2700,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vault.RequestType_UPDATE_SECRETS,
 	}, info1))
@@ -2753,7 +2753,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 			metadataPrefix + "foo": response{
 				data: mdb,
 			},
-			keyPrefix + keyFor(id): response{
+			keyPrefix + KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -2950,7 +2950,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			metadataPrefix + "foo": response{
 				data: mdb,
 			},
-			keyPrefix + keyFor(id): response{
+			keyPrefix + KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -3126,7 +3126,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vault.Outcome{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		RequestType: vault.RequestType_DELETE_SECRETS,
 		Request: &vault.Outcome_DeleteSecretsRequest{
 			DeleteSecretsRequest: req,
@@ -3178,7 +3178,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vault.RequestType_DELETE_SECRETS,
 	}, info1))

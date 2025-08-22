@@ -28,11 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
