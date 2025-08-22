@@ -143,7 +143,10 @@ func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlo
 		return nil, fmt.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
 	}
 	// shouldn't be empty, since we call initSolana before wrap, but just in case
-	SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
+	setErr := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
+	if setErr != nil {
+		return nil, fmt.Errorf("set default private key solana failed: %w", setErr)
+	}
 
 	envp := os.Getenv("SOLANA_PRIVATE_KEY")
 	pk, err := solana.PrivateKeyFromBase58(envp)
