@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
@@ -80,6 +79,11 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 
 		// DonName is required
 		don, err := registry.GetDONByName(&bind.CallOpts{}, input.DonName)
+		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+			return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
+		}
+
 		if don.AcceptsWorkflows && !input.Force {
 			// TODO: CRE-277 ensure forwarders are support the next DON version
 			// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
@@ -114,7 +118,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			F:                        f,
 		})
 		if err != nil {
-			err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return UpdateDONOutput{}, fmt.Errorf("failed to call UpdateDON: %w", err)
 		}
 

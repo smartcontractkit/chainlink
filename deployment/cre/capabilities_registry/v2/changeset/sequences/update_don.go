@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -79,11 +80,33 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 			return UpdateDONOutput{}, fmt.Errorf("failed to get registry address: %w", err)
 		}
 
-		nodeUpdates := make(map[p2pkey.PeerID]contracts.NodeConfig, len(input.P2PIDs))
+		capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+			common.HexToAddress(registryAddressRef.Address), chain.Client,
+		)
+		if err != nil {
+			return UpdateDONOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
+		}
+
+		nodes, err := getDonNodes(input.DonName, capReg)
+		if err != nil {
+			return UpdateDONOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", input.DonName, err)
+		}
+
+		p2pIDs := input.P2PIDs
+		if len(p2pIDs) == 0 {
+			// If no P2P IDs are provided to change the DON composition, we use the existing DON's P2P IDs
+			p2pIDs = make([]p2pkey.PeerID, 0)
+
+			for _, node := range nodes {
+				p2pIDs = append(p2pIDs, node.P2pId)
+			}
+		}
+
+		nodeUpdates := make(map[p2pkey.PeerID]contracts.NodeConfig, len(p2pIDs))
 		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			capabilities[i] = cfg.Capability
-			for _, p2pID := range input.P2PIDs {
+			for _, p2pID := range p2pIDs {
 				nodeUpdate, exists := nodeUpdates[p2pID]
 				if !exists {
 					nodeUpdate = contracts.NodeConfig{
@@ -108,10 +131,6 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to register capabilities: %w", err)
 		}
-
-		capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-			common.HexToAddress(registryAddressRef.Address), chain.Client,
-		)
 
 		updateNodesReport, err := operations.ExecuteOperation(
 			b,
@@ -138,7 +157,7 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 			},
 			contracts.UpdateDONInput{
 				ChainSelector:     input.RegistryChainSel,
-				P2PIDs:            input.P2PIDs,
+				P2PIDs:            p2pIDs,
 				CapabilityConfigs: input.CapabilityConfigs,
 				DonName:           input.DonName,
 				F:                 input.F,
@@ -157,3 +176,22 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 		}, nil
 	},
 )
+
+func getDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
+	[]capabilities_registry_v2.INodeInfoProviderNodeInfo,
+	error,
+) {
+	don, err := capReg.GetDONByName(&bind.CallOpts{}, donName)
+	if err != nil {
+		err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to get DON by name %s: %w", donName, err)
+	}
+
+	nodes, err := capReg.GetNodesByP2PIds(&bind.CallOpts{}, don.NodeP2PIds)
+	if err != nil {
+		err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to get nodes by P2P IDs for DON %s: %w", donName, err)
+	}
+
+	return nodes, nil
+}
