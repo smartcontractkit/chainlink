@@ -82,6 +82,7 @@ type SetupInput struct {
 	BlockchainsInput          []blockchain.Input
 	JdInput                   jd.Input
 	InfraInput                infra.Input
+	ContractVersions          map[cldf.ContractType]string
 	OCR3Config                *keystone_changeset.OracleConfig
 	DONTimeConfig             *keystone_changeset.OracleConfig
 	VaultOCR3Config           *keystone_changeset.OracleConfig
@@ -269,7 +270,6 @@ func SetupTestEnvironment(
 			DeployConsensusOCR3:   consensusV2AddrFlag,
 		},
 	)
-
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
@@ -318,7 +318,6 @@ func SetupTestEnvironment(
 			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderState,
 		})
-
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
 		}
@@ -329,6 +328,10 @@ func SetupTestEnvironment(
 
 	ocr3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
 	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainSelector, ocr3Addr)
+
+	// TODO(mstreet3): grab addresses via ContractsVersion map
+	balanceReaderAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.BalanceReader.String(), "1.0.0", "")
+	testLogger.Info().Msgf("Deployed BalanceReader contract on chain %d at %s", homeChainOutput.ChainSelector, balanceReaderAddr)
 
 	donTimeAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "DONTime")
 	testLogger.Info().Msgf("Deployed DON Time contract on chain %d at %s", homeChainSelector, donTimeAddr)
