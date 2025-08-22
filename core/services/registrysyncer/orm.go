@@ -52,12 +52,10 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 		IDsToDONs         map[DonID]DON
 		IDsToNodes        map[types.PeerID]capabilitiesRegistryNodeInfo
 		IDsToCapabilities map[string]Capability
-		TypeAndVersion    string
 	}{
 		IDsToDONs:         l.IDsToDONs,
 		IDsToNodes:        idsToNodes,
 		IDsToCapabilities: l.IDsToCapabilities,
-		TypeAndVersion:    l.TypeAndVersion,
 	})
 	if err != nil {
 		return []byte{}, err
@@ -70,12 +68,10 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 		IDsToDONs         map[DonID]DON
 		IDsToNodes        map[types.PeerID]capabilitiesRegistryNodeInfo
 		IDsToCapabilities map[string]Capability
-		TypeAndVersion    string
 	}{
 		IDsToDONs:         make(map[DonID]DON),
 		IDsToNodes:        make(map[types.PeerID]capabilitiesRegistryNodeInfo),
 		IDsToCapabilities: make(map[string]Capability),
-		TypeAndVersion:    "",
 	}
 
 	if err := json.Unmarshal(data, &temp); err != nil {
@@ -110,7 +106,6 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 	}
 
 	l.IDsToCapabilities = temp.IDsToCapabilities
-	l.TypeAndVersion = temp.TypeAndVersion
 
 	return nil
 }

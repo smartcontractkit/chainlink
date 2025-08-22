@@ -154,9 +154,6 @@ func buildV2ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
 					"isCapabilityDeprecated": {
 						ChainSpecificName: "isCapabilityDeprecated",
 					},
-					"typeAndVersion": {
-						ChainSpecificName: "typeAndVersion",
-					},
 				},
 			},
 		},
@@ -232,16 +229,9 @@ func (s *registrySyncer) updateStateLoop() {
 }
 
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
-	// Read typeAndVersion from the contract
-	var typeAndVersion string
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("typeAndVersion"), primitives.Unconfirmed, nil, &typeAndVersion)
-	if err != nil {
-		return nil, err
-	}
-
 	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
 
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
+	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +312,6 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
-		TypeAndVersion:    typeAndVersion,
 	}, nil
 }
 
