@@ -103,7 +103,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
 		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.CapabilitiesRegistryVersion, "TODO",
 		platform.DonVersion, localNode.WorkflowDON.ConfigVersion,
 		platform.KeyOrganizationID, "TODO",
 	}

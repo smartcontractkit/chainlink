@@ -1473,11 +1473,9 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		)),
 		platform.KeyP2PID, nodeState.PeerID.String(),
 		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryVersion, ",
 		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.CapabilitiesRegistryVersion, "TODO",
-		platform.DonVersion, "TODO",
+		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
 		platform.KeyOrganizationID, "TODO",
 	)
 	workflow, err := Parse(cfg.Workflow)
