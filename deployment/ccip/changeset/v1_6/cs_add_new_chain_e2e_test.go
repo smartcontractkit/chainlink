@@ -587,7 +587,7 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 				break
 			}
 		}
-		require.NotEmpty(t, linkTokenAddr, "LinkToken should exist in the deployed environment")
+		require.NotEmpty(t, linkTokenAddr, "should have Link token in the deployed environment")
 
 		existingContracts := commoncs.ExistingContractsConfig{
 			ExistingContracts: []commoncs.Contract{
@@ -599,20 +599,30 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 			},
 		}
 
-		// This should remove the link token from the address book successfully
-		err = v1_6.RemoveLinkTokenAddressIfExists(e, existingContracts)
-		require.NoError(t, err, "should handle LinkToken contracts without error")
+		// This should remove the link token from the existing contracts slice successfully
+		err = v1_6.RemoveLinkTokenAddressIfExists(e, &existingContracts)
+		require.NoError(t, err, "should remove LinkToken address if exists")
 
-		// Verify the LinkToken was removed from the address book
+		// Verify the LinkToken was removed from the existing contracts slice
+		linkTokenStillExists := false
+		for _, contract := range existingContracts.ExistingContracts {
+			if contract.TypeAndVersion.Type == "LinkToken" {
+				linkTokenStillExists = true
+				break
+			}
+		}
+		require.False(t, linkTokenStillExists, "should not have Link token in existing contracts")
+
+		// The address book should remain unchanged
 		updatedAddresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		require.NoError(t, err)
-		linkTokenStillExists := false
+		linkTokenStillExists = false
 		for _, tv := range updatedAddresses {
 			if tv.Type == "LinkToken" {
 				linkTokenStillExists = true
 				break
 			}
 		}
-		require.False(t, linkTokenStillExists, "LinkToken should have been removed from address book")
+		require.True(t, linkTokenStillExists, "should still have Link Token in address book")
 	})
 }
