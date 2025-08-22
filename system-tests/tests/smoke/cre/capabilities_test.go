@@ -50,8 +50,6 @@ import (
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/freeport"
-
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -71,7 +69,6 @@ import (
 type TestEnvironment struct {
 	Config                   *envconfig.Config
 	EnvArtifact              environment.EnvArtifact
-	MockServerPort           int
 	Logger                   zerolog.Logger
 	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
@@ -143,14 +140,7 @@ func setupTestEnvironment(t *testing.T) *TestEnvironment {
 	topology := os.Getenv("CRE_TOPOLOGY")
 	require.NotEmpty(t, topology, "CRE_TOPOLOGY env var is not set")
 
-	// Allocate a free port for the mock HTTP server that will be used in HTTP tests
-	mockServerPorts, err := freeport.Take(1)
-	require.NoError(t, err, "failed to allocate free port for mock server")
-	require.Len(t, mockServerPorts, 1, "expected exactly one port")
-	mockServerPort := mockServerPorts[0]
-	framework.L.Info().Msgf("Allocated port %d for mock HTTP server", mockServerPort)
-
-	createErr := createEnvironmentIfNotExists(configurationFiles, "../../../../core/scripts/cre/environment", topology, mockServerPort)
+	createErr := createEnvironmentIfNotExists(configurationFiles, "../../../../core/scripts/cre/environment", topology)
 	require.NoError(t, createErr, "failed to create environment")
 
 	/*
@@ -171,7 +161,6 @@ func setupTestEnvironment(t *testing.T) *TestEnvironment {
 	return &TestEnvironment{
 		Config:                   in,
 		EnvArtifact:              envArtifact,
-		MockServerPort:           mockServerPort,
 		Logger:                   framework.L,
 		FullCldEnvOutput:         fullCldEnvOutput,
 		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
@@ -234,7 +223,7 @@ type HTTPTestConfig struct {
 
 // setupHTTPWorkflowTest sets up the HTTP workflow test infrastructure
 func setupHTTPWorkflowTest(t *testing.T, testEnv *TestEnvironment) *HTTPTestConfig {
-	mockServer, recorder := startMockHTTPServerOnPort(t, testEnv.MockServerPort)
+	mockServer, recorder := startMockHTTPServerOnPort(t, testEnv.Config.Fake.Port)
 	workflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
 	configPath, signingKey := createTestWorkflowConfig(t, workflowName, mockServer.URL)
 
@@ -820,12 +809,12 @@ const (
 	DefaultEnvironmentDir      = "../../../../core/scripts/cre/environment"
 	PoRWorkflowLocation        = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 	HTTPWorkflowLocation       = "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
-	DefaultEnvArtifactPath     = "../../../..//core/scripts/cre/environment/env_artifact/env_artifact.json"
+	DefaultEnvArtifactPath     = "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json"
 	RetryInterval              = 2 * time.Second
 	ValidationInterval         = 10 * time.Second
 )
 
-func createEnvironmentIfNotExists(stateFile, environmentDir, topology string, extraAllowedPort int) error {
+func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
 	split := strings.Split(stateFile, ",")
 	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
 		ctfConfigs := os.Getenv("CTF_CONFIGS")
@@ -842,8 +831,7 @@ func createEnvironmentIfNotExists(stateFile, environmentDir, topology string, ex
 			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
 		}
 
-		extraAllowedPortStr := strconv.Itoa(extraAllowedPort)
-		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology, "--extra-allowed-gateway-ports", extraAllowedPortStr)
+		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -1020,7 +1008,7 @@ func setConfigurationIfMissing(configName, topology string) error {
 	}
 
 	if os.Getenv("ENV_ARTIFACT_PATH") == "" {
-		err := os.Setenv("ENV_ARTIFACT_PATH", "../../../..//core/scripts/cre/environment/env_artifact/env_artifact.json")
+		err := os.Setenv("ENV_ARTIFACT_PATH", "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json")
 		if err != nil {
 			return errors.Wrap(err, "failed to set ENV_ARTIFACT_PATH env var")
 		}
