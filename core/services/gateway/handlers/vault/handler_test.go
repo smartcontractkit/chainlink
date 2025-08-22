@@ -218,7 +218,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 				},
 			},
 		}
-		params, err2 := json.Marshal(invalidParamsRequest) //nolint:copylocks // This is a test case, where the lock field is not set
+		params, err2 := json.Marshal(invalidParamsRequest) //nolint:govet // The lock field is not set on this proto
 		require.NoError(t, err2)
 		jsonRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "4",
