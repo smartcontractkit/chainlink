@@ -21,6 +21,7 @@ require (
 	github.com/cockroachdb/errors v1.11.3
 	github.com/docker/docker v28.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.15.7
+	github.com/gagliardetto/solana-go v1.13.0
 	github.com/goccy/go-yaml v1.18.0
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
@@ -29,7 +30,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/smartcontractkit/chain-selectors v1.0.67
-	github.com/smartcontractkit/chainlink-common v0.9.2-0.20250821150625-0dc24eeb5080
+	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250821162631-e3e586f8b5d6
 	github.com/smartcontractkit/chainlink-deployments-framework v0.25.0
 	github.com/smartcontractkit/chainlink-evm v0.3.2
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
@@ -186,7 +187,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
-	github.com/gagliardetto/solana-go v1.13.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.1 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect

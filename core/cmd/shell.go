@@ -113,7 +113,8 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				AuthHeaders:                    beholderAuthHeaders,
 				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
-				ChipIngressInsecureConnection:  cfgTelemetry.InsecureConnection(),
+				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
+				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created

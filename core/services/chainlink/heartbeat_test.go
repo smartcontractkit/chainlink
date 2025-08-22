@@ -3,6 +3,7 @@ package chainlink_test
 import (
 	"bytes"
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,9 +54,9 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 func TestHeartbeat_MeterEvents(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	// beholder client to capture output
-	outputBuffer := &bytes.Buffer{}
-	client, err := beholder.NewWriterClient(outputBuffer)
+	// Use a thread-safe byte collector
+	collector := &byteCollector{}
+	client, err := beholder.NewWriterClient(collector)
 	require.NoError(t, err)
 
 	// Set the global beholder client
@@ -66,7 +67,7 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	var heartbeatCounter, heartbeatCountCounter int32
 	mockMeter := newCountingMeter(t, &heartbeatCounter, &heartbeatCountCounter)
 	c := chainlink.HeartbeatConfig{
-		Beat:  1 * time.Millisecond,
+		Beat:  50 * time.Millisecond,
 		Lggr:  lggr,
 		P2P:   "peer-id",
 		AppID: "app-id",
@@ -86,7 +87,7 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	assert.InDelta(t, expectedCalls, hbCount, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
 
 	// Check the output buffer for heartbeat messages
-	outputStr := outputBuffer.String()
+	outputStr := collector.String()
 	assert.Contains(t, outputStr, "heartbeat", "Output should contain heartbeat messages")
 }
 
@@ -128,4 +129,22 @@ func (g *countingGauge) Record(ctx context.Context, value int64, options ...metr
 	if g.counter != nil {
 		atomic.AddInt32(g.counter, 1)
 	}
+}
+
+// byteCollector collects all bytes written to it in a thread-safe manner
+type byteCollector struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (bc *byteCollector) Write(p []byte) (n int, err error) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.buffer.Write(p)
+}
+
+func (bc *byteCollector) String() string {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.buffer.String()
 }

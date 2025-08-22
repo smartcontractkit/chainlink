@@ -14,8 +14,10 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -168,30 +170,61 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 	if addrErr != nil {
 		return errors.Wrap(addrErr, "failed to get addresses from address book")
 	}
-	chainsWithForwarders := make(map[uint64]struct{})
+
+	evmChainsWithForwarders := make(map[uint64]struct{})
 	for chainSelector, addresses := range allAddresses {
 		for _, typeAndVersion := range addresses {
 			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
-				chainsWithForwarders[chainSelector] = struct{}{}
+				evmChainsWithForwarders[chainSelector] = struct{}{}
 			}
 		}
 	}
 
-	_, err = operations.ExecuteSequence(
-		input.CldEnv.OperationsBundle,
-		ks_contracts_op.ConfigureForwardersSeq,
-		ks_contracts_op.ConfigureForwardersSeqDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
-		},
-		ks_contracts_op.ConfigureForwardersSeqInput{
-			RegistryChainSel: input.ChainSelector,
-			DONs:             configDONs,
-			Chains:           chainsWithForwarders,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure forwarders")
+	solChainsWithForwarder := make(map[uint64]struct{})
+	solForwarders := input.CldEnv.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_solana.DefaultForwarderQualifier))
+	for _, forwarder := range solForwarders {
+		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
+	}
+
+	// configure Solana forwarder only if we have some
+	if len(solChainsWithForwarder) > 0 {
+		for _, don := range configDONs {
+			cs := commonchangeset.Configure(ks_solana.ConfigureForwarders{},
+				&ks_solana.ConfigureForwarderRequest{
+					WFDonName:        don.Name,
+					WFNodeIDs:        don.NodeIDs,
+					RegistryChainSel: input.ChainSelector,
+					Chains:           solChainsWithForwarder,
+					Qualifier:        ks_solana.DefaultForwarderQualifier,
+					Version:          "1.0.0",
+				},
+			)
+
+			_, err = cs.Apply(*input.CldEnv)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure Solana forwarders")
+			}
+		}
+	}
+
+	// configure EVM forwarders only if we have some
+	if len(evmChainsWithForwarders) > 0 {
+		_, err = operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureForwardersSeq,
+			ks_contracts_op.ConfigureForwardersSeqDeps{
+				Env:      input.CldEnv,
+				Registry: capReg.Contract,
+			},
+			ks_contracts_op.ConfigureForwardersSeqInput{
+				RegistryChainSel: input.ChainSelector,
+				DONs:             configDONs,
+				Chains:           evmChainsWithForwarders,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure forwarders")
+		}
 	}
 
 	_, err = operations.ExecuteOperation(
@@ -437,7 +470,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := commonchangeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -457,7 +490,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := commonchangeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,
