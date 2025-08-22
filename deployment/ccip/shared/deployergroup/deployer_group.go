@@ -22,6 +22,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	cldf_proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/experimental/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -32,8 +34,8 @@ type DeployerGroup struct {
 	state             stateview.CCIPOnChainState
 	mcmConfig         *proposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
-	txDecoder         *proposalutils.TxCallDecoder
-	describeContext   *proposalutils.ArgumentContext
+	txDecoder         *cldf_proposalutils.TxCallDecoder
+	describeContext   *cldf_proposalutils.ArgumentContext
 }
 
 type DescribedTransaction interface {
@@ -121,8 +123,8 @@ type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
 	mcmConfig       *proposalutils.TimelockConfig
-	txDecoder       *proposalutils.TxCallDecoder
-	describeContext *proposalutils.ArgumentContext
+	txDecoder       *cldf_proposalutils.TxCallDecoder
+	describeContext *cldf_proposalutils.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -154,8 +156,8 @@ func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmC
 		e:               e,
 		mcmConfig:       mcmConfig,
 		state:           state,
-		txDecoder:       proposalutils.NewTxCallDecoder(nil),
-		describeContext: proposalutils.NewArgumentContext(addresses),
+		txDecoder:       cldf_proposalutils.NewTxCallDecoder(nil),
+		describeContext: cldf_proposalutils.NewArgumentContext(addresses),
 	}
 }
 
@@ -402,7 +404,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
-		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
+		describedProposal := cldf_proposalutils.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
