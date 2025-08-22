@@ -352,7 +352,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error 
 	for index, request := range secretsGetRequest.Requests {
 		if request.Id.Key == "" || request.Id.Owner == "" {
 			l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index " + strconv.Itoa(index))))
+			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index "+strconv.Itoa(index))))
 		}
 	}
 

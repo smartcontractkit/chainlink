@@ -99,7 +99,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			require.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
+			assert.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
 			assert.Equal(t, createSecretsRequest.EncryptedSecrets[0].Id.Key, secretsResponse.Result.Responses[0].Id.Key, "Secret ID should match")
 			assert.True(t, secretsResponse.Result.Responses[0].Success, "Success should be true")
 		}()
@@ -206,6 +206,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
+		//nolint:copylocks
 		invalidParamsRequest := vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{

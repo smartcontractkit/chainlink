@@ -312,8 +312,8 @@ func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environmen
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	framework.L.Info().Msgf("Sleeping 2 minutes to allow the Vault DON to start...")
-	time.Sleep(2 * time.Minute)
+	framework.L.Info().Msgf("Sleeping 3 minutes to allow the Vault DON to start...")
+	time.Sleep(3 * time.Minute)
 	framework.L.Info().Msgf("Sleep over. Executing test now...")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
@@ -545,6 +545,7 @@ func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []by
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err, "failed to read jsonResponse body")
 	framework.L.Info().Msgf("Response Body: %s", string(body))
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 	return body
 }
 
