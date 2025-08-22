@@ -31,10 +31,10 @@ var CapabilityEnabler = func(nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cr
 	return true
 }
 
-var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) ([]uint64, error) {
 	if nodeSetInput == nil || nodeSetInput.ChainCapabilities == nil {
-		return []uint64{}
+		return []uint64{}, nil
 	}
 
-	return nodeSetInput.ChainCapabilities[flag].EnabledChains
+	return nodeSetInput.ChainCapabilities[flag].EnabledChains, nil
 }

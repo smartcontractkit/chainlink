@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	ForwarderContract datastore.ContractType = "Forwarder"
-	ForwarderState    datastore.ContractType = "ForwarderState"
+	ForwarderContract         datastore.ContractType = "SolanaForwarder"
+	ForwarderState            datastore.ContractType = "SolanaForwarderState"
+	DefaultForwarderQualifier                        = "ks_solana_forwarder"
 )
 
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}

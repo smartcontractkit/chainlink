@@ -47,7 +47,7 @@
       - [Registration Parameters](#registration-parameters)
       - [URL Resolution Process](#url-resolution-process)
     - [Complete Workflow Setup Example](#complete-workflow-setup-example)
-  - [12. Workflow Secrets](#workflow-secrets)
+  - [12. Workflow Secrets](#12-workflow-secrets)
     - [How Secrets Work](#how-secrets-work)
     - [Creating Secrets Configuration](#creating-secrets-configuration)
     - [Environment Variable Naming](#environment-variable-naming)
@@ -56,8 +56,8 @@
     - [Encrypted Secrets File Structure](#encrypted-secrets-file-structure)
     - [Security Considerations](#security-considerations)
     - [Complete Example](#complete-example)
-  - [13. YAML Workflows (Data Feeds DSL)](#yaml-workflows-data-feeds-dsl)
-  - [14. Adding a New Test to the CI](#13-adding-a-new-test-to-the-ci)
+  - [13. YAML Workflows (Data Feeds DSL)](#13-yaml-workflows-data-feeds-dsl)
+  - [14. Adding a New Test to the CI](#14-adding-a-new-test-to-the-ci)
     - [How Auto-Discovery Works](#how-auto-discovery-works)
     - [Test Architecture Pattern](#test-architecture-pattern)
       - [Supported DON Topologies](#supported-don-topologies)
@@ -180,7 +180,7 @@ Example `launch.json` entry:
 
 ## 2. Using the CLI
 
-Local CRE environment and documentation were migrated to [core/scripts/cre/environment/docs.md](../../../../core/scripts/cre/environment/docs.md).
+Local CRE environment and documentation were migrated to [core/scripts/cre/environment/README.md](../../../../core/scripts/cre/environment/README.md).
 
 ---
 
