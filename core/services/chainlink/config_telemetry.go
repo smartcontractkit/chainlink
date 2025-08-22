@@ -95,3 +95,10 @@ func (b *telemetryConfig) HeartbeatInterval() time.Duration {
 	}
 	return b.s.HeartbeatInterval.Duration()
 }
+
+func (b *telemetryConfig) LogStreamingEnabled() bool {
+	if b.s.LogStreamingEnabled == nil {
+		return false
+	}
+	return *b.s.LogStreamingEnabled
+}

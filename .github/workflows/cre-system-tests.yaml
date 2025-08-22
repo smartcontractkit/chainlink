@@ -66,7 +66,9 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml,configs/ci-config.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml,configs/ci-config.toml"}]) | flatten')
+          # This only needs to be updated if we want to run all tests on a new DON topology.
+          # Otherwise tests are auto-discovered and run on all topologies.
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -124,26 +126,6 @@ jobs:
         shell: bash
         run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
-
-      # TODO: checkout that repo and build each capability instead
-      - name: Download test dependencies
-        uses: ./.github/actions/setup-cre-e2e-test-dependencies
-        with:
-          capability-version: "v1.0.2-alpha"
-          capability-names: "cron"
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          gati-region: ${{ secrets.AWS_REGION }}
-
-      - name: Enable cron capability
-        shell: bash
-        working-directory: core/scripts/cre/environment/configs
-        run: |
-          echo "[extra_capabilities]" >> "ci-config.toml"
-          echo "cron_capability_binary_path = \"${GITHUB_WORKSPACE}/system-tests/tests/smoke/cre/cron\"" >> "ci-config.toml"
-
-          cat "ci-config.toml"
-
       - name: Start local CRE
         shell: bash
         id: start-local-cre
@@ -156,7 +138,13 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --topology ${TOPOLOGY}
+          go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+          exit_code=$?
+          
+          if [ $exit_code -ne 0 ]; then
+            echo "Error: failed to start local CRE, exit code $exit_code"
+            exit $exit_code
+          fi
 
           echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
@@ -174,11 +162,21 @@ jobs:
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
           go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
 
+      - name: Save Docker logs
+        if: failure()
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre
+        run: |
+          mkdir -p logs
+          for c in $(docker ps --filter "label=framework=ctf" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log"
+          done
+
       - name: Upload all artifacts as single package
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: test-logs-${{ matrix.tests.test_name }}
+          name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/

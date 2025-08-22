@@ -483,7 +483,6 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		// only support deployer key as upgrade authority. never transfer to timelock
 		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
 			UpgradeConfig: UpgradeConfig{
-				SpillAddress:     chain.DeployerKey.PublicKey(),
 				UpgradeAuthority: chain.DeployerKey.PublicKey(),
 			},
 		}, cfg.ReceiverVersion, chainState.Receiver, shared.Receiver)

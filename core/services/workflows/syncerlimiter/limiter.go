@@ -42,7 +42,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	lggr = logger.Named(lggr, "WorkflowLimiter")
 	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
-	ownerLimit := cresettings.Config.PerOwner.ExecutionConcurrencyLimit
+	ownerLimit := cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit
 	if cfg.PerOwner > 0 {
 		ownerLimit.DefaultValue = int(cfg.PerOwner)
 	}

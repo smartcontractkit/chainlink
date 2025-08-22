@@ -7,6 +7,7 @@ Slack: #topic-local-dev-environments
 
 1. [Using the CLI](#using-the-cli)
    - [Prerequisites](#prerequisites-for-docker)
+   - [Setup](#setup)
    - [Start Environment](#start-environment)
     - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
     - [Beholder](#beholder)
@@ -16,7 +17,41 @@ Slack: #topic-local-dev-environments
    - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
-4. [Troubleshooting](#troubleshooting)
+3. [Adding a New Standard Capability](#adding-a-new-standard-capability)
+    - [Capability Types](#capability-types)
+    - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
+    - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
+    - [Step 3: Optional Gateway Handler Configuration](#step-3-optional-gateway-handler-configuration)
+    - [Step 4: Optional Node Configuration Modifications](#step-4-optional-node-configuration-modifications)
+    - [Step 5: Add Default Configuration](#step-5-add-default-configuration)
+    - [Step 6: Register the Capability](#step-6-register-the-capability)
+    - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
+    - [Configuration Templates](#configuration-templates)
+    - [Important Notes](#important-notes)
+5. [Multiple DONs](#multiple-dons)
+    - [Supported Capabilities](#supported-capabilities)
+    - [DON-level Capabilities](#don-level-capabilities)
+    - [Chain-level Capabilities](#chain-level-capabilities)
+    - [DON Types](#don-types)
+    - [TOML Configuration Structure](#toml-configuration-structure)
+    - [Example: Adding a New Topology](#example-adding-a-new-topology)
+    - [Configuration Modes](#configuration-modes)
+    - [Port Management](#port-management)
+    - [Important Notes](#important-notes)
+6. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
+    - [Available Configuration Files](#available-configuration-files)
+    - [Capability Types and Configuration](#capability-types-and-configuration)
+    - [DON-level Capabilities](#don-level-capabilities-1)
+    - [Chain-level Capabilities](#chain-level-capabilities-1)
+    - [Binary Requirements](#binary-requirements)
+    - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
+    - [Configuration Examples](#configuration-examples)
+    - [Custom Capability Configuration](#custom-capability-configuration)
+    - [Important Notes](#important-notes-1)
+    - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
+7. [Binary Location and Naming](#binary-location-and-naming)
+8. [Telemetry Configuration](#telemetry-configuration)
+9. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
@@ -47,6 +82,14 @@ AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
 If you are missing requirements, you may need to fix the errors and re-run.
 
 Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOijQ-R-5BIZrTdAaumlquQVZ48/edit?tab=t.0#heading=h.wqgcsrk9ncjs) for troubleshooting and FAQ. Use `#topic-local-dev-environments` for help.
+
+## Setup
+
+Environment can be setup by running `go run . env setup` inside `fdf` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+- you have AWS CLI installed and configured
+- you have GH CLI installed and authenticated
+- you have required Job Distributor and Chip Ingress (Beholder) images
+- build and copy all capability binaries to expected location
 
 ## Start Environment
 ```bash
@@ -151,7 +194,7 @@ go run . workflow deploy [flags]
 - `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 - `-e, --don-id`: DON ID (default: `1`)
@@ -173,7 +216,7 @@ go run . workflow delete [flags]
 - `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -192,7 +235,7 @@ go run . workflow delete-all [flags]
 **Key flags:**
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -406,7 +449,7 @@ go run . workflow deploy-and-verify-example [flags]
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
 - `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
 - `-d, --don-id`: DON ID for web API trigger (default: `vault`)
-- `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
+- `-w, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**
@@ -450,7 +493,840 @@ go run . workflow deploy -w ./examples/workflows/v2/http/main.go -n http-workflo
 go run . workflow deploy -w ./examples/workflows/v2/node-mode/main.go -n node-mode-workflow
 ```
 
+
+## Adding a New Standard Capability
+
+This section explains how to add new standard capabilities to the CRE test framework. There are two types of capabilities:
+
+- **DON-level capabilities**: Run once per DON (e.g., cron triggers, HTTP actions)
+- **Chain-level capabilities**: Run per chain (e.g., read contract, write EVM)
+
+### Capability Types
+
+**DON-level capabilities** are used when:
+- The capability operates at the DON level (not chain-specific)
+- Examples: cron triggers, HTTP actions, random number generators
+- Configuration is shared across all nodes in the DON
+
+**Chain-level capabilities** are used when:
+- The capability needs to interact with specific blockchain networks
+- Examples: read contract, write EVM
+- Configuration varies per chain (different RPC URLs, chain IDs, etc.)
+
+### Step 1: Define the Capability Flag
+
+Add a unique flag in `system-tests/lib/cre/types.go`:
+
+```go
+const (
+    // ... existing capabilities ...
+    RandomNumberGeneratorCapability CapabilityFlag = "random-number-generator" // DON-level example
+    GasEstimatorCapability          CapabilityFlag = "gas-estimator"          // Chain-level example
+)
+```
+
+### Step 2: Create the Capability Implementation
+
+Create a new directory in `system-tests/lib/cre/capabilities/` with your capability name.
+
+#### DON-level Capability Example (Random Number Generator)
+
+```go
+// system-tests/lib/cre/capabilities/randomnumbergenerator/random_number_generator.go
+package randomnumbergenerator
+
+import (
+    capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+    kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+    keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+    factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+    donlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+)
+
+const flag = cre.RandomNumberGeneratorCapability
+const configTemplate = `"{"seedValue": {{.SeedValue}}, "maxRange": {{.MaxRange}}}"`
+
+func New() (*capabilities.Capability, error) {
+    perDonJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+        donlevel.CapabilityEnabler,
+        donlevel.EnabledChainsProvider,
+        donlevel.ConfigResolver,
+        donlevel.JobNamer,
+    )
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor, // all values are defined in TOML, no need to set any runtime ones
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+    var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+    if flags.HasFlag(donFlags, flag) {
+        capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+            Capability: kcr.CapabilitiesRegistryCapability{
+                LabelledName:   "random-number-generator",
+                Version:        "1.0.0",
+                CapabilityType: 2, // ACTION
+            },
+            Config: &capabilitiespb.CapabilityConfig{},
+        })
+    }
+
+    return capabilities, nil
+}
+```
+
+#### Chain-level Capability Example (Gas Estimator)
+
+```go
+// system-tests/lib/cre/capabilities/gasestimator/gas_estimator.go
+package gasestimator
+
+import (
+    "errors"
+    "fmt"
+
+    capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+    kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+    keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+    "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+    factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+    chainlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
+)
+
+const flag = cre.GasEstimatorCapability
+const configTemplate = `'{"chainId":{{.ChainID}},"defaultGasLimit: {{.DefaultGasLimit}},"maxGasPrice": {{.MaxGasPrice}}, "rpcUrl":"{{.RPCURL}}"}'`
+
+func New() (*capabilities.Capability, error) {
+    perChainJobSpecFactory := factory.NewCapabilityJobSpecFactory(
+        chainlevel.CapabilityEnabler,
+        chainlevel.EnabledChainsProvider,
+        chainlevel.ConfigResolver,
+        chainlevel.JobNamer,
+    )
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perChainJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any {
+                // assuming that RPC URL was somehow added to the metadata
+                // and that it is known only at runtime (otherwise it could have been defined in the TOML config, like DefaultGasLimit and MaxGasPrice)
+                rpcUrl, rpcUrlErr := node.FindLabelValue(nodeMetadata, node.RPCURL)
+				        if rpcUrl != nil {
+					        return nil, errors.Wrap(rpcUrl, "failed to find RPC URL in node labels")
+				        }
+
+                return map[string]any{
+                    "ChainID":       chainID,
+                    "RPCURL":        rpcUrl,
+                }
+            },
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+    capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
+
+    if nodeSetInput == nil {
+        return nil, errors.New("node set input is nil")
+    }
+
+    if nodeSetInput.ChainCapabilities == nil {
+        return nil, nil
+    }
+
+    if _, ok := nodeSetInput.ChainCapabilities[flag]; !ok {
+        return nil, nil
+    }
+
+    for _, chainID := range nodeSetInput.ChainCapabilities[cre.GasEstimatorCapability].EnabledChains {
+        capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+            Capability: kcr.CapabilitiesRegistryCapability{
+                LabelledName:   fmt.Sprintf("gas-estimator-evm-%d", chainID),
+                Version:        "1.0.0",
+                CapabilityType: 1, // ACTION
+            },
+            Config: &capabilitiespb.CapabilityConfig{},
+        })
+    }
+
+    return capabilities, nil
+}
+```
+
+### Step 3: Optional Gateway Handler Configuration
+
+If your capability needs to handle HTTP requests through the gateway, add a gateway handler configuration:
+
+```go
+func New() (*capabilities.Capability, error) {
+    // ... existing code ...
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor,
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithGatewayJobHandlerConfigFn(handlerConfig), // Add this
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error) {
+    if !flags.HasFlag(donMetadata.Flags, flag) {
+        return nil, nil
+    }
+
+    return map[string]string{"your-handler-type": `
+ServiceName = "your-service-na,e"
+[gatewayConfig.Dons.Handlers.Config]
+maxRequestDurationMs = 5000
+[gatewayConfig.Dons.Handlers.Config.RateLimiter]
+globalBurst = 10
+globalRPS = 50`}, nil
+}
+```
+
+### Step 4: Optional Node Configuration Modifications
+
+If your capability requires node configuration changes (like write-evm), add a node config function:
+
+```go
+func New() (*capabilities.Capability, error) {
+    // ... existing code ...
+
+    return capabilities.New(
+        flag,
+        capabilities.WithJobSpecFn(perDonJobSpecFactory.BuildJobSpec(
+            flag,
+            configTemplate,
+            factory.NoOpExtractor,
+            factory.BinaryPathBuilder,
+        )),
+        capabilities.WithNodeConfigFn(nodeConfigFn), // Add this
+        capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+    )
+}
+
+func nodeConfigFn(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
+    configOverrides := make(cre.NodeIndexToConfigOverride)
+
+    // Add your custom node configuration here
+    // Example: Add custom TOML section
+
+    return configOverrides, nil
+}
+```
+
+**Note**: Some capabilities like `write-evm` need to modify node configuration outside of this encapsulated implementation. They add TOML strings to various sections of the config (like EVM chains, workflow settings, etc.). This is done in `system-tests/lib/cre/don/config/config.go` where the capability checks for its presence and modifies the configuration accordingly.
+
+### Step 5: Add Default Configuration
+
+Add default configuration and binary path to `core/scripts/cre/environment/configs/capability_defaults.toml`:
+
+```toml
+[capability_configs.random-number-generator]
+  binary_path = "./binaries/random-number-generator"
+
+[capability_configs.random-number-generator.config]
+  # Add default configuration values here
+  SeedValue = 42
+  MaxRange = 1000
+
+[capability_configs.gas-estimator]
+  binary_path = "./binaries/gas-estimator"
+
+[capability_configs.gas-estimator.config]
+  # Add default configuration values here
+  DefaultGasLimit = 21000
+  MaxGasPrice = 100000000000  # 100 gwei
+```
+
+### Step 6: Register the Capability
+
+Add your capability to the default set in `system-tests/lib/cre/capabilities/sets/sets.go`:
+
+```go
+func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
+    capabilities := []cre.InstallableCapability{}
+
+    // ... existing capabilities ...
+
+    randomNumberGenerator, rngErr := randomnumbergeneratorcapability.New()
+    if rngErr != nil {
+        return nil, errors.Wrap(rngErr, "failed to create random number generator capability")
+    }
+    capabilities = append(capabilities, randomNumberGenerator)
+
+    gasEstimator, geErr := gasestimatorcapability.New()
+    if geErr != nil {
+        return nil, errors.Wrap(geErr, "failed to create gas estimator capability")
+    }
+    capabilities = append(capabilities, gasEstimator)
+
+    return capabilities, nil
+}
+```
+
+Don't forget to add the import at the top of the file:
+
+```go
+import (
+    // ... existing imports ...
+    randomnumbergeneratorcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/randomnumbergenerator"
+    gasestimatorcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/gasestimator"
+)
+```
+
+### Step 7: Add to Environment Configurations
+
+To actually use your capability in tests, you need to add it to the relevant environment configurations in `core/scripts/cre/environment/configs/`. Choose the appropriate configuration file based on your testing needs:
+
+**For DON-level capabilities** (like random number generator):
+```toml
+# In workflow-don.toml, workflow-gateway-don.toml, etc.
+capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "random-number-generator"]
+```
+
+**For chain-level capabilities** (like gas estimator):
+```toml
+# In workflow-don.toml, workflow-gateway-don.toml, etc.
+capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+
+# Enable capabilities per chain
+[nodesets.chain_capabilities]
+  write-evm = ["1337", "2337"]
+  gas-estimator = ["1337", "2337"]  # Add your chain-level capability here
+```
+
+Common configuration files:
+- `workflow-don.toml` - Basic workflow DON setup
+- `workflow-gateway-don.toml` - Workflow DON with gateway
+- `workflow-gateway-capabilities-don.toml` - Multiple DONs with different capabilities
+
+### Configuration Templates
+
+- **DON-level**: Use simple templates or empty strings for shared configuration
+- **Chain-level**: Use templates with chain-specific variables like `{{.ChainID}}`, `{{.NetworkFamily}}`
+
+### Important Notes
+
+- **Fake capabilities**: The examples above (random number generator, gas estimator) are fictional and don't exist in the actual codebase
+- **Binary paths**: Capabilities require binaries to be available in the container. Use `factory.BinaryPathBuilder` for standard paths
+- **Bootstrap nodes**: Don't run capabilities on bootstrap nodes - they only run on worker nodes
+
+---
+
+## Multiple DONs
+
+The CRE system supports multiple DONs (Decentralized Oracle Networks) with complete configuration via TOML files. No Go code is required for DON topology setup.
+
+### Supported Capabilities
+
+#### DON-level Capabilities
+These capabilities run once per DON and are shared across all nodes:
+
+- `ocr3` - OCR3 consensus protocol
+- `consensus` - Consensus protocol v2
+- `cron` - Scheduled task triggers
+- `custom-compute` - Custom computation capabilities
+- `web-api-trigger` - Web API trigger capabilities
+- `web-api-target` - Web API target capabilities
+- `http-trigger` - HTTP trigger capabilities
+- `http-action` - HTTP action capabilities
+- `vault` - Vault integration capabilities
+- `mock` - Mock capabilities for testing
+
+#### Chain-level Capabilities
+These capabilities run per chain and require chain-specific configuration:
+
+- `evm` - EVM chain integration
+- `write-evm` - EVM write operations
+- `read-contract` - Smart contract read operations
+- `log-event-trigger` - Blockchain event triggers
+
+### DON Types
+
+- `workflow` - Handles workflow execution (only one allowed)
+- `capabilities` - Provides specific capabilities (multiple allowed)
+- `gateway` - Handles external requests (only one allowed)
+
+### TOML Configuration Structure
+
+Each DON is defined as a `nodesets` entry in the TOML configuration:
+
+```toml
+[[nodesets]]
+  nodes = 5                    # Number of nodes in this DON
+  name = "workflow"            # Unique name for this nodeset
+  don_types = ["workflow"]     # DON type(s) for this nodeset
+  override_mode = "all"        # "all" for uniform config, "each" for per-node
+
+  # Bootstrap and gateway node configuration
+  bootstrap_node_index = 0     # Index of bootstrap node (-1 if none)
+  gateway_node_index = -1      # Index of gateway node (-1 if none)
+
+  # Capabilities configuration
+  capabilities = ["ocr3", "custom-compute", "cron"]
+
+  # Chain-specific capabilities
+  [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]      # Enable write-evm for specific chains
+    read-contract = ["1337"]          # Enable read-contract for specific chains
+```
+
+### Example: Adding a New Topology
+
+Here's how to add a new capabilities DON to your configuration:
+
+```toml
+# Add this to your existing TOML configuration file
+
+[[nodesets]]
+  nodes = 3
+  name = "data-feeds"
+  don_types = ["capabilities"]
+  override_mode = "all"
+  http_port_range_start = 10400
+
+  # No bootstrap or gateway nodes in this DON
+  bootstrap_node_index = -1
+  gateway_node_index = -1
+
+  # Enable DON-level capabilities (using hypothetical don-level capability)
+  capabilities = ["llo-streams"]
+
+  # Database configuration
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13300
+
+  # Node specifications
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+```
+
+### Configuration Modes
+
+- **`override_mode = "all"`**: All nodes in the DON use identical configuration
+- **`override_mode = "each"`**: Each node can have different configuration (useful for secrets, custom ports, etc.)
+
+### Port Management
+
+Each nodeset should use a different `http_port_range_start` to avoid port conflicts:
+
+- Workflow DON: `10100`
+- Capabilities DON: `10200`
+- Gateway DON: `10300`
+- Additional DONs: `10400`, `10500`, etc.
+
+### Important Notes
+
+- Only **one** `workflow` DON and **one** `gateway` DON are allowed
+- Multiple `capabilities` DONs are supported
+- Chain-level capabilities must specify which chains they support
+- Bootstrap nodes are only needed for workflow DONs
+- Gateway nodes are only needed for gateway DONs
+
+---
+
+## Enabling Already Implemented Capabilities
+
+This section explains how to enable already implemented capabilities in existing CRE topologies. All capability configurations are stored in `core/scripts/cre/environment/configs/`, with default settings defined in `capability_defaults.toml`.
+
+### Available Configuration Files
+
+The `configs/` directory contains several topology configurations:
+
+- `workflow-don.toml` - Single DON with all capabilities (default)
+- `workflow-gateway-don.toml` - Workflow DON with separate gateway node
+- `workflow-gateway-capabilities-don.toml` - Full topology with multiple DONs
+- `workflow-don-crib.toml` - CRIB/Kubernetes deployment configuration
+- `capability_defaults.toml` - Default capability configurations and binary paths
+
+### Capability Types and Configuration
+
+#### DON-level Capabilities
+
+These capabilities run once per DON and are configured using the `capabilities` array:
+
+```toml
+[[nodesets]]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+```
+
+**Available DON-level capabilities:**
+- `ocr3` - OCR3 consensus protocol (built-in)
+- `consensus` - Consensus protocol v2 (built-in)
+- `custom-compute` - Custom computation capabilities (built-in)
+- `web-api-target` - Web API target capabilities (built-in)
+- `web-api-trigger` - Web API trigger capabilities (built-in)
+- `vault` - Vault integration capabilities (built-in)
+- `cron` - Scheduled task triggers (requires binary)
+- `http-trigger` - HTTP trigger capabilities (requires binary)
+- `http-action` - HTTP action capabilities (requires binary)
+- `mock` - Mock capabilities for testing (requires binary)
+
+#### Chain-level Capabilities
+
+These capabilities run per chain and are configured using the `chain_capabilities` section:
+
+```toml
+[nodesets.chain_capabilities]
+  write-evm = ["1337", "2337"]      # Enable for specific chain IDs
+  read-contract = ["1337"]          # Enable for specific chain IDs
+  log-event-trigger = ["1337", "2337"]  # Enable for specific chain IDs
+  evm = ["1337", "2337"]           # Enable for specific chain IDs
+```
+
+**Available chain-level capabilities:**
+- `write-evm` - EVM write operations (built-in)
+- `read-contract` - Smart contract read operations (requires binary)
+- `log-event-trigger` - Blockchain event triggers (requires binary)
+- `evm` - EVM chain integration (requires binary)
+
+### Binary Requirements
+
+Some capabilities require external binaries to be available. These are specified in `capability_defaults.toml`:
+
+```toml
+[capability_configs.cron]
+  binary_path = "./binaries/cron"
+
+[capability_configs.read-contract]
+  binary_path = "./binaries/readcontract"
+
+[capability_configs.log-event-trigger]
+  binary_path = "./binaries/log-event-trigger"
+```
+
+**Built-in capabilities** (no binary required):
+- `ocr3`, `consensus`, `custom-compute`, `web-api-target`, `web-api-trigger`, `vault`, `write-evm`
+
+**Binary-dependent capabilities** (require external binaries):
+- `cron`, `http-trigger`, `http-action`, `read-contract`, `log-event-trigger`, `evm`, `mock`
+
+### Enabling Capabilities in Your Topology
+
+#### 1. Add DON-level Capabilities
+
+Edit your chosen topology file (e.g., `workflow-don.toml`) and add capabilities to the `capabilities` array:
+
+```toml
+[[nodesets]]
+  name = "workflow"
+  don_types = ["workflow"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron", "http-action"]
+  # ... other configuration
+```
+
+#### 2. Add Chain-level Capabilities
+
+Add chain-specific capabilities in the `chain_capabilities` section:
+
+```toml
+[[nodesets]]
+  name = "workflow"
+  don_types = ["workflow"]
+  capabilities = ["ocr3", "custom-compute"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]
+    read-contract = ["1337"]
+    log-event-trigger = ["1337", "2337"]
+```
+
+#### 3. Provide Required Binaries
+
+For capabilities that require binaries, either:
+
+**Option A: Use pre-built Docker image with binaries**
+```bash
+go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/chainlink:nightly-<DATE>-plugins
+```
+
+**Option B: Build binaries manually**
+1. Clone the [capabilities repository](https://github.com/smartcontractkit/capabilities)
+2. Build required binaries for `linux/amd64`:
+   ```bash
+   GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o <capability-name>
+   ```
+3. Place binaries in the `binaries/` directory relative to the environment folder
+
+### Configuration Examples
+
+#### Example 1: Basic Workflow with Cron
+
+```toml
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "cron"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+
+# Ensure cron binary is available or use plugins image
+[extra_capabilities]
+cron_capability_binary_path = "./binaries/cron"
+```
+
+#### Example 2: Full Capability Setup
+
+```toml
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
+    log-event-trigger = ["1337"]
+    evm = ["1337", "2337"]
+```
+
+#### Example 3: Multi-DON with Specialized Capabilities
+
+```toml
+# Workflow DON
+[[nodesets]]
+  name = "workflow"
+  don_types = ["workflow"]
+  capabilities = ["ocr3", "custom-compute"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+
+# Capabilities DON for data feeds
+[[nodesets]]
+  name = "data-feeds"
+  don_types = ["capabilities"]
+  capabilities = ["http-action", "cron"]
+
+  [nodesets.chain_capabilities]
+    read-contract = ["1337", "2337"]
+    log-event-trigger = ["1337"]
+```
+
+### Custom Capability Configuration
+
+You can override default capability configurations by modifying the `capability_defaults.toml` file or adding custom configurations in your topology TOML:
+
+```toml
+# Override default configuration for custom-compute
+[capability_configs.custom-compute.config]
+  NumWorkers = 5
+  GlobalRPS = 50.0
+  GlobalBurst = 100
+
+# Override configuration for cron
+[capability_configs.cron.config]
+  CustomScheduleFormat = "extended"
+```
+
+### Important Notes
+
+- **Binary availability**: Ensure all required binaries are available before starting the environment
+- **Chain IDs**: Chain-level capabilities must specify valid chain IDs that exist in your blockchain configuration
+- **Port conflicts**: Each nodeset should use different `http_port_range_start` values
+- **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
+- **Bootstrap nodes**: Capabilities typically don't run on bootstrap nodes (index 0)
+
+### Troubleshooting Capability Issues
+
+**Binary not found:**
+```
+Error: capability binary not found: ./binaries/cron
+```
+- Solution: Either provide the binary or use a plugins Docker image
+
+**Capability not supported:**
+```
+Error: unsupported capability: unknown-capability
+```
+- Solution: Check the list of available capabilities and ensure correct spelling
+
+**Chain not configured:**
+```
+Error: chain 1337 not found for capability write-evm
+```
+- Solution: Ensure the chain ID exists in your `[[blockchains]]` configuration
+
+---
+
+## Binary Location and Naming
+
+External capability binaries must be placed in the `binaries/` directory relative to the environment folder (`core/scripts/cre/environment/binaries/`). Expected filenames are defined in `capability_defaults.toml`:
+
+```bash
+# Expected directory structure:
+core/scripts/cre/environment/
+├── binaries/
+│   ├── cron                    # for cron capability
+│   ├── readcontract           # for read-contract capability
+│   ├── log-event-trigger      # for log-event-trigger capability
+│   ├── evm                    # for evm capability
+│   ├── http_action            # for http-action capability
+│   ├── http_trigger           # for http-trigger capability
+│   └── mock                   # for mock capability
+└── configs/
+    └── capability_defaults.toml  # Contains binary_path definitions
+```
+
+To check expected filenames, refer to the `binary_path` field in `capability_defaults.toml` for each capability.
+
+---
+
+## Telemetry Configuration
+
+Chainlink nodes are configured by default to send telemetry data to two services:
+
+### OTEL Stack (OpenTelemetry)
+Nodes send telemetry to `host.docker.internal:4317` for metrics and tracing. Start the OTEL observability stack with:
+
+```bash
+ctf obs u
+```
+
+This provides access to Grafana, Prometheus, and Loki for monitoring and log aggregation.
+
+### Chip Ingress (Beholder)
+Nodes send workflow events to `chip-ingress:50051` for workflow monitoring. Start Chip Ingress either:
+
+**Option 1: Start with environment**
+```bash
+go run . env start --with-beholder
+```
+
+**Option 2: Start separately**
+```bash
+go run . env beholder start
+```
+
+### Expected Error Messages
+
+If these telemetry services are not running, you will see frequent "expected" error messages in the logs due to connection failures:
+
+```
+failed to connect to telemetry endpoint: connection refused
+failed to send to chip-ingress: connection refused
+```
+
+These errors are harmless but can clutter logs. To avoid them, either start the telemetry services or disable telemetry in your node configuration.
+
+---
+
+## Using a Specific Docker Image for Chainlink Node
+
+Default behavior builds an image from your current branch:
+
+```toml
+[[nodeset.node_specs]]
+  [nodeset.node_specs.node]
+    docker_ctx = "../../.."
+    docker_file = "core/chainlink.Dockerfile"
+```
+
+To use a prebuilt image:
+
+```toml
+[[nodeset.node_specs]]
+  [nodeset.node_specs.node]
+    image = "image-you-want-to-use"
+```
+
+Apply this to every node in your config.
+
+---
+
+## Using Existing EVM \& P2P Keys
+
+When using public chains with limited funding, use pre-funded, encrypted keys:
+
+TOML format:
+
+```toml
+[[nodesets.node_specs]]
+  [nodesets.node_specs.node]
+    test_secrets_overrides = """
+    [EVM]
+    [[EVM.Keys]]
+    JSON = '{...}'
+    Password = ''
+    ID = 1337
+    [P2PKey]
+    JSON = '{...}'
+    Password = ''
+    """
+```
+
+> Requires `override_mode = "each"` and the same keys across all chains
+
+These limitations come from the current CRE SDK logic and not Chainlink itself.
+
+---
+
 ## Troubleshooting
+
+### Chainlink Node Migrations Fail
+
+Remove old Postgres volumes:
+
+```bash
+ctf d rm
+```
+
+Or remove volumes manually if `ctf` CLI is unavailable.
+
+### Docker Image Not Found
+
+If Docker build succeeds but the image isn’t found at runtime:
+
+- Restart your machine
+- Retry the test
 
 ### Docker fails to download public images
 Make sure you are logged in to Docker. Run: `docker login`

@@ -3,8 +3,8 @@ package store
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 // Note: any update to the enum below should be reflected in

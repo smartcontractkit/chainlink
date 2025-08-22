@@ -42,7 +42,7 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	providerType = "ocr3-capability"
 `,
 			uuid,
-			"ocr3-bootstrap-"+name,
+			"ocr3-bootstrap-"+name+fmt.Sprintf("-%d", chainID),
 			ocr3CapabilityAddress,
 			chainID),
 	}
@@ -116,9 +116,9 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int,
 	MaxRequestBytes = 100_000
 	Path = "%s"
 	Port = %d
-	ReadTimeoutMillis = 2_000
+	ReadTimeoutMillis = 20_000
 	RequestTimeoutMillis = 10_000
-	WriteTimeoutMillis = 2_000
+	WriteTimeoutMillis = 20_000
 	CORSEnabled = false
 	CORSAllowedOrigins = []
 	[gatewayConfig.HTTPClientConfig]
@@ -205,8 +205,6 @@ func WorkerStandardCapability(nodeID, name, command, config, oracleFactoryConfig
 func DonTimeJob(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
-	fmt.Println("TransmitterID: ", nodeEthAddress)
-
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
 		Spec: fmt.Sprintf(`
@@ -283,7 +281,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBun
 	evm = "%s"
 `,
 			uuid,
-			cre.OCR3Capability,
+			cre.ConsensusCapability,
 			ocr3CapabilityAddress,
 			ocr2KeyBundleID,
 			ocrPeeringData.OCRBootstraperPeerID,

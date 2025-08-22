@@ -1,6 +1,7 @@
 # ctf binary artifacts
 compose/
 blockscout/
+binaries/
 
 # contract artifacts
 examples/contracts/abi
