@@ -178,8 +178,8 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           mkdir -p logs
-          for c in $(docker ps --filter "label=framework=ctf" --format '{{.Names}}'); do
-            docker logs "$c" > "logs/${c}.log"
+          for c in $(docker ps -a --filter "label=framework=ctf" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
       - name: Upload all artifacts as single package
