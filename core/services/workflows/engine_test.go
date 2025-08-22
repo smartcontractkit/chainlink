@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -48,7 +48,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -401,7 +400,7 @@ targets:
 		registry.SetLocalRegistry(&testConfigProvider{
 			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 				return capabilities.CapabilityConfiguration{
-					RestrictedKeys: []string{metering.RatiosKey},
+					RestrictedKeys:   []string{metering.RatiosKey},
 					RestrictedConfig: conf,
 				}, nil
 			},
@@ -1995,7 +1994,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 			return capabilities.CapabilityConfiguration{
 				RestrictedConfig: giveRegistryConfig,
-				RestrictedKeys: []string{"maxMemoryMBs", "tickInterval", "timeout"},
+				RestrictedKeys:   []string{"maxMemoryMBs", "tickInterval", "timeout"},
 			}, nil
 		},
 	})

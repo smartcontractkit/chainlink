@@ -126,16 +126,6 @@ jobs:
         shell: bash
         run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
-
-      # TODO: checkout that repo and build each capability instead
-      - name: Download test dependencies
-        uses: ./.github/actions/setup-cre-e2e-test-dependencies
-        with:
-          capability-version: "v1.0.2-alpha"
-          capability-names: "cron"
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          gati-region: ${{ secrets.AWS_REGION }}
       - name: Start local CRE
         shell: bash
         id: start-local-cre
@@ -148,9 +138,9 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --topology ${TOPOLOGY}
+          go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
           exit_code=$?
-
+          
           if [ $exit_code -ne 0 ]; then
             echo "Error: failed to start local CRE, exit code $exit_code"
             exit $exit_code

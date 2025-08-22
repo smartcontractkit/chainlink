@@ -13,4 +13,5 @@ type Telemetry interface {
 	EmitterExportTimeout() time.Duration
 	ChipIngressEndpoint() string
 	HeartbeatInterval() time.Duration
+	LogStreamingEnabled() bool
 }

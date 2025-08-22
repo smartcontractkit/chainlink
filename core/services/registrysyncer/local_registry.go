@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"math/big"
 
-	"google.golang.org/protobuf/proto"
 	"github.com/smartcontractkit/libocr/ragep2p/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 type DonID uint32
@@ -41,10 +41,10 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
 		prtc := cconf.GetRemoteTriggerConfig()
 		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{
-			RegistrationRefresh: prtc.RegistrationRefresh.AsDuration(),
-			RegistrationExpiry: prtc.RegistrationExpiry.AsDuration(),
+			RegistrationRefresh:     prtc.RegistrationRefresh.AsDuration(),
+			RegistrationExpiry:      prtc.RegistrationExpiry.AsDuration(),
 			MinResponsesToAggregate: prtc.MinResponsesToAggregate,
-			MessageExpiry: prtc.MessageExpiry.AsDuration(),
+			MessageExpiry:           prtc.MessageExpiry.AsDuration(),
 		}
 	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
 		prtc := cconf.GetRemoteTargetConfig()

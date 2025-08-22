@@ -472,6 +472,11 @@ func BuildOCR3ConfigForCCIPHome(
 		} else {
 			transmitAccount = cfg.TransmitAccount
 		}
+
+		if destFamily == chain_selectors.FamilyAptos {
+			transmitAccount = replaceAptosPublicKeys(transmitAccount)
+		}
+
 		p2pIDs = append(p2pIDs, node.PeerID)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
@@ -687,4 +692,32 @@ func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32
 		}
 	}
 	return nil
+}
+
+func replaceAptosPublicKeys(transmitterKey ocrtypes.Account) ocrtypes.Account {
+	// Due to missing support in Operator UI, nodes will currently submit their account address to JD, when we actually need their pubkeys
+	// As a temporary fix, hardcoding a mapping of address->pubkey, until we've got this fixed with https://github.com/smartcontractkit/operator-ui/pull/105
+	// at which point we can remove this mapping and use the AccountAddressPublicKey returned by JD directly
+	if pubkey, ok := map[ocrtypes.Account]ocrtypes.Account{
+		// address -> pubkey
+		"abf583b6a78104352571ac4c26c0c21cc300ac4721f20e7ccafe8fef0165994c": "df0abd3db66ac53143414283d80a989ab7952977a1829eb411a1866ec59b2e63",
+		"b5fd635b553acd5edf10d5be495200d0e25dbcc49f533ccac0b3ae2a9002fc61": "49078b68242df84bb5934384c54fd2bedb781aea9d51b39b54d0a6a4e5b815d1",
+		"e5c2b78461dbc0a65ec91acc7ebcd58c5174c76f260723ebbbf0e8b27b996138": "442016f35c766196688c8c334d559e319cc0f6eba514df8809d552c6c02d2410",
+		"fc569c01021cdfb8e6e2aebf24a13c95f81e8d93f45380e0e584e5302a9c0700": "d2d0c410670c170a50ce6f52feb0eb579a6c0a8d8985b0097c5f192ffc204278",
+		"1f396f4d814dde49e30735cc60ad3401a970b431984013ee8cc642af12780237": "412aef9e285a7226e9c54229595bc5124cc97fd4a7b744e3eb9be335ced5b3bf",
+		"ef29451782a5a02f06588e8d5def7808c8160f381e7c1bfec6811305c70ea118": "0d82ef11f54b1ccf468e945eba8b05618343e015827f8fd36f3c425aeacb5c20",
+		"7cd085db836299c483dd8ba74de6026d157dea13fd723fdfb1edd480129004ec": "21a6f41c79831274d5aad2eeb6fbf92d6c8fd91b3ef5de778f978a21f4d353fb",
+		"9f967c2c31bccc06f679431f02c0134ff42aad339eb6257263aee72c707078c8": "54c9b0677196c0c409147023f63e21bc249ec86e34e3d31a84e14ec70f1689d8",
+		"fc36546994ee99285dbb8a505ef2e1b5e1e65e583679c15b1ed8dde84be1a141": "f86e882182325f169677c07305833dbfdfc47c782acdad4378d0e9ae54197c26",
+		"1e3308f5344a3da5e635c6ccbc1a384edb48615d68b1be0ee7531f3a35e53c87": "261eabc31932ba74ba6aa36377010faff4944e4cee06dbd17f9b4b7509dd0db8",
+		"c3032bbe90b8d87444fed7bc1271287e9117f8dd043492a179371d712750d680": "e4933e51e556b1216bf2746add853a88dbee1031a8991e32b70a44ab64a83199",
+		"a9f1212c6ca3fbc5ce842e807545670d95351b0c25dd7b05ed0e24662152b10d": "1ada224320f7e43fc45d5534fcaccc3fb1c88c364bfa9d36f72228b72069a28e",
+		"abcc084a1a0719e219dc75203f6fc3a2e76a43eec9f8915f4481b7d89a8e47e3": "3b23c5703bbf86cc8620649f9f4f88890bd9098f4d8de951bb3c1897a883d7f2",
+		"5fa9348f0d5d7410832e08296f82bab8c5e6b7705d5c97574f2c5e3fd5b185e2": "05bdcbed6359af1b47db1e17a2ace65288021658b72e4050412802b00474316c",
+		"b0b6f9d21c73141fae33b8d889ac8eccb5e55b0ff5391a0e64c94e8b2d3370b0": "de3155f797d22fdbc8300bd4793b1f4dcfef8eeb581dbc76d426998d54396c0a",
+		"1b601e9727eb8a4feed06c578e8cdc05405ec849b7259c5ec107dfdc1250aa9e": "87bfbb26a7b01c6802152a59a682cb42f0a1fa9844963ef15bd57fd7b8257189",
+	}[transmitterKey]; ok {
+		return pubkey
+	}
+	return transmitterKey
 }

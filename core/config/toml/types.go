@@ -1991,11 +1991,15 @@ func (r *Limits) setFrom(f *Limits) {
 }
 
 type WorkflowStorage struct {
-	URL        *string
-	TLSEnabled *bool
+	ArtifactStorageHost *string
+	URL                 *string
+	TLSEnabled          *bool
 }
 
 func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
+	if f.ArtifactStorageHost != nil {
+		s.ArtifactStorageHost = f.ArtifactStorageHost
+	}
 	if f.URL != nil {
 		s.URL = f.URL
 	}
@@ -2275,6 +2279,7 @@ type Telemetry struct {
 	EmitterExportTimeout  *commonconfig.Duration
 	ChipIngressEndpoint   *string
 	HeartbeatInterval     *commonconfig.Duration
+	LogStreamingEnabled   *bool
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2307,6 +2312,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
+	}
+	if v := f.LogStreamingEnabled; v != nil {
+		b.LogStreamingEnabled = v
 	}
 }
 
