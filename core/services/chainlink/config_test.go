@@ -509,8 +509,9 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
 			WorkflowStorage: toml.WorkflowStorage{
-				URL:        ptr("localhost:4566"),
-				TLSEnabled: ptr(true),
+				ArtifactStorageHost: ptr(""),
+				URL:                 ptr("localhost:4566"),
+				TLSEnabled:          ptr(true),
 			},
 		},
 		Dispatcher: toml.Dispatcher{
@@ -591,6 +592,7 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
 		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
 		HeartbeatInterval:     commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:   ptr(false),
 	}
 	full.CRE = toml.CreConfig{
 		Streams: &toml.StreamsConfig{

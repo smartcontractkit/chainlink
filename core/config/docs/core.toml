@@ -519,6 +519,8 @@ SyncStrategy = 'event' # Default
 URL = "localhost:4566" # Default
 # TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
 TLSEnabled = true # Default
+# ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 [Workflows]
 [Workflows.Limits]
@@ -815,6 +817,8 @@ EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
+# LogStreamingEnabled enables log streaming to the OTel log exporter
+LogStreamingEnabled = false # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

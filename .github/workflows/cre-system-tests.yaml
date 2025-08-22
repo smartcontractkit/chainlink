@@ -126,7 +126,6 @@ jobs:
         shell: bash
         run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
-
       - name: Start local CRE
         shell: bash
         id: start-local-cre
@@ -141,7 +140,7 @@ jobs:
           cd core/scripts/cre/environment
           go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
           exit_code=$?
-
+          
           if [ $exit_code -ne 0 ]; then
             echo "Error: failed to start local CRE, exit code $exit_code"
             exit $exit_code

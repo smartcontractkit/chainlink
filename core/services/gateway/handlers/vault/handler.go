@@ -179,7 +179,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError))
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting any response")))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
@@ -189,6 +189,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 func (h *handler) Methods() []string {
 	return []string{
 		MethodSecretsCreate,
+		MethodSecretsGet,
 		MethodSecretsUpdate,
 	}
 }
@@ -204,7 +205,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
-	h.lggr.Debugw("handling vault request", "method", req.Method, "requestId", req.ID)
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
 	ar := activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
@@ -217,15 +218,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	switch req.Method {
 	case MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
+	case MethodSecretsGet:
+		return h.handleSecretsGet(ctx, ar)
 	case MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
 	default:
-		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError))
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
 	}
 }
 
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	l := logger.With(h.lggr, "method", resp.Method, "requestId", resp.ID, "nodeAddr", nodeAddr)
+	l := logger.With(h.lggr, "method", resp.Method, "requestID", resp.ID, "nodeAddr", nodeAddr)
 	l.Debugw("handling node response")
 
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
@@ -269,14 +272,14 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 }
 
 func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 	var secretsCreateRequest SecretsCreateRequest
 	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" {
-		l.Debugw("invalid request parameters: secret id and value cannot be empty")
+	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" || secretsCreateRequest.Owner == "" {
+		l.Debugw("invalid request parameters: secret id, owner and value cannot be empty")
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
 	}
 
@@ -299,7 +302,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 }
 
 func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
 	req := &vault.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
@@ -316,6 +319,36 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 
 	ar.req.Params = (*json.RawMessage)(&reqb)
 
+	var nodeErrors []error
+	for _, node := range h.donConfig.Members {
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		if err != nil {
+			nodeErrors = append(nodeErrors, err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
+	}
+
+	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+	}
+
+	l.Debugw("successfully forwarded request to Vault nodes")
+	return nil
+}
+
+func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	var secretsGetRequest SecretsGetRequest
+	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	if secretsGetRequest.ID == "" || secretsGetRequest.Owner == "" {
+		l.Debugw("invalid request parameters: secret id and owner cannot be empty")
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	}
+
+	// At this point, we know that the request is valid and we can send it to the nodes
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
@@ -403,7 +436,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest activeRequest, r
 
 	select {
 	case userRequest.callbackCh <- resp:
-		h.lggr.Debugw("sent response", "request_id", userRequest.req.ID)
+		h.lggr.Debugw("sent response", "request_id", userRequest.req.ID, "error_code", resp.ErrorCode, "raw_response", string(resp.RawResponse))
 		h.mu.Lock()
 		delete(h.activeRequests, userRequest.req.ID)
 		h.mu.Unlock()
