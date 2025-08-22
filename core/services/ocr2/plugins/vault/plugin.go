@@ -922,6 +922,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			os.Outcomes = append(os.Outcomes, o)
 		case vault.RequestType_DELETE_SECRETS:
 			r.stateTransitionDeleteSecrets(ctx, store, chosen, o)
+			os.Outcomes = append(os.Outcomes, o)
 		case vault.RequestType_LIST_SECRET_IDENTIFIERS:
 			r.stateTransitionListSecretIdentifiers(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
@@ -1376,6 +1377,14 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vault.RequestType_LIST_SECRET_IDENTIFIERS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetListSecretIdentifiersResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				continue
+			}
+
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
 		default:
 		}
 	}

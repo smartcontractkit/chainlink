@@ -1355,6 +1355,11 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 			o.Request = &vault.Observation_DeleteSecretsRequest{
 				DeleteSecretsRequest: tr,
 			}
+		case *vault.ListSecretIdentifiersRequest:
+			o.RequestType = vault.RequestType_DELETE_SECRETS
+			o.Request = &vault.Observation_ListSecretIdentifiersRequest{
+				ListSecretIdentifiersRequest: tr,
+			}
 		}
 
 		switch tr := ob.resp.(type) {
@@ -1373,6 +1378,11 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 		case *vault.DeleteSecretsResponse:
 			o.Response = &vault.Observation_DeleteSecretsResponse{
 				DeleteSecretsResponse: tr,
+			}
+		case *vault.ListSecretIdentifiersResponse:
+			o.RequestType = vault.RequestType_LIST_SECRET_IDENTIFIERS
+			o.Response = &vault.Observation_ListSecretIdentifiersResponse{
+				ListSecretIdentifiersResponse: tr,
 			}
 		}
 
@@ -3230,7 +3240,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
 
 	resp := o.GetListSecretIdentifiersResponse()
-	assert.Len(t, resp.Identifiers, 0)
+	assert.Empty(t, resp.Identifiers)
 	assert.False(t, resp.Success)
 	assert.Contains(t, resp.GetError(), "owner cannot be empty")
 }
@@ -3326,7 +3336,6 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	assert.Len(t, resp.Identifiers, 3)
 	assert.True(t, resp.Success)
 	assert.Empty(t, resp.GetError())
-
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
@@ -3434,7 +3443,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vault.Outcome{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		RequestType: vault.RequestType_LIST_SECRET_IDENTIFIERS,
 		Request: &vault.Outcome_ListSecretIdentifiersRequest{
 			ListSecretIdentifiersRequest: req,
@@ -3486,7 +3495,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id),
+		Id:          KeyFor(id),
 		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vault.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))

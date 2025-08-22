@@ -12,5 +12,5 @@ type SecretsService interface {
 	UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error)
 	GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vault2.Response, error)
 	DeleteSecrets(ctx context.Context, request *vault.DeleteSecretsRequest) (*vault2.Response, error)
-	ListSecretIdentifiers(ctx context.Context, request *vault.ListSecretIdentifiersRequest) (*Response, error)
+	ListSecretIdentifiers(ctx context.Context, request *vault.ListSecretIdentifiersRequest) (*vault2.Response, error)
 }

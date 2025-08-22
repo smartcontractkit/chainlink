@@ -272,13 +272,13 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
-func (h *Handler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
 	r := &vault.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
-	resp, err := h.vault.ListSecretIdentifiers(ctx, r)
+	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
 	}

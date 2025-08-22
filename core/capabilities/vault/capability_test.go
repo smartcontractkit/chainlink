@@ -667,39 +667,39 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
 			response: nil,
 			error:    "owner must not be empty",
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*vault2.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     "",
 				}
-				return service.ListSecretIdentifiers(t.Context(), req)
+				return capability.ListSecretIdentifiers(t.Context(), req)
 			},
 		},
 		{
 			name:     "ListSecretIdentifiers_Invalid_RequestIDMissing",
 			response: nil,
 			error:    "request ID must not be empty",
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*vault2.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
 					Owner:     "owner",
 				}
-				return service.ListSecretIdentifiers(t.Context(), req)
+				return capability.ListSecretIdentifiers(t.Context(), req)
 			},
 		},
 		{
 			name: "ListSecretIdentifiers",
-			response: &Response{
+			response: &vault2.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*vault2.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     owner,
 				}
-				return service.ListSecretIdentifiers(t.Context(), req)
+				return capability.ListSecretIdentifiers(t.Context(), req)
 			},
 		},
 	}
