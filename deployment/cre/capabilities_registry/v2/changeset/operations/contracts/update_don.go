@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -25,7 +24,7 @@ type UpdateDONDeps struct {
 type UpdateDONInput struct {
 	ChainSelector uint64
 
-	// P2PIDs are the peer ids that compose the don
+	// P2PIDs are the peer ids that compose the don. Optional, only provided if the DON composition is changing.
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []CapabilityConfig
 
@@ -79,21 +78,8 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, cldf.ErrChainNotFound
 		}
 
-		var don capabilities_registry_v2.CapabilitiesRegistryDONInfo
-		if input.DonName != "" {
-			don, err = registry.GetDONByName(&bind.CallOpts{}, input.DonName)
-		} else {
-			getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
-			if err != nil {
-				return UpdateDONOutput{}, fmt.Errorf("failed to get Dons: %w", err)
-			}
-
-			don, err = lookupDonByPeerIDs(getDonsResp, input.P2PIDs)
-			if err != nil {
-				return UpdateDONOutput{}, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
-			}
-		}
-
+		// DonName is required
+		don, err := registry.GetDONByName(&bind.CallOpts{}, input.DonName)
 		if don.AcceptsWorkflows && !input.Force {
 			// TODO: CRE-277 ensure forwarders are support the next DON version
 			// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
@@ -121,7 +107,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			isPublic = don.IsPublic
 		}
 
-		tx, err := registry.UpdateDON(txOpts, don.Id, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+		tx, err := registry.UpdateDONByName(txOpts, don.Name, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
 			Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
 			CapabilityConfigurations: cfgs,
 			IsPublic:                 isPublic,
@@ -148,48 +134,6 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		}, nil
 	},
 )
-
-func lookupDonByPeerIDs(donResp []capabilities_registry_v2.CapabilitiesRegistryDONInfo, wanted []p2pkey.PeerID) (capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
-	var don capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	wantedDonID := pkg.SortedHash(pkg.PeerIDsToBytes(wanted))
-	found := false
-	for i, di := range donResp {
-		gotID := pkg.SortedHash(di.NodeP2PIds)
-		if gotID == wantedDonID {
-			don = donResp[i]
-			found = true
-			break
-		}
-	}
-	if !found {
-		return don, verboseDonNotFound(donResp, wanted)
-	}
-	return don, nil
-}
-
-func verboseDonNotFound(donResp []capabilities_registry_v2.CapabilitiesRegistryDONInfo, wanted []p2pkey.PeerID) error {
-	type debugDonInfo struct {
-		OnchainID  uint32
-		P2PIDsHash string
-		Want       []p2pkey.PeerID
-		Got        []p2pkey.PeerID
-	}
-	debugIDs := make([]debugDonInfo, len(donResp))
-	for i, di := range donResp {
-		debugIDs[i] = debugDonInfo{
-			OnchainID:  di.Id,
-			P2PIDsHash: pkg.SortedHash(di.NodeP2PIds),
-			Want:       wanted,
-			Got:        pkg.BytesToPeerIDs(di.NodeP2PIds),
-		}
-	}
-	wantedID := pkg.SortedHash(pkg.PeerIDsToBytes(wanted))
-	b, err2 := json.Marshal(debugIDs)
-	if err2 == nil {
-		return fmt.Errorf("don not found by p2pIDs %s in %s", wantedID, b)
-	}
-	return fmt.Errorf("don not found by p2pIDs %s in %v", wantedID, debugIDs)
-}
 
 func computeConfigs(capCfgs []CapabilityConfig) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
 	out := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(capCfgs))
