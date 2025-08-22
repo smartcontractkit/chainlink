@@ -29,9 +29,7 @@ type UpdateDONInput struct {
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []CapabilityConfig
 
-	// DonName to update
-	// If omitted, the don will be inferred from the P2P keys
-	// If the update request intended to change the nodes in the don, the DonName must be specified
+	// DonName to update, this is required
 	DonName string
 
 	// F is the fault tolerance level
@@ -44,9 +42,10 @@ type UpdateDONInput struct {
 }
 
 func (r *UpdateDONInput) Validate() error {
-	if len(r.P2PIDs) == 0 {
-		return errors.New("p2pIDs is required")
+	if r.DonName == "" {
+		return errors.New("must specify DONName")
 	}
+
 	return nil
 }
 

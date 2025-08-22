@@ -26,9 +26,7 @@ type UpdateDONInput struct {
 	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []contracts.CapabilityConfig // if Config subfield is nil, a default config is used
 
-	// DonName to update
-	// If omitted, the don will be inferred from the P2P keys
-	// If the update request intended to change the nodes in the don, the DonName must be specified
+	// DonName to update, this is required
 	DonName string
 
 	// F is the fault tolerance level
@@ -43,8 +41,8 @@ type UpdateDONInput struct {
 }
 
 func (i *UpdateDONInput) Validate() error {
-	if len(i.P2PIDs) == 0 {
-		return errors.New("p2pIDs is required")
+	if i.DonName == "" {
+		return errors.New("must specify DONName")
 	}
 	if len(i.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
@@ -77,14 +75,14 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 			return UpdateDONOutput{}, fmt.Errorf("failed to get registry address: %w", err)
 		}
 
-		nodeUpdates := make(map[p2pkey.PeerID]contracts.UpdateNodesNodeUpdate, len(input.P2PIDs))
+		nodeUpdates := make(map[p2pkey.PeerID]contracts.NodeConfig, len(input.P2PIDs))
 		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			capabilities[i] = cfg.Capability
 			for _, p2pID := range input.P2PIDs {
 				nodeUpdate, exists := nodeUpdates[p2pID]
 				if !exists {
-					nodeUpdate = contracts.UpdateNodesNodeUpdate{
+					nodeUpdate = contracts.NodeConfig{
 						Capabilities: make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0, len(input.CapabilityConfigs)),
 					}
 				}

@@ -22,7 +22,7 @@ type UpdateNodesDeps struct {
 	CapabilitiesRegistry *capabilities_registry_v2.CapabilitiesRegistry
 }
 
-type UpdateNodesNodeUpdate struct {
+type NodeConfig struct {
 	EncryptionPublicKey string
 	NodeOperatorID      uint32
 	Signer              [32]byte
@@ -33,8 +33,8 @@ type UpdateNodesNodeUpdate struct {
 type UpdateNodesInput struct {
 	ChainSelector uint64
 
-	// NodesUpdates is a map of p2p key to UpdateNodesNodeUpdate
-	NodesUpdates map[p2pkey.PeerID]UpdateNodesNodeUpdate
+	// NodesUpdates is a map of p2p key to NodeConfig
+	NodesUpdates map[p2pkey.PeerID]NodeConfig
 }
 
 type UpdateNodesOutput struct {
@@ -96,7 +96,7 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 
 func makeNodeParams(
 	registry *capabilities_registry_v2.CapabilitiesRegistry,
-	p2pToUpdates map[p2pkey.PeerID]UpdateNodesNodeUpdate,
+	p2pToUpdates map[p2pkey.PeerID]NodeConfig,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, error) {
 	var p2pIds []p2pkey.PeerID
 	for p2pID := range p2pToUpdates {
