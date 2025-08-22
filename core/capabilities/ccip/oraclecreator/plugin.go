@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
@@ -455,31 +456,39 @@ func (i *pluginOracleCreator) createChainAccessors(
 			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
-		// check if CCIP provider is supported, otherwise create default chain accessor
-		var ca cciptypes.ChainAccessor
-		var provider types.CCIPProvider
-		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
-		if ccipProviderSupported && ok {
-			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
-			}
-			ca = provider.ChainAccessor()
-		} else {
-			// use default chain accessor if cr and cw exist
+		// check if Chain accessor factory exist, otherwise create default chain accessor
+		if pluginServices.ChainAccessorFactories[relayID.Network] == nil {
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
-				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
+				return nil, fmt.Errorf("no chain accessor factory registered, and no extended reader or chain writer found for relay ID %s with chain selector %d", relayID, chainSelector)
 			}
-			ca, err = chainaccessor.NewDefaultAccessor(
+
+			i.lggr.Debugf("no chain accessor factory found for relay ID %s, using default chain accessor", relayID)
+			chainAccessor, err := chainaccessor.NewDefaultAccessor(
 				i.lggr,
 				chainSelector,
 				extendedReaders[chainSelector],
 				chainWriters[chainSelector],
 				pluginServices.AddrCodec,
 			)
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
 			}
+
+			chainAccessors[chainSelector] = chainAccessor
+			continue
+		}
+
+		chainAccessor, err := pluginServices.ChainAccessorFactories[relayID.Network].NewChainAccessor(
+			ccipcommon.ChainAccessorFactoryParams{
+				Lggr:          i.lggr,
+				Relayer:       relayer,
+				ChainSelector: chainSelector,
+				AddrCodec:     pluginServices.AddrCodec,
+			},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chain accessor for relay ID %s: %w", relayID, err)
 		}
 
 		chainAccessors[chainSelector] = ca

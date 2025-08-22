@@ -29,11 +29,11 @@ type PluginConfig struct {
 
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
-	PluginConfig          PluginConfig
-	AddrCodec             AddressCodec
-	ExtraDataCodec        ccipocr3.ExtraDataCodec
-	ChainRW               MultiChainRW
-	CCIPProviderSupported map[string]bool
+	PluginConfig           PluginConfig
+	AddrCodec              AddressCodec
+	ExtraDataCodec         ExtraDataCodec
+	ChainRW                MultiChainRW
+	ChainAccessorFactories ChainAccessorFactories
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
@@ -59,11 +59,10 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	CCIPProviderSupported := make(map[string]bool)
+	chainAccessorFactoryMap := make(map[string]ChainAccessorFactory)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, pluginServices.ExtraDataCodec)
-		CCIPProviderSupported[family] = config.CCIPProviderSupported
 		if config.AddressCodec != nil {
 			addressCodecMap[family] = config.AddressCodec
 		}
@@ -73,6 +72,10 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		if config.ChainRW != nil {
 			chainRWProviderMap[family] = config.ChainRW
 		}
+		if config.ChainAccessorFactory != nil {
+			chainAccessorFactoryMap[family] = config.ChainAccessorFactory
+		}
+
 		if family == chainFamily {
 			pluginServices.PluginConfig = config
 		}
@@ -80,6 +83,6 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
-	pluginServices.CCIPProviderSupported = CCIPProviderSupported
+	pluginServices.ChainAccessorFactories = chainAccessorFactoryMap
 	return pluginServices, nil
 }
