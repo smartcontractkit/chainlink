@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -144,7 +143,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		tv, err := contracts.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
 		require.NoError(t, err)
 		require.NotNil(t, tv)
-		assert.Equal(t, cldf.ContractType(types.RBACTimelock), tv.Type)
+		assert.Equal(t, types.RBACTimelock, tv.Type)
 		assert.Equal(t, deployment.Version1_0_0, tv.Version)
 	})
 
