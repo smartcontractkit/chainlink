@@ -106,16 +106,10 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		require.NotNil(t, resp)
 
 		// Get the deployed registry address
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break // Just take the first one
-		}
+		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry address
 		ds := datastore.NewMemoryDataStore()
@@ -164,16 +158,10 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break
-		}
+		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save only registry address (not owner)
 		ds := datastore.NewMemoryDataStore()
@@ -216,16 +204,10 @@ func TestNewOwnableV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break
-		}
+		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
@@ -275,17 +257,10 @@ func TestNewOwnableV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break
-		}
-
+		targetAddrStr := addrs[0].Address
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
 		v1 := semver.MustParse("1.1.0")
@@ -333,16 +308,10 @@ func TestNewOwnableV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break
-		}
+		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save only registry (not owner)
 		ds := datastore.NewMemoryDataStore()
@@ -389,16 +358,10 @@ func TestGetOwnedContractV2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
-		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		addrs, err := resp.DataStore.Addresses().Fetch()
 		require.NoError(t, err)
 		require.Len(t, addrs, 1)
-
-		// Get the first address from the map
-		var targetAddrStr string
-		for addr := range addrs {
-			targetAddrStr = addr
-			break
-		}
+		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
