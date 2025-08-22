@@ -100,6 +100,12 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			int(localNode.WorkflowDON.F),
 		)),
 		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.CapabilitiesRegistryVersion, "TODO",
+		platform.DonVersion, localNode.WorkflowDON.ConfigVersion,
+		platform.KeyOrganizationID, "TODO",
 	}
 
 	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)

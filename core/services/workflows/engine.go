@@ -35,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+
+	"github.com/smartcontractkit/chain-selectors"
 )
 
 const (
@@ -1448,6 +1450,16 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
+
+	chainIDint, err := strconv.ParseUint(cfg.WorkflowRegistryChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse chain ID: %w", err)
+	}
+	chainSelector, err := chain_selectors.SelectorFromChainId(chainIDint)
+	if err != nil {
+		return nil, fmt.Errorf("could not get chain selector: %w", err)
+	}
+
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
@@ -1460,6 +1472,13 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			int(nodeState.WorkflowDON.F),
 		)),
 		platform.KeyP2PID, nodeState.PeerID.String(),
+		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryVersion, ",
+		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.CapabilitiesRegistryVersion, "TODO",
+		platform.DonVersion, "TODO",
+		platform.KeyOrganizationID, "TODO",
 	)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
