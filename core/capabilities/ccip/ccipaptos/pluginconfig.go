@@ -19,7 +19,6 @@ func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec),
-		ChainAccessorFactory:       AptosChainAccessorFactory{},
 		ChainRW:                    ChainCWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		AddressCodec:               AddressCodec{},

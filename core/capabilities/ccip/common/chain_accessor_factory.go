@@ -17,6 +17,8 @@ type ChainAccessorFactoryParams struct {
 	AddrCodec              ccipocr3.AddressCodec
 }
 
+type ChainAccessorFactories map[string]ChainAccessorFactory
+
 type ChainAccessorFactory interface {
 	NewChainAccessor(ChainAccessorFactoryParams) (ccipocr3.ChainAccessor, error)
 }

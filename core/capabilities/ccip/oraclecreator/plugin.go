@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -452,14 +453,35 @@ func (i *pluginOracleCreator) createChainAccessors(
 			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
-		chainAccessor, err := pluginServices.PluginConfig.ChainAccessorFactory.NewChainAccessor(
+		// check if Chain accessor factory exist, otherwise create default chain accessor
+		if pluginServices.ChainAccessorFactories[relayID.Network] == nil {
+			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
+				return nil, fmt.Errorf("no chain accessor factory registered, and no extended reader or chain writer found for relay ID %s with chain selector %d", relayID, chainSelector)
+			}
+
+			i.lggr.Debugf("no chain accessor factory found for relay ID %s, using default chain accessor", relayID)
+			chainAccessor, err := chainaccessor.NewDefaultAccessor(
+				i.lggr,
+				chainSelector,
+				extendedReaders[chainSelector],
+				chainWriters[chainSelector],
+				pluginServices.AddrCodec,
+			)
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
+			}
+
+			chainAccessors[chainSelector] = chainAccessor
+			continue
+		}
+
+		chainAccessor, err := pluginServices.ChainAccessorFactories[relayID.Network].NewChainAccessor(
 			ccipcommon.ChainAccessorFactoryParams{
-				Lggr:                   i.lggr,
-				Relayer:                relayer,
-				ChainSelector:          chainSelector,
-				ExtendedContractReader: extendedReaders[chainSelector],
-				ContractWriter:         chainWriters[chainSelector],
-				AddrCodec:              pluginServices.AddrCodec,
+				Lggr:          i.lggr,
+				Relayer:       relayer,
+				ChainSelector: chainSelector,
+				AddrCodec:     pluginServices.AddrCodec,
 			},
 		)
 		if err != nil {
@@ -551,7 +573,9 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			ChainFamily:   relayChainFamily,
 		})
 		if err1 != nil {
-			return nil, nil, nil, err1
+			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
+			continue
 		}
 
 		if chainID == destChainID && destChainFamily == relayChainFamily {
@@ -585,7 +609,9 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
-			return nil, nil, nil, err1
+			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
+			continue
 		}
 
 		if err4 := cw.Start(ctx); err4 != nil {

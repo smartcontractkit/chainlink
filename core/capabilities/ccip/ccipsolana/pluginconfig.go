@@ -20,7 +20,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
-		ChainAccessorFactory:       SolanaChainAccessorFactory{},
 		AddressCodec:               AddressCodec{},
 		ChainRW:                    ChainRWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},

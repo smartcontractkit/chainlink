@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"
 	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,7 +44,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	tonChain := e.Env.BlockChains.TonChains()[sourceChain]
-	ac := ccipton.AddressCodec{}
+	ac := codec.NewAddressCodec()
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
