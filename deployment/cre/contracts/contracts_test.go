@@ -1,4 +1,4 @@
-package changeset_test
+package contracts_test
 
 import (
 	"maps"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
@@ -43,14 +44,14 @@ func TestGetOwnableContractV2(t *testing.T) {
 		addrRef := datastore.AddressRef{
 			ChainSelector: chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 
 		err := ds.AddressRefStore.Add(addrRef)
 		require.NoError(t, err)
 
-		c, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		c, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 		assert.NotNil(t, c)
 		contract := *c
@@ -72,14 +73,14 @@ func TestGetOwnableContractV2(t *testing.T) {
 		addrRef := datastore.AddressRef{
 			ChainSelector: chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 
 		err := ds.AddressRefStore.Add(addrRef)
 		require.NoError(t, err)
 
-		_, err = changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddrStr)
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddrStr)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found in address book")
@@ -117,13 +118,13 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 
 		owner, err := (*contract).Owner(nil)
@@ -140,7 +141,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		err = ds.AddressRefStore.Add(ownerAddrRef)
 		require.NoError(t, err)
 
-		tv, err := changeset.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
+		tv, err := contracts.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
 		require.NoError(t, err)
 		require.NotNil(t, tv)
 		assert.Equal(t, cldf.ContractType(types.RBACTimelock), tv.Type)
@@ -169,16 +170,16 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 
-		ownerTV, err := changeset.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
+		ownerTV, err := contracts.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
 
 		require.NoError(t, err)
 		assert.Nil(t, ownerTV)
@@ -215,13 +216,13 @@ func TestNewOwnableV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 
 		owner, err := (*contract).Owner(nil)
@@ -232,13 +233,13 @@ func TestNewOwnableV2(t *testing.T) {
 		ownerAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       owner.Hex(),
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v0,
 		}
 		err = ds.AddressRefStore.Add(ownerAddrRef)
 		require.NoError(t, err)
 
-		ownedContract, err := changeset.NewOwnableV2(*contract, ds.Addresses(), chain)
+		ownedContract, err := contracts.NewOwnableV2(*contract, ds.Addresses(), chain)
 		require.NoError(t, err)
 
 		// Verify the owned contract contains the contract but no MCMS contracts
@@ -267,13 +268,13 @@ func TestNewOwnableV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 
 		owner, err := (*contract).Owner(nil)
@@ -290,7 +291,7 @@ func TestNewOwnableV2(t *testing.T) {
 		err = ds.AddressRefStore.Add(ownerAddrRef)
 		require.NoError(t, err)
 
-		ownedContract, err := changeset.NewOwnableV2(*contract, ds.Addresses(), chain)
+		ownedContract, err := contracts.NewOwnableV2(*contract, ds.Addresses(), chain)
 
 		require.NoError(t, err)
 		assert.Equal(t, (*contract).Address(), ownedContract.Contract.Address())
@@ -319,19 +320,19 @@ func TestNewOwnableV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := changeset.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 
 		// Don't add owner to datastore, so lookup will return nil TV and no error
 
 		// Call NewOwnableV2, should not fail because owner is not in datastore, but should return a non-MCMS contract
-		ownableContract, err := changeset.NewOwnableV2(*contract, ds.Addresses(), chain)
+		ownableContract, err := contracts.NewOwnableV2(*contract, ds.Addresses(), chain)
 		require.NoError(t, err)
 		assert.NotNil(t, ownableContract)
 		assert.Nil(t, ownableContract.McmsContracts)
@@ -369,13 +370,13 @@ func TestGetOwnedContractV2(t *testing.T) {
 		registryAddrRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       targetAddrStr,
-			Type:          datastore.ContractType(changeset.CapabilitiesRegistry),
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
 		}
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		ownedContract, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
 		require.NoError(t, err)
 		assert.NotNil(t, ownedContract)
 		assert.NotNil(t, ownedContract.Contract)
@@ -394,7 +395,7 @@ func TestGetOwnedContractV2(t *testing.T) {
 		ds := datastore.NewMemoryDataStore()
 		nonExistentAddr := testutils.NewAddress().String()
 
-		_, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddr)
+		_, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found in datastore")
 	})

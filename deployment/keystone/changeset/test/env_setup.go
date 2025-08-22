@@ -22,6 +22,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -127,15 +128,15 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 	return caps
 }
 
-func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
+func (te EnvWrapper) OwnedCapabilityRegistry() *contracts.OwnedContract[*kcr.CapabilitiesRegistry] {
 	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.BlockChains.EVMChains()[te.RegistrySelector], registryQualifier)
 }
 
-func loadOneContract[T changeset.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *changeset.OwnedContract[T] {
+func loadOneContract[T contracts.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *contracts.OwnedContract[T] {
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
-	c, err := changeset.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	return c
@@ -157,12 +158,12 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	return out
 }
 
-func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
+func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
-	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
-		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
+		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
 		require.NoError(te.t, err)
 		require.NotNil(te.t, c)
 		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)

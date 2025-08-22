@@ -11,6 +11,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -75,20 +76,20 @@ func deploy(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, e
 }
 
 // loadCapabilityRegistry loads the CapabilitiesRegistry contract from the address book or datastore.
-func loadCapabilityRegistry(registryChain cldf_evm.Chain, env cldf.Environment, ref datastore.AddressRefKey) (*OwnedContract[*capabilities_registry.CapabilitiesRegistry], error) {
+func loadCapabilityRegistry(registryChain cldf_evm.Chain, env cldf.Environment, ref datastore.AddressRefKey) (*contracts.OwnedContract[*capabilities_registry.CapabilitiesRegistry], error) {
 	err := shouldUseDatastore(env, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check registry ref: %w", err)
 	}
 
-	var cr *OwnedContract[*capabilities_registry.CapabilitiesRegistry]
+	var cr *contracts.OwnedContract[*capabilities_registry.CapabilitiesRegistry]
 
 	// `shouldUseDatastore` is already checking for the nil ref, no need to `ref == nil` here
 	a, err := env.DataStore.Addresses().Get(ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get address: %w", err)
 	}
-	cr, err = GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
+	cr, err = contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owned contract: %w", err)
 	}
