@@ -524,21 +524,8 @@ func executeVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	// Skip till we figure out and fix the issues with environment startup on this test
 	t.Skip()
 	/*
-		CREATE NEW VAULT SECRET
+		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
-	framework.L.Info().Msg("Creating secret...")
-	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
-		ID:      "request-id",
-		Version: jsonrpc.JsonRpcVersion,
-		Method:  vault.MethodSecretsCreate,
-		Params: &vault.SecretsCreateRequest{
-			ID:    "test-secret",
-			Value: "test-secret-value",
-		},
-	}
-	requestBody, err := json.Marshal(secretsRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
 	framework.L.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
 	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
