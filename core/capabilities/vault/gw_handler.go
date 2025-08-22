@@ -129,7 +129,6 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	}
 
 	jsonResponse, err := toJSONResponse(vaultCapResponse, req.Method)
-	vaultCapResponse.ToJSONRPCResult()
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
@@ -179,6 +178,7 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
+
 	vaultResponseProto := &vaultcommon.GetSecretsResponse{}
 	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
 	if err != nil {
@@ -243,11 +243,11 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 }
 
 func toJSONResponse(vaultCapResponse *Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
-	vaultResponseBytes, err := json.Marshal(vaultCapResponse)
+	vaultResponseBytes, err := vaultCapResponse.ToJSONRPCResult()
 	if err != nil {
 		return nil, errors.New("failed to marshal vault capability response: " + err.Error())
 	}
-	vaultResponseJSON := json.RawMessage(vaultResponseBytes)
+	var vaultResponseJSON json.RawMessage = vaultResponseBytes
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      vaultCapResponse.ID,

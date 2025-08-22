@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 type SecretsService interface {
@@ -71,23 +72,9 @@ type Response struct {
 	Signatures [][]byte
 }
 
-type errResp struct {
-	Error   string `json:"error"`
-	Success bool   `json:"success"`
-}
-
-type payloadResp struct {
-	Payload    json.RawMessage `json:"payload"`
-	Context    []byte          `json:"__context"`
-	Signatures [][]byte        `json:"__signatures"`
-}
-
 func (r *Response) ToJSONRPCResult() ([]byte, error) {
-	if r.Error != "" {
-		return json.Marshal(errResp{Error: r.Error, Success: false})
-	}
-
-	return json.Marshal(payloadResp{
+	return json.Marshal(vaultapi.SignedOCRResponse{
+		Error:      r.Error,
 		Payload:    r.Payload,
 		Context:    r.Context,
 		Signatures: r.Signatures,
