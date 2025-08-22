@@ -69,10 +69,12 @@ import (
 )
 
 type TestEnvironment struct {
-	Config         *envconfig.Config
-	EnvArtifact    environment.EnvArtifact
-	MockServerPort int
-	Logger         zerolog.Logger
+	Config                   *envconfig.Config
+	EnvArtifact              environment.EnvArtifact
+	MockServerPort           int
+	Logger                   zerolog.Logger
+	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
+	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }
 
 type WorkflowTestConfig struct {
@@ -163,11 +165,16 @@ func setupTestEnvironment(t *testing.T) *TestEnvironment {
 	err = json.Unmarshal(artFile, &envArtifact)
 	require.NoError(t, err, "failed to unmarshal artifact file")
 
+	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	require.NoError(t, err, "failed to load environment")
+
 	return &TestEnvironment{
-		Config:         in,
-		EnvArtifact:    envArtifact,
-		MockServerPort: mockServerPort,
-		Logger:         framework.L,
+		Config:                   in,
+		EnvArtifact:              envArtifact,
+		MockServerPort:           mockServerPort,
+		Logger:                   framework.L,
+		FullCldEnvOutput:         fullCldEnvOutput,
+		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
 	}
 }
 
@@ -329,16 +336,16 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorde
 }
 
 // validatePoRPrices validates that all feeds receive the expected prices from the price provider
-func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, priceProvider PriceProvider, config *WorkflowTestConfig) {
+func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
 	eg := &errgroup.Group{}
 
-	for idx, bcOutput := range wrappedBlockchainOutputs {
+	for idx, bcOutput := range testEnv.WrappedBlockchainOutputs {
 		eg.Go(func() error {
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
 			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-				fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 				bcOutput.ChainSelector,
 				df_changeset.DataFeedsCache.String(),
 			)
@@ -389,14 +396,10 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput 
 }
 
 func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
-	cldLogger := cldlogger.NewSingleFileLogger(t)
 	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
-
 	priceProvider, err := NewFakePriceProvider(testEnv.Logger, testEnv.Config.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, err, "failed to create fake price provider")
-
-	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldLogger, testEnv.Config, testEnv.EnvArtifact)
-	require.NoError(t, err, "failed to load environment")
+	defer priceProvider.Close(t.Context())
 
 	config := &WorkflowTestConfig{
 		WorkflowName:     "por-workflow",
@@ -405,15 +408,15 @@ func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		Timeout:          DefaultVerificationTimeout,
 	}
 
-	executePoRWorkflowTest(t, testEnv, fullCldEnvOutput, wrappedBlockchainOutputs, priceProvider, config)
+	executePoRWorkflowTest(t, testEnv, priceProvider, config)
 }
 
 // executePoRWorkflowTest handles the main PoR workflow test logic
-func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, priceProvider PriceProvider, config *WorkflowTestConfig) {
-	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
+	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	writeableChains := []uint64{}
-	for _, bcOutput := range wrappedBlockchainOutputs {
-		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		for _, donMetadata := range testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
 					writeableChains = append(writeableChains, bcOutput.ChainID)
@@ -429,11 +432,11 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
-	for idx, bcOutput := range wrappedBlockchainOutputs {
+	for idx, bcOutput := range testEnv.WrappedBlockchainOutputs {
 		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
 		// for deciding whether need to deploy the data feeds cache contract.
 		hasForwarderContract := false
-		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				hasForwarderContract = true
 				break
@@ -449,18 +452,18 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
 
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployConfig)
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *testEnv.FullCldEnvOutput.Environment, deployConfig)
 		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		mergeErr := testEnv.FullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 		require.NoError(t, mergeErr, "failed to merge address book")
-		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
+		testEnv.FullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
 
 		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 
 		dfConfigInput := &configureDataFeedsCacheInput{
 			chainSelector:      bcOutput.ChainSelector,
-			fullCldEnvironment: fullCldEnvOutput.Environment,
+			fullCldEnvironment: testEnv.FullCldEnvOutput.Environment,
 			workflowName:       workflowName,
 			feedID:             config.FeedIDs[idx],
 			sethClient:         bcOutput.SethClient,
@@ -472,14 +475,14 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 		testEnv.Logger.Info().Msg("Proceeding to register PoR workflow...")
 
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			homeChainSelector,
 			keystone_changeset.WorkflowRegistry.String(),
 		)
 		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
 
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 			bcOutput.ChainSelector,
 			df_changeset.DataFeedsCache.String(),
 		)
@@ -497,15 +500,15 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 			ConfigPath:        workflowConfigFilePath,
 			WorkflowName:      workflowName,
 			RegistryAddress:   workflowRegistryAddress,
-			SethClient:        wrappedBlockchainOutputs[0].SethClient,
+			SethClient:        testEnv.WrappedBlockchainOutputs[0].SethClient,
 			Logger:            testEnv.Logger,
 			TestEnv:           testEnv,
-			FullCldEnvOutput:  fullCldEnvOutput,
-			BlockchainOutputs: wrappedBlockchainOutputs,
+			FullCldEnvOutput:  testEnv.FullCldEnvOutput,
+			BlockchainOutputs: testEnv.WrappedBlockchainOutputs,
 			FeedIDs:           config.FeedIDs,
 		}
 		setupWorkflowCleanup(t, cleanupConfig)
-		debugPoRTest(t, testEnv.Logger, testEnv.Config, fullCldEnvOutput, wrappedBlockchainOutputs, config.FeedIDs)
+		debugPoRTest(t, testEnv.Logger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, config.FeedIDs)
 
 		copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, workflowConfigFilePath, ContainerTargetDir)
 
@@ -515,22 +518,16 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, fullCldEnvOu
 			ConfigFilePath:       workflowConfigFilePath,
 			CompressedWasmPath:   compressedWorkflowWasmPath,
 			WorkflowRegistryAddr: workflowRegistryAddress,
-			DonID:                fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+			DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 			ContainerTargetDir:   ContainerTargetDir,
 		}
-		registerWorkflow(t.Context(), t, regConfig, wrappedBlockchainOutputs[0].SethClient)
+		registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient)
 	}
 
-	validatePoRPrices(t, testEnv, fullCldEnvOutput, wrappedBlockchainOutputs, priceProvider, config)
+	validatePoRPrices(t, testEnv, priceProvider, config)
 }
 
 func executeVaultTest(t *testing.T, testEnv *TestEnvironment) {
-	/*
-		BUILD ENVIRONMENT FROM SAVED STATE
-	*/
-	fullCldEnvOutput, _, loadErr := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), testEnv.Config, testEnv.EnvArtifact)
-	require.NoError(t, loadErr, "failed to load environment")
-
 	/*
 		CREATE NEW VAULT SECRET
 	*/
@@ -548,8 +545,8 @@ func executeVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	framework.L.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
@@ -588,10 +585,7 @@ func executeVaultTest(t *testing.T, testEnv *TestEnvironment) {
 }
 
 func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
-	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), testEnv.Config, testEnv.EnvArtifact)
-	require.NoError(t, err, "failed to load environment")
-
-	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
+	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	testEnv.Logger.Info().Msg("Starting HTTP trigger and action test...")
 
 	httpConfig := setupHTTPWorkflowTest(t, testEnv)
@@ -601,7 +595,7 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	require.NoError(t, err, "failed to compile workflow")
 
 	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
-		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		homeChainSelector,
 		keystone_changeset.WorkflowRegistry.String(),
 	)
@@ -612,11 +606,11 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		ConfigPath:        httpConfig.ConfigPath,
 		WorkflowName:      httpConfig.WorkflowName,
 		RegistryAddress:   workflowRegistryAddress,
-		SethClient:        wrappedBlockchainOutputs[0].SethClient,
+		SethClient:        testEnv.WrappedBlockchainOutputs[0].SethClient,
 		Logger:            testEnv.Logger,
 		TestEnv:           testEnv,
-		FullCldEnvOutput:  fullCldEnvOutput,
-		BlockchainOutputs: wrappedBlockchainOutputs,
+		FullCldEnvOutput:  testEnv.FullCldEnvOutput,
+		BlockchainOutputs: testEnv.WrappedBlockchainOutputs,
 		FeedIDs:           []string{}, // No feed IDs for HTTP test
 	}
 	setupWorkflowCleanup(t, cleanupConfig)
@@ -629,17 +623,17 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		ConfigFilePath:       httpConfig.ConfigPath,
 		CompressedWasmPath:   compressedWorkflowWasmPath,
 		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                fullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:   ContainerTargetDir,
 	}
-	registerWorkflow(t.Context(), t, regConfig, wrappedBlockchainOutputs[0].SethClient)
+	registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient)
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 
-	workflowOwner, err := crypto.HexToECDSA(wrappedBlockchainOutputs[0].DeployerPrivateKey)
+	workflowOwner, err := crypto.HexToECDSA(testEnv.WrappedBlockchainOutputs[0].DeployerPrivateKey)
 	require.NoError(t, err, "failed to convert private key to ECDSA")
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 

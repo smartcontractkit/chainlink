@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -177,7 +178,7 @@ func cleanFeedID(feedID string) string {
 	return "0x" + cleanFeedID
 }
 
-func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (PriceProvider, error) {
+func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (*FakePriceProvider, error) {
 	cleanFeedIDs := make([]string, 0, len(feedIDs))
 	// workflow is sending feedIDs with 0x prefix and 32 bytes
 	for _, feedID := range feedIDs {
@@ -278,4 +279,8 @@ func (f *FakePriceProvider) URL() string {
 
 func (f *FakePriceProvider) AuthKey() string {
 	return f.authKey
+}
+
+func (f *FakePriceProvider) Close(ctx context.Context) error {
+	return fake.TerminateService(ctx)
 }
