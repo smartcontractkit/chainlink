@@ -29,7 +29,7 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 	}
 
 	if slices.Contains(nodeSetInput.Capabilities, flag) {
-		//TODO PLEX-296
+		// TODO PLEX-296
 		// fullName := solana.GenerateName()
 		fullName := "write_solana_devnet@1.0.0"
 		splitName := strings.Split(fullName, "@")
