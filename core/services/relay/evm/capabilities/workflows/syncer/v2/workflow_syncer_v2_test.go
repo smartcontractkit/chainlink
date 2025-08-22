@@ -259,7 +259,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "storage.chain.link",
+	}))
+	require.NoError(t, err)
 
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
@@ -356,7 +359,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "storage.chain.link",
+	}))
+	require.NoError(t, err)
 
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
 		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))

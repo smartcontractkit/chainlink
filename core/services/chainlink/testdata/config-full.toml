@@ -320,6 +320,7 @@ MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = ''
 URL = 'localhost:4566'
 TLSEnabled = true
 
