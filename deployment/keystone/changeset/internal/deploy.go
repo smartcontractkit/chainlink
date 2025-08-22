@@ -32,14 +32,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *cldf.Environment
 
-	Dons       []DonCapabilities // externally sourced based on the environment
-	OCR3Config *OracleConfig     // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities  // externally sourced based on the environment
+	OCR3Config *ocr3.OracleConfig // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 }
 
 func (r ConfigureContractsRequest) Validate() error {
@@ -296,7 +297,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfig) error {
+func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *ocr3.OracleConfig) error {
 	evmChains := env.BlockChains.EVMChains()
 	registryChain, ok := evmChains[chainSel]
 	if !ok {
@@ -327,12 +328,12 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
-		_, err = configureOCR3contract(configureOCR3Request{
-			cfg:        cfg,
-			chain:      registryChain,
-			contract:   contract,
-			nodes:      don.Nodes,
-			ocrSecrets: env.OCRSecrets,
+		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
+			Cfg:        cfg,
+			Chain:      registryChain,
+			Contract:   contract,
+			Nodes:      don.Nodes,
+			OcrSecrets: env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -342,7 +343,7 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 }
 
 type ConfigureOCR3Resp struct {
-	OCR2OracleConfig
+	ocr3.OCR2OracleConfig
 	Ops *mcmstypes.BatchOperation
 }
 
@@ -350,7 +351,7 @@ type ConfigureOCR3Config struct {
 	ChainSel   uint64
 	NodeIDs    []string
 	Contract   *ocr3_capability.OCR3Capability
-	OCR3Config *OracleConfig
+	OCR3Config *ocr3.OracleConfig
 	DryRun     bool
 
 	UseMCMS bool
@@ -379,21 +380,21 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 	if err != nil {
 		return nil, err
 	}
-	r, err := configureOCR3contract(configureOCR3Request{
-		cfg:        cfg.OCR3Config,
-		chain:      registryChain,
-		contract:   contract,
-		nodes:      nodes,
-		dryRun:     cfg.DryRun,
-		useMCMS:    cfg.UseMCMS,
-		ocrSecrets: env.OCRSecrets,
+	r, err := ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
+		Cfg:        cfg.OCR3Config,
+		Chain:      registryChain,
+		Contract:   contract,
+		Nodes:      nodes,
+		DryRun:     cfg.DryRun,
+		UseMCMS:    cfg.UseMCMS,
+		OcrSecrets: env.OCRSecrets,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &ConfigureOCR3Resp{
-		OCR2OracleConfig: r.ocrConfig,
-		Ops:              r.ops,
+		OCR2OracleConfig: r.OcrConfig,
+		Ops:              r.Ops,
 	}, nil
 }
 
