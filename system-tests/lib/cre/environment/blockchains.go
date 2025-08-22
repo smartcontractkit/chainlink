@@ -99,7 +99,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 	if err != nil {
 		return errors.New("failed to set default solana private key")
 	}
-	bi.PublicKey = defaultSolanaPrivateKey.String()
+	bi.PublicKey = defaultSolanaPrivateKey.PublicKey().String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
 	return nil
 }
@@ -108,7 +108,7 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell 
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bcOut.Type, bcOut.ChainID)
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bi.Type, bi.ChainID)
 		}
 
 		return bcOut, nil
