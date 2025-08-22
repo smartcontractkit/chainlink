@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -12,7 +13,7 @@ import (
 // ChainConfigFromWrapped converts a single wrapped chain into a devenv.ChainConfig.
 func ChainConfigFromWrapped(w *WrappedBlockchainOutput) (devenv.ChainConfig, error) {
 	if w == nil || w.BlockchainOutput == nil || len(w.BlockchainOutput.Nodes) == 0 {
-		return devenv.ChainConfig{}, fmt.Errorf("invalid wrapped blockchain output")
+		return devenv.ChainConfig{}, errors.New("invalid wrapped blockchain output")
 	}
 	n := w.BlockchainOutput.Nodes[0]
 

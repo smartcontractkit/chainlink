@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/pkg/errors"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -57,13 +57,10 @@ func CreateBlockchains(
 	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
 
 	for _, bi := range input.blockchainsInput {
-		var solPrivateKey solana.PrivateKey // lazy private key, will be initialized only if Solana is present
-
 		isSolana := bi.Type == blockchain.FamilySolana
 
 		if isSolana {
-			var err error
-			solPrivateKey, err = initSolanaInput(&bi)
+			err := initSolanaInput(&bi)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "failed to init Solana input")
 			}
@@ -75,7 +72,7 @@ func CreateBlockchains(
 		}
 
 		if isSolana {
-			w, wrapErr := wrapSolana(&bi, bcOut, solPrivateKey)
+			w, wrapErr := wrapSolana(&bi, bcOut)
 			if wrapErr != nil {
 				return nil, pkgerrors.Wrap(wrapErr, "failed to wrap Solana")
 			}
@@ -94,14 +91,17 @@ func CreateBlockchains(
 	return blockchainOutput, nil
 }
 
-func initSolanaInput(bi *blockchain.Input) (solana.PrivateKey, error) {
-	pk, err := solana.NewRandomPrivateKey()
+// Will be set as --mint when spin up local solana validator, unless env variable with a different key provided
+var defaultSolanaPrivateKey = solana.MustPrivateKeyFromBase58("4u2itaM9r5kxsmoti3GMSDZrQEFpX14o6qPWY9ZrrYTR6kduDBr4YAZJsjawKzGP3wDzyXqterFmfcLUmSBro5AT")
+
+func initSolanaInput(bi *blockchain.Input) error {
+	err := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
 	if err != nil {
-		return solana.PrivateKey{}, err
+		return errors.New("failed to set default solana private key")
 	}
-	bi.PublicKey = pk.PublicKey().String()
+	bi.PublicKey = defaultSolanaPrivateKey.String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
-	return pk, nil
+	return nil
 }
 
 func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
@@ -137,14 +137,21 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell 
 	return bcOut, nil
 }
 
-func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output, pk solana.PrivateKey) (*cre.WrappedBlockchainOutput, error) {
+func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
 	sel, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
 	if !ok {
 		return nil, fmt.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
 	}
+	envp := os.Getenv("SOLANA_PRIVATE_KEY")
+	pk, err := solana.PrivateKeyFromBase58(envp)
+	if err != nil {
+		return nil, errors.New("failed to decode private key for solana")
+	}
+
 	if err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), pk); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
 	}
+
 	return &cre.WrappedBlockchainOutput{
 		BlockchainOutput: bcOut,
 		SolClient:        rpc.New(bcOut.Nodes[0].ExternalHTTPUrl),
@@ -169,17 +176,17 @@ func wrapEVM(bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create seth client")
+		return nil, pkgerrors.Wrap(err, "failed to create seth client")
 	}
 
 	selector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
 	}
 
 	chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
 	}
 
 	return &cre.WrappedBlockchainOutput{
