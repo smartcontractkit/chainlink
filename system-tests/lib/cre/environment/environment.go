@@ -220,6 +220,7 @@ func SetupTestEnvironment(
 			}
 		}
 		if bcOut.SolChain != nil {
+			// we expect that if we have solana, solana write capability is enabled
 			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
 			continue
 		}
