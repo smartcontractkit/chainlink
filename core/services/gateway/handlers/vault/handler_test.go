@@ -206,7 +206,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
-		//nolint:copylocks
+		//nolint:copylocks // This is a test case, where the lock field is not set
 		invalidParamsRequest := vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{

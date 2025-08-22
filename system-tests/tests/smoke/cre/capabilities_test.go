@@ -312,8 +312,8 @@ func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environmen
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	framework.L.Info().Msgf("Sleeping 3 minutes to allow the Vault DON to start...")
-	time.Sleep(3 * time.Minute)
+	framework.L.Info().Msgf("Sleeping 5 minutes to allow the Vault DON to start...")
+	time.Sleep(5 * time.Minute)
 	framework.L.Info().Msgf("Sleep over. Executing test now...")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
@@ -502,7 +502,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 		EncryptedDecryptionKeyShares []*EncryptedShares `protobuf:"bytes,3,rep,name=encrypted_decryption_key_shares,json=encryptedDecryptionKeyShares,proto3" json:"encrypted_decryption_key_shares,omitempty"`
 	}
 	type SecretResponse struct {
-		//nolint:var-naming
+		//nolint:var-naming // This is the name used in the proto definition, so we keep it for compatibility
 		Id    *vaultcommon.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 		Data  *SecretData                   `protobuf:"bytes,2,opt,name=data,proto3"`
 		Error string                        `protobuf:"bytes,3,opt,name=error,proto3"`
