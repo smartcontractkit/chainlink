@@ -23,6 +23,7 @@ import (
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
 	kocr3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -36,7 +37,6 @@ import (
 
 var (
 	OCR3Capability cldf.ContractType = "OCR3Capability" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
-
 )
 
 type TopLevelConfigSource struct {
@@ -420,6 +420,61 @@ func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, er
 	}
 
 	return &ConfigureOCR3Response{ocrConfig, &ops}, nil
+}
+
+type ConfigureOCR3Resp struct {
+	OCR2OracleConfig
+	Ops *mcmstypes.BatchOperation
+}
+
+type ConfigureOCR3Config struct {
+	ChainSel   uint64
+	NodeIDs    []string
+	Contract   *ocr3_capability.OCR3Capability
+	OCR3Config *OracleConfig
+	DryRun     bool
+
+	UseMCMS bool
+}
+
+func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
+	prefix := ""
+	if cfg.DryRun {
+		prefix = "DRY RUN: "
+	}
+	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
+	if cfg.Contract == nil {
+		return nil, errors.New("OCR3 contract is required")
+	}
+
+	evmChains := env.BlockChains.EVMChains()
+	registryChain, ok := evmChains[cfg.ChainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
+	}
+
+	contract := cfg.Contract
+
+	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
+	if err != nil {
+		return nil, err
+	}
+	r, err := ConfigureOCR3contract(ConfigureOCR3Request{
+		Cfg:        cfg.OCR3Config,
+		Chain:      registryChain,
+		Contract:   contract,
+		Nodes:      nodes,
+		DryRun:     cfg.DryRun,
+		UseMCMS:    cfg.UseMCMS,
+		OcrSecrets: env.OCRSecrets,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ConfigureOCR3Resp{
+		OCR2OracleConfig: r.OcrConfig,
+		Ops:              r.Ops,
+	}, nil
 }
 
 func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {

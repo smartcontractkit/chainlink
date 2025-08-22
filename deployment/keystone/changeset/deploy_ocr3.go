@@ -68,7 +68,7 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
 
-	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
+	resp, err := ocr3.ConfigureOCR3ContractFromJD(&env, ocr3.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,

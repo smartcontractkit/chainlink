@@ -23,7 +23,6 @@ import (
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -340,62 +339,6 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 		}
 	}
 	return nil
-}
-
-type ConfigureOCR3Resp struct {
-	ocr3.OCR2OracleConfig
-	Ops *mcmstypes.BatchOperation
-}
-
-type ConfigureOCR3Config struct {
-	ChainSel   uint64
-	NodeIDs    []string
-	Contract   *ocr3_capability.OCR3Capability
-	OCR3Config *ocr3.OracleConfig
-	DryRun     bool
-
-	UseMCMS bool
-}
-
-// Depreciated: use changeset.ConfigureOCR3Contract instead
-func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
-	prefix := ""
-	if cfg.DryRun {
-		prefix = "DRY RUN: "
-	}
-	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
-	if cfg.Contract == nil {
-		return nil, errors.New("OCR3 contract is required")
-	}
-
-	evmChains := env.BlockChains.EVMChains()
-	registryChain, ok := evmChains[cfg.ChainSel]
-	if !ok {
-		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
-	}
-
-	contract := cfg.Contract
-
-	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
-	if err != nil {
-		return nil, err
-	}
-	r, err := ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
-		Cfg:        cfg.OCR3Config,
-		Chain:      registryChain,
-		Contract:   contract,
-		Nodes:      nodes,
-		DryRun:     cfg.DryRun,
-		UseMCMS:    cfg.UseMCMS,
-		OcrSecrets: env.OCRSecrets,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ConfigureOCR3Resp{
-		OCR2OracleConfig: r.OcrConfig,
-		Ops:              r.Ops,
-	}, nil
 }
 
 type RegisteredCapability struct {
