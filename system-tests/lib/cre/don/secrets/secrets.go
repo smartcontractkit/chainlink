@@ -337,7 +337,7 @@ func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.Genera
 
 				for _, solKey := range sSecrets.Solana.Keys {
 					if solKey.JSON == nil || solKey.Password == nil || solKey.ID == nil {
-						return nil, fmt.Errorf("Solana key or password or ID is nil for node %d in DON %d", nodeIdx, donIdx)
+						return nil, fmt.Errorf("solana key or password or id is nil for node %d in don %d", nodeIdx, donIdx)
 					}
 					// if the DON doesn't support solana chain, we skip it
 					if !slices.Contains(nodeSet.SupportedSolChains, *solKey.ID) {

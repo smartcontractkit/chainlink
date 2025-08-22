@@ -315,7 +315,6 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 		}
 
 		configOverrides[nodeIndex] += solOverride
-		fmt.Println("sol override", solOverride)
 	}
 
 	for _, configFn := range nodeConfigFns {

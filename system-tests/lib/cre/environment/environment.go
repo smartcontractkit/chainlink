@@ -371,7 +371,7 @@ func SetupTestEnvironment(
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	// and also for creating the CLD environment
-	chainIDs := make([]int, 0)
+	evmChainIDs := make([]int, 0)
 	bcOuts := make(map[uint64]*cre.WrappedBlockchainOutput)
 	sethClients := make(map[uint64]*seth.Client)
 	solClients := make(map[uint64]*solrpc.Client)
@@ -388,7 +388,7 @@ func SetupTestEnvironment(
 			continue
 		}
 		bcOuts[bcOut.ChainSelector] = bcOut
-		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
+		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
@@ -398,7 +398,7 @@ func SetupTestEnvironment(
 		homeChainOutput.ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		chainIDs,
+		evmChainIDs,
 		solChainIDs,
 		bcOuts,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now

@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/pkg/errors"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -55,105 +55,140 @@ func CreateBlockchains(
 	}
 
 	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
+
 	for _, bi := range input.blockchainsInput {
-		var bcOut *blockchain.Output
-		var bcErr error
 		var solPrivateKey solana.PrivateKey // lazy private key, will be initialized only if Solana is present
+
 		isSolana := bi.Type == blockchain.FamilySolana
 
 		if isSolana {
-			solPrivateKey, _ = solana.NewRandomPrivateKey()
-			bi.PublicKey = solPrivateKey.PublicKey().String()
-			bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
-		}
-
-		if input.infra.Type == infra.CRIB {
-			if input.nixShell == nil {
-				return nil, pkgerrors.New("nix shell is nil")
-			}
-
-			deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
-				BlockchainInput: &bi,
-				NixShell:        input.nixShell,
-				CribConfigsDir:  cribConfigsDir,
-				Namespace:       input.infra.CRIB.Namespace,
-			}
-			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
-			if bcErr != nil {
-				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
-			}
-			err := infra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+			var err error
+			solPrivateKey, err = initSolanaInput(&bi)
 			if err != nil {
-				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
-			}
-		} else {
-			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
-			if bcErr != nil {
-				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
+				return nil, pkgerrors.Wrap(err, "failed to init Solana input")
 			}
 		}
-		// handle solana here
+
+		bcOut, err := deployBlockchain(testLogger, input.infra, input.nixShell, bi)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s", bi.Type)
+		}
+
 		if isSolana {
-			solClient := rpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
-
-			// we pass selector from input, because local solana chainID is unpredictable
-			selector, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
-			if !ok {
-				return nil, pkgerrors.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
+			w, wrapErr := wrapSolana(&bi, bcOut, solPrivateKey)
+			if wrapErr != nil {
+				return nil, pkgerrors.Wrap(wrapErr, "failed to wrap Solana")
 			}
 
-			err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), solPrivateKey)
-			if err != nil {
-				return nil, fmt.Errorf("failed to save private key for solana: %w", err)
-			}
-
-			blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
-				BlockchainOutput: bcOut,
-				SolClient:        solClient,
-				SolChain: &cre.SolChain{
-					ChainSelector: selector,
-					ChainID:       bi.ChainID,
-					PrivateKey:    solPrivateKey,
-					ArtifactsDir:  bi.ContractsDir,
-				},
-			})
-
+			blockchainOutput = append(blockchainOutput, w)
 			continue
 		}
 
-		if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-			return nil, pkErr
+		w, wrapErr := wrapEVM(bcOut)
+		if wrapErr != nil {
+			return nil, pkgerrors.Wrap(wrapErr, "failed to wrap EVM")
 		}
 
-		privateKey := os.Getenv("PRIVATE_KEY")
-		sethClient, err := seth.NewClientBuilder().
-			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{privateKey}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to create seth client")
-		}
-
-		chainSelector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
-		}
-		chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
-		}
-
-		blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
-			ChainSelector:      chainSelector,
-			ChainID:            chainID,
-			BlockchainOutput:   bcOut,
-			SethClient:         sethClient,
-			DeployerPrivateKey: privateKey,
-		})
+		blockchainOutput = append(blockchainOutput, w)
 	}
 	return blockchainOutput, nil
+}
+
+func initSolanaInput(bi *blockchain.Input) (solana.PrivateKey, error) {
+	pk, err := solana.NewRandomPrivateKey()
+	if err != nil {
+		return solana.PrivateKey{}, err
+	}
+	bi.PublicKey = pk.PublicKey().String()
+	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
+	return pk, nil
+}
+
+func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
+	if infraIn.Type != infra.CRIB {
+		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bcOut.Type, bcOut.ChainID)
+		}
+
+		return bcOut, nil
+	}
+
+	if nixShell == nil {
+		return nil, pkgerrors.New("nix shell is nil")
+	}
+
+	deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
+		BlockchainInput: &bi,
+		NixShell:        nixShell,
+		CribConfigsDir:  cribConfigsDir,
+		Namespace:       infraIn.CRIB.Namespace,
+	}
+	bcOut, err := crib.DeployBlockchain(deployCribBlockchainInput)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to deploy blockchain")
+	}
+
+	err = infra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
+	}
+
+	return bcOut, nil
+}
+
+func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output, pk solana.PrivateKey) (*cre.WrappedBlockchainOutput, error) {
+	sel, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
+	if !ok {
+		return nil, fmt.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
+	}
+	if err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), pk); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
+	}
+	return &cre.WrappedBlockchainOutput{
+		BlockchainOutput: bcOut,
+		SolClient:        rpc.New(bcOut.Nodes[0].ExternalHTTPUrl),
+		SolChain: &cre.SolChain{
+			ChainSelector: sel,
+			ChainID:       bi.ChainID,
+			PrivateKey:    pk,
+			ArtifactsDir:  bi.ContractsDir,
+		},
+	}, nil
+}
+
+func wrapEVM(bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+	if err := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); err != nil {
+		return nil, err
+	}
+
+	priv := os.Getenv("PRIVATE_KEY")
+	sethClient, err := seth.NewClientBuilder().
+		WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+		WithPrivateKeys([]string{priv}).
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create seth client")
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
+	}
+
+	chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+	}
+
+	return &cre.WrappedBlockchainOutput{
+		ChainSelector:      selector,
+		ChainID:            chainID,
+		BlockchainOutput:   bcOut,
+		SethClient:         sethClient,
+		DeployerPrivateKey: priv,
+	}, nil
 }
 
 type BlockchainLoggers struct {
@@ -174,40 +209,13 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 
 	chainsConfigs := make([]devenv.ChainConfig, 0)
 	for _, bcOut := range blockchainsOutput {
-		switch bcOut.BlockchainOutput.Family {
-		case chainselectors.FamilyEVM:
-			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-				ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
-				ChainName: bcOut.SethClient.Cfg.Network.Name,
-				ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-				WSRPCs: []devenv.CribRPCs{{
-					External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-					Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-				}},
-				HTTPRPCs: []devenv.CribRPCs{{
-					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-				}},
-				DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-			})
-		case chainselectors.FamilySolana:
-			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-				ChainID:   bcOut.SolChain.ChainID,
-				ChainName: bcOut.SolChain.ChainName,
-				ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-				WSRPCs: []devenv.CribRPCs{{
-					External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-					Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-				}},
-				HTTPRPCs: []devenv.CribRPCs{{
-					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-				}},
-				SolDeployerKey: bcOut.SolChain.PrivateKey,
-				SolArtifactDir: bcOut.SolChain.ArtifactsDir,
-			})
+		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
+		if cfgErr != nil {
+			return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to wrap blockchain output to chain config")
 		}
+		chainsConfigs = append(chainsConfigs, cfg)
 	}
+
 	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create chains")

@@ -271,7 +271,6 @@ func WorkerSolana(chains []*WorkerSolanaInput) (string, error) {
 		Name = '%s'
 		URL = '%s'
 		`, chain.Name, chain.NodeURL)
-
 	}
 
 	return ret, nil
