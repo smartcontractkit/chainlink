@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,4 +33,22 @@ func AcceptAllOwnershipsProposal(e cldf.Environment, req *AcceptAllOwnershipRequ
 
 	// Create and return the changeset
 	return changeset.TransferToMCMSWithTimelockV2(e, cfg)
+}
+
+func getTransferableContracts(addressStore datastore.AddressRefStore, chainSelector uint64) []common.Address {
+	var transferableContracts []common.Address
+
+	addresses := addressStore.Filter(datastore.AddressRefByChainSelector(chainSelector))
+	for _, addr := range addresses {
+		isOCR3Capability := addr.Type == datastore.ContractType(OCR3Capability)
+		isWorkflowRegistry := addr.Type == datastore.ContractType(WorkflowRegistry)
+		isKeystoneForwarder := addr.Type == datastore.ContractType(KeystoneForwarder)
+		isCapabilityRegistry := addr.Type == datastore.ContractType(CapabilitiesRegistry)
+
+		if isCapabilityRegistry || isWorkflowRegistry || isKeystoneForwarder || isOCR3Capability {
+			transferableContracts = append(transferableContracts, common.HexToAddress(addr.Address))
+		}
+	}
+
+	return transferableContracts
 }
