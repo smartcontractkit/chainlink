@@ -511,72 +511,86 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	m := sync.Map{}
 	sm := sync.Map{}
 	am := sync.Map{}
+
+	// Create worker pool with fixed number of goroutines
+	const numWorkers = 8
+	jobCh := make(chan uint64, len(chains))
 	grp := errgroup.Group{}
-	for _, chainSelector := range chains {
-		var name string
-		chainSelector := chainSelector
+
+	// Start fixed number of workers
+	for i := 0; i < numWorkers; i++ {
 		grp.Go(func() error {
-			family, err := chain_selectors.GetSelectorFamily(chainSelector)
-			if err != nil {
-				return err
-			}
-			chainInfo, err := cldf_chain_utils.ChainInfo(chainSelector)
-			if err != nil {
-				return err
-			}
-			name = chainInfo.ChainName
-			if chainInfo.ChainName == "" {
-				name = strconv.FormatUint(chainSelector, 10)
-			}
-			id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
-			if err != nil {
-				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
-			}
-			e.Logger.Infow("Generating view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
-			switch family {
-			case chain_selectors.FamilyEVM:
-				if _, ok := c.EVMChainState(chainSelector); !ok {
-					return fmt.Errorf("chain not supported %d", chainSelector)
-				}
-				chainState := c.MustGetEVMChainState(chainSelector)
-				chainView, err := chainState.GenerateView(e.Logger, name)
+			for chainSelector := range jobCh {
+				var name string
+				family, err := chain_selectors.GetSelectorFamily(chainSelector)
 				if err != nil {
 					return err
 				}
-				chainView.ChainSelector = chainSelector
-				chainView.ChainID = id
-				m.Store(name, chainView)
-				e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
-			case chain_selectors.FamilySolana:
-				if _, ok := c.SolChains[chainSelector]; !ok {
-					return fmt.Errorf("chain not supported %d", chainSelector)
-				}
-				chainState := c.SolChains[chainSelector]
-				chainView, err := chainState.GenerateView(e, chainSelector)
+				chainInfo, err := cldf_chain_utils.ChainInfo(chainSelector)
 				if err != nil {
 					return err
 				}
-				chainView.ChainSelector = chainSelector
-				chainView.ChainID = id
-				sm.Store(name, chainView)
-			case chain_selectors.FamilyAptos:
-				chainState, ok := c.AptosChains[chainSelector]
-				if !ok {
-					return fmt.Errorf("chain not supported %d", chainSelector)
+				name = chainInfo.ChainName
+				if chainInfo.ChainName == "" {
+					name = strconv.FormatUint(chainSelector, 10)
 				}
-				chainView, err := chainState.GenerateView(e, chainSelector, name)
+				id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 				}
-				chainView.ChainSelector = chainSelector
-				chainView.ChainID = id
-				am.Store(name, chainView)
-			default:
-				return fmt.Errorf("unsupported chain family %s", family)
+				e.Logger.Infow("Generating view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
+				switch family {
+				case chain_selectors.FamilyEVM:
+					if _, ok := c.EVMChainState(chainSelector); !ok {
+						return fmt.Errorf("chain not supported %d", chainSelector)
+					}
+					chainState := c.MustGetEVMChainState(chainSelector)
+					chainView, err := chainState.GenerateView(e.Logger, name)
+					if err != nil {
+						return err
+					}
+					chainView.ChainSelector = chainSelector
+					chainView.ChainID = id
+					m.Store(name, chainView)
+					e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
+				case chain_selectors.FamilySolana:
+					if _, ok := c.SolChains[chainSelector]; !ok {
+						return fmt.Errorf("chain not supported %d", chainSelector)
+					}
+					chainState := c.SolChains[chainSelector]
+					chainView, err := chainState.GenerateView(e, chainSelector)
+					if err != nil {
+						return err
+					}
+					chainView.ChainSelector = chainSelector
+					chainView.ChainID = id
+					sm.Store(name, chainView)
+				case chain_selectors.FamilyAptos:
+					chainState, ok := c.AptosChains[chainSelector]
+					if !ok {
+						return fmt.Errorf("chain not supported %d", chainSelector)
+					}
+					chainView, err := chainState.GenerateView(e, chainSelector, name)
+					if err != nil {
+						return err
+					}
+					chainView.ChainSelector = chainSelector
+					chainView.ChainID = id
+					am.Store(name, chainView)
+				default:
+					return fmt.Errorf("unsupported chain family %s", family)
+				}
 			}
 			return nil
 		})
 	}
+
+	// Send jobs to workers
+	for _, chainSelector := range chains {
+		jobCh <- chainSelector
+	}
+	close(jobCh)
+
 	if err := grp.Wait(); err != nil {
 		return CCIPStateView{}, err
 	}
