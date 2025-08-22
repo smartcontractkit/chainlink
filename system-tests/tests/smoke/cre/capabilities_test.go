@@ -144,6 +144,9 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
 	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
 		// for deciding whether need to deploy the data feeds cache contract.
 		hasForwarderContract := false
@@ -248,6 +251,9 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 	*/
 	eg := &errgroup.Group{}
 	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		eg.Go(func() error {
 			feedID := feedIDs[idx]
 			testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -312,8 +318,9 @@ func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environmen
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	framework.L.Info().Msgf("Sleeping 5 minutes to allow the Vault DON to start...")
-	time.Sleep(5 * time.Minute)
+	framework.L.Info().Msgf("Sleeping 1 minute to allow the Vault DON to start...")
+	// TODO: Remove this sleep https://smartcontract-it.atlassian.net/browse/PRIV-154
+	time.Sleep(1 * time.Minute)
 	framework.L.Info().Msgf("Sleep over. Executing test now...")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing

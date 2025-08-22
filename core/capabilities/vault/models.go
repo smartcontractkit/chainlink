@@ -9,13 +9,25 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
+
+var DefaultNamespace = "main"
 
 type SecretsService interface {
 	CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*Response, error)
 	UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*Response, error)
 	GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*Response, error)
+	DeleteSecrets(ctx context.Context, request *vault.DeleteSecretsRequest) (*Response, error)
+}
+
+func KeyFor(id *vaultcommon.SecretIdentifier) string {
+	namespace := id.Namespace
+	if namespace == "" {
+		namespace = DefaultNamespace
+	}
+	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
 }
 
 type Request struct {

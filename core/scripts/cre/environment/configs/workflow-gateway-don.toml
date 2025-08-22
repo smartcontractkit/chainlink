@@ -71,6 +71,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
@@ -114,6 +115,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'

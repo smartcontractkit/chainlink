@@ -2228,6 +2228,7 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
+ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
 LogStreamingEnabled = false # Default
 ```
@@ -2284,6 +2285,12 @@ EmitterExportTimeout sets timeout for exporting telemetry events
 ChipIngressEndpoint = '' # Default
 ```
 ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
+
+### ChipIngressInsecureConnection
+```toml
+ChipIngressInsecureConnection = false # Default
+```
+ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 
 ### HeartbeatInterval
 ```toml

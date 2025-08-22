@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -102,6 +103,69 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
 			assert.Equal(t, createSecretsRequest.EncryptedSecrets[0].Id.Key, secretsResponse.Result.Responses[0].Id.Key, "Secret ID should match")
 			assert.True(t, secretsResponse.Result.Responses[0].Success, "Success should be true")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
+		require.NoError(t, err)
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("happy path - delete secrets", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callbackCh, don := setupHandler(t)
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		id := &vaultcommon.SecretIdentifier{
+			Key:       "foo",
+			Namespace: "default",
+			Owner:     "owner-id",
+		}
+		reqData := &vaultcommon.DeleteSecretsRequest{
+			RequestId: "id",
+			Ids: []*vaultcommon.SecretIdentifier{
+				id,
+			},
+		}
+		reqDatab, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: MethodSecretsDelete,
+			Params: (*json.RawMessage)(&reqDatab),
+		}
+
+		responseData := &vaultcommon.DeleteSecretsResponse{
+			Responses: []*vaultcommon.DeleteSecretResponse{
+				{
+					Id:      id,
+					Success: true,
+				},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+
+		require.NoError(t, err)
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     "1",
+			Result: (*json.RawMessage)(&resultBytes),
+			Method: MethodSecretsDelete,
+		}
+		resultBytes, err = json.Marshal(responseData)
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callback := <-callbackCh
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)

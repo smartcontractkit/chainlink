@@ -132,6 +132,7 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*Response, error) {
+	// TODO validate the request
 	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
@@ -145,6 +146,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
 	}
 
+	uniqueIDs := map[string]bool{}
 	for _, req := range request.EncryptedSecrets {
 		if req.Id == nil {
 			return nil, errors.New("secret ID must not be nil")
@@ -153,9 +155,42 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		if req.Id.Key == "" || req.Id.Owner == "" {
 			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
 		}
+
+		_, ok := uniqueIDs[KeyFor(req.Id)]
+		if ok {
+			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
+		}
+
+		uniqueIDs[KeyFor(req.Id)] = true
 	}
 
 	// TODO: secrets should be encrypted with the correct key
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if len(request.Ids) >= maxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	}
+
+	uniqueIDs := map[string]bool{}
+	for _, id := range request.Ids {
+		if id.Key == "" || id.Owner == "" {
+			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", id)
+		}
+
+		_, ok := uniqueIDs[KeyFor(id)]
+		if ok {
+			return nil, fmt.Errorf("duplicate secret ID found: %v", id)
+		}
+
+		uniqueIDs[KeyFor(id)] = true
+	}
+
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
