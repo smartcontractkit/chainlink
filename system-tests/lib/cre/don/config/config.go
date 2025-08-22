@@ -250,6 +250,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 				}
 			}
 		}
+
 		// get all sol forwarders
 		for _, wi := range workerSolInputs {
 			if !wi.HasWrite {
@@ -276,6 +277,29 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 					return nil, errors.Errorf("failed to get from address for Solana chain %d", wi.ChainSelector)
 				}
 			}
+			if input.CapabilityConfigs == nil {
+				return nil, errors.New("additional capabilities configs are nil, but are required to configure the write-evm capability")
+			}
+
+			if writeSolConfig, ok := input.CapabilityConfigs[cre.WriteSolanaCapability]; ok {
+				mergedConfig := envconfig.ResolveCapabilityConfigForDON(
+					cre.WriteSolanaCapability,
+					writeSolConfig.Config,
+					nil,
+				)
+
+				runtimeValues := map[string]any{
+					"FromAddress":      wi.FromAddress.String(),
+					"ForwarderAddress": wi.ForwarderAddress,
+					"ForwarderState":   wi.ForwarderState,
+				}
+
+				var mErr error
+				wi.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+				if mErr != nil {
+					return nil, errors.Wrap(mErr, "failed to apply runtime values")
+				}
+			}
 		}
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
@@ -285,7 +309,13 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) 
 		if workerErr != nil {
 			return nil, errors.Wrap(workerErr, "failed to generate worker [EVM.Workflow] config")
 		}
-		configOverrides[nodeIndex] += WorkerSolana(workerSolInputs)
+		solOverride, solWorkerErr := WorkerSolana(workerSolInputs)
+		if solWorkerErr != nil {
+			return nil, errors.Wrap(workerErr, "failed to generate worker [Solana.Workflow] config")
+		}
+
+		configOverrides[nodeIndex] += solOverride
+		fmt.Println("sol override", solOverride)
 	}
 
 	for _, configFn := range nodeConfigFns {
