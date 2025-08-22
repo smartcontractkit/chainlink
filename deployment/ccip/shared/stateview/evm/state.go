@@ -657,8 +657,6 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 }
 
 func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
-	fmt.Println("QWERTYUIOP")
-
 	chainView := view.NewChain()
 
 	// Create a buffered channel for jobs and limit workers to 8
