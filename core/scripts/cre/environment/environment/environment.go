@@ -22,6 +22,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	ctypes "github.com/docker/docker/api/types/container"
+	dc "github.com/docker/docker/client"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
@@ -40,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -75,6 +77,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+	EnvironmentCmd.AddCommand(swapCmd())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -420,6 +423,19 @@ func storeCTFConfigs[ConfigType any](config *ConfigType) error {
 		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
 		if setErr != nil {
 			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+		}
+	}
+
+	cachedOutName := splitConfigs[0]
+	if !strings.HasSuffix(splitConfigs[0], "-cache.toml") {
+		cachedOutName = strings.ReplaceAll(splitConfigs[0], ".toml", "") + "-cache.toml"
+	}
+
+	if _, err := os.Stat(cachedOutName); err == nil {
+		fmt.Println("removing cached config file", cachedOutName)
+		removeErr := os.Remove(cachedOutName)
+		if removeErr != nil {
+			return errors.Wrap(removeErr, "failed to remove cached config file")
 		}
 	}
 
@@ -838,4 +854,92 @@ func removeCacheFiles(shouldRemove shouldRemove) error {
 	}
 
 	return nil
+}
+
+func swapCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "swap",
+		Short: "Swaps the Docker images of the Chainlink nodes in the environment",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			content, readErr := os.ReadFile(defaultArtifactsPathFile)
+			if readErr != nil {
+				return errors.Wrap(readErr, "failed to read artifact paths file")
+			}
+
+			var paths artifactPaths
+			if err := json.Unmarshal(content, &paths); err != nil {
+				return errors.Wrap(err, "failed to unmarshal artifact paths file")
+			}
+
+			setErr := os.Setenv("CTF_CONFIGS", strings.ReplaceAll(paths.EnvConfig, ".toml", "-cache.toml"))
+			if setErr != nil {
+				return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
+			}
+
+			config, loadErr := framework.Load[envconfig.Config](nil)
+			if loadErr != nil {
+				return errors.Wrap(loadErr, "failed to load CTF config")
+			}
+
+			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
+			setErr = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+			if setErr != nil {
+				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
+			}
+
+			for _, nodeSet := range config.NodeSets {
+				containerIDs, containerIDsErr := findAllDockerContainerIDs(nodeSet.Name + "-node")
+				if containerIDsErr != nil {
+					return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
+				}
+
+				for _, id := range containerIDs {
+					framework.L.Info().Msgf("Removing Docker container %s", id)
+					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+					if dockerClientErr != nil {
+						return errors.Wrap(dockerClientErr, "failed to create Docker client")
+					}
+
+					removeErr := dockerClient.ContainerRemove(context.Background(), id, ctypes.RemoveOptions{Force: true})
+					if removeErr != nil {
+						return errors.Wrapf(removeErr, "failed to remove Docker container %s", id)
+					}
+				}
+
+				nodeSet.Out = nil
+				var nodesetErr error
+				nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
+				if nodesetErr != nil {
+					time.Sleep(2 * time.Minute)
+					return errors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSet.Name)
+				}
+			}
+
+			return storeArtifacts(config)
+		},
+	}
+}
+
+// resuse from workflow/docker.go
+func findAllDockerContainerIDs(pattern string) ([]string, error) {
+	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
+	}
+
+	containers, containersErr := dockerClient.ContainerList(context.Background(), ctypes.ListOptions{})
+	if containersErr != nil {
+		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
+	}
+
+	containerIDs := []string{}
+	for _, container := range containers {
+		for _, name := range container.Names {
+			if strings.Contains(name, pattern) {
+				containerIDs = append(containerIDs, container.ID)
+			}
+		}
+	}
+
+	return containerIDs, nil
 }
