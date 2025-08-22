@@ -479,14 +479,7 @@ func saveArtifactPaths() error {
 		}
 	}
 
-	baseConfigPath := splitConfigs[0]
-	newCacheName := strings.ReplaceAll(baseConfigPath, ".toml", "")
-	if strings.Contains(newCacheName, "cache") {
-		return nil
-	}
-	cachedOutName := strings.ReplaceAll(baseConfigPath, ".toml", "") + "-cache.toml"
-
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(cachedOutName)
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(splitConfigs[0])
 	if ctfConfigsAbsPathErr != nil {
 		return ctfConfigsAbsPathErr
 	}
