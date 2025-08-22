@@ -11,4 +11,5 @@ type SecretsService interface {
 	CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error)
 	UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error)
 	GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vault2.Response, error)
+	DeleteSecrets(ctx context.Context, request *vault.DeleteSecretsRequest) (*vault2.Response, error)
 }

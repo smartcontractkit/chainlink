@@ -143,6 +143,9 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
 	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
 		// for deciding whether need to deploy the data feeds cache contract.
 		hasForwarderContract := false
@@ -247,6 +250,9 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 	*/
 	eg := &errgroup.Group{}
 	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		eg.Go(func() error {
 			feedID := feedIDs[idx]
 			testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)

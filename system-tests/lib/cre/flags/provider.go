@@ -23,6 +23,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.VaultCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
+			cre.WriteSolanaCapability,
 		},
 	}
 }

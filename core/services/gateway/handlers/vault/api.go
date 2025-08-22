@@ -11,6 +11,7 @@ const (
 	MethodSecretsCreate = "vault.secrets.create"
 	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
+	MethodSecretsDelete = "vault.secrets.delete"
 )
 
 type SecretIdentifier struct {

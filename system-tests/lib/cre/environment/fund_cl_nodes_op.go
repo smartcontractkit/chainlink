@@ -1,11 +1,13 @@
 package environment
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -57,11 +59,28 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 				}
 				for _, node := range metaDon.DON.Nodes {
 					errGroup.Go(func() error {
+						if bcOut.SolChain != nil {
+							funder := bcOut.SolChain.PrivateKey
+							recipient := solana.MustPublicKeyFromBase58(node.AccountAddr[bcOut.SolChain.ChainID])
+							deps.Env.Logger.Infof("attempt to fund Solana account %s", recipient.String())
+							err := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
+								Recipent:   recipient,
+								PrivateKey: funder,
+								Amount:     50_000_000,
+							})
+							if err != nil {
+								return fmt.Errorf("failed to fund Solana node: %w", err)
+							}
+							deps.Env.Logger.Infof("successfully funded Solana account %s", recipient.String())
+							return nil
+						}
+
 						nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
 						if nodeAddress == "" {
 							return nil
 						}
 
+						deps.Env.Logger.Infof("attempt to fund evm account %s", nodeAddress)
 						nonce := concurrentNonceMap.Increment(bcOut.ChainID)
 
 						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
@@ -73,6 +92,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOut
 						if fundingErr != nil {
 							return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
 						}
+						deps.Env.Logger.Infof("successfully funded evm account %s", nodeAddress)
 						return nil
 					})
 				}
