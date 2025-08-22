@@ -82,6 +82,65 @@ func (_c *SecretsService_CreateSecrets_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// DeleteSecrets provides a mock function with given fields: ctx, request
+func (_m *SecretsService) DeleteSecrets(ctx context.Context, request *vault.DeleteSecretsRequest) (*pluginsvault.Response, error) {
+	ret := _m.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSecrets")
+	}
+
+	var r0 *pluginsvault.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.DeleteSecretsRequest) (*pluginsvault.Response, error)); ok {
+		return rf(ctx, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.DeleteSecretsRequest) *pluginsvault.Response); ok {
+		r0 = rf(ctx, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pluginsvault.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *vault.DeleteSecretsRequest) error); ok {
+		r1 = rf(ctx, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SecretsService_DeleteSecrets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteSecrets'
+type SecretsService_DeleteSecrets_Call struct {
+	*mock.Call
+}
+
+// DeleteSecrets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *vault.DeleteSecretsRequest
+func (_e *SecretsService_Expecter) DeleteSecrets(ctx interface{}, request interface{}) *SecretsService_DeleteSecrets_Call {
+	return &SecretsService_DeleteSecrets_Call{Call: _e.mock.On("DeleteSecrets", ctx, request)}
+}
+
+func (_c *SecretsService_DeleteSecrets_Call) Run(run func(ctx context.Context, request *vault.DeleteSecretsRequest)) *SecretsService_DeleteSecrets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*vault.DeleteSecretsRequest))
+	})
+	return _c
+}
+
+func (_c *SecretsService_DeleteSecrets_Call) Return(_a0 *pluginsvault.Response, _a1 error) *SecretsService_DeleteSecrets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *SecretsService_DeleteSecrets_Call) RunAndReturn(run func(context.Context, *vault.DeleteSecretsRequest) (*pluginsvault.Response, error)) *SecretsService_DeleteSecrets_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecrets provides a mock function with given fields: ctx, requestID, request
 func (_m *SecretsService) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*pluginsvault.Response, error) {
 	ret := _m.Called(ctx, requestID, request)

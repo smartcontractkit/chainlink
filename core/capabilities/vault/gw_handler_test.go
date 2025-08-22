@@ -133,7 +133,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vault.DeleteSecretsRequest{
-						RequestId:    "test-secret",
+						RequestId: "test-secret",
 						Ids: []*vault.SecretIdentifier{
 							{
 

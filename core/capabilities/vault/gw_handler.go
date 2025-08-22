@@ -270,7 +270,6 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
-
 func (h *GatewayHandler) errorResponse(
 	ctx context.Context,
 	gatewayID string,
