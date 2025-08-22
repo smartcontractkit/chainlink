@@ -39,6 +39,10 @@ type UpdateDONInput struct {
 	// IsPrivate indicates whether the DON is public or private
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
+
+	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
+	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
+	Force bool
 }
 
 func (r *UpdateDONInput) Validate() error {
@@ -90,7 +94,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			}
 		}
 
-		if don.AcceptsWorkflows {
+		if don.AcceptsWorkflows && !input.Force {
 			// TODO: CRE-277 ensure forwarders are support the next DON version
 			// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
 			// and

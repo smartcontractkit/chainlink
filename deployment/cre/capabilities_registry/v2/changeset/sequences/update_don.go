@@ -37,6 +37,10 @@ type UpdateDONInput struct {
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
 
+	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
+	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
+	Force bool
+
 	RegistryRef datastore.AddressRefKey
 }
 
@@ -139,6 +143,7 @@ var UpdateDON = operations.NewSequence[UpdateDONInput, UpdateDONOutput, UpdateDO
 				DonName:           input.DonName,
 				F:                 input.F,
 				IsPrivate:         input.IsPrivate,
+				Force:             input.Force,
 			},
 		)
 		if err != nil {

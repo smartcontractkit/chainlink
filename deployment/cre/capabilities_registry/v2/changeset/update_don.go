@@ -26,13 +26,17 @@ type UpdateDONInput struct {
 	P2PIDs            []p2pkey.PeerID              `json:"p2p_ids" yaml:"p2p_ids"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capability_configs" yaml:"capability_configs"`
 	IsPrivate         bool                         `json:"is_private" yaml:"is_private"`
+
+	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
+	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
+	Force bool `json:"force" yaml:"force"`
 }
 
 type UpdateDON struct{}
 
 func (u UpdateDON) VerifyPreconditions(_ cldf.Environment, config UpdateDONInput) error {
-	if len(config.P2PIDs) == 0 {
-		return errors.New("p2pIDs is required")
+	if config.DonName == "" {
+		return errors.New("must specify DONName")
 	}
 	if len(config.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
@@ -60,6 +64,7 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			P2PIDs:            config.P2PIDs,
 			CapabilityConfigs: config.CapabilityConfigs,
 			IsPrivate:         config.IsPrivate,
+			Force:             config.Force,
 		},
 	)
 	if err != nil {
