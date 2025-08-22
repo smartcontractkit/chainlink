@@ -566,3 +566,53 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should remove LINK token successfully if already exists", func(t *testing.T) {
+		deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
+		e := deployedEnvironment.Env
+
+		selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		chainSelector := selectors[0]
+
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		require.NoError(t, err)
+
+		var linkTokenAddr string
+		for addr, tv := range addresses {
+			if tv.Type == "LinkToken" {
+				linkTokenAddr = addr
+				break
+			}
+		}
+		require.NotEmpty(t, linkTokenAddr, "LinkToken should exist in the deployed environment")
+
+		existingContracts := commoncs.ExistingContractsConfig{
+			ExistingContracts: []commoncs.Contract{
+				{
+					ChainSelector:  chainSelector,
+					Address:        linkTokenAddr,
+					TypeAndVersion: cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0),
+				},
+			},
+		}
+
+		// This should remove the link token from the address book successfully
+		err = v1_6.RemoveLinkTokenAddressIfExists(e, existingContracts)
+		require.NoError(t, err, "should handle LinkToken contracts without error")
+
+		// Verify the LinkToken was removed from the address book
+		updatedAddresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		require.NoError(t, err)
+		linkTokenStillExists := false
+		for _, tv := range updatedAddresses {
+			if tv.Type == "LinkToken" {
+				linkTokenStillExists = true
+				break
+			}
+		}
+		require.False(t, linkTokenStillExists, "LinkToken should have been removed from address book")
+	})
+}

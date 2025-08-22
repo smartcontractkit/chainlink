@@ -228,7 +228,11 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	if !c.SkipDeployments {
 		// Save existing contracts
-		err := runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
+		err := RemoveLinkTokenAddressIfExists(e, c.NewChain.ExistingContracts)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run removeLinkTokenAddressIfExists on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
 			return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
@@ -937,6 +941,48 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 	err = existingAddresses.Merge(output.AddressBook)
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
+	}
+
+	return nil
+}
+
+// If LINK token is present in the existing addressbook, remove it
+// This is because the LINK token can either be deployed via CLD or imported from existing deployments
+func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts commoncs.ExistingContractsConfig) error {
+	if len(existingContracts.ExistingContracts) == 0 {
+		return nil
+	}
+
+	abToRemove := cldf.NewMemoryAddressBook()
+	linkTokensFound := false
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	for _, contract := range existingContracts.ExistingContracts {
+		if contract.TypeAndVersion.Type == "LinkToken" {
+			// Validate that the existing contract address matches the state LinkToken address
+			if chainState, exists := state.Chains[contract.ChainSelector]; exists {
+				stateLinkTokenAddr, err := chainState.LinkTokenAddress()
+				if err == nil {
+					contractAddr := common.HexToAddress(contract.Address)
+					if stateLinkTokenAddr == contractAddr {
+						linkTokensFound = true
+						if err := abToRemove.Save(contract.ChainSelector, contract.Address, contract.TypeAndVersion); err != nil {
+							return fmt.Errorf("failed to save LinkToken address for removal: %w", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if linkTokensFound {
+		if err := e.ExistingAddresses.Remove(abToRemove); err != nil {
+			return fmt.Errorf("failed to remove LinkToken addresses from existing address book: %w", err)
+		}
 	}
 
 	return nil
