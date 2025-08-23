@@ -14,11 +14,10 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
-
-const maxBatchSize = 10
 
 type Capability struct {
 	lggr         logger.Logger
@@ -56,7 +55,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
 
-	if request.Method != vaultcommon.MethodGetSecrets {
+	if request.Method != vaultapi.MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
@@ -134,6 +133,9 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*Response, error) {
 	// TODO validate the request
 	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
+	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -142,8 +144,8 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.EncryptedSecrets) >= maxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -173,8 +175,8 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.Ids) >= maxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	if len(request.Ids) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -198,6 +200,9 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 	s.lggr.Infof("Received GetSecrets call: %s", request.String())
 	if len(request.Requests) == 0 {
 		return nil, errors.New("no GetSecret request specified in request")
+	}
+	if len(request.Requests) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 	return s.handleRequest(ctx, requestID, request)
 }

@@ -12,6 +12,8 @@ const (
 	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
 	MethodSecretsDelete = "vault.secrets.delete"
+
+	MaxBatchSize = 10
 )
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.

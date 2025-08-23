@@ -160,7 +160,6 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	if err := json.Unmarshal(*req.Params, &request); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
-	h.lggr.Infof("Debugging: handleSecretsGet 1 %s: %v", gatewayID, req)
 	encryptionKeys, err := h.getEncryptionKeys(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
