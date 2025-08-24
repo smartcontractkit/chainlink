@@ -288,7 +288,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) err
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have atleast 1 request")))
 	}
 	if len(createSecretsRequests.EncryptedSecrets) >= MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+ strconv.Itoa(MaxBatchSize))))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(MaxBatchSize))))
 	}
 	for index, secret := range createSecretsRequests.EncryptedSecrets {
 		if secret.Id.Key == "" || secret.EncryptedValue == "" || secret.Id.Owner == "" {
