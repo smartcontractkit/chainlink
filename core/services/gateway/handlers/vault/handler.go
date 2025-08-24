@@ -71,9 +71,9 @@ type activeRequest struct {
 type handler struct {
 	services.StateMachine
 	methodConfig Config
-	donConfig *config.DONConfig
-	don       gwhandlers.DON
-	lggr      logger.Logger
+	donConfig    *config.DONConfig
+	don          gwhandlers.DON
+	lggr         logger.Logger
 	codec        api.JsonRPCCodec
 	mu           sync.RWMutex
 	stopCh       services.StopChan
