@@ -316,7 +316,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) err
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have atleast 1 request")))
 	}
 	if len(updateSecretsRequest.EncryptedSecrets) >= MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+ strconv.Itoa(MaxBatchSize))))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(MaxBatchSize))))
 	}
 
 	for index, secret := range updateSecretsRequest.EncryptedSecrets {
@@ -353,7 +353,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar activeRequest) err
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have atleast 1 request")))
 	}
 	if len(deleteSecretsRequest.Ids) >= MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+ strconv.Itoa(MaxBatchSize))))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(MaxBatchSize))))
 	}
 
 	for index, id := range deleteSecretsRequest.Ids {
@@ -384,7 +384,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error 
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have atleast 1 request")))
 	}
 	if len(secretsGetRequest.Requests) >= MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+ strconv.Itoa(MaxBatchSize))))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(MaxBatchSize))))
 	}
 	for index, request := range secretsGetRequest.Requests {
 		if request.Id.Key == "" || request.Id.Owner == "" {
