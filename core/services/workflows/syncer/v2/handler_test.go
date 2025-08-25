@@ -130,7 +130,7 @@ func Test_Handler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store, workflowEncryptionKey)
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -638,7 +638,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
@@ -734,7 +734,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -799,7 +799,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedEvent{
@@ -874,7 +874,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 
-		h, err := NewEventHandler(lggr, store, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err =
 			h.workflowRegisteredEvent(ctx, active)
