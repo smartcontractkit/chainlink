@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -512,16 +513,16 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.Len(t, registeredNodes, len(fixture.nodes), "should have registered the correct number of nodes")
 
 	for i, node := range fixture.nodes {
-		expectedSigner, err := hexStringTo32Bytes(node.Signer)
+		expectedSigner, err := pkg.HexStringTo32Bytes(node.Signer)
 		require.NoError(t, err, "failed to convert signer hex string to bytes")
 
-		expectedCsaKey, err := hexStringTo32Bytes(node.CsaKey)
+		expectedCsaKey, err := pkg.HexStringTo32Bytes(node.CsaKey)
 		require.NoError(t, err, "failed to convert CSA key hex string to bytes")
 
 		bytes32P2pID, err := p2pkey.MakePeerID(node.P2pID)
 		require.NoError(t, err, "failed to convert P2P ID string to bytes")
 
-		expectedEncryptionPublicKey, err := hexStringTo32Bytes(node.EncryptionPublicKey)
+		expectedEncryptionPublicKey, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
 
 		got, err := capabilitiesRegistry.GetNode(nil, bytes32P2pID)
