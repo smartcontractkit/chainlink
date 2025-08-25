@@ -3089,4 +3089,76 @@ targets:
 		// This is expected behavior since no metering report exists
 		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
 	})
+
+	t.Run("includes step data when billing client errors", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+		errBillingClient := errors.New("billing client error")
+
+		expectedRegistryAddress := "0xe3188aFCc8FA3aE39Ea38d73DBBf90A6AD529128"
+		expectedChainID := uint64(11155111) // Sepolia chain ID
+		expectedChainSelector, err := chainselectors.SelectorFromChainId(expectedChainID)
+		require.NoError(t, err)
+
+		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(nil, errBillingClient)
+
+		// Verify that ReserveCredits is called with the correct workflow registry information
+		// Sepolia chain ID 11155111 converts to the expected chainSelector
+		mBillingClient.EXPECT().
+			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
+				if req == nil {
+					return false
+				}
+				// Check that the workflow registry fields are set correctly
+				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
+			})).
+			Return(nil, errBillingClient)
+
+		// Verify that SubmitWorkflowReceipt is called with the correct workflow registry information
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+
+				return len(req.Metering.Steps) == 1 && req.Metering.Message == errBillingClient.Error() &&
+					req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
+			})).
+			Return(nil, errBillingClient)
+
+		tr := withTrigger(t, reg)
+		target := withTarget(t, reg)
+		lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			testWorkflow,
+			func(cfg *Config) {
+				cfg.BillingClient = mBillingClient
+				cfg.WorkflowRegistryAddress = expectedRegistryAddress
+				cfg.WorkflowRegistryChainID = "11155111"
+				cfg.Lggr = lggr
+			},
+		)
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+		resp := <-target.response
+		assert.Equal(t, tr.Event.Outputs, resp.Value)
+
+		state, err := eng.executionsStore.Get(ctx, eid)
+		require.NoError(t, err)
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		// expected errors include a switch to metering mode due to billing client error and a failure to end
+		// a report due to billing client error.
+		assert.Len(t, logs.All(), 2)
+	})
 }

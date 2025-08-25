@@ -1064,6 +1064,45 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		}
 	})
 
+	t.Run("sends receipt with report data when billing service errors", func(t *testing.T) {
+		t.Parallel()
+
+		numSteps := 100
+		errBillingFailure := errors.New("billing service failed")
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(nil, errBillingFailure)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(nil, errBillingFailure)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		expected := map[string]*eventspb.MeteringReportStep{}
+
+		for i := range numSteps {
+			stepRef := strconv.Itoa(i)
+
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, decimal.NewFromInt(1)))
+			require.NoError(t, err)
+
+			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
+				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
+			}))
+
+			expected[stepRef] = &eventspb.MeteringReportStep{Nodes: []*eventspb.MeteringReportNodeDetail{
+				{
+					Peer_2PeerId: "xyz",
+					SpendUnit:    "a",
+					SpendValue:   "42",
+				},
+			}}
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		billingClient.AssertExpectations(t)
+	})
+
 	t.Run("returns an error if not initialized", func(t *testing.T) {
 		t.Parallel()
 
