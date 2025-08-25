@@ -55,7 +55,7 @@ func (c *creConfig) WorkflowFetcher() config.WorkflowFetcher {
 
 func (c *creConfig) UseLocalTimeProvider() bool {
 	if c.c.UseLocalTimeProvider == nil {
-		return false
+		return true // default to local time provider since DON Time plugin may not be running
 	}
 	return *c.c.UseLocalTimeProvider
 }
