@@ -10,15 +10,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre"
 )
 
-func TestDeployCapabilitiesRegistry(t *testing.T) {
+func TestDeployOCR3(t *testing.T) {
 	lggr := logger.Test(t)
 	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Starting changeset application...")
-	changesetOutput, err := DeployCapabilitiesRegistry{}.Apply(env, DeployCapabilitiesRegistryInput{
+	changesetOutput, err := DeployOCR3{}.Apply(env, DeployOCR3Input{
 		ChainSelector: chainSelector,
-		Qualifier:     "test-capabilities-registry-v2",
 	})
 	t.Logf("Changeset result: err=%v, output=%v", err, changesetOutput)
 
@@ -30,9 +29,10 @@ func TestDeployCapabilitiesRegistry(t *testing.T) {
 
 	// Verify the datastore contains the deployed contract
 	require.NotNil(t, changesetOutput.DataStore, "datastore should not be nil")
-	addresses := changesetOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-capabilities-registry-v2"))
-	t.Logf("Found %d addresses with qualifier", len(addresses))
-	require.Len(t, addresses, 1, "expected exactly one deployed contract with the test qualifier")
+	addresses, err := changesetOutput.DataStore.Addresses().Fetch()
+	require.NoError(t, err, "should fetch addresses without error")
+	t.Logf("Found %d addresses", len(addresses))
+	require.Len(t, addresses, 1, "expected exactly one deployed contract")
 
 	// Verify the address is for the correct chain
 	deployedAddress := addresses[0]
@@ -40,7 +40,7 @@ func TestDeployCapabilitiesRegistry(t *testing.T) {
 	require.NotEmpty(t, deployedAddress.Address, "deployed contract address should not be empty")
 
 	// Verify the contract type is correct
-	require.Equal(t, datastore.ContractType("CapabilitiesRegistry"), deployedAddress.Type, "contract type should be CapabilitiesRegistry")
+	require.Equal(t, datastore.ContractType("OCR3Capability"), deployedAddress.Type, "contract type should be OCR3Capability")
 	require.NotNil(t, deployedAddress.Version, "contract version should be set")
 
 	// Verify reports are generated

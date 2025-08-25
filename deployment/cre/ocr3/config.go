@@ -43,6 +43,10 @@ type TopLevelConfigSource struct {
 	OracleConfig OracleConfig
 }
 
+type MCMSConfig struct {
+	MinDuration time.Duration
+}
+
 type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
