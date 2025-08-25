@@ -11,8 +11,7 @@ import (
 // InitializePluginConfig returns a pluginConfig for TON chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec:         codec.NewAddressCodec(),
-		ChainAccessorFactory: TONChainAccessorFactory{},
+		AddressCodec: codec.NewAddressCodec(),
 	}
 }
 
