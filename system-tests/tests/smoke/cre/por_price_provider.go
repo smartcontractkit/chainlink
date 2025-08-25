@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -279,8 +278,4 @@ func (f *FakePriceProvider) URL() string {
 
 func (f *FakePriceProvider) AuthKey() string {
 	return f.authKey
-}
-
-func (f *FakePriceProvider) Close(ctx context.Context) error {
-	return fake.TerminateService(ctx)
 }

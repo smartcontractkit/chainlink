@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"os/exec"
@@ -42,6 +41,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -217,23 +217,48 @@ func setupWorkflowCleanup(t *testing.T, config *WorkflowCleanupConfig) {
 
 type HTTPTestConfig struct {
 	WorkflowName     string
-	MockServer       *httptest.Server
-	Recorder         *MockServerRecorder
+	FakeServer       *fake.Output
 	SigningKey       *ecdsa.PrivateKey
 	ConfigPath       string
 	WorkflowLocation string
 }
 
+// startTestOrderServer creates a fake HTTP server that records requests and returns proper responses for order endpoints
+func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
+	fakeInput := &fake.Input{
+		Port: port,
+	}
+
+	fakeOutput, err := fake.NewFakeDataProvider(fakeInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up the /orders endpoint
+	response := map[string]interface{}{
+		"orderId": "test-order-" + uuid.New().String()[0:8],
+		"status":  "success",
+		"message": "Order processed successfully",
+	}
+
+	err = fake.JSON("POST", "/orders", response, 200)
+	require.NoError(t, err, "failed to set up /orders endpoint")
+
+	framework.L.Info().Msgf("Test order server started on port %d at: %s", port, fakeOutput.BaseURLHost)
+	return fakeOutput, nil
+}
+
 // setupHTTPWorkflowTest sets up the HTTP workflow test infrastructure
 func setupHTTPWorkflowTest(t *testing.T, testEnv *TestEnvironment) *HTTPTestConfig {
-	mockServer, recorder := startMockHTTPServerOnPort(t, testEnv.Config.Fake.Port)
+	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
+	require.NoError(t, err, "failed to start fake HTTP server")
+
 	workflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
-	configPath, signingKey := createTestWorkflowConfig(t, workflowName, mockServer.URL)
+	configPath, signingKey := createTestWorkflowConfig(t, workflowName, fakeServer.BaseURLHost)
 
 	return &HTTPTestConfig{
 		WorkflowName:     workflowName,
-		MockServer:       mockServer,
-		Recorder:         recorder,
+		FakeServer:       fakeServer,
 		SigningKey:       signingKey,
 		ConfigPath:       configPath,
 		WorkflowLocation: HTTPWorkflowLocation,
@@ -306,20 +331,25 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 }
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
-func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment, recorder *MockServerRecorder) {
+func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
 	require.Eventually(t, func() bool {
-		return len(recorder.GetRequests()) > 0
+		records, err := fake.R.Get("POST", "/orders")
+		return err == nil && len(records) > 0
 	}, tests.WaitTimeout(t), RetryInterval, "workflow should have made at least one HTTP request to mock server")
 
-	recordedRequest := recorder.GetRequests()[0]
+	records, err := fake.R.Get("POST", "/orders")
+	require.NoError(t, err, "failed to get recorded requests")
+	require.NotEmpty(t, records, "no requests recorded")
+
+	recordedRequest := records[0]
 	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
 
 	require.Equal(t, "POST", recordedRequest.Method, "expected POST method")
-	require.Equal(t, "/orders", recordedRequest.URL, "expected /orders endpoint")
-	require.Equal(t, "application/json", recordedRequest.Headers["Content-Type"], "expected JSON content type")
+	require.Equal(t, "/orders", recordedRequest.Path, "expected /orders endpoint")
+	require.Equal(t, "application/json", recordedRequest.Headers.Get("Content-Type"), "expected JSON content type")
 
 	var workflowRequestBody map[string]interface{}
-	err := json.Unmarshal([]byte(recordedRequest.Body), &workflowRequestBody)
+	err = json.Unmarshal([]byte(recordedRequest.ReqBody), &workflowRequestBody)
 	require.NoError(t, err, "request body should be valid JSON")
 
 	require.Equal(t, "test-customer", workflowRequestBody["customer"], "expected customer field")
@@ -394,7 +424,6 @@ func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
 	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
 	priceProvider, err := NewFakePriceProvider(testEnv.Logger, testEnv.Config.Fake, AuthorizationKey, feedIDs)
 	require.NoError(t, err, "failed to create fake price provider")
-	defer priceProvider.Close(t.Context())
 
 	config := &WorkflowTestConfig{
 		WorkflowName:     "por-workflow",
@@ -681,7 +710,6 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	testEnv.Logger.Info().Msg("Starting HTTP trigger and action test...")
 
 	httpConfig := setupHTTPWorkflowTest(t, testEnv)
-	defer httpConfig.MockServer.Close()
 
 	compressedWorkflowWasmPath, err := creworkflow.CompileWorkflow(httpConfig.WorkflowLocation, httpConfig.WorkflowName)
 	require.NoError(t, err, "failed to compile workflow")
@@ -734,7 +762,7 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 
 	executeHTTPTriggerRequest(t, testEnv, gatewayURL, httpConfig, workflowOwnerAddress)
 
-	validateHTTPWorkflowRequest(t, testEnv, httpConfig.Recorder)
+	validateHTTPWorkflowRequest(t, testEnv)
 
 	testEnv.Logger.Info().Msg("HTTP trigger and action test completed successfully")
 }
