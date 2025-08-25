@@ -72,20 +72,8 @@ jobs:
         with:
           check-label: "runs-on-opt-out"
 
-      - name: Debug current directory and list files
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Contents of current directory:"
-          ls -la
-          echo "Contents of GOPATH/bin:"
-          ls -la $GOPATH/bin || echo "GOPATH/bin not found"
-          echo "Contents of ~/go/bin:"
-          ls -la ~/go/bin || echo "~/go/bin not found"
-          echo "PATH:"
-          echo $PATH
-          echo "Which loopinstall:"
-          which loopinstall || echo "loopinstall not found in PATH"
+      - name: Install LOOP Plugins
+        run: make install-plugins
 
   run-ccip-integration-in-memory--tests-for-pr:
     name: Run CCIP integration In Memory Tests For PR
