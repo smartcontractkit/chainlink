@@ -262,7 +262,7 @@ func deployTokenPool(
 				tokenPoolVersion = deployment.Version1_6_1
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
-					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(), chain.Selector,
 				)
 			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
 				tokenPoolVersion = deployment.Version1_6_0
