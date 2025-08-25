@@ -71,7 +71,6 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 			Op:    jdtypesv1.SelectorOp_EQ,
 			Value: &f.Zone,
 		})
-
 	}
 
 	return &nodeapiv1.ListNodesRequest_Filter{
