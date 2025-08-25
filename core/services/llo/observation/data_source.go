@@ -175,7 +175,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	defer stopChanCancel()
 	for {
 		if stopChanCtx.Err() != nil {
-			defer close(d.waitForLoopToExitCh) //nolint:revive // we are confident that we want to defer in this loop
+			close(d.waitForLoopToExitCh)
 			return
 		}
 
@@ -186,7 +186,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
-			d.configDigestToStreamMu.Lock()
 			streamIDs := make([]streams.StreamID, 0, len(streamValues))
 			for streamID := range streamValues {
 				streamIDs = append(streamIDs, streamID)
@@ -194,7 +193,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
 			lggr = logger.With(lggr, "streamIDs", streamIDs)
 			lggr.Debugw("Observing streams")
-			d.configDigestToStreamMu.Unlock()
 		}
 
 		// Telemetry
