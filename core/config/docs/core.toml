@@ -859,4 +859,5 @@ IgnoreInvalidBridges = true # Default
 IgnoreJoblessBridges = false # Default
 
 [CRE]
-UseLocalTimeProvider = false
+# UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+UseLocalTimeProvider = true # Default
