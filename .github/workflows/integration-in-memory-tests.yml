@@ -72,9 +72,6 @@ jobs:
         with:
           check-label: "runs-on-opt-out"
 
-      - name: Install LOOP Plugins
-        run: make install-plugins
-
   run-ccip-integration-in-memory--tests-for-pr:
     name: Run CCIP integration In Memory Tests For PR
     permissions:
@@ -180,6 +177,9 @@ jobs:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
+
+      - name: Install LOOP Plugins
+        run: make install-plugins
 
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
