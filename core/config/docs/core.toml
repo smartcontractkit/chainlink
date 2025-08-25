@@ -857,3 +857,6 @@ PollingInterval = "5m" # Default
 IgnoreInvalidBridges = true # Default
 # IgnoreJoblessBridges skips bridges that have no associated jobs.
 IgnoreJoblessBridges = false # Default
+
+[CRE]
+UseLocalTimeProvider = false
