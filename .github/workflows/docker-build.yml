@@ -246,6 +246,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' }}
     needs: [docker-core]
     permissions:
+      contents: read
       id-token: write
     runs-on: ubuntu-latest
     steps:
