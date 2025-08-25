@@ -19,9 +19,7 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalConfig) (cld
 	state, _ := LoadOnchainState(env)
 	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
-
 	contract := chainState.DataFeedsCache[c.CacheAddress]
-	env.Logger.Infow("contract", "contract", contract.Address().Hex())
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
@@ -29,7 +27,6 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetFeedDecimalConfig) (cld
 	}
 
 	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
-	env.Logger.Infow("setting feed config", "chain", c.ChainSelector, "cache", c.CacheAddress, "dataIDs", c.DataIDs, "newDataIDs", dataIDs, "descriptions", c.Descriptions, "workflowMetadata", c.WorkflowMetadata)
 	tx, err := contract.SetDecimalFeedConfigs(txOpt, dataIDs, c.Descriptions, c.WorkflowMetadata)
 
 	if c.McmsConfig != nil {
