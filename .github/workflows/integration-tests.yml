@@ -271,6 +271,9 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
+      - name: Install LOOP Plugins
+        run: make install-plugins
+
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
     runs-on: ubuntu-latest
