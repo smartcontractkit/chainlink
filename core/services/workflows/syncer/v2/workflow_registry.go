@@ -303,14 +303,19 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 			toDeletedEvent := WorkflowDeletedEvent{
 				WorkflowID: engine.WorkflowID,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data: toDeletedEvent,
-					Name: WorkflowDeleted,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data: toDeletedEvent,
+							Name: WorkflowDeleted,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
 		}
 	}
 

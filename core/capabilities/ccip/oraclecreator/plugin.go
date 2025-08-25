@@ -554,14 +554,15 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.ChainReaderProviderOpts{
-			Lggr:          i.lggr,
-			Relayer:       relayer,
-			ChainID:       chainID,
-			DestChainID:   destChainID,
-			HomeChainID:   homeChainID,
-			Ofc:           ofc,
-			ChainSelector: chainSelector,
-			ChainFamily:   relayChainFamily,
+			Lggr:            i.lggr,
+			Relayer:         relayer,
+			ChainID:         chainID,
+			DestChainID:     destChainID,
+			HomeChainID:     homeChainID,
+			Ofc:             ofc,
+			ChainSelector:   chainSelector,
+			ChainFamily:     relayChainFamily,
+			DestChainFamily: destChainFamily,
 		})
 		if err1 != nil {
 			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does

@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token_faucet"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
@@ -254,4 +255,72 @@ func deployTokenFaucet(b operations.Bundle, deps AptosDeps, in DeployTokenFaucet
 	}
 
 	return ops, nil
+}
+
+type TransferTokenOwnershipInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	To                     aptos.AccountAddress
+}
+
+var TransferTokenOwnershipOp = operations.NewOperation(
+	"transfer-token-ownership-op",
+	Version1_0_0,
+	"Initiates the ownership transfer of a managed token to a given address",
+	transferTokenOwnership,
+)
+
+func transferTokenOwnership(b operations.Bundle, deps AptosDeps, in TransferTokenOwnershipInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().TransferOwnership(in.To)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode TransferOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
+type AcceptTokenOwnershipInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+}
+
+var AcceptTokenOwnershipOp = operations.NewOperation(
+	"accept-token-ownership-op",
+	Version1_0_0,
+	"Accepts ownership of a managed token",
+	acceptTokenOwnership,
+)
+
+func acceptTokenOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenOwnershipInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().AcceptOwnership()
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
+type ExecuteTokenOwnershipTransferInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	To                     aptos.AccountAddress
+}
+
+var ExecuteTokenOwnershipTransferOp = operations.NewOperation(
+	"execute-token-ownership-transfer-op",
+	Version1_0_0,
+	"Executes the ownership transfer of a managed token, after ownership has been accepted by the receiver",
+	executeTokenOwnershipTransfer,
+)
+
+func executeTokenOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenOwnershipTransferInput) (types.Transaction, error) {
+	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
+
+	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ExecuteOwnershipTransfer(in.To)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
 }

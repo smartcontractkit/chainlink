@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -48,5 +47,5 @@ func ExternalGatewayPort(infraInput infra.Input) int {
 		return 80
 	}
 
-	return config.GatewayIncomingPort
+	return GatewayIncomingPort
 }

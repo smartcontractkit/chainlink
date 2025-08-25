@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
 type FakeEVMChain struct {
@@ -26,10 +28,14 @@ type FakeEVMChain struct {
 	services.Service
 	eng *services.Engine
 
-	gethClient            *ethclient.Client
-	privateKey            *ecdsa.PrivateKey
-	mockKeystoneForwarder *MockKeystoneForwarder
-	chainSelector         uint64
+	gethClient                   *ethclient.Client
+	privateKey                   *ecdsa.PrivateKey
+	mockKeystoneForwarder        *MockKeystoneForwarder
+	mockKeystoneForwarderAddress common.Address
+	chainSelector                uint64
+
+	// if true, WriteReport will simulate the call and not broadcast
+	dryRunWrites bool
 
 	lggr logger.Logger
 
@@ -53,6 +59,7 @@ func NewFakeEvmChain(
 	privateKey *ecdsa.PrivateKey,
 	mockKeystoneForwarderAddress common.Address,
 	chainSelector uint64,
+	dryRunWrites bool,
 ) *FakeEVMChain {
 	mockKeystoneForwarder, err := NewMockKeystoneForwarder(mockKeystoneForwarderAddress, gethClient)
 	if err != nil {
@@ -61,13 +68,15 @@ func NewFakeEvmChain(
 	}
 
 	fc := &FakeEVMChain{
-		CapabilityInfo:        evmExecInfo,
-		lggr:                  lggr,
-		gethClient:            gethClient,
-		privateKey:            privateKey,
-		mockKeystoneForwarder: mockKeystoneForwarder,
-		chainSelector:         chainSelector,
-		callbackCh:            make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		CapabilityInfo:               evmExecInfo,
+		lggr:                         lggr,
+		gethClient:                   gethClient,
+		privateKey:                   privateKey,
+		mockKeystoneForwarder:        mockKeystoneForwarder,
+		mockKeystoneForwarderAddress: mockKeystoneForwarderAddress,
+		chainSelector:                chainSelector,
+		callbackCh:                   make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		dryRunWrites:                 dryRunWrites,
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "FakeEVMChain",
@@ -147,6 +156,11 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	signatures := make([][]byte, len(input.Report.Sigs))
 	for i, sig := range input.Report.Sigs {
 		signatures[i] = sig.Signature
+	}
+
+	// If dryRunWrites is enabled, simulate the transaction without broadcasting it
+	if fc.dryRunWrites {
+		return fc.dryRunWriteReport(ctx, auth.From, input, signatures)
 	}
 
 	reportTx, err := fc.mockKeystoneForwarder.Report(
@@ -486,4 +500,64 @@ func (fc *FakeEVMChain) Description() string {
 
 func (fc *FakeEVMChain) ChainSelector() uint64 {
 	return fc.chainSelector
+}
+
+// dryRunWriteReport simulates the report transaction using eth_call without broadcasting.
+func (fc *FakeEVMChain) dryRunWriteReport(
+	ctx context.Context,
+	from common.Address,
+	input *evmcappb.WriteReportRequest,
+	signatures [][]byte,
+) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
+	fc.eng.Infow("EVM Chain WriteReport Dry-Run Enabled")
+	contractABI, err := abi.JSON(strings.NewReader(MockKeystoneForwarderABI))
+	if err != nil {
+		return nil, err
+	}
+	calldata, err := contractABI.Pack(
+		"report",
+		common.Address(input.Receiver),
+		input.Report.RawReport,
+		input.Report.ReportContext,
+		signatures,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := ethereum.CallMsg{
+		From: from,
+		To:   &fc.mockKeystoneForwarderAddress,
+		Data: calldata,
+	}
+	_, err = fc.gethClient.CallContract(ctx, msg, nil)
+	if err != nil {
+		fc.eng.Infow("EVM Chain WriteReport Dry-Run Reverted", "error", err)
+		receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED
+		errMsg := err.Error()
+		response := &evmcappb.WriteReportReply{
+			TxStatus:                        evmcappb.TxStatus_TX_STATUS_REVERTED,
+			ReceiverContractExecutionStatus: &receiverStatus,
+			TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+			ErrorMessage:                    &errMsg,
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+			Response:         response,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, nil
+	}
+
+	fc.eng.Infow("EVM Chain WriteReport Dry-Run Successful")
+	receiverStatus := evmcappb.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS
+	response := &evmcappb.WriteReportReply{
+		TxStatus:                        evmcappb.TxStatus_TX_STATUS_SUCCESS,
+		ReceiverContractExecutionStatus: &receiverStatus,
+		TransactionFee:                  pb.NewBigIntFromInt(big.NewInt(0)),
+	}
+	responseAndMetadata := commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply]{
+		Response:         response,
+		ResponseMetadata: commonCap.ResponseMetadata{},
+	}
+	return &responseAndMetadata, nil
 }

@@ -566,3 +566,63 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
+	t.Parallel()
+
+	t.Run("should remove LINK token successfully if already exists", func(t *testing.T) {
+		deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
+		e := deployedEnvironment.Env
+
+		selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		chainSelector := selectors[0]
+
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		require.NoError(t, err)
+
+		var linkTokenAddr string
+		for addr, tv := range addresses {
+			if tv.Type == "LinkToken" {
+				linkTokenAddr = addr
+				break
+			}
+		}
+		require.NotEmpty(t, linkTokenAddr, "should have Link token in the deployed environment")
+
+		existingContracts := commoncs.ExistingContractsConfig{
+			ExistingContracts: []commoncs.Contract{
+				{
+					ChainSelector:  chainSelector,
+					Address:        linkTokenAddr,
+					TypeAndVersion: cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0),
+				},
+			},
+		}
+
+		// This should remove the link token from the existing contracts slice successfully
+		err = v1_6.RemoveLinkTokenAddressIfExists(e, &existingContracts)
+		require.NoError(t, err, "should remove LinkToken address if exists")
+
+		// Verify the LinkToken was removed from the existing contracts slice
+		linkTokenStillExists := false
+		for _, contract := range existingContracts.ExistingContracts {
+			if contract.TypeAndVersion.Type == "LinkToken" {
+				linkTokenStillExists = true
+				break
+			}
+		}
+		require.False(t, linkTokenStillExists, "should not have Link token in existing contracts")
+
+		// The address book should remain unchanged
+		updatedAddresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		require.NoError(t, err)
+		linkTokenStillExists = false
+		for _, tv := range updatedAddresses {
+			if tv.Type == "LinkToken" {
+				linkTokenStillExists = true
+				break
+			}
+		}
+		require.True(t, linkTokenStillExists, "should still have Link Token in address book")
+	})
+}

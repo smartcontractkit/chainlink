@@ -16,6 +16,7 @@ import (
 type SetOCR3OfframpSeqInput struct {
 	HomeChainSelector uint64
 	ChainSelector     uint64
+	ConfigType        globals.ConfigType
 }
 
 var SetOCR3OfframpSequence = operations.NewSequence(
@@ -37,11 +38,16 @@ func setOCR3OfframpSequence(b operations.Bundle, deps operation.AptosDeps, in Se
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get DON ID: %w", err)
 	}
 
+	// Default to active config if not set
+	if in.ConfigType == "" {
+		in.ConfigType = globals.ConfigTypeActive
+	}
+
 	ocr3Args, err := internal.BuildSetOCR3ConfigArgsAptos(
 		donID,
 		deps.CCIPOnChainState.Chains[in.HomeChainSelector].CCIPHome,
 		in.ChainSelector,
-		globals.ConfigTypeActive,
+		in.ConfigType,
 	)
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build OCR3 config args: %w", err)

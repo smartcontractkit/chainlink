@@ -107,6 +107,9 @@ type AddCandidatesForNewChainConfig struct {
 	// This is a pointer to distinguish between an explicitly set value (including 0) and an unset value (nil).
 	// We can OffSet by 0 as well sync nextDonID with CapReg.
 	DonIDOffSet *uint32 `json:"donIDOffset,omitempty"`
+
+	// SkipDeployments
+	SkipDeployments bool
 }
 
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
@@ -179,8 +182,11 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 	if err := c.prerequisiteConfigForNewChain().Validate(); err != nil {
 		return fmt.Errorf("failed to validate prerequisite config for new chain: %w", err)
 	}
-	if err := c.deploymentConfigForNewChain().Validate(); err != nil {
-		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
+
+	if !c.SkipDeployments {
+		if err := c.deploymentConfigForNewChain().Validate(); err != nil {
+			return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
+		}
 	}
 	if c.NewChain.RMNRemoteConfig != nil {
 		if err := c.rmnRemoteConfigForNewChain().Validate(e, state); err != nil {
@@ -220,107 +226,113 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	newAddresses := cldf.NewMemoryAddressBook()
 	var allProposals []mcmslib.TimelockProposal
 
-	// Save existing contracts
-	err := runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-		return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
-	}, newAddresses, e.ExistingAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-
-	// Deploy the prerequisite contracts to the new chain
-	err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-		return changeset.DeployPrerequisitesChangeset(e, c.prerequisiteConfigForNewChain())
-	}, newAddresses, e.ExistingAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployPrerequisitesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-
-	// Deploy MCMS contracts
-	if c.MCMSDeploymentConfig != nil {
+	if !c.SkipDeployments {
+		// Save existing contracts
+		err := RemoveLinkTokenAddressIfExists(e, &c.NewChain.ExistingContracts)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run removeLinkTokenAddressIfExists on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-			return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]commontypes.MCMSWithTimelockConfigV2{
-				c.NewChain.Selector: *c.MCMSDeploymentConfig,
-			})
+			return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployMCMSWithTimelockV2 on chain with selector %d: %w", c.NewChain.Selector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
-	}
 
-	// Deploy chain contracts to the new chain
-	err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-		return DeployChainContractsChangeset(e, c.deploymentConfigForNewChain())
-	}, newAddresses, e.ExistingAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployChainContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-
-	// Set RMN remote config & set RMN on proxy on the new chain (if config provided)
-	if c.NewChain.RMNRemoteConfig != nil {
-		_, err = SetRMNRemoteConfigChangeset(e, c.rmnRemoteConfigForNewChain())
+		// Deploy the prerequisite contracts to the new chain
+		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
+			return changeset.DeployPrerequisitesChangeset(e, c.prerequisiteConfigForNewChain())
+		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteConfigChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployPrerequisitesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
-	}
-	// Set the RMN remote on the RMN proxy, using MCMS if RMN proxy is owned by Timelock
-	// RMN proxy will already exist on chains that supported CCIPv1.5.0, in which case RMN proxy will be owned by Timelock
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	owner, err := state.Chains[c.NewChain.Selector].RMNProxy.Owner(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of RMN proxy on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-	var mcmsConfig *proposalutils.TimelockConfig
-	if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
-		mcmsConfig = c.MCMSConfig
-	}
-	out, err := SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
-		ChainSelectors: []uint64{c.NewChain.Selector},
-		MCMSConfig:     mcmsConfig,
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteOnRMNProxyChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	// Update the fee quoter destinations on the new chain
-	destChainConfigs := make(map[uint64]fee_quoter.FeeQuoterDestChainConfig, len(c.RemoteChains))
-	for _, remoteChain := range c.RemoteChains {
-		destChainConfigs[remoteChain.Selector] = remoteChain.FeeQuoterDestChainConfig
-	}
-	_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
-		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			c.NewChain.Selector: destChainConfigs,
-		},
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
+		// Deploy MCMS contracts
+		if c.MCMSDeploymentConfig != nil {
+			err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
+				return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+					c.NewChain.Selector: *c.MCMSDeploymentConfig,
+				})
+			}, newAddresses, e.ExistingAddresses)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployMCMSWithTimelockV2 on chain with selector %d: %w", c.NewChain.Selector, err)
+			}
+		}
 
-	// Update the fee quoter prices on the new chain
-	gasPrices := make(map[uint64]*big.Int, len(c.RemoteChains))
-	for _, remoteChain := range c.RemoteChains {
-		gasPrices[remoteChain.Selector] = remoteChain.GasPrice
-	}
-	_, err = UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
-		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
-			c.NewChain.Selector: FeeQuoterPriceUpdatePerSource{
-				TokenPrices: c.NewChain.TokenPrices,
-				GasPrices:   gasPrices,
+		// Deploy chain contracts to the new chain
+		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
+			return DeployChainContractsChangeset(e, c.deploymentConfigForNewChain())
+		}, newAddresses, e.ExistingAddresses)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployChainContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+
+		// Set RMN remote config & set RMN on proxy on the new chain (if config provided)
+		if c.NewChain.RMNRemoteConfig != nil {
+			_, err = SetRMNRemoteConfigChangeset(e, c.rmnRemoteConfigForNewChain())
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteConfigChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+			}
+		}
+		// Set the RMN remote on the RMN proxy, using MCMS if RMN proxy is owned by Timelock
+		// RMN proxy will already exist on chains that supported CCIPv1.5.0, in which case RMN proxy will be owned by Timelock
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		owner, err := state.Chains[c.NewChain.Selector].RMNProxy.Owner(&bind.CallOpts{
+			Context: e.GetContext(),
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of RMN proxy on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+		var mcmsConfig *proposalutils.TimelockConfig
+		if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
+			mcmsConfig = c.MCMSConfig
+		}
+		out, err := SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: []uint64{c.NewChain.Selector},
+			MCMSConfig:     mcmsConfig,
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteOnRMNProxyChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+		allProposals = append(allProposals, out.MCMSTimelockProposals...)
+
+		// Update the fee quoter destinations on the new chain
+		destChainConfigs := make(map[uint64]fee_quoter.FeeQuoterDestChainConfig, len(c.RemoteChains))
+		for _, remoteChain := range c.RemoteChains {
+			destChainConfigs[remoteChain.Selector] = remoteChain.FeeQuoterDestChainConfig
+		}
+		_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
+			UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+				c.NewChain.Selector: destChainConfigs,
 			},
-		},
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+
+		// Update the fee quoter prices on the new chain
+		gasPrices := make(map[uint64]*big.Int, len(c.RemoteChains))
+		for _, remoteChain := range c.RemoteChains {
+			gasPrices[remoteChain.Selector] = remoteChain.GasPrice
+		}
+		_, err = UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
+			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+				c.NewChain.Selector: FeeQuoterPriceUpdatePerSource{
+					TokenPrices: c.NewChain.TokenPrices,
+					GasPrices:   gasPrices,
+				},
+			},
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
 	}
 
 	// Fetch the next DON ID from the capabilities registry
-	state, err = stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -344,7 +356,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}
 
 	// Add new chain config to the home chain
-	out, err = UpdateChainConfigChangeset(e, c.updateChainConfig())
+	out, err := UpdateChainConfigChangeset(e, c.updateChainConfig())
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to run UpdateChainConfigChangeset on home chain: %w", err)
 	}
@@ -930,6 +942,47 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
 	}
+
+	return nil
+}
+
+// If LINK token is present in the existing contracts, remove it
+// This is because the LINK token can either be deployed via CLD or imported from existing deployments
+func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commoncs.ExistingContractsConfig) error {
+	if len(existingContracts.ExistingContracts) == 0 {
+		return nil
+	}
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	// Filter out LinkToken contracts that match the state LinkToken address
+	filteredContracts := make([]commoncs.Contract, 0, len(existingContracts.ExistingContracts))
+
+	for _, contract := range existingContracts.ExistingContracts {
+		shouldKeep := true
+
+		if contract.TypeAndVersion.Type == "LinkToken" {
+			if chainState, exists := state.Chains[contract.ChainSelector]; exists {
+				stateLinkTokenAddr, err := chainState.LinkTokenAddress()
+				if err == nil {
+					contractAddr := common.HexToAddress(contract.Address)
+					// Remove this LinkToken contract only if the address is same as the input config
+					if stateLinkTokenAddr == contractAddr {
+						shouldKeep = false
+					}
+				}
+			}
+		}
+
+		if shouldKeep {
+			filteredContracts = append(filteredContracts, contract)
+		}
+	}
+
+	existingContracts.ExistingContracts = filteredContracts
 
 	return nil
 }

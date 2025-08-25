@@ -18,7 +18,7 @@ type ChainCWProvider struct{}
 // GetChainReader returns a new ContractReader for EVM chains.
 func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
-	if params.ChainID == params.DestChainID {
+	if params.ChainID == params.DestChainID && params.ChainFamily == params.DestChainFamily {
 		chainReaderConfig = evmconfig.DestReaderConfig
 	} else {
 		chainReaderConfig = evmconfig.SourceReaderConfig

@@ -302,7 +302,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(timeoutCtx, req, "")
-	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrServerOverloaded, "handler timeout")
+	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrServerOverloaded, "handler timeout: context deadline exceeded")
 	require.Equal(t, 504, statusCode)
 }
 
