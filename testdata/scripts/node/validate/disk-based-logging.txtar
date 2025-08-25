@@ -401,7 +401,7 @@ Global = 200
 PerOwner = 200
 
 [CRE]
-UseLocalTimeProvider = false
+UseLocalTimeProvider = true
 
 [CRE.Streams]
 WsURL = ''
