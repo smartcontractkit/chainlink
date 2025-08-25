@@ -2411,6 +2411,19 @@ IgnoreJoblessBridges = false # Default
 ```
 IgnoreJoblessBridges skips bridges that have no associated jobs.
 
+## CRE
+```toml
+[CRE]
+UseLocalTimeProvider = true # Default
+```
+
+
+### UseLocalTimeProvider
+```toml
+UseLocalTimeProvider = true # Default
+```
+UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+
 ## EVM
 EVM defaults depend on ChainID:
 
