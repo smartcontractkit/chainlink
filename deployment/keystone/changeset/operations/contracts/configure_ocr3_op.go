@@ -59,20 +59,14 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 				RegistryChainSel: input.RegistryChainSel,
 				Registry:         deps.Registry,
 			}
-			_, err := internal.NewRegisteredDon(*deps.Env, donConfig)
+			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
 			if err != nil {
 				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
 			}
 
-			/*
-				// We double-check that the DON accepts workflows...
-				if d.Info.AcceptsWorkflows {
-					for _, node := range d.Nodes {
-						nodeIDs = append(nodeIDs, node.NodeID)
-					}
-				}
-
-			*/
+			for _, node := range d.Nodes {
+				nodeIDs = append(nodeIDs, node.NodeID)
+			}
 		}
 
 		resp, err := changeset.ConfigureOCR3Contract(*deps.Env, changeset.ConfigureOCR3Config{
