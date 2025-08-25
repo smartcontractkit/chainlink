@@ -1132,6 +1132,8 @@ func newCREServices(
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+						dontimeStore,
+						opts.UseLocalTimeProvider,
 						opts.CapabilitiesRegistry,
 						engineRegistry,
 						custmsg.NewLabeler(),
