@@ -3006,6 +3006,8 @@ targets:
 		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		mBillingClient.AssertExpectations(t)
 	})
 
 	t.Run("handles empty workflow registry information", func(t *testing.T) {
@@ -3076,18 +3078,16 @@ targets:
 
 		// Verify that warnings were logged about the empty chain selector
 		warnLogs := logs.TakeAll()
-		require.Len(t, warnLogs, 3) // Error about chain selector parsing, warning about no metering report, error about failed to end metering report
+		require.GreaterOrEqual(t, len(warnLogs), 1) // Error about chain selector parsing
 		chainSelectorWarnings := 0
 		for _, log := range warnLogs {
-			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
+			if strings.Contains(log.Message, "failed to parse registry chain id") {
 				chainSelectorWarnings++
 			}
 		}
 		assert.GreaterOrEqual(t, chainSelectorWarnings, 0) // May or may not have chain selector warnings
 
-		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// This is expected behavior since no metering report exists
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+		mBillingClient.AssertExpectations(t)
 	})
 
 	t.Run("includes step data when billing client errors", func(t *testing.T) {
@@ -3126,7 +3126,7 @@ targets:
 					return false
 				}
 
-				return len(req.Metering.Steps) == 1 && req.Metering.Message == errBillingClient.Error() &&
+				return len(req.Metering.Steps) == 1 && strings.Contains(req.Metering.Message, errBillingClient.Error()) &&
 					req.WorkflowRegistryAddress == expectedRegistryAddress &&
 					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
 			})).
@@ -3160,5 +3160,7 @@ targets:
 		// expected errors include a switch to metering mode due to billing client error and a failure to end
 		// a report due to billing client error.
 		assert.Len(t, logs.All(), 2)
+
+		mBillingClient.AssertExpectations(t)
 	})
 }

@@ -200,8 +200,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 	// always indicate that reserve was called.
 	r.reserved = true
 
-	// no need to move forward here if already in metering mode
-	if r.client == nil || r.meteringMode {
+	if r.client == nil {
 		r.switchToMeteringMode(ErrNoBillingClient)
 
 		return nil
