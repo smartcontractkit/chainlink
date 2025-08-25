@@ -114,6 +114,41 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			expectedError: false,
 		},
+		{
+			name: "success - delete secrets",
+			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vault.DeleteSecretsRequest) bool {
+					return len(req.Ids) == 1 &&
+						req.Ids[0].Key == "Foo" &&
+						req.Ids[0].Namespace == "Bar" &&
+						req.Ids[0].Owner == "Owner"
+				})).Return(&pluginsvault.Response{ID: "test-secret"}, nil)
+
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error == nil
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vault_api.MethodSecretsDelete,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vault.DeleteSecretsRequest{
+						RequestId: "test-secret",
+						Ids: []*vault.SecretIdentifier{
+							{
+
+								Key:       "Foo",
+								Namespace: "Bar",
+								Owner:     "Owner",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
 	}
 
 	for _, tt := range tests {

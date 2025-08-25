@@ -333,6 +333,9 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 	eg := &errgroup.Group{}
 
 	for idx, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		eg.Go(func() error {
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -426,6 +429,9 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
 	for idx, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
 		// for deciding whether need to deploy the data feeds cache contract.
 		hasForwarderContract := false

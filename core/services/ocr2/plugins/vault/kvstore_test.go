@@ -86,6 +86,31 @@ func TestKVStore_Secrets(t *testing.T) {
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
 
+func TestKVStore_DeleteSecrets(t *testing.T) {
+	kv := &kv{
+		m: make(map[string]response),
+	}
+	store := NewWriteStore(kv)
+
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret1",
+	}
+	err := store.WriteSecret(id, &vault.StoredSecret{
+		EncryptedSecret: []byte("encrypted data"),
+	})
+	require.NoError(t, err)
+
+	err = store.DeleteSecret(id)
+	require.NoError(t, err)
+
+	md, err := store.GetMetadata("owner")
+	require.NoError(t, err)
+
+	assert.Empty(t, md.SecretIdentifiers)
+}
+
 func TestKVStore_Metadata(t *testing.T) {
 	owner := "owner"
 	kv := &kv{
@@ -153,4 +178,41 @@ func TestKVStore_Metadata(t *testing.T) {
 	gotM, err = store.GetMetadata(owner)
 	require.NoError(t, err)
 	assert.Len(t, gotM.SecretIdentifiers, 3)
+}
+
+func TestKVStore_Metadata_Delete(t *testing.T) {
+	owner := "owner"
+	kv := &kv{
+		m: make(map[string]response),
+	}
+	store := NewWriteStore(kv)
+
+	id := &vault.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret1",
+	}
+	d, err := proto.Marshal(&vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{id},
+	})
+	require.NoError(t, err)
+	kv.m["Metadata::owner"] = response{
+		data: d,
+	}
+
+	err = store.RemoveIDFromMetadata(id)
+	require.NoError(t, err)
+
+	m, err := store.GetMetadata(owner)
+	require.NoError(t, err)
+
+	assert.Empty(t, m.SecretIdentifiers)
+
+	err = store.RemoveIDFromMetadata(id)
+	require.ErrorContains(t, err, "not found in metadata for owner owner")
+
+	delete(kv.m, "Metadata::owner")
+
+	err = store.RemoveIDFromMetadata(id)
+	require.ErrorContains(t, err, "no metadata found for owner owner")
 }

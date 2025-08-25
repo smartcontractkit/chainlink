@@ -199,6 +199,24 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"ChipIngressInsecureConnectionTrue", toml.Telemetry{ChipIngressInsecureConnection: ptr(true)}, true},
+		{"ChipIngressInsecureConnectionFalse", toml.Telemetry{ChipIngressInsecureConnection: ptr(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressInsecureConnection())
+		})
+	}
+}
+
 func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }

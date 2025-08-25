@@ -42,7 +42,7 @@ func TestTransmitter(t *testing.T) {
 	err := store.Add(&Request{
 		Payload:      req1,
 		ResponseChan: ch,
-		IDVal:        keyFor(id1),
+		IDVal:        KeyFor(id1),
 	})
 	require.NoError(t, err)
 
@@ -56,7 +56,7 @@ func TestTransmitter(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vault.Outcome{
-		Id:          keyFor(id1),
+		Id:          KeyFor(id1),
 		RequestType: vault.RequestType_GET_SECRETS,
 		Request: &vault.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req1,
@@ -111,5 +111,5 @@ func TestTransmitter(t *testing.T) {
 	resp := <-ch
 	assert.Equal(t, report.ReportWithInfo.Report, types.Report(resp.Payload))
 	assert.Equal(t, "REPORT_FORMAT_PROTOBUF", resp.Format)
-	assert.Equal(t, keyFor(id1), resp.ID)
+	assert.Equal(t, KeyFor(id1), resp.ID)
 }

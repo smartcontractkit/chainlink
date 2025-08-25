@@ -706,7 +706,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate, vault_api.MethodSecretsGet, vault_api.MethodSecretsUpdate}, handler); gwerr != nil {
+	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate, vault_api.MethodSecretsGet, vault_api.MethodSecretsUpdate, vault_api.MethodSecretsDelete}, handler); gwerr != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
 	}
 
