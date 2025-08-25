@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-FTF Tokenpool constructor & changeset update
+#updated FTF Tokenpool constructor & changeset update
