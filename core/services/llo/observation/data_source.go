@@ -91,6 +91,7 @@ type dataSource struct {
 	cache                  *Cache
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
+	waitForLoopToExitCh    chan struct{} // will be closed when we exit the observation loop
 
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
@@ -108,6 +109,7 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 		cache:                  NewCache(500*time.Millisecond, time.Minute),
 		configDigestToStream:   make(map[types.ConfigDigest]observableStreamValues),
 		observationLoopCloseCh: make(chan struct{}),
+		waitForLoopToExitCh:    make(chan struct{}),
 	}
 }
 
@@ -116,10 +118,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	// Observation loop logic
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
-		d.configDigestToStreamMu.Lock()
 		// StreamValues  needs a copy to avoid concurrent access
 		d.setObservableStreams(ctx, streamValues, opts)
-		d.configDigestToStreamMu.Unlock()
 
 		if !d.observationLoopStarted.Load() {
 			loopStartedCh := make(chan struct{})
@@ -150,16 +150,18 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 		deadline = time.Now().Add(100 * time.Millisecond)
 	}
 
-	streams := make(llo.StreamValues)
+	streamVals := make(llo.StreamValues)
 	for streamID := range values {
-		streams[streamID] = values[streamID]
+		streamVals[streamID] = values[streamID]
 	}
 
+	d.configDigestToStreamMu.Lock()
 	d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
 		opts:                opts,
-		streamValues:        streams,
+		streamValues:        streamVals,
 		observationInterval: time.Until(deadline),
 	}
+	d.configDigestToStreamMu.Unlock()
 }
 
 // startObservationLoop continuously makes observations for the streams in d.configDigestToStream and stores those in
@@ -173,6 +175,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	defer stopChanCancel()
 	for {
 		if stopChanCtx.Err() != nil {
+			defer close(d.waitForLoopToExitCh)
 			return
 		}
 
@@ -183,6 +186,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 		if opts.VerboseLogging() {
+			d.configDigestToStreamMu.Lock()
 			streamIDs := make([]streams.StreamID, 0, len(streamValues))
 			for streamID := range streamValues {
 				streamIDs = append(streamIDs, streamID)
@@ -190,6 +194,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
 			lggr = logger.With(lggr, "streamIDs", streamIDs)
 			lggr.Debugw("Observing streams")
+			d.configDigestToStreamMu.Unlock()
 		}
 
 		// Telemetry
@@ -302,6 +307,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 func (d *dataSource) Close() error {
 	close(d.observationLoopCloseCh)
 	d.observationLoopStarted.Store(false)
+	<-d.waitForLoopToExitCh
 
 	return nil
 }
