@@ -115,7 +115,7 @@ func (c *EngineConfig) Validate() error {
 	if c.CapRegistry == nil {
 		return errors.New("capabilities registry not set")
 	}
-	if c.DonTimeStore == nil && c.UseLocalTimeProvider == false {
+	if c.DonTimeStore == nil && !c.UseLocalTimeProvider {
 		return errors.New("dontime store not set")
 	}
 	if c.ExecutionsStore == nil {
