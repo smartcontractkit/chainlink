@@ -270,6 +270,7 @@ func NewApp(s *Shell) *cli.App {
 					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
+				s.LoggerConfig = lggrCfg
 				l, closeFn := lggrCfg.New()
 
 				s.Logger = l
