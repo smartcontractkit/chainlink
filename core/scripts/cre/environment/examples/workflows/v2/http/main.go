@@ -5,10 +5,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
-	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 
-	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
@@ -20,17 +21,17 @@ func main() {
 	}).Run(RunSimpleHttpWorkflow)
 }
 
-func RunSimpleHttpWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], error) {
-	workflows := sdk.Workflow[None]{
-		sdk.Handler(
+func RunSimpleHttpWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
+	workflows := cre.Workflow[None]{
+		cre.Handler(
 			http.Trigger(&http.Config{
 				AuthorizedKeys: []*http.AuthorizedKey{
 					{
-						Type:      http.KeyType_KEY_TYPE_ECDSA,
+						Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
 						PublicKey: "0xC3Ad031A27E1A6C692cBdBafD85359b0BE1B15DD", // ALICE
 					},
 					{
-						Type:      http.KeyType_KEY_TYPE_ECDSA,
+						Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
 						PublicKey: "0x4b8d44A7A1302011fbc119407F8Ce3baee6Ea2FF", // BOB
 					},
 				},
@@ -49,9 +50,7 @@ type OrderResponse struct {
 }
 
 // orderPizza posts a pizza order to the orders endpoint
-func orderPizza(env *sdk.NodeEnvironment[None], nodeRuntime sdk.NodeRuntime, inputs map[string]interface{}, customer string) (string, error) {
-	client := &http.Client{}
-
+func orderPizza(sendReqester *http.SendRequester, inputs map[string]interface{}, customer string) (string, error) {
 	if customer == "Bob" {
 		inputs["toppings"] = []string{"pineapples"}
 	}
@@ -75,12 +74,11 @@ func orderPizza(env *sdk.NodeEnvironment[None], nodeRuntime sdk.NodeRuntime, inp
 	if dedupe {
 		req.CacheSettings = &http.CacheSettings{
 			ReadFromCache: true,
-			StoreInCache:  true,
-			TtlMs:         10000,
+			MaxAgeMs:      10000,
 		}
 	}
 
-	resp, err := client.SendRequest(nodeRuntime, req).Await()
+	resp, err := sendReqester.SendRequest(req).Await()
 	if err != nil {
 		return "", fmt.Errorf("failed to post pizza order: %w", err)
 	}
@@ -107,23 +105,22 @@ func extractBoolFromInput(input map[string]interface{}, key string) bool {
 	return false
 }
 
-func onTrigger(env *sdk.Environment[None], runtime sdk.Runtime, trigger *http.Payload) (string, error) {
-	env.Logger.Info("Hello! Workflow triggered.")
+func onTrigger(config None, runtime cre.Runtime, trigger *http.Payload) (string, error) {
+	logger := runtime.Logger()
+	logger.Info("Hello! Workflow triggered.")
 
 	inputMap := trigger.Input.AsMap()
-	env.Logger.Info("Processing pizza order with inputs", "inputs", inputMap)
+	logger.Info("Processing pizza order with inputs", "inputs", inputMap)
 
 	customer := "default"
 	if trigger.Key != nil && trigger.Key.PublicKey == "0x4b8d44a7a1302011fbc119407f8ce3baee6ea2ff" {
 		customer = "Bob"
 	}
 
-	pizzaPromise := sdk.RunInNodeMode(env, runtime,
-		func(env *sdk.NodeEnvironment[None], nodeRuntime sdk.NodeRuntime) (string, error) {
-			return orderPizza(env, nodeRuntime, inputMap, customer)
-		},
-		sdk.ConsensusIdenticalAggregation[string](),
-	)
+	client := &http.Client{}
+	pizzaPromise := http.SendRequest(config, runtime, client, func(_ None, logger *slog.Logger, sendRequester *http.SendRequester) (string, error) {
+		return orderPizza(sendRequester, inputMap, customer)
+	}, cre.ConsensusIdenticalAggregation[string]())
 
 	// Await the final, aggregated result.
 	result, err := pizzaPromise.Await()
@@ -131,6 +128,6 @@ func onTrigger(env *sdk.Environment[None], runtime sdk.Runtime, trigger *http.Pa
 		return "", err
 	}
 
-	env.Logger.Info("Successfully processed pizza order", "result", result)
+	logger.Info("Successfully processed pizza order", "result", result)
 	return "", nil
 }

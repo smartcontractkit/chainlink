@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -53,6 +55,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	createSecretsRequest := SecretsCreateRequest{
 		ID:    "test_id",
 		Value: "test_value",
+		Owner: "test_owner",
 	}
 	params, err2 := json.Marshal(createSecretsRequest)
 	require.NoError(t, err2)
@@ -69,10 +72,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 
 		responseData := SecretsCreateResponse{
-			ResponseBase: ResponseBase{
-				Success: true,
-			},
-			SecretID: createSecretsRequest.ID,
+			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
+			Success:  true,
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
@@ -88,8 +89,71 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, createSecretsRequest.ID, secretsResponse.Result.SecretID, "Secret ID should match")
+			assert.Equal(t, createSecretsRequest.ID, secretsResponse.Result.SecretID.Key, "Secret ID should match")
 			assert.True(t, secretsResponse.Result.Success, "Success should be true")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
+		require.NoError(t, err)
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("happy path - delete secrets", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callbackCh, don := setupHandler(t)
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		id := &vault.SecretIdentifier{
+			Key:       "foo",
+			Namespace: "default",
+			Owner:     "owner-id",
+		}
+		reqData := &vault.DeleteSecretsRequest{
+			RequestId: "id",
+			Ids: []*vault.SecretIdentifier{
+				id,
+			},
+		}
+		reqDatab, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: MethodSecretsDelete,
+			Params: (*json.RawMessage)(&reqDatab),
+		}
+
+		responseData := &vault.DeleteSecretsResponse{
+			Responses: []*vault.DeleteSecretResponse{
+				{
+					Id:      id,
+					Success: true,
+				},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+
+		require.NoError(t, err)
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     "1",
+			Result: (*json.RawMessage)(&resultBytes),
+			Method: MethodSecretsDelete,
+		}
+		resultBytes, err = json.Marshal(responseData)
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callback := <-callbackCh
+			var secretsResponse jsonrpc.Response[vault.DeleteSecretsResponse]
+			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
@@ -193,10 +257,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		// Create a response for a request that was never sent or has already been processed
 		responseData := SecretsCreateResponse{
-			ResponseBase: ResponseBase{
-				Success: true,
-			},
-			SecretID: "stale_secret_id",
+			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
+			Success:  true,
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)

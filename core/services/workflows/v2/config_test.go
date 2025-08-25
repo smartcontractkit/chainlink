@@ -78,6 +78,7 @@ func defaultTestConfig(t *testing.T) *v2.EngineConfig {
 		Module:                        modulemocks.NewModuleV2(t),
 		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
 		DonTimeStore:                  dontime.NewStore(dontime.DefaultRequestTimeout),
+		UseLocalTimeProvider:          true,
 		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		WorkflowID:                    testWorkflowID,
 		WorkflowOwner:                 testWorkflowOwnerA,

@@ -53,7 +53,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
 	cmd.Flags().StringVarP(&donIDFlag, "don-id", "d", "vault", "DON ID (only for web API trigger-based workflow)")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", DefaultWorkflowRegistryAddress, "Workflow registry address")
 
 	return cmd
 }

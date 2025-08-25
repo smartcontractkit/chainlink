@@ -66,9 +66,13 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
+func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
+
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
 }
+
+func (m mockCfgTelemetry) LogStreamingEnabled() bool { return false }
 
 type mockCfgDatabase struct{}
 
@@ -215,6 +219,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
+	require.False(t, envCfg.TelemetryLogStreamingEnabled)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 }

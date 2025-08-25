@@ -14,6 +14,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -72,7 +73,7 @@ func AppendNodeCapabilities(env cldf.Environment, req *AppendNodeCapabilitiesReq
 	return out, nil
 }
 
-func (req *AppendNodeCapabilitiesRequest) convert(e cldf.Environment, ref datastore.AddressRefKey) (*internal.AppendNodeCapabilitiesRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
+func (req *AppendNodeCapabilitiesRequest) convert(e cldf.Environment, ref datastore.AddressRefKey) (*internal.AppendNodeCapabilitiesRequest, *contracts.OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}

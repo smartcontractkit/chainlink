@@ -7,9 +7,13 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 type DonID uint32
@@ -21,6 +25,51 @@ type DON struct {
 
 type CapabilityConfiguration struct {
 	Config []byte
+}
+
+func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfiguration, error) {
+	cconf := &capabilitiespb.CapabilityConfig{}
+	err := proto.Unmarshal(c.Config, cconf)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
+	}
+
+	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
+	var remoteTargetConfig *capabilities.RemoteTargetConfig
+
+	switch cconf.GetRemoteConfig().(type) {
+	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
+		prtc := cconf.GetRemoteTriggerConfig()
+		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{
+			RegistrationRefresh:     prtc.RegistrationRefresh.AsDuration(),
+			RegistrationExpiry:      prtc.RegistrationExpiry.AsDuration(),
+			MinResponsesToAggregate: prtc.MinResponsesToAggregate,
+			MessageExpiry:           prtc.MessageExpiry.AsDuration(),
+		}
+	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
+		prtc := cconf.GetRemoteTargetConfig()
+		remoteTargetConfig = &capabilities.RemoteTargetConfig{
+			RequestHashExcludedAttributes: prtc.RequestHashExcludedAttributes,
+		}
+	}
+
+	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
+	}
+
+	rc, err := values.FromMapValueProto(cconf.RestrictedConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
+	}
+
+	return capabilities.CapabilityConfiguration{
+		DefaultConfig:       dc,
+		RestrictedKeys:      cconf.RestrictedKeys,
+		RestrictedConfig:    rc,
+		RemoteTriggerConfig: remoteTriggerConfig,
+		RemoteTargetConfig:  remoteTargetConfig,
+	}, nil
 }
 
 type Capability struct {
@@ -44,6 +93,8 @@ type NodeInfo struct {
 }
 
 type LocalRegistry struct {
+	core.UnimplementedCapabilitiesRegistryMetadata
+
 	Logger            logger.Logger
 	GetPeerID         func() (types.PeerID, error)
 	IDsToDONs         map[DonID]DON
@@ -120,22 +171,22 @@ func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (
 	}, nil
 }
 
-func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (CapabilityConfiguration, error) {
+func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 	err := l.ensureNotEmpty()
 	if err != nil {
-		return CapabilityConfiguration{}, err
+		return capabilities.CapabilityConfiguration{}, err
 	}
 	d, ok := l.IDsToDONs[DonID(donID)]
 	if !ok {
-		return CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
 	}
 
 	cc, ok := d.CapabilityConfigurations[capabilityID]
 	if !ok {
-		return CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
+		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
 	}
 
-	return cc, nil
+	return cc.Unmarshal()
 }
 
 func (l *LocalRegistry) ensureNotEmpty() error {

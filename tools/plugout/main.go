@@ -27,6 +27,7 @@ var (
 		"github.com/smartcontractkit/chainlink-data-streams",
 		"github.com/smartcontractkit/chainlink-feeds",
 		"github.com/smartcontractkit/chainlink-solana",
+		"github.com/smartcontractkit/chainlink-aptos",
 	}
 	defaultPluginsPaths = []string{
 		"./plugins/plugins.public.yaml",
