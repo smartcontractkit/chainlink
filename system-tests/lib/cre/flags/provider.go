@@ -30,3 +30,21 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 func (p *DefaultCapbilityFlagsProvider) SupportedCapabilityFlags() []cre.CapabilityFlag {
 	return p.supportedCapabilities
 }
+
+// NewSwappableCapabilityFlagsProvider returns a capability flags provider that supports all capabilities that can be swapped (hot-reloaded)
+// All of these capabilities are provided as external binaries
+func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
+	return &DefaultCapbilityFlagsProvider{
+		supportedCapabilities: []cre.CapabilityFlag{
+			cre.ConsensusCapability,
+			cre.ConsensusCapabilityV2,
+			cre.CronCapability,
+			cre.EVMCapability,
+			cre.ReadContractCapability,
+			cre.LogTriggerCapability,
+			cre.MockCapability,
+			cre.HTTPTriggerCapability,
+			cre.HTTPActionCapability,
+		},
+	}
+}

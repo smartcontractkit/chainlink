@@ -579,3 +579,50 @@ func value[T any](v *T) T {
 	}
 	return *v
 }
+
+var MatchAll = func(jobSpec string) bool {
+	return true
+}
+
+type MatchFn func(jobSpec string) bool
+
+func (n *Node) CancelAllJobs(ctx context.Context, matchFn MatchFn) ([]string, error) {
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
+	if err != nil {
+		return nil, err
+	}
+	if jd.GetJobProposals() == nil {
+		return nil, fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+
+	proposalIDs := []string{}
+	for _, jp := range jd.JobProposals {
+		if !matchFn(jp.LatestSpec.Definition) {
+			continue
+		}
+		proposalIDs = append(proposalIDs, jp.Id)
+		spec, err := n.gqlClient.CancelJobProposalSpec(ctx, jp.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		if spec == nil {
+			return nil, fmt.Errorf("no job proposal spec found for id %s", jp.Id)
+		}
+	}
+
+	return proposalIDs, nil
+}
+
+func (n *Node) ApproveAllJobs(ctx context.Context, proposalIDs []string) error {
+	for _, proposalID := range proposalIDs {
+		spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, proposalID, false)
+		if err != nil {
+			return err
+		}
+		if spec == nil {
+			return fmt.Errorf("no job proposal spec found for id %s", proposalID)
+		}
+	}
+	return nil
+}
