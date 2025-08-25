@@ -177,7 +177,7 @@ func cleanFeedID(feedID string) string {
 	return "0x" + cleanFeedID
 }
 
-func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (*FakePriceProvider, error) {
+func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (PriceProvider, error) {
 	cleanFeedIDs := make([]string, 0, len(feedIDs))
 	// workflow is sending feedIDs with 0x prefix and 32 bytes
 	for _, feedID := range feedIDs {
