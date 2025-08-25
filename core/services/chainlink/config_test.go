@@ -596,6 +596,7 @@ func TestConfig_Marshal(t *testing.T) {
 		LogStreamingEnabled:           ptr(false),
 	}
 	full.CRE = toml.CreConfig{
+		UseLocalTimeProvider: ptr(true),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
