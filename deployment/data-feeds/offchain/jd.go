@@ -17,7 +17,8 @@ import (
 )
 
 type NodesFilter struct {
-	DONID        uint64   `json:"donId"`                    // Required
+	DONID        uint64   `json:"donId" yaml:"donId"`       // Required
+	Zone         string   `json:"zone" yaml:"zone"`         // Deployment zone, do not provide for default zone
 	EnvLabel     string   `json:"envLabel" yaml:"envLabel"` // Required
 	ProductLabel string   `json:"productLabel,omitempty" yaml:"productLabel,omitempty"`
 	Size         int      `json:"size,omitempty" yaml:"size,omitempty"`
@@ -56,6 +57,21 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 			Op:    jdtypesv1.SelectorOp_EQ,
 			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
 		})
+	}
+
+	if f.Zone == "" {
+		// default zone does not have a zone label
+		selectors = append(selectors, &jdtypesv1.Selector{
+			Key: "zone",
+			Op:  jdtypesv1.SelectorOp_NOT_EXIST,
+		})
+	} else {
+		selectors = append(selectors, &jdtypesv1.Selector{
+			Key:   "zone",
+			Op:    jdtypesv1.SelectorOp_EQ,
+			Value: &f.Zone,
+		})
+
 	}
 
 	return &nodeapiv1.ListNodesRequest_Filter{
