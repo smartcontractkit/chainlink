@@ -13,11 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -145,7 +146,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		return errors.Wrap(err, "failed to configure capabilities registry")
 	}
 
-	capReg, err := keystone_changeset.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+	capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 		input.CldEnv.DataStore.Addresses(),
 		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 		input.CapabilitiesRegistryAddress.Hex(),

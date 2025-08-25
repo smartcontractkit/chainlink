@@ -18,6 +18,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -53,7 +54,7 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 	func(b operations.Bundle, deps ConfigureForwardersSeqDeps, input ConfigureForwardersSeqInput) (ConfigureForwardersSeqOutput, error) {
 		evmChain := deps.Env.BlockChains.EVMChains()
 		opPerChain := make(map[uint64]mcmstypes.BatchOperation)
-		forwarderContracts := make(map[uint64]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+		forwarderContracts := make(map[uint64]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 
 		var dons []internal.RegisteredDon
 		for _, don := range input.DONs {
@@ -84,7 +85,7 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 			}
 
 			for _, addrRef := range addressesRefs {
-				contract, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](deps.Env.DataStore.Addresses(), chain, addrRef.Address)
+				contract, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](deps.Env.DataStore.Addresses(), chain, addrRef.Address)
 				if err != nil {
 					return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", chain.Selector, err)
 				}
