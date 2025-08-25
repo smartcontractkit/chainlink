@@ -175,7 +175,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	defer stopChanCancel()
 	for {
 		if stopChanCtx.Err() != nil {
-			defer close(d.waitForLoopToExitCh)
+			defer close(d.waitForLoopToExitCh) //nolint:revive // we are confident that we want to defer in this loop
 			return
 		}
 
