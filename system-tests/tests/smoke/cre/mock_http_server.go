@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 type MockServerRecorder struct {
