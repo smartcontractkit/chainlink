@@ -14,6 +14,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -143,7 +144,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 			if !ok {
 				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
 			}
-			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
+			fwr, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
 			if err != nil {
 				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
 			}

@@ -40,6 +40,7 @@
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    read-contract = ["1337"]
 
   [nodesets.db]
     image = "postgres:12.0"

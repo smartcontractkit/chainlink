@@ -64,7 +64,9 @@ import (
 /*
 To execute on local start the local CRE first with following command:
 # inside core/scripts/cre/environment directory
-go run . env start
+1. ensure necessary capabilities (cron, readcontract) are added (see README in core/scripts/cre/environment for [extra_capabilities])
+2. `go run . env start && ctf obs up && ctf bs up`.
+It will start env + observability + blockscout.
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
 	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
@@ -137,7 +139,7 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 	require.Len(t, feedIDs, len(writeableChains), "number of writeable chains must match number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
-		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
+		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
 		Workflow will write price data to the data feeds cache contract
 
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
@@ -160,22 +162,36 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 			continue
 		}
 
-		deployConfig := df_changeset_types.DeployConfig{
-			ChainsToDeploy: []uint64{bcOutput.ChainSelector},
+		chainSelector := bcOutput.ChainSelector
+
+		testLogger.Info().Msgf("Deploying additional contracts to %d", chainSelector)
+		testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
+		deployDfConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
-
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployConfig)
-		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
-
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+		require.NoError(t, dfErr, "failed to deploy Data Feed Cache contract")
 		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
-		require.NoError(t, mergeErr, "failed to merge address book")
+		require.NoError(t, mergeErr, "failed to merge address book of Data Feeds Cache contract")
+		testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
+
+		testLogger.Info().Msg("Deploying Read Balances contract...")
+		deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
+		rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+		require.NoError(t, rbErr, "failed to deploy Read Balances contract")
+		mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr2, "failed to merge address book of Read Balances contract")
+		testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
+
+		mergeErr3 := dfOutput.DataStore.Merge(rbOutput.DataStore.Seal())
+		require.NoError(t, mergeErr3, "failed to merge data stores")
 		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
 
 		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 
 		dfConfigInput := &configureDataFeedsCacheInput{
-			chainSelector:      bcOutput.ChainSelector,
+			chainSelector:      chainSelector,
 			fullCldEnvironment: fullCldEnvOutput.Environment,
 			workflowName:       workflowName,
 			feedID:             feedIDs[idx],
@@ -185,27 +201,40 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
-		testLogger.Info().Msg("Proceeding to register PoR workflow...")
-
+		chainID := bcOutput.ChainID
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			homeChainSelector,
+			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
 			keystone_changeset.WorkflowRegistry.String(),
 		)
-		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
+		require.NoError(t, workflowRegistryErr, "failed to find Workflow Registry address.")
+		testLogger.Info().Msgf("Workflow Registry contract found at chain selector %d at %s", homeChainSelector, workflowRegistryAddress)
+
+		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
+		testLogger.Info().Msg("Creating workflow config file.")
+		readBalancesAddress, readContractErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			chainSelector,
+			keystone_changeset.BalanceReader.String(),
+		)
+		require.NoError(t, readContractErr, "failed to find Read Balances contract address for chain %d", chainID)
+		testLogger.Info().Msgf("Read Balances contract found on chain %d at %s", chainID, readBalancesAddress)
 
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			bcOutput.ChainSelector,
+			chainSelector,
 			df_changeset.DataFeedsCache.String(),
 		)
-		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
+		require.NoError(t, dataFeedsCacheErr, "failed to find Data Feeds Cache address for chain %d", chainID)
+		testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at %s", chainID, dataFeedsCacheAddress)
 
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
+		workflowConfigFilePath, configErr := createWorkflowConfigFile(bcOutput, readBalancesAddress, dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
+		testLogger.Info().Msgf("Workflow config file created.")
 
 		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
 		require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+		testLogger.Info().Msgf("Workflow compiled successfully.")
 
 		t.Cleanup(func() {
 			wasmErr := os.Remove(compressedWorkflowWasmPath)
@@ -224,13 +253,13 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 		})
 
 		containerTargetDir := "/home/chainlink/workflows"
-		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+		workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
 		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
 
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
+		configCopyErr := creworkflow.CopyArtifactToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
 		require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 
-		registerErr := creworkflow.RegisterWithContract(
+		workflowID, registerErr := creworkflow.RegisterWithContract(
 			t.Context(),
 			wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
 			workflowRegistryAddress,
@@ -242,6 +271,7 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 			&containerTargetDir,
 		)
 		require.NoError(t, registerErr, "failed to register PoR workflow")
+		testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 	}
 
 	/*
@@ -538,7 +568,9 @@ func logTestInfo(l zerolog.Logger, feedID, dataFeedsCacheAddr, forwarderAddr str
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
-func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
+// Creates workflow configuration file storing the necessary values used by a workflow (i.e. feedID, read/write contract addresses)
+// The values are written to types.WorkflowConfig
+func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContractAddress, feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 	feedLength := len(cleanFeedID)
 
@@ -551,8 +583,15 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	}
 
 	feedIDToUse := "0x" + cleanFeedID
+	chainFamily := bcOutput.BlockchainOutput.Family
+	chainID := bcOutput.BlockchainOutput.ChainID
 
 	workflowConfig := portypes.WorkflowConfig{
+		ChainFamily: chainFamily,
+		ChainID:     chainID,
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
+			BalanceReaderAddress: readContractAddress.Hex(),
+		},
 		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedIDToUse,
 			URL:                   dataURL,
@@ -561,6 +600,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 		},
 	}
 
+	// Write workflow config to a file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")

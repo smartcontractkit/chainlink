@@ -228,7 +228,11 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	if !c.SkipDeployments {
 		// Save existing contracts
-		err := runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
+		err := RemoveLinkTokenAddressIfExists(e, &c.NewChain.ExistingContracts)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run removeLinkTokenAddressIfExists on chain with selector %d: %w", c.NewChain.Selector, err)
+		}
+		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
 			return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
@@ -938,6 +942,47 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
 	}
+
+	return nil
+}
+
+// If LINK token is present in the existing contracts, remove it
+// This is because the LINK token can either be deployed via CLD or imported from existing deployments
+func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commoncs.ExistingContractsConfig) error {
+	if len(existingContracts.ExistingContracts) == 0 {
+		return nil
+	}
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	// Filter out LinkToken contracts that match the state LinkToken address
+	filteredContracts := make([]commoncs.Contract, 0, len(existingContracts.ExistingContracts))
+
+	for _, contract := range existingContracts.ExistingContracts {
+		shouldKeep := true
+
+		if contract.TypeAndVersion.Type == "LinkToken" {
+			if chainState, exists := state.Chains[contract.ChainSelector]; exists {
+				stateLinkTokenAddr, err := chainState.LinkTokenAddress()
+				if err == nil {
+					contractAddr := common.HexToAddress(contract.Address)
+					// Remove this LinkToken contract only if the address is same as the input config
+					if stateLinkTokenAddr == contractAddr {
+						shouldKeep = false
+					}
+				}
+			}
+		}
+
+		if shouldKeep {
+			filteredContracts = append(filteredContracts, contract)
+		}
+	}
+
+	existingContracts.ExistingContracts = filteredContracts
 
 	return nil
 }

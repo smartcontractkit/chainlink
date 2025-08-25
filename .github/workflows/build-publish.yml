@@ -194,3 +194,25 @@ jobs:
     with:
       chainlink_version: ${{ github.ref_name }}
       team: CRE
+
+  deploy:
+    needs: [checks, docker-core]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy core
+        # Only deploy if this is a final release (not a prerelease).
+        if: ${{ needs.checks.outputs.is-release == 'true' }}
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          products: |
+            df1.0
+            automation-mainnet
+            automation-testnet
