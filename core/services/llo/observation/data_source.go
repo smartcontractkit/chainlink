@@ -376,5 +376,6 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.
 		return vals.opts, vals.streamValues, vals.observationInterval
 	}
 
+	d.lggr.Errorw("getObservableStreams: no active OCR instance found")
 	return nil, nil, 0
 }
