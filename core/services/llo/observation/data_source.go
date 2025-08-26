@@ -184,11 +184,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		loopStart := time.Now()
 		opts, streamValues, observationInterval := d.getObservableStreams()
-		if opts == nil {
-			d.lggr.Debugw("ObservableStreams", "streams", streamValues, "opts", opts)
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
 
 		ctx, cancel := context.WithTimeout(stopChanCtx, observationInterval)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
