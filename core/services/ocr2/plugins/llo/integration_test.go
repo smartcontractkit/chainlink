@@ -1727,6 +1727,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	offchainConfigs := []datastreamsllo.OffchainConfig{
