@@ -226,8 +226,8 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fsnotify/fsevents v0.2.0 // indirect
 	github.com/ferranbt/fastssz v0.1.4 // indirect
+	github.com/fsnotify/fsevents v0.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
@@ -527,7 +527,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.9 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.10 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
