@@ -39,7 +39,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		require.NoError(t, err)
 
 		chains = append(chains, c)
-		tonChain, ok := c.(*cldf_ton.Chain)
+		tonChain, ok := c.(cldf_ton.Chain)
 		if !ok {
 			t.Fatalf("expected *cldf_ton.Chain, got %T", c)
 		}
