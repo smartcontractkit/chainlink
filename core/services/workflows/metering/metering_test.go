@@ -178,7 +178,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 			require.NoError(t, report.Reserve(t.Context()))
 
 			balanceBefore := report.balance.balance
-			_, err := report.Deduct("ref1", ByResource(testUnitA, two))
+			_, err := report.Deduct("ref1", ByResource(testUnitA, "", two))
 
 			require.NoError(t, err)
 			_, err = report.Deduct("ref2", ByDerivedAvailability(decimal.NewNullDecimal(decimal.Zero), 1, capabilities.CapabilityInfo{}, nil))
@@ -330,7 +330,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 
 		balanceBefore := report.balance.balance
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, two))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", two))
 		require.NoError(t, err)
 
 		steps := []capabilities.MeteringNodeDetail{
@@ -466,7 +466,7 @@ func Test_Report_Deduct(t *testing.T) {
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
-		_, err := report.Deduct("ref1", ByResource(testUnitA, one))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", one))
 
 		require.ErrorIs(t, err, ErrNoReserve)
 	})
@@ -483,10 +483,10 @@ func Test_Report_Deduct(t *testing.T) {
 			Return(&successReserveResponseWithMultiRates, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, two))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", two))
 		require.NoError(t, err)
 
-		_, err = report.Deduct("ref1", ByResource(testUnitA, one))
+		_, err = report.Deduct("ref1", ByResource(testUnitA, "", one))
 		require.ErrorIs(t, err, ErrStepDeductExists)
 
 		billingClient.AssertExpectations(t)
@@ -507,7 +507,7 @@ func Test_Report_Deduct(t *testing.T) {
 			Return(&successReserveResponseWithRates, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, deductValue))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", deductValue))
 		require.ErrorIs(t, err, ErrInsufficientBalance)
 
 		billingClient.AssertExpectations(t)
@@ -787,7 +787,7 @@ func Test_Report_Settle(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, decimal.NewFromInt(2)))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
 		require.NoError(t, report.Settle("ref1", steps))
 		require.ErrorIs(t, report.Settle("ref1", steps), ErrStepSpendExists)
@@ -814,7 +814,7 @@ func Test_Report_Settle(t *testing.T) {
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
 		}
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, decimal.NewFromInt(2)))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
 
 		require.NoError(t, report.Settle("ref1", steps))
@@ -841,7 +841,7 @@ func Test_Report_Settle(t *testing.T) {
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
 		}
 
-		_, err := report.Deduct("ref1", ByResource(testUnitA, decimal.NewFromInt(1)))
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
 
 		require.NoError(t, report.Settle("ref1", steps))
@@ -939,7 +939,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		for i := range numSteps {
 			stepRef := strconv.Itoa(i)
 
-			_, err := report.Deduct(stepRef, ByResource(testUnitA, decimal.NewFromInt(1)))
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
 			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
@@ -1083,7 +1083,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		for i := range numSteps {
 			stepRef := strconv.Itoa(i)
 
-			_, err := report.Deduct(stepRef, ByResource(testUnitA, decimal.NewFromInt(1)))
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
 			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
@@ -1148,7 +1148,7 @@ func Test_MeterReports(t *testing.T) {
 
 		require.NoError(t, r.Reserve(t.Context()))
 
-		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, decimal.NewFromInt(1)))
+		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
 
 		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
@@ -1182,7 +1182,7 @@ func Test_MeterReports(t *testing.T) {
 
 		require.NoError(t, r.Reserve(t.Context()))
 
-		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, decimal.NewFromInt(1)))
+		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
 
 		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
