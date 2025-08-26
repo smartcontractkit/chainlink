@@ -69,7 +69,7 @@ type CLIEnvironmentDependencies interface {
 }
 
 type ContractVersionsProvider interface {
-	// GetContractVersions returns a map of
+	// GetContractVersions returns a map of contract name to semver
 	GetContractVersions() map[string]string
 }
 
