@@ -329,9 +329,6 @@ func SetupTestEnvironment(
 	ocr3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_ocr3")
 	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainSelector, ocr3Addr)
 
-	balanceReaderAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.BalanceReader.String(), input.ContractVersions[keystone_changeset.BalanceReader.String()], "")
-	testLogger.Info().Msgf("Deployed BalanceReader contract on chain %d at %s", homeChainOutput.ChainSelector, balanceReaderAddr)
-
 	donTimeAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "DONTime")
 	testLogger.Info().Msgf("Deployed DON Time contract on chain %d at %s", homeChainSelector, donTimeAddr)
 

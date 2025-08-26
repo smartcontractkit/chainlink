@@ -32,7 +32,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -283,9 +282,17 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			capabilityFlagsProvider := flags.NewDefaultCapabilityFlagsProvider()
+			contractVersionOverrides := make(map[string]string, 0)
+			if withContractsVersion == "v2" {
+				contractVersionOverrides[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+				contractVersionOverrides[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
+			}
+			envDependencies := cre.NewEnvironmentDependencies(
+				flags.NewDefaultCapabilityFlagsProvider(),
+				cre.NewContractVersionsProvider(contractVersionOverrides),
+			)
 
-			if err := in.Validate(capabilityFlagsProvider); err != nil {
+			if err := in.Validate(envDependencies); err != nil {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
@@ -303,7 +310,7 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, withContractsVersion, defaultCapabilities, capabilityFlagsProvider)
+			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, defaultCapabilities, envDependencies)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -536,26 +543,9 @@ func StartCLIEnvironment(
 	in *envconfig.Config,
 	topologyFlag string,
 	withPluginsDockerImageFlag string,
-	withContractsVersion string,
 	capabilities []cre.InstallableCapability,
-	capabilityFlagsProvider cre.CapabilityFlagsProvider,
+	env cre.CLIEnvironmentDependencies,
 ) (*creenv.SetupOutput, error) {
-	contractSet := map[string]string{
-		keystone_changeset.BalanceReader.String():        "1.0.0",
-		keystone_changeset.OCR3Capability.String():       "1.0.0",
-		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-		ks_sol.ForwarderContract.String():                "1.0.0",
-		ks_sol.ForwarderState.String():                   "1.0.0",
-	}
-
-	if withContractsVersion == "v2" {
-		contractSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
-		contractSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
-		return nil, fmt.Errorf("deploying v2 contracts is unsupported for env setup")
-	}
-
 	testLogger := framework.L
 
 	// unset DockerFilePath and DockerContext as we cannot use them with existing images
@@ -604,7 +594,7 @@ func StartCLIEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
-		ContractVersions:          contractSet,
+		ContractVersions:          env.GetContractVersions(),
 		JdInput:                   *in.JD,
 		InfraInput:                *in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,
