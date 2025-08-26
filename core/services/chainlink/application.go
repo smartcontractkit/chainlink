@@ -77,8 +77,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
+	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	registrysyncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -927,9 +928,8 @@ func newCREServices(
 	if capCfg.Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
-			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), capCfg.Peering(), ds, globalLogger)
-			signer := externalPeer
-			externalPeerWrapper = externalPeer
+			externalPeerWrapper = p2pwrapper.NewExternalPeerWrapper(keyStore.P2P(), capCfg.Peering(), ds, globalLogger)
+			signer := externalp2p.NewSigner(keyStore.P2P(), capCfg.Peering().PeerID())
 			remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
 			if err != nil {
 				return nil, fmt.Errorf("could not create dispatcher: %w", err)
