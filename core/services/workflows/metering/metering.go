@@ -106,6 +106,7 @@ type Report struct {
 	meteringModeErr error
 	steps           map[string]ReportStep
 	rateCard        map[string]decimal.Decimal
+	stepRefLookup   []string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -433,11 +434,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		protoReport.Message = r.meteringModeErr.Error()
 	}
 
-	stepRefLookup := []string{}
+	r.stepRefLookup = []string{}
 
 	for ref, step := range r.steps {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
-		stepRefLookup = append(stepRefLookup, ref+":"+step.CapabilityID)
+		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
 		for unit, details := range step.Spends {
 			for _, detail := range details {
@@ -453,8 +454,6 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			Nodes: nodeDetails,
 		}
 	}
-
-	r.lggr.Debug("Step references:", "steps", strings.Join(stepRefLookup, ","))
 
 	return protoReport
 }
@@ -499,9 +498,11 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 		return ErrNoReserve
 	}
 
-	r.lggr.Debug("Emitting metering report", "report", r.FormatReport())
+	rpt := r.FormatReport()
 
-	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
+	r.lggr.Debug("Emitting metering report", "report", rpt, "stepRefs", strings.Join(r.stepRefLookup, ","))
+
+	return wfEvents.EmitMeteringReport(ctx, r.labels, rpt)
 }
 
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
