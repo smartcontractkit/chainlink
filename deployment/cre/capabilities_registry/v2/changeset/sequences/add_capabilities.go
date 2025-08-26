@@ -22,8 +22,6 @@ type AddCapabilitiesDeps struct {
 }
 
 type AddCapabilitiesInput struct {
-	RegistryChainSel uint64
-
 	CapabilityConfigs []contracts.CapabilityConfig // if Config subfield is nil, a default config is used
 
 	// DonName to update, this is required
@@ -61,9 +59,11 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, fmt.Errorf("invalid input: %w", err)
 		}
 
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
+		chainSel := input.RegistryRef.ChainSelector()
+
+		chain, ok := deps.Env.BlockChains.EVMChains()[chainSel]
 		if !ok {
-			return AddCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", input.RegistryChainSel)
+			return AddCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", chainSel)
 		}
 
 		registryAddressRef, err := deps.Env.DataStore.Addresses().Get(input.RegistryRef)
@@ -110,7 +110,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			contracts.RegisterCapabilitiesDeps(deps),
 			contracts.RegisterCapabilitiesInput{
 				Address:       registryAddressRef.Address,
-				ChainSelector: input.RegistryChainSel,
+				ChainSelector: chainSel,
 				Capabilities:  capabilities,
 			},
 		)
@@ -126,7 +126,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				CapabilitiesRegistry: capReg,
 			},
 			contracts.UpdateNodesInput{
-				ChainSelector: input.RegistryChainSel,
+				ChainSelector: chainSel,
 				NodesUpdates:  nodeUpdates,
 			},
 		)
@@ -142,7 +142,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				CapabilitiesRegistry: capReg,
 			},
 			contracts.UpdateDONInput{
-				ChainSelector:     input.RegistryChainSel,
+				ChainSelector:     chainSel,
 				P2PIDs:            p2pIDs,
 				CapabilityConfigs: input.CapabilityConfigs,
 				DonName:           input.DonName,

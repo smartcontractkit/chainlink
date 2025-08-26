@@ -53,7 +53,6 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilities,
 		sequences.AddCapabilitiesDeps{Env: &e},
 		sequences.AddCapabilitiesInput{
-			RegistryChainSel:  config.RegistryChainSel,
 			RegistryRef:       registryRef,
 			DonName:           config.DonName,
 			CapabilityConfigs: config.CapabilityConfigs,
