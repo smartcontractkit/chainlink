@@ -69,6 +69,26 @@ import (
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
 
+const (
+	AuthorizationKeySecretName = "AUTH_KEY"
+	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
+	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
+	AuthorizationKey = ""
+
+	// Test configuration constants
+	DefaultVerificationTimeout = 5 * time.Minute
+	ContainerTargetDir         = "/home/chainlink/workflows"
+	WorkflowNodePrefix         = "workflow-node"
+	DefaultConfigPath          = "../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml"
+	DefaultTopology            = "workflow"
+	DefaultEnvironmentDir      = "../../../../core/scripts/cre/environment"
+	PoRWorkflowLocation        = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	HTTPWorkflowLocation       = "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
+	DefaultEnvArtifactPath     = "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json"
+	RetryInterval              = 2 * time.Second
+	ValidationInterval         = 10 * time.Second
+)
+
 type TestEnvironment struct {
 	Config                   *envconfig.Config
 	EnvArtifact              environment.EnvArtifact
@@ -189,148 +209,6 @@ func registerWorkflow(ctx context.Context, t *testing.T, config *WorkflowRegistr
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 }
 
-type HTTPTestConfig struct {
-	WorkflowName     string
-	FakeServer       *fake.Output
-	SigningKey       *ecdsa.PrivateKey
-	ConfigPath       string
-	WorkflowLocation string
-}
-
-// startTestOrderServer creates a fake HTTP server that records requests and returns proper responses for order endpoints
-func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
-	fakeInput := &fake.Input{
-		Port: port,
-	}
-
-	fakeOutput, err := fake.NewFakeDataProvider(fakeInput)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set up the /orders endpoint
-	response := map[string]interface{}{
-		"orderId": "test-order-" + uuid.New().String()[0:8],
-		"status":  "success",
-		"message": "Order processed successfully",
-	}
-
-	err = fake.JSON("POST", "/orders", response, 200)
-	require.NoError(t, err, "failed to set up /orders endpoint")
-
-	framework.L.Info().Msgf("Test order server started on port %d at: %s", port, fakeOutput.BaseURLHost)
-	return fakeOutput, nil
-}
-
-// setupHTTPWorkflowTest sets up the HTTP workflow test infrastructure
-func setupHTTPWorkflowTest(t *testing.T, testEnv *TestEnvironment) *HTTPTestConfig {
-	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
-	require.NoError(t, err, "failed to start fake HTTP server")
-
-	workflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
-	configPath, signingKey := createTestWorkflowConfig(t, workflowName, fakeServer.BaseURLHost)
-
-	return &HTTPTestConfig{
-		WorkflowName:     workflowName,
-		FakeServer:       fakeServer,
-		SigningKey:       signingKey,
-		ConfigPath:       configPath,
-		WorkflowLocation: HTTPWorkflowLocation,
-	}
-}
-
-// executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
-func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayURL *url.URL, httpConfig *HTTPTestConfig, workflowOwnerAddress string) {
-	var finalResponse jsonrpc.Response[json.RawMessage]
-	var triggerRequest jsonrpc.Request[json.RawMessage]
-
-	require.Eventually(t, func() bool {
-		triggerRequest = createHTTPTriggerRequestWithKey(t, httpConfig.WorkflowName, workflowOwnerAddress, httpConfig.SigningKey)
-		triggerRequestBody, err := json.Marshal(triggerRequest)
-		if err != nil {
-			testEnv.Logger.Warn().Msgf("Failed to marshal trigger request: %v", err)
-			return false
-		}
-
-		testEnv.Logger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
-		testEnv.Logger.Info().Msg("Executing HTTP trigger request with retries until workflow is loaded...")
-
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
-		if err != nil {
-			testEnv.Logger.Warn().Msgf("Failed to create request: %v", err)
-			return false
-		}
-		req.Header.Set("Content-Type", "application/jsonrpc")
-		req.Header.Set("Accept", "application/json")
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			testEnv.Logger.Warn().Msgf("Failed to execute request: %v", err)
-			return false
-		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			testEnv.Logger.Warn().Msgf("Failed to read response body: %v", err)
-			return false
-		}
-
-		testEnv.Logger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
-
-		if resp.StatusCode != http.StatusOK {
-			testEnv.Logger.Warn().Msgf("Gateway returned status %d, retrying...", resp.StatusCode)
-			return false
-		}
-
-		err = json.Unmarshal(body, &finalResponse)
-		if err != nil {
-			testEnv.Logger.Warn().Msgf("Failed to unmarshal response: %v", err)
-			return false
-		}
-
-		if finalResponse.Error != nil {
-			testEnv.Logger.Warn().Msgf("JSON-RPC error in response: %v", finalResponse.Error)
-			return false
-		}
-
-		testEnv.Logger.Info().Msg("Successfully received 200 OK response from gateway")
-		return true
-	}, tests.WaitTimeout(t), RetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded")
-
-	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
-	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
-	require.Nil(t, finalResponse.Error, "unexpected error in response: %v", finalResponse.Error)
-}
-
-// validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
-func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
-	require.Eventually(t, func() bool {
-		records, err := fake.R.Get("POST", "/orders")
-		return err == nil && len(records) > 0
-	}, tests.WaitTimeout(t), RetryInterval, "workflow should have made at least one HTTP request to mock server")
-
-	records, err := fake.R.Get("POST", "/orders")
-	require.NoError(t, err, "failed to get recorded requests")
-	require.NotEmpty(t, records, "no requests recorded")
-
-	recordedRequest := records[0]
-	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
-
-	require.Equal(t, "POST", recordedRequest.Method, "expected POST method")
-	require.Equal(t, "/orders", recordedRequest.Path, "expected /orders endpoint")
-	require.Equal(t, "application/json", recordedRequest.Headers.Get("Content-Type"), "expected JSON content type")
-
-	var workflowRequestBody map[string]interface{}
-	err = json.Unmarshal([]byte(recordedRequest.ReqBody), &workflowRequestBody)
-	require.NoError(t, err, "request body should be valid JSON")
-
-	require.Equal(t, "test-customer", workflowRequestBody["customer"], "expected customer field")
-	require.Equal(t, "large", workflowRequestBody["size"], "expected size field")
-	require.Contains(t, workflowRequestBody, "toppings", "expected toppings field")
-}
-
 // validatePoRPrices validates that all feeds receive the expected prices from the price provider
 func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
 	eg := &errgroup.Group{}
@@ -406,11 +284,11 @@ func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		Timeout:          DefaultVerificationTimeout,
 	}
 
-	executePoRWorkflowTest(t, testEnv, priceProvider, config, feedIDs)
+	executePoRWorkflowTest(t, testEnv, priceProvider, config)
 }
 
 // executePoRWorkflowTest handles the main PoR workflow test logic
-func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig, feedIDs []string) {
+func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -516,12 +394,12 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 		require.NoError(t, dataFeedsCacheErr, "failed to find Data Feeds Cache address for chain %d", chainID)
 		testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at %s", chainID, dataFeedsCacheAddress)
 
-		workflowConfigFilePath, configErr := createWorkflowConfigFile(bcOutput, readBalancesAddress, dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
+		workflowConfigFilePath, configErr := createWorkflowConfigFile(bcOutput, readBalancesAddress, dataFeedsCacheAddress, workflowName, config.FeedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
 		testLogger.Info().Msgf("Workflow config file created.")
 
-		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(PoRWorkflowLocation, workflowName)
-		require.NoError(t, compileErr, "failed to compile workflow '%s'", PoRWorkflowLocation)
+		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(config.WorkflowLocation, workflowName)
+		require.NoError(t, compileErr, "failed to compile workflow '%s'", config.WorkflowLocation)
 		testLogger.Info().Msgf("Workflow compiled successfully.")
 
 		require.NoError(t, compileErr, "failed to compile workflow")
@@ -539,7 +417,7 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			if deleteErr != nil {
 				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
 			}
-			debugPoRTest(t, testLogger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, feedIDs)
+			debugPoRTest(t, testLogger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, config.FeedIDs)
 		})
 
 		copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, workflowConfigFilePath, ContainerTargetDir)
@@ -553,7 +431,7 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 			ContainerTargetDir:   ContainerTargetDir,
 		}
-		registerWorkflow(t.Context(), t, regConfig, bcOutput.SethClient, testLogger)
+		registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
 	}
 	/*
 		START THE VALIDATION PHASE
@@ -841,54 +719,146 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 	return req
 }
 
-const (
-	AuthorizationKeySecretName = "AUTH_KEY"
-	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
-	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
-	AuthorizationKey = ""
+type HTTPTestConfig struct {
+	WorkflowName     string
+	FakeServer       *fake.Output
+	SigningKey       *ecdsa.PrivateKey
+	ConfigPath       string
+	WorkflowLocation string
+}
 
-	// Test configuration constants
-	DefaultVerificationTimeout = 5 * time.Minute
-	ContainerTargetDir         = "/home/chainlink/workflows"
-	WorkflowNodePrefix         = "workflow-node"
-	DefaultConfigPath          = "../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml"
-	DefaultTopology            = "workflow"
-	DefaultEnvironmentDir      = "../../../../core/scripts/cre/environment"
-	PoRWorkflowLocation        = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
-	HTTPWorkflowLocation       = "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
-	DefaultEnvArtifactPath     = "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json"
-	RetryInterval              = 2 * time.Second
-	ValidationInterval         = 10 * time.Second
-)
-
-func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
-	split := strings.Split(stateFile, ",")
-	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
-		ctfConfigs := os.Getenv("CTF_CONFIGS")
-		defer func() {
-			setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
-			if setErr != nil {
-				framework.L.Error().Err(setErr).Msg("failed to set CTF_CONFIGS env var")
-			}
-		}()
-
-		// unset the CTF_CONFIGS env var to avoid using the cached environment
-		setErr := os.Setenv("CTF_CONFIGS", "")
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		}
-
-		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
-		cmd.Dir = environmentDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmdErr := cmd.Run()
-		if cmdErr != nil {
-			return errors.Wrap(cmdErr, "failed to start environment")
-		}
+// startTestOrderServer creates a fake HTTP server that records requests and returns proper responses for order endpoints
+func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
+	fakeInput := &fake.Input{
+		Port: port,
 	}
 
-	return nil
+	fakeOutput, err := fake.NewFakeDataProvider(fakeInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up the /orders endpoint
+	response := map[string]interface{}{
+		"orderId": "test-order-" + uuid.New().String()[0:8],
+		"status":  "success",
+		"message": "Order processed successfully",
+	}
+
+	err = fake.JSON("POST", "/orders", response, 200)
+	require.NoError(t, err, "failed to set up /orders endpoint")
+
+	framework.L.Info().Msgf("Test order server started on port %d at: %s", port, fakeOutput.BaseURLHost)
+	return fakeOutput, nil
+}
+
+// setupHTTPWorkflowTest sets up the HTTP workflow test infrastructure
+func setupHTTPWorkflowTest(t *testing.T, testEnv *TestEnvironment) *HTTPTestConfig {
+	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
+	require.NoError(t, err, "failed to start fake HTTP server")
+
+	workflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
+	configPath, signingKey := createTestWorkflowConfig(t, workflowName, fakeServer.BaseURLHost)
+
+	return &HTTPTestConfig{
+		WorkflowName:     workflowName,
+		FakeServer:       fakeServer,
+		SigningKey:       signingKey,
+		ConfigPath:       configPath,
+		WorkflowLocation: HTTPWorkflowLocation,
+	}
+}
+
+// executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
+func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayURL *url.URL, httpConfig *HTTPTestConfig, workflowOwnerAddress string) {
+	var finalResponse jsonrpc.Response[json.RawMessage]
+	var triggerRequest jsonrpc.Request[json.RawMessage]
+
+	require.Eventually(t, func() bool {
+		triggerRequest = createHTTPTriggerRequestWithKey(t, httpConfig.WorkflowName, workflowOwnerAddress, httpConfig.SigningKey)
+		triggerRequestBody, err := json.Marshal(triggerRequest)
+		if err != nil {
+			testEnv.Logger.Warn().Msgf("Failed to marshal trigger request: %v", err)
+			return false
+		}
+
+		testEnv.Logger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
+		testEnv.Logger.Info().Msg("Executing HTTP trigger request with retries until workflow is loaded...")
+
+		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
+		if err != nil {
+			testEnv.Logger.Warn().Msgf("Failed to create request: %v", err)
+			return false
+		}
+		req.Header.Set("Content-Type", "application/jsonrpc")
+		req.Header.Set("Accept", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			testEnv.Logger.Warn().Msgf("Failed to execute request: %v", err)
+			return false
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			testEnv.Logger.Warn().Msgf("Failed to read response body: %v", err)
+			return false
+		}
+
+		testEnv.Logger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
+
+		if resp.StatusCode != http.StatusOK {
+			testEnv.Logger.Warn().Msgf("Gateway returned status %d, retrying...", resp.StatusCode)
+			return false
+		}
+
+		err = json.Unmarshal(body, &finalResponse)
+		if err != nil {
+			testEnv.Logger.Warn().Msgf("Failed to unmarshal response: %v", err)
+			return false
+		}
+
+		if finalResponse.Error != nil {
+			testEnv.Logger.Warn().Msgf("JSON-RPC error in response: %v", finalResponse.Error)
+			return false
+		}
+
+		testEnv.Logger.Info().Msg("Successfully received 200 OK response from gateway")
+		return true
+	}, tests.WaitTimeout(t), RetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded")
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
+	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
+	require.Nil(t, finalResponse.Error, "unexpected error in response: %v", finalResponse.Error)
+}
+
+// validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
+func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
+	require.Eventually(t, func() bool {
+		records, err := fake.R.Get("POST", "/orders")
+		return err == nil && len(records) > 0
+	}, tests.WaitTimeout(t), RetryInterval, "workflow should have made at least one HTTP request to mock server")
+
+	records, err := fake.R.Get("POST", "/orders")
+	require.NoError(t, err, "failed to get recorded requests")
+	require.NotEmpty(t, records, "no requests recorded")
+
+	recordedRequest := records[0]
+	testEnv.Logger.Info().Msgf("Recorded request: %+v", recordedRequest)
+
+	require.Equal(t, "POST", recordedRequest.Method, "expected POST method")
+	require.Equal(t, "/orders", recordedRequest.Path, "expected /orders endpoint")
+	require.Equal(t, "application/json", recordedRequest.Headers.Get("Content-Type"), "expected JSON content type")
+
+	var workflowRequestBody map[string]interface{}
+	err = json.Unmarshal([]byte(recordedRequest.ReqBody), &workflowRequestBody)
+	require.NoError(t, err, "request body should be valid JSON")
+
+	require.Equal(t, "test-customer", workflowRequestBody["customer"], "expected customer field")
+	require.Equal(t, "large", workflowRequestBody["size"], "expected size field")
+	require.Contains(t, workflowRequestBody, "toppings", "expected toppings field")
 }
 
 type configureDataFeedsCacheInput struct {
@@ -1047,6 +1017,36 @@ func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *envconfig.Config,
 			credebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
 		}
 	}
+}
+
+func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
+	split := strings.Split(stateFile, ",")
+	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
+		ctfConfigs := os.Getenv("CTF_CONFIGS")
+		defer func() {
+			setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+			if setErr != nil {
+				framework.L.Error().Err(setErr).Msg("failed to set CTF_CONFIGS env var")
+			}
+		}()
+
+		// unset the CTF_CONFIGS env var to avoid using the cached environment
+		setErr := os.Setenv("CTF_CONFIGS", "")
+		if setErr != nil {
+			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+		}
+
+		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
+		cmd.Dir = environmentDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmdErr := cmd.Run()
+		if cmdErr != nil {
+			return errors.Wrap(cmdErr, "failed to start environment")
+		}
+	}
+
+	return nil
 }
 
 func setConfigurationIfMissing(configName, topology string) error {
