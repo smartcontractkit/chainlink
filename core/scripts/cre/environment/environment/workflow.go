@@ -358,7 +358,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 }
 
 func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
-	copyErr := creworkflow.CopyWorkflowToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+	copyErr := creworkflow.CopyArtifactToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 	}
@@ -387,7 +387,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		configCopyErr := creworkflow.CopyArtifactToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 		if configCopyErr != nil {
 			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
 		}
@@ -414,7 +414,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyWorkflowToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
+		secretsCopyErr := creworkflow.CopyArtifactToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
 		if secretsCopyErr != nil {
 			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
 		}
@@ -445,7 +445,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
+	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
@@ -456,7 +456,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		}()
 	}
 
-	fmt.Printf("\n✅ Workflow registered successfully\n\n")
+	fmt.Printf("\n✅ Workflow registered successfully: workflowID='%s'\n\n", workflowID)
 
 	return nil
 }

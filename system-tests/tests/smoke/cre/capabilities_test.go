@@ -87,7 +87,9 @@ type WorkflowTestConfig struct {
 /*
 To execute on local start the local CRE first with following command:
 # inside core/scripts/cre/environment directory
-go run . env start
+1. ensure necessary capabilities (cron, readcontract) are added (see README in core/scripts/cre/environment for [extra_capabilities])
+2. `go run . env start && ctf obs up && ctf bs up`.
+It will start env + observability + blockscout.
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
 	testEnv := setupTestEnvironment(t)
@@ -121,20 +123,6 @@ type WorkflowRegistrationConfig struct {
 	WorkflowRegistryAddr common.Address
 	DonID                uint64
 	ContainerTargetDir   string
-}
-
-// WorkflowCleanupConfig holds configuration for cleanup operations
-type WorkflowCleanupConfig struct {
-	WasmPath          string
-	ConfigPath        string
-	WorkflowName      string
-	RegistryAddress   common.Address
-	SethClient        *seth.Client
-	Logger            zerolog.Logger
-	TestEnv           *TestEnvironment
-	FullCldEnvOutput  *cre.FullCLDEnvironmentOutput
-	BlockchainOutputs []*cre.WrappedBlockchainOutput
-	FeedIDs           []string
 }
 
 // setupTestEnvironment initializes the common test environment
@@ -177,16 +165,16 @@ func setupTestEnvironment(t *testing.T) *TestEnvironment {
 
 // copyWorkflowFilesToContainers copies workflow files to Docker containers
 func copyWorkflowFilesToContainers(t *testing.T, wasmPath, configPath, containerTargetDir string) {
-	workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(wasmPath, WorkflowNodePrefix, containerTargetDir)
+	workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(wasmPath, WorkflowNodePrefix, containerTargetDir)
 	require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
 
-	configCopyErr := creworkflow.CopyWorkflowToDockerContainers(configPath, WorkflowNodePrefix, containerTargetDir)
+	configCopyErr := creworkflow.CopyArtifactToDockerContainers(configPath, WorkflowNodePrefix, containerTargetDir)
 	require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 }
 
 // registerWorkflow registers a workflow with the contract
-func registerWorkflow(ctx context.Context, t *testing.T, config *WorkflowRegistrationConfig, sethClient *seth.Client) {
-	registerErr := creworkflow.RegisterWithContract(
+func registerWorkflow(ctx context.Context, t *testing.T, config *WorkflowRegistrationConfig, sethClient *seth.Client, testLogger zerolog.Logger) {
+	workflowID, registerErr := creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
 		config.WorkflowRegistryAddr,
@@ -198,21 +186,7 @@ func registerWorkflow(ctx context.Context, t *testing.T, config *WorkflowRegistr
 		&config.ContainerTargetDir,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", config.WorkflowName)
-}
-
-// setupWorkflowCleanup sets up cleanup for workflow resources
-func setupWorkflowCleanup(t *testing.T, config *WorkflowCleanupConfig) {
-	t.Cleanup(func() {
-		if wasmErr := os.Remove(config.WasmPath); wasmErr != nil {
-			config.Logger.Warn().Msgf("failed to remove workflow wasm file %s: %s", config.WasmPath, wasmErr.Error())
-		}
-		if configErr := os.Remove(config.ConfigPath); configErr != nil {
-			config.Logger.Warn().Msgf("failed to remove workflow config file %s: %s", config.ConfigPath, configErr.Error())
-		}
-		if deleteErr := creworkflow.DeleteWithContract(t.Context(), config.SethClient, config.RegistryAddress, config.WorkflowName); deleteErr != nil {
-			config.Logger.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", config.WorkflowName, deleteErr.Error())
-		}
-	})
+	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 }
 
 type HTTPTestConfig struct {
@@ -432,11 +406,11 @@ func executePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		Timeout:          DefaultVerificationTimeout,
 	}
 
-	executePoRWorkflowTest(t, testEnv, priceProvider, config)
+	executePoRWorkflowTest(t, testEnv, priceProvider, config, feedIDs)
 }
 
 // executePoRWorkflowTest handles the main PoR workflow test logic
-func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
+func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig, feedIDs []string) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -451,7 +425,7 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 	require.Len(t, config.FeedIDs, len(writeableChains), "number of writeable chains must match number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
-		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
+		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
 		Workflow will write price data to the data feeds cache contract
 
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
@@ -474,23 +448,39 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			continue
 		}
 
-		deployConfig := df_changeset_types.DeployConfig{
-			ChainsToDeploy: []uint64{bcOutput.ChainSelector},
+		chainSelector := bcOutput.ChainSelector
+		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		testLogger := testEnv.Logger
+
+		testLogger.Info().Msgf("Deploying additional contracts to %d", chainSelector)
+		testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
+		deployDfConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+		require.NoError(t, dfErr, "failed to deploy Data Feed Cache contract")
+		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr, "failed to merge address book of Data Feeds Cache contract")
+		testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *testEnv.FullCldEnvOutput.Environment, deployConfig)
-		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+		testLogger.Info().Msg("Deploying Read Balances contract...")
+		deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
+		rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+		require.NoError(t, rbErr, "failed to deploy Read Balances contract")
+		mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr2, "failed to merge address book of Read Balances contract")
+		testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
-		mergeErr := testEnv.FullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
-		require.NoError(t, mergeErr, "failed to merge address book")
-		testEnv.FullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
+		mergeErr3 := dfOutput.DataStore.Merge(rbOutput.DataStore.Seal())
+		require.NoError(t, mergeErr3, "failed to merge data stores")
+		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
 
 		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 
 		dfConfigInput := &configureDataFeedsCacheInput{
-			chainSelector:      bcOutput.ChainSelector,
-			fullCldEnvironment: testEnv.FullCldEnvOutput.Environment,
+			chainSelector:      chainSelector,
+			fullCldEnvironment: fullCldEnvOutput.Environment,
 			workflowName:       workflowName,
 			feedID:             config.FeedIDs[idx],
 			sethClient:         bcOutput.SethClient,
@@ -499,43 +489,58 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 		dfConfigErr := configureDataFeedsCacheContract(testEnv.Logger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
-		testEnv.Logger.Info().Msg("Proceeding to register PoR workflow...")
-
+		chainID := bcOutput.ChainID
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			homeChainSelector,
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
 			keystone_changeset.WorkflowRegistry.String(),
 		)
-		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
+		require.NoError(t, workflowRegistryErr, "failed to find Workflow Registry address.")
+		testLogger.Info().Msgf("Workflow Registry contract found at chain selector %d at %s", homeChainSelector, workflowRegistryAddress)
+
+		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
+		testLogger.Info().Msg("Creating workflow config file.")
+		readBalancesAddress, readContractErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			chainSelector,
+			keystone_changeset.BalanceReader.String(),
+		)
+		require.NoError(t, readContractErr, "failed to find Read Balances contract address for chain %d", chainID)
+		testLogger.Info().Msgf("Read Balances contract found on chain %d at %s", chainID, readBalancesAddress)
 
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-			testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			bcOutput.ChainSelector,
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			chainSelector,
 			df_changeset.DataFeedsCache.String(),
 		)
-		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
+		require.NoError(t, dataFeedsCacheErr, "failed to find Data Feeds Cache address for chain %d", chainID)
+		testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at %s", chainID, dataFeedsCacheAddress)
 
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, config.FeedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
+		workflowConfigFilePath, configErr := createWorkflowConfigFile(bcOutput, readBalancesAddress, dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
+		testLogger.Info().Msgf("Workflow config file created.")
 
-		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(config.WorkflowLocation, workflowName)
+		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(PoRWorkflowLocation, workflowName)
+		require.NoError(t, compileErr, "failed to compile workflow '%s'", PoRWorkflowLocation)
+		testLogger.Info().Msgf("Workflow compiled successfully.")
 
 		require.NoError(t, compileErr, "failed to compile workflow")
 
-		cleanupConfig := &WorkflowCleanupConfig{
-			WasmPath:          compressedWorkflowWasmPath,
-			ConfigPath:        workflowConfigFilePath,
-			WorkflowName:      workflowName,
-			RegistryAddress:   workflowRegistryAddress,
-			SethClient:        testEnv.WrappedBlockchainOutputs[0].SethClient,
-			Logger:            testEnv.Logger,
-			TestEnv:           testEnv,
-			FullCldEnvOutput:  testEnv.FullCldEnvOutput,
-			BlockchainOutputs: testEnv.WrappedBlockchainOutputs,
-			FeedIDs:           config.FeedIDs,
-		}
-		setupWorkflowCleanup(t, cleanupConfig)
-		debugPoRTest(t, testEnv.Logger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, config.FeedIDs)
+		t.Cleanup(func() {
+			wasmErr := os.Remove(compressedWorkflowWasmPath)
+			if wasmErr != nil {
+				framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
+			}
+			configErr := os.Remove(workflowConfigFilePath)
+			if configErr != nil {
+				framework.L.Warn().Msgf("failed to remove workflow config file %s: %s", workflowConfigFilePath, configErr.Error())
+			}
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), bcOutput.SethClient, workflowRegistryAddress, workflowName)
+			if deleteErr != nil {
+				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
+			}
+			debugPoRTest(t, testLogger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, feedIDs)
+		})
 
 		copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, workflowConfigFilePath, ContainerTargetDir)
 
@@ -548,9 +553,12 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 			ContainerTargetDir:   ContainerTargetDir,
 		}
-		registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient)
+		registerWorkflow(t.Context(), t, regConfig, bcOutput.SethClient, testLogger)
 	}
-
+	/*
+		START THE VALIDATION PHASE
+		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
+	*/
 	validatePoRPrices(t, testEnv, priceProvider, config)
 }
 
@@ -721,19 +729,20 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	)
 	require.NoError(t, err, "failed to find workflow registry address for chain %d", homeChainSelector)
 
-	cleanupConfig := &WorkflowCleanupConfig{
-		WasmPath:          compressedWorkflowWasmPath,
-		ConfigPath:        httpConfig.ConfigPath,
-		WorkflowName:      httpConfig.WorkflowName,
-		RegistryAddress:   workflowRegistryAddress,
-		SethClient:        testEnv.WrappedBlockchainOutputs[0].SethClient,
-		Logger:            testEnv.Logger,
-		TestEnv:           testEnv,
-		FullCldEnvOutput:  testEnv.FullCldEnvOutput,
-		BlockchainOutputs: testEnv.WrappedBlockchainOutputs,
-		FeedIDs:           []string{}, // No feed IDs for HTTP test
-	}
-	setupWorkflowCleanup(t, cleanupConfig)
+	t.Cleanup(func() {
+		wasmErr := os.Remove(compressedWorkflowWasmPath)
+		if wasmErr != nil {
+			framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
+		}
+		configErr := os.Remove(httpConfig.ConfigPath)
+		if configErr != nil {
+			framework.L.Warn().Msgf("failed to remove workflow config file %s: %s", httpConfig.ConfigPath, configErr.Error())
+		}
+		deleteErr := creworkflow.DeleteWithContract(t.Context(), testEnv.WrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, httpConfig.WorkflowName)
+		if deleteErr != nil {
+			framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", httpConfig.WorkflowName, deleteErr.Error())
+		}
+	})
 
 	copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, httpConfig.ConfigPath, ContainerTargetDir)
 
@@ -746,7 +755,7 @@ func executeHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:   ContainerTargetDir,
 	}
-	registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient)
+	registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testEnv.Logger)
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
@@ -926,7 +935,9 @@ func logTestInfo(l zerolog.Logger, feedID, dataFeedsCacheAddr, forwarderAddr str
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
-func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
+// Creates workflow configuration file storing the necessary values used by a workflow (i.e. feedID, read/write contract addresses)
+// The values are written to types.WorkflowConfig
+func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContractAddress, feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 	feedLength := len(cleanFeedID)
 
@@ -939,8 +950,15 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	}
 
 	feedIDToUse := "0x" + cleanFeedID
+	chainFamily := bcOutput.BlockchainOutput.Family
+	chainID := bcOutput.BlockchainOutput.ChainID
 
 	workflowConfig := portypes.WorkflowConfig{
+		ChainFamily: chainFamily,
+		ChainID:     chainID,
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
+			BalanceReaderAddress: readContractAddress.Hex(),
+		},
 		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedIDToUse,
 			URL:                   dataURL,
@@ -949,6 +967,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 		},
 	}
 
+	// Write workflow config to a file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")
