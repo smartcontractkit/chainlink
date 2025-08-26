@@ -1316,7 +1316,6 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
-	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
