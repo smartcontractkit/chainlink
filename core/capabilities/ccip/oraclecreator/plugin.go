@@ -135,7 +135,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create config tracker: %w", err)
+		return nil, fmt.Errorf("failed to create config tracker: %w, %d", err, chainSelector)
 	}
 	publicConfig, err := configTracker.PublicConfig()
 	if err != nil {
@@ -459,7 +459,7 @@ func (i *pluginOracleCreator) createChainAccessors(
 		provider, err := relayer.NewCCIPProvider(ctx, types.RelayArgs{})
 		if err != nil || provider == nil {
 			// use default chain accessor if cr and cw exist
-			if extendedReaders[chainSelector] != nil && chainWriters[chainSelector] == nil {
+			if extendedReaders[chainSelector] != nil && chainWriters[chainSelector] != nil {
 				ca, err = chainaccessor.NewDefaultAccessor(
 					i.lggr,
 					chainSelector,
