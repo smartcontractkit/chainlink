@@ -29,10 +29,10 @@ func ValidateFeedID(feedID string) error {
 
 	// bytes (1-4) are random bytes, so no validation needed
 
-	// Validate attribute bucket bytes (5-6)
+	// Validate attribute bucket bytes (5-6), see domains/data-feeds/cmd/feed_id.go in CLD for more details
 	attributeBucket := [2]byte{bytes[5], bytes[6]}
 	attributeBucketHex := hex.EncodeToString(attributeBucket[:])
-	if attributeBucketHex != "0003" && attributeBucketHex != "0700" {
+	if attributeBucketHex != "0003" && attributeBucketHex != "0700" && attributeBucketHex != "0201" {
 		return errors.New("invalid attribute bucket bytes")
 	}
 

@@ -187,6 +187,10 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return errors.New("missing environment label in node filter")
 	}
 
+	if c.NodeFilter.Zone != "zone-a" && c.NodeFilter.Zone != "zone-b" {
+		return errors.New("missing or invalid zone in node filter")
+	}
+
 	return nil
 }
 
