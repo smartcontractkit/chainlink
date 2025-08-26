@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -18,7 +17,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -35,6 +33,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	infraInput *infra.Input,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
+	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
 	capabilityEnabler CapabilityEnabler,
 	enabledChainsProvider EnabledChainsProvider,
 	jobConfigGenerator JobConfigGenerator,
@@ -152,14 +151,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			}
 
 			contractName := contractNamer(chainIDUint64)
-
-			ocr3Key := datastore.NewAddressRefKey(
-				cs,
-				datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-				semver.MustParse("1.0.0"),
-				contractName,
-			)
-
+			ocr3Key := dataStoreOCR3ContractKeyProvider(contractName, cs)
 			ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get EVM capability address")
@@ -287,3 +279,5 @@ type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.
 
 // ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
 type ContractNamer func(chainID uint64) string
+
+type DataStoreOCR3ContractKeyProvider func(contractName string, chainSelector uint64) datastore.AddressRefKey

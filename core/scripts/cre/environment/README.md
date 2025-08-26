@@ -1270,6 +1270,7 @@ brew install fswatch
 # Monitor cron capability source directory and auto-rebuild + hot swap
 # (from within your capability source directory)
 fswatch -o . | xargs -n1 sh -c '
+  export PATH="$HOME/.asdf/shims:$PATH" &&
   GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o /tmp/cron &&
   cd /path/to/chainlink/core/scripts/cre/environment &&
   go run . env swap c --name cron --binary /tmp/cron
@@ -1277,6 +1278,8 @@ fswatch -o . | xargs -n1 sh -c '
 ```
 
 **⚠️ Important:** Pay attention to the binary output location in the build command. In the example above, the binary is compiled to `/tmp/cron` (outside the source directory). If you compile to the current directory (`.`), it would trigger an infinite loop as `fswatch` would detect the newly created binary as a change.
+
+**⚠️ Important:** If you are using ASDF it is crucial to add `export PATH="$HOME/.asdf/shims:$PATH"` to avoid using system's Go binary and resulting download of all `go.mod` dependencies (both for the capability and the whole local CRE).
 
 ---
 
