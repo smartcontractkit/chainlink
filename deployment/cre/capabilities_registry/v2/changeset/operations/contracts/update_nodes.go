@@ -34,7 +34,7 @@ type UpdateNodesInput struct {
 	ChainSelector uint64
 
 	// NodesUpdates is a map of p2p key to NodeConfig
-	NodesUpdates map[p2pkey.PeerID]NodeConfig
+	NodesUpdates map[string]NodeConfig
 }
 
 type UpdateNodesOutput struct {
@@ -96,10 +96,14 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 
 func makeNodeParams(
 	registry *capabilities_registry_v2.CapabilitiesRegistry,
-	p2pToUpdates map[p2pkey.PeerID]NodeConfig,
+	p2pToUpdates map[string]NodeConfig,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, error) {
 	var p2pIDs []p2pkey.PeerID
-	for p2pID := range p2pToUpdates {
+	for p2pIDStr := range p2pToUpdates {
+		p2pID, err := p2pkey.MakePeerID(p2pIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse p2p id %s: %w", p2pIDStr, err)
+		}
 		p2pIDs = append(p2pIDs, p2pID)
 	}
 
@@ -112,9 +116,10 @@ func makeNodeParams(
 	}
 
 	for _, node := range nodes {
-		updates, ok := p2pToUpdates[node.P2pId]
+		p2pIDStr := p2pkey.PeerID(node.P2pId).String()
+		updates, ok := p2pToUpdates[p2pIDStr]
 		if !ok {
-			return nil, fmt.Errorf("capabilities not found for node %s", node.P2pId)
+			return nil, fmt.Errorf("capabilities not found for node %s", p2pIDStr)
 		}
 
 		ids := node.CapabilityIds

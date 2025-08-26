@@ -89,7 +89,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			p2pIDs = append(p2pIDs, node.P2pId)
 		}
 
-		nodeUpdates := make(map[p2pkey.PeerID]contracts.NodeConfig, len(p2pIDs))
+		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
 		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
@@ -103,14 +103,15 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			}
 			capabilities[i] = capability
 			for _, p2pID := range p2pIDs {
-				nodeUpdate, exists := nodeUpdates[p2pID]
+				p2pIDStr := p2pID.String()
+				nodeUpdate, exists := nodeUpdates[p2pIDStr]
 				if !exists {
 					nodeUpdate = contracts.NodeConfig{
 						Capabilities: make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0, len(input.CapabilityConfigs)),
 					}
 				}
-				nodeUpdate.Capabilities = append(nodeUpdates[p2pID].Capabilities, capability)
-				nodeUpdates[p2pID] = nodeUpdate
+				nodeUpdate.Capabilities = append(nodeUpdates[p2pIDStr].Capabilities, capability)
+				nodeUpdates[p2pIDStr] = nodeUpdate
 			}
 		}
 
