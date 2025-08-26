@@ -244,7 +244,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// make pool mint_authority for token
 		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint &&
-			tokenMint.MintAuthority != nil && *tokenMint.MintAuthority == chain.DeployerKey.PublicKey() {
+			tokenMint.MintAuthority != nil && tokenMint.MintAuthority.String() == chain.DeployerKey.PublicKey().String() {
 			authI, err := solTokenUtil.SetTokenMintAuthority(
 				tokenprogramID,
 				poolSigner,
@@ -256,6 +256,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			}
 			instructions = append(instructions, authI)
 			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+		} else {
+			e.Logger.Warnw("Skipping setting poolSigner as mint authority",
+				"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
 
 		// confirm instructions

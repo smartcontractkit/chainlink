@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solToken "github.com/gagliardetto/solana-go/programs/token"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -289,8 +291,16 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		instructions = append(instructions, poolInitI)
 
+		// fetch current token mint authority
+		var tokenMint solToken.Mint
+		err = solCommonUtil.GetAccountDataBorshInto(context.Background(), chain.Client, tokenPubKey, solRpc.CommitmentConfirmed, &tokenMint)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
+		}
+
 		// make pool mint_authority for token
-		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
+		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint &&
+			tokenMint.MintAuthority != nil && tokenMint.MintAuthority.String() == chain.DeployerKey.PublicKey().String() {
 			authI, err := solTokenUtil.SetTokenMintAuthority(
 				tokenprogramID,
 				poolSigner,
@@ -302,6 +312,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			}
 			instructions = append(instructions, authI)
 			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+		} else {
+			e.Logger.Warnw("Skipping setting poolSigner as mint authority",
+				"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
 
 		// confirm instructions
