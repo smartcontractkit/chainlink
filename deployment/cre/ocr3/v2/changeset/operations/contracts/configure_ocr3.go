@@ -14,6 +14,7 @@ import (
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -28,6 +29,7 @@ type ConfigureOCR3Deps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
 	Registry             *capabilities_registry_v2.CapabilitiesRegistry
+	Datastore            datastore.MutableDataStore
 }
 
 type ConfigureOCR3Input struct {
@@ -87,7 +89,7 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			return ConfigureOCR3OpOutput{}, errors.New("address of OCR3 contract to configure is required")
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Datastore.Addresses(), chain, input.ContractAddress.Hex())
 		if err != nil {
 			return ConfigureOCR3OpOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}

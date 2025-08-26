@@ -6,6 +6,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -13,7 +14,8 @@ import (
 )
 
 type DeployOCR3Deps struct {
-	Env *cldf.Environment
+	Env       *cldf.Environment
+	Datastore datastore.MutableDataStore
 }
 
 type DeployOCR3Input struct {
@@ -69,6 +71,24 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 		tv, err := cldf.TypeAndVersionFromString(tvStr)
 		if err != nil {
 			return DeployOCR3Output{}, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+		}
+
+		// Create labels from the operation output
+		labels := datastore.NewLabelSet()
+		for _, label := range tv.Labels.List() {
+			labels.Add(label)
+		}
+
+		addressRef := datastore.AddressRef{
+			ChainSelector: chain.Selector,
+			Address:       ocr3Addr.Hex(),
+			Type:          datastore.ContractType(tv.Type),
+			Version:       &tv.Version,
+			Labels:        labels,
+		}
+
+		if err := deps.Datastore.Addresses().Add(addressRef); err != nil {
+			return DeployOCR3Output{}, err
 		}
 
 		lggr.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, ocr3Addr.String())

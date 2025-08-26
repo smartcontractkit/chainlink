@@ -54,8 +54,19 @@ var DeployOCR3 = operations.NewSequence(
 			qualifier = "capability_consensus"
 		}
 
+		ds := datastore.NewMemoryDataStore()
+
+		addresses, err := deps.Env.DataStore.Addresses().Fetch()
+		if err != nil {
+			return DeployOCR3Output{}, fmt.Errorf("failed to fetch addresses: %w", err)
+		}
+		// copy addresses to the mutable instance of the datastore
+		for _, ref := range addresses {
+			ds.Addresses().Add(ref)
+		}
+
 		// Step 1: Deploy OCR3 Contract for Consensus Capability
-		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env}, contracts.DeployOCR3Input{
+		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env, Datastore: ds}, contracts.DeployOCR3Input{
 			ChainSelector: input.RegistryChainSel,
 			Qualifier:     qualifier,
 		})
@@ -78,7 +89,7 @@ var DeployOCR3 = operations.NewSequence(
 		if !ok {
 			return DeployOCR3Output{}, fmt.Errorf("chain not found for selector %d", input.RegistryChainSel)
 		}
-		capabilitiesRegistry, err := crecontracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, capabilitiesRegistryRef.Address)
+		capabilitiesRegistry, err := crecontracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](ds.Addresses(), chain, capabilitiesRegistryRef.Address)
 		if err != nil {
 			return DeployOCR3Output{}, fmt.Errorf("failed to get owned contract: %w", err)
 		}
@@ -91,7 +102,8 @@ var DeployOCR3 = operations.NewSequence(
 		_, err = operations.ExecuteOperation(b, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
 			Env: deps.Env,
 			// WriteGeneratedConfig: deps.WriteGeneratedConfig, TODO
-			Registry: capabilitiesRegistry.Contract,
+			Registry:  capabilitiesRegistry.Contract,
+			Datastore: ds,
 		}, contracts.ConfigureOCR3Input{
 			ContractAddress:  &ocr3ContractAddress,
 			RegistryChainSel: input.RegistryChainSel,
