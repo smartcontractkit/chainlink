@@ -111,10 +111,6 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 				governor.InitialDelay = big.NewInt(0)
 			}
 
-			if governor.InitialDefaultAdmin == utils.ZeroAddress {
-				governor.InitialDefaultAdmin = chain.DeployerKey.From
-			}
-
 			_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_governor.TokenGovernor] {
 					tgAddress, tx, tokenGovernor, err := token_governor.DeployTokenGovernor(chain.DeployerKey, chain.Client, governor.Token, governor.InitialDelay, governor.InitialDefaultAdmin)
