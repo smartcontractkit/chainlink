@@ -1,7 +1,7 @@
 package ccipevm
 
 import (
-	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )

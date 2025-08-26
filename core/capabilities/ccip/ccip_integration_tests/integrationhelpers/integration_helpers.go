@@ -21,9 +21,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
+	ccipreader "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"

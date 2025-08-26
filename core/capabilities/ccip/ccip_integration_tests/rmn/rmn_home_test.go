@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	readerpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
+	readerpkg "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"

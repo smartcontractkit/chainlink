@@ -9,7 +9,7 @@ import (
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 )
 
 // NewRandomTopology creates a new random topology with the given arguments.

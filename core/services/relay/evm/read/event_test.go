@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/chainaccessor"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/stretchr/testify/assert"

@@ -24,8 +24,8 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	writer_mocks "github.com/smartcontractkit/chainlink-ccip/mocks/chainlink_common/types"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
+	writer_mocks "github.com/smartcontractkit/chainlink-ccip/ocr3/mocks/chainlink_common/types"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -34,11 +34,11 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 
-	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
-	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	readermocks "github.com/smartcontractkit/chainlink-ccip/ocr3/mocks/pkg/contractreader"
+	typepkgmock "github.com/smartcontractkit/chainlink-ccip/ocr3/mocks/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/contractreader"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"

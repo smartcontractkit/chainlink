@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
-	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	ccipconsts "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"

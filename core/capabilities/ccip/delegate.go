@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 

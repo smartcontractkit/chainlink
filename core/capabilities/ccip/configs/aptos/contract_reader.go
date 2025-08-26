@@ -2,7 +2,7 @@ package aptosconfig
 
 import (
 	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/config"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
 )
 
 func GetChainReaderConfig() (config.ChainReaderConfig, error) {

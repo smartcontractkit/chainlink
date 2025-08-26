@@ -3,7 +3,7 @@ package types
 import (
 	"context"
 
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
 )
 
 // OCR3ConfigWithMeta is a type alias in order to generate correct mocks for the OracleCreator interface.

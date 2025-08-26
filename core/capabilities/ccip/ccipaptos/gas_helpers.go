@@ -1,7 +1,7 @@
 package ccipaptos
 
 import (
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 )
 
 func NewGasEstimateProvider() EstimateProvider {

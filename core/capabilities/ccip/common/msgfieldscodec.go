@@ -1,6 +1,6 @@
 package common
 
-import cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+import cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 
 // ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses for a specific chain
 type ChainSpecificAddressCodec interface {

@@ -10,7 +10,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	ccipreader "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 

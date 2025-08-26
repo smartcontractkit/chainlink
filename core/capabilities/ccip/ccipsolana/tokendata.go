@@ -8,7 +8,7 @@ import (
 	bin "github.com/gagliardetto/binary"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/cctp_token_pool"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/types/ccipocr3"
 )
 
 type SolanaTokenDataEncoder struct{}

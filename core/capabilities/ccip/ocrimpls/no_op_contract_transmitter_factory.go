@@ -6,7 +6,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 

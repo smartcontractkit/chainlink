@@ -9,7 +9,7 @@ import (
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"

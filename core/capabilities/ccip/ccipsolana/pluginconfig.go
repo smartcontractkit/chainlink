@@ -3,7 +3,7 @@ package ccipsolana
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/ocr3/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
