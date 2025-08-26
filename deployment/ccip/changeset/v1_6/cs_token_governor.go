@@ -13,6 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
@@ -120,6 +121,7 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 					return cldf.ContractDeploy[*token_governor.TokenGovernor]{
 						Address:  tgAddress,
 						Contract: tokenGovernor,
+						Tv:       cldf.NewTypeAndVersion(shared.TokenGovernor, deployment.Version1_6_0),
 						Tx:       tx,
 						Err:      err,
 					}
