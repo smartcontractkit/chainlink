@@ -1,6 +1,7 @@
 package sequences
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -91,7 +92,16 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		nodeUpdates := make(map[p2pkey.PeerID]contracts.NodeConfig, len(p2pIDs))
 		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
-			capabilities[i] = cfg.Capability
+			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
+			if err != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", cfg.Capability.CapabilityID, err)
+			}
+			capability := capabilities_registry_v2.CapabilitiesRegistryCapability{
+				CapabilityId:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+				Metadata:              metadataBytes,
+			}
+			capabilities[i] = capability
 			for _, p2pID := range p2pIDs {
 				nodeUpdate, exists := nodeUpdates[p2pID]
 				if !exists {
@@ -99,7 +109,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 						Capabilities: make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0, len(input.CapabilityConfigs)),
 					}
 				}
-				nodeUpdate.Capabilities = append(nodeUpdates[p2pID].Capabilities, cfg.Capability)
+				nodeUpdate.Capabilities = append(nodeUpdates[p2pID].Capabilities, capability)
 				nodeUpdates[p2pID] = nodeUpdate
 			}
 		}

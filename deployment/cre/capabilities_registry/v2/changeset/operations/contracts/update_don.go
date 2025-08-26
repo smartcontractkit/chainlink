@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -57,8 +58,14 @@ type UpdateDONOutput struct {
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig struct {
-	Capability capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capability Capability
 	Config     []byte // this is the marshalled proto config. if nil, a default config is used
+}
+
+type Capability struct {
+	CapabilityID          string                 `json:"capability_id" yaml:"capability_id"`
+	ConfigurationContract common.Address         `json:"configuration_contract" yaml:"configuration_contract"`
+	Metadata              map[string]interface{} `json:"metadata" yaml:"metadata"`
 }
 
 var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateDONDeps](
@@ -143,10 +150,10 @@ func computeConfigs(capCfgs []CapabilityConfig) ([]capabilities_registry_v2.Capa
 	out := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(capCfgs))
 	for i, capCfg := range capCfgs {
 		out[i] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
-		out[i].CapabilityId = capCfg.Capability.CapabilityId
+		out[i].CapabilityId = capCfg.Capability.CapabilityID
 		out[i].Config = capCfg.Config
 		if out[i].Config == nil {
-			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityId)
+			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
 		}
 	}
 	return out, nil
