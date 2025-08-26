@@ -125,7 +125,11 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
 // no retries are performed, as the caller is expected to poll periodically.
-func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) error {
+func (h *WorkflowMetadataHandler) sendMetadataPullRequest() error {
+	timeout := time.Duration(h.config.MetadataPullRequestTimeoutMs) * time.Millisecond
+	ctx, cancel := h.stopCh.CtxWithTimeout(timeout)
+	defer cancel()
+
 	req := &jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      gateway.GetRequestID(gateway.MethodPullWorkflowMetadata),
@@ -190,7 +194,7 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 			return err
 		}
 		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func() {
-			err2 := h.sendMetadataPullRequest(ctx)
+			err2 := h.sendMetadataPullRequest()
 			if err2 != nil {
 				h.lggr.Errorw("Failed to send pull request", "error", err2)
 			}

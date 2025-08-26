@@ -223,7 +223,7 @@ jobs:
   call-cre-local-env-tests:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@ef32bafc32d854d8ae26d710275831e763ab7ade # develop SHA from 11th August 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@8ac38e4e089ef1737b3b953258ca0952f3805540 # develop SHA from 20th August 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
@@ -235,7 +235,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@382b503b25a442ae5a592998039ead2429581a28 # develop SHA from 14th July 2025
+    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@8ac38e4e089ef1737b3b953258ca0952f3805540 # develop SHA from 20th August 2025
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
