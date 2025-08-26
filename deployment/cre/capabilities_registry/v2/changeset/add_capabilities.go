@@ -3,9 +3,8 @@ package changeset
 import (
 	"errors"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -41,12 +40,7 @@ func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapab
 }
 
 func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) (cldf.ChangesetOutput, error) {
-	registryRef := datastore.NewAddressRefKey(
-		config.RegistryChainSel,
-		"CapabilitiesRegistry",
-		semver.MustParse("2.0.0"),
-		config.RegistryQualifier,
-	)
+	registryRef := pkg.GetCapRegV2AddressRefKey(config.RegistryChainSel, config.RegistryQualifier)
 
 	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
