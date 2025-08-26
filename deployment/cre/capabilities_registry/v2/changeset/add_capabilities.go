@@ -8,33 +8,29 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 )
 
-var _ cldf.ChangeSetV2[UpdateDONInput] = UpdateDON{}
+var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
 
-type UpdateDONInput struct {
+type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registry_chain_sel" yaml:"registry_chain_sel"`
 	RegistryQualifier string `json:"registry_qualifier" yaml:"registry_qualifier"`
 	UseMCMS           bool   `json:"use_mcms" yaml:"use_mcms"` // not implemented yet
 
 	DonName           string                       `json:"don_name" yaml:"don_name"`
-	F                 uint8                        `json:"f" yaml:"f"`
-	P2PIDs            []p2pkey.PeerID              `json:"p2p_ids" yaml:"p2p_ids"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capability_configs" yaml:"capability_configs"`
-	IsPrivate         bool                         `json:"is_private" yaml:"is_private"`
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool `json:"force" yaml:"force"`
 }
 
-type UpdateDON struct{}
+type AddCapabilities struct{}
 
-func (u UpdateDON) VerifyPreconditions(_ cldf.Environment, config UpdateDONInput) error {
+func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
 	if config.DonName == "" {
 		return errors.New("must specify DONName")
 	}
@@ -44,7 +40,7 @@ func (u UpdateDON) VerifyPreconditions(_ cldf.Environment, config UpdateDONInput
 	return nil
 }
 
-func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.ChangesetOutput, error) {
+func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) (cldf.ChangesetOutput, error) {
 	registryRef := datastore.NewAddressRefKey(
 		config.RegistryChainSel,
 		"CapabilitiesRegistry",
@@ -54,16 +50,13 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 
 	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
-		sequences.UpdateDON,
-		sequences.UpdateDONDeps{Env: &e},
-		sequences.UpdateDONInput{
+		sequences.AddCapabilities,
+		sequences.AddCapabilitiesDeps{Env: &e},
+		sequences.AddCapabilitiesInput{
 			RegistryChainSel:  config.RegistryChainSel,
 			RegistryRef:       registryRef,
 			DonName:           config.DonName,
-			F:                 config.F,
-			P2PIDs:            config.P2PIDs,
 			CapabilityConfigs: config.CapabilityConfigs,
-			IsPrivate:         config.IsPrivate,
 			Force:             config.Force,
 		},
 	)
