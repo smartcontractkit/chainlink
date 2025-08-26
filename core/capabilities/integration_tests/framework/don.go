@@ -195,7 +195,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 			workflowKeys, err := node.KeyStore.Workflow().GetAll()
 			require.NoError(t, err)
 
-			// Workflow nodes should ony have at most 1 workflow key.
+			// Workflow nodes should only have at most 1 workflow key.
 			require.LessOrEqual(t, len(workflowKeys), 1)
 			if len(workflowKeys) == 1 {
 				cn.workflowKey = &workflowKeys[0]
