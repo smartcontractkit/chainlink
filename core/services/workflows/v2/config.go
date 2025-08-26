@@ -6,12 +6,15 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -38,9 +41,10 @@ type EngineConfig struct {
 	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
-	LocalLimits          EngineLimits                // local to a single workflow
-	GlobalLimits         limits.ResourceLimiter[int] // global to all workflows
-	ExecutionRateLimiter limits.RateLimiter          // global + per owner
+	LocalLimits                       EngineLimits
+	LocalLimiters                     *EngineLimiters
+	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner
+	GlobalExecutionRateLimiter        limits.RateLimiter          // global + per owner
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -56,42 +60,115 @@ type EngineConfig struct {
 	DebugMode bool
 }
 
+type EngineLimiters struct {
+	ExecutionResponse        limits.BoundLimiter[config.Size]
+	TriggerSubscriptionTime  limits.TimeLimiter
+	TriggerRegistrationsTime limits.TimeLimiter
+	TriggerSubscription      limits.BoundLimiter[int]
+	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueueTime    limits.TimeLimiter
+	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
+
+	CapabilityConcurrency limits.ResourcePoolLimiter[int]
+	SecretsConcurrency    limits.ResourcePoolLimiter[int]
+	ExecutionTime         limits.TimeLimiter
+	CapabilityCallTime    limits.TimeLimiter
+	LogEvent              limits.BoundLimiter[int]
+	LogLine               limits.BoundLimiter[config.Size]
+}
+
+// NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
+func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineLimiters, error) {
+	l := &EngineLimiters{}
+	err := l.init(lf, cfgFn)
+	return l, err
+}
+
+func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	cfg := cresettings.Default.PerWorkflow
+	if cfgFn != nil {
+		cfgFn(&cfg)
+	}
+	l.ExecutionResponse, err = limits.MakeBoundLimiter(lf, cfg.ExecutionResponseLimit)
+	if err != nil {
+		return
+	}
+	l.TriggerSubscriptionTime, err = lf.MakeTimeLimiter(cfg.TriggerSubscriptionTimeout)
+	if err != nil {
+		return
+	}
+	l.TriggerRegistrationsTime, err = lf.MakeTimeLimiter(cfg.TriggerRegistrationsTimeout)
+	if err != nil {
+		return
+	}
+	l.TriggerSubscription, err = limits.MakeBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
+	if err != nil {
+		return
+	}
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	if err != nil {
+		return
+	}
+	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
+	if err != nil {
+		return
+	}
+	l.ExecutionConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+
+	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	l.SecretsConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.SecretsConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	l.ExecutionTime, err = lf.MakeTimeLimiter(cfg.ExecutionTimeout)
+	if err != nil {
+		return
+	}
+	l.CapabilityCallTime, err = lf.MakeTimeLimiter(cfg.CapabilityCallTimeout)
+	if err != nil {
+		return
+	}
+	l.LogEvent, err = limits.MakeBoundLimiter(lf, cfg.LogEventLimit)
+	if err != nil {
+		return
+	}
+	l.LogLine, err = limits.MakeBoundLimiter(lf, cfg.LogLineLimit)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (l *EngineLimiters) Close() error {
+	return services.CloseAll(
+		l.ExecutionResponse,
+		l.TriggerSubscriptionTime,
+		l.TriggerRegistrationsTime,
+		l.TriggerSubscription,
+		l.TriggerEventQueue,
+		l.TriggerEventQueueTime,
+		l.ExecutionConcurrency,
+		l.CapabilityConcurrency,
+		l.SecretsConcurrency,
+		l.ExecutionTime,
+		l.CapabilityCallTime,
+		l.LogEvent,
+		l.LogLine,
+	)
+}
+
 const (
-	defaultModuleExecuteMaxResponseSizeBytes   = 100000
-	defaultTriggerSubscriptionRequestTimeoutMs = 500
-	defaultTriggerAllRegistrationsTimeoutMs    = 1000
-	defaultMaxTriggerSubscriptions             = 10
-	defaultTriggerEventQueueSize               = 1000
-	defaultTriggerEventMaxAgeMs                = 1000 * 60 * 10 // 10 minutes
-
-	defaultMaxConcurrentWorkflowExecutions         = 100
-	defaultMaxConcurrentCapabilityCallsPerWorkflow = 10
-	defaultMaxConcurrentSecretsCallsPerWorkflow    = 3
-	defaultWorkflowExecutionTimeoutMs              = 1000 * 60 * 10 // 10 minutes
-	defaultCapabilityCallTimeoutMs                 = 1000 * 60 * 8  // 8 minutes
-	defaultMaxUserLogEventsPerExecution            = 1000
-	defaultMaxUserLogLineLength                    = 1000
-
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
 )
 
 type EngineLimits struct {
-	ModuleExecuteMaxResponseSizeBytes   uint32
-	TriggerSubscriptionRequestTimeoutMs uint32
-	TriggerAllRegistrationsTimeoutMs    uint32
-	MaxTriggerSubscriptions             uint16
-	TriggerEventQueueSize               uint16
-	TriggerEventMaxAgeMs                uint32
-
-	MaxConcurrentWorkflowExecutions         uint16
-	MaxConcurrentCapabilityCallsPerWorkflow uint16
-	MaxConcurrentSecretsCallsPerWorkflow    uint16
-	WorkflowExecutionTimeoutMs              uint32
-	CapabilityCallTimeoutMs                 uint32
-	MaxUserLogEventsPerExecution            uint32
-	MaxUserLogLineLength                    uint32
-
 	HeartbeatFrequencyMs uint32
 	ShutdownTimeoutMs    uint32
 }
@@ -138,10 +215,10 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	c.LocalLimits.setDefaultLimits()
-	if c.GlobalLimits == nil {
-		return errors.New("global limits not set")
+	if c.GlobalExecutionConcurrencyLimiter == nil {
+		return errors.New("execution concurrency limiter not set")
 	}
-	if c.ExecutionRateLimiter == nil {
+	if c.GlobalExecutionRateLimiter == nil {
 		return errors.New("execution rate limiter not set")
 	}
 
@@ -154,45 +231,6 @@ func (c *EngineConfig) Validate() error {
 }
 
 func (l *EngineLimits) setDefaultLimits() {
-	if l.ModuleExecuteMaxResponseSizeBytes == 0 {
-		l.ModuleExecuteMaxResponseSizeBytes = defaultModuleExecuteMaxResponseSizeBytes
-	}
-	if l.TriggerSubscriptionRequestTimeoutMs == 0 {
-		l.TriggerSubscriptionRequestTimeoutMs = defaultTriggerSubscriptionRequestTimeoutMs
-	}
-	if l.TriggerAllRegistrationsTimeoutMs == 0 {
-		l.TriggerAllRegistrationsTimeoutMs = defaultTriggerAllRegistrationsTimeoutMs
-	}
-	if l.MaxTriggerSubscriptions == 0 {
-		l.MaxTriggerSubscriptions = defaultMaxTriggerSubscriptions
-	}
-	if l.TriggerEventQueueSize == 0 {
-		l.TriggerEventQueueSize = defaultTriggerEventQueueSize
-	}
-	if l.TriggerEventMaxAgeMs == 0 {
-		l.TriggerEventMaxAgeMs = defaultTriggerEventMaxAgeMs
-	}
-	if l.MaxConcurrentWorkflowExecutions == 0 {
-		l.MaxConcurrentWorkflowExecutions = defaultMaxConcurrentWorkflowExecutions
-	}
-	if l.MaxConcurrentCapabilityCallsPerWorkflow == 0 {
-		l.MaxConcurrentCapabilityCallsPerWorkflow = defaultMaxConcurrentCapabilityCallsPerWorkflow
-	}
-	if l.MaxConcurrentSecretsCallsPerWorkflow == 0 {
-		l.MaxConcurrentSecretsCallsPerWorkflow = defaultMaxConcurrentSecretsCallsPerWorkflow
-	}
-	if l.WorkflowExecutionTimeoutMs == 0 {
-		l.WorkflowExecutionTimeoutMs = defaultWorkflowExecutionTimeoutMs
-	}
-	if l.CapabilityCallTimeoutMs == 0 {
-		l.CapabilityCallTimeoutMs = defaultCapabilityCallTimeoutMs
-	}
-	if l.MaxUserLogEventsPerExecution == 0 {
-		l.MaxUserLogEventsPerExecution = defaultMaxUserLogEventsPerExecution
-	}
-	if l.MaxUserLogLineLength == 0 {
-		l.MaxUserLogLineLength = defaultMaxUserLogLineLength
-	}
 	if l.HeartbeatFrequencyMs == 0 {
 		l.HeartbeatFrequencyMs = defaultHeartbeatFrequencyMs
 	}
