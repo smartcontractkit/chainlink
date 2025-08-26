@@ -40,6 +40,8 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 	HybridLockReleaseUSDCTokenPool:                  {},
 	BurnMintWithExternalMinterFastTransferTokenPool: {},
 	HybridWithExternalMinterFastTransferTokenPool:   {},
+	BurnMintWithExternalMinterTokenPool:             {},
+	HybridWithExternalMinterTokenPool:               {},
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
