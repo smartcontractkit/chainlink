@@ -116,10 +116,10 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
 	if opts == nil {
-		return fmt.Errorf("opts cannot be nil")
+		return errors.New("opts cannot be nil")
 	}
 	if d.lggr == nil {
-		return fmt.Errorf("logger cannot be nil")
+		return errors.New("logger cannot be nil")
 	}
 	// Observation loop logic
 	{
