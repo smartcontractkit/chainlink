@@ -55,6 +55,8 @@ var (
 	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
+	BurnMintWithExternalMinterTokenPool             deployment.ContractType = "BurnMintWithExternalMinterTokenPool"
+	HybridWithExternalMinterTokenPool               deployment.ContractType = "HybridWithExternalMinterTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"

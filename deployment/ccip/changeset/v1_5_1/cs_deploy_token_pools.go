@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -57,6 +59,9 @@ type DeployTokenPoolInput struct {
 	// CCIPAdmin is the address of the CCIP admin for the token and will have default admin role. This is specifically
 	// for BurnMintERC20 token.
 	CCIPAdmin common.Address
+	// TokenGovernor is the address of the token governor contract. This is specifically for BurnMintWithExternalMinterTokenPool
+	// and HybridWithExternalMinterTokenPool token pools.
+	TokenGovernor common.Address
 }
 
 func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain, state evm.CCIPChainState, tokenSymbol shared.TokenSymbol) error {
@@ -274,6 +279,18 @@ func deployTokenPool(
 				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = hybrid_with_external_minter_fast_transfer_token_pool.DeployHybridWithExternalMinterFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+				)
+			case shared.BurnMintWithExternalMinterTokenPool:
+				tokenPoolVersion = deployment.Version1_6_0
+				tpAddr, tx, _, err = burn_mint_with_external_minter_token_pool.DeployBurnMintWithExternalMinterTokenPool(
+					chain.DeployerKey, chain.Client, poolConfig.TokenGovernor, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
+					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
+				)
+			case shared.HybridWithExternalMinterTokenPool:
+				tokenPoolVersion = deployment.Version1_6_0
+				tpAddr, tx, _, err = hybrid_with_external_minter_token_pool.DeployHybridWithExternalMinterTokenPool(
+					chain.DeployerKey, chain.Client, poolConfig.TokenGovernor, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			}
