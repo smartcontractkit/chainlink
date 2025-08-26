@@ -259,7 +259,7 @@ func deployTokenPool(
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
 				)
 			case shared.BurnMintFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_1
+				tokenPoolVersion = deployment.Version1_6_3Dev
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(), chain.Selector,

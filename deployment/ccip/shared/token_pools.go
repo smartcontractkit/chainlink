@@ -18,7 +18,7 @@ import (
 )
 
 var CurrentTokenPoolVersion = deployment.Version1_5_1
-var FastTransferTokenPoolVersion = deployment.Version1_6_1
+var FastTransferTokenPoolVersion = deployment.Version1_6_3Dev
 var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
