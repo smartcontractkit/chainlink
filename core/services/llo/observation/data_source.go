@@ -184,7 +184,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan error) {
 		loopStart := time.Now()
 		opts, streamValues, observationInterval, err := d.getObservableStreams()
 		if err != nil {
-
 			select {
 			case <-loopStartedCh:
 			default:
