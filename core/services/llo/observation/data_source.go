@@ -118,6 +118,9 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	if opts == nil {
 		return fmt.Errorf("opts cannot be nil")
 	}
+	if d.lggr == nil {
+		return fmt.Errorf("logger cannot be nil")
+	}
 	// Observation loop logic
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
@@ -184,6 +187,12 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 		loopStart := time.Now()
 		opts, streamValues, observationInterval := d.getObservableStreams()
+		if len(streamValues) == 0 {
+			// There is nothing to observe, exit the loop and let the next Observe() call restart it.
+			d.lggr.Debugw("No streams to observe, exiting observation loop")
+			close(d.waitForLoopToExitCh)
+			return
+		}
 
 		ctx, cancel := context.WithTimeout(stopChanCtx, observationInterval)
 		lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
