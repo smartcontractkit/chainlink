@@ -157,8 +157,7 @@ consensus:
       key_id: "evm"
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
-        targetChainSelector:
-          "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+        targetChainSelector: "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
         dataID: "{{.DataID}}"
       encoder: "EVM"
       encoder_config:
