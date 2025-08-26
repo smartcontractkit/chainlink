@@ -731,10 +731,10 @@ func executeBeholderTest(t *testing.T, in *envconfig.Config, envArtifact environ
 		}
 	})
 
-	workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir)
+	workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir)
 	require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
 
-	registerErr := creworkflow.RegisterWithContract(
+	_, registerErr := creworkflow.RegisterWithContract(
 		t.Context(),
 		wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
 		workflowRegistryAddress,

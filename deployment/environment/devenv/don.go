@@ -586,7 +586,7 @@ var MatchAll = func(jobSpec string) bool {
 
 type MatchFn func(jobSpec string) bool
 
-func (n *Node) CancelAllJobs(ctx context.Context, matchFn MatchFn) ([]string, error) {
+func (n *Node) CancelProposals(ctx context.Context, matchFn MatchFn) ([]string, error) {
 	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
 		return nil, err
@@ -614,7 +614,7 @@ func (n *Node) CancelAllJobs(ctx context.Context, matchFn MatchFn) ([]string, er
 	return proposalIDs, nil
 }
 
-func (n *Node) ApproveAllJobs(ctx context.Context, proposalIDs []string) error {
+func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error {
 	for _, proposalID := range proposalIDs {
 		spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, proposalID, false)
 		if err != nil {

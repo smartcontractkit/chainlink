@@ -1,10 +1,12 @@
 package config
 
 import (
-	"errors"
 	"maps"
 	"slices"
 
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -46,6 +48,41 @@ func (c Config) Validate(capabilityFlagsProvider cre.CapabilityFlagsProvider) er
 	}
 
 	return nil
+}
+
+func (c *Config) Load() error {
+	// Load and validate test configuration
+	in, err := framework.Load[Config](nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to load environment configuration")
+	}
+
+	for _, nodeSet := range in.NodeSets {
+		if err := nodeSet.ParseChainCapabilities(); err != nil {
+			return errors.Wrap(err, "failed to parse chain capabilities")
+		}
+
+		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
+			return errors.Wrap(err, "failed to validate chain capabilities")
+		}
+	}
+
+	*c = *in
+
+	return nil
+}
+
+func (c *Config) Store() error {
+	// change override mode to "each" for all node sets, because config contains unique secrets for each node
+	// if we later load it with "all" mode, all nodes in the nodeset will have the same configuration as the first node
+	// and they will fail to start (because they will all have the same P2P keys)
+	for idx, nodeSet := range c.NodeSets {
+		if nodeSet.OverrideMode == "all" {
+			c.NodeSets[idx].OverrideMode = "each"
+		}
+	}
+
+	return framework.Store(c)
 }
 
 // ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.
@@ -111,4 +148,19 @@ type ChipIngressConfig struct {
 
 type KafkaConfig struct {
 	Topics []string `toml:"topics"`
+}
+
+func (c *ChipIngressConfig) Load() error {
+	in, err := framework.Load[ChipIngressConfig](nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to load chip ingress config")
+	}
+
+	*c = *in
+
+	return nil
+}
+
+func (c *ChipIngressConfig) Store() error {
+	return framework.Store(c)
 }

@@ -955,3 +955,8 @@ type InstallableCapability interface {
 	// configuration for the v1 registry format
 	CapabilityRegistryV1ConfigFn() CapabilityRegistryConfigFn
 }
+
+type PersistentConfig interface {
+	Load() error
+	Store() error
+}

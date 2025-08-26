@@ -10,9 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"runtime/debug"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,20 +22,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -46,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -255,13 +248,9 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
-			removeCacheErr := removeCacheFiles(removeAll)
-			if removeCacheErr != nil {
-				framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
-			}
-
-			if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
-				framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
+			cleanUpErr := removeAllEnvironmentStateFiles()
+			if cleanUpErr != nil {
+				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
 			}
 
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
@@ -271,22 +260,9 @@ func startCmd() *cobra.Command {
 			}
 
 			cmdContext := cmd.Context()
-			// Load and validate test configuration
-			in, err := framework.Load[envconfig.Config](nil)
-			if err != nil {
-				return errors.Wrap(err, "failed to load test configuration")
-			}
-
-			// TODO since UnmarshalTOML is not supported by the TOML library we use :head_exploding:
-			// we need to parse chain capabilities manually, but we need to handle it properly, maybe by adding hooks to Load()?
-			for _, nodeSet := range in.NodeSets {
-				if err := nodeSet.ParseChainCapabilities(); err != nil {
-					return errors.Wrap(err, "failed to parse chain capabilities")
-				}
-
-				if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
-					return errors.Wrap(err, "failed to validate chain capabilities")
-				}
+			in := &envconfig.Config{}
+			if err := in.Load(); err != nil {
+				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
 			capabilityFlagsProvider := flags.NewDefaultCapabilityFlagsProvider()
@@ -417,48 +393,34 @@ func storeArtifacts(in *envconfig.Config) error {
 	return saveArtifactPaths()
 }
 
-func storeCTFConfigs[ConfigType any](config *ConfigType) error {
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
+func storeCTFConfigs(config cre.PersistentConfig) error {
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
+	// which we add, when environment starts, as the first one (that way it can be overridden by other configs)
+	previousCtfConfigs := os.Getenv("CTF_CONFIGS")
 	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+		setErr := os.Setenv("CTF_CONFIGS", previousCtfConfigs)
 		if setErr != nil {
 			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
 		}
 	}()
 
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	if len(splitConfigs) > 1 {
-		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
-			splitConfigs = splitConfigs[1:]
-		}
-
-		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		}
-	}
-
-	cachedOutName := splitConfigs[0]
-	if !strings.HasSuffix(splitConfigs[0], "-cache.toml") {
-		cachedOutName = strings.ReplaceAll(splitConfigs[0], ".toml", "") + "-cache.toml"
-	}
-
-	if _, err := os.Stat(cachedOutName); err == nil {
-		removeErr := os.Remove(cachedOutName)
+	// make sure that cache file doesn't exist
+	ctfConfigFileName := addCachePrefix(findCtfConfigFile())
+	if _, err := os.Stat(ctfConfigFileName); err == nil {
+		removeErr := os.Remove(ctfConfigFileName)
 		if removeErr != nil {
 			return errors.Wrap(removeErr, "failed to remove cached config file")
 		}
 	}
 
 	// just in case remove "-cache.toml" suffix, because if it's present in the env var name
-	// config won't be cached as logic assumes it already exists
-	setErr := os.Setenv("CTF_CONFIGS", strings.ReplaceAll(splitConfigs[0], "-cache.toml", ".toml"))
+	// config won't be cached as the logic assumes it already exists and we want to overwrite it
+	setErr := os.Setenv("CTF_CONFIGS", removeCachePrefix(ctfConfigFileName))
 	if setErr != nil {
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
 	}
 
-	storeErr := framework.Store(config)
+	storeErr := config.Store()
 	if storeErr != nil {
 		return errors.Wrap(storeErr, "failed to store environment cached config")
 	}
@@ -466,9 +428,37 @@ func storeCTFConfigs[ConfigType any](config *ConfigType) error {
 	return nil
 }
 
+func addCachePrefix(configFile string) string {
+	if !strings.HasSuffix(configFile, "-cache.toml") {
+		return strings.ReplaceAll(configFile, ".toml", "-cache.toml")
+	}
+	return configFile
+}
+
+func removeCachePrefix(configFile string) string {
+	if strings.HasSuffix(configFile, "-cache.toml") {
+		return strings.ReplaceAll(configFile, "-cache.toml", ".toml")
+	}
+	return configFile
+}
+
 type artifactPaths struct {
 	EnvArtifact string `json:"env_artifact"`
 	EnvConfig   string `json:"env_config"`
+}
+
+func findCtfConfigFile() string {
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
+	// which we add, when environment starts, as the first one (that way it can be overridden by other configs)
+	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	splitConfigs := strings.Split(ctfConfigs, ",")
+	if len(splitConfigs) > 1 {
+		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
+			splitConfigs = splitConfigs[1:]
+		}
+	}
+
+	return splitConfigs[0]
 }
 
 func saveArtifactPaths() error {
@@ -477,30 +467,8 @@ func saveArtifactPaths() error {
 		return artifactAbsPathErr
 	}
 
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	// defer func() {
-	// 	setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
-	// 	if setErr != nil {
-	// 		framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
-	// 	}
-	// }()
-
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	if len(splitConfigs) > 1 {
-		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
-			splitConfigs = splitConfigs[1:]
-		}
-
-		// setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
-		// if setErr != nil {
-		// 	return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		// }
-	}
-
-	splitConfigs[0] = strings.ReplaceAll(splitConfigs[0], "-cache.toml", ".toml")
-
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(splitConfigs[0])
+	ctfConfigFile := removeCachePrefix(findCtfConfigFile())
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(ctfConfigFile)
 	if ctfConfigsAbsPathErr != nil {
 		return ctfConfigsAbsPathErr
 	}
@@ -575,15 +543,17 @@ func stopCmd() *cobra.Command {
 				shouldRemove = removeCurrentCtfConfigs
 			}
 
-			removeCacheErr := removeCacheFiles(shouldRemove)
+			removeCacheErr := removeCtfConfigsCacheFiles(shouldRemove)
 			if removeCacheErr != nil {
 				framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 			}
 
-			if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
-				framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
-			} else {
-				framework.L.Debug().Msg("Removed env_artifact folder")
+			if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
+				framework.L.Warn().Msgf("failed to remove %s folder: %s\n", creenv.ArtifactDirName, removeDirErr)
+			}
+
+			if removeDirErr := os.RemoveAll(defaultArtifactsPathFile); removeDirErr != nil {
+				framework.L.Warn().Msgf("failed to remove %s file: %s\n", defaultArtifactsPathFile, removeDirErr)
 			}
 
 			fmt.Println("Environment stopped successfully")
@@ -816,7 +786,7 @@ var removeCurrentCtfConfigs = func(file string) bool {
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
 	if ctfConfigs != "" {
 		for config := range strings.SplitSeq(ctfConfigs, ",") {
-			if strings.Contains(file, strings.ReplaceAll(config, ".toml", "-cache.toml")) {
+			if strings.Contains(file, addCachePrefix(config)) {
 				return true
 			}
 		}
@@ -841,7 +811,21 @@ var removeCurrentCtfConfigs = func(file string) bool {
 	return false
 }
 
-func removeCacheFiles(shouldRemove shouldRemove) error {
+func removeAllEnvironmentStateFiles() error {
+	// remove all cache files
+	removeCacheErr := removeCtfConfigsCacheFiles(removeAll)
+	if removeCacheErr != nil {
+		return errors.Wrap(removeCacheErr, "failed to remove cache files")
+	}
+
+	if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
+		return errors.Wrap(removeDirErr, "failed to remove env_artifact folder")
+	}
+
+	return os.RemoveAll(defaultArtifactsPathFile)
+}
+
+func removeCtfConfigsCacheFiles(shouldRemove shouldRemove) error {
 	framework.L.Info().Msg("Removing environment state files")
 
 	cacheConfigPattern := "configs/*-cache.toml"
@@ -867,243 +851,4 @@ func removeCacheFiles(shouldRemove shouldRemove) error {
 	}
 
 	return nil
-}
-
-func swapCmds() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "swap",
-		Short: "Swaps parts of the local CRE without restarting the environment",
-	}
-
-	cmd.AddCommand(capabilitySwapCmd())
-	cmd.AddCommand(nodesSwapCmd())
-
-	return cmd
-}
-
-func capabilitySwapCmd() *cobra.Command {
-	var (
-		capabilityFlag string
-		binaryPath     string
-	)
-
-	cmd := &cobra.Command{
-		Use:     "capability",
-		Short:   "Swaps the capability binary of the Chainlink nodes in the environment",
-		Long:    "Swaps the capability binary of the Chainlink nodes in the environment. Capability flag is used to find jobs with names containing the capability name, which are cancelled and approved, so that capability binary is reloaded. Only DONs that have the capability are impacted.",
-		Aliases: []string{"c", "cap"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			supportedCapabilities := flags.NewSwappableCapabilityFlagsProvider()
-			if !slices.Contains(supportedCapabilities.SupportedCapabilityFlags(), capabilityFlag) {
-				return fmt.Errorf("capability %s cannot be hot-reloaded", capabilityFlag)
-			}
-
-			content, readErr := os.ReadFile(defaultArtifactsPathFile)
-			if readErr != nil {
-				return errors.Wrap(readErr, "failed to read artifact paths file")
-			}
-
-			var paths artifactPaths
-			if err := json.Unmarshal(content, &paths); err != nil {
-				return errors.Wrap(err, "failed to unmarshal artifact paths file")
-			}
-
-			setErr := os.Setenv("CTF_CONFIGS", strings.ReplaceAll(paths.EnvConfig, ".toml", "-cache.toml"))
-			if setErr != nil {
-				return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
-			}
-
-			config, loadErr := framework.Load[envconfig.Config](nil)
-			if loadErr != nil {
-				return errors.Wrap(loadErr, "failed to load CTF config")
-			}
-
-			var envArtifact creenv.EnvArtifact
-			artFile, artErr := os.ReadFile(paths.EnvArtifact)
-			if artErr != nil {
-				return errors.Wrap(artErr, "failed to read artifact file")
-			}
-			unmarshalErr := json.Unmarshal(artFile, &envArtifact)
-			if unmarshalErr != nil {
-				return errors.Wrap(unmarshalErr, "failed to unmarshal artifact file")
-			}
-
-			cldLogger := cldlogger.NewSingleFileLogger(nil)
-
-			fullCldEnvOutput, _, loadErr := creenv.BuildFromSavedState(cmd.Context(), cldLogger, config, envArtifact)
-			if loadErr != nil {
-				return errors.Wrap(loadErr, "failed to load environment")
-			}
-
-			var nameContainsCapability = func(jobSpec string) bool {
-				r := regexp.MustCompile(`name\s+=\s+"(.*)"`)
-				matches := r.FindStringSubmatch(jobSpec)
-				if len(matches) < 2 {
-					return false
-				}
-				return strings.Contains(matches[1], capabilityFlag)
-			}
-
-			donIdxToNodeIdToJobIds := map[int]map[string][]string{}
-			for idx, nodeSet := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
-				if !flags.HasFlagForAnyChain(nodeSet.Flags, capabilityFlag) {
-					continue
-				}
-				donIdxToNodeIdToJobIds[idx] = map[string][]string{}
-				for _, node := range nodeSet.DON.Nodes {
-					framework.L.Info().Msgf("Cancelling all jobs for node %s", node.Name)
-					jobIds, cancelErr := node.CancelAllJobs(cmd.Context(), nameContainsCapability)
-					if cancelErr != nil {
-						return errors.Wrap(cancelErr, "failed to cancel jobs")
-					}
-					framework.L.Info().Msgf("Cancelled %d jobs for node %s", len(jobIds), node.Name)
-					donIdxToNodeIdToJobIds[idx][node.NodeID] = jobIds
-				}
-			}
-
-			if len(donIdxToNodeIdToJobIds) == 0 {
-				return fmt.Errorf("no nodes found with capability %s", capabilityFlag)
-			}
-
-			for donIdx, nodeIdToJobIds := range donIdxToNodeIdToJobIds {
-				pattern := fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].Name + "-node"
-				capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
-				if dirErr != nil {
-					return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
-				}
-
-				copyErr := creworkflow.CopyArtifactToDockerContainers(binaryPath, pattern, capDir)
-				if copyErr != nil {
-					return errors.Wrapf(copyErr, "failed to copy %s capability binary to Docker containers with pattern %s", binaryPath, pattern)
-				}
-
-				for _, node := range fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].DON.Nodes {
-					jobIds, ok := nodeIdToJobIds[node.NodeID]
-					if ok {
-						framework.L.Info().Msgf("Approving %d jobs for node %s", len(jobIds), node.Name)
-						approveErr := node.ApproveAllJobs(cmd.Context(), jobIds)
-						if approveErr != nil {
-							return errors.Wrap(approveErr, "failed to approve jobs")
-						}
-						framework.L.Info().Msgf("Approved %d jobs for node %s", len(jobIds), node.Name)
-					}
-				}
-			}
-
-			return storeArtifacts(config)
-		},
-	}
-
-	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "The name of the capability to swap")
-	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "The binary path to swap")
-	cmd.MarkFlagRequired("binary")
-	cmd.MarkFlagRequired("name")
-
-	return cmd
-}
-
-func nodesSwapCmd() *cobra.Command {
-	var (
-		forceFlag bool
-	)
-
-	cmd := &cobra.Command{
-		Use:     "nodes",
-		Short:   "Swaps the Docker images of the Chainlink nodes in the environment",
-		Long:    "Swaps the Docker images of the Chainlink nodes in the environment. If environment is configured to build the Docker image, it will be rebuilt if any change is detected in the source code.",
-		Aliases: []string{"n", "node"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			content, readErr := os.ReadFile(defaultArtifactsPathFile)
-			if readErr != nil {
-				return errors.Wrap(readErr, "failed to read artifact paths file")
-			}
-
-			var paths artifactPaths
-			if err := json.Unmarshal(content, &paths); err != nil {
-				return errors.Wrap(err, "failed to unmarshal artifact paths file")
-			}
-
-			setErr := os.Setenv("CTF_CONFIGS", strings.ReplaceAll(paths.EnvConfig, ".toml", "-cache.toml"))
-			if setErr != nil {
-				return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
-			}
-
-			config, loadErr := framework.Load[envconfig.Config](nil)
-			if loadErr != nil {
-				return errors.Wrap(loadErr, "failed to load CTF config")
-			}
-
-			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
-			setErr = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-			if setErr != nil {
-				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
-			}
-
-			for _, nodeSet := range config.NodeSets {
-				framework.L.Info().Msgf("Removing Docker containers for DON %s", nodeSet.Name)
-				containerIDs, containerIDsErr := findAllDockerContainerIDs(nodeSet.Name + "-node")
-				if containerIDsErr != nil {
-					return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
-				}
-
-				for _, id := range containerIDs {
-					framework.L.Debug().Msgf("Removing Docker container %s", id)
-					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-					if dockerClientErr != nil {
-						return errors.Wrap(dockerClientErr, "failed to create Docker client")
-					}
-
-					if !forceFlag {
-						stopErr := dockerClient.ContainerStop(context.Background(), id, ctypes.StopOptions{})
-						if stopErr != nil {
-							return errors.Wrapf(stopErr, "failed to stop Docker container %s", id)
-						}
-					}
-
-					removeErr := dockerClient.ContainerRemove(context.Background(), id, ctypes.RemoveOptions{Force: forceFlag})
-					if removeErr != nil {
-						return errors.Wrapf(removeErr, "failed to remove Docker container %s", id)
-					}
-				}
-
-				framework.L.Info().Msgf("Starting new Docker containers for DON %s", nodeSet.Name)
-				nodeSet.Out = nil
-				var nodesetErr error
-				nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
-				if nodesetErr != nil {
-					time.Sleep(2 * time.Minute)
-					return errors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSet.Name)
-				}
-			}
-
-			return storeArtifacts(config)
-		},
-	}
-
-	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers")
-
-	return cmd
-}
-
-func findAllDockerContainerIDs(pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-	if dockerClientErr != nil {
-		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
-	}
-
-	containers, containersErr := dockerClient.ContainerList(context.Background(), ctypes.ListOptions{})
-	if containersErr != nil {
-		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
-	}
-
-	containerIDs := []string{}
-	for _, container := range containers {
-		for _, name := range container.Names {
-			if strings.Contains(name, pattern) {
-				containerIDs = append(containerIDs, container.ID)
-			}
-		}
-	}
-
-	return containerIDs, nil
 }

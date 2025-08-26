@@ -118,16 +118,24 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		return pkErr
 	}
 
-	fmt.Print(libformat.PurpleText("[Stage 1/3] Deploying Permissionless Feeds Consumer\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 1/4] Deploying Permissionless Feeds Consumer\n\n"))
 	consumerContractAddress, consumerErr := deploy.PermissionlessFeedsConsumer(rpcURL)
 	if consumerErr != nil {
 		return errors.Wrap(consumerErr, "failed to deploy Permissionless Feeds Consumer contract")
 	}
 
-	fmt.Print(libformat.PurpleText("\n[Stage 1/3] Deployed Permissionless Feeds Consumer in %.2f seconds\n", time.Since(start).Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 1/4] Deployed Permissionless Feeds Consumer in %.2f seconds\n", time.Since(start).Seconds()))
+
+	fmt.Print(libformat.PurpleText("[Stage 2/4] Deploying Balance Reader\n\n"))
+	balanceReaderContractAddress, balanceReaderErr := deploy.BalanceReader(rpcURL)
+	if balanceReaderErr != nil {
+		return errors.Wrap(balanceReaderErr, "failed to deploy Balance Reader contract")
+	}
+
+	fmt.Print(libformat.PurpleText("\n[Stage 2/4] Deployed Balance Reader in %.2f seconds\n", time.Since(start).Seconds()))
 
 	start = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 2/3] Registering example Proof-of-Reserve workflow\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering example Proof-of-Reserve workflow\n\n"))
 
 	var executableWorkflowFunction executableWorkflowFn
 
@@ -140,7 +148,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	if strings.EqualFold(exampleWorkflowTrigger, WorkflowTriggerCron) {
 		workflowName = "cron-based-proof-of-reserve"
 		workflowFilePath = "examples/workflows/v1/proof-of-reserve/cron-based/main.go"
-		configFilePath, configErr = builAndSavePoRCronConfig(consumerContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
+		configFilePath, configErr = builAndSavePoRCronConfig(consumerContractAddress.Hex(), balanceReaderContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
 		if configErr != nil {
 			return errors.Wrap(configErr, "failed to build and save PoR config")
 		}
@@ -148,7 +156,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	} else {
 		workflowName = "web-trigger-based-proof-of-reserve"
 		workflowFilePath = "examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go"
-		configFilePath, configErr = builAndSavePoRWebTriggerConfig(consumerContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
+		configFilePath, configErr = builAndSavePoRWebTriggerConfig(consumerContractAddress.Hex(), balanceReaderContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
 		if configErr != nil {
 			return errors.Wrap(configErr, "failed to build and save PoR config")
 		}
@@ -175,11 +183,11 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	fmt.Printf("Workflow Owner: %s\n", workflowOwner.Hex())
 	fmt.Printf("Workflow Name: %s\n", workflowName)
 
-	fmt.Print(libformat.PurpleText("\n[Stage 2/3] Registered workflow in %.2f seconds\n", time.Since(start).Seconds()))
-	fmt.Print(libformat.PurpleText("[Stage 3/3] Waiting for %.2f seconds for workflow to execute successfully\n\n", timeout.Seconds()))
+	fmt.Print(libformat.PurpleText("\n[Stage 3/4] Registered workflow in %.2f seconds\n", time.Since(start).Seconds()))
+	fmt.Print(libformat.PurpleText("[Stage 4/4] Waiting for %.2f seconds for workflow to execute successfully\n\n", timeout.Seconds()))
 
 	var pauseWorkflow = func() {
-		fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
+		fmt.Print(libformat.PurpleText("\n[Stage 4/4] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
 		start = time.Now()
 		fmt.Print(libformat.PurpleText("\n[CLEANUP] Deleting example workflow\n\n"))
 		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress)
@@ -198,13 +206,18 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, "workflow", os.Getenv("PRIVATE_KEY"), *consumerContractAddress, feedID, timeout, totalStart)
 }
 
-func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, feedID, folder string) (string, error) {
+func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID, folder string) (string, error) {
 	cfg := webapitriggerbasedtypes.WorkflowConfig{
 		DataFeedsCacheAddress: dataFeedsCacheAddress,
 		AllowedTriggerSender:  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 		AllowedTriggerTopic:   "sendValue",
 		FeedID:                feedID,
 		WriteTargetName:       "write_geth-testnet@1.0.0",
+		ChainFamily:           "evm",
+		ChainID:               "1337",
+		BalanceReaderConfig: webapitriggerbasedtypes.BalanceReaderConfig{
+			BalanceReaderAddress: balanceReaderAddress,
+		},
 	}
 
 	yaml, yamlErr := yaml.Marshal(cfg)
@@ -221,7 +234,7 @@ func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, feedID, folder string
 	return filePath, nil
 }
 
-func builAndSavePoRCronConfig(dataFeedsCacheAddress, feedID, folder string) (string, error) {
+func builAndSavePoRCronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID, folder string) (string, error) {
 	if feedID == "" {
 		return "", errors.New("feedID is empty")
 	}
@@ -233,6 +246,11 @@ func builAndSavePoRCronConfig(dataFeedsCacheAddress, feedID, folder string) (str
 			FeedID:                feedID,
 			WriteTargetName:       "write_geth-testnet@1.0.0",
 		},
+		BalanceReaderConfig: cronbasedtypes.BalanceReaderConfig{
+			BalanceReaderAddress: balanceReaderAddress,
+		},
+		ChainFamily: "evm",
+		ChainID:     "1337",
 	}
 
 	yaml, yamlErr := yaml.Marshal(cfg)
