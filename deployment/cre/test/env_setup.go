@@ -165,7 +165,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 				DONs: []changeset2.CapabilitiesRegistryNewDONParams{
 					{
 						Name:        donCfg.Name,
-						F:           uint8(donCfg.F),
+						F:           uint8(donCfg.F), //nolint:gosec // disable G115
 						Nodes:       nodesP2PIDs,
 						DonFamilies: []string{"test-family"},
 						Config:      map[string]interface{}{"consensus": "basic", "timeout": "30s"},
