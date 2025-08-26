@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -18,9 +20,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -42,7 +43,6 @@ type donConfig struct {
 	CapabilityConfig map[string]*pb.CapabilityConfig
 	Labels           map[string]string
 	RegistryChainSel uint64
-	ChainSelectors   []uint64
 }
 
 func initEnv(t *testing.T, lggr logger.Logger) (uint64, *cldf.Environment) {
@@ -51,12 +51,11 @@ func initEnv(t *testing.T, lggr logger.Logger) (uint64, *cldf.Environment) {
 
 	ds := datastore.NewMemoryDataStore()
 	env := cldf.Environment{
-		Logger:            lggr,
-		GetContext:        t.Context,
-		ExistingAddresses: cldf.NewMemoryAddressBook(), // this hasn't been wiped out yet, so we have to at least instantiate it
-		DataStore:         ds.Seal(),
-		BlockChains:       chains,
-		OperationsBundle:  operations.NewBundle(t.Context, lggr, operations.NewMemoryReporter()),
+		Logger:           lggr,
+		GetContext:       t.Context,
+		DataStore:        ds.Seal(),
+		BlockChains:      chains,
+		OperationsBundle: operations.NewBundle(t.Context, lggr, operations.NewMemoryReporter()),
 	}
 
 	deployCapRegChangeset := changeset2.DeployCapabilitiesRegistry{}
@@ -98,8 +97,6 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	// Only need one DON
 	don, env := setupViewOnlyNodeTest(t, registryChainSel, envInitiated.BlockChains.EVMChains(), donCfg)
 
-	err := env.ExistingAddresses.Merge(envInitiated.ExistingAddresses)
-	require.NoError(t, err)
 	env.DataStore = envInitiated.DataStore
 
 	registryAddrs := env.DataStore.Addresses().Filter(
@@ -136,7 +133,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 			EncryptionPublicKey: n.WorkflowKey,
 			Signer:              hex.EncodeToString(ocrConfig.OnchainPublicKey),
 			CapabilityIDs: []string{
-				"offchain_reporting@1.0.0",
+				"test-capability@1.0.0",
 			},
 		})
 	}
@@ -158,7 +155,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 				Nodes: nodes,
 				Capabilities: []changeset2.CapabilitiesRegistryCapability{
 					{
-						CapabilityID: "offchain_reporting@1.0.0",
+						CapabilityID: "test-capability@1.0.0",
 						Metadata:     map[string]interface{}{"capabilityType": 2},
 					},
 				},
@@ -171,10 +168,10 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 						Config:      map[string]interface{}{"consensus": "basic", "timeout": "30s"},
 						CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
 							{
-								CapabilityID: "offchain_reporting@1.0.0",
+								CapabilityID: "test-capability@1.0.0",
 							},
 						},
-						IsPublic:         false,
+						IsPublic:         true,
 						AcceptsWorkflows: true,
 					},
 				},
@@ -195,7 +192,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	require.Len(t, gotNodes, len(don.GetP2PIDs()))
 	require.Len(t, gotNodes, donCfg.N)
 	for _, n := range gotNodes {
-		require.Equal(t, "offchain_reporting@1.0.0", n.CapabilityIds[0])
+		require.Equal(t, "test-capability@1.0.0", n.CapabilityIds[0])
 	}
 
 	gotDON, err := capReg.GetDONByName(nil, donCfg.Name)
@@ -242,7 +239,6 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
 			Labels:         labels,
 		}
-		donCfg.ChainSelectors = append(donCfg.ChainSelectors, nCfg.ChainSelectors...)
 		nodesCfg = append(nodesCfg, nCfg)
 	}
 

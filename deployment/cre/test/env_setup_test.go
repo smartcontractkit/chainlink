@@ -17,13 +17,14 @@ func TestSetupEnvV2(t *testing.T) {
 	// all contracts on registry chain
 	registryChainAddrs := ds.Addresses().Filter(datastore.AddressRefByChainSelector(envV2.RegistrySelector))
 	require.Len(t, registryChainAddrs, 1) // registry
-	// only forwarder on non-home chain
+	require.Equal(t, datastore.ContractType("CapabilitiesRegistry"), registryChainAddrs[0].Type)
+
 	for sel := range env.BlockChains.EVMChains() {
 		chainAddrs := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
 		if sel != envV2.RegistrySelector {
-			require.Len(t, chainAddrs, 0)
+			require.Empty(t, chainAddrs)
 		} else {
-			require.Len(t, chainAddrs, 1)
+			require.Len(t, chainAddrs, 1) // Only the registry should have addresses
 		}
 	}
 }
