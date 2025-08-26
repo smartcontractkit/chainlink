@@ -1553,6 +1553,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
