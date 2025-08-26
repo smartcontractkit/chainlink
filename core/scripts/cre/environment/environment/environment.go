@@ -26,13 +26,13 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -540,18 +540,19 @@ func StartCLIEnvironment(
 	capabilities []cre.InstallableCapability,
 	capabilityFlagsProvider cre.CapabilityFlagsProvider,
 ) (*creenv.SetupOutput, error) {
-	contractSet := map[cldf.ContractType]string{
-		keystone_changeset.BalanceReader:        "1.0.0",
-		keystone_changeset.OCR3Capability:       "1.0.0",
-		keystone_changeset.WorkflowRegistry:     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry: "1.1.0",
-		keystone_changeset.KeystoneForwarder:    "1.0.0",
+	contractSet := map[string]string{
+		keystone_changeset.BalanceReader.String():        "1.0.0",
+		keystone_changeset.OCR3Capability.String():       "1.0.0",
+		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+		ks_sol.ForwarderContract.String():                "1.0.0",
+		ks_sol.ForwarderState.String():                   "1.0.0",
 	}
 
 	if withContractsVersion == "v2" {
-		// TODO(mstreet3): verify the semvers of these two contracts
-		contractSet[keystone_changeset.CapabilitiesRegistry] = "2.0.0"
-		contractSet[keystone_changeset.WorkflowRegistry] = "2.0.0"
+		contractSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+		contractSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
 		return nil, fmt.Errorf("deploying v2 contracts is unsupported for env setup")
 	}
 
