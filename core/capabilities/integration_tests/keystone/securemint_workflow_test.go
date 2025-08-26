@@ -54,7 +54,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	trackInvalidPermissionEventsOnDFCache(t, dataFeedsCache)
 
 	// generate a wf job
-	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), dataFeedsCache.Address())
+	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), secureMintFeedDataID, dataFeedsCache.Address())
 	err = workflowDon.AddJob(ctx, &job)
 	require.NoError(t, err)
 
