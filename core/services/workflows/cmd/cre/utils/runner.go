@@ -163,6 +163,11 @@ func (r *Runner) Run(
 		fmt.Printf("Failed to start engine: %v\n", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err2 := engine.Close(); err2 != nil {
+			fmt.Printf("Failed to close engine: %v\n", err2)
+		}
+	}()
 
 	r.hooks.Wait(ctx, cfg, registry, services)
 
