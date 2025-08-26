@@ -31,6 +31,7 @@ const (
 	defaultMultiplier                    = 2.0
 	defaultMetadataPullIntervalMs        = 1000 * 60 // 1 minute
 	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
+	defaultMetadataPullRequestTimeoutMs  = 1000 * 30 // 30 seconds
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
 	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
 )
@@ -65,6 +66,7 @@ type ServiceConfig struct {
 	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
 	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
 	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
+	MetadataPullRequestTimeoutMs  int                         `json:"metadataPullRequestTimeoutMs"`
 	OutboundRequestCacheTTLMs     int                         `json:"outboundRequestCacheTTLMs"`
 }
 
@@ -118,6 +120,9 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.MetadataAggregationIntervalMs == 0 {
 		cfg.MetadataAggregationIntervalMs = defaultMetadataPullIntervalMs
+	}
+	if cfg.MetadataPullRequestTimeoutMs == 0 {
+		cfg.MetadataPullRequestTimeoutMs = defaultMetadataPullRequestTimeoutMs
 	}
 	if cfg.RetryConfig.InitialIntervalMs == 0 {
 		cfg.RetryConfig.InitialIntervalMs = defaultInitialIntervalMs

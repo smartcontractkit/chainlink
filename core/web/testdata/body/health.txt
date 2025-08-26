@@ -29,5 +29,7 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowLimiter
+ok WorkflowEngineLimiters
+ok WorkflowExecutionLimiter
+ok WorkflowRateLimiter
 ok WorkflowStore

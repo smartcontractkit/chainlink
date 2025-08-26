@@ -126,6 +126,7 @@ jobs:
         shell: bash
         run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
+
       - name: Start local CRE
         shell: bash
         id: start-local-cre
@@ -148,6 +149,7 @@ jobs:
 
           echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
           echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
+
       - name: Run CRE system tests
         shell: bash
         working-directory: system-tests/tests
@@ -168,8 +170,8 @@ jobs:
         working-directory: system-tests/tests/smoke/cre
         run: |
           mkdir -p logs
-          for c in $(docker ps --filter "label=framework=ctf" --format '{{.Names}}'); do
-            docker logs "$c" > "logs/${c}.log"
+          for c in $(docker ps -a --filter "label=framework=ctf" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
       - name: Upload all artifacts as single package

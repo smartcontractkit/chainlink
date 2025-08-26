@@ -124,6 +124,7 @@ jobs:
               - 'integration-tests/**/*.toml'
             cre_changes:
               - *core_changes
+              - 'core/scripts/cre/environment/**/*'
               - 'system-tests/**'
             ccip_changes:
               - '**/*ccip*'

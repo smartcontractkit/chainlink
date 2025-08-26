@@ -9,12 +9,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
@@ -30,7 +33,7 @@ type secretsFetcher struct {
 	capRegistry core.CapabilitiesRegistry
 	lggr        logger.Logger
 
-	semaphore *semaphore[[]*sdkpb.SecretResponse]
+	semaphore limits.ResourcePoolLimiter[int]
 
 	workflowOwner         string
 	workflowName          string
@@ -43,7 +46,7 @@ func NewSecretsFetcher(
 	metrics *monitoring.WorkflowsMetricLabeler,
 	capRegistry core.CapabilitiesRegistry,
 	lggr logger.Logger,
-	semaphore *semaphore[[]*sdkpb.SecretResponse],
+	semaphore limits.ResourcePoolLimiter[int],
 	workflowOwner string,
 	workflowName string,
 	workflowEncryptionKey workflowkey.Key,
@@ -64,10 +67,19 @@ func keyFor(owner, namespace, id string) string {
 }
 
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
-	start := time.Now()
-	resp, err := s.semaphore.WhenAcquired(ctx, func() ([]*sdkpb.SecretResponse, error) {
-		return s.getSecretsForBatch(ctx, request)
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Owner:    s.workflowOwner,
+		Workflow: s.workflowName,
 	})
+	start := time.Now()
+	resp, err := func() ([]*sdkpb.SecretResponse, error) {
+		free, err := s.semaphore.Wait(ctx, 1)
+		if err != nil {
+			return nil, err
+		}
+		defer free()
+		return s.getSecretsForBatch(ctx, request)
+	}()
 
 	s.metrics.With(
 		"workflowOwner", s.workflowOwner,

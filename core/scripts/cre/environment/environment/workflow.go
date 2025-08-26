@@ -2,10 +2,13 @@ package environment
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -108,6 +111,7 @@ func deployWorkflowCmd() *cobra.Command {
 		workflowFilePathFlag            string
 		configFilePathFlag              string
 		secretsFilePathFlag             string
+		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
 		workflowNameFlag                string
@@ -143,13 +147,28 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}()
 
+			if !compileWorkflowFlag {
+				if err := isBase64File(workflowFilePathFlag); err != nil {
+					return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, add '--compile' flag to the command instead")
+				}
+			}
+
+			if compileWorkflowFlag {
+				compiledWorkflowPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+				if compileErr != nil {
+					return errors.Wrap(compileErr, "❌ failed to compile workflow")
+				}
+
+				workflowFilePathFlag = compiledWorkflowPath
+			}
+
 			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to the workflow WASM file")
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to a base64-encoded workflow WASM file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
@@ -162,6 +181,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Delete the workflow file after deployment")
+	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compile the workflow before deploying it")
 
 	if err := cmd.MarkFlagRequired("wasm-file-path"); err != nil {
 		panic(err)
@@ -187,10 +207,15 @@ func compileDeployWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "compile-deploy",
-		Short: "Compiles and uploads a workflow to the environment",
-		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		Use:    "compile-deploy",
+		Short:  "DEPRECATED: Use 'cre local workflow deploy --compile' instead",
+		Long:   `DEPRECATED: Use 'cre local workflow deploy --compile' instead`,
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'cre local workflow deploy --compile' instead\033[0m\n")
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+
 			initDxTracker()
 			var regErr error
 
@@ -358,7 +383,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 }
 
 func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
-	copyErr := creworkflow.CopyWorkflowToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+	copyErr := creworkflow.CopyArtifactToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 	}
@@ -387,7 +412,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		configCopyErr := creworkflow.CopyArtifactToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 		if configCopyErr != nil {
 			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
 		}
@@ -414,7 +439,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyWorkflowToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
+		secretsCopyErr := creworkflow.CopyArtifactToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
 		if secretsCopyErr != nil {
 			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
 		}
@@ -445,7 +470,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
+	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
@@ -456,7 +481,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		}()
 	}
 
-	fmt.Printf("\n✅ Workflow registered successfully\n\n")
+	fmt.Printf("\n✅ Workflow registered successfully: workflowID='%s'\n\n", workflowID)
 
 	return nil
 }
@@ -468,4 +493,46 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	}
 
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, true)
+}
+
+func isBase64File(filename string) error {
+	fileInfo, fErr := os.Stat(filename)
+	if fErr != nil {
+		return errors.Wrap(fErr, "failed to get file info")
+	}
+
+	readSize := min(fileInfo.Size(), 4*1024*1024) // 4MB
+
+	file, oErr := os.Open(filename)
+	if oErr != nil {
+		return errors.Wrap(oErr, "failed to open file")
+	}
+	defer file.Close()
+
+	buffer := make([]byte, readSize)
+	n, rErr := file.Read(buffer)
+	if rErr != nil && rErr != io.EOF {
+		return errors.Wrap(rErr, "failed to read file")
+	}
+
+	if !isBase64Content(string(buffer[:n])) {
+		return fmt.Errorf("❌ file %s is not a base64-encoded file", filename)
+	}
+
+	return nil
+}
+
+func isBase64Content(content string) bool {
+	// Remove whitespace and newlines, just to be safe
+	content = strings.ReplaceAll(content, "\n", "")
+	content = strings.ReplaceAll(content, "\r", "")
+	content = strings.ReplaceAll(content, " ", "")
+	content = strings.ReplaceAll(content, "\t", "")
+
+	if len(content) == 0 {
+		return false
+	}
+
+	_, err := base64.StdEncoding.DecodeString(content)
+	return err == nil
 }
