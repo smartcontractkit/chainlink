@@ -566,7 +566,7 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 
 	if _, err := meteringReport.Deduct(
 		computeUnit,
-		metering.ByResource(computeUnit, compMs),
+		metering.ByResource(computeUnit, "v2-standard-deduction-compute", compMs),
 	); err != nil {
 		e.lggr.Errorw("could not deduct balance for capability request", "capReq", "standard-deduction-compute", "err", err)
 	}

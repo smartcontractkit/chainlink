@@ -71,6 +71,8 @@ type ProtoDetail struct {
 }
 
 type ReportStep struct {
+	// The ID of the capability being used in this step
+	CapabilityID string
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
 	// The actual resource spend that each node used for this step
@@ -251,12 +253,13 @@ type DeductOpt func(string, *Report) ([]capabilities.SpendLimit, error)
 // ByResource returns a DeductOpt that earmarks a specified amount of local universal credit balance for a given spend
 // type.
 func ByResource(
-	spendType string,
+	spendType, capabilityID string,
 	amount decimal.Decimal,
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
 		step := ReportStep{
-			Deduction: decimal.Zero,
+			CapabilityID: capabilityID,
+			Deduction:    decimal.Zero,
 		}
 
 		defer func() {
@@ -290,7 +293,8 @@ func ByDerivedAvailability(
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
 		step := ReportStep{
-			Deduction: decimal.Zero,
+			CapabilityID: info.ID,
+			Deduction:    decimal.Zero,
 		}
 
 		defer func() {
@@ -429,8 +433,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		protoReport.Message = r.meteringModeErr.Error()
 	}
 
+	stepRefLookup := []string{}
+
 	for ref, step := range r.steps {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
+		stepRefLookup = append(stepRefLookup, ref+":"+step.CapabilityID)
 
 		for unit, details := range step.Spends {
 			for _, detail := range details {
@@ -446,6 +453,8 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			Nodes: nodeDetails,
 		}
 	}
+
+	r.lggr.Debug("Step references:", "steps", strings.Join(stepRefLookup, ","))
 
 	return protoReport
 }
