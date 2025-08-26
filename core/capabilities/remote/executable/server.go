@@ -40,6 +40,7 @@ type server struct {
 
 	requestIDToRequest map[string]requestAndMsgID
 	requestTimeout     time.Duration
+	capMethodName      string
 
 	// Used to detect messages with the same message id but different payloads
 	messageIDToRequestIDsCount map[string]map[string]int
@@ -62,7 +63,7 @@ type requestAndMsgID struct {
 func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
 	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	maxParallelRequests int, messageHasher types.MessageHasher,
+	maxParallelRequests int, messageHasher types.MessageHasher, capMethodName string,
 	lggr logger.Logger) *server {
 	if remoteExecutableConfig == nil {
 		lggr.Info("no remote config provided, using default values")
@@ -84,6 +85,7 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		requestTimeout:             requestTimeout,
+		capMethodName:              capMethodName,
 
 		lggr:   logger.Named(lggr, "ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
@@ -202,7 +204,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr)
+			callingDon, messageID, r.dispatcher, r.requestTimeout, r.capMethodName, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

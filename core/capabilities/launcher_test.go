@@ -1314,3 +1314,233 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
 }
+
+func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	fullExecutableCapID := "evm@1.0.0"
+	triggerCapID := RandomUTF8BytesWord()
+	executableCapID := RandomUTF8BytesWord()
+	wfDonID := uint32(1)
+	capDonID := uint32(2)
+	rtc := &capabilities.RemoteTriggerConfig{}
+	rtc.ApplyDefaults()
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	execCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second),
+						DeltaStage:     durationpb.New(1 * time.Second),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, 1, nil)
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, 1, [][32]byte{triggerCapID, executableCapID})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
+
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(workflowDonNodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	launcher := NewLauncher(
+		lggr,
+		wrapper,
+		nil,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{},
+	)
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, wfDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, wfDonID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
+
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
+	require.NoError(t, err)
+
+	_, err = registry.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+
+	executableCap, err := registry.Get(t.Context(), fullExecutableCapID)
+	require.NoError(t, err)
+
+	_, ok := executableCap.(capabilities.ExecutableAndTriggerCapability)
+	assert.True(t, ok, "expected executableCap to be of type capabilities.ExecutableAndTriggerCapability")
+}
+
+func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, registry.Add(t.Context(), mt))
+
+	fullExecutableCapID := "evm@1.0.0"
+	mtarg := &mockCapability{
+		CapabilityInfo: capabilities.MustNewCapabilityInfo(
+			fullExecutableCapID,
+			capabilities.CapabilityTypeTarget,
+			"evm",
+		),
+	}
+	require.NoError(t, registry.Add(t.Context(), mtarg))
+
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+
+	triggerCapID := RandomUTF8BytesWord()
+	executableCapID := RandomUTF8BytesWord()
+	wfDonID := uint32(1)
+	capDonID := uint32(2)
+	rtc := &capabilities.RemoteTriggerConfig{}
+	rtc.ApplyDefaults()
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	execCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second),
+						DeltaStage:     durationpb.New(1 * time.Second),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, 1, nil)
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, 1, [][32]byte{triggerCapID, executableCapID})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
+
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(capabilityDonNodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	launcher := NewLauncher(
+		lggr,
+		wrapper,
+		nil,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{},
+	)
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
+	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.server")).Return(nil)
+
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
+	require.NoError(t, err)
+}
+
+// Helper functions for building LocalRegistry
+func newNodes(count int) []ragetypes.PeerID {
+	nodes := make([]ragetypes.PeerID, count)
+	for i := range count {
+		nodes[i] = RandomUTF8BytesWord()
+	}
+	return nodes
+}
+
+func buildLocalRegistry() *registrysyncer.LocalRegistry {
+	return &registrysyncer.LocalRegistry{
+		IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
+		IDsToCapabilities: make(map[string]registrysyncer.Capability),
+		IDsToNodes:        make(map[ragetypes.PeerID]registrysyncer.NodeInfo),
+	}
+}
+
+func addDON(registry *registrysyncer.LocalRegistry, donID uint32, configVersion uint32, f uint8, isPublic bool, acceptsWorkflows bool, members []ragetypes.PeerID, operatorID uint32, hashedCapabilityIDs [][32]byte) {
+	registry.IDsToDONs[registrysyncer.DonID(donID)] = registrysyncer.DON{
+		DON: capabilities.DON{
+			ID:               donID,
+			ConfigVersion:    configVersion,
+			F:                f,
+			IsPublic:         isPublic,
+			AcceptsWorkflows: acceptsWorkflows,
+			Members:          members,
+		},
+		CapabilityConfigurations: make(map[string]registrysyncer.CapabilityConfiguration),
+	}
+
+	// Add each member node to the registry
+	for _, peerID := range members {
+		registry.IDsToNodes[peerID] = registrysyncer.NodeInfo{
+			NodeOperatorID:      operatorID,
+			Signer:              RandomUTF8BytesWord(),
+			P2pID:               peerID,
+			EncryptionPublicKey: RandomUTF8BytesWord(),
+			HashedCapabilityIDs: hashedCapabilityIDs,
+		}
+	}
+}
+
+func addCapabilityToDON(registry *registrysyncer.LocalRegistry, donID uint32, capabilityID string, capabilityType capabilities.CapabilityType, config []byte) {
+	don := registry.IDsToDONs[registrysyncer.DonID(donID)]
+	don.CapabilityConfigurations[capabilityID] = registrysyncer.CapabilityConfiguration{
+		Config: config,
+	}
+	registry.IDsToDONs[registrysyncer.DonID(donID)] = don
+
+	registry.IDsToCapabilities[capabilityID] = registrysyncer.Capability{
+		ID:             capabilityID,
+		CapabilityType: capabilityType,
+	}
+}
