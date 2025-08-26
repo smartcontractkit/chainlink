@@ -65,7 +65,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -95,7 +95,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -127,7 +127,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -139,7 +139,6 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -161,7 +160,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -194,7 +193,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -241,3 +240,21 @@ jobs:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
+
+  deploy-nightly:
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-core]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}

@@ -43,7 +43,7 @@ func findAllDockerContainerNames(pattern string) ([]string, error) {
 	return containerNames, nil
 }
 
-func CopyWorkflowToDockerContainers(workflowWasmPath string, containerNamePattern string, targetDir string) error {
+func CopyArtifactToDockerContainers(filePath string, containerNamePattern string, targetDir string) error {
 	containerNames, containerNamesErr := findAllDockerContainerNames(containerNamePattern)
 	if containerNamesErr != nil {
 		return errors.Wrap(containerNamesErr, "failed to find Docker containers")
@@ -65,10 +65,10 @@ func CopyWorkflowToDockerContainers(workflowWasmPath string, containerNamePatter
 			return errors.Wrap(execOutputErr, "failed to execute mkdir command in Docker container")
 		}
 
-		copyErr := frameworkDockerClient.CopyFile(containerName, workflowWasmPath, targetDir)
+		copyErr := frameworkDockerClient.CopyFile(containerName, filePath, targetDir)
 		if copyErr != nil {
 			fmt.Fprint(os.Stderr, execOutput)
-			return errors.Wrap(copyErr, "failed to copy workflow to Docker container")
+			return errors.Wrap(copyErr, "failed to copy artifact to Docker container")
 		}
 	}
 

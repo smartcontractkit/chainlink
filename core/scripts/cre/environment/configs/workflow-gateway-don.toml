@@ -50,6 +50,7 @@
 
    [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -71,6 +72,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
@@ -114,6 +116,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'

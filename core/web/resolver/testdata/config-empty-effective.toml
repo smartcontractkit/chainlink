@@ -335,6 +335,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogStreamingEnabled = false
 

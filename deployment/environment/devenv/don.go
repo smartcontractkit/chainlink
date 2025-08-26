@@ -273,7 +273,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if len(accounts) == 0 {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainType)
 			}
 			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]

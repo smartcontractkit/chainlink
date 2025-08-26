@@ -4,21 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/gagliardetto/solana-go"
 	"google.golang.org/grpc/credentials/insecure"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -41,37 +36,31 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return nil, nil, pkErr
 	}
+	// just in case
+	if pkErr := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey); pkErr != nil {
+		return nil, nil, pkErr
+	}
 
 	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
 
 	for _, bc := range cachedInput.Blockchains {
-		sethClient, sethErr := seth.NewClientBuilder().
-			WithRpcUrl(bc.Out.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
-		if sethErr != nil {
-			return nil, nil, errors.Wrap(sethErr, "failed to create seth client")
+		if bc.Type == blockchain.FamilySolana {
+			initErr := initSolanaInput(&bc)
+			if initErr != nil {
+				return nil, nil, errors.Wrap(initErr, "failed to init solana")
+			}
+			w, err := wrapSolana(&bc, bc.Out)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to wrap solana")
+			}
+			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
+			continue
 		}
-
-		chainID, chainIDErr := strconv.ParseUint(bc.ChainID, 10, 64)
-		if chainIDErr != nil {
-			return nil, nil, errors.Wrapf(chainIDErr, "failed to parse chain id %s", bc.ChainID)
+		w, err := wrapEVM(bc.Out)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to wrap evm")
 		}
-
-		chainSelector, chainSelectorErr := chainselectors.SelectorFromChainId(chainID)
-		if chainSelectorErr != nil {
-			return nil, nil, errors.Wrapf(chainSelectorErr, "failed to get chain selector for chain id %d", chainID)
-		}
-
-		wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, &cre.WrappedBlockchainOutput{
-			BlockchainOutput:   bc.Out,
-			SethClient:         sethClient,
-			ChainSelector:      chainSelector,
-			ChainID:            chainID,
-			DeployerPrivateKey: sethClient.Cfg.Network.PrivateKeys[0],
-		})
+		wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
 	}
 
 	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
@@ -141,20 +130,11 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
 	for _, output := range wrappedBlockchainOutputs {
-		chainConfigs = append(chainConfigs, deployment_devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(output.ChainID, 10),
-			ChainName: output.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(output.BlockchainOutput.Family),
-			WSRPCs: []deployment_devenv.CribRPCs{{
-				External: output.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: output.BlockchainOutput.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []deployment_devenv.CribRPCs{{
-				External: output.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: output.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: output.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		})
+		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
+		if cfgErr != nil {
+			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
+		}
+		chainConfigs = append(chainConfigs, cfg)
 	}
 
 	blockChains, chainErr := deployment_devenv.NewChains(cldLogger, chainConfigs)
@@ -189,6 +169,18 @@ func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
 			return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
 		}
 		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+	}
+
+	return nil
+}
+
+func SetDefaultSolanaPrivateKeyIfEmpty(key solana.PrivateKey) error {
+	if os.Getenv("SOLANA_PRIVATE_KEY") == "" {
+		setErr := os.Setenv("SOLANA_PRIVATE_KEY", key.String())
+		if setErr != nil {
+			return fmt.Errorf("failed to set SOLANA_PRIVATE_KEY environment variable: %w", setErr)
+		}
+		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
 	}
 
 	return nil

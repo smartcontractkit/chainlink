@@ -11,21 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
-
-type metadataRegistry interface {
-	LocalNode(ctx context.Context) (capabilities.Node, error)
-	NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error)
-	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
-}
 
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	metadataRegistry metadataRegistry
-	lggr             logger.Logger
+	core.UnimplementedCapabilitiesRegistryMetadata
 	core.CapabilitiesRegistryBase
+
+	metadataRegistry core.CapabilitiesRegistryMetadata
+	lggr             logger.Logger
 	mu sync.RWMutex
 }
 
@@ -55,17 +50,12 @@ func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string,
 		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
 	}
 
-	cfc, err := r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-
-	return unmarshalCapabilityConfig(cfc.Config)
+	return r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
 }
 
 // SetLocalRegistry sets a local copy of the offchain registry for the registry to use.
 // This is only public for testing purposes; the only production use should be from the CapabilitiesLauncher.
-func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
+func (r *Registry) SetLocalRegistry(lr core.CapabilitiesRegistryMetadata) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.metadataRegistry = lr
@@ -106,6 +96,6 @@ func (t *TestMetadataRegistry) NodeByPeerID(ctx context.Context, _ p2ptypes.Peer
 	return t.LocalNode(ctx)
 }
 
-func (t *TestMetadataRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
-	return registrysyncer.CapabilityConfiguration{}, nil
+func (t *TestMetadataRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	return capabilities.CapabilityConfiguration{}, nil
 }

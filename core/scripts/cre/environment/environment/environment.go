@@ -972,7 +972,7 @@ func capabilitySwapCmd() *cobra.Command {
 					return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
 				}
 
-				copyErr := creworkflow.CopyWorkflowToDockerContainers(binaryPath, pattern, capDir)
+				copyErr := creworkflow.CopyArtifactToDockerContainers(binaryPath, pattern, capDir)
 				if copyErr != nil {
 					return errors.Wrapf(copyErr, "failed to copy %s capability binary to Docker containers with pattern %s", binaryPath, pattern)
 				}
