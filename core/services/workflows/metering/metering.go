@@ -490,6 +490,8 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 		return ErrNoReserve
 	}
 
+	r.lggr.Debug("Emitting metering report", "report", r.FormatReport())
+
 	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
 }
 
