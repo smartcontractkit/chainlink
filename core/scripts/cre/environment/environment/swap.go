@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	net "net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -13,12 +15,13 @@ import (
 	ctypes "github.com/docker/docker/api/types/container"
 	dc "github.com/docker/docker/client"
 	"github.com/pkg/errors"
-	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -42,6 +45,7 @@ func capabilitySwapCmd() *cobra.Command {
 	var (
 		capabilityFlag string
 		binaryPath     string
+		forceFlag      bool
 	)
 
 	cmd := &cobra.Command{
@@ -69,7 +73,7 @@ func capabilitySwapCmd() *cobra.Command {
 				}
 			}()
 
-			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath)
+			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath, forceFlag)
 
 			return swapErr
 		},
@@ -77,13 +81,14 @@ func capabilitySwapCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap")
 	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "Location of the binary to swap on the host machine")
-	cmd.MarkFlagRequired("binary")
-	cmd.MarkFlagRequired("name")
+	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
+	_ = cmd.MarkFlagRequired("binary")
+	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
 }
 
-func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) error {
+func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forceFlag bool) error {
 	swappableapabilities := flags.NewSwappableCapabilityFlagsProvider()
 	if !slices.Contains(swappableapabilities.SupportedCapabilityFlags(), capabilityFlag) {
 		return fmt.Errorf("capability %s cannot be hot-reloaded. Supported capabilities: %s", capabilityFlag, strings.Join(swappableapabilities.SupportedCapabilityFlags(), ", "))
@@ -139,29 +144,29 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) erro
 
 	// cancel jobs for nodes that have the capability
 	// donId -> nodeId -> proposalIDs
-	donIdxToNodeIdToProposalIDs := map[int]map[string][]string{}
+	donIdxToNodeIDToProposalIDs := map[int]map[string][]string{}
 	for idx, nodeSet := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
 		if !flags.HasFlagForAnyChain(nodeSet.Flags, capabilityFlag) {
 			continue
 		}
-		donIdxToNodeIdToProposalIDs[idx] = map[string][]string{}
+		donIdxToNodeIDToProposalIDs[idx] = map[string][]string{}
 		for _, node := range nodeSet.DON.Nodes {
-			framework.L.Info().Msgf("Cancelling all job proposals for node %s", node.Name)
+			framework.L.Info().Msgf("Cancelling matching job proposals for node %s", node.Name)
 			proposalIDs, cancelErr := node.CancelProposals(ctx, jobNameContainsCapability)
 			if cancelErr != nil {
 				return errors.Wrapf(cancelErr, "failed to cancel job proposals for node %s", node.Name)
 			}
 			framework.L.Info().Msgf("Cancelled %d job proposals for node %s", len(proposalIDs), node.Name)
-			donIdxToNodeIdToProposalIDs[idx][node.NodeID] = proposalIDs
+			donIdxToNodeIDToProposalIDs[idx][node.NodeID] = proposalIDs
 		}
 	}
 
-	if len(donIdxToNodeIdToProposalIDs) == 0 {
+	if len(donIdxToNodeIDToProposalIDs) == 0 {
 		return fmt.Errorf("no nodes found with capability %s in any of the DONs. Please check your topology and make sure that the capability is enabled at least for one DON", capabilityFlag)
 	}
 
 	// copy the binary to the Docker containers that have the capability
-	for donIdx, nodeIdToProposalIDs := range donIdxToNodeIdToProposalIDs {
+	for donIdx := range donIdxToNodeIDToProposalIDs {
 		pattern := fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].Name + "-node"
 		capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
 		if dirErr != nil {
@@ -172,10 +177,76 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) erro
 		if copyErr != nil {
 			return errors.Wrapf(copyErr, "failed to copy %s capability binary to Docker containers with pattern %s", binaryPath, pattern)
 		}
+	}
 
-		// approve the job proposal again, so that job is restarted with the new binary
+	// TODO remove if clean up issues mentioned in https://smartcontract-it.atlassian.net/browse/PRODCRE-802 are fixed
+	// and directly approve jobspecs without restarting nodes
+	nerrg := errgroup.Group{}
+	for _, nodeSet := range config.NodeSets {
+		if !flags.HasFlagForAnyChain(nodeSet.ComputedCapabilities, capabilityFlag) {
+			continue
+		}
+		nerrg.Go(func() error {
+			framework.L.Info().Msgf("Removing Docker containers for DON %s", nodeSet.Name)
+			containerIDs, containerIDsErr := findAllDockerContainerIDs(ctx, nodeSet.Name+"-node")
+			if containerIDsErr != nil {
+				return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
+			}
+
+			cerrg := errgroup.Group{}
+			for _, id := range containerIDs {
+				cerrg.Go(func() error {
+					framework.L.Debug().Msgf("Removing Docker container %s", id)
+					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+					if dockerClientErr != nil {
+						return errors.Wrap(dockerClientErr, "failed to create Docker client")
+					}
+
+					signal := "SIGTERM"
+					if forceFlag {
+						signal = "SIGKILL"
+					}
+					return dockerClient.ContainerRestart(ctx, id, ctypes.StopOptions{Signal: signal})
+				})
+			}
+
+			if err := cerrg.Wait(); err != nil {
+				return errors.Wrapf(err, "failed to remove Docker containers")
+			}
+
+			// make sure that networking is up after restarting
+			errg := errgroup.Group{}
+			context, cancel := context.WithTimeout(ctx, 1*time.Minute)
+			framework.L.Info().Msgf("Waiting for all nodes to be up")
+			for _, node := range nodeSet.Out.CLNodes {
+				errg.Go(func() error {
+					return waitForURL(context, node.Node.ExternalURL+"/sessions", 100*time.Millisecond)
+				})
+			}
+			if err := errg.Wait(); err != nil {
+				cancel()
+				return errors.Wrapf(err, "failed to wait for all nodes to be up")
+			}
+			cancel()
+
+			return nil
+		})
+	}
+
+	if err := nerrg.Wait(); err != nil {
+		return errors.Wrapf(err, "failed to restart nodeSets")
+	}
+
+	// connect clients again after restarting
+	fullCldEnvOutput, _, loadErr = creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
+	if loadErr != nil {
+		return errors.Wrap(loadErr, "failed to load environment")
+	}
+
+	// approve the job proposal again, so that the job is restarted with the new binary
+	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
 		for _, node := range fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].DON.Nodes {
-			proposalIDs, ok := nodeIdToProposalIDs[node.NodeID]
+			proposalIDs, ok := nodeIDToProposalIDs[node.NodeID]
 			if ok {
 				framework.L.Info().Msgf("Approving %d job proposals for node %s", len(proposalIDs), node.Name)
 				approveErr := node.ApproveProposals(ctx, proposalIDs)
@@ -190,9 +261,42 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) erro
 	return storeArtifacts(config)
 }
 
+func waitForURL(ctx context.Context, url string, interval time.Duration) error {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+
+	parsed, err := net.Parse(url)
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse URL %s", url)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for %s failed: %w", url, ctx.Err())
+		case <-ticker.C:
+			resp, err := client.Do(&http.Request{
+				Method: "GET",
+				URL:    parsed,
+			})
+			if err == nil {
+				defer resp.Body.Close()    //nolint: revive // we want to defer in the loop
+				if resp.StatusCode < 500 { // service responds (even 404 means it's up)
+					return nil
+				}
+			}
+		}
+	}
+}
+
 func nodesSwapCmd() *cobra.Command {
 	var (
-		forceFlag bool
+		forceFlag    bool
+		waitTimeFlag time.Duration
 	)
 
 	cmd := &cobra.Command{
@@ -220,18 +324,19 @@ func nodesSwapCmd() *cobra.Command {
 				}
 			}()
 
-			swapErr = swapNodes(cmd.Context(), forceFlag)
+			swapErr = swapNodes(cmd.Context(), forceFlag, waitTimeFlag)
 
 			return swapErr
 		},
 	}
 
 	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
+	cmd.Flags().DurationVarP(&waitTimeFlag, "wait-time", "w", 2*time.Minute, "Time to wait for the containers to be removed")
 
 	return cmd
 }
 
-func swapNodes(ctx context.Context, forceFlag bool) error {
+func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) error {
 	content, readErr := os.ReadFile(defaultArtifactsPathFile)
 	if readErr != nil {
 		return errors.Wrap(readErr, "failed to read artifact paths file. Make sure that local CRE environment is running")
@@ -258,41 +363,57 @@ func swapNodes(ctx context.Context, forceFlag bool) error {
 		return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 	}
 
+	nerrg := errgroup.Group{}
 	for _, nodeSet := range config.NodeSets {
-		framework.L.Info().Msgf("Removing Docker containers for DON %s", nodeSet.Name)
-		containerIDs, containerIDsErr := findAllDockerContainerIDs(ctx, nodeSet.Name+"-node")
-		if containerIDsErr != nil {
-			return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
-		}
-
-		for _, id := range containerIDs {
-			framework.L.Debug().Msgf("Removing Docker container %s", id)
-			dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-			if dockerClientErr != nil {
-				return errors.Wrap(dockerClientErr, "failed to create Docker client")
+		nerrg.Go(func() error {
+			framework.L.Info().Msgf("Removing Docker containers for DON %s", nodeSet.Name)
+			containerIDs, containerIDsErr := findAllDockerContainerIDs(ctx, nodeSet.Name+"-node")
+			if containerIDsErr != nil {
+				return errors.Wrapf(containerIDsErr, "failed to find Docker containers for node set %s", nodeSet.Name)
 			}
 
-			if !forceFlag {
-				stopErr := dockerClient.ContainerStop(ctx, id, ctypes.StopOptions{})
-				if stopErr != nil {
-					return errors.Wrapf(stopErr, "failed to stop Docker container %s", id)
-				}
+			cerrg := errgroup.Group{}
+			for _, id := range containerIDs {
+				cerrg.Go(func() error {
+					framework.L.Debug().Msgf("Removing Docker container %s", id)
+					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+					if dockerClientErr != nil {
+						return errors.Wrap(dockerClientErr, "failed to create Docker client")
+					}
+
+					if !forceFlag {
+						stopErr := dockerClient.ContainerStop(ctx, id, ctypes.StopOptions{})
+						if stopErr != nil {
+							return errors.Wrapf(stopErr, "failed to stop Docker container %s", id)
+						}
+					}
+
+					return dockerClient.ContainerRemove(ctx, id, ctypes.RemoveOptions{Force: forceFlag})
+				})
 			}
 
-			removeErr := dockerClient.ContainerRemove(ctx, id, ctypes.RemoveOptions{Force: forceFlag})
-			if removeErr != nil {
-				return errors.Wrapf(removeErr, "failed to remove Docker container %s", id)
+			if err := cerrg.Wait(); err != nil {
+				return errors.Wrapf(err, "failed to remove Docker containers")
 			}
-		}
 
-		framework.L.Info().Msgf("Starting new Docker containers for DON %s", nodeSet.Name)
-		nodeSet.Out = nil
-		var nodesetErr error
-		nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
-		if nodesetErr != nil {
-			time.Sleep(2 * time.Minute)
-			return errors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSet.Name)
-		}
+			framework.L.Info().Msgf("Starting new Docker containers for DON %s", nodeSet.Name)
+			nodeSet.Out = nil
+			var nodesetErr error
+			nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
+			if nodesetErr != nil {
+				framework.L.Error().Msgf("Failed to create node set named %s: %s", nodeSet.Name, nodesetErr)
+				framework.L.Info().Msgf("Waiting %s for the containers to be removed", waitTime.String())
+				time.Sleep(waitTime)
+
+				return errors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSet.Name)
+			}
+
+			return nil
+		})
+	}
+
+	if err := nerrg.Wait(); err != nil {
+		return errors.Wrapf(err, "failed to restart nodeSets")
 	}
 
 	return storeArtifacts(config)
