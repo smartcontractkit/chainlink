@@ -115,6 +115,9 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
+	if opts == nil {
+		return fmt.Errorf("observation options cannot be nil")
+	}
 	// Observation loop logic
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
@@ -122,11 +125,9 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		d.setObservableStreams(ctx, streamValues, opts)
 
 		if !d.observationLoopStarted.Load() {
-			loopStartedCh := make(chan error)
+			loopStartedCh := make(chan struct{})
 			go d.startObservationLoop(loopStartedCh)
-			if err := <-loopStartedCh; err != nil {
-				return err
-			}
+			<-loopStartedCh
 		}
 	}
 
@@ -170,7 +171,7 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 // the cache. It does not check for cached versions, it always calculates fresh values.
 //
 // NOTE: This method needs to be run in a goroutine.
-func (d *dataSource) startObservationLoop(loopStartedCh chan error) {
+func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	var elapsed time.Duration
 
 	stopChanCtx, stopChanCancel := d.observationLoopCloseCh.NewCtx()
@@ -182,18 +183,11 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan error) {
 		}
 
 		loopStart := time.Now()
-		opts, streamValues, observationInterval, err := d.getObservableStreams()
-		if err != nil {
-			select {
-			case <-loopStartedCh:
-			default:
-				// If the loopStartedCh is still open, we want to send the error over it, so we can error out of the
-				// Observe() call which started this loop, otherwise we just end the loop.
-				loopStartedCh <- err
-			}
-			d.lggr.Errorw("ObservableStreams returned err", "err", err, "stream_values", streamValues)
-			close(d.waitForLoopToExitCh)
-			return
+		opts, streamValues, observationInterval := d.getObservableStreams()
+		if opts != nil {
+			d.lggr.Debugw("ObservableStreams", "streams", streamValues, "opts", opts)
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 
 		ctx, cancel := context.WithTimeout(stopChanCtx, observationInterval)
@@ -360,17 +354,13 @@ func (o *observableStreamValues) IsActive() (bool, error) {
 // getObservableStreams returns the active plugin data source options, the streams to observe and the observation interval
 // the observation interval is the maximum time we can spend observing streams. We ensure that we don't exceed this time and
 // we wait for the remaining time in the observation loop.
-func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.Duration, error) {
+func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.Duration) {
 	d.configDigestToStreamMu.Lock()
 	streamsToObserve := make([]observableStreamValues, 0, len(d.configDigestToStream))
 	for _, vals := range d.configDigestToStream {
 		streamsToObserve = append(streamsToObserve, vals)
 	}
 	d.configDigestToStreamMu.Unlock()
-
-	if len(streamsToObserve) == 0 {
-		return nil, nil, 0, errors.New("no observable stream values found")
-	}
 
 	// deduplicate streams and get the active ocr instance options
 	for _, vals := range streamsToObserve {
@@ -383,8 +373,8 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.
 			continue
 		}
 
-		return vals.opts, vals.streamValues, vals.observationInterval, nil
+		return vals.opts, vals.streamValues, vals.observationInterval
 	}
 
-	return nil, nil, 0, errors.New("getObservableStreams: no active OCR instance found")
+	return nil, nil, 0
 }
