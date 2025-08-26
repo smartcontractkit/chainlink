@@ -20,6 +20,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
+
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
