@@ -314,7 +314,7 @@ func SetupTestEnvironment(
 		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 			Address:       out.Output.State.String(),
 			ChainSelector: sel,
-			Version:       semver.MustParse(ks_sol.ForwarderState.String()),
+			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderState.String()]),
 			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderState,
 		})
