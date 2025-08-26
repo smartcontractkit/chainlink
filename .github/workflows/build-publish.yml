@@ -67,7 +67,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b20336cdc21a6ee08fec353fa16e96786f88096f # 2025-06-17
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -98,7 +98,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b20336cdc21a6ee08fec353fa16e96786f88096f # 2025-06-17
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-east-1

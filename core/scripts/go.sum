@@ -1572,8 +1572,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e80
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802/go.mod h1:5eoqu3QUfu8qHaCY6uX5Zq1nCt98t0GCtzctrvSOWT0=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.12 h1:vITyX8uIoUjMGwJXbgE8Cl01oO+5QpbOAVut69Wi9Sc=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.12/go.mod h1:gdW2dlrvHcTawMCtAIXQYZcZ9Ggx16L55kA7wONvzJ4=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.7 h1:9DDC3rvRrlz+CPk260AdsUiuwksG4UQgPv3ESfnOhfE=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.7/go.mod h1:9S1tSTCSpO4HsZJCet19mqGTI0+TSEUDGm37eUmTTtQ=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.8 h1:URkVmsBWss6XxrtrKfV5HLFLrkqc6WKvay22QU5ZG3A=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.8/go.mod h1:9S1tSTCSpO4HsZJCet19mqGTI0+TSEUDGm37eUmTTtQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 h1:PWAMYu0WaAMBfbpxCpFJGRIDHmcgmYin6a+UQC0OdtY=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0/go.mod h1:YEQbZRHFojvlQKeuckG/70t0WkAqOBmArSbkacgHSbc=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4 h1:gbQqdsF8mVRgh4h4KRi+8b00OT3Wp/6zrN0uXr0i/J0=
