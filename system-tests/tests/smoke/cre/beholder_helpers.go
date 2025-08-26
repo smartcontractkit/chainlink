@@ -47,6 +47,7 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 		if cmdErr != nil {
 			return errors.Wrap(cmdErr, "failed to start Beholder")
 		}
+		fmt.Println("Beholder started successfully.")
 	}
 
 	return nil

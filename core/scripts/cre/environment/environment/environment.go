@@ -424,7 +424,7 @@ func startCmd() *cobra.Command {
 // environment without full setup. Then persist absolute paths to the
 // generated artifacts (env artifact JSON and the cached CTF config) in
 // `artifact_paths.json`. System tests use these to reload environment
-// state across runs (see `system-tests/tests/smoke/cre/capabilities_test.go`),
+// state across runs (see `system-tests/tests/smoke/cre/cre_suite_test.go`),
 // where the cached config and env artifact are consumed to reconstruct
 // the in-memory CLDF environment without re-provisioning.
 //
