@@ -43,26 +43,15 @@ type RegisteredDon struct {
 	Nodes []deployment.Node
 }
 
-func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
+func newRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
+	if cfg.Registry == nil {
+		return nil, errors.New("capabilities registry not found in config")
+	}
+
 	var (
 		err    error
 		capReg = cfg.Registry
 	)
-
-	if cfg.Registry == nil {
-		// load the don info from the capabilities registry
-		r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-			Chains:      env.BlockChains.EVMChains(),
-			AddressBook: env.ExistingAddresses,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to get contract sets: %w", err)
-		}
-		capReg = r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
-		if capReg == nil {
-			return nil, errors.New("capabilities registry not found in contract sets")
-		}
-	}
 
 	di, err := capReg.GetDONs(nil)
 	if err != nil {

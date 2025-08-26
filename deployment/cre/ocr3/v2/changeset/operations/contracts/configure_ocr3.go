@@ -65,7 +65,7 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 				RegistryChainSel: input.RegistryChainSel,
 				Registry:         deps.Registry,
 			}
-			d, err := NewRegisteredDon(*deps.Env, donConfig)
+			d, err := newRegisteredDon(*deps.Env, donConfig)
 			if err != nil {
 				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
 			}
