@@ -81,10 +81,10 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.67
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250818164129-fa2e60d95157
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20250826173228-45234ed0203c
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250826173228-45234ed0203c
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250826173228-45234ed0203c
-	github.com/smartcontractkit/chainlink-ccip/ocr3 v0.0.0-20250826173228-45234ed0203c
+	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20250826185453-79d696f12cb7
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250826185453-79d696f12cb7
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250826185453-79d696f12cb7
+	github.com/smartcontractkit/chainlink-ccip/ocr3 v0.0.0-20250826185453-79d696f12cb7
 	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250821165313-cbb8fcc9bedd
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-evm v0.3.2
@@ -98,7 +98,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.8.1
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-d98d7674da89
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250826173549-63765262af95
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250826175651-d0ef48f94bbf
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335
 	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818135829-9ea58491207f
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.5.1-0.20250818141131-0b979c98bab0

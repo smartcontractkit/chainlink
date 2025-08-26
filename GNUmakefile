@@ -2,9 +2,6 @@
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
-GO_LDFLAGS := $(shell tools/bin/ldflags)
-GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
 CL_INSTALL_TESTING_PLUGINS ?= false
