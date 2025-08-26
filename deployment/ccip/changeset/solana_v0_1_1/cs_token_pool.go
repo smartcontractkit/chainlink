@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -293,7 +292,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// fetch current token mint authority
 		var tokenMint solToken.Mint
-		err = solCommonUtil.GetAccountDataBorshInto(context.Background(), chain.Client, tokenPubKey, solRpc.CommitmentConfirmed, &tokenMint)
+		err = chain.GetAccountDataBorshInto(context.Background(), tokenPubKey, tokenMint)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
 		}
