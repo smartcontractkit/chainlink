@@ -67,11 +67,12 @@ var DeployOCR3 = operations.NewSequence(
 
 		// Step 2: Get all the dependencies needed for the OCR3 configuration
 		// 2.1 get capabilities registry
-		capabilitiesRegistryKey := datastore.NewAddressRefKey(input.RegistryChainSel, datastore.ContractType(contracts.CapabilitiesRegistry), semver.MustParse("1.0.0"), "")
-		capabilitiesRegistryRef, err := deps.Env.DataStore.Addresses().Get(capabilitiesRegistryKey)
-		if err != nil {
+		refs := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByType("CapabilitiesRegistry"))
+		if len(refs) == 0 {
 			return DeployOCR3Output{}, fmt.Errorf("failed to get capabilities registry ref: %w", err)
 		}
+		capabilitiesRegistryRef := refs[0]
+
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
 		if !ok {

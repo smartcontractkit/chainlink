@@ -5,19 +5,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/cre"
+	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 func TestDeployOCR3(t *testing.T) {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	env := test.SetupEnvV2(t, false)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Starting changeset application...")
-	changesetOutput, err := DeployOCR3{}.Apply(env, DeployOCR3Input{
-		ChainSelector: chainSelector,
+	changesetOutput, err := DeployOCR3{}.Apply(*env.Env, DeployOCR3Input{
+		ChainSelector: env.RegistrySelector,
+		Qualifier:     "test-ocr3",
 	})
 	t.Logf("Changeset result: err=%v, output=%v", err, changesetOutput)
 
@@ -36,7 +35,7 @@ func TestDeployOCR3(t *testing.T) {
 
 	// Verify the address is for the correct chain
 	deployedAddress := addresses[0]
-	require.Equal(t, chainSelector, deployedAddress.ChainSelector, "deployed contract should be on the correct chain")
+	require.Equal(t, env.RegistrySelector, deployedAddress.ChainSelector, "deployed contract should be on the correct chain")
 	require.NotEmpty(t, deployedAddress.Address, "deployed contract address should not be empty")
 
 	// Verify the contract type is correct
