@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solToken "github.com/gagliardetto/solana-go/programs/token"
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
@@ -291,17 +292,26 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// make pool mint_authority for token
 		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
-			authI, err := solTokenUtil.SetTokenMintAuthority(
-				tokenprogramID,
-				poolSigner,
-				tokenPubKey,
-				chain.DeployerKey.PublicKey(),
-			)
+			var tokenMint solToken.Mint
+			err := chain.GetAccountDataBorshInto(context.Background(), tokenPubKey, &tokenMint)
 			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint data: %w", err)
 			}
-			instructions = append(instructions, authI)
-			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+			if tokenMint.MintAuthority.String() == chain.DeployerKey.PublicKey().String() {
+				authI, err := solTokenUtil.SetTokenMintAuthority(
+					tokenprogramID,
+					poolSigner,
+					tokenPubKey,
+					chain.DeployerKey.PublicKey(),
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+				}
+				instructions = append(instructions, authI)
+				e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+			} else {
+				e.Logger.Warnw("Mint authority is not the deployer. Skipping setting poolSigner as mint authority", "mintAuthority", tokenMint.MintAuthority.String(), "deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
+			}
 		}
 
 		// confirm instructions
