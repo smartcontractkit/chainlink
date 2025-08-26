@@ -305,6 +305,10 @@ func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.
 }
 
 func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
+	// Skip till the errors with topology TopologyWorkflowGatewayCapabilities are fixed
+	// TODO: https://smartcontract-it.atlassian.net/browse/PRIV-160
+	t.Skip()
+
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/

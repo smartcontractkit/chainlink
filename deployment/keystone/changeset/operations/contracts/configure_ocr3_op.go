@@ -64,8 +64,11 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
 			}
 
-			for _, node := range d.Nodes {
-				nodeIDs = append(nodeIDs, node.NodeID)
+			// We double-check that the DON accepts workflows...
+			if d.Info.AcceptsWorkflows {
+				for _, node := range d.Nodes {
+					nodeIDs = append(nodeIDs, node.NodeID)
+				}
 			}
 		}
 
