@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/stretchr/testify/require"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
-
+	"github.com/smartcontractkit/chainlink-ton/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
 )
 
 func getTestTonChainSelectors() []uint64 {
@@ -38,6 +39,14 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		require.NoError(t, err)
 
 		chains = append(chains, c)
+		tonChain, ok := c.(*cldf_ton.Chain)
+		if !ok {
+			t.Fatalf("expected *cldf_ton.Chain, got %T", c)
+		}
+
+		t.Log("In generate ton chains, Deployer: ", tonChain.WalletAddress.String())
+		// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
+		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("1000")})
 	}
 
 	return chains

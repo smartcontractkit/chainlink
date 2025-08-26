@@ -5,11 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	tonutils "github.com/smartcontractkit/chainlink-ton/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,12 +44,6 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	tonChain := e.Env.BlockChains.TonChains()[sourceChain]
-	deployer := tonChain.Wallet
-	t.Log("Deployer: ", deployer.Address().String())
-
-	// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
-	tonutils.FundWallets(t, tonChain.Client, []*address.Address{deployer.Address()}, []tlb.Coins{tlb.MustFromTON("1000")})
-
 	ac := codec.NewAddressCodec()
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
