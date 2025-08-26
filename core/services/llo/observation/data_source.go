@@ -183,11 +183,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan error) {
 
 		loopStart := time.Now()
 		opts, streamValues, observationInterval, err := d.getObservableStreams()
-		// We might run into an error, or we might run into nil opts. In either case we can't continue.
-		if err != nil || opts == nil {
-			if err == nil {
-				err = errors.New("ObservableStreams opts is nil")
-			}
+		if err != nil {
 
 			select {
 			case <-loopStartedCh:
