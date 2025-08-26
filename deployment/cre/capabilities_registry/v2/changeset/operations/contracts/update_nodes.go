@@ -98,14 +98,14 @@ func makeNodeParams(
 	registry *capabilities_registry_v2.CapabilitiesRegistry,
 	p2pToUpdates map[p2pkey.PeerID]NodeConfig,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, error) {
-	var p2pIds []p2pkey.PeerID
+	var p2pIDs []p2pkey.PeerID
 	for p2pID := range p2pToUpdates {
-		p2pIds = append(p2pIds, p2pID)
+		p2pIDs = append(p2pIDs, p2pID)
 	}
 
 	var out []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 
-	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, pkg.PeerIDsToBytes(p2pIds))
+	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, pkg.PeerIDsToBytes(p2pIDs))
 	if err != nil {
 		err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
